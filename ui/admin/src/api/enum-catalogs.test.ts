@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import { getSettingsEnumCatalog, listSettingsEnumCatalogs } from './enum-catalogs';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 describe('Vue Settings 枚举目录 API', () => {
   beforeEach(() => requestMock.mockReset());
@@ -16,6 +21,12 @@ describe('Vue Settings 枚举目录 API', () => {
       memberCount: 1
     }]);
     await expect(listSettingsEnumCatalogs()).resolves.toHaveLength(1);
+    expect(requestMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/settings/enum-catalogs',
+      { method: 'GET' },
+      undefined
+    );
 
     requestMock.mockResolvedValueOnce({
       key: 'settings.config_value_kind',
@@ -25,5 +36,11 @@ describe('Vue Settings 枚举目录 API', () => {
     });
     await expect(getSettingsEnumCatalog('settings.config_value_kind'))
       .resolves.toMatchObject({ key: 'settings.config_value_kind' });
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/settings/enum-catalogs/settings.config_value_kind',
+      { method: 'GET' },
+      undefined
+    );
   });
 });

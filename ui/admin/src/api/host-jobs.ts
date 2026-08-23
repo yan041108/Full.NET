@@ -1,4 +1,3 @@
-import { request } from './http';
 import {
   isHostJobDefinition,
   isHostJobDefinitionPage,
@@ -6,6 +5,16 @@ import {
   isHostJobExecutionPage,
   isHostJobGroupList,
   JOB_HANDLER_KINDS,
+  jobsClearHostJobExecutions,
+  jobsCreateHostJobDefinition,
+  jobsDeleteHostJobDefinition,
+  jobsDisableHostJobDefinition,
+  jobsGetHostJobExecution,
+  jobsListHostJobDefinitions,
+  jobsListHostJobExecutions,
+  jobsListHostJobGroups,
+  jobsTriggerHostJobDefinition,
+  jobsUpdateHostJobDefinition,
   type HostJobDefinition,
   type HostJobDefinitionPage,
   type HostJobExecution,
@@ -14,25 +23,33 @@ import {
   type HostJobGroup,
   type HttpJobArgs
 } from '@fullnet/client-contracts';
+import { http } from './http';
 
 export async function listHostJobDefinitions(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<HostJobDefinitionPage> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-definitions?page=${page}&pageSize=${pageSize}`
+  const value = await jobsListHostJobDefinitions(
+    http,
+    { page, pageSize },
+    signal
   );
   if (!isHostJobDefinitionPage(value)) {
-    throw new Error('Invalid host job definition page response');
+    throw new Error('client.invalid_host_job_definition_page');
   }
+
   return value;
 }
 
-export async function listHostJobGroups(): Promise<HostJobGroup[]> {
-  const value = await request<unknown>('/api/v1/jobs/host-definitions/groups');
+export async function listHostJobGroups(
+  signal?: AbortSignal
+): Promise<HostJobGroup[]> {
+  const value = await jobsListHostJobGroups(http, {}, signal);
   if (!isHostJobGroupList(value)) {
-    throw new Error('Invalid host job group list response');
+    throw new Error('client.invalid_host_job_group_list');
   }
+
   return value;
 }
 
@@ -43,24 +60,28 @@ export async function createHostJobDefinition(
   args?: HttpJobArgs | null,
   description?: string | null,
   groupName?: string | null,
-  allowConcurrentExecutions = false
+  allowConcurrentExecutions = false,
+  signal?: AbortSignal
 ): Promise<HostJobDefinition> {
-  const value = await request<unknown>('/api/v1/jobs/host-definitions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      jobKey,
-      handlerKind,
-      args: args ?? null,
-      displayName,
-      description: description ?? null,
-      groupName: groupName ?? null,
-      allowConcurrentExecutions
-    })
-  });
+  const value = await jobsCreateHostJobDefinition(
+    http,
+    {
+      body: {
+        jobKey,
+        handlerKind,
+        args: args ?? null,
+        displayName,
+        description: description ?? null,
+        groupName: groupName ?? null,
+        allowConcurrentExecutions
+      }
+    },
+    signal
+  );
   if (!isHostJobDefinition(value)) {
-    throw new Error('Invalid host job definition payload.');
+    throw new Error('client.invalid_host_job_definition');
   }
+
   return value;
 }
 
@@ -72,14 +93,14 @@ export async function updateHostJobDefinition(
   args: HttpJobArgs | null,
   version: number,
   groupName?: string | null,
-  allowConcurrentExecutions = false
+  allowConcurrentExecutions = false,
+  signal?: AbortSignal
 ): Promise<HostJobDefinition> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}`,
+  const value = await jobsUpdateHostJobDefinition(
+    http,
     {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
+      definitionId: id,
+      body: {
         displayName,
         description,
         handlerKind,
@@ -87,107 +108,126 @@ export async function updateHostJobDefinition(
         groupName: groupName ?? null,
         allowConcurrentExecutions,
         version
-      })
-    }
+      }
+    },
+    signal
   );
   if (!isHostJobDefinition(value)) {
-    throw new Error('Invalid host job definition payload.');
+    throw new Error('client.invalid_host_job_definition');
   }
+
   return value;
 }
 
 export async function disableHostJobDefinition(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostJobDefinition> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/disable`,
+  const value = await jobsDisableHostJobDefinition(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      definitionId: id,
+      body: { version }
+    },
+    signal
   );
   if (!isHostJobDefinition(value)) {
-    throw new Error('Invalid host job definition payload.');
+    throw new Error('client.invalid_host_job_definition');
   }
+
   return value;
 }
 
 export async function deleteHostJobDefinition(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<void> {
-  await request<unknown>(
-    `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/delete`,
+  await jobsDeleteHostJobDefinition(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      definitionId: id,
+      body: { version }
+    },
+    signal
   );
 }
 
 export async function triggerHostJobDefinition(
-  id: string
+  id: string,
+  signal?: AbortSignal
 ): Promise<HostJobExecution> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-definitions/${encodeURIComponent(id)}/trigger`,
-    { method: 'POST' }
+  const value = await jobsTriggerHostJobDefinition(
+    http,
+    { definitionId: id },
+    signal
   );
   if (!isHostJobExecution(value)) {
-    throw new Error('Invalid host job execution payload.');
+    throw new Error('client.invalid_host_job_execution');
   }
+
   return value;
 }
 
 export async function listHostJobExecutions(
-  query: HostJobExecutionListQuery = {}
+  query: HostJobExecutionListQuery = {},
+  signal?: AbortSignal
 ): Promise<HostJobExecutionPage> {
-  const params = new URLSearchParams();
-  params.set('page', String(query.page ?? 1));
-  params.set('pageSize', String(query.pageSize ?? 20));
-  if (query.jobDefinitionId) {
-    params.set('jobDefinitionId', query.jobDefinitionId);
-  }
-  if (query.jobScheduleId) {
-    params.set('jobScheduleId', query.jobScheduleId);
-  }
-  if (query.status) {
-    params.set('status', query.status);
-  }
-  if (query.fromUtc) {
-    params.set('fromUtc', query.fromUtc);
-  }
-  if (query.toUtc) {
-    params.set('toUtc', query.toUtc);
-  }
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-executions?${params.toString()}`
+  const value = await jobsListHostJobExecutions(
+    http,
+    {
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 20,
+      jobDefinitionId: query.jobDefinitionId,
+      jobScheduleId: query.jobScheduleId,
+      status: query.status,
+      fromUtc: query.fromUtc,
+      toUtc: query.toUtc
+    },
+    signal
   );
   if (!isHostJobExecutionPage(value)) {
-    throw new Error('Invalid host job execution page response');
+    throw new Error('client.invalid_host_job_execution_page');
   }
+
   return value;
 }
 
-export async function getHostJobExecution(id: string): Promise<HostJobExecution> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-executions/${encodeURIComponent(id)}`
+export async function getHostJobExecution(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostJobExecution> {
+  const value = await jobsGetHostJobExecution(
+    http,
+    { executionId: id },
+    signal
   );
   if (!isHostJobExecution(value)) {
-    throw new Error('Invalid host job execution payload.');
+    throw new Error('client.invalid_host_job_execution');
   }
+
   return value;
 }
 
 export async function clearHostJobExecutions(
-  jobDefinitionId: string
+  jobDefinitionId: string,
+  signal?: AbortSignal
 ): Promise<void> {
-  await request<unknown>(
-    `/api/v1/jobs/host-executions/clear?jobDefinitionId=${encodeURIComponent(jobDefinitionId)}`,
-    { method: 'POST' }
+  await jobsClearHostJobExecutions(
+    http,
+    { jobDefinitionId },
+    signal
   );
 }
 
 export { JOB_HANDLER_KINDS };
+export type {
+  HostJobDefinition,
+  HostJobDefinitionPage,
+  HostJobExecution,
+  HostJobExecutionListQuery,
+  HostJobExecutionPage,
+  HostJobGroup,
+  HttpJobArgs
+};

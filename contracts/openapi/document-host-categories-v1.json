@@ -1,0 +1,103 @@
+{
+  "id": "document-host-categories-v1",
+  "version": 1,
+  "description": "Host 文档分类 HTTP 契约冻结夹具；与 HostDocumentCategoryContracts 和 ManageHostDocumentCategories.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/categories",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.categories.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentCategoryResponseList"
+        },
+        {
+          "method": "POST",
+          "permission": "document.categories.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentCategoryRequest",
+          "responseSchema": "HostDocumentCategoryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/categories/{categoryId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.categories.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentCategoryResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "document.categories.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentCategoryRequest",
+          "responseSchema": "HostDocumentCategoryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/categories/{categoryId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.categories.delete",
+          "successStatus": 200,
+          "requestSchema": "DeleteHostDocumentCategoryRequest"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateHostDocumentCategoryRequest": {
+      "properties": [
+        "name",
+        "parentId",
+        "sortOrder",
+        "code",
+        "icon",
+        "color",
+        "description"
+      ]
+    },
+    "UpdateHostDocumentCategoryRequest": {
+      "properties": [
+        "name",
+        "parentId",
+        "sortOrder",
+        "code",
+        "icon",
+        "color",
+        "description",
+        "version"
+      ]
+    },
+    "DeleteHostDocumentCategoryRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostDocumentCategoryResponse": {
+      "properties": [
+        "id",
+        "parentId",
+        "name",
+        "sortOrder",
+        "code",
+        "icon",
+        "color",
+        "description",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "HostDocumentCategoryResponseList": {
+      "properties": [],
+      "itemSchema": "HostDocumentCategoryResponse"
+    }
+  }
+}

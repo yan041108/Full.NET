@@ -1,4 +1,6 @@
 import {
+  auditingListHostAccessLogs,
+  auditingListHostAccessLogsByCursor,
   isAuditingAccessLogCursorPage,
   isAuditingAccessLogPage,
   type AuditingAccessLog,
@@ -6,18 +8,22 @@ import {
   type AuditingAccessLogPage,
   type AuditingAccessLogQuery
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function listAuditingAccessLogs(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<AuditingAccessLogPage> {
-  const value = await request<unknown>(
-    `/api/v1/auditing/access-logs?page=${page}&pageSize=${pageSize}`
+  const value = await auditingListHostAccessLogs(
+    http,
+    { page, pageSize },
+    signal
   );
   if (!isAuditingAccessLogPage(value)) {
     throw new Error('client.invalid_auditing_access_log_page');
   }
+
   return value;
 }
 
@@ -28,28 +34,24 @@ export interface AuditingAccessLogCursorRequest
 }
 
 export async function listAuditingAccessLogsByCursor(
-  options: AuditingAccessLogCursorRequest = {}
+  options: AuditingAccessLogCursorRequest = {},
+  signal?: AbortSignal
 ): Promise<AuditingAccessLogCursorPage> {
-  const parameters = new URLSearchParams();
-  parameters.set('limit', String(options.limit ?? 20));
-  if (options.fromUtc) {
-    parameters.set('fromUtc', options.fromUtc);
-  }
-  if (options.toUtc) {
-    parameters.set('toUtc', options.toUtc);
-  }
-  if (options.pathContains) {
-    parameters.set('pathContains', options.pathContains);
-  }
-  if (options.cursor) {
-    parameters.set('cursor', options.cursor);
-  }
-  const value = await request<unknown>(
-    `/api/v1/auditing/access-logs/cursor?${parameters.toString()}`
+  const value = await auditingListHostAccessLogsByCursor(
+    http,
+    {
+      limit: options.limit ?? 20,
+      cursor: options.cursor ?? undefined,
+      fromUtc: options.fromUtc,
+      toUtc: options.toUtc,
+      pathContains: options.pathContains
+    },
+    signal
   );
   if (!isAuditingAccessLogCursorPage(value)) {
     throw new Error('client.invalid_auditing_access_log_cursor_page');
   }
+
   return value;
 }
 

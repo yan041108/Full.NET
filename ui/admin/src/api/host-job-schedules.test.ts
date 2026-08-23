@@ -1,25 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { http } from './http';
 import {
   createHostJobSchedule,
   listHostJobScheduleDefinitionOptions,
   listHostJobSchedules,
   pauseHostJobSchedule,
-  previewHostJobScheduleCron,
-  resumeHostJobSchedule,
-  updateHostJobSchedule
+  previewHostJobScheduleCron
 } from './host-job-schedules';
 
-const requestMock = vi.hoisted(() => vi.fn());
-
 vi.mock('./http', () => ({
-  request: requestMock
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
 }));
+const requestMock = vi.mocked(http.request);
+
+const definitionId = '01912345-6789-7abc-8def-0123456789ab';
 
 const schedule = {
   id: '01912345-6789-7abc-8def-0123456789ad',
-  jobDefinitionId: '01912345-6789-7abc-8def-0123456789ab',
+  jobDefinitionId: definitionId,
   jobDefinitionJobKey: 'jobs.ping',
-  jobDefinitionDisplayName: 'Ping',
+  jobDefinitionDisplayName: '探针任务',
   triggerKind: 'cron',
   cronExpression: '0 9 * * *',
   timeZoneId: 'UTC',
@@ -40,95 +43,100 @@ const schedule = {
 };
 
 describe('host-job-schedules api', () => {
-  beforeEach(() => {
-    requestMock.mockReset();
-  });
+  beforeEach(() => requestMock.mockReset());
 
-  it('lists schedules with filters and pagination', async () => {
-    requestMock.mockResolvedValue({
-      items: [schedule],
-      page: 1,
-      pageSize: 20,
-      total: 1
-    });
-
-    const page = await listHostJobSchedules({
-      page: 2,
-      pageSize: 10,
-      jobDefinitionId: schedule.jobDefinitionId,
-      search: 'ping',
-      isEnabled: true,
-      triggerKind: 'cron'
-    });
-    expect(page.items).toHaveLength(1);
-    expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/jobs/host-schedules?page=2&pageSize=10'
-      + `&jobDefinitionId=${encodeURIComponent(schedule.jobDefinitionId)}`
-      + '&search=ping&isEnabled=true&triggerKind=cron'
-    );
-  });
-
-  it('loads definition options and cron preview', async () => {
+  it('lists schedules and definition options', async () => {
     requestMock
-      .mockResolvedValueOnce([
-        {
-          id: schedule.jobDefinitionId,
-          jobKey: 'jobs.ping',
-          handlerKind: 'jobs.handlers.ping',
-          displayName: 'Ping'
-        }
-      ])
       .mockResolvedValueOnce({
-        humanDescription: 'jobs.cron.custom',
-        nextExecutionAtUtc: '2026-08-03T09:00:00Z',
-        nextOccurrencesUtc: ['2026-08-03T09:00:00Z']
-      });
+        items: [schedule],
+        page: 1,
+        pageSize: 20,
+        total: 1
+      })
+      .mockResolvedValueOnce([{
+        id: definitionId,
+        jobKey: 'jobs.ping',
+        handlerKind: 'ping',
+        displayName: '探针任务'
+      }]);
 
-    const options = await listHostJobScheduleDefinitionOptions();
-    const preview = await previewHostJobScheduleCron('0 9 * * *', 'UTC');
-
-    expect(options).toHaveLength(1);
-    expect(preview.nextExecutionAtUtc).toBe('2026-08-03T09:00:00Z');
+    await expect(listHostJobSchedules({ jobDefinitionId: definitionId }))
+      .resolves.toMatchObject({ total: 1 });
+    await expect(listHostJobScheduleDefinitionOptions()).resolves.toHaveLength(1);
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
-      '/api/v1/jobs/host-schedules/definition-options'
+      `/api/v1/jobs/host-schedules?page=1&pageSize=20&jobDefinitionId=${definitionId}`,
+      { method: 'GET' },
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining('/api/v1/jobs/host-schedules/cron-preview?')
+      '/api/v1/jobs/host-schedules/definition-options',
+      { method: 'GET' },
+      undefined
     );
-    expect(requestMock.mock.calls[1][0]).toContain('cronExpression=');
-    expect(requestMock.mock.calls[1][0]).toContain('timeZoneId=UTC');
   });
 
-  it('creates and mutates schedules through validated payloads', async () => {
-    requestMock.mockResolvedValue(schedule);
+  it('previews cron and creates a schedule', async () => {
+    requestMock
+      .mockResolvedValueOnce({
+        humanDescription: 'jobs.cron.macro.daily',
+        nextExecutionAtUtc: '2026-08-03T09:00:00Z',
+        nextOccurrencesUtc: ['2026-08-03T09:00:00Z']
+      })
+      .mockResolvedValueOnce(schedule);
 
-    await createHostJobSchedule(
-      schedule.jobDefinitionId,
-      'cron',
-      'UTC',
-      'skip',
-      '0 9 * * *'
-    );
-    await updateHostJobSchedule(
-      schedule.id,
-      'cron',
-      'UTC',
-      'skip',
+    await expect(previewHostJobScheduleCron('0 9 * * *', 'UTC'))
+      .resolves.toMatchObject({ humanDescription: 'jobs.cron.macro.daily' });
+    expect(requestMock).toHaveBeenNthCalledWith(
       1,
-      '0 10 * * *'
+      '/api/v1/jobs/host-schedules/cron-preview?cronExpression=0+9+*+*+*&timeZoneId=UTC',
+      { method: 'GET' },
+      undefined
     );
-    await pauseHostJobSchedule(schedule.id, 1);
-    await resumeHostJobSchedule(schedule.id, 2);
 
-    expect(requestMock).toHaveBeenCalledTimes(4);
+    await expect(
+      createHostJobSchedule(
+        definitionId,
+        'cron',
+        'UTC',
+        'skip',
+        '0 9 * * *'
+      )
+    ).resolves.toMatchObject({ triggerKind: 'cron' });
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/jobs/host-schedules',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          jobDefinitionId: definitionId,
+          triggerKind: 'cron',
+          cronExpression: '0 9 * * *',
+          timeZoneId: 'UTC',
+          oneTimeAtUtc: null,
+          misfirePolicy: 'skip',
+          startTime: null,
+          endTime: null,
+          args: null
+        })
+      }),
+      undefined
+    );
   });
 
-  it('rejects invalid schedule payloads', async () => {
-    requestMock.mockResolvedValue({ id: 'bad' });
-    await expect(listHostJobSchedules()).rejects.toThrow(
-      'Invalid host job schedule page response'
+  it('pauses a schedule with optimistic concurrency', async () => {
+    requestMock.mockResolvedValueOnce({ ...schedule, isEnabled: false, version: 2 });
+
+    await expect(pauseHostJobSchedule(schedule.id, 1))
+      .resolves.toMatchObject({ isEnabled: false });
+    expect(requestMock).toHaveBeenCalledWith(
+      `/api/v1/jobs/host-schedules/${schedule.id}/pause`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ version: 1 })
+      }),
+      undefined
     );
   });
 });

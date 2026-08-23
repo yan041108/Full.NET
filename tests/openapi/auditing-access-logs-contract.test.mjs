@@ -62,6 +62,9 @@ test('Host 访问日志 OpenAPI 夹具与 C# 契约和端点源码一致', async
     endpointSource,
     /MapGroup\("\/api\/v1\/auditing\/access-logs"\)/u
   );
+  assert.match(endpointSource, /WithTags\("AuditingHostAccessLogs"\)/u);
+  assert.match(endpointSource, /WithName\("auditingListHostAccessLogs"\)/u);
+  assert.match(endpointSource, /WithName\("auditingListHostAccessLogsByCursor"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/auditing/access-logs', new Map([

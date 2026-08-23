@@ -19,6 +19,7 @@ internal static class OpenApiSettingsEnumCatalogsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -58,6 +59,27 @@ internal static class OpenApiSettingsEnumCatalogsContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "SettingsHostEnumCatalogs";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/enum-catalogs",
+            HttpMethod.Get,
+            "settingsListHostEnumCatalogs",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/enum-catalogs/{catalogKey}",
+            HttpMethod.Get,
+            "settingsGetHostEnumCatalog",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

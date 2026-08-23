@@ -1,14 +1,20 @@
 import {
+  documentHostCreateCategory,
+  documentHostDeleteCategory,
+  documentHostListCategories,
+  documentHostUpdateCategory,
   isHostDocumentCategoryResponse,
   isHostDocumentCategoryResponseList,
   type CreateHostDocumentCategoryRequest,
   type HostDocumentCategoryResponse,
   type UpdateHostDocumentCategoryRequest
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
-export async function listDocumentCategories(): Promise<HostDocumentCategoryResponse[]> {
-  const value = await request<unknown>('/api/v1/document/host/categories');
+export async function listDocumentCategories(
+  signal?: AbortSignal
+): Promise<HostDocumentCategoryResponse[]> {
+  const value = await documentHostListCategories(http, {}, signal);
   if (!isHostDocumentCategoryResponseList(value)) {
     throw new Error('client.invalid_document_category_list');
   }
@@ -22,13 +28,16 @@ export async function createDocumentCategory(
   code: string | null,
   icon: string | null,
   color: string | null,
-  description: string | null
+  description: string | null,
+  signal?: AbortSignal
 ): Promise<HostDocumentCategoryResponse> {
-  const value = await request<unknown>('/api/v1/document/host/categories', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name, parentId, sortOrder, code, icon, color, description })
-  });
+  const value = await documentHostCreateCategory(
+    http,
+    {
+      body: { name, parentId, sortOrder, code, icon, color, description }
+    },
+    signal
+  );
   if (!isHostDocumentCategoryResponse(value)) {
     throw new Error('client.invalid_document_category');
   }
@@ -44,15 +53,16 @@ export async function updateDocumentCategory(
   icon: string | null,
   color: string | null,
   description: string | null,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostDocumentCategoryResponse> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/categories/${encodeURIComponent(id)}`,
+  const value = await documentHostUpdateCategory(
+    http,
     {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, parentId, sortOrder, code, icon, color, description, version })
-    }
+      categoryId: id,
+      body: { name, parentId, sortOrder, code, icon, color, description, version }
+    },
+    signal
   );
   if (!isHostDocumentCategoryResponse(value)) {
     throw new Error('client.invalid_document_category');
@@ -62,17 +72,17 @@ export async function updateDocumentCategory(
 
 export async function deleteDocumentCategory(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<boolean> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/categories/${encodeURIComponent(id)}/delete`,
+  return documentHostDeleteCategory(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      categoryId: id,
+      body: { version }
+    },
+    signal
   );
-  return value === true;
 }
 
 export type {

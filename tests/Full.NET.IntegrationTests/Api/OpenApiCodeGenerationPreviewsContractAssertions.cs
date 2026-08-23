@@ -19,6 +19,7 @@ internal static class OpenApiCodeGenerationPreviewsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApi = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApi.RootElement);
 
         var expected = contract.RootElement;
         var path = expected.GetProperty("path").GetString()!;
@@ -49,6 +50,19 @@ internal static class OpenApiCodeGenerationPreviewsContractAssertions
                     $"OpenAPI schema {schemaContract.Name} 缺少属性 {property}。");
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "CodeGenerationPreviews";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/previews",
+            HttpMethod.Post,
+            "codeGenerationPreviewCrud",
+            tag,
+            200,
+            "application/json");
     }
 
     private static JsonElement FindSchema(

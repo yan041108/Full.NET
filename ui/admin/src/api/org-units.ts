@@ -1,21 +1,29 @@
 import {
   isOrganizationUnit,
   isOrganizationUnitPage,
+  organizationCreateTenantUnit,
+  organizationDisableTenantUnit,
+  organizationListTenantUnits,
+  organizationUpdateTenantUnit,
   type OrganizationUnit,
   type OrganizationUnitPage
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function listOrganizationUnits(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<OrganizationUnitPage> {
-  const value = await request<unknown>(
-    `/api/v1/organization/units?page=${page}&pageSize=${pageSize}`
+  const value = await organizationListTenantUnits(
+    http,
+    { page, pageSize },
+    signal
   );
   if (!isOrganizationUnitPage(value)) {
     throw new Error('client.invalid_organization_unit_page');
   }
+
   return value;
 }
 
@@ -23,19 +31,18 @@ export async function createOrganizationUnit(
   code: string,
   name: string,
   displayOrder = 10,
-  parentId: string | null = null
+  parentId: string | null = null,
+  signal?: AbortSignal
 ): Promise<OrganizationUnit> {
-  const value = await request<unknown>('/api/v1/organization/units', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      parentId,
-      code,
-      name,
-      displayOrder
-    })
-  });
-  if (!isOrganizationUnit(value)) throw new Error('client.invalid_organization_unit');
+  const value = await organizationCreateTenantUnit(
+    http,
+    { body: { parentId, code, name, displayOrder } },
+    signal
+  );
+  if (!isOrganizationUnit(value)) {
+    throw new Error('client.invalid_organization_unit');
+  }
+
   return value;
 }
 
@@ -44,30 +51,33 @@ export async function updateOrganizationUnit(
   name: string,
   displayOrder: number,
   version: number,
-  parentId: string | null = null
+  parentId: string | null = null,
+  signal?: AbortSignal
 ): Promise<OrganizationUnit> {
-  const value = await request<unknown>(
-    `/api/v1/organization/units/${encodeURIComponent(id)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        parentId,
-        name,
-        displayOrder,
-        version
-      })
-    }
+  const value = await organizationUpdateTenantUnit(
+    http,
+    { unitId: id, body: { parentId, name, displayOrder, version } },
+    signal
   );
-  if (!isOrganizationUnit(value)) throw new Error('client.invalid_organization_unit');
+  if (!isOrganizationUnit(value)) {
+    throw new Error('client.invalid_organization_unit');
+  }
+
   return value;
 }
 
-export async function disableOrganizationUnit(id: string): Promise<OrganizationUnit> {
-  const value = await request<unknown>(
-    `/api/v1/organization/units/${encodeURIComponent(id)}/disable`,
-    { method: 'POST' }
+export async function disableOrganizationUnit(
+  id: string,
+  signal?: AbortSignal
+): Promise<OrganizationUnit> {
+  const value = await organizationDisableTenantUnit(
+    http,
+    { unitId: id },
+    signal
   );
-  if (!isOrganizationUnit(value)) throw new Error('client.invalid_organization_unit');
+  if (!isOrganizationUnit(value)) {
+    throw new Error('client.invalid_organization_unit');
+  }
+
   return value;
 }

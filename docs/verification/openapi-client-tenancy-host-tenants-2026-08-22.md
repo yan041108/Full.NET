@@ -11,7 +11,7 @@
 
 Tenancy/Organization 首切片（Host Tenants）已通过完整门禁。6 个 Operation 具备稳定 `operationId` 与主 Tag `TenancyHostTenants`（含 201 Created 与 GET by id）；标准快照与生成物零漂移，`tenants.ts` 已收缩为薄适配层并保留手写 `isHostTenant`/`isHostTenantPage`。清单由 `pilot` 提升为 `generated`（现共 76 条）。
 
-下一默认项为独立计划 **`tenant-packages.ts`**；禁止并行迁移其他资源组，禁止修改 `ui/admin-layui`。
+下一默认项为独立计划 **`org-units.ts`**（Organization）；禁止并行迁移其他资源组，禁止修改 `ui/admin-layui`。
 
 ## 范围与提交
 

@@ -1,0 +1,49 @@
+# OpenAPI 客户端迁移：Tenancy Host Tenant Packages 切片验证（2026-08-22）
+
+- 决策：`Slice-passed`
+- 资源组：`tenancy-host-tenant-packages`（`ui/admin/src/api/tenant-packages.ts`）
+- 计划：[`2026-08-22-openapi-client-tenancy-host-tenant-packages.md`](../superpowers/plans/2026-08-22-openapi-client-tenancy-host-tenant-packages.md)
+- 比较基线：`dde01b32`（Tenancy Host Tenants 验证提交）
+- 适用决策：[`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md)
+
+## 结论
+
+Tenancy 第二切片（Host Tenant Packages）已通过完整门禁。5 个 Operation 具备稳定 `operationId` 与主 Tag `TenancyHostTenantPackages`（含 201 Created 与 GET by id）；标准快照与生成物零漂移，`tenant-packages.ts` 已收缩为薄适配层并保留手写 `isHostTenantPackage`/`isHostTenantPackagePage`。清单由 `pilot` 提升为 `generated`（现共 81 条）。
+
+下一默认项为独立计划 **`org-units.ts`**（Organization）；禁止并行迁移其他资源组，禁止修改 `ui/admin-layui`。
+
+## 范围与提交
+
+| operationId | Vue 导出 |
+| --- | --- |
+| `tenancyListHostTenantPackages` | `listHostTenantPackages` |
+| `tenancyGetHostTenantPackage` | （仅生成） |
+| `tenancyCreateHostTenantPackage` | `createHostTenantPackage` |
+| `tenancyUpdateHostTenantPackage` | `updateHostTenantPackage` |
+| `tenancyDisableHostTenantPackage` | `disableHostTenantPackage` |
+
+## 验证环境
+
+Windows NT 10.0.19045.0、Node.js 24.12.0、pnpm 10.26.0、.NET SDK 10.0.400。
+
+## 新鲜验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `pnpm openapi:client:generate -- --check` | 退出码 0，零漂移 |
+| `pnpm openapi:client:snapshot -- --check --offline` | 退出码 0 |
+| `pnpm test:openapi` | 111/111，通过 |
+| `pnpm --filter @fullnet/client-contracts test` | 138/138，通过 |
+| `pnpm --filter @fullnet/admin exec vitest run src/api/tenant-packages.test.ts` | 3/3，通过 |
+| `dotnet build Full.NET.slnx -c Release` | 退出码 0，0 warning、0 error |
+| `pnpm test:integration:affected -- --base dde01b32 --phase slice` | Tenancy 10/10，SQL Server/MySQL 双 Provider，通过 |
+
+## 边界与未验证项
+
+- 页面导出签名未改；创建时 `description` 仍仅在 trim 后非空时写入正文。
+- 手写 code 模式守卫保留在薄适配层；`tenancyGetHostTenantPackage` 已生成但未新增 Vue 导出。
+- 未迁移 Organization 模块；未修改 `ui/admin-layui`。
+
+## 规则与 Skill 复盘
+
+未发现新的规则冲突或稳定 Skill 缺口，不新增规则/Skill 候选。

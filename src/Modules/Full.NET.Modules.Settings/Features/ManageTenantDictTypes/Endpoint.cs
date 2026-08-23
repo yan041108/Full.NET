@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/settings/tenant-dict-types")
-            .WithTags("Settings");
+            .WithTags("SettingsTenantDictTypes");
 
         group.MapGet("/", async (
             int? page,
@@ -30,7 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListTenantDictTypes")
         .Produces<PagedResult<DictTypeResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Read));
 
@@ -67,7 +70,12 @@ internal static class Endpoint
                 $"/api/v1/settings/tenant-dict-types/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("settingsCreateTenantDictType")
         .Produces<DictTypeResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Create));
 
@@ -83,7 +91,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsUpdateTenantDictType")
         .Produces<DictTypeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Update));
 
@@ -98,11 +112,14 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsDisableTenantDictType")
         .Produces<DictTypeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Disable));
 
-        // 硬删除已禁用的租户字典类型，对应 Admin.NET DeleteDict；前置校验失败返回 ProblemDetails。
         group.MapPost("/{dictTypeId:guid}/delete", async (
             Guid dictTypeId,
             DeleteDictTypeRequest request,
@@ -120,11 +137,16 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("settingsDeleteTenantDictType")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Delete));
 
-        // 全量租户字典类型列表（不分页），供下拉与全量消费场景使用。
         group.MapGet("/list", async (
             TenantDictTypeQueryService queries,
             IApiResultMapper mapper,
@@ -135,11 +157,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListAllTenantDictTypes")
         .Produces<IReadOnlyList<DictTypeResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Read));
 
-        // 按租户字典类型编码查询启用字典项，对应 Admin.NET dataList by code，供业务模块高频消费。
         group.MapGet("/by-code/{code}/items", async (
             string code,
             Features.ManageTenantDictItems.TenantDictItemQueryService itemQueries,
@@ -151,7 +175,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListTenantDictItemsByTypeCode")
         .Produces<IReadOnlyList<DictItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Read));
     }

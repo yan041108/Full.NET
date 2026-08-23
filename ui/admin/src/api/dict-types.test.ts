@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createSettingsDictItem,
   createSettingsDictType,
@@ -11,8 +11,13 @@ import {
   updateSettingsDictType
 } from './dict-types';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 const sampleDictType = {
   id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
@@ -52,7 +57,9 @@ describe('Vue Settings 数据字典 API', () => {
 
     await expect(listSettingsDictTypes()).resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/settings/dict-types?page=1&pageSize=20'
+      '/api/v1/settings/dict-types?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -75,11 +82,18 @@ describe('Vue Settings 数据字典 API', () => {
           description: '通用性别枚举',
           displayOrder: 10
         })
-      })
+      }),
+      undefined
     );
 
     await expect(disableSettingsDictType(sampleDictType.id))
       .resolves.toMatchObject({ isActive: false });
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/settings/dict-types/${sampleDictType.id}/disable`,
+      { method: 'POST' },
+      undefined
+    );
   });
 
   it('通过 JSON 正文更新字典类型', async () => {
@@ -98,7 +112,8 @@ describe('Vue Settings 数据字典 API', () => {
           displayOrder: 10,
           version: 1
         })
-      })
+      }),
+      undefined
     );
   });
 
@@ -118,7 +133,9 @@ describe('Vue Settings 数据字典 API', () => {
       .resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
-      `/api/v1/settings/dict-types/${sampleDictType.id}/items?page=1&pageSize=20`
+      `/api/v1/settings/dict-types/${sampleDictType.id}/items?page=1&pageSize=20`,
+      { method: 'GET' },
+      undefined
     );
 
     await expect(
@@ -135,7 +152,8 @@ describe('Vue Settings 数据字典 API', () => {
           color: '#409eff',
           displayOrder: 1
         })
-      })
+      }),
+      undefined
     );
 
     await expect(

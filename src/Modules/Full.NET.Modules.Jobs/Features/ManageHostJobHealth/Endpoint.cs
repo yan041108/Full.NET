@@ -23,8 +23,11 @@ internal static class Endpoint
                         .ConfigureAwait(false);
                     return mapper.Map(result, httpContext);
                 })
-            .WithTags("Jobs")
+            .WithTags("JobsHostJobHealth")
+            .WithName("jobsGetHostJobHealth")
             .Produces<HostJobHealthResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(
                 FullNetPermissionPolicies.For(HostJobPermissions.HealthRead));
     }

@@ -1,15 +1,15 @@
 {
   "paths": {
     "/api/v1/code-generation/templates": {
-      "get": ["200"],
-      "post": ["201", "400", "401"]
+      "get": ["200", "401", "403"],
+      "post": ["201", "400", "401", "403"]
     },
     "/api/v1/code-generation/templates/{templateId}": {
-      "get": ["200", "404"],
-      "put": ["200", "400", "401", "404", "409"]
+      "get": ["200", "401", "403", "404"],
+      "put": ["200", "400", "401", "403", "404", "409"]
     },
     "/api/v1/code-generation/templates/{templateId}/delete": {
-      "post": ["204", "400", "401", "404", "409"]
+      "post": ["204", "400", "401", "403", "404", "409"]
     }
   },
   "schemas": {

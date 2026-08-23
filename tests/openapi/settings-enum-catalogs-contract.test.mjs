@@ -56,6 +56,9 @@ test('Host 枚举目录 OpenAPI 夹具与 C# 契约和端点源码一致', async
     endpointSource,
     /MapGroup\("\/api\/v1\/settings\/enum-catalogs"\)/u
   );
+  assert.match(endpointSource, /WithTags\("SettingsHostEnumCatalogs"\)/u);
+  assert.match(endpointSource, /WithName\("settingsListHostEnumCatalogs"\)/u);
+  assert.match(endpointSource, /WithName\("settingsGetHostEnumCatalog"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/settings/enum-catalogs', new Map([

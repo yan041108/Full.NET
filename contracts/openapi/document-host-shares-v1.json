@@ -1,0 +1,106 @@
+{
+  "id": "document-host-shares-v1",
+  "version": 1,
+  "description": "Host 文档分享与匿名访问 HTTP 契约冻结夹具；与 HostDocumentContracts 和 ManageHostDocumentShares.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/shares",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_shares.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentShareResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "document.host_shares.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentShareRequest",
+          "responseSchema": "HostDocumentShareResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/shares/{id}/status",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_shares.update_status",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentShareStatusRequest",
+          "responseSchema": "HostDocumentShareResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/public/shares/{shareCode}/access",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": null,
+          "successStatus": 200,
+          "requestSchema": "AccessHostDocumentShareRequest",
+          "responseSchema": "HostDocumentShareAccessResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateHostDocumentShareRequest": {
+      "properties": [
+        "documentId",
+        "validDays",
+        "password",
+        "maxAccessCount"
+      ]
+    },
+    "UpdateHostDocumentShareStatusRequest": {
+      "properties": [
+        "isEnabled",
+        "version"
+      ]
+    },
+    "AccessHostDocumentShareRequest": {
+      "properties": [
+        "password"
+      ]
+    },
+    "HostDocumentShareResponse": {
+      "properties": [
+        "id",
+        "documentId",
+        "shareCode",
+        "createdAtUtc",
+        "expireTime",
+        "maxAccessCount",
+        "accessCount",
+        "isEnabled",
+        "version",
+        "hasPassword"
+      ]
+    },
+    "HostDocumentShareResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentShareResponse"
+    },
+    "HostDocumentShareAccessResponse": {
+      "properties": [
+        "shareId",
+        "documentId",
+        "shareCode",
+        "title",
+        "fileName",
+        "mimeType",
+        "fileSizeBytes",
+        "hasPassword",
+        "accessCountRemaining"
+      ]
+    }
+  }
+}

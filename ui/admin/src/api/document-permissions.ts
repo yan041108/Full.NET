@@ -1,16 +1,21 @@
 import {
+  documentHostListDocumentPermissions,
+  documentHostSetDocumentPermissions,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest,
   type HostDocumentPermissionResponse,
   type SetHostDocumentPermissionsRequest
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function getDocumentPermissionsByDocument(
-  documentId: string
+  documentId: string,
+  signal?: AbortSignal
 ): Promise<HostDocumentPermissionResponse[]> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/permissions/by-document/${encodeURIComponent(documentId)}`
+  const value = await documentHostListDocumentPermissions(
+    http,
+    { documentId },
+    signal
   );
   if (!isHostDocumentPermissionResponseList(value)) {
     throw new Error('client.invalid_document_permission_list');
@@ -19,18 +24,21 @@ export async function getDocumentPermissionsByDocument(
 }
 
 export async function setDocumentPermissions(
-  req: SetHostDocumentPermissionsRequest
+  req: SetHostDocumentPermissionsRequest,
+  signal?: AbortSignal
 ): Promise<HostDocumentPermissionResponse[]> {
   if (!isSetHostDocumentPermissionsRequest(req)) {
     throw new Error('client.invalid_set_document_permissions_request');
   }
-  const value = await request<unknown>('/api/v1/document/host/permissions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(req)
-  });
+  const value = await documentHostSetDocumentPermissions(
+    http,
+    { body: req },
+    signal
+  );
   if (!isHostDocumentPermissionResponseList(value)) {
     throw new Error('client.invalid_document_permission_list');
   }
   return value;
 }
+
+export type { HostDocumentPermissionResponse, SetHostDocumentPermissionsRequest };

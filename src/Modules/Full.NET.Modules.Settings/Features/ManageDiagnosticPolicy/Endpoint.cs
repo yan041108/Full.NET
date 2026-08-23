@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/settings/diagnostic-policy")
-            .WithTags("Settings");
+            .WithTags("SettingsHostDiagnosticPolicy");
 
         group.MapGet("/", async (
             DiagnosticPolicyManagementService service,
@@ -24,7 +24,10 @@ internal static class Endpoint
             var result = await service.GetAsync(cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsGetHostDiagnosticPolicy")
         .Produces<DiagnosticPolicyResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DiagnosticPolicyManagementPermissions.Read));
 
@@ -39,7 +42,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsUpdateHostDiagnosticPolicy")
         .Produces<DiagnosticPolicyResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DiagnosticPolicyManagementPermissions.Update));
 
@@ -54,7 +62,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsRestoreHostDiagnosticPolicy")
         .Produces<DiagnosticPolicyResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DiagnosticPolicyManagementPermissions.Restore));
     }

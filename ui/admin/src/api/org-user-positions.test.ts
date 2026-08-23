@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createOrganizationUserPosition,
   disableOrganizationUserPosition,
@@ -8,15 +8,24 @@ import {
   updateOrganizationUserPosition
 } from './org-user-positions';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
+
+const assignmentId = '019bc2b1-2a40-7cc3-8992-a80de51bf320';
+const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf321';
+const positionId = '019bc2b1-2a40-7cc3-8992-a80de51bf322';
 
 const sampleAssignment = {
-  id: 'assignment-id',
-  userId: 'user-id',
+  id: assignmentId,
+  userId,
   username: 'admin',
   displayName: '系统管理员',
-  positionId: 'position-id',
+  positionId,
   positionCode: 'engineer',
   positionName: '工程师',
   isPrimary: false,
@@ -37,7 +46,7 @@ describe('Vue 租户用户-职位隶属 API', () => {
       total: 1
     }).mockResolvedValueOnce({
       items: [{
-        id: 'user-id',
+        id: userId,
         username: 'admin',
         displayName: '系统管理员'
       }],
@@ -50,10 +59,14 @@ describe('Vue 租户用户-职位隶属 API', () => {
     await expect(listAssignableOrganizationUserPositionUsers())
       .resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/organization/user-positions?page=1&pageSize=20'
+      '/api/v1/organization/user-positions?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/organization/user-positions/assignable-users?page=1&pageSize=100'
+      '/api/v1/organization/user-positions/assignable-users?page=1&pageSize=100',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -68,24 +81,33 @@ describe('Vue 租户用户-职位隶属 API', () => {
         version: 3
       });
 
-    await createOrganizationUserPosition('user-id', 'position-id');
-    await updateOrganizationUserPosition('assignment-id', true, 1);
-    await disableOrganizationUserPosition('assignment-id');
+    await createOrganizationUserPosition(userId, positionId);
+    await updateOrganizationUserPosition(assignmentId, true, 1);
+    await disableOrganizationUserPosition(assignmentId);
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
       '/api/v1/organization/user-positions',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ userId, positionId, isPrimary: false })
+      }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/organization/user-positions/assignment-id',
-      expect.objectContaining({ method: 'PUT' })
+      `/api/v1/organization/user-positions/${assignmentId}`,
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ isPrimary: true, version: 1 })
+      }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       3,
-      '/api/v1/organization/user-positions/assignment-id/disable',
-      expect.objectContaining({ method: 'POST' })
+      `/api/v1/organization/user-positions/${assignmentId}/disable`,
+      { method: 'POST' },
+      undefined
     );
   });
 });

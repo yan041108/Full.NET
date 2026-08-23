@@ -19,6 +19,7 @@ internal static class OpenApiCodeGenerationRunsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApi = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApi.RootElement);
 
         var actualPaths = openApi.RootElement.GetProperty("paths");
         foreach (var expectedPath in contract.RootElement
@@ -60,6 +61,59 @@ internal static class OpenApiCodeGenerationRunsContractAssertions
                     + $"缺少属性 {property}。");
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "CodeGenerationRuns";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/runs/preview",
+            HttpMethod.Post,
+            "codeGenerationPreviewRun",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/runs/apply",
+            HttpMethod.Post,
+            "codeGenerationApplyRun",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/runs/rollback",
+            HttpMethod.Post,
+            "codeGenerationRollbackRun",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/runs/rollback-chain",
+            HttpMethod.Post,
+            "codeGenerationRollbackRunChain",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/runs",
+            HttpMethod.Get,
+            "codeGenerationListRuns",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/runs/{runId}/artifacts.zip",
+            HttpMethod.Get,
+            "codeGenerationDownloadRunArtifacts",
+            tag,
+            200,
+            "application/octet-stream");
     }
 
     private static JsonElement FindSchema(

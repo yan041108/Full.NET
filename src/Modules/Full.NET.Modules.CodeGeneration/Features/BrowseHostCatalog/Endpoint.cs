@@ -17,7 +17,7 @@ internal static class Endpoint
     {
         var group = endpoints
             .MapGroup("/api/v1/code-generation/catalog")
-            .WithTags("CodeGeneration");
+            .WithTags("CodeGenerationCatalog");
 
         group.MapGet("/tables", async (
             CodeGenerationCatalogQueryService queries,
@@ -29,8 +29,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationListCatalogTables")
         .Produces<IReadOnlyList<CodeGenerationCatalogTableResponse>>(
             StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationCatalogPermissions.Read));
 
@@ -47,9 +50,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationListCatalogColumns")
         .Produces<CodeGenerationCatalogColumnListResponse>(
             StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationCatalogPermissions.Read));
@@ -67,9 +73,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationSyncCatalogColumns")
         .Produces<CodeGenerationCatalogColumnSyncResponse>(
             StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationCatalogPermissions.Read));

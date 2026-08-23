@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/notifications/host-announcements")
-            .WithTags("Notifications");
+            .WithTags("NotificationsHostAnnouncements");
 
         group.MapGet("/", async (
             int? page,
@@ -30,7 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsListHostAnnouncements")
         .Produces<PagedResult<HostAnnouncementResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Read));
 
         group.MapGet("/{announcementId:guid}", async (
@@ -70,7 +73,12 @@ internal static class Endpoint
                 $"/api/v1/notifications/host-announcements/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("notificationsCreateHostAnnouncement")
         .Produces<HostAnnouncementResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Create));
 
         group.MapPut("/{announcementId:guid}", async (
@@ -94,7 +102,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsUpdateHostAnnouncement")
         .Produces<HostAnnouncementResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Update));
 
         group.MapPost("/{announcementId:guid}/publish", async (
@@ -118,7 +132,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsPublishHostAnnouncement")
         .Produces<HostAnnouncementResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Publish));
     }
 

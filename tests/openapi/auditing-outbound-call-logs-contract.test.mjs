@@ -48,6 +48,8 @@ test('Host 出站调用审计 OpenAPI 夹具与 C# 契约和端点源码一致',
     endpointSource,
     /MapGroup\("\/api\/v1\/auditing\/outbound-call-logs"\)/u
   );
+  assert.match(endpointSource, /WithTags\("AuditingHostOutboundCallLogs"\)/u);
+  assert.match(endpointSource, /WithName\("auditingListHostOutboundCallLogs"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/auditing/outbound-call-logs', new Map([['GET', 'MapGet("/",']])],

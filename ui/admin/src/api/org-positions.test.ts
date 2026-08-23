@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { http } from './http';
 import {
   assignOrganizationPositionLevel,
   assignOrganizationPositionUnit,
@@ -7,135 +8,103 @@ import {
 } from './org-positions';
 
 vi.mock('./http', () => ({
-  request: vi.fn()
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
 }));
+const requestMock = vi.mocked(http.request);
 
-import { request } from './http';
+const positionId = '01912345-6789-7abc-8def-0123456789ab';
+
+const samplePosition = {
+  id: positionId,
+  code: 'engineer',
+  name: '工程师',
+  unitId: null,
+  unitCode: null,
+  unitName: null,
+  positionLevelId: null,
+  positionLevelCode: null,
+  positionLevelName: null,
+  displayOrder: 10,
+  isActive: true,
+  createdAtUtc: '2026-07-25T08:00:00.000Z',
+  updatedAtUtc: null,
+  version: 1
+};
 
 describe('org-positions api', () => {
-  beforeEach(() => {
-    vi.mocked(request).mockReset();
-  });
+  beforeEach(() => requestMock.mockReset());
 
   it('lists positions', async () => {
-    vi.mocked(request).mockResolvedValue({
-      items: [{
-        id: '01912345-6789-7abc-8def-0123456789ab',
-        code: 'engineer',
-        name: '工程师',
-        unitId: null,
-        unitCode: null,
-        unitName: null,
-        positionLevelId: null,
-        positionLevelCode: null,
-        positionLevelName: null,
-        displayOrder: 10,
-        isActive: true,
-        createdAtUtc: '2026-07-25T08:00:00.000Z',
-        updatedAtUtc: null,
-        version: 1
-      }],
+    requestMock.mockResolvedValue({
+      items: [samplePosition],
       page: 1,
       pageSize: 20,
       total: 1
     });
 
     const page = await listOrganizationPositions(1, 20);
-    expect(request).toHaveBeenCalledWith(
-      '/api/v1/organization/positions?page=1&pageSize=20'
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/organization/positions?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
     expect(page.items[0].code).toBe('engineer');
   });
 
   it('creates a position', async () => {
-    vi.mocked(request).mockResolvedValue({
-      id: '01912345-6789-7abc-8def-0123456789ab',
-      code: 'engineer',
-      name: '工程师',
-      unitId: null,
-      unitCode: null,
-      unitName: null,
-      positionLevelId: null,
-      positionLevelCode: null,
-      positionLevelName: null,
-      displayOrder: 10,
-      isActive: true,
-      createdAtUtc: '2026-07-25T08:00:00.000Z',
-      updatedAtUtc: null,
-      version: 1
-    });
+    requestMock.mockResolvedValue(samplePosition);
 
     await createOrganizationPosition('engineer', '工程师');
-    expect(request).toHaveBeenCalledWith('/api/v1/organization/positions', expect.objectContaining({
-      method: 'POST'
-    }));
+    expect(requestMock).toHaveBeenCalledWith(
+      '/api/v1/organization/positions',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ code: 'engineer', name: '工程师', displayOrder: 10 })
+      }),
+      undefined
+    );
   });
 
   it('binds and unbinds a position unit with optimistic concurrency', async () => {
-    vi.mocked(request).mockResolvedValue({
-      id: '01912345-6789-7abc-8def-0123456789ab',
-      code: 'engineer',
-      name: '工程师',
-      unitId: null,
-      unitCode: null,
-      unitName: null,
-      positionLevelId: null,
-      positionLevelCode: null,
-      positionLevelName: null,
-      displayOrder: 10,
-      isActive: true,
-      createdAtUtc: '2026-07-25T08:00:00.000Z',
+    requestMock.mockResolvedValue({
+      ...samplePosition,
       updatedAtUtc: '2026-07-29T08:00:00.000Z',
       version: 2
     });
 
-    await assignOrganizationPositionUnit(
-      '01912345-6789-7abc-8def-0123456789ab',
-      null,
-      1
-    );
+    await assignOrganizationPositionUnit(positionId, null, 1);
 
-    expect(request).toHaveBeenCalledWith(
-      '/api/v1/organization/positions/01912345-6789-7abc-8def-0123456789ab/unit',
+    expect(requestMock).toHaveBeenCalledWith(
+      `/api/v1/organization/positions/${positionId}/unit`,
       {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ unitId: null, version: 1 })
-      }
+      },
+      undefined
     );
   });
 
   it('binds and unbinds a position level with optimistic concurrency', async () => {
-    vi.mocked(request).mockResolvedValue({
-      id: '01912345-6789-7abc-8def-0123456789ab',
-      code: 'engineer',
-      name: '工程师',
-      unitId: null,
-      unitCode: null,
-      unitName: null,
-      positionLevelId: null,
-      positionLevelCode: null,
-      positionLevelName: null,
-      displayOrder: 10,
-      isActive: true,
-      createdAtUtc: '2026-07-25T08:00:00.000Z',
+    requestMock.mockResolvedValue({
+      ...samplePosition,
       updatedAtUtc: '2026-07-29T08:00:00.000Z',
       version: 2
     });
 
-    await assignOrganizationPositionLevel(
-      '01912345-6789-7abc-8def-0123456789ab',
-      null,
-      1
-    );
+    await assignOrganizationPositionLevel(positionId, null, 1);
 
-    expect(request).toHaveBeenCalledWith(
-      '/api/v1/organization/positions/01912345-6789-7abc-8def-0123456789ab/position-level',
+    expect(requestMock).toHaveBeenCalledWith(
+      `/api/v1/organization/positions/${positionId}/position-level`,
       {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ positionLevelId: null, version: 1 })
-      }
+      },
+      undefined
     );
   });
 });

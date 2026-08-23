@@ -15,7 +15,7 @@ internal static class Endpoint
     {
         var group = endpoints
             .MapGroup("/api/v1/serial-numbers/rules")
-            .WithTags("SerialNumbers");
+            .WithTags("SerialNumbersHostRules");
 
         group.MapGet("", async (
             int? page,
@@ -42,6 +42,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("serialNumbersListRules")
         .Produces<PagedResult<SerialNumberRuleResponse>>(
             StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -90,6 +91,7 @@ internal static class Endpoint
                     result.Value)
                 : mapper.Map(result, httpContext);
         })
+        .WithName("serialNumbersCreateRule")
         .Produces<SerialNumberRuleResponse>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -119,6 +121,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("serialNumbersUpdateRule")
         .Produces<SerialNumberRuleResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -143,6 +146,7 @@ internal static class Endpoint
                 mapper,
                 httpContext,
                 cancellationToken))
+        .WithName("serialNumbersEnableRule")
         .Produces<SerialNumberRuleResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -167,6 +171,7 @@ internal static class Endpoint
                 mapper,
                 httpContext,
                 cancellationToken))
+        .WithName("serialNumbersDisableRule")
         .Produces<SerialNumberRuleResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -182,6 +187,7 @@ internal static class Endpoint
             IApiResultMapper mapper,
             HttpContext httpContext) =>
             mapper.Map(service.Preview(request), httpContext))
+        .WithName("serialNumbersPreviewSerialNumber")
         .Produces<SerialNumberPreviewResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)

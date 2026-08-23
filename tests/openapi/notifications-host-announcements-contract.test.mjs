@@ -63,6 +63,11 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     endpointSource,
     /MapGroup\("\/api\/v1\/notifications\/host-announcements"\)/u
   );
+  assert.match(endpointSource, /WithTags\("NotificationsHostAnnouncements"\)/u);
+  assert.match(endpointSource, /WithName\("notificationsListHostAnnouncements"\)/u);
+  assert.match(endpointSource, /WithName\("notificationsCreateHostAnnouncement"\)/u);
+  assert.match(endpointSource, /WithName\("notificationsUpdateHostAnnouncement"\)/u);
+  assert.match(endpointSource, /WithName\("notificationsPublishHostAnnouncement"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/notifications/host-announcements', {

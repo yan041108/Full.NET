@@ -19,6 +19,7 @@ internal static class OpenApiCodeGenerationTemplatesContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApi = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApi.RootElement);
 
         var actualPaths = openApi.RootElement.GetProperty("paths");
         foreach (var expectedPath in contract.RootElement
@@ -60,6 +61,52 @@ internal static class OpenApiCodeGenerationTemplatesContractAssertions
                     + $"缺少属性 {property}。");
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "CodeGenerationTemplates";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/templates",
+            HttpMethod.Get,
+            "codeGenerationListTemplates",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/templates/{templateId}",
+            HttpMethod.Get,
+            "codeGenerationGetTemplate",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/templates",
+            HttpMethod.Post,
+            "codeGenerationCreateTemplate",
+            tag,
+            201,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/templates/{templateId}",
+            HttpMethod.Put,
+            "codeGenerationUpdateTemplate",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/templates/{templateId}/delete",
+            HttpMethod.Post,
+            "codeGenerationDeleteTemplate",
+            tag,
+            204,
+            null,
+            "application/json");
     }
 
     private static JsonElement FindSchema(

@@ -17,6 +17,7 @@ internal static class OpenApiAuditingOutboundCallLogsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -50,6 +51,19 @@ internal static class OpenApiAuditingOutboundCallLogsContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "AuditingHostOutboundCallLogs";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/auditing/outbound-call-logs",
+            HttpMethod.Get,
+            "auditingListHostOutboundCallLogs",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(

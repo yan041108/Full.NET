@@ -68,6 +68,7 @@ internal static class DocumentHostItemAssertions
         await VerifyInvalidFileReferenceAsync(client, writer.AccessToken, created.Id, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await VerifyVersionsAndPreviewAsync(client, writer.AccessToken, withVersion, cancellationToken);
+        await OpenApiDocumentHostItemsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
     private static async Task<HostDocumentItemResponse> CreateItemAsync(

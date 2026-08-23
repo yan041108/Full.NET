@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -12,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/tenancy/tenant-packages")
-            .WithTags("Tenancy");
+            .WithTags("TenancyHostTenantPackages");
 
         group.MapGet("/", async (
             int? page,
@@ -29,6 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("tenancyListHostTenantPackages")
+        .Produces<PagedResult<TenantPackageSummary>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantPackagePermissions.Read));
 
@@ -43,6 +48,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("tenancyGetHostTenantPackage")
+        .Produces<TenantPackageSummary>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantPackagePermissions.Read));
 
@@ -64,6 +74,12 @@ internal static class Endpoint
                 $"/api/v1/tenancy/tenant-packages/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("tenancyCreateHostTenantPackage")
+        .Produces<TenantPackageSummary>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantPackagePermissions.Create));
 
@@ -79,6 +95,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("tenancyUpdateHostTenantPackage")
+        .Produces<TenantPackageSummary>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantPackagePermissions.Update));
 
@@ -93,6 +116,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("tenancyDisableHostTenantPackage")
+        .Produces<TenantPackageSummary>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantPackagePermissions.Disable));
     }

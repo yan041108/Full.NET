@@ -19,6 +19,9 @@ internal static class OpenApiJobsHostDefinitionsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
+        AssertPilotScheduleOperations(openApiDocument.RootElement);
+        AssertPilotHealthOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -68,6 +71,174 @@ internal static class OpenApiJobsHostDefinitionsContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string definitionsTag = "JobsHostJobDefinitions";
+        const string executionsTag = "JobsHostJobExecutions";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions",
+            HttpMethod.Get,
+            "jobsListHostJobDefinitions",
+            definitionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions/groups",
+            HttpMethod.Get,
+            "jobsListHostJobGroups",
+            definitionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions",
+            HttpMethod.Post,
+            "jobsCreateHostJobDefinition",
+            definitionsTag,
+            201,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions/{definitionId}",
+            HttpMethod.Put,
+            "jobsUpdateHostJobDefinition",
+            definitionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions/{definitionId}/disable",
+            HttpMethod.Post,
+            "jobsDisableHostJobDefinition",
+            definitionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions/{definitionId}/delete",
+            HttpMethod.Post,
+            "jobsDeleteHostJobDefinition",
+            definitionsTag,
+            204,
+            null);
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-definitions/{definitionId}/trigger",
+            HttpMethod.Post,
+            "jobsTriggerHostJobDefinition",
+            definitionsTag,
+            201,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-executions",
+            HttpMethod.Get,
+            "jobsListHostJobExecutions",
+            executionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-executions/{executionId}",
+            HttpMethod.Get,
+            "jobsGetHostJobExecution",
+            executionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-executions/clear",
+            HttpMethod.Post,
+            "jobsClearHostJobExecutions",
+            executionsTag,
+            204,
+            null);
+    }
+
+    private static void AssertPilotScheduleOperations(JsonElement document)
+    {
+        const string tag = "JobsHostJobSchedules";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules",
+            HttpMethod.Get,
+            "jobsListHostJobSchedules",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/definition-options",
+            HttpMethod.Get,
+            "jobsListHostJobScheduleDefinitionOptions",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/cron-preview",
+            HttpMethod.Get,
+            "jobsPreviewHostJobScheduleCron",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules",
+            HttpMethod.Post,
+            "jobsCreateHostJobSchedule",
+            tag,
+            201,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/{scheduleId}",
+            HttpMethod.Put,
+            "jobsUpdateHostJobSchedule",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/{scheduleId}/pause",
+            HttpMethod.Post,
+            "jobsPauseHostJobSchedule",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/{scheduleId}/resume",
+            HttpMethod.Post,
+            "jobsResumeHostJobSchedule",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/{scheduleId}/delete",
+            HttpMethod.Post,
+            "jobsDeleteHostJobSchedule",
+            tag,
+            204,
+            null);
+    }
+
+    private static void AssertPilotHealthOperations(JsonElement document)
+    {
+        const string tag = "JobsHostJobHealth";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-health",
+            HttpMethod.Get,
+            "jobsGetHostJobHealth",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

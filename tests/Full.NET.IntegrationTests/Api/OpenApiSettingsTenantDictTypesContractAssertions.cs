@@ -19,6 +19,7 @@ internal static class OpenApiSettingsTenantDictTypesContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -68,6 +69,121 @@ internal static class OpenApiSettingsTenantDictTypesContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "SettingsTenantDictTypes";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types",
+            HttpMethod.Get,
+            "settingsListTenantDictTypes",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types",
+            HttpMethod.Post,
+            "settingsCreateTenantDictType",
+            tag,
+            201,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/{dictTypeId}",
+            HttpMethod.Put,
+            "settingsUpdateTenantDictType",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/{dictTypeId}/disable",
+            HttpMethod.Post,
+            "settingsDisableTenantDictType",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/{dictTypeId}/delete",
+            HttpMethod.Post,
+            "settingsDeleteTenantDictType",
+            tag,
+            204,
+            null,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/list",
+            HttpMethod.Get,
+            "settingsListAllTenantDictTypes",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/by-code/{code}/items",
+            HttpMethod.Get,
+            "settingsListTenantDictItemsByTypeCode",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/{dictTypeId}/items",
+            HttpMethod.Get,
+            "settingsListTenantDictItems",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-types/{dictTypeId}/items",
+            HttpMethod.Post,
+            "settingsCreateTenantDictItem",
+            tag,
+            201,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-items/{dictItemId}",
+            HttpMethod.Get,
+            "settingsGetTenantDictItem",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-items/{dictItemId}",
+            HttpMethod.Put,
+            "settingsUpdateTenantDictItem",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-items/{dictItemId}/disable",
+            HttpMethod.Post,
+            "settingsDisableTenantDictItem",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/settings/tenant-dict-items/{dictItemId}/delete",
+            HttpMethod.Post,
+            "settingsDeleteTenantDictItem",
+            tag,
+            204,
+            null,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

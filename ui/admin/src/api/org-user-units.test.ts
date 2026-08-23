@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createOrganizationUserUnit,
   disableOrganizationUserUnit,
@@ -8,15 +8,24 @@ import {
   updateOrganizationUserUnit
 } from './org-user-units';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
+
+const assignmentId = '019bc2b1-2a40-7cc3-8992-a80de51bf300';
+const userId = '019bc2b1-2a40-7cc3-8992-a80de51bf301';
+const unitId = '019bc2b1-2a40-7cc3-8992-a80de51bf302';
 
 const sampleAssignment = {
-  id: 'assignment-id',
-  userId: 'user-id',
+  id: assignmentId,
+  userId,
   username: 'admin',
   displayName: '系统管理员',
-  unitId: 'unit-id',
+  unitId,
   unitCode: 'hq',
   unitName: '总部',
   isPrimary: false,
@@ -37,7 +46,7 @@ describe('Vue 租户用户-机构隶属 API', () => {
       total: 1
     }).mockResolvedValueOnce({
       items: [{
-        id: 'user-id',
+        id: userId,
         username: 'admin',
         displayName: '系统管理员'
       }],
@@ -50,10 +59,14 @@ describe('Vue 租户用户-机构隶属 API', () => {
     await expect(listAssignableOrganizationUserUnitUsers())
       .resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/organization/user-units?page=1&pageSize=20'
+      '/api/v1/organization/user-units?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/organization/user-units/assignable-users?page=1&pageSize=100'
+      '/api/v1/organization/user-units/assignable-users?page=1&pageSize=100',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -68,24 +81,33 @@ describe('Vue 租户用户-机构隶属 API', () => {
         version: 3
       });
 
-    await createOrganizationUserUnit('user-id', 'unit-id');
-    await updateOrganizationUserUnit('assignment-id', true, 1);
-    await disableOrganizationUserUnit('assignment-id');
+    await createOrganizationUserUnit(userId, unitId);
+    await updateOrganizationUserUnit(assignmentId, true, 1);
+    await disableOrganizationUserUnit(assignmentId);
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
       '/api/v1/organization/user-units',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ userId, unitId, isPrimary: false })
+      }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/organization/user-units/assignment-id',
-      expect.objectContaining({ method: 'PUT' })
+      `/api/v1/organization/user-units/${assignmentId}`,
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ isPrimary: true, version: 1 })
+      }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       3,
-      '/api/v1/organization/user-units/assignment-id/disable',
-      expect.objectContaining({ method: 'POST' })
+      `/api/v1/organization/user-units/${assignmentId}/disable`,
+      { method: 'POST' },
+      undefined
     );
   });
 });

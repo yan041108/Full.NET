@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createOrganizationUnit,
   disableOrganizationUnit,
@@ -7,11 +7,16 @@ import {
   updateOrganizationUnit
 } from './org-units';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 const sampleUnit = {
-  id: 'unit-id',
+  id: '019bc2b1-2a40-7cc3-8992-a80de51bf290',
   parentId: null,
   code: 'hq',
   name: '总部',
@@ -21,6 +26,8 @@ const sampleUnit = {
   updatedAtUtc: null,
   version: 1
 };
+
+const parentUnitId = '019bc2b1-2a40-7cc3-8992-a80de51bf291';
 
 describe('Vue 租户机构 API', () => {
   beforeEach(() => requestMock.mockReset());
@@ -35,7 +42,9 @@ describe('Vue 租户机构 API', () => {
 
     await expect(listOrganizationUnits()).resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/organization/units?page=1&pageSize=20'
+      '/api/v1/organization/units?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -45,9 +54,9 @@ describe('Vue 租户机构 API', () => {
       .mockResolvedValueOnce({ ...sampleUnit, name: '新名称', version: 2 })
       .mockResolvedValueOnce({ ...sampleUnit, isActive: false, version: 3 });
 
-    await createOrganizationUnit('hq', '总部', 10, 'parent-id');
-    await updateOrganizationUnit('unit-id', '新名称', 10, 1, 'parent-id');
-    await disableOrganizationUnit('unit-id');
+    await createOrganizationUnit('hq', '总部', 10, parentUnitId);
+    await updateOrganizationUnit(sampleUnit.id, '新名称', 10, 1, parentUnitId);
+    await disableOrganizationUnit(sampleUnit.id);
 
     expect(requestMock).toHaveBeenNthCalledWith(
       1,
@@ -55,30 +64,33 @@ describe('Vue 租户机构 API', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          parentId: 'parent-id',
+          parentId: parentUnitId,
           code: 'hq',
           name: '总部',
           displayOrder: 10
         })
-      })
+      }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/organization/units/unit-id',
+      `/api/v1/organization/units/${sampleUnit.id}`,
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify({
-          parentId: 'parent-id',
+          parentId: parentUnitId,
           name: '新名称',
           displayOrder: 10,
           version: 1
         })
-      })
+      }),
+      undefined
     );
     expect(requestMock).toHaveBeenNthCalledWith(
       3,
-      '/api/v1/organization/units/unit-id/disable',
-      expect.objectContaining({ method: 'POST' })
+      `/api/v1/organization/units/${sampleUnit.id}/disable`,
+      { method: 'POST' },
+      undefined
     );
   });
 });

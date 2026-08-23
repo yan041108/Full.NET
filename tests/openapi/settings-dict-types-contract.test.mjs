@@ -45,7 +45,7 @@ test('Host 数据字典 OpenAPI 夹具结构完整且路径唯一', async () => 
       seen.add(key);
       assert.match(
         operation.permission,
-        /^settings\.dict_types\.(read|create|update|disable)$/u
+        /^settings\.dict_types\.(read|create|update|disable|delete)$/u
       );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
@@ -81,10 +81,25 @@ test('Host 数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', async
     dictTypeEndpointSource,
     /MapGroup\("\/api\/v1\/settings\/dict-types"\)/u
   );
+  assert.match(dictTypeEndpointSource, /WithTags\("SettingsHostDictTypes"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsListHostDictTypes"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsCreateHostDictType"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsUpdateHostDictType"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsDisableHostDictType"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsDeleteHostDictType"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsListAllHostDictTypes"\)/u);
+  assert.match(dictTypeEndpointSource, /WithName\("settingsListHostDictItemsByTypeCode"\)/u);
   assert.match(
     dictItemEndpointSource,
     /MapGroup\("\/api\/v1\/settings\/dict-types\/\{dictTypeId:guid\}\/items"\)/u
   );
+  assert.match(dictItemEndpointSource, /WithTags\("SettingsHostDictTypes"\)/u);
+  assert.match(dictItemEndpointSource, /WithName\("settingsListHostDictItems"\)/u);
+  assert.match(dictItemEndpointSource, /WithName\("settingsCreateHostDictItem"\)/u);
+  assert.match(dictItemEndpointSource, /WithName\("settingsGetHostDictItem"\)/u);
+  assert.match(dictItemEndpointSource, /WithName\("settingsUpdateHostDictItem"\)/u);
+  assert.match(dictItemEndpointSource, /WithName\("settingsDisableHostDictItem"\)/u);
+  assert.match(dictItemEndpointSource, /WithName\("settingsDeleteHostDictItem"\)/u);
   assert.match(
     dictItemEndpointSource,
     /MapGroup\("\/api\/v1\/settings\/dict-items"\)/u
@@ -112,6 +127,24 @@ test('Host 数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', async
         ['POST', 'MapPost("/{dictTypeId:guid}/disable",']
       ])
     }],
+    ['/api/v1/settings/dict-types/{dictTypeId}/delete', {
+      source: dictTypeEndpointSource,
+      markers: new Map([
+        ['POST', 'MapPost("/{dictTypeId:guid}/delete",']
+      ])
+    }],
+    ['/api/v1/settings/dict-types/list', {
+      source: dictTypeEndpointSource,
+      markers: new Map([
+        ['GET', 'MapGet("/list",']
+      ])
+    }],
+    ['/api/v1/settings/dict-types/by-code/{code}/items', {
+      source: dictTypeEndpointSource,
+      markers: new Map([
+        ['GET', 'MapGet("/by-code/{code}/items",']
+      ])
+    }],
     ['/api/v1/settings/dict-types/{dictTypeId}/items', {
       source: dictItemEndpointSource,
       markers: new Map([
@@ -122,6 +155,7 @@ test('Host 数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', async
     ['/api/v1/settings/dict-items/{dictItemId}', {
       source: dictItemEndpointSource,
       markers: new Map([
+        ['GET', 'MapGet("/{dictItemId:guid}",'],
         ['PUT', 'MapPut("/{dictItemId:guid}",']
       ])
     }],
@@ -129,6 +163,12 @@ test('Host 数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', async
       source: dictItemEndpointSource,
       markers: new Map([
         ['POST', 'MapPost("/{dictItemId:guid}/disable",']
+      ])
+    }],
+    ['/api/v1/settings/dict-items/{dictItemId}/delete', {
+      source: dictItemEndpointSource,
+      markers: new Map([
+        ['POST', 'MapPost("/{dictItemId:guid}/delete",']
       ])
     }]
   ]);

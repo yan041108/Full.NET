@@ -29,15 +29,16 @@ internal static class JobsBatchFailureIsolationAssertions
             var actorId = Guid.CreateVersion7();
             var now = DateTimeOffset.UtcNow;
 
+            const string missingHandlerKind = "missing";
             await command.ExecuteAsync(
                 new SqlStatement(
                     "test.jobs.insert_batch_failure_definition",
                     """
                     INSERT INTO fn_jobs_definition
-                        (Id, TenantId, JobKey, DisplayName, Description, IsEnabled,
+                        (Id, TenantId, JobKey, HandlerKind, DisplayName, Description, IsEnabled,
                          CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version)
                     VALUES
-                        (@Id, NULL, @JobKey, @DisplayName, NULL, @IsEnabled,
+                        (@Id, NULL, @JobKey, @HandlerKind, @DisplayName, NULL, @IsEnabled,
                          @CreatedAtUtc, NULL, @CreatedByUserId, NULL, 1)
                     """,
                     SqlDataScope.HostOnly),
@@ -45,6 +46,7 @@ internal static class JobsBatchFailureIsolationAssertions
                 {
                     Id = failedDefinitionId,
                     JobKey = $"jobs.missing-handler.{Guid.NewGuid():N}",
+                    HandlerKind = missingHandlerKind,
                     DisplayName = "集成测试缺失处理器任务",
                     IsEnabled = true,
                     CreatedAtUtc = now.AddSeconds(-2),

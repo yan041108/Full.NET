@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Full.NET.Modules.Jobs.Contracts;
 
 public static class HostJobPermissions
@@ -53,15 +55,19 @@ public static class JobHandlerKinds
 }
 
 /// <summary>HTTP 任务敏感 Header 的 Settings 密钥引用。</summary>
-public sealed record HttpJobSecretHeaderRef(string ConfigKey);
+public sealed record HttpJobSecretHeaderRef(
+    [property: JsonPropertyName("configKey")] string ConfigKey);
 
 /// <summary>HTTP 任务执行参数；序列化为 ArgsJson 持久化。</summary>
 public sealed record HttpJobArgs(
-    string Url,
-    string Method,
+    [property: JsonPropertyName("url")] string Url,
+    [property: JsonPropertyName("method")] string Method,
+    [property: JsonPropertyName("headers")]
     IReadOnlyDictionary<string, string>? Headers = null,
+    [property: JsonPropertyName("secretHeaders")]
     IReadOnlyDictionary<string, HttpJobSecretHeaderRef>? SecretHeaders = null,
-    int? TimeoutSeconds = null,
+    [property: JsonPropertyName("timeoutSeconds")] int? TimeoutSeconds = null,
+    [property: JsonPropertyName("successStatusCodes")]
     IReadOnlyList<int>? SuccessStatusCodes = null);
 
 public static class JobTriggerKinds

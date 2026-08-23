@@ -1,4 +1,3 @@
-using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
@@ -13,7 +12,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/document/host/permissions")
-            .WithTags("Document");
+            .WithTags("DocumentHostPermissions");
 
         group.MapGet("/by-document/{documentId:guid}", async (
             Guid documentId,
@@ -26,7 +25,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListDocumentPermissions")
         .Produces<IReadOnlyList<HostDocumentPermissionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Read));
 
         group.MapPost("/", async (
@@ -40,7 +43,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostSetDocumentPermissions")
         .Produces<IReadOnlyList<HostDocumentPermissionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissionManagementPermissions.Set));
     }
 }

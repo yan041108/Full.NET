@@ -423,7 +423,7 @@ internal sealed class FailingJobHandler(
     JobsExecutionScopeIdentity scopeIdentity,
     JobsBoundedConcurrencyProbe probe) : IJobHandlerExecutor
 {
-    public const string Key = "jobs.test-bounded-concurrency-failure";
+    public const string Key = "jobs.test-bounded-concur-fail";
 
     public string HandlerKind => Key;
 

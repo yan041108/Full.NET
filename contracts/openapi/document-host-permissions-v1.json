@@ -1,0 +1,57 @@
+{
+  "id": "document-host-permissions-v1",
+  "version": 1,
+  "description": "Host 文档权限 HTTP 契约冻结夹具；与 HostDocumentContracts 和 ManageHostDocumentPermissions.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/permissions/by-document/{documentId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_permissions.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPermissionResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/permissions",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_permissions.set",
+          "successStatus": 200,
+          "requestSchema": "SetHostDocumentPermissionsRequest",
+          "responseSchema": "HostDocumentPermissionResponseList"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostDocumentPermissionEntry": {
+      "properties": [
+        "userId",
+        "permissionLevel"
+      ]
+    },
+    "SetHostDocumentPermissionsRequest": {
+      "properties": [
+        "documentId",
+        "permissions"
+      ]
+    },
+    "HostDocumentPermissionResponse": {
+      "properties": [
+        "id",
+        "documentId",
+        "userId",
+        "permissionLevel",
+        "createdAtUtc"
+      ]
+    },
+    "HostDocumentPermissionResponseList": {
+      "properties": [],
+      "itemSchema": "HostDocumentPermissionResponse"
+    }
+  }
+}

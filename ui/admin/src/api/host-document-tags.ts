@@ -1,12 +1,18 @@
 import {
+  documentHostCreateTag,
+  documentHostDeleteTag,
+  documentHostListTags,
+  documentHostUpdateTag,
   isHostDocumentTagResponse,
   isHostDocumentTagResponseList,
   type HostDocumentTagResponse
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
-export async function listDocumentTags(): Promise<HostDocumentTagResponse[]> {
-  const value = await request<unknown>('/api/v1/document/host/tags');
+export async function listDocumentTags(
+  signal?: AbortSignal
+): Promise<HostDocumentTagResponse[]> {
+  const value = await documentHostListTags(http, {}, signal);
   if (!isHostDocumentTagResponseList(value)) {
     throw new Error('client.invalid_document_tag_list');
   }
@@ -18,13 +24,14 @@ export async function createDocumentTag(
   code: string | null,
   icon: string | null,
   color: string | null,
-  description: string | null
+  description: string | null,
+  signal?: AbortSignal
 ): Promise<HostDocumentTagResponse> {
-  const value = await request<unknown>('/api/v1/document/host/tags', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name, code, icon, color, description })
-  });
+  const value = await documentHostCreateTag(
+    http,
+    { body: { name, code, icon, color, description } },
+    signal
+  );
   if (!isHostDocumentTagResponse(value)) {
     throw new Error('client.invalid_document_tag');
   }
@@ -38,15 +45,16 @@ export async function updateDocumentTag(
   icon: string | null,
   color: string | null,
   description: string | null,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostDocumentTagResponse> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/tags/${encodeURIComponent(id)}`,
+  const value = await documentHostUpdateTag(
+    http,
     {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, code, icon, color, description, version })
-    }
+      tagId: id,
+      body: { name, code, icon, color, description, version }
+    },
+    signal
   );
   if (!isHostDocumentTagResponse(value)) {
     throw new Error('client.invalid_document_tag');
@@ -56,17 +64,17 @@ export async function updateDocumentTag(
 
 export async function deleteDocumentTag(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<boolean> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/tags/${encodeURIComponent(id)}/delete`,
+  return documentHostDeleteTag(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      tagId: id,
+      body: { version }
+    },
+    signal
   );
-  return value === true;
 }
 
 export type { HostDocumentTagResponse };

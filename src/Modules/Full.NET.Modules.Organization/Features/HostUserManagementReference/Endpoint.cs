@@ -17,7 +17,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/organization/host-user-management")
-            .WithTags("Organization");
+            .WithTags("OrganizationHostUserManagement");
 
         group.MapGet("/reference", async (
             Guid tenantId,
@@ -56,7 +56,11 @@ internal static class Endpoint
                 canAccessUserUnits ? value.UserUnits : [],
                 canAccessUserPositions ? value.UserPositions : []));
         })
+        .WithName("organizationGetHostUserManagementReference")
         .Produces<HostUserManagementOrganizationReferenceResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Read));
 
@@ -92,7 +96,13 @@ internal static class Endpoint
                 () => assignments.CreateAsync(request, cancellationToken)).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationCreateHostUserManagementUserUnit")
         .Produces<OrganizationUserUnitResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Update));
 
@@ -130,7 +140,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationUpdateHostUserManagementUserUnit")
         .Produces<OrganizationUserUnitResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Update));
 
@@ -167,7 +183,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationDisableHostUserManagementUserUnit")
         .Produces<OrganizationUserUnitResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Update));
 
@@ -203,7 +224,13 @@ internal static class Endpoint
                 () => assignments.CreateAsync(request, cancellationToken)).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationCreateHostUserManagementUserPosition")
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Update));
 
@@ -241,7 +268,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationUpdateHostUserManagementUserPosition")
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Update));
 
@@ -278,7 +311,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationDisableHostUserManagementUserPosition")
         .Produces<OrganizationUserPositionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             IdentityUserManagementPermissions.Update));
     }

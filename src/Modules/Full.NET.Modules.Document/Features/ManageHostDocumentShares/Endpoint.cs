@@ -14,7 +14,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/document/host/shares")
-            .WithTags("Document");
+            .WithTags("DocumentHostShares");
 
         group.MapGet("/", async (
             int? page,
@@ -28,7 +28,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListDocumentShares")
         .Produces<PagedResult<HostDocumentShareResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentSharePermissions.Read));
 
         group.MapPost("/", async (
@@ -49,7 +52,12 @@ internal static class Endpoint
                 $"/api/v1/document/host/shares/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("documentHostCreateDocumentShare")
         .Produces<HostDocumentShareResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentSharePermissions.Create));
 
         group.MapPost("/{id:guid}/status", async (
@@ -64,7 +72,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostUpdateDocumentShareStatus")
         .Produces<HostDocumentShareResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentSharePermissions.UpdateStatus));
 
         group.MapGet("/by-code/{shareCode}", (string shareCode, HttpResponse response) =>
@@ -74,10 +88,12 @@ internal static class Endpoint
             response.Headers.Allow = "POST";
             return Results.StatusCode(StatusCodes.Status405MethodNotAllowed);
         })
+        .WithName("documentHostRejectDocumentShareByCodeGet")
+        .Produces(StatusCodes.Status405MethodNotAllowed)
         .AllowAnonymous();
 
         var publicGroup = endpoints.MapGroup("/api/v1/document/public/shares")
-            .WithTags("Document");
+            .WithTags("DocumentPublicShares");
 
         publicGroup.MapPost("/{shareCode}/access", async (
             string shareCode,
@@ -91,8 +107,15 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentPublicAccessDocumentShare")
         .Accepts<AccessHostDocumentShareRequest>("application/json")
         .Produces<HostDocumentShareAccessResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .RequireRateLimiting(DocumentModule.AnonymousShareAccessRateLimitPolicy)
         .AllowAnonymous();
     }

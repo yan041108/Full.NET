@@ -1,93 +1,205 @@
 import {
-  isCodeGenerationTemplatePage,
-  isCodeGenerationTemplateResponse,
-  type CodeGenerationTemplatePage,
-  type CodeGenerationTemplateResponse,
-  type CreateCodeGenerationTemplateRequest,
-  type UpdateCodeGenerationTemplateRequest
-} from '@fullnet/client-contracts';
-import { request } from './http';
 
-const templatesPath = '/api/v1/code-generation/templates';
+  codeGenerationCreateTemplate,
+
+  codeGenerationDeleteTemplate,
+
+  codeGenerationGetTemplate,
+
+  codeGenerationListTemplates,
+
+  codeGenerationUpdateTemplate,
+
+  isCodeGenerationTemplatePage,
+
+  isCodeGenerationTemplateResponse,
+
+  type CodeGenerationTemplatePage,
+
+  type CodeGenerationTemplateResponse,
+
+  type CreateCodeGenerationTemplateRequest,
+
+  type UpdateCodeGenerationTemplateRequest
+
+} from '@fullnet/client-contracts';
+
+import { http } from './http';
+
+
 
 export async function listCodeGenerationTemplates(
+
   page = 1,
+
   pageSize = 20,
+
   filters: {
+
     name?: string;
+
     tableName?: string;
-  } = {}
+
+  } = {},
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationTemplatePage> {
-  const query = new URLSearchParams({
-    page: String(page),
-    pageSize: String(pageSize)
-  });
+
   const name = filters.name?.trim();
+
   const tableName = filters.tableName?.trim();
-  if (name) {
-    query.set('name', name);
-  }
-  if (tableName) {
-    query.set('tableName', tableName);
+
+  const value = await codeGenerationListTemplates(
+
+    http,
+
+    {
+
+      page,
+
+      pageSize,
+
+      ...(name ? { name } : {}),
+
+      ...(tableName ? { tableName } : {})
+
+    },
+
+    signal
+
+  );
+
+  if (!isCodeGenerationTemplatePage(value)) {
+
+    throw new Error('client.invalid_code_generation_template_page');
+
   }
 
-  const value = await request<unknown>(`${templatesPath}?${query.toString()}`);
-  if (!isCodeGenerationTemplatePage(value)) {
-    throw new Error('client.invalid_code_generation_template_page');
-  }
+
 
   return value;
+
 }
+
+
 
 export async function getCodeGenerationTemplate(
-  templateId: string
+
+  templateId: string,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationTemplateResponse> {
-  return readTemplate(await request<unknown>(
-    `${templatesPath}/${encodeURIComponent(templateId)}`
-  ));
+
+  const value = await codeGenerationGetTemplate(
+
+    http,
+
+    { templateId },
+
+    signal
+
+  );
+
+  return readTemplate(value);
+
 }
+
+
 
 export async function createCodeGenerationTemplate(
-  input: CreateCodeGenerationTemplateRequest
+
+  input: CreateCodeGenerationTemplateRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationTemplateResponse> {
-  return readTemplate(await request<unknown>(templatesPath, jsonRequest(
-    'POST',
-    input
-  )));
+
+  const value = await codeGenerationCreateTemplate(
+    http,
+    { body: input as unknown as Parameters<typeof codeGenerationCreateTemplate>[1]['body'] },
+    signal
+  );
+
+  return readTemplate(value);
+
 }
+
+
 
 export async function updateCodeGenerationTemplate(
+
   templateId: string,
-  input: UpdateCodeGenerationTemplateRequest
+
+  input: UpdateCodeGenerationTemplateRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationTemplateResponse> {
-  return readTemplate(await request<unknown>(
-    `${templatesPath}/${encodeURIComponent(templateId)}`,
-    jsonRequest('PUT', input)
-  ));
+
+  const value = await codeGenerationUpdateTemplate(
+    http,
+    { templateId, body: input as unknown as Parameters<typeof codeGenerationUpdateTemplate>[1]['body'] },
+    signal
+  );
+
+  return readTemplate(value);
+
 }
+
+
 
 export async function deleteCodeGenerationTemplate(
+
   templateId: string,
-  version: number
+
+  version: number,
+
+  signal?: AbortSignal
+
 ): Promise<void> {
-  await request<unknown>(
-    `${templatesPath}/${encodeURIComponent(templateId)}/delete`,
-    jsonRequest('POST', { version })
+
+  await codeGenerationDeleteTemplate(
+
+    http,
+
+    { templateId, body: { version } },
+
+    signal
+
   );
+
 }
+
+
 
 function readTemplate(value: unknown): CodeGenerationTemplateResponse {
+
   if (!isCodeGenerationTemplateResponse(value)) {
+
     throw new Error('client.invalid_code_generation_template');
+
   }
 
+
+
   return value;
+
 }
 
-function jsonRequest(method: string, body: unknown): RequestInit {
-  return {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
-  };
-}
+
+
+export type {
+
+  CodeGenerationTemplatePage,
+
+  CodeGenerationTemplateResponse,
+
+  CreateCodeGenerationTemplateRequest,
+
+  UpdateCodeGenerationTemplateRequest
+
+};
+
+

@@ -19,6 +19,7 @@ internal static class OpenApiNotificationsHostAnnouncementsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -68,6 +69,43 @@ internal static class OpenApiNotificationsHostAnnouncementsContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "NotificationsHostAnnouncements";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/host-announcements",
+            HttpMethod.Get,
+            "notificationsListHostAnnouncements",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/host-announcements",
+            HttpMethod.Post,
+            "notificationsCreateHostAnnouncement",
+            tag,
+            201,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/host-announcements/{announcementId}",
+            HttpMethod.Put,
+            "notificationsUpdateHostAnnouncement",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/host-announcements/{announcementId}/publish",
+            HttpMethod.Post,
+            "notificationsPublishHostAnnouncement",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

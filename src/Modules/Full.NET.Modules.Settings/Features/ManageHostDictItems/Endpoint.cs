@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var typeGroup = endpoints.MapGroup("/api/v1/settings/dict-types/{dictTypeId:guid}/items")
-            .WithTags("Settings");
+            .WithTags("SettingsHostDictTypes");
 
         typeGroup.MapGet("/", async (
             Guid dictTypeId,
@@ -32,7 +32,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListHostDictItems")
         .Produces<PagedResult<DictItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DictTypeManagementPermissions.Read));
 
@@ -55,12 +59,18 @@ internal static class Endpoint
                 $"/api/v1/settings/dict-items/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("settingsCreateHostDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DictTypeManagementPermissions.Create));
 
         var itemGroup = endpoints.MapGroup("/api/v1/settings/dict-items")
-            .WithTags("Settings");
+            .WithTags("SettingsHostDictTypes");
 
         itemGroup.MapGet("/{dictItemId:guid}", async (
             Guid dictItemId,
@@ -73,7 +83,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsGetHostDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DictTypeManagementPermissions.Read));
 
@@ -89,7 +103,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsUpdateHostDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DictTypeManagementPermissions.Update));
 
@@ -104,7 +124,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsDisableHostDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DictTypeManagementPermissions.Disable));
 
@@ -126,7 +150,13 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("settingsDeleteHostDictItem")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             DictTypeManagementPermissions.Delete));
     }

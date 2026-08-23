@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { request } from './http';
+import { http } from './http';
 import {
   createHostTenantPackage,
   disableHostTenantPackage,
@@ -7,8 +7,13 @@ import {
   updateHostTenantPackage
 } from './tenant-packages';
 
-vi.mock('./http', () => ({ request: vi.fn() }));
-const requestMock = vi.mocked(request);
+vi.mock('./http', () => ({
+  http: {
+    request: vi.fn(),
+    requestBlob: vi.fn()
+  }
+}));
+const requestMock = vi.mocked(http.request);
 
 const samplePackage = {
   id: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
@@ -33,7 +38,9 @@ describe('Vue Host 租户套餐 API', () => {
 
     await expect(listHostTenantPackages()).resolves.toMatchObject({ total: 1 });
     expect(requestMock).toHaveBeenCalledWith(
-      '/api/v1/tenancy/tenant-packages?page=1&pageSize=20'
+      '/api/v1/tenancy/tenant-packages?page=1&pageSize=20',
+      { method: 'GET' },
+      undefined
     );
   });
 
@@ -55,11 +62,18 @@ describe('Vue Host 租户套餐 API', () => {
           name: '标准版',
           description: '默认套餐'
         })
-      })
+      }),
+      undefined
     );
 
     await expect(disableHostTenantPackage(samplePackage.id))
       .resolves.toMatchObject({ isActive: false });
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/tenancy/tenant-packages/${samplePackage.id}/disable`,
+      { method: 'POST' },
+      undefined
+    );
   });
 
   it('通过 JSON 正文更新套餐', async () => {
@@ -77,7 +91,8 @@ describe('Vue Host 租户套餐 API', () => {
           description: '说明',
           version: 1
         })
-      })
+      }),
+      undefined
     );
   });
 });

@@ -1,14 +1,22 @@
-import { request } from './http';
 import {
   isHostJobSchedule,
   isHostJobScheduleCronPreview,
   isHostJobScheduleDefinitionOptionList,
   isHostJobSchedulePage,
+  jobsCreateHostJobSchedule,
+  jobsDeleteHostJobSchedule,
+  jobsListHostJobScheduleDefinitionOptions,
+  jobsListHostJobSchedules,
+  jobsPauseHostJobSchedule,
+  jobsPreviewHostJobScheduleCron,
+  jobsResumeHostJobSchedule,
+  jobsUpdateHostJobSchedule,
   type HostJobSchedule,
   type HostJobScheduleCronPreview,
   type HostJobScheduleDefinitionOption,
   type HostJobSchedulePage
 } from '@fullnet/client-contracts';
+import { http } from './http';
 
 export interface ListHostJobSchedulesParams {
   page?: number;
@@ -19,63 +27,55 @@ export interface ListHostJobSchedulesParams {
   triggerKind?: string;
 }
 
-function buildScheduleListQuery(params: ListHostJobSchedulesParams): string {
-  const query = new URLSearchParams();
-  query.set('page', String(params.page ?? 1));
-  query.set('pageSize', String(params.pageSize ?? 20));
-  if (params.jobDefinitionId) {
-    query.set('jobDefinitionId', params.jobDefinitionId);
-  }
-  if (params.search?.trim()) {
-    query.set('search', params.search.trim());
-  }
-  if (params.isEnabled !== undefined) {
-    query.set('isEnabled', String(params.isEnabled));
-  }
-  if (params.triggerKind) {
-    query.set('triggerKind', params.triggerKind);
-  }
-  return query.toString();
-}
-
 export async function listHostJobSchedules(
-  params: ListHostJobSchedulesParams = {}
+  params: ListHostJobSchedulesParams = {},
+  signal?: AbortSignal
 ): Promise<HostJobSchedulePage> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-schedules?${buildScheduleListQuery(params)}`
+  const search = params.search?.trim();
+  const value = await jobsListHostJobSchedules(
+    http,
+    {
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+      jobDefinitionId: params.jobDefinitionId,
+      search: search ? search : undefined,
+      isEnabled: params.isEnabled,
+      triggerKind: params.triggerKind
+    },
+    signal
   );
   if (!isHostJobSchedulePage(value)) {
-    throw new Error('Invalid host job schedule page response');
+    throw new Error('client.invalid_host_job_schedule_page');
   }
+
   return value;
 }
 
-export async function listHostJobScheduleDefinitionOptions(): Promise<
-  HostJobScheduleDefinitionOption[]
-> {
-  const value = await request<unknown>(
-    '/api/v1/jobs/host-schedules/definition-options'
-  );
+export async function listHostJobScheduleDefinitionOptions(
+  signal?: AbortSignal
+): Promise<HostJobScheduleDefinitionOption[]> {
+  const value = await jobsListHostJobScheduleDefinitionOptions(http, {}, signal);
   if (!isHostJobScheduleDefinitionOptionList(value)) {
-    throw new Error('Invalid host job schedule definition options response');
+    throw new Error('client.invalid_host_job_schedule_definition_options');
   }
+
   return value;
 }
 
 export async function previewHostJobScheduleCron(
   cronExpression: string,
-  timeZoneId: string
+  timeZoneId: string,
+  signal?: AbortSignal
 ): Promise<HostJobScheduleCronPreview> {
-  const query = new URLSearchParams({
-    cronExpression,
-    timeZoneId
-  });
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-schedules/cron-preview?${query.toString()}`
+  const value = await jobsPreviewHostJobScheduleCron(
+    http,
+    { cronExpression, timeZoneId },
+    signal
   );
   if (!isHostJobScheduleCronPreview(value)) {
-    throw new Error('Invalid host job schedule cron preview response');
+    throw new Error('client.invalid_host_job_schedule_cron_preview');
   }
+
   return value;
 }
 
@@ -88,26 +88,30 @@ export async function createHostJobSchedule(
   oneTimeAtUtc?: string | null,
   startTime?: string | null,
   endTime?: string | null,
-  args?: string | null
+  args?: string | null,
+  signal?: AbortSignal
 ): Promise<HostJobSchedule> {
-  const value = await request<unknown>('/api/v1/jobs/host-schedules', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      jobDefinitionId,
-      triggerKind,
-      cronExpression: cronExpression ?? null,
-      timeZoneId,
-      oneTimeAtUtc: oneTimeAtUtc ?? null,
-      misfirePolicy,
-      startTime: startTime ?? null,
-      endTime: endTime ?? null,
-      args: args ?? null
-    })
-  });
+  const value = await jobsCreateHostJobSchedule(
+    http,
+    {
+      body: {
+        jobDefinitionId,
+        triggerKind,
+        cronExpression: cronExpression ?? null,
+        timeZoneId,
+        oneTimeAtUtc: oneTimeAtUtc ?? null,
+        misfirePolicy,
+        startTime: startTime ?? null,
+        endTime: endTime ?? null,
+        args: args ?? null
+      }
+    },
+    signal
+  );
   if (!isHostJobSchedule(value)) {
-    throw new Error('Invalid host job schedule payload.');
+    throw new Error('client.invalid_host_job_schedule');
   }
+
   return value;
 }
 
@@ -121,14 +125,14 @@ export async function updateHostJobSchedule(
   oneTimeAtUtc?: string | null,
   startTime?: string | null,
   endTime?: string | null,
-  args?: string | null
+  args?: string | null,
+  signal?: AbortSignal
 ): Promise<HostJobSchedule> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}`,
+  const value = await jobsUpdateHostJobSchedule(
+    http,
     {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
+      scheduleId: id,
+      body: {
         triggerKind,
         cronExpression: cronExpression ?? null,
         timeZoneId,
@@ -138,61 +142,75 @@ export async function updateHostJobSchedule(
         endTime: endTime ?? null,
         args: args ?? null,
         version
-      })
-    }
+      }
+    },
+    signal
   );
   if (!isHostJobSchedule(value)) {
-    throw new Error('Invalid host job schedule payload.');
+    throw new Error('client.invalid_host_job_schedule');
   }
+
   return value;
 }
 
 export async function pauseHostJobSchedule(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostJobSchedule> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/pause`,
+  const value = await jobsPauseHostJobSchedule(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      scheduleId: id,
+      body: { version }
+    },
+    signal
   );
   if (!isHostJobSchedule(value)) {
-    throw new Error('Invalid host job schedule payload.');
+    throw new Error('client.invalid_host_job_schedule');
   }
+
   return value;
 }
 
 export async function resumeHostJobSchedule(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostJobSchedule> {
-  const value = await request<unknown>(
-    `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/resume`,
+  const value = await jobsResumeHostJobSchedule(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      scheduleId: id,
+      body: { version }
+    },
+    signal
   );
   if (!isHostJobSchedule(value)) {
-    throw new Error('Invalid host job schedule payload.');
+    throw new Error('client.invalid_host_job_schedule');
   }
+
   return value;
 }
 
 export async function deleteHostJobSchedule(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<void> {
-  await request<unknown>(
-    `/api/v1/jobs/host-schedules/${encodeURIComponent(id)}/delete`,
+  await jobsDeleteHostJobSchedule(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      scheduleId: id,
+      body: { version }
+    },
+    signal
   );
 }
+
+export type {
+  HostJobSchedule,
+  HostJobScheduleCronPreview,
+  HostJobScheduleDefinitionOption,
+  HostJobSchedulePage
+};

@@ -14,7 +14,7 @@ internal static class Endpoint
     {
         var typeGroup = endpoints
             .MapGroup("/api/v1/settings/tenant-dict-types/{dictTypeId:guid}/items")
-            .WithTags("Settings");
+            .WithTags("SettingsTenantDictTypes");
 
         typeGroup.MapGet("/", async (
             Guid dictTypeId,
@@ -33,7 +33,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListTenantDictItems")
         .Produces<PagedResult<DictItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Read));
 
@@ -56,12 +60,18 @@ internal static class Endpoint
                 $"/api/v1/settings/tenant-dict-items/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("settingsCreateTenantDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Create));
 
         var itemGroup = endpoints.MapGroup("/api/v1/settings/tenant-dict-items")
-            .WithTags("Settings");
+            .WithTags("SettingsTenantDictTypes");
 
         itemGroup.MapGet("/{dictItemId:guid}", async (
             Guid dictItemId,
@@ -74,7 +84,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsGetTenantDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Read));
 
@@ -90,7 +104,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsUpdateTenantDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Update));
 
@@ -105,11 +125,14 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsDisableTenantDictItem")
         .Produces<DictItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Disable));
 
-        // 硬删除已禁用的租户字典项，对应 Admin.NET DeleteDictItem；前置校验失败返回 ProblemDetails。
         itemGroup.MapPost("/{dictItemId:guid}/delete", async (
             Guid dictItemId,
             DeleteDictItemRequest request,
@@ -127,7 +150,13 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("settingsDeleteTenantDictItem")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenantDictTypeManagementPermissions.Delete));
     }

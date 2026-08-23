@@ -1,135 +1,267 @@
 import {
-  isCodeGenerationRunApplyResponse,
-  isCodeGenerationRunPage,
-  isCodeGenerationRunRollbackResponse,
-  isCodeGenerationRunRollbackChainResponse,
-  isCodeGenerationRunPreviewResponse,
+
   buildCodeGenerationRollbackApplyRunIds,
+
+  codeGenerationApplyRun,
+
+  codeGenerationDownloadRunArtifacts,
+
+  codeGenerationListRuns,
+
+  codeGenerationPreviewRun,
+
+  codeGenerationRollbackRun,
+
+  codeGenerationRollbackRunChain,
+
+  isCodeGenerationRunApplyResponse,
+
+  isCodeGenerationRunPage,
+
+  isCodeGenerationRunPreviewResponse,
+
+  isCodeGenerationRunRollbackChainResponse,
+
+  isCodeGenerationRunRollbackResponse,
+
   type CodeGenerationRunApplyRequest,
+
   type CodeGenerationRunApplyResponse,
+
   type CodeGenerationRunPage,
-  type CodeGenerationRunRollbackRequest,
-  type CodeGenerationRunRollbackResponse,
-  type CodeGenerationRunRollbackChainRequest,
-  type CodeGenerationRunRollbackChainResponse,
+
   type CodeGenerationRunPreviewRequest,
+
   type CodeGenerationRunPreviewResponse,
+
   type CodeGenerationRunResponse,
+
+  type CodeGenerationRunRollbackChainRequest,
+
+  type CodeGenerationRunRollbackChainResponse,
+
+  type CodeGenerationRunRollbackRequest,
+
+  type CodeGenerationRunRollbackResponse,
+
   type CodeGenerationRunStatus
+
 } from '@fullnet/client-contracts';
-import { request, requestBlob } from './http';
+
+import { http } from './http';
+
+
 
 export async function previewTrackedCodeGeneration(
-  input: CodeGenerationRunPreviewRequest
+
+  input: CodeGenerationRunPreviewRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationRunPreviewResponse> {
-  const value = await request<unknown>(
-    '/api/v1/code-generation/runs/preview',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input)
-    }
+
+  const value = await codeGenerationPreviewRun(
+    http,
+    { body: input as unknown as Parameters<typeof codeGenerationPreviewRun>[1]['body'] },
+    signal
   );
+
   if (!isCodeGenerationRunPreviewResponse(value)) {
+
     throw new Error('client.invalid_code_generation_run_preview');
+
   }
 
+
+
   return value;
+
 }
+
+
 
 export async function applyTrackedCodeGeneration(
-  input: CodeGenerationRunApplyRequest
+
+  input: CodeGenerationRunApplyRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationRunApplyResponse> {
-  const value = await request<unknown>(
-    '/api/v1/code-generation/runs/apply',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input)
-    }
-  );
+
+  const value = await codeGenerationApplyRun(http, { body: input }, signal);
+
   if (!isCodeGenerationRunApplyResponse(value)) {
+
     throw new Error('client.invalid_code_generation_run_apply');
+
   }
 
+
+
   return value;
+
 }
+
+
 
 export async function rollbackTrackedCodeGeneration(
-  input: CodeGenerationRunRollbackRequest
+
+  input: CodeGenerationRunRollbackRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationRunRollbackResponse> {
-  const value = await request<unknown>(
-    '/api/v1/code-generation/runs/rollback',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input)
-    }
-  );
+
+  const value = await codeGenerationRollbackRun(http, { body: input }, signal);
+
   if (!isCodeGenerationRunRollbackResponse(value)) {
+
     throw new Error('client.invalid_code_generation_run_rollback');
+
   }
 
+
+
   return value;
+
 }
+
+
 
 export async function rollbackChainTrackedCodeGeneration(
-  input: CodeGenerationRunRollbackChainRequest
+
+  input: CodeGenerationRunRollbackChainRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationRunRollbackChainResponse> {
-  const value = await request<unknown>(
-    '/api/v1/code-generation/runs/rollback-chain',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input)
-    }
-  );
+
+  const value = await codeGenerationRollbackRunChain(http, { body: input }, signal);
+
   if (!isCodeGenerationRunRollbackChainResponse(value)) {
+
     throw new Error('client.invalid_code_generation_run_rollback_chain');
+
   }
 
+
+
   return value;
+
 }
+
+
 
 export async function executeTrackedCodeGenerationRollback(
+
   runs: readonly CodeGenerationRunResponse[],
+
   targetApplyRunId: string
+
 ): Promise<void> {
+
   const applyRunIds = buildCodeGenerationRollbackApplyRunIds(
+
     runs,
+
     targetApplyRunId
+
   );
+
   if (applyRunIds.length === 1) {
+
     await rollbackTrackedCodeGeneration({ applyRunId: applyRunIds[0] });
+
     return;
+
   }
+
+
 
   await rollbackChainTrackedCodeGeneration({ applyRunIds });
+
 }
+
+
 
 export async function listCodeGenerationRuns(
-  status?: CodeGenerationRunStatus
+
+  status?: CodeGenerationRunStatus,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationRunPage> {
-  const query = new URLSearchParams({
-    page: '1',
-    pageSize: '20'
-  });
-  if (status) {
-    query.set('status', status);
+
+  const value = await codeGenerationListRuns(
+
+    http,
+
+    {
+
+      page: 1,
+
+      pageSize: 20,
+
+      status
+
+    },
+
+    signal
+
+  );
+
+  if (!isCodeGenerationRunPage(value)) {
+
+    throw new Error('client.invalid_code_generation_run_page');
+
   }
 
-  const value = await request<unknown>(
-    `/api/v1/code-generation/runs?${query.toString()}`
-  );
-  if (!isCodeGenerationRunPage(value)) {
-    throw new Error('client.invalid_code_generation_run_page');
-  }
+
 
   return value;
+
 }
 
-export async function downloadCodeGenerationArtifacts(runId: string): Promise<Blob> {
-  return requestBlob(
-    `/api/v1/code-generation/runs/${encodeURIComponent(runId)}/artifacts.zip`
-  );
+
+
+export async function downloadCodeGenerationArtifacts(
+
+  runId: string,
+
+  signal?: AbortSignal
+
+): Promise<Blob> {
+
+  return codeGenerationDownloadRunArtifacts(http, { runId }, signal);
+
 }
+
+
+
+export type {
+
+  CodeGenerationRunApplyRequest,
+
+  CodeGenerationRunApplyResponse,
+
+  CodeGenerationRunPage,
+
+  CodeGenerationRunPreviewRequest,
+
+  CodeGenerationRunPreviewResponse,
+
+  CodeGenerationRunResponse,
+
+  CodeGenerationRunRollbackChainRequest,
+
+  CodeGenerationRunRollbackChainResponse,
+
+  CodeGenerationRunRollbackRequest,
+
+  CodeGenerationRunRollbackResponse,
+
+  CodeGenerationRunStatus
+
+};
+
+

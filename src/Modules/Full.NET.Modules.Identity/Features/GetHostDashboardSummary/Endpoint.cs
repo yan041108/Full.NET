@@ -22,8 +22,11 @@ internal static class Endpoint
                         .ConfigureAwait(false);
                     return mapper.Map(result, httpContext);
                 })
-            .WithTags("Platform")
+            .WithTags("PlatformHostDashboard")
+            .WithName("platformGetHostDashboardSummary")
             .Produces<HostDashboardSummaryResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(
                 FullNetPermissionPolicies.For(IdentityAuthorizationContributor.DashboardRead));
     }

@@ -1,24 +1,47 @@
 import {
+
+  codeGenerationPreviewCrud,
+
   isCodeGenerationPreviewResponse,
+
   type CodeGenerationPreviewRequest,
+
   type CodeGenerationPreviewResponse
+
 } from '@fullnet/client-contracts';
-import { request } from './http';
+
+import { http } from './http';
+
+
 
 export async function previewCodeGeneration(
-  input: CodeGenerationPreviewRequest
+
+  input: CodeGenerationPreviewRequest,
+
+  signal?: AbortSignal
+
 ): Promise<CodeGenerationPreviewResponse> {
-  const value = await request<unknown>(
-    '/api/v1/code-generation/previews',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input)
-    }
+
+  const value = await codeGenerationPreviewCrud(
+    http,
+    { body: input as unknown as Parameters<typeof codeGenerationPreviewCrud>[1]['body'] },
+    signal
   );
+
   if (!isCodeGenerationPreviewResponse(value)) {
+
     throw new Error('client.invalid_code_generation_preview');
+
   }
 
+
+
   return value;
+
 }
+
+
+
+export type { CodeGenerationPreviewRequest, CodeGenerationPreviewResponse };
+
+

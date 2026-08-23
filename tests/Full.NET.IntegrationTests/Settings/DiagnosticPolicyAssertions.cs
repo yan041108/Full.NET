@@ -24,6 +24,7 @@ internal static class DiagnosticPolicyAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
 
+        await OpenApiSettingsDiagnosticPolicyContractAssertions.VerifyAsync(client, cancellationToken);
         await VerifyReadRequiresPermissionAsync(factory, client, cancellationToken);
         await VerifyUpdateRejectsInvalidScopeAndTtlAsync(client, cancellationToken);
         await VerifyUpdateRestoreAndDomainAuditAsync(factory, client, cancellationToken);

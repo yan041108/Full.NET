@@ -12,7 +12,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/settings/enum-catalogs")
-            .WithTags("Settings");
+            .WithTags("SettingsHostEnumCatalogs");
 
         group.MapGet("/", async (
             HostEnumCatalogQueryService queries,
@@ -24,7 +24,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsListHostEnumCatalogs")
         .Produces<IReadOnlyList<EnumCatalogSummary>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnumCatalogPermissions.Read));
 
@@ -39,7 +42,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("settingsGetHostEnumCatalog")
         .Produces<EnumCatalogDetail>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnumCatalogPermissions.Read));
     }

@@ -19,6 +19,7 @@ internal static class OpenApiCodeGenerationCatalogContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApi = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApi.RootElement);
 
         var actualPaths = openApi.RootElement.GetProperty("paths");
         foreach (var expectedPath in contract.RootElement
@@ -42,6 +43,36 @@ internal static class OpenApiCodeGenerationCatalogContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "CodeGenerationCatalog";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/catalog/tables",
+            HttpMethod.Get,
+            "codeGenerationListCatalogTables",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/catalog/tables/{tableName}/columns",
+            HttpMethod.Get,
+            "codeGenerationListCatalogColumns",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/catalog/column-sync",
+            HttpMethod.Post,
+            "codeGenerationSyncCatalogColumns",
+            tag,
+            200,
+            "application/json",
+            "application/json");
     }
 
     private static async Task<JsonDocument> LoadContractAsync(

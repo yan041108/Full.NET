@@ -15,7 +15,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/organization/units")
-            .WithTags("Organization");
+            .WithTags("OrganizationTenantUnits");
 
         group.MapGet("/", async (
             ClaimsPrincipal principal,
@@ -43,7 +43,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationListTenantUnits")
         .Produces<PagedResult<OrganizationUnitResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUnitManagementPermissions.Read));
 
@@ -71,7 +74,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationGetTenantUnit")
         .Produces<OrganizationUnitResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUnitManagementPermissions.Read));
 
@@ -93,7 +100,12 @@ internal static class Endpoint
                 $"/api/v1/organization/units/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("organizationCreateTenantUnit")
         .Produces<OrganizationUnitResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUnitManagementPermissions.Create));
 
@@ -109,7 +121,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationUpdateTenantUnit")
         .Produces<OrganizationUnitResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUnitManagementPermissions.Update));
 
@@ -124,7 +142,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("organizationDisableTenantUnit")
         .Produces<OrganizationUnitResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             OrganizationUnitManagementPermissions.Disable));
     }

@@ -19,6 +19,7 @@ internal static class OpenApiPlatformHostDashboardContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -58,6 +59,19 @@ internal static class OpenApiPlatformHostDashboardContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "PlatformHostDashboard";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/platform/host-dashboard-summary",
+            HttpMethod.Get,
+            "platformGetHostDashboardSummary",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

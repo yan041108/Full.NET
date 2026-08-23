@@ -1,0 +1,66 @@
+{
+  "id": "document-host-recycle-bin-v1",
+  "version": 1,
+  "description": "Host 文档回收站 HTTP 契约冻结夹具；与 HostDocumentContracts 和 QueryHostRecycleBin.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/recycle-bin",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_recycle_bin.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentItemResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/recycle-bin/{id}/restore",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_recycle_bin.restore",
+          "successStatus": 200,
+          "requestSchema": "RestoreHostDocumentItemRequest",
+          "responseSchema": "HostDocumentItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/recycle-bin/{id}/purge",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_recycle_bin.purge",
+          "successStatus": 200
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "RestoreHostDocumentItemRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostDocumentItemResponse": {
+      "properties": [
+        "id",
+        "documentNo",
+        "title",
+        "description",
+        "categoryId",
+        "version"
+      ]
+    },
+    "HostDocumentItemResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentItemResponse"
+    }
+  }
+}

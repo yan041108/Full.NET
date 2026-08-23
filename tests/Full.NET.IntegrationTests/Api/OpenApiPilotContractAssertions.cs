@@ -16,7 +16,8 @@ internal static class OpenApiPilotContractAssertions
         int successStatus,
         string? expectedResponseMediaType,
         string? expectedRequestMediaType = null,
-        bool allowsSignature = false)
+        bool allowsSignature = false,
+        bool isPublic = false)
     {
         var operation = document
             .GetProperty("paths")
@@ -30,7 +31,7 @@ internal static class OpenApiPilotContractAssertions
             .ToArray();
         CollectionAssert.AreEqual(new[] { primaryTag }, tags);
 
-        AssertDeclaredSecurity(document, operation, method, path, allowsSignature);
+        AssertDeclaredSecurity(document, operation, method, path, allowsSignature, isPublic);
         AssertProblemDetails(operation, method, path);
         AssertSuccessResponse(
             document,
@@ -57,12 +58,25 @@ internal static class OpenApiPilotContractAssertions
         JsonElement operation,
         HttpMethod method,
         string path,
-        bool allowsSignature)
+        bool allowsSignature,
+        bool isPublic)
     {
         Assert.IsTrue(
             operation.TryGetProperty("security", out var security)
-            && security.ValueKind == JsonValueKind.Array
-            && security.GetArrayLength() > 0,
+            && security.ValueKind == JsonValueKind.Array,
+            $"{method.Method} {path} 缺少 Operation 安全声明。");
+
+        if (isPublic)
+        {
+            Assert.AreEqual(
+                0,
+                security.GetArrayLength(),
+                $"{method.Method} {path} 的公开 Operation 必须显式声明空 security 数组。");
+            return;
+        }
+
+        Assert.IsTrue(
+            security.GetArrayLength() > 0,
             $"{method.Method} {path} 缺少 Operation 安全声明。");
 
         var declaredSchemes = security

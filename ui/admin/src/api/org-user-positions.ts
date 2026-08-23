@@ -2,82 +2,99 @@ import {
   isOrganizationAssignableUserPage,
   isOrganizationUserPosition,
   isOrganizationUserPositionPage,
+  organizationCreateTenantUserPosition,
+  organizationDisableTenantUserPosition,
+  organizationListAssignableTenantUserPositionUsers,
+  organizationListTenantUserPositions,
+  organizationUpdateTenantUserPosition,
   type OrganizationAssignableUserPage,
   type OrganizationUserPosition,
   type OrganizationUserPositionPage
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function listAssignableOrganizationUserPositionUsers(
   page = 1,
-  pageSize = 100
+  pageSize = 100,
+  signal?: AbortSignal
 ): Promise<OrganizationAssignableUserPage> {
-  const value = await request<unknown>(
-    `/api/v1/organization/user-positions/assignable-users?page=${page}&pageSize=${pageSize}`
+  const value = await organizationListAssignableTenantUserPositionUsers(
+    http,
+    { page, pageSize },
+    signal
   );
   if (!isOrganizationAssignableUserPage(value)) {
     throw new Error('client.invalid_organization_assignable_user_page');
   }
+
   return value;
 }
 
 export async function listOrganizationUserPositions(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPositionPage> {
-  const value = await request<unknown>(
-    `/api/v1/organization/user-positions?page=${page}&pageSize=${pageSize}`
+  const value = await organizationListTenantUserPositions(
+    http,
+    { page, pageSize },
+    signal
   );
   if (!isOrganizationUserPositionPage(value)) {
     throw new Error('client.invalid_organization_user_position_page');
   }
+
   return value;
 }
 
 export async function createOrganizationUserPosition(
   userId: string,
   positionId: string,
-  isPrimary = false
+  isPrimary = false,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPosition> {
-  const value = await request<unknown>('/api/v1/organization/user-positions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ userId, positionId, isPrimary })
-  });
+  const value = await organizationCreateTenantUserPosition(
+    http,
+    { body: { userId, positionId, isPrimary } },
+    signal
+  );
   if (!isOrganizationUserPosition(value)) {
     throw new Error('client.invalid_organization_user_position');
   }
+
   return value;
 }
 
 export async function updateOrganizationUserPosition(
   id: string,
   isPrimary: boolean,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPosition> {
-  const value = await request<unknown>(
-    `/api/v1/organization/user-positions/${encodeURIComponent(id)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ isPrimary, version })
-    }
+  const value = await organizationUpdateTenantUserPosition(
+    http,
+    { assignmentId: id, body: { isPrimary, version } },
+    signal
   );
   if (!isOrganizationUserPosition(value)) {
     throw new Error('client.invalid_organization_user_position');
   }
+
   return value;
 }
 
 export async function disableOrganizationUserPosition(
-  id: string
+  id: string,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPosition> {
-  const value = await request<unknown>(
-    `/api/v1/organization/user-positions/${encodeURIComponent(id)}/disable`,
-    { method: 'POST' }
+  const value = await organizationDisableTenantUserPosition(
+    http,
+    { assignmentId: id },
+    signal
   );
   if (!isOrganizationUserPosition(value)) {
     throw new Error('client.invalid_organization_user_position');
   }
+
   return value;
 }

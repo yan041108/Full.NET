@@ -19,6 +19,7 @@ internal static class OpenApiNotificationsInboxMessagesContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -68,6 +69,52 @@ internal static class OpenApiNotificationsInboxMessagesContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string myTag = "NotificationsMyInboxMessages";
+        const string hostTag = "NotificationsHostInboxMessages";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-inbox-messages",
+            HttpMethod.Get,
+            "notificationsListMyInboxMessages",
+            myTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-inbox-messages/unread-count",
+            HttpMethod.Get,
+            "notificationsGetMyInboxUnreadCount",
+            myTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-inbox-messages/{messageId}/read",
+            HttpMethod.Post,
+            "notificationsMarkMyInboxMessageRead",
+            myTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-inbox-messages/read-all",
+            HttpMethod.Post,
+            "notificationsMarkAllMyInboxMessagesRead",
+            myTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/host-inbox-messages",
+            HttpMethod.Post,
+            "notificationsSendHostInboxMessage",
+            hostTag,
+            201,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

@@ -58,6 +58,12 @@ test('Host 租户套餐 OpenAPI 夹具与 C# 契约和端点源码一致', async
   assert.match(contractsSource, /tenancy\.tenant_packages\.create/u);
   assert.match(contractsSource, /tenancy\.tenant_packages\.disable/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/tenancy\/tenant-packages"\)/u);
+  assert.match(endpointSource, /WithTags\("TenancyHostTenantPackages"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyListHostTenantPackages"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyGetHostTenantPackage"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyCreateHostTenantPackage"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyUpdateHostTenantPackage"\)/u);
+  assert.match(endpointSource, /WithName\("tenancyDisableHostTenantPackage"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/tenancy/tenant-packages', new Map([

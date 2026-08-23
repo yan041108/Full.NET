@@ -15,6 +15,13 @@ test('流水号规则 OpenAPI 夹具与 C# 契约和端点一致', async () => {
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
   assert.equal(contract.id, 'serial-numbers-rules-v1');
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/serial-numbers\/rules"\)/u);
+  assert.match(endpointSource, /\.WithTags\("SerialNumbersHostRules"\)/u);
+  assert.match(endpointSource, /\.WithName\("serialNumbersListRules"\)/u);
+  assert.match(endpointSource, /\.WithName\("serialNumbersCreateRule"\)/u);
+  assert.match(endpointSource, /\.WithName\("serialNumbersUpdateRule"\)/u);
+  assert.match(endpointSource, /\.WithName\("serialNumbersEnableRule"\)/u);
+  assert.match(endpointSource, /\.WithName\("serialNumbersDisableRule"\)/u);
+  assert.match(endpointSource, /\.WithName\("serialNumbersPreviewSerialNumber"\)/u);
   assert.match(contractsSource, /record SerialNumberRuleResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/preview')));
 });

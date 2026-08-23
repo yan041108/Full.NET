@@ -1,0 +1,98 @@
+{
+  "id": "document-host-tags-v1",
+  "version": 1,
+  "description": "Host 文档标签 HTTP 契约冻结夹具；与 HostDocumentTagContracts 和 ManageHostDocumentTags.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/tags",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.tags.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentTagResponseList"
+        },
+        {
+          "method": "POST",
+          "permission": "document.tags.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentTagRequest",
+          "responseSchema": "HostDocumentTagResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/tags/{tagId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.tags.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentTagResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "document.tags.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostDocumentTagRequest",
+          "responseSchema": "HostDocumentTagResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/tags/{tagId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.tags.delete",
+          "successStatus": 200,
+          "requestSchema": "DeleteHostDocumentTagRequest"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateHostDocumentTagRequest": {
+      "properties": [
+        "name",
+        "code",
+        "icon",
+        "color",
+        "description"
+      ]
+    },
+    "UpdateHostDocumentTagRequest": {
+      "properties": [
+        "name",
+        "code",
+        "icon",
+        "color",
+        "description",
+        "version"
+      ]
+    },
+    "DeleteHostDocumentTagRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "HostDocumentTagResponse": {
+      "properties": [
+        "id",
+        "name",
+        "code",
+        "icon",
+        "color",
+        "description",
+        "useCount",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "HostDocumentTagResponseList": {
+      "properties": [],
+      "itemSchema": "HostDocumentTagResponse"
+    }
+  }
+}

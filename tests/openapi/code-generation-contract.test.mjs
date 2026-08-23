@@ -57,11 +57,26 @@ test('代码生成 OpenAPI 冻结路径与端点源码保持一致', async () =>
   ), 'utf8');
 
   assert.match(previewEndpoint, /\/api\/v1\/code-generation\/previews/u);
+  assert.match(previewEndpoint, /\.WithTags\("CodeGenerationPreviews"\)/u);
+  assert.match(previewEndpoint, /\.WithName\("codeGenerationPreviewCrud"\)/u);
   assert.match(runEndpoint, /MapGroup\("\/api\/v1\/code-generation\/runs"\)/u);
+  assert.match(runEndpoint, /\.WithTags\("CodeGenerationRuns"\)/u);
+  assert.match(runEndpoint, /\.WithName\("codeGenerationPreviewRun"\)/u);
+  assert.match(runEndpoint, /\.WithName\("codeGenerationApplyRun"\)/u);
+  assert.match(runEndpoint, /\.WithName\("codeGenerationRollbackRun"\)/u);
+  assert.match(runEndpoint, /\.WithName\("codeGenerationRollbackRunChain"\)/u);
+  assert.match(runEndpoint, /\.WithName\("codeGenerationListRuns"\)/u);
+  assert.match(runEndpoint, /\.WithName\("codeGenerationDownloadRunArtifacts"\)/u);
   assert.match(runEndpoint, /MapPost\("\/preview"/u);
   assert.match(runEndpoint, /MapPost\("\/apply"/u);
   assert.match(runEndpoint, /MapGet\("\/\{runId:guid\}"/u);
   assert.match(templateEndpoint, /MapGroup\("\/api\/v1\/code-generation\/templates"\)/u);
+  assert.match(templateEndpoint, /\.WithTags\("CodeGenerationTemplates"\)/u);
+  assert.match(templateEndpoint, /\.WithName\("codeGenerationListTemplates"\)/u);
+  assert.match(templateEndpoint, /\.WithName\("codeGenerationGetTemplate"\)/u);
+  assert.match(templateEndpoint, /\.WithName\("codeGenerationCreateTemplate"\)/u);
+  assert.match(templateEndpoint, /\.WithName\("codeGenerationUpdateTemplate"\)/u);
+  assert.match(templateEndpoint, /\.WithName\("codeGenerationDeleteTemplate"\)/u);
   assert.match(templateEndpoint, /MapPut\("\/\{templateId:guid\}"/u);
   assert.match(templateEndpoint, /MapPost\("\/\{templateId:guid\}\/delete"/u);
 });
@@ -77,6 +92,10 @@ test('代码生成目录 OpenAPI 夹具覆盖目录读取与字段同步端点',
     assert.match(route, /^\/api\/v1\/code-generation\/catalog/u);
   }
   assert.match(endpoint, /MapGroup\("\/api\/v1\/code-generation\/catalog"\)/u);
+  assert.match(endpoint, /\.WithTags\("CodeGenerationCatalog"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationListCatalogTables"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationListCatalogColumns"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationSyncCatalogColumns"\)/u);
   assert.match(endpoint, /MapGet\("\/tables"/u);
   assert.match(endpoint, /MapGet\("\/tables\/\{tableName\}\/columns"/u);
   assert.match(endpoint, /MapPost\("\/column-sync"/u);

@@ -49,7 +49,7 @@ test('租户数据字典 OpenAPI 夹具结构完整且路径唯一', async () =>
       seen.add(key);
       assert.match(
         operation.permission,
-        /^settings\.tenant_dict_types\.(read|create|update|disable)$/u
+        /^settings\.tenant_dict_types\.(read|create|update|disable|delete)$/u
       );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
@@ -86,10 +86,25 @@ test('租户数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', asyn
     tenantDictTypeEndpointSource,
     /MapGroup\("\/api\/v1\/settings\/tenant-dict-types"\)/u
   );
+  assert.match(tenantDictTypeEndpointSource, /WithTags\("SettingsTenantDictTypes"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsListTenantDictTypes"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsCreateTenantDictType"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsUpdateTenantDictType"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsDisableTenantDictType"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsDeleteTenantDictType"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsListAllTenantDictTypes"\)/u);
+  assert.match(tenantDictTypeEndpointSource, /WithName\("settingsListTenantDictItemsByTypeCode"\)/u);
   assert.match(
     tenantDictItemEndpointSource,
     /MapGroup\("\/api\/v1\/settings\/tenant-dict-types\/\{dictTypeId:guid\}\/items"\)/u
   );
+  assert.match(tenantDictItemEndpointSource, /WithTags\("SettingsTenantDictTypes"\)/u);
+  assert.match(tenantDictItemEndpointSource, /WithName\("settingsListTenantDictItems"\)/u);
+  assert.match(tenantDictItemEndpointSource, /WithName\("settingsCreateTenantDictItem"\)/u);
+  assert.match(tenantDictItemEndpointSource, /WithName\("settingsGetTenantDictItem"\)/u);
+  assert.match(tenantDictItemEndpointSource, /WithName\("settingsUpdateTenantDictItem"\)/u);
+  assert.match(tenantDictItemEndpointSource, /WithName\("settingsDisableTenantDictItem"\)/u);
+  assert.match(tenantDictItemEndpointSource, /WithName\("settingsDeleteTenantDictItem"\)/u);
   assert.match(
     tenantDictItemEndpointSource,
     /MapGroup\("\/api\/v1\/settings\/tenant-dict-items"\)/u
@@ -116,6 +131,24 @@ test('租户数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', asyn
         ['POST', 'MapPost("/{dictTypeId:guid}/disable",']
       ])
     }],
+    ['/api/v1/settings/tenant-dict-types/{dictTypeId}/delete', {
+      source: tenantDictTypeEndpointSource,
+      markers: new Map([
+        ['POST', 'MapPost("/{dictTypeId:guid}/delete",']
+      ])
+    }],
+    ['/api/v1/settings/tenant-dict-types/list', {
+      source: tenantDictTypeEndpointSource,
+      markers: new Map([
+        ['GET', 'MapGet("/list",']
+      ])
+    }],
+    ['/api/v1/settings/tenant-dict-types/by-code/{code}/items', {
+      source: tenantDictTypeEndpointSource,
+      markers: new Map([
+        ['GET', 'MapGet("/by-code/{code}/items",']
+      ])
+    }],
     ['/api/v1/settings/tenant-dict-types/{dictTypeId}/items', {
       source: tenantDictItemEndpointSource,
       markers: new Map([
@@ -126,6 +159,7 @@ test('租户数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', asyn
     ['/api/v1/settings/tenant-dict-items/{dictItemId}', {
       source: tenantDictItemEndpointSource,
       markers: new Map([
+        ['GET', 'MapGet("/{dictItemId:guid}",'],
         ['PUT', 'MapPut("/{dictItemId:guid}",']
       ])
     }],
@@ -133,6 +167,12 @@ test('租户数据字典 OpenAPI 夹具与 C# 契约和端点源码一致', asyn
       source: tenantDictItemEndpointSource,
       markers: new Map([
         ['POST', 'MapPost("/{dictItemId:guid}/disable",']
+      ])
+    }],
+    ['/api/v1/settings/tenant-dict-items/{dictItemId}/delete', {
+      source: tenantDictItemEndpointSource,
+      markers: new Map([
+        ['POST', 'MapPost("/{dictItemId:guid}/delete",']
       ])
     }]
   ]);

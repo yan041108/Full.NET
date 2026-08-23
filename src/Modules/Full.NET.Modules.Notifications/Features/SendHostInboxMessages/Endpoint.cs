@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/notifications/host-inbox-messages")
-            .WithTags("Notifications");
+            .WithTags("NotificationsHostInboxMessages");
 
         group.MapPost("/", async (
             SendHostInboxMessageRequest request,
@@ -38,7 +38,12 @@ internal static class Endpoint
                 $"/api/v1/notifications/my-inbox-messages/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("notificationsSendHostInboxMessage")
         .Produces<InboxMessageResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Send));
     }
 

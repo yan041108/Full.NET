@@ -1,13 +1,19 @@
-import { request } from './http';
 import {
   isHostDashboardSummary,
+  platformGetHostDashboardSummary,
   type HostDashboardSummary
 } from '@fullnet/client-contracts';
+import { http } from './http';
 
-export async function getHostDashboardSummary(): Promise<HostDashboardSummary> {
-  const value = await request<unknown>('/api/v1/platform/host-dashboard-summary');
+export async function getHostDashboardSummary(
+  signal?: AbortSignal
+): Promise<HostDashboardSummary> {
+  const value = await platformGetHostDashboardSummary(http, {}, signal);
   if (!isHostDashboardSummary(value)) {
-    throw new Error('Invalid host dashboard summary payload.');
+    throw new Error('client.invalid_host_dashboard_summary');
   }
+
   return value;
 }
+
+export type { HostDashboardSummary };

@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using System.IO;
 
 namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 
@@ -17,7 +18,7 @@ internal static class Endpoint
     {
         var group = endpoints
             .MapGroup("/api/v1/code-generation/runs")
-            .WithTags("CodeGeneration");
+            .WithTags("CodeGenerationRuns");
 
         group.MapPost("/preview", async (
             CodeGenerationRunPreviewRequest request,
@@ -38,9 +39,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationPreviewRun")
         .Produces<CodeGenerationRunPreviewResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status500InternalServerError)
@@ -66,9 +69,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationApplyRun")
         .Produces<CodeGenerationRunApplyResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status500InternalServerError)
@@ -94,6 +99,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationRollbackRun")
         .Produces<CodeGenerationRunRollbackResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -122,6 +128,7 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationRollbackRunChain")
         .Produces<CodeGenerationRunRollbackChainResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -148,9 +155,12 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationListRuns")
         .Produces<PagedResult<CodeGenerationRunResponse>>(
             StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Read));
 
@@ -167,7 +177,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationGetRun")
         .Produces<CodeGenerationRunResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationRunPermissions.Read));
@@ -187,12 +200,15 @@ internal static class Endpoint
             }
 
             return Results.File(
-                result.Value!.Content,
-                "application/zip",
+                new MemoryStream(result.Value!.Content),
+                "application/octet-stream",
                 result.Value.FileName);
         })
-        .Produces(StatusCodes.Status200OK, contentType: "application/zip")
+        .WithName("codeGenerationDownloadRunArtifacts")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(

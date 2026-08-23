@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/auditing/exception-logs")
-            .WithTags("Auditing");
+            .WithTags("AuditingHostExceptionLogs");
 
         group.MapGet("/", async (
             int? page,
@@ -38,8 +38,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("auditingListHostExceptionLogs")
         .Produces<PagedResult<ExceptionLogResponse>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(ExceptionLogPermissions.Read));
 
         group.MapGet("/{exceptionLogId:guid}", async (

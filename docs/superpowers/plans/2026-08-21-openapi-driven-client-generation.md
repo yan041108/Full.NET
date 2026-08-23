@@ -12,13 +12,12 @@
 
 **Baseline:** 计划编写基线为 `268f992448620261084166f35a5fb305e8fa9e8f`。执行者必须在每个 Task 开始时重新记录 `git rev-parse HEAD`；不得把本文基线当成任务快照或合并基线。
 
-## 执行状态（2026-08-21）
+## 执行状态（2026-08-23）
 
-- Task 1—6 已在 `codex/openapi-client-pilots` 完成并形成独立提交；第一阶段严格限制为 Identity Host Users、Files Host Files、Settings Host Config Entries 三类试点。
-- Task 7 首轮曾判定 `Pilot-stopped`；解除窗口在 `main` @ `37a5379d`（快照 `openapi-client-pilot-unblock-20260821`）修复 Vue Unit/Build 与 `nanoid` High advisory 后完整重跑门禁，判定更新为 `Pilot-passed`，见 [`openapi-client-generation-pilot-2026-08-21.md`](../../verification/openapi-client-generation-pilot-2026-08-21.md)。
-- 三类试点共 29 个 Operation 已从 `pilot` 提升为 `generated`；非试点模块继续保持手写实现。
-- 允许依据真实生成产物新建单模块迁移计划；禁止并行批量迁移，禁止修改 `ui/admin-layui`。
-- Identity remaining 第 1 slice（Host Roles）已 `Slice-passed`：[`2026-08-21-openapi-client-identity-host-roles.md`](./2026-08-21-openapi-client-identity-host-roles.md)；下一默认可执行项为 Menus。
+- Task 1—7 已完成；三类试点 `Pilot-passed`，见 [`openapi-client-generation-pilot-2026-08-21.md`](../../verification/openapi-client-generation-pilot-2026-08-21.md)。
+- **单模块迁移已收官**（2026-08-23）：`vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest，共 230 条 `generated`；见 [`openapi-client-generation-migration-complete-2026-08-23.md`](../../verification/openapi-client-generation-migration-complete-2026-08-23.md)。
+- 最后一项切片：`document-statistics.ts`（`document-host-statistics`），见 [`2026-08-22-openapi-client-document-host-statistics.md`](./2026-08-22-openapi-client-document-host-statistics.md)。
+- 禁止修改 `ui/admin-layui`；禁止在未授权时并行批量改写或回退 manifest 状态。
 
 ## Global Constraints
 

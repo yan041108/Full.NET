@@ -2,17 +2,27 @@ import {
   isHostUserOrganizationReference,
   isOrganizationUserPosition,
   isOrganizationUserUnit,
+  organizationCreateHostUserManagementUserPosition,
+  organizationCreateHostUserManagementUserUnit,
+  organizationDisableHostUserManagementUserPosition,
+  organizationDisableHostUserManagementUserUnit,
+  organizationGetHostUserManagementReference,
+  organizationUpdateHostUserManagementUserPosition,
+  organizationUpdateHostUserManagementUserUnit,
   type HostUserOrganizationReference,
   type OrganizationUserPosition,
   type OrganizationUserUnit
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function getHostUserOrganizationReference(
-  tenantId: string
+  tenantId: string,
+  signal?: AbortSignal
 ): Promise<HostUserOrganizationReference> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/reference?tenantId=${encodeURIComponent(tenantId)}`
+  const value = await organizationGetHostUserManagementReference(
+    http,
+    { tenantId },
+    signal
   );
   if (!isHostUserOrganizationReference(value)) {
     throw new Error('client.invalid_host_user_organization_reference');
@@ -25,19 +35,18 @@ export async function createHostUserOrganizationUnit(
   tenantId: string,
   userId: string,
   unitId: string,
-  isPrimary = false
+  isPrimary = false,
+  signal?: AbortSignal
 ): Promise<OrganizationUserUnit> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/user-units?tenantId=${encodeURIComponent(tenantId)}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ userId, unitId, isPrimary })
-    }
+  const value = await organizationCreateHostUserManagementUserUnit(
+    http,
+    { tenantId, body: { userId, unitId, isPrimary } },
+    signal
   );
   if (!isOrganizationUserUnit(value)) {
     throw new Error('client.invalid_organization_user_unit');
   }
+
   return value;
 }
 
@@ -45,33 +54,35 @@ export async function updateHostUserOrganizationUnit(
   tenantId: string,
   assignmentId: string,
   isPrimary: boolean,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<OrganizationUserUnit> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/user-units/${encodeURIComponent(assignmentId)}?tenantId=${encodeURIComponent(tenantId)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ isPrimary, version })
-    }
+  const value = await organizationUpdateHostUserManagementUserUnit(
+    http,
+    { tenantId, assignmentId, body: { isPrimary, version } },
+    signal
   );
   if (!isOrganizationUserUnit(value)) {
     throw new Error('client.invalid_organization_user_unit');
   }
+
   return value;
 }
 
 export async function disableHostUserOrganizationUnit(
   tenantId: string,
-  assignmentId: string
+  assignmentId: string,
+  signal?: AbortSignal
 ): Promise<OrganizationUserUnit> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/user-units/${encodeURIComponent(assignmentId)}/disable?tenantId=${encodeURIComponent(tenantId)}`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }
+  const value = await organizationDisableHostUserManagementUserUnit(
+    http,
+    { tenantId, assignmentId },
+    signal
   );
   if (!isOrganizationUserUnit(value)) {
     throw new Error('client.invalid_organization_user_unit');
   }
+
   return value;
 }
 
@@ -79,19 +90,18 @@ export async function createHostUserOrganizationPosition(
   tenantId: string,
   userId: string,
   positionId: string,
-  isPrimary = false
+  isPrimary = false,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPosition> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/user-positions?tenantId=${encodeURIComponent(tenantId)}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ userId, positionId, isPrimary })
-    }
+  const value = await organizationCreateHostUserManagementUserPosition(
+    http,
+    { tenantId, body: { userId, positionId, isPrimary } },
+    signal
   );
   if (!isOrganizationUserPosition(value)) {
     throw new Error('client.invalid_organization_user_position');
   }
+
   return value;
 }
 
@@ -99,32 +109,34 @@ export async function updateHostUserOrganizationPosition(
   tenantId: string,
   assignmentId: string,
   isPrimary: boolean,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPosition> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/user-positions/${encodeURIComponent(assignmentId)}?tenantId=${encodeURIComponent(tenantId)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ isPrimary, version })
-    }
+  const value = await organizationUpdateHostUserManagementUserPosition(
+    http,
+    { tenantId, assignmentId, body: { isPrimary, version } },
+    signal
   );
   if (!isOrganizationUserPosition(value)) {
     throw new Error('client.invalid_organization_user_position');
   }
+
   return value;
 }
 
 export async function disableHostUserOrganizationPosition(
   tenantId: string,
-  assignmentId: string
+  assignmentId: string,
+  signal?: AbortSignal
 ): Promise<OrganizationUserPosition> {
-  const value = await request<unknown>(
-    `/api/v1/organization/host-user-management/user-positions/${encodeURIComponent(assignmentId)}/disable?tenantId=${encodeURIComponent(tenantId)}`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }
+  const value = await organizationDisableHostUserManagementUserPosition(
+    http,
+    { tenantId, assignmentId },
+    signal
   );
   if (!isOrganizationUserPosition(value)) {
     throw new Error('client.invalid_organization_user_position');
   }
+
   return value;
 }

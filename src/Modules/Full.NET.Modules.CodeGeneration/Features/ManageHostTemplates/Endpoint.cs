@@ -17,7 +17,7 @@ internal static class Endpoint
     {
         var group = endpoints
             .MapGroup("/api/v1/code-generation/templates")
-            .WithTags("CodeGeneration");
+            .WithTags("CodeGenerationTemplates");
 
         group.MapGet("", async (
             int? page,
@@ -38,8 +38,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationListTemplates")
         .Produces<PagedResult<CodeGenerationTemplateResponse>>(
             StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationTemplatePermissions.Read));
 
@@ -56,7 +59,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationGetTemplate")
         .Produces<CodeGenerationTemplateResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationTemplatePermissions.Read));
@@ -84,10 +90,12 @@ internal static class Endpoint
                     result.Value)
                 : mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationCreateTemplate")
         .Produces<CodeGenerationTemplateResponse>(
             StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationTemplatePermissions.Create));
 
@@ -112,9 +120,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationUpdateTemplate")
         .Produces<CodeGenerationTemplateResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
@@ -143,9 +153,11 @@ internal static class Endpoint
                 ? Results.NoContent()
                 : mapper.Map(result, httpContext);
         })
+        .WithName("codeGenerationDeleteTemplate")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(

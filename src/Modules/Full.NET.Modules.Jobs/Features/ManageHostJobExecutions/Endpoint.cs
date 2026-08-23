@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/jobs/host-executions")
-            .WithTags("Jobs");
+            .WithTags("JobsHostJobExecutions");
 
         group.MapGet("/", async (
             int? page,
@@ -40,7 +40,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsListHostJobExecutions")
         .Produces<PagedResult<HostJobExecutionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsRead));
 
         group.MapGet("/{executionId:guid}", async (
@@ -54,7 +57,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsGetHostJobExecution")
         .Produces<HostJobExecutionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsRead));
 
         // 清空指定作业定义的终态执行记录，对应 Admin.NET ClearJobTriggerRecord。
@@ -74,7 +81,12 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("jobsClearHostJobExecutions")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsClear));
     }

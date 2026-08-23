@@ -60,6 +60,12 @@ test('租户职级 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(contractsSource, /organization\.position_levels\.disable/u);
   assert.match(contractsSource, /organization\.position_levels\.write/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/position-levels"\)/u);
+  assert.match(endpointSource, /WithTags\("OrganizationTenantPositionLevels"\)/u);
+  assert.match(endpointSource, /WithName\("organizationListTenantPositionLevels"\)/u);
+  assert.match(endpointSource, /WithName\("organizationGetTenantPositionLevel"\)/u);
+  assert.match(endpointSource, /WithName\("organizationCreateTenantPositionLevel"\)/u);
+  assert.match(endpointSource, /WithName\("organizationUpdateTenantPositionLevel"\)/u);
+  assert.match(endpointSource, /WithName\("organizationDisableTenantPositionLevel"\)/u);
 
   const sourceMarkers = new Map([
     ['GET /api/v1/organization/position-levels', 'MapGet("/",'],

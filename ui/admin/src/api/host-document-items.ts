@@ -1,4 +1,15 @@
 import {
+  documentHostAddItemVersion,
+  documentHostCreateItem,
+  documentHostDeleteItem,
+  documentHostDownloadItemContent,
+  documentHostListItems,
+  documentHostListItemVersions,
+  documentHostPreviewItemContent,
+  documentHostPreviewItemVersionContent,
+  documentHostRestoreItem,
+  documentHostUpdateItem,
+  documentHostUploadItemVersion,
   isHostDocumentItemPage,
   isHostDocumentItemResponse,
   isHostDocumentVersionList,
@@ -6,15 +17,14 @@ import {
   type HostDocumentItemResponse,
   type HostDocumentVersionResponse
 } from '@fullnet/client-contracts';
-import { request, requestBlob } from './http';
+import { http } from './http';
 
 export async function listDocumentItems(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<HostDocumentItemPage> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/items?page=${page}&pageSize=${pageSize}`
-  );
+  const value = await documentHostListItems(http, { page, pageSize }, signal);
   if (!isHostDocumentItemPage(value)) {
     throw new Error('client.invalid_document_item_page');
   }
@@ -23,13 +33,20 @@ export async function listDocumentItems(
 
 export async function createDocumentItem(
   title: string,
-  description: string | null
+  description: string | null,
+  signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
-  const value = await request<unknown>('/api/v1/document/host/items', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ title, description })
-  });
+  const body: Parameters<typeof documentHostCreateItem>[1]['body'] = {
+    title,
+    description,
+    categoryId: null,
+    documentType: 1,
+    sort: 0,
+    status: 1,
+    tagIds: null,
+    thumbnail: null
+  };
+  const value = await documentHostCreateItem(http, { body }, signal);
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
   }
@@ -40,15 +57,26 @@ export async function updateDocumentItem(
   itemId: string,
   title: string,
   description: string | null,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}`,
+  const body: Parameters<typeof documentHostUpdateItem>[1]['body'] = {
+    title,
+    description,
+    version,
+    categoryId: null,
+    sort: null,
+    status: null,
+    tagIds: null,
+    thumbnail: null
+  };
+  const value = await documentHostUpdateItem(
+    http,
     {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title, description, version })
-    }
+      itemId,
+      body
+    },
+    signal
   );
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
@@ -58,16 +86,13 @@ export async function updateDocumentItem(
 
 export async function uploadDocumentVersion(
   itemId: string,
-  file: File
+  file: File,
+  signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const value = await request<unknown>(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/versions/upload`,
-    {
-      method: 'POST',
-      body: formData
-    }
+  const value = await documentHostUploadItemVersion(
+    http,
+    { itemId, file },
+    signal
   );
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
@@ -75,18 +100,18 @@ export async function uploadDocumentVersion(
   return value;
 }
 
-export async function downloadDocumentContent(itemId: string): Promise<Blob> {
-  return requestBlob(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/content`
-  );
+export async function downloadDocumentContent(
+  itemId: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  return documentHostDownloadItemContent(http, { itemId }, signal);
 }
 
 export async function listDocumentVersions(
-  itemId: string
+  itemId: string,
+  signal?: AbortSignal
 ): Promise<HostDocumentVersionResponse[]> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/versions`
-  );
+  const value = await documentHostListItemVersions(http, { itemId }, signal);
   if (!isHostDocumentVersionList(value)) {
     throw new Error('client.invalid_document_version_list');
   }
@@ -95,14 +120,18 @@ export async function listDocumentVersions(
 
 export async function previewDocumentContent(
   itemId: string,
-  versionId?: string
+  versionId?: string,
+  signal?: AbortSignal
 ): Promise<Blob> {
-  const suffix = versionId
-    ? `/versions/${encodeURIComponent(versionId)}/preview`
-    : '/preview';
-  return requestBlob(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}${suffix}`
-  );
+  if (versionId) {
+    return documentHostPreviewItemVersionContent(
+      http,
+      { itemId, versionId },
+      signal
+    );
+  }
+
+  return documentHostPreviewItemContent(http, { itemId }, signal);
 }
 
 /** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
@@ -119,15 +148,20 @@ export function openDocumentBlob(blob: Blob): void {
 
 export async function addDocumentVersion(
   itemId: string,
-  fileId: string
+  fileId: string,
+  signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/versions`,
+  const body: Parameters<typeof documentHostAddItemVersion>[1]['body'] = {
+    fileId,
+    changeDescription: null
+  };
+  const value = await documentHostAddItemVersion(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ fileId })
-    }
+      itemId,
+      body
+    },
+    signal
   );
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');
@@ -137,30 +171,31 @@ export async function addDocumentVersion(
 
 export async function deleteDocumentItem(
   itemId: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<boolean> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/delete`,
+  return documentHostDeleteItem(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      itemId,
+      body: { version }
+    },
+    signal
   );
-  return value === true;
 }
 
 export async function restoreDocumentItem(
   itemId: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
-  const value = await request<unknown>(
-    `/api/v1/document/host/items/${encodeURIComponent(itemId)}/restore`,
+  const value = await documentHostRestoreItem(
+    http,
     {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ version })
-    }
+      itemId,
+      body: { version }
+    },
+    signal
   );
   if (!isHostDocumentItemResponse(value)) {
     throw new Error('client.invalid_document_item');

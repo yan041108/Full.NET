@@ -55,6 +55,9 @@ internal static class DocumentAdminNetParityAssertions
         await VerifySharesAsync(client, manager.AccessToken, document.Id, cancellationToken);
         await VerifyStatisticsAsync(client, manager.AccessToken, cancellationToken);
         await VerifyRecycleBinAsync(client, manager.AccessToken, document, cancellationToken);
+        await OpenApiDocumentHostPermissionsContractAssertions.VerifyAsync(client, cancellationToken);
+        await OpenApiDocumentHostRecycleBinContractAssertions.VerifyAsync(client, cancellationToken);
+        await OpenApiDocumentHostStatisticsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
     private static IReadOnlyCollection<string> FullManagerPermissions() =>

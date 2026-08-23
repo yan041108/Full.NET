@@ -39,4 +39,11 @@ test('站内信 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
     hostEndpointSource,
     /MapGroup\("\/api\/v1\/notifications\/host-inbox-messages"\)/u
   );
+  assert.match(myEndpointSource, /\.WithTags\("NotificationsMyInboxMessages"\)/u);
+  assert.match(hostEndpointSource, /\.WithTags\("NotificationsHostInboxMessages"\)/u);
+  assert.match(myEndpointSource, /\.WithName\("notificationsListMyInboxMessages"\)/u);
+  assert.match(myEndpointSource, /\.WithName\("notificationsGetMyInboxUnreadCount"\)/u);
+  assert.match(myEndpointSource, /\.WithName\("notificationsMarkMyInboxMessageRead"\)/u);
+  assert.match(myEndpointSource, /\.WithName\("notificationsMarkAllMyInboxMessagesRead"\)/u);
+  assert.match(hostEndpointSource, /\.WithName\("notificationsSendHostInboxMessage"\)/u);
 });

@@ -1,0 +1,54 @@
+{
+  "id": "document-host-statistics-v1",
+  "version": 1,
+  "description": "Host 文档统计 HTTP 契约冻结夹具；与 HostDocumentContracts 和 QueryHostDocumentStatistics.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/statistics",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_statistics.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentStatisticsResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostDocumentStatisticsSummaryResponse": {
+      "properties": [
+        "totalItems",
+        "totalVersions",
+        "totalSizeKb",
+        "totalSizeInfo"
+      ]
+    },
+    "HostDocumentStatisticsTypeItem": {
+      "properties": [
+        "extension",
+        "count",
+        "totalSizeKb"
+      ]
+    },
+    "HostDocumentStatisticsCategoryItem": {
+      "properties": [
+        "categoryId",
+        "categoryName",
+        "count"
+      ]
+    },
+    "HostDocumentStatisticsResponse": {
+      "properties": [
+        "summary",
+        "byType",
+        "byCategory",
+        "shareCount",
+        "todayAccessCount",
+        "todayDownloadCount",
+        "todayCreatedCount",
+        "recycleBinCount"
+      ]
+    }
+  }
+}

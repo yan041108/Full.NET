@@ -1,54 +1,70 @@
 import {
   isHostTenantPackage,
   isHostTenantPackagePage,
+  tenancyCreateHostTenantPackage,
+  tenancyDisableHostTenantPackage,
+  tenancyListHostTenantPackages,
+  tenancyUpdateHostTenantPackage,
   type HostTenantPackage,
   type HostTenantPackagePage
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export async function listHostTenantPackages(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<HostTenantPackagePage> {
-  const value = await request<unknown>(
-    `/api/v1/tenancy/tenant-packages?page=${page}&pageSize=${pageSize}`
+  const value = await tenancyListHostTenantPackages(
+    http,
+    { page, pageSize },
+    signal
   );
+  // 生成守卫不校验 code 模式；页面仍要求手写契约。
   if (!isHostTenantPackagePage(value)) {
     throw new Error('client.invalid_host_tenant_package_page');
   }
+
   return value;
 }
 
 export async function createHostTenantPackage(
   code: string,
   name: string,
-  description?: string | null
+  description?: string | null,
+  signal?: AbortSignal
 ): Promise<HostTenantPackage> {
-  const value = await request<unknown>('/api/v1/tenancy/tenant-packages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      code,
-      name,
-      description: description?.trim() ? description.trim() : null
-    })
-  });
-  if (!isHostTenantPackage(value)) {
-    throw new Error('client.invalid_host_tenant_package');
-  }
-  return value;
-}
-
-export async function disableHostTenantPackage(
-  id: string
-): Promise<HostTenantPackage> {
-  const value = await request<unknown>(
-    `/api/v1/tenancy/tenant-packages/${encodeURIComponent(id)}/disable`,
-    { method: 'POST' }
+  const value = await tenancyCreateHostTenantPackage(
+    http,
+    {
+      body: {
+        code,
+        name,
+        description: description?.trim() ? description.trim() : null
+      }
+    },
+    signal
   );
   if (!isHostTenantPackage(value)) {
     throw new Error('client.invalid_host_tenant_package');
   }
+
+  return value;
+}
+
+export async function disableHostTenantPackage(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostTenantPackage> {
+  const value = await tenancyDisableHostTenantPackage(
+    http,
+    { packageId: id },
+    signal
+  );
+  if (!isHostTenantPackage(value)) {
+    throw new Error('client.invalid_host_tenant_package');
+  }
+
   return value;
 }
 
@@ -56,18 +72,17 @@ export async function updateHostTenantPackage(
   id: string,
   name: string,
   description: string | null,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostTenantPackage> {
-  const value = await request<unknown>(
-    `/api/v1/tenancy/tenant-packages/${encodeURIComponent(id)}`,
-    {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, description, version })
-    }
+  const value = await tenancyUpdateHostTenantPackage(
+    http,
+    { packageId: id, body: { name, description, version } },
+    signal
   );
   if (!isHostTenantPackage(value)) {
     throw new Error('client.invalid_host_tenant_package');
   }
+
   return value;
 }

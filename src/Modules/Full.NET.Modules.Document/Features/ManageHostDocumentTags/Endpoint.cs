@@ -12,7 +12,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/document/host/tags")
-            .WithTags("Document");
+            .WithTags("DocumentHostTags");
 
         group.MapGet("/", async (
             HostDocumentTagQueryService queries,
@@ -23,7 +23,10 @@ internal static class Endpoint
             var result = await queries.ListAsync(cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListTags")
         .Produces<IReadOnlyList<HostDocumentTagResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Read));
 
         group.MapGet("/{tagId:guid}", async (
@@ -36,7 +39,11 @@ internal static class Endpoint
             var result = await queries.GetByIdAsync(tagId, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostGetTag")
         .Produces<HostDocumentTagResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Read));
 
         group.MapPost("/", async (
@@ -56,7 +63,12 @@ internal static class Endpoint
                 $"/api/v1/document/host/tags/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("documentHostCreateTag")
         .Produces<HostDocumentTagResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Create));
 
         group.MapPut("/{tagId:guid}", async (
@@ -71,7 +83,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostUpdateTag")
         .Produces<HostDocumentTagResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Update));
 
         group.MapPost("/{tagId:guid}/delete", async (
@@ -91,7 +109,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostDeleteTag")
         .Produces<bool>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentTagPermissions.Delete));
     }
 

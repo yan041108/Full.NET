@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/jobs/host-schedules")
-            .WithTags("Jobs");
+            .WithTags("JobsHostJobSchedules");
 
         group.MapGet("/", async (
             int? page,
@@ -38,7 +38,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsListHostJobSchedules")
         .Produces<PagedResult<HostJobScheduleResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesRead));
 
@@ -52,8 +55,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsListHostJobScheduleDefinitionOptions")
         .Produces<IReadOnlyList<HostJobScheduleDefinitionOptionResponse>>(
             StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesCreate));
 
@@ -74,7 +80,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsPreviewHostJobScheduleCron")
         .Produces<HostJobScheduleCronPreviewResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesCreate));
 
@@ -121,7 +131,12 @@ internal static class Endpoint
                 $"/api/v1/jobs/host-schedules/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("jobsCreateHostJobSchedule")
         .Produces<HostJobScheduleResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesCreate));
 
@@ -146,7 +161,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsUpdateHostJobSchedule")
         .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesUpdate));
 
@@ -174,7 +195,13 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("jobsDeleteHostJobSchedule")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesDelete));
     }
@@ -212,7 +239,13 @@ internal static class Endpoint
                     .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName(enable ? "jobsResumeHostJobSchedule" : "jobsPauseHostJobSchedule")
         .Produces<HostJobScheduleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(
                 enable

@@ -6,8 +6,14 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractPath = path.join(repositoryRoot, 'contracts/openapi/document-host-items-v1.json');
-const contractsSourcePath = path.join(repositoryRoot, 'src/Modules/Full.NET.Modules.Document/Contracts/HostDocumentContracts.cs');
-const endpointSourcePath = path.join(repositoryRoot, 'src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentItems/Endpoint.cs');
+const contractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Document/Contracts/HostDocumentContracts.cs'
+);
+const endpointSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Document/Features/ManageHostDocumentItems/Endpoint.cs'
+);
 
 test('Host 文档条目 OpenAPI 夹具与 C# 契约和端点一致', async () => {
   const contract = JSON.parse(await readFile(contractPath, 'utf8'));
@@ -15,6 +21,18 @@ test('Host 文档条目 OpenAPI 夹具与 C# 契约和端点一致', async () =>
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
   assert.equal(contract.id, 'document-host-items-v1');
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/document\/host\/items"\)/u);
+  assert.match(endpointSource, /\.WithTags\("DocumentHostItems"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostListItems"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostCreateItem"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostUpdateItem"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostListItemVersions"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostAddItemVersion"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostUploadItemVersion"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostDownloadItemContent"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostPreviewItemContent"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostPreviewItemVersionContent"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostDeleteItem"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostRestoreItem"\)/u);
   assert.match(contractsSource, /record HostDocumentItemResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/content')));
 });

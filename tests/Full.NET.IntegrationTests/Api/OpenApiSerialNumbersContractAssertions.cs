@@ -16,6 +16,7 @@ internal static class OpenApiSerialNumbersContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(document.RootElement);
         var root = document.RootElement;
         var paths = root.GetProperty("paths");
         AssertOperation(
@@ -62,6 +63,64 @@ internal static class OpenApiSerialNumbersContractAssertions
                 "minimumValue",
                 "maximumValue",
             ]);
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "SerialNumbersHostRules";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/serial-numbers/rules",
+            HttpMethod.Get,
+            "serialNumbersListRules",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/serial-numbers/rules",
+            HttpMethod.Post,
+            "serialNumbersCreateRule",
+            tag,
+            201,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/serial-numbers/rules/{ruleId}",
+            HttpMethod.Put,
+            "serialNumbersUpdateRule",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/serial-numbers/rules/{ruleId}/enable",
+            HttpMethod.Post,
+            "serialNumbersEnableRule",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/serial-numbers/rules/{ruleId}/disable",
+            HttpMethod.Post,
+            "serialNumbersDisableRule",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/serial-numbers/rules/preview",
+            HttpMethod.Post,
+            "serialNumbersPreviewSerialNumber",
+            tag,
+            200,
+            "application/json",
+            "application/json");
     }
 
     private static void AssertOperation(

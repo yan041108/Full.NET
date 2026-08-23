@@ -68,6 +68,14 @@ test('租户职位 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(contractsSource, /organization\.positions\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/positions"\)/u);
+  assert.match(endpointSource, /WithTags\("OrganizationTenantPositions"\)/u);
+  assert.match(endpointSource, /WithName\("organizationListTenantPositions"\)/u);
+  assert.match(endpointSource, /WithName\("organizationGetTenantPosition"\)/u);
+  assert.match(endpointSource, /WithName\("organizationCreateTenantPosition"\)/u);
+  assert.match(endpointSource, /WithName\("organizationUpdateTenantPosition"\)/u);
+  assert.match(endpointSource, /WithName\("organizationAssignTenantPositionUnit"\)/u);
+  assert.match(endpointSource, /WithName\("organizationAssignTenantPositionLevel"\)/u);
+  assert.match(endpointSource, /WithName\("organizationDisableTenantPosition"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/organization/positions', new Map([

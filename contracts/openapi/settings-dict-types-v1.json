@@ -51,6 +51,37 @@
       ]
     },
     {
+      "path": "/api/v1/settings/dict-types/{dictTypeId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.dict_types.delete",
+          "successStatus": 204,
+          "requestSchema": "DeleteDictTypeRequest"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/dict-types/list",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.dict_types.read",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/dict-types/by-code/{code}/items",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.dict_types.read",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
       "path": "/api/v1/settings/dict-types/{dictTypeId}/items",
       "operations": [
         {
@@ -72,6 +103,12 @@
       "path": "/api/v1/settings/dict-items/{dictItemId}",
       "operations": [
         {
+          "method": "GET",
+          "permission": "settings.dict_types.read",
+          "successStatus": 200,
+          "responseSchema": "DictItemResponse"
+        },
+        {
           "method": "PUT",
           "permission": "settings.dict_types.update",
           "successStatus": 200,
@@ -88,6 +125,17 @@
           "permission": "settings.dict_types.disable",
           "successStatus": 200,
           "responseSchema": "DictItemResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/dict-items/{dictItemId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.dict_types.delete",
+          "successStatus": 204,
+          "requestSchema": "DeleteDictItemRequest"
         }
       ]
     }
@@ -166,6 +214,16 @@
         "page",
         "pageSize",
         "total"
+      ]
+    },
+    "DeleteDictTypeRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "DeleteDictItemRequest": {
+      "properties": [
+        "version"
       ]
     }
   }

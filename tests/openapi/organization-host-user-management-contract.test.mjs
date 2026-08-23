@@ -15,6 +15,14 @@ test('Host 用户组织参考 OpenAPI 夹具与 C# 契约和端点一致', async
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
   assert.equal(contract.id, 'organization-host-user-management-v1');
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/host-user-management"\)/u);
+  assert.match(endpointSource, /WithTags\("OrganizationHostUserManagement"\)/u);
+  assert.match(endpointSource, /WithName\("organizationGetHostUserManagementReference"\)/u);
+  assert.match(endpointSource, /WithName\("organizationCreateHostUserManagementUserUnit"\)/u);
+  assert.match(endpointSource, /WithName\("organizationUpdateHostUserManagementUserUnit"\)/u);
+  assert.match(endpointSource, /WithName\("organizationDisableHostUserManagementUserUnit"\)/u);
+  assert.match(endpointSource, /WithName\("organizationCreateHostUserManagementUserPosition"\)/u);
+  assert.match(endpointSource, /WithName\("organizationUpdateHostUserManagementUserPosition"\)/u);
+  assert.match(endpointSource, /WithName\("organizationDisableHostUserManagementUserPosition"\)/u);
   assert.match(contractsSource, /HostUserManagementOrganizationReferenceResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/reference')));
 });

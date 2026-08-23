@@ -204,11 +204,26 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 76);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 76);
+  assert.equal(manifest.entries.length, 230);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 230);
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
+      'auditing-host-access-logs',
+      'auditing-host-exception-logs',
+      'auditing-host-operation-logs',
+      'auditing-host-outbound-call-logs',
+      'code-generation-catalog',
+      'code-generation-previews',
+      'code-generation-runs',
+      'code-generation-templates',
+      'document-host-categories',
+      'document-host-items',
+      'document-host-permissions',
+      'document-host-recycle-bin',
+      'document-host-shares',
+      'document-host-statistics',
+      'document-host-tags',
       'files-host-files',
       'identity-auth-session',
       'identity-host-api-keys',
@@ -220,7 +235,25 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
       'identity-me',
       'identity-super-administrators',
       'identity-totp-enrollment',
+      'jobs-host-job-health',
+      'jobs-host-job-schedules',
+      'jobs-host-jobs',
+      'notifications-host-announcements',
+      'notifications-inbox-messages',
+      'organization-host-user-management',
+      'organization-tenant-position-levels',
+      'organization-tenant-positions',
+      'organization-tenant-units',
+      'organization-tenant-user-positions',
+      'organization-tenant-user-units',
+      'platform-host-dashboard',
+      'serial-numbers-rules',
       'settings-host-config-entries',
+      'settings-host-diagnostic-policy',
+      'settings-host-dict-types',
+      'settings-host-enum-catalogs',
+      'settings-tenant-dict-types',
+      'tenancy-host-tenant-packages',
       'tenancy-host-tenants'
     ]
   );
@@ -230,7 +263,7 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    76
+    230
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

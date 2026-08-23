@@ -1,13 +1,13 @@
 {
   "paths": {
     "/api/v1/code-generation/catalog/tables": {
-      "get": ["200"]
+      "get": ["200", "401", "403"]
     },
     "/api/v1/code-generation/catalog/tables/{tableName}/columns": {
-      "get": ["200", "400", "404"]
+      "get": ["200", "400", "401", "403", "404"]
     },
     "/api/v1/code-generation/catalog/column-sync": {
-      "post": ["200", "400", "404"]
+      "post": ["200", "400", "401", "403", "404"]
     }
   }
 }

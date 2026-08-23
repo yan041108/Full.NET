@@ -427,7 +427,7 @@ internal static class CodeGenerationRunAssertions
         {
             Assert.AreEqual(HttpStatusCode.OK, download.StatusCode);
             Assert.AreEqual(
-                "application/zip",
+                "application/octet-stream",
                 download.Content.Headers.ContentType?.MediaType);
             var zip = await download.Content.ReadAsByteArrayAsync(
                 cancellationToken);

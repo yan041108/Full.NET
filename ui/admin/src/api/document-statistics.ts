@@ -1,13 +1,18 @@
 import {
+  documentHostGetDocumentStatistics,
   isHostDocumentStatisticsResponse,
   type HostDocumentStatisticsResponse
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
-export async function getDocumentStatistics(): Promise<HostDocumentStatisticsResponse> {
-  const value = await request<unknown>('/api/v1/document/host/statistics');
+export async function getDocumentStatistics(
+  signal?: AbortSignal
+): Promise<HostDocumentStatisticsResponse> {
+  const value = await documentHostGetDocumentStatistics(http, {}, signal);
   if (!isHostDocumentStatisticsResponse(value)) {
     throw new Error('client.invalid_document_statistics');
   }
   return value;
 }
+
+export type { HostDocumentStatisticsResponse };

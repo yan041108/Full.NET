@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/document/host/recycle-bin")
-            .WithTags("Document");
+            .WithTags("DocumentHostRecycleBin");
 
         group.MapGet("/", async (
             int? page,
@@ -27,7 +27,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListRecycleBinItems")
         .Produces<PagedResult<HostDocumentItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentRecycleBinPermissions.Read));
 
         group.MapPost("/{id:guid}/restore", async (
@@ -47,7 +50,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostRestoreRecycleBinItem")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentRecycleBinPermissions.Restore));
 
         group.MapPost("/{id:guid}/purge", async (
@@ -61,7 +70,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostPurgeRecycleBinItem")
         .Produces<bool>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentRecycleBinPermissions.Purge));
     }
 

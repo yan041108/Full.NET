@@ -118,7 +118,7 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 - 不再新增 Layui 页面、JavaScript API 或路由生成能力；
 - Realtime、文件、导入导出、打印、表单设计器、大屏和 AI/Agent 工作台分别建立 Vue 适配切片。
 
-OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md) 和[专项实施计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md)执行。三类试点已 `Pilot-passed`；Identity remaining（含 Auth Session）已全部 `Slice-passed`；Tenancy 首切片 [Host Tenants](../verification/openapi-client-tenancy-host-tenants-2026-08-22.md) 已 `Slice-passed`（现 76 条 `generated`）。下一默认项为 `tenant-packages.ts`，禁止批量重写。
+OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md) 和[专项实施计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md)执行。`document-statistics.ts` 已迁移（现 230 条 `generated`）；Document 模块与 `vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest，OpenAPI 客户端单模块迁移阶段收官。
 
 ### C7：.NET MAUI 决策门禁
 
@@ -172,6 +172,6 @@ OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-opena
 5. 为 Layui 制定独立退役计划，决定归档、只读发布、迁移说明和最终移除条件；
 6. 在 Vue 主线继续推进 Tiptap、ECharts 业务图表、可访问性和统一视觉体验；
 7. 按真实业务需求推进 uni-app，再启动 Flutter 首个纵向样例。
-8. 继续 [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md) 的单模块迁移：三类试点与 Identity remaining 已 `Slice-passed`；Tenancy [Host Tenants](../superpowers/plans/2026-08-22-openapi-client-tenancy-host-tenants.md) 已 `Slice-passed`（现 76 条 `generated`）；下一默认可执行项为 `tenant-packages.ts`，禁止并行批量改写。
+8. [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md) 单模块迁移已收官：`document-statistics.ts` 已完成（现 230 条 `generated`）；`vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest。
 
 每个计划结束时只更新真实受影响的状态与验证记录，不以计划存在、历史 Layui 证据或局部构建替代 Vue 真实验收。

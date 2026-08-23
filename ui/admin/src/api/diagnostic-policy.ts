@@ -1,46 +1,62 @@
 import {
   isDiagnosticPolicy,
+  settingsGetHostDiagnosticPolicy,
+  settingsRestoreHostDiagnosticPolicy,
+  settingsUpdateHostDiagnosticPolicy,
   type DiagnosticPolicy,
   type DiagnosticPolicyRule
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http } from './http';
 
 export type { DiagnosticPolicy, DiagnosticPolicyRule };
 
-export async function getDiagnosticPolicy(): Promise<DiagnosticPolicy> {
-  const value = await request<unknown>('/api/v1/settings/diagnostic-policy');
+export async function getDiagnosticPolicy(
+  signal?: AbortSignal
+): Promise<DiagnosticPolicy> {
+  const value = await settingsGetHostDiagnosticPolicy(http, {}, signal);
   if (!isDiagnosticPolicy(value)) {
     throw new Error('client.invalid_diagnostic_policy');
   }
+
   return value;
 }
 
 export async function updateDiagnosticPolicy(
   pressureState: string,
   rules: DiagnosticPolicyRule[],
-  configEntryVersion: number
+  configEntryVersion: number,
+  signal?: AbortSignal
 ): Promise<DiagnosticPolicy> {
-  const value = await request<unknown>('/api/v1/settings/diagnostic-policy', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ pressureState, rules, configEntryVersion })
-  });
+  const value = await settingsUpdateHostDiagnosticPolicy(
+    http,
+    {
+      body: {
+        pressureState,
+        rules,
+        configEntryVersion
+      }
+    },
+    signal
+  );
   if (!isDiagnosticPolicy(value)) {
     throw new Error('client.invalid_diagnostic_policy');
   }
+
   return value;
 }
 
 export async function restoreDiagnosticPolicy(
-  configEntryVersion: number
+  configEntryVersion: number,
+  signal?: AbortSignal
 ): Promise<DiagnosticPolicy> {
-  const value = await request<unknown>('/api/v1/settings/diagnostic-policy/restore', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ configEntryVersion })
-  });
+  const value = await settingsRestoreHostDiagnosticPolicy(
+    http,
+    { body: { configEntryVersion } },
+    signal
+  );
   if (!isDiagnosticPolicy(value)) {
     throw new Error('client.invalid_diagnostic_policy');
   }
+
   return value;
 }

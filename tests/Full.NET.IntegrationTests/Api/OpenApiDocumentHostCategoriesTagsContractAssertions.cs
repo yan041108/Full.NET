@@ -19,6 +19,7 @@ internal static class OpenApiDocumentHostCategoriesTagsContractAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var openApiDocument = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
+        AssertPilotOperations(openApiDocument.RootElement);
         var openApiPaths = openApiDocument.RootElement.GetProperty("paths");
         var schemas = openApiDocument.RootElement
             .GetProperty("components")
@@ -73,6 +74,83 @@ internal static class OpenApiDocumentHostCategoriesTagsContractAssertions
                 }
             }
         }
+    }
+
+    private static void AssertPilotOperations(JsonElement document)
+    {
+        const string tag = "DocumentHostCategories";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/categories",
+            HttpMethod.Get,
+            "documentHostListCategories",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/categories",
+            HttpMethod.Post,
+            "documentHostCreateCategory",
+            tag,
+            201,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/categories/{categoryId}",
+            HttpMethod.Put,
+            "documentHostUpdateCategory",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/categories/{categoryId}/delete",
+            HttpMethod.Post,
+            "documentHostDeleteCategory",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+
+        const string tagsTag = "DocumentHostTags";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/tags",
+            HttpMethod.Get,
+            "documentHostListTags",
+            tagsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/tags",
+            HttpMethod.Post,
+            "documentHostCreateTag",
+            tagsTag,
+            201,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/tags/{tagId}",
+            HttpMethod.Put,
+            "documentHostUpdateTag",
+            tagsTag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/document/host/tags/{tagId}/delete",
+            HttpMethod.Post,
+            "documentHostDeleteTag",
+            tagsTag,
+            200,
+            "application/json",
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

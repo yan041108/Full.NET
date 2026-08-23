@@ -2,7 +2,13 @@
 // 内容：OpenAPI 运行时响应守卫。
 
 import type {
+  AccessHostDocumentShareRequest,
+  AccessLogCursorPageResponse,
+  AccessLogResponse,
+  AddHostDocumentVersionRequest,
   AssignHostTenantPackageRequest,
+  AssignOrganizationPositionLevelRequest,
+  AssignOrganizationPositionUnitRequest,
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
@@ -12,24 +18,110 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  ChangeHostJobScheduleStateRequest,
+  ChangeSerialNumberRuleStatusRequest,
+  CodeGenerationCatalogColumnListResponse,
+  CodeGenerationCatalogColumnSyncRequest,
+  CodeGenerationCatalogColumnSyncResponse,
+  CodeGenerationCatalogTableResponse,
+  CodeGenerationClientRouteTargetRequest,
+  CodeGenerationEntityCapabilitiesRequest,
+  CodeGenerationIntegrationTargetRequest,
+  CodeGenerationPreviewArtifactResponse,
+  CodeGenerationPreviewColumnRequest,
+  CodeGenerationPreviewColumnUiRequest,
+  CodeGenerationPreviewRequest,
+  CodeGenerationPreviewResponse,
+  CodeGenerationRelationshipRequest,
+  CodeGenerationRunApplyRequest,
+  CodeGenerationRunApplyResponse,
+  CodeGenerationRunPreviewRequest,
+  CodeGenerationRunPreviewResponse,
+  CodeGenerationRunResponse,
+  CodeGenerationRunRollbackChainRequest,
+  CodeGenerationRunRollbackChainResponse,
+  CodeGenerationRunRollbackRequest,
+  CodeGenerationRunRollbackResponse,
+  CodeGenerationTemplateResponse,
   ConfigEntryResponse,
   ConfigValueUpdate,
   ConfirmTotpEnrollmentRequest,
+  CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
+  CreateDictItemRequest,
+  CreateDictTypeRequest,
+  CreateHostAnnouncementRequest,
   CreateHostApiKeyRequest,
   CreateHostApiKeyResponse,
+  CreateHostDocumentCategoryRequest,
+  CreateHostDocumentItemRequest,
+  CreateHostDocumentShareRequest,
+  CreateHostDocumentTagRequest,
+  CreateHostJobDefinitionRequest,
+  CreateHostJobScheduleRequest,
   CreateHostMenuRequest,
   CreateHostRoleRequest,
+  CreateHostTenantPackageRequest,
   CreateHostUserRequest,
+  CreateOrganizationPositionLevelRequest,
+  CreateOrganizationPositionRequest,
+  CreateOrganizationUnitRequest,
+  CreateOrganizationUserPositionRequest,
+  CreateOrganizationUserUnitRequest,
+  CreateSerialNumberRuleRequest,
   CurrentUserResponse,
+  DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
+  DeleteDictItemRequest,
+  DeleteDictTypeRequest,
+  DeleteHostDocumentCategoryRequest,
+  DeleteHostDocumentItemRequest,
+  DeleteHostDocumentTagRequest,
+  DeleteHostJobDefinitionRequest,
+  DiagnosticPolicyResponse,
+  DiagnosticPolicyRuleRequest,
+  DiagnosticPolicyRuleResponse,
+  DictItemResponse,
+  DictTypeResponse,
+  DisableHostJobDefinitionRequest,
+  EnumCatalogDetail,
+  EnumCatalogMember,
+  EnumCatalogSummary,
+  ExceptionLogResponse,
   FieldProjectionDefaultVisibility,
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
   GrantSuperAdministratorRequest,
+  HostAnnouncementResponse,
   HostApiKeyResponse,
+  HostDashboardActivityResponse,
+  HostDashboardSummaryResponse,
+  HostDocumentCategoryResponse,
+  HostDocumentItemResponse,
+  HostDocumentPermissionEntry,
+  HostDocumentPermissionResponse,
+  HostDocumentShareAccessResponse,
+  HostDocumentShareResponse,
+  HostDocumentStatisticsCategoryItem,
+  HostDocumentStatisticsResponse,
+  HostDocumentStatisticsSummaryResponse,
+  HostDocumentStatisticsTypeItem,
+  HostDocumentStatus,
+  HostDocumentTagAssignmentResponse,
+  HostDocumentTagResponse,
+  HostDocumentType,
+  HostDocumentVersionResponse,
   HostFileResponse,
+  HostJobDefinitionResponse,
+  HostJobExecutionResponse,
+  HostJobGroupResponse,
+  HostJobHealthBacklogSnapshot,
+  HostJobHealthResponse,
+  HostJobScheduleCronPreviewResponse,
+  HostJobScheduleDefinitionOptionResponse,
+  HostJobScheduleResponse,
+  HostJobWorkerInstanceResponse,
   HostMenuPermissionOptionResponse,
   HostMenuResponse,
   HostNavigationCatalogSyncResponse,
@@ -37,48 +129,157 @@ import type {
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
+  HostUserManagementOrganizationReferenceResponse,
   HostUserProfileResponse,
   HostUserProfileWriteRequest,
   HostUserProjectedFieldsResponse,
   HostUserResponse,
   HostUserRolesResponse,
+  HttpJobArgs,
+  HttpJobSecretHeaderRef,
   IFormFile,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
+  InboxMessageResponse,
+  InboxUnreadCountResponse,
   LocalePreferenceResponse,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  OperationLogResponse,
+  OrganizationAssignableUserResponse,
+  OrganizationPositionLevelResponse,
+  OrganizationPositionResponse,
+  OrganizationUnitResponse,
+  OrganizationUserPositionResponse,
+  OrganizationUserUnitResponse,
+  OutboundCallLogResponse,
+  PagedResultOfAccessLogResponse,
+  PagedResultOfCodeGenerationRunResponse,
+  PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfDictItemResponse,
+  PagedResultOfDictTypeResponse,
+  PagedResultOfExceptionLogResponse,
+  PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
+  PagedResultOfHostDocumentItemResponse,
+  PagedResultOfHostDocumentShareResponse,
   PagedResultOfHostFileResponse,
+  PagedResultOfHostJobDefinitionResponse,
+  PagedResultOfHostJobExecutionResponse,
+  PagedResultOfHostJobScheduleResponse,
   PagedResultOfHostMenuResponse,
   PagedResultOfHostOnlineSessionResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
+  PagedResultOfInboxMessageResponse,
+  PagedResultOfOperationLogResponse,
+  PagedResultOfOrganizationAssignableUserResponse,
+  PagedResultOfOrganizationPositionLevelResponse,
+  PagedResultOfOrganizationPositionResponse,
+  PagedResultOfOrganizationUnitResponse,
+  PagedResultOfOrganizationUserPositionResponse,
+  PagedResultOfOrganizationUserUnitResponse,
+  PagedResultOfOutboundCallLogResponse,
+  PagedResultOfSerialNumberRuleResponse,
+  PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PreviewSerialNumberRequest,
   ProblemDetails,
   ProvisionTenantRequest,
+  PublishHostAnnouncementRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
+  RestoreDiagnosticPolicyRequest,
+  RestoreHostDocumentItemRequest,
   RevokeSuperAdministratorRequest,
+  SendHostInboxMessageRequest,
+  SerialNumberPreviewResponse,
+  SerialNumberResetInterval,
+  SerialNumberRuleResponse,
+  SerialNumberRuleScope,
+  SetHostDocumentPermissionsRequest,
   Stream,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  TenantPackageSummary,
   TenantSummary,
   TokenResponse,
   TotpEnrollmentStatusResponse,
+  UpdateCodeGenerationTemplateRequest,
   UpdateConfigEntryRequest,
+  UpdateDiagnosticPolicyRequest,
+  UpdateDictItemRequest,
+  UpdateDictTypeRequest,
+  UpdateHostAnnouncementRequest,
+  UpdateHostDocumentCategoryRequest,
+  UpdateHostDocumentItemRequest,
+  UpdateHostDocumentShareStatusRequest,
+  UpdateHostDocumentTagRequest,
+  UpdateHostJobDefinitionRequest,
+  UpdateHostJobScheduleRequest,
   UpdateHostMenuRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
+  UpdateHostTenantPackageRequest,
   UpdateHostTenantRequest,
   UpdateHostUserRequest,
-  UpdateLocaleRequest
+  UpdateLocaleRequest,
+  UpdateOrganizationPositionLevelRequest,
+  UpdateOrganizationPositionRequest,
+  UpdateOrganizationUnitRequest,
+  UpdateOrganizationUserPositionRequest,
+  UpdateOrganizationUserUnitRequest,
+  UpdateSerialNumberRuleRequest
 } from './models.generated.js';
+
+export function readAccessHostDocumentShareRequest(value: unknown): AccessHostDocumentShareRequest {
+  if (!(isAccessHostDocumentShareRequest(value))) {
+    throw new Error('client.invalid_access_host_document_share_request');
+  }
+  return value;
+}
+
+function isAccessHostDocumentShareRequest(value: unknown): value is AccessHostDocumentShareRequest {
+  return isRecord(value) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string')));
+}
+
+export function readAccessLogCursorPageResponse(value: unknown): AccessLogCursorPageResponse {
+  if (!(isAccessLogCursorPageResponse(value))) {
+    throw new Error('client.invalid_access_log_cursor_page_response');
+  }
+  return value;
+}
+
+function isAccessLogCursorPageResponse(value: unknown): value is AccessLogCursorPageResponse {
+  return isRecord(value) && (typeof value["hasMore"] === 'boolean') && (Array.isArray(value["items"]) && value["items"].every(item14 => isAccessLogResponse(item14))) && ((value["nextCursor"] === null) || (typeof value["nextCursor"] === 'string'));
+}
+
+export function readAccessLogResponse(value: unknown): AccessLogResponse {
+  if (!(isAccessLogResponse(value))) {
+    throw new Error('client.invalid_access_log_response');
+  }
+  return value;
+}
+
+function isAccessLogResponse(value: unknown): value is AccessLogResponse {
+  return isRecord(value) && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["durationMs"] === 'number' && Number.isInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isAuthenticated"] === 'boolean') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["requestPath"] === 'string') && (typeof value["statusCode"] === 'number' && Number.isInteger(value["statusCode"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+}
+
+export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocumentVersionRequest {
+  if (!(isAddHostDocumentVersionRequest(value))) {
+    throw new Error('client.invalid_add_host_document_version_request');
+  }
+  return value;
+}
+
+function isAddHostDocumentVersionRequest(value: unknown): value is AddHostDocumentVersionRequest {
+  return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"]));
+}
 
 export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTenantPackageRequest {
   if (!(isAssignHostTenantPackageRequest(value))) {
@@ -89,6 +290,28 @@ export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTe
 
 function isAssignHostTenantPackageRequest(value: unknown): value is AssignHostTenantPackageRequest {
   return isRecord(value) && ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readAssignOrganizationPositionLevelRequest(value: unknown): AssignOrganizationPositionLevelRequest {
+  if (!(isAssignOrganizationPositionLevelRequest(value))) {
+    throw new Error('client.invalid_assign_organization_position_level_request');
+  }
+  return value;
+}
+
+function isAssignOrganizationPositionLevelRequest(value: unknown): value is AssignOrganizationPositionLevelRequest {
+  return isRecord(value) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readAssignOrganizationPositionUnitRequest(value: unknown): AssignOrganizationPositionUnitRequest {
+  if (!(isAssignOrganizationPositionUnitRequest(value))) {
+    throw new Error('client.invalid_assign_organization_position_unit_request');
+  }
+  return value;
+}
+
+function isAssignOrganizationPositionUnitRequest(value: unknown): value is AssignOrganizationPositionUnitRequest {
+  return isRecord(value) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readAuthorizationTreeActionResponse(value: unknown): AuthorizationTreeActionResponse {
@@ -190,6 +413,281 @@ function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnroll
   return isRecord(value) && (typeof value["otpAuthUri"] === 'string') && (typeof value["sharedSecretBase32"] === 'string');
 }
 
+export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHostJobScheduleStateRequest {
+  if (!(isChangeHostJobScheduleStateRequest(value))) {
+    throw new Error('client.invalid_change_host_job_schedule_state_request');
+  }
+  return value;
+}
+
+function isChangeHostJobScheduleStateRequest(value: unknown): value is ChangeHostJobScheduleStateRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readChangeSerialNumberRuleStatusRequest(value: unknown): ChangeSerialNumberRuleStatusRequest {
+  if (!(isChangeSerialNumberRuleStatusRequest(value))) {
+    throw new Error('client.invalid_change_serial_number_rule_status_request');
+  }
+  return value;
+}
+
+function isChangeSerialNumberRuleStatusRequest(value: unknown): value is ChangeSerialNumberRuleStatusRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readCodeGenerationCatalogColumnListResponse(value: unknown): CodeGenerationCatalogColumnListResponse {
+  if (!(isCodeGenerationCatalogColumnListResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_column_list_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogColumnListResponse(value: unknown): value is CodeGenerationCatalogColumnListResponse {
+  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isCodeGenerationPreviewColumnRequest(item16))) && (Array.isArray(value["skippedColumnNames"]) && value["skippedColumnNames"].every(item27 => typeof item27 === 'string')) && (typeof value["tableName"] === 'string');
+}
+
+export function readCodeGenerationCatalogColumnSyncRequest(value: unknown): CodeGenerationCatalogColumnSyncRequest {
+  if (!(isCodeGenerationCatalogColumnSyncRequest(value))) {
+    throw new Error('client.invalid_code_generation_catalog_column_sync_request');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogColumnSyncRequest(value: unknown): value is CodeGenerationCatalogColumnSyncRequest {
+  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isCodeGenerationPreviewColumnRequest(item16))) && (typeof value["tableName"] === 'string');
+}
+
+export function readCodeGenerationCatalogColumnSyncResponse(value: unknown): CodeGenerationCatalogColumnSyncResponse {
+  if (!(isCodeGenerationCatalogColumnSyncResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_column_sync_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogColumnSyncResponse(value: unknown): value is CodeGenerationCatalogColumnSyncResponse {
+  return isRecord(value) && (Array.isArray(value["addedColumnNames"]) && value["addedColumnNames"].every(item25 => typeof item25 === 'string')) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isCodeGenerationPreviewColumnRequest(item16))) && (Array.isArray(value["removedColumnNames"]) && value["removedColumnNames"].every(item27 => typeof item27 === 'string')) && (Array.isArray(value["skippedColumnNames"]) && value["skippedColumnNames"].every(item27 => typeof item27 === 'string')) && (typeof value["tableName"] === 'string');
+}
+
+export function readCodeGenerationCatalogTableResponse(value: unknown): CodeGenerationCatalogTableResponse {
+  if (!(isCodeGenerationCatalogTableResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_table_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogTableResponse(value: unknown): value is CodeGenerationCatalogTableResponse {
+  return isRecord(value) && (typeof value["tableName"] === 'string');
+}
+
+export function readCodeGenerationClientRouteTargetRequest(value: unknown): CodeGenerationClientRouteTargetRequest {
+  if (!(isCodeGenerationClientRouteTargetRequest(value))) {
+    throw new Error('client.invalid_code_generation_client_route_target_request');
+  }
+  return value;
+}
+
+function isCodeGenerationClientRouteTargetRequest(value: unknown): value is CodeGenerationClientRouteTargetRequest {
+  return isRecord(value) && (value["layuiControllerExport"] === undefined || ((value["layuiControllerExport"] === null) || (typeof value["layuiControllerExport"] === 'string'))) && (value["layuiControllerPath"] === undefined || ((value["layuiControllerPath"] === null) || (typeof value["layuiControllerPath"] === 'string'))) && (typeof value["routePath"] === 'string') && (typeof value["vueComponentPath"] === 'string') && (typeof value["vueRouteName"] === 'string');
+}
+
+export function readCodeGenerationEntityCapabilitiesRequest(value: unknown): CodeGenerationEntityCapabilitiesRequest {
+  if (!(isCodeGenerationEntityCapabilitiesRequest(value))) {
+    throw new Error('client.invalid_code_generation_entity_capabilities_request');
+  }
+  return value;
+}
+
+function isCodeGenerationEntityCapabilitiesRequest(value: unknown): value is CodeGenerationEntityCapabilitiesRequest {
+  return isRecord(value) && (typeof value["deleteMode"] === 'string') && (typeof value["hasCreatedAudit"] === 'boolean') && (typeof value["hasDeletedAudit"] === 'boolean') && (typeof value["hasUpdatedAudit"] === 'boolean') && (typeof value["hasVersion"] === 'boolean') && (typeof value["ownershipMode"] === 'string');
+}
+
+export function readCodeGenerationIntegrationTargetRequest(value: unknown): CodeGenerationIntegrationTargetRequest {
+  if (!(isCodeGenerationIntegrationTargetRequest(value))) {
+    throw new Error('client.invalid_code_generation_integration_target_request');
+  }
+  return value;
+}
+
+function isCodeGenerationIntegrationTargetRequest(value: unknown): value is CodeGenerationIntegrationTargetRequest {
+  return isRecord(value) && (value["authorizationContributorPath"] === undefined || ((value["authorizationContributorPath"] === null) || (typeof value["authorizationContributorPath"] === 'string'))) && (value["clientRoute"] === undefined || ((value["clientRoute"] === null) || (isCodeGenerationClientRouteTargetRequest(value["clientRoute"])))) && (typeof value["compositionCatalogPath"] === 'string') && (typeof value["compositionProjectPath"] === 'string') && (value["layuiRouterPath"] === undefined || ((value["layuiRouterPath"] === null) || (typeof value["layuiRouterPath"] === 'string'))) && (typeof value["moduleEntryPointPath"] === 'string') && (typeof value["moduleName"] === 'string') && (typeof value["moduleProjectPath"] === 'string') && (typeof value["vueRouterPath"] === 'string');
+}
+
+export function readCodeGenerationPreviewArtifactResponse(value: unknown): CodeGenerationPreviewArtifactResponse {
+  if (!(isCodeGenerationPreviewArtifactResponse(value))) {
+    throw new Error('client.invalid_code_generation_preview_artifact_response');
+  }
+  return value;
+}
+
+function isCodeGenerationPreviewArtifactResponse(value: unknown): value is CodeGenerationPreviewArtifactResponse {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["kind"] === 'string') && (typeof value["path"] === 'string') && (typeof value["sha256"] === 'string');
+}
+
+export function readCodeGenerationPreviewColumnRequest(value: unknown): CodeGenerationPreviewColumnRequest {
+  if (!(isCodeGenerationPreviewColumnRequest(value))) {
+    throw new Error('client.invalid_code_generation_preview_column_request');
+  }
+  return value;
+}
+
+function isCodeGenerationPreviewColumnRequest(value: unknown): value is CodeGenerationPreviewColumnRequest {
+  return isRecord(value) && (typeof value["clrPropertyName"] === 'string') && (typeof value["databaseName"] === 'string') && (typeof value["isNullable"] === 'boolean') && (typeof value["jsonPropertyName"] === 'string') && ((value["maxLength"] === null) || (typeof value["maxLength"] === 'number' && Number.isInteger(value["maxLength"]))) && ((value["numericPrecision"] === null) || (typeof value["numericPrecision"] === 'number' && Number.isInteger(value["numericPrecision"]))) && ((value["numericScale"] === null) || (typeof value["numericScale"] === 'number' && Number.isInteger(value["numericScale"]))) && (typeof value["scalarType"] === 'string') && (value["ui"] === undefined || ((value["ui"] === null) || (isCodeGenerationPreviewColumnUiRequest(value["ui"]))));
+}
+
+export function readCodeGenerationPreviewColumnUiRequest(value: unknown): CodeGenerationPreviewColumnUiRequest {
+  if (!(isCodeGenerationPreviewColumnUiRequest(value))) {
+    throw new Error('client.invalid_code_generation_preview_column_ui_request');
+  }
+  return value;
+}
+
+function isCodeGenerationPreviewColumnUiRequest(value: unknown): value is CodeGenerationPreviewColumnUiRequest {
+  return isRecord(value) && (typeof value["controlKind"] === 'string') && (typeof value["includeInCreate"] === 'boolean') && (typeof value["includeInImportExport"] === 'boolean') && (typeof value["includeInUpdate"] === 'boolean') && (typeof value["queryable"] === 'boolean') && (typeof value["queryKind"] === 'string') && (typeof value["required"] === 'boolean') && (typeof value["showInList"] === 'boolean') && (typeof value["sortable"] === 'boolean') && (typeof value["unique"] === 'boolean');
+}
+
+export function readCodeGenerationPreviewRequest(value: unknown): CodeGenerationPreviewRequest {
+  if (!(isCodeGenerationPreviewRequest(value))) {
+    throw new Error('client.invalid_code_generation_preview_request');
+  }
+  return value;
+}
+
+function isCodeGenerationPreviewRequest(value: unknown): value is CodeGenerationPreviewRequest {
+  return isRecord(value) && (typeof value["apiResourceName"] === 'string') && (typeof value["clrTypeName"] === 'string') && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isCodeGenerationPreviewColumnRequest(item16))) && (typeof value["databaseTableName"] === 'string') && (typeof value["dataScope"] === 'string') && (value["entityCapabilities"] === undefined || ((value["entityCapabilities"] === null) || (isCodeGenerationEntityCapabilitiesRequest(value["entityCapabilities"])))) && (typeof value["entityKey"] === 'string') && ((value["hasVersion"] === null) || (typeof value["hasVersion"] === 'boolean')) && (typeof value["moduleKey"] === 'string') && (typeof value["ownerKey"] === 'string') && (typeof value["permissionResourceName"] === 'string') && (value["relationships"] === undefined || ((value["relationships"] === null) || (Array.isArray(value["relationships"]) && value["relationships"].every(item22 => isCodeGenerationRelationshipRequest(item22))))) && (typeof value["rootNamespace"] === 'string') && (value["scene"] === undefined || ((value["scene"] === null) || (typeof value["scene"] === 'string')));
+}
+
+export function readCodeGenerationPreviewResponse(value: unknown): CodeGenerationPreviewResponse {
+  if (!(isCodeGenerationPreviewResponse(value))) {
+    throw new Error('client.invalid_code_generation_preview_response');
+  }
+  return value;
+}
+
+function isCodeGenerationPreviewResponse(value: unknown): value is CodeGenerationPreviewResponse {
+  return isRecord(value) && (Array.isArray(value["artifacts"]) && value["artifacts"].every(item18 => isCodeGenerationPreviewArtifactResponse(item18))) && (value["createPermission"] === undefined || ((value["createPermission"] === null) || (typeof value["createPermission"] === 'string'))) && (typeof value["databaseTableName"] === 'string') && (value["disablePermission"] === undefined || ((value["disablePermission"] === null) || (typeof value["disablePermission"] === 'string'))) && (typeof value["readPermission"] === 'string') && (value["updatePermission"] === undefined || ((value["updatePermission"] === null) || (typeof value["updatePermission"] === 'string'))) && (typeof value["writePermission"] === 'string');
+}
+
+export function readCodeGenerationRelationshipRequest(value: unknown): CodeGenerationRelationshipRequest {
+  if (!(isCodeGenerationRelationshipRequest(value))) {
+    throw new Error('client.invalid_code_generation_relationship_request');
+  }
+  return value;
+}
+
+function isCodeGenerationRelationshipRequest(value: unknown): value is CodeGenerationRelationshipRequest {
+  return isRecord(value) && (value["cascadeDelete"] === undefined || ((value["cascadeDelete"] === null) || (typeof value["cascadeDelete"] === 'boolean'))) && (value["compositeKeyColumnNames"] === undefined || ((value["compositeKeyColumnNames"] === null) || (Array.isArray(value["compositeKeyColumnNames"]) && value["compositeKeyColumnNames"].every(item32 => typeof item32 === 'string')))) && (typeof value["dependentColumnName"] === 'string') && (typeof value["dependentDataScope"] === 'string') && (typeof value["dependentEntityKey"] === 'string') && (typeof value["principalColumnName"] === 'string') && (typeof value["principalDataScope"] === 'string') && (typeof value["principalEntityKey"] === 'string');
+}
+
+export function readCodeGenerationRunApplyRequest(value: unknown): CodeGenerationRunApplyRequest {
+  if (!(isCodeGenerationRunApplyRequest(value))) {
+    throw new Error('client.invalid_code_generation_run_apply_request');
+  }
+  return value;
+}
+
+function isCodeGenerationRunApplyRequest(value: unknown): value is CodeGenerationRunApplyRequest {
+  return isRecord(value) && (value["integrationTarget"] === undefined || ((value["integrationTarget"] === null) || (isCodeGenerationIntegrationTargetRequest(value["integrationTarget"])))) && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"]));
+}
+
+export function readCodeGenerationRunApplyResponse(value: unknown): CodeGenerationRunApplyResponse {
+  if (!(isCodeGenerationRunApplyResponse(value))) {
+    throw new Error('client.invalid_code_generation_run_apply_response');
+  }
+  return value;
+}
+
+function isCodeGenerationRunApplyResponse(value: unknown): value is CodeGenerationRunApplyResponse {
+  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["previewRunId"] === 'string' && guidPattern.test(value["previewRunId"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+}
+
+export function readCodeGenerationRunPreviewRequest(value: unknown): CodeGenerationRunPreviewRequest {
+  if (!(isCodeGenerationRunPreviewRequest(value))) {
+    throw new Error('client.invalid_code_generation_run_preview_request');
+  }
+  return value;
+}
+
+function isCodeGenerationRunPreviewRequest(value: unknown): value is CodeGenerationRunPreviewRequest {
+  return isRecord(value) && ((value["schema"] === null) || (isCodeGenerationPreviewRequest(value["schema"]))) && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (typeof value["templateVersion"] === 'number' && Number.isInteger(value["templateVersion"])));
+}
+
+export function readCodeGenerationRunPreviewResponse(value: unknown): CodeGenerationRunPreviewResponse {
+  if (!(isCodeGenerationRunPreviewResponse(value))) {
+    throw new Error('client.invalid_code_generation_run_preview_response');
+  }
+  return value;
+}
+
+function isCodeGenerationRunPreviewResponse(value: unknown): value is CodeGenerationRunPreviewResponse {
+  return isRecord(value) && (isCodeGenerationPreviewResponse(value["preview"])) && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+}
+
+export function readCodeGenerationRunResponse(value: unknown): CodeGenerationRunResponse {
+  if (!(isCodeGenerationRunResponse(value))) {
+    throw new Error('client.invalid_code_generation_run_response');
+  }
+  return value;
+}
+
+function isCodeGenerationRunResponse(value: unknown): value is CodeGenerationRunResponse {
+  return isRecord(value) && (typeof value["artifactCount"] === 'number' && Number.isInteger(value["artifactCount"])) && ((value["entityKey"] === null) || (typeof value["entityKey"] === 'string')) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && (typeof value["finishedAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["manifestSha256"] === null) || (typeof value["manifestSha256"] === 'string')) && ((value["moduleKey"] === null) || (typeof value["moduleKey"] === 'string')) && (typeof value["operationKind"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && ((value["schemaSha256"] === null) || (typeof value["schemaSha256"] === 'string')) && ((value["sourceApplyRunId"] === null) || (typeof value["sourceApplyRunId"] === 'string' && guidPattern.test(value["sourceApplyRunId"]))) && (typeof value["startedAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["templateId"] === null) || (typeof value["templateId"] === 'string' && guidPattern.test(value["templateId"]))) && ((value["templateVersion"] === null) || (typeof value["templateVersion"] === 'number' && Number.isInteger(value["templateVersion"])));
+}
+
+export function readCodeGenerationRunRollbackChainRequest(value: unknown): CodeGenerationRunRollbackChainRequest {
+  if (!(isCodeGenerationRunRollbackChainRequest(value))) {
+    throw new Error('client.invalid_code_generation_run_rollback_chain_request');
+  }
+  return value;
+}
+
+function isCodeGenerationRunRollbackChainRequest(value: unknown): value is CodeGenerationRunRollbackChainRequest {
+  return isRecord(value) && (Array.isArray(value["applyRunIds"]) && value["applyRunIds"].every(item20 => typeof item20 === 'string' && guidPattern.test(item20)));
+}
+
+export function readCodeGenerationRunRollbackChainResponse(value: unknown): CodeGenerationRunRollbackChainResponse {
+  if (!(isCodeGenerationRunRollbackChainResponse(value))) {
+    throw new Error('client.invalid_code_generation_run_rollback_chain_response');
+  }
+  return value;
+}
+
+function isCodeGenerationRunRollbackChainResponse(value: unknown): value is CodeGenerationRunRollbackChainResponse {
+  return isRecord(value) && (Array.isArray(value["rollbacks"]) && value["rollbacks"].every(item18 => isCodeGenerationRunRollbackResponse(item18)));
+}
+
+export function readCodeGenerationRunRollbackRequest(value: unknown): CodeGenerationRunRollbackRequest {
+  if (!(isCodeGenerationRunRollbackRequest(value))) {
+    throw new Error('client.invalid_code_generation_run_rollback_request');
+  }
+  return value;
+}
+
+function isCodeGenerationRunRollbackRequest(value: unknown): value is CodeGenerationRunRollbackRequest {
+  return isRecord(value) && (typeof value["applyRunId"] === 'string' && guidPattern.test(value["applyRunId"]));
+}
+
+export function readCodeGenerationRunRollbackResponse(value: unknown): CodeGenerationRunRollbackResponse {
+  if (!(isCodeGenerationRunRollbackResponse(value))) {
+    throw new Error('client.invalid_code_generation_run_rollback_response');
+  }
+  return value;
+}
+
+function isCodeGenerationRunRollbackResponse(value: unknown): value is CodeGenerationRunRollbackResponse {
+  return isRecord(value) && (typeof value["applyRunId"] === 'string' && guidPattern.test(value["applyRunId"])) && (typeof value["artifactCount"] === 'number' && Number.isInteger(value["artifactCount"])) && (typeof value["changedArtifactCount"] === 'number' && Number.isInteger(value["changedArtifactCount"])) && (typeof value["manifestSha256"] === 'string') && (typeof value["runId"] === 'string' && guidPattern.test(value["runId"]));
+}
+
+export function readCodeGenerationTemplateResponse(value: unknown): CodeGenerationTemplateResponse {
+  if (!(isCodeGenerationTemplateResponse(value))) {
+    throw new Error('client.invalid_code_generation_template_response');
+  }
+  return value;
+}
+
+function isCodeGenerationTemplateResponse(value: unknown): value is CodeGenerationTemplateResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (typeof value["schemaSha256"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readConfigEntryResponse(value: unknown): ConfigEntryResponse {
   if (!(isConfigEntryResponse(value))) {
     throw new Error('client.invalid_config_entry_response');
@@ -223,6 +721,17 @@ function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnr
   return isRecord(value) && (typeof value["totpCode"] === 'string');
 }
 
+export function readCreateCodeGenerationTemplateRequest(value: unknown): CreateCodeGenerationTemplateRequest {
+  if (!(isCreateCodeGenerationTemplateRequest(value))) {
+    throw new Error('client.invalid_create_code_generation_template_request');
+  }
+  return value;
+}
+
+function isCreateCodeGenerationTemplateRequest(value: unknown): value is CreateCodeGenerationTemplateRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"]));
+}
+
 export function readCreateConfigEntryRequest(value: unknown): CreateConfigEntryRequest {
   if (!(isCreateConfigEntryRequest(value))) {
     throw new Error('client.invalid_create_config_entry_request');
@@ -232,6 +741,39 @@ export function readCreateConfigEntryRequest(value: unknown): CreateConfigEntryR
 
 function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryRequest {
   return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
+}
+
+export function readCreateDictItemRequest(value: unknown): CreateDictItemRequest {
+  if (!(isCreateDictItemRequest(value))) {
+    throw new Error('client.invalid_create_dict_item_request');
+  }
+  return value;
+}
+
+function isCreateDictItemRequest(value: unknown): value is CreateDictItemRequest {
+  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["label"] === 'string') && (typeof value["value"] === 'string');
+}
+
+export function readCreateDictTypeRequest(value: unknown): CreateDictTypeRequest {
+  if (!(isCreateDictTypeRequest(value))) {
+    throw new Error('client.invalid_create_dict_type_request');
+  }
+  return value;
+}
+
+function isCreateDictTypeRequest(value: unknown): value is CreateDictTypeRequest {
+  return isRecord(value) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
+}
+
+export function readCreateHostAnnouncementRequest(value: unknown): CreateHostAnnouncementRequest {
+  if (!(isCreateHostAnnouncementRequest(value))) {
+    throw new Error('client.invalid_create_host_announcement_request');
+  }
+  return value;
+}
+
+function isCreateHostAnnouncementRequest(value: unknown): value is CreateHostAnnouncementRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string');
 }
 
 export function readCreateHostApiKeyRequest(value: unknown): CreateHostApiKeyRequest {
@@ -256,6 +798,72 @@ function isCreateHostApiKeyResponse(value: unknown): value is CreateHostApiKeyRe
   return isRecord(value) && (isHostApiKeyResponse(value["key"])) && (typeof value["secret"] === 'string');
 }
 
+export function readCreateHostDocumentCategoryRequest(value: unknown): CreateHostDocumentCategoryRequest {
+  if (!(isCreateHostDocumentCategoryRequest(value))) {
+    throw new Error('client.invalid_create_host_document_category_request');
+  }
+  return value;
+}
+
+function isCreateHostDocumentCategoryRequest(value: unknown): value is CreateHostDocumentCategoryRequest {
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isInteger(value["sortOrder"]));
+}
+
+export function readCreateHostDocumentItemRequest(value: unknown): CreateHostDocumentItemRequest {
+  if (!(isCreateHostDocumentItemRequest(value))) {
+    throw new Error('client.invalid_create_host_document_item_request');
+  }
+  return value;
+}
+
+function isCreateHostDocumentItemRequest(value: unknown): value is CreateHostDocumentItemRequest {
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (isHostDocumentType(value["documentType"])) && (typeof value["sort"] === 'number' && Number.isInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string');
+}
+
+export function readCreateHostDocumentShareRequest(value: unknown): CreateHostDocumentShareRequest {
+  if (!(isCreateHostDocumentShareRequest(value))) {
+    throw new Error('client.invalid_create_host_document_share_request');
+  }
+  return value;
+}
+
+function isCreateHostDocumentShareRequest(value: unknown): value is CreateHostDocumentShareRequest {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (value["maxAccessCount"] === undefined || ((value["maxAccessCount"] === null) || (typeof value["maxAccessCount"] === 'number' && Number.isInteger(value["maxAccessCount"])))) && (value["password"] === undefined || ((value["password"] === null) || (typeof value["password"] === 'string'))) && (typeof value["validDays"] === 'number' && Number.isInteger(value["validDays"]));
+}
+
+export function readCreateHostDocumentTagRequest(value: unknown): CreateHostDocumentTagRequest {
+  if (!(isCreateHostDocumentTagRequest(value))) {
+    throw new Error('client.invalid_create_host_document_tag_request');
+  }
+  return value;
+}
+
+function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocumentTagRequest {
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string');
+}
+
+export function readCreateHostJobDefinitionRequest(value: unknown): CreateHostJobDefinitionRequest {
+  if (!(isCreateHostJobDefinitionRequest(value))) {
+    throw new Error('client.invalid_create_host_job_definition_request');
+  }
+  return value;
+}
+
+function isCreateHostJobDefinitionRequest(value: unknown): value is CreateHostJobDefinitionRequest {
+  return isRecord(value) && (value["allowConcurrentExecutions"] === undefined || (typeof value["allowConcurrentExecutions"] === 'boolean')) && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (typeof value["jobKey"] === 'string');
+}
+
+export function readCreateHostJobScheduleRequest(value: unknown): CreateHostJobScheduleRequest {
+  if (!(isCreateHostJobScheduleRequest(value))) {
+    throw new Error('client.invalid_create_host_job_schedule_request');
+  }
+  return value;
+}
+
+function isCreateHostJobScheduleRequest(value: unknown): value is CreateHostJobScheduleRequest {
+  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && (typeof value["misfirePolicy"] === 'string') && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string');
+}
+
 export function readCreateHostMenuRequest(value: unknown): CreateHostMenuRequest {
   if (!(isCreateHostMenuRequest(value))) {
     throw new Error('client.invalid_create_host_menu_request');
@@ -278,6 +886,17 @@ function isCreateHostRoleRequest(value: unknown): value is CreateHostRoleRequest
   return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["name"] === 'string');
 }
 
+export function readCreateHostTenantPackageRequest(value: unknown): CreateHostTenantPackageRequest {
+  if (!(isCreateHostTenantPackageRequest(value))) {
+    throw new Error('client.invalid_create_host_tenant_package_request');
+  }
+  return value;
+}
+
+function isCreateHostTenantPackageRequest(value: unknown): value is CreateHostTenantPackageRequest {
+  return isRecord(value) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string');
+}
+
 export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest {
   if (!(isCreateHostUserRequest(value))) {
     throw new Error('client.invalid_create_host_user_request');
@@ -287,6 +906,72 @@ export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest
 
 function isCreateHostUserRequest(value: unknown): value is CreateHostUserRequest {
   return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (typeof value["password"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["username"] === 'string');
+}
+
+export function readCreateOrganizationPositionLevelRequest(value: unknown): CreateOrganizationPositionLevelRequest {
+  if (!(isCreateOrganizationPositionLevelRequest(value))) {
+    throw new Error('client.invalid_create_organization_position_level_request');
+  }
+  return value;
+}
+
+function isCreateOrganizationPositionLevelRequest(value: unknown): value is CreateOrganizationPositionLevelRequest {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
+}
+
+export function readCreateOrganizationPositionRequest(value: unknown): CreateOrganizationPositionRequest {
+  if (!(isCreateOrganizationPositionRequest(value))) {
+    throw new Error('client.invalid_create_organization_position_request');
+  }
+  return value;
+}
+
+function isCreateOrganizationPositionRequest(value: unknown): value is CreateOrganizationPositionRequest {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string');
+}
+
+export function readCreateOrganizationUnitRequest(value: unknown): CreateOrganizationUnitRequest {
+  if (!(isCreateOrganizationUnitRequest(value))) {
+    throw new Error('client.invalid_create_organization_unit_request');
+  }
+  return value;
+}
+
+function isCreateOrganizationUnitRequest(value: unknown): value is CreateOrganizationUnitRequest {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string'));
+}
+
+export function readCreateOrganizationUserPositionRequest(value: unknown): CreateOrganizationUserPositionRequest {
+  if (!(isCreateOrganizationUserPositionRequest(value))) {
+    throw new Error('client.invalid_create_organization_user_position_request');
+  }
+  return value;
+}
+
+function isCreateOrganizationUserPositionRequest(value: unknown): value is CreateOrganizationUserPositionRequest {
+  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["positionId"] === 'string' && guidPattern.test(value["positionId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readCreateOrganizationUserUnitRequest(value: unknown): CreateOrganizationUserUnitRequest {
+  if (!(isCreateOrganizationUserUnitRequest(value))) {
+    throw new Error('client.invalid_create_organization_user_unit_request');
+  }
+  return value;
+}
+
+function isCreateOrganizationUserUnitRequest(value: unknown): value is CreateOrganizationUserUnitRequest {
+  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialNumberRuleRequest {
+  if (!(isCreateSerialNumberRuleRequest(value))) {
+    throw new Error('client.invalid_create_serial_number_rule_request');
+  }
+  return value;
+}
+
+function isCreateSerialNumberRuleRequest(value: unknown): value is CreateSerialNumberRuleRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"]));
 }
 
 export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
@@ -300,6 +985,17 @@ function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
 }
 
+export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
+  if (!(isDeleteCodeGenerationTemplateRequest(value))) {
+    throw new Error('client.invalid_delete_code_generation_template_request');
+  }
+  return value;
+}
+
+function isDeleteCodeGenerationTemplateRequest(value: unknown): value is DeleteCodeGenerationTemplateRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readDeleteConfigEntryRequest(value: unknown): DeleteConfigEntryRequest {
   if (!(isDeleteConfigEntryRequest(value))) {
     throw new Error('client.invalid_delete_config_entry_request');
@@ -309,6 +1005,182 @@ export function readDeleteConfigEntryRequest(value: unknown): DeleteConfigEntryR
 
 function isDeleteConfigEntryRequest(value: unknown): value is DeleteConfigEntryRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteDictItemRequest(value: unknown): DeleteDictItemRequest {
+  if (!(isDeleteDictItemRequest(value))) {
+    throw new Error('client.invalid_delete_dict_item_request');
+  }
+  return value;
+}
+
+function isDeleteDictItemRequest(value: unknown): value is DeleteDictItemRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteDictTypeRequest(value: unknown): DeleteDictTypeRequest {
+  if (!(isDeleteDictTypeRequest(value))) {
+    throw new Error('client.invalid_delete_dict_type_request');
+  }
+  return value;
+}
+
+function isDeleteDictTypeRequest(value: unknown): value is DeleteDictTypeRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostDocumentCategoryRequest(value: unknown): DeleteHostDocumentCategoryRequest {
+  if (!(isDeleteHostDocumentCategoryRequest(value))) {
+    throw new Error('client.invalid_delete_host_document_category_request');
+  }
+  return value;
+}
+
+function isDeleteHostDocumentCategoryRequest(value: unknown): value is DeleteHostDocumentCategoryRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostDocumentItemRequest(value: unknown): DeleteHostDocumentItemRequest {
+  if (!(isDeleteHostDocumentItemRequest(value))) {
+    throw new Error('client.invalid_delete_host_document_item_request');
+  }
+  return value;
+}
+
+function isDeleteHostDocumentItemRequest(value: unknown): value is DeleteHostDocumentItemRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostDocumentTagRequest(value: unknown): DeleteHostDocumentTagRequest {
+  if (!(isDeleteHostDocumentTagRequest(value))) {
+    throw new Error('client.invalid_delete_host_document_tag_request');
+  }
+  return value;
+}
+
+function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostJobDefinitionRequest(value: unknown): DeleteHostJobDefinitionRequest {
+  if (!(isDeleteHostJobDefinitionRequest(value))) {
+    throw new Error('client.invalid_delete_host_job_definition_request');
+  }
+  return value;
+}
+
+function isDeleteHostJobDefinitionRequest(value: unknown): value is DeleteHostJobDefinitionRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDiagnosticPolicyResponse(value: unknown): DiagnosticPolicyResponse {
+  if (!(isDiagnosticPolicyResponse(value))) {
+    throw new Error('client.invalid_diagnostic_policy_response');
+  }
+  return value;
+}
+
+function isDiagnosticPolicyResponse(value: unknown): value is DiagnosticPolicyResponse {
+  return isRecord(value) && (Array.isArray(value["activeRules"]) && value["activeRules"].every(item20 => isDiagnosticPolicyRuleResponse(item20))) && (typeof value["configEntryVersion"] === 'number' && Number.isInteger(value["configEntryVersion"])) && (typeof value["isDefault"] === 'boolean') && (typeof value["loadedAtUtc"] === 'string') && (typeof value["pressureState"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDiagnosticPolicyRuleRequest(value: unknown): DiagnosticPolicyRuleRequest {
+  if (!(isDiagnosticPolicyRuleRequest(value))) {
+    throw new Error('client.invalid_diagnostic_policy_rule_request');
+  }
+  return value;
+}
+
+function isDiagnosticPolicyRuleRequest(value: unknown): value is DiagnosticPolicyRuleRequest {
+  return isRecord(value) && ((value["bestEffortCapacityOverride"] === null) || (typeof value["bestEffortCapacityOverride"] === 'number' && Number.isInteger(value["bestEffortCapacityOverride"]))) && (typeof value["expiresAtUtc"] === 'string') && ((value["maxRequestPayloadBytesOverride"] === null) || (typeof value["maxRequestPayloadBytesOverride"] === 'number' && Number.isInteger(value["maxRequestPayloadBytesOverride"]))) && ((value["maxResponsePayloadBytesOverride"] === null) || (typeof value["maxResponsePayloadBytesOverride"] === 'number' && Number.isInteger(value["maxResponsePayloadBytesOverride"]))) && (typeof value["scopeKind"] === 'string') && (typeof value["scopeValue"] === 'string') && ((value["successSampleRateOverride"] === null) || (typeof value["successSampleRateOverride"] === 'number' && Number.isFinite(value["successSampleRateOverride"])) || (typeof value["successSampleRateOverride"] === 'string'));
+}
+
+export function readDiagnosticPolicyRuleResponse(value: unknown): DiagnosticPolicyRuleResponse {
+  if (!(isDiagnosticPolicyRuleResponse(value))) {
+    throw new Error('client.invalid_diagnostic_policy_rule_response');
+  }
+  return value;
+}
+
+function isDiagnosticPolicyRuleResponse(value: unknown): value is DiagnosticPolicyRuleResponse {
+  return isRecord(value) && ((value["bestEffortCapacityOverride"] === null) || (typeof value["bestEffortCapacityOverride"] === 'number' && Number.isInteger(value["bestEffortCapacityOverride"]))) && (typeof value["expiresAtUtc"] === 'string') && ((value["maxRequestPayloadBytesOverride"] === null) || (typeof value["maxRequestPayloadBytesOverride"] === 'number' && Number.isInteger(value["maxRequestPayloadBytesOverride"]))) && ((value["maxResponsePayloadBytesOverride"] === null) || (typeof value["maxResponsePayloadBytesOverride"] === 'number' && Number.isInteger(value["maxResponsePayloadBytesOverride"]))) && (typeof value["scopeKind"] === 'string') && (typeof value["scopeValue"] === 'string') && ((value["successSampleRateOverride"] === null) || (typeof value["successSampleRateOverride"] === 'number' && Number.isFinite(value["successSampleRateOverride"])) || (typeof value["successSampleRateOverride"] === 'string'));
+}
+
+export function readDictItemResponse(value: unknown): DictItemResponse {
+  if (!(isDictItemResponse(value))) {
+    throw new Error('client.invalid_dict_item_response');
+  }
+  return value;
+}
+
+function isDictItemResponse(value: unknown): value is DictItemResponse {
+  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["dictTypeId"] === 'string' && guidPattern.test(value["dictTypeId"])) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["label"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDictTypeResponse(value: unknown): DictTypeResponse {
+  if (!(isDictTypeResponse(value))) {
+    throw new Error('client.invalid_dict_type_response');
+  }
+  return value;
+}
+
+function isDictTypeResponse(value: unknown): value is DictTypeResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDisableHostJobDefinitionRequest(value: unknown): DisableHostJobDefinitionRequest {
+  if (!(isDisableHostJobDefinitionRequest(value))) {
+    throw new Error('client.invalid_disable_host_job_definition_request');
+  }
+  return value;
+}
+
+function isDisableHostJobDefinitionRequest(value: unknown): value is DisableHostJobDefinitionRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readEnumCatalogDetail(value: unknown): EnumCatalogDetail {
+  if (!(isEnumCatalogDetail(value))) {
+    throw new Error('client.invalid_enum_catalog_detail');
+  }
+  return value;
+}
+
+function isEnumCatalogDetail(value: unknown): value is EnumCatalogDetail {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["key"] === 'string') && (Array.isArray(value["members"]) && value["members"].every(item16 => isEnumCatalogMember(item16)));
+}
+
+export function readEnumCatalogMember(value: unknown): EnumCatalogMember {
+  if (!(isEnumCatalogMember(value))) {
+    throw new Error('client.invalid_enum_catalog_member');
+  }
+  return value;
+}
+
+function isEnumCatalogMember(value: unknown): value is EnumCatalogMember {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["label"] === 'string');
+}
+
+export function readEnumCatalogSummary(value: unknown): EnumCatalogSummary {
+  if (!(isEnumCatalogSummary(value))) {
+    throw new Error('client.invalid_enum_catalog_summary');
+  }
+  return value;
+}
+
+function isEnumCatalogSummary(value: unknown): value is EnumCatalogSummary {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["key"] === 'string') && (typeof value["memberCount"] === 'number' && Number.isInteger(value["memberCount"]));
+}
+
+export function readExceptionLogResponse(value: unknown): ExceptionLogResponse {
+  if (!(isExceptionLogResponse(value))) {
+    throw new Error('client.invalid_exception_log_response');
+  }
+  return value;
+}
+
+function isExceptionLogResponse(value: unknown): value is ExceptionLogResponse {
+  return isRecord(value) && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["exceptionType"] === 'string') && ((value["httpMethod"] === null) || (typeof value["httpMethod"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["message"] === 'string') && (typeof value["occurredAtUtc"] === 'string') && ((value["requestPath"] === null) || (typeof value["requestPath"] === 'string')) && ((value["stackTrace"] === null) || (typeof value["stackTrace"] === 'string')) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
 }
 
 export function readFieldProjectionDefaultVisibility(value: unknown): FieldProjectionDefaultVisibility {
@@ -366,6 +1238,17 @@ function isGrantSuperAdministratorRequest(value: unknown): value is GrantSuperAd
   return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string'))) && (typeof value["username"] === 'string');
 }
 
+export function readHostAnnouncementResponse(value: unknown): HostAnnouncementResponse {
+  if (!(isHostAnnouncementResponse(value))) {
+    throw new Error('client.invalid_host_announcement_response');
+  }
+  return value;
+}
+
+function isHostAnnouncementResponse(value: unknown): value is HostAnnouncementResponse {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readHostApiKeyResponse(value: unknown): HostApiKeyResponse {
   if (!(isHostApiKeyResponse(value))) {
     throw new Error('client.invalid_host_api_key_response');
@@ -377,6 +1260,193 @@ function isHostApiKeyResponse(value: unknown): value is HostApiKeyResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && ((value["expiresAtUtc"] === null) || (typeof value["expiresAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["keyPrefix"] === 'string') && ((value["lastUsedAtUtc"] === null) || (typeof value["lastUsedAtUtc"] === 'string')) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
+export function readHostDashboardActivityResponse(value: unknown): HostDashboardActivityResponse {
+  if (!(isHostDashboardActivityResponse(value))) {
+    throw new Error('client.invalid_host_dashboard_activity_response');
+  }
+  return value;
+}
+
+function isHostDashboardActivityResponse(value: unknown): value is HostDashboardActivityResponse {
+  return isRecord(value) && (typeof value["actionKey"] === 'string') && (typeof value["httpMethod"] === 'string') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["requestPath"] === 'string') && (typeof value["succeeded"] === 'boolean');
+}
+
+export function readHostDashboardSummaryResponse(value: unknown): HostDashboardSummaryResponse {
+  if (!(isHostDashboardSummaryResponse(value))) {
+    throw new Error('client.invalid_host_dashboard_summary_response');
+  }
+  return value;
+}
+
+function isHostDashboardSummaryResponse(value: unknown): value is HostDashboardSummaryResponse {
+  return isRecord(value) && (typeof value["activeTenantCount"] === 'number' && Number.isInteger(value["activeTenantCount"])) && (typeof value["onlineSessionCount"] === 'number' && Number.isInteger(value["onlineSessionCount"])) && (Array.isArray(value["recentActivities"]) && value["recentActivities"].every(item25 => isHostDashboardActivityResponse(item25))) && ((typeof value["todayErrorRate"] === 'number' && Number.isFinite(value["todayErrorRate"])) || (typeof value["todayErrorRate"] === 'string')) && (typeof value["todayRequestCount"] === 'number' && Number.isInteger(value["todayRequestCount"]));
+}
+
+export function readHostDocumentCategoryResponse(value: unknown): HostDocumentCategoryResponse {
+  if (!(isHostDocumentCategoryResponse(value))) {
+    throw new Error('client.invalid_host_document_category_response');
+  }
+  return value;
+}
+
+function isHostDocumentCategoryResponse(value: unknown): value is HostDocumentCategoryResponse {
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isInteger(value["sortOrder"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostDocumentItemResponse(value: unknown): HostDocumentItemResponse {
+  if (!(isHostDocumentItemResponse(value))) {
+    throw new Error('client.invalid_host_document_item_response');
+  }
+  return value;
+}
+
+function isHostDocumentItemResponse(value: unknown): value is HostDocumentItemResponse {
+  return isRecord(value) && (typeof value["accessCount"] === 'number' && Number.isInteger(value["accessCount"])) && ((value["categoryColor"] === null) || (typeof value["categoryColor"] === 'string')) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["currentVersion"] === null) || (isHostDocumentVersionResponse(value["currentVersion"]))) && ((value["deletedAtUtc"] === null) || (typeof value["deletedAtUtc"] === 'string')) && ((value["deletedByUserId"] === null) || (typeof value["deletedByUserId"] === 'string' && guidPattern.test(value["deletedByUserId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["documentNo"] === 'string') && (isHostDocumentType(value["documentType"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["lastAccessTime"] === null) || (typeof value["lastAccessTime"] === 'string')) && (typeof value["sizeKb"] === 'number' && Number.isInteger(value["sizeKb"])) && (typeof value["sort"] === 'number' && Number.isInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && (Array.isArray(value["tags"]) && value["tags"].every(item13 => isHostDocumentTagAssignmentResponse(item13))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostDocumentPermissionEntry(value: unknown): HostDocumentPermissionEntry {
+  if (!(isHostDocumentPermissionEntry(value))) {
+    throw new Error('client.invalid_host_document_permission_entry');
+  }
+  return value;
+}
+
+function isHostDocumentPermissionEntry(value: unknown): value is HostDocumentPermissionEntry {
+  return isRecord(value) && (typeof value["permissionLevel"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readHostDocumentPermissionResponse(value: unknown): HostDocumentPermissionResponse {
+  if (!(isHostDocumentPermissionResponse(value))) {
+    throw new Error('client.invalid_host_document_permission_response');
+  }
+  return value;
+}
+
+function isHostDocumentPermissionResponse(value: unknown): value is HostDocumentPermissionResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["permissionLevel"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readHostDocumentShareAccessResponse(value: unknown): HostDocumentShareAccessResponse {
+  if (!(isHostDocumentShareAccessResponse(value))) {
+    throw new Error('client.invalid_host_document_share_access_response');
+  }
+  return value;
+}
+
+function isHostDocumentShareAccessResponse(value: unknown): value is HostDocumentShareAccessResponse {
+  return isRecord(value) && (typeof value["accessCountRemaining"] === 'number' && Number.isInteger(value["accessCountRemaining"])) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && ((value["fileName"] === null) || (typeof value["fileName"] === 'string')) && (typeof value["fileSizeBytes"] === 'number' && Number.isInteger(value["fileSizeBytes"])) && (typeof value["hasPassword"] === 'boolean') && ((value["mimeType"] === null) || (typeof value["mimeType"] === 'string')) && (typeof value["shareCode"] === 'string') && (typeof value["shareId"] === 'string' && guidPattern.test(value["shareId"])) && (typeof value["title"] === 'string');
+}
+
+export function readHostDocumentShareResponse(value: unknown): HostDocumentShareResponse {
+  if (!(isHostDocumentShareResponse(value))) {
+    throw new Error('client.invalid_host_document_share_response');
+  }
+  return value;
+}
+
+function isHostDocumentShareResponse(value: unknown): value is HostDocumentShareResponse {
+  return isRecord(value) && (typeof value["accessCount"] === 'number' && Number.isInteger(value["accessCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["expireTime"] === 'string') && (typeof value["hasPassword"] === 'boolean') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["maxAccessCount"] === null) || (typeof value["maxAccessCount"] === 'number' && Number.isInteger(value["maxAccessCount"]))) && (typeof value["shareCode"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostDocumentStatisticsCategoryItem(value: unknown): HostDocumentStatisticsCategoryItem {
+  if (!(isHostDocumentStatisticsCategoryItem(value))) {
+    throw new Error('client.invalid_host_document_statistics_category_item');
+  }
+  return value;
+}
+
+function isHostDocumentStatisticsCategoryItem(value: unknown): value is HostDocumentStatisticsCategoryItem {
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["categoryName"] === null) || (typeof value["categoryName"] === 'string')) && (typeof value["count"] === 'number' && Number.isInteger(value["count"]));
+}
+
+export function readHostDocumentStatisticsResponse(value: unknown): HostDocumentStatisticsResponse {
+  if (!(isHostDocumentStatisticsResponse(value))) {
+    throw new Error('client.invalid_host_document_statistics_response');
+  }
+  return value;
+}
+
+function isHostDocumentStatisticsResponse(value: unknown): value is HostDocumentStatisticsResponse {
+  return isRecord(value) && (Array.isArray(value["byCategory"]) && value["byCategory"].every(item19 => isHostDocumentStatisticsCategoryItem(item19))) && (Array.isArray(value["byType"]) && value["byType"].every(item15 => isHostDocumentStatisticsTypeItem(item15))) && (typeof value["recycleBinCount"] === 'number' && Number.isInteger(value["recycleBinCount"])) && (typeof value["shareCount"] === 'number' && Number.isInteger(value["shareCount"])) && (isHostDocumentStatisticsSummaryResponse(value["summary"])) && (typeof value["todayAccessCount"] === 'number' && Number.isInteger(value["todayAccessCount"])) && (typeof value["todayCreatedCount"] === 'number' && Number.isInteger(value["todayCreatedCount"])) && (typeof value["todayDownloadCount"] === 'number' && Number.isInteger(value["todayDownloadCount"]));
+}
+
+export function readHostDocumentStatisticsSummaryResponse(value: unknown): HostDocumentStatisticsSummaryResponse {
+  if (!(isHostDocumentStatisticsSummaryResponse(value))) {
+    throw new Error('client.invalid_host_document_statistics_summary_response');
+  }
+  return value;
+}
+
+function isHostDocumentStatisticsSummaryResponse(value: unknown): value is HostDocumentStatisticsSummaryResponse {
+  return isRecord(value) && (typeof value["totalItems"] === 'number' && Number.isInteger(value["totalItems"])) && (typeof value["totalSizeInfo"] === 'string') && (typeof value["totalSizeKb"] === 'number' && Number.isInteger(value["totalSizeKb"])) && (typeof value["totalVersions"] === 'number' && Number.isInteger(value["totalVersions"]));
+}
+
+export function readHostDocumentStatisticsTypeItem(value: unknown): HostDocumentStatisticsTypeItem {
+  if (!(isHostDocumentStatisticsTypeItem(value))) {
+    throw new Error('client.invalid_host_document_statistics_type_item');
+  }
+  return value;
+}
+
+function isHostDocumentStatisticsTypeItem(value: unknown): value is HostDocumentStatisticsTypeItem {
+  return isRecord(value) && (typeof value["count"] === 'number' && Number.isInteger(value["count"])) && ((value["extension"] === null) || (typeof value["extension"] === 'string')) && (typeof value["totalSizeKb"] === 'number' && Number.isInteger(value["totalSizeKb"]));
+}
+
+export function readHostDocumentStatus(value: unknown): HostDocumentStatus {
+  if (!(isHostDocumentStatus(value))) {
+    throw new Error('client.invalid_host_document_status');
+  }
+  return value;
+}
+
+function isHostDocumentStatus(value: unknown): value is HostDocumentStatus {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readHostDocumentTagAssignmentResponse(value: unknown): HostDocumentTagAssignmentResponse {
+  if (!(isHostDocumentTagAssignmentResponse(value))) {
+    throw new Error('client.invalid_host_document_tag_assignment_response');
+  }
+  return value;
+}
+
+function isHostDocumentTagAssignmentResponse(value: unknown): value is HostDocumentTagAssignmentResponse {
+  return isRecord(value) && (typeof value["tagId"] === 'string' && guidPattern.test(value["tagId"])) && (typeof value["tagName"] === 'string');
+}
+
+export function readHostDocumentTagResponse(value: unknown): HostDocumentTagResponse {
+  if (!(isHostDocumentTagResponse(value))) {
+    throw new Error('client.invalid_host_document_tag_response');
+  }
+  return value;
+}
+
+function isHostDocumentTagResponse(value: unknown): value is HostDocumentTagResponse {
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["useCount"] === 'number' && Number.isInteger(value["useCount"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostDocumentType(value: unknown): HostDocumentType {
+  if (!(isHostDocumentType(value))) {
+    throw new Error('client.invalid_host_document_type');
+  }
+  return value;
+}
+
+function isHostDocumentType(value: unknown): value is HostDocumentType {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readHostDocumentVersionResponse(value: unknown): HostDocumentVersionResponse {
+  if (!(isHostDocumentVersionResponse(value))) {
+    throw new Error('client.invalid_host_document_version_response');
+  }
+  return value;
+}
+
+function isHostDocumentVersionResponse(value: unknown): value is HostDocumentVersionResponse {
+  return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"])) && (typeof value["uploadedByUserId"] === 'string' && guidPattern.test(value["uploadedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isInteger(value["versionNumber"]));
+}
+
 export function readHostFileResponse(value: unknown): HostFileResponse {
   if (!(isHostFileResponse(value))) {
     throw new Error('client.invalid_host_file_response');
@@ -386,6 +1456,105 @@ export function readHostFileResponse(value: unknown): HostFileResponse {
 
 function isHostFileResponse(value: unknown): value is HostFileResponse {
   return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"]));
+}
+
+export function readHostJobDefinitionResponse(value: unknown): HostJobDefinitionResponse {
+  if (!(isHostJobDefinitionResponse(value))) {
+    throw new Error('client.invalid_host_job_definition_response');
+  }
+  return value;
+}
+
+function isHostJobDefinitionResponse(value: unknown): value is HostJobDefinitionResponse {
+  return isRecord(value) && (typeof value["allowConcurrentExecutions"] === 'boolean') && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && (typeof value["createdAtUtc"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["jobKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostJobExecutionResponse(value: unknown): HostJobExecutionResponse {
+  if (!(isHostJobExecutionResponse(value))) {
+    throw new Error('client.invalid_host_job_execution_response');
+  }
+  return value;
+}
+
+function isHostJobExecutionResponse(value: unknown): value is HostJobExecutionResponse {
+  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && ((value["errorMessage"] === null) || (typeof value["errorMessage"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && ((value["jobScheduleId"] === null) || (typeof value["jobScheduleId"] === 'string' && guidPattern.test(value["jobScheduleId"]))) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["scheduledForUtc"] === null) || (typeof value["scheduledForUtc"] === 'string')) && ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["triggerKind"] === 'string');
+}
+
+export function readHostJobGroupResponse(value: unknown): HostJobGroupResponse {
+  if (!(isHostJobGroupResponse(value))) {
+    throw new Error('client.invalid_host_job_group_response');
+  }
+  return value;
+}
+
+function isHostJobGroupResponse(value: unknown): value is HostJobGroupResponse {
+  return isRecord(value) && (typeof value["groupName"] === 'string');
+}
+
+export function readHostJobHealthBacklogSnapshot(value: unknown): HostJobHealthBacklogSnapshot {
+  if (!(isHostJobHealthBacklogSnapshot(value))) {
+    throw new Error('client.invalid_host_job_health_backlog_snapshot');
+  }
+  return value;
+}
+
+function isHostJobHealthBacklogSnapshot(value: unknown): value is HostJobHealthBacklogSnapshot {
+  return isRecord(value) && (typeof value["dueRetryCount"] === 'number' && Number.isInteger(value["dueRetryCount"])) && ((value["oldestClaimableCreatedAtUtc"] === null) || (typeof value["oldestClaimableCreatedAtUtc"] === 'string')) && ((value["oldestDueRetryAtUtc"] === null) || (typeof value["oldestDueRetryAtUtc"] === 'string')) && (typeof value["pendingCount"] === 'number' && Number.isInteger(value["pendingCount"]));
+}
+
+export function readHostJobHealthResponse(value: unknown): HostJobHealthResponse {
+  if (!(isHostJobHealthResponse(value))) {
+    throw new Error('client.invalid_host_job_health_response');
+  }
+  return value;
+}
+
+function isHostJobHealthResponse(value: unknown): value is HostJobHealthResponse {
+  return isRecord(value) && (isHostJobHealthBacklogSnapshot(value["backlog"])) && (Array.isArray(value["registeredHandlers"]) && value["registeredHandlers"].every(item27 => typeof item27 === 'string')) && (Array.isArray(value["workers"]) && value["workers"].every(item16 => isHostJobWorkerInstanceResponse(item16)));
+}
+
+export function readHostJobScheduleCronPreviewResponse(value: unknown): HostJobScheduleCronPreviewResponse {
+  if (!(isHostJobScheduleCronPreviewResponse(value))) {
+    throw new Error('client.invalid_host_job_schedule_cron_preview_response');
+  }
+  return value;
+}
+
+function isHostJobScheduleCronPreviewResponse(value: unknown): value is HostJobScheduleCronPreviewResponse {
+  return isRecord(value) && (typeof value["humanDescription"] === 'string') && (typeof value["nextExecutionAtUtc"] === 'string') && (Array.isArray(value["nextOccurrencesUtc"]) && value["nextOccurrencesUtc"].every(item27 => typeof item27 === 'string'));
+}
+
+export function readHostJobScheduleDefinitionOptionResponse(value: unknown): HostJobScheduleDefinitionOptionResponse {
+  if (!(isHostJobScheduleDefinitionOptionResponse(value))) {
+    throw new Error('client.invalid_host_job_schedule_definition_option_response');
+  }
+  return value;
+}
+
+function isHostJobScheduleDefinitionOptionResponse(value: unknown): value is HostJobScheduleDefinitionOptionResponse {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["handlerKind"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["jobKey"] === 'string');
+}
+
+export function readHostJobScheduleResponse(value: unknown): HostJobScheduleResponse {
+  if (!(isHostJobScheduleResponse(value))) {
+    throw new Error('client.invalid_host_job_schedule_response');
+  }
+  return value;
+}
+
+function isHostJobScheduleResponse(value: unknown): value is HostJobScheduleResponse {
+  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["jobDefinitionDisplayName"] === 'string') && (typeof value["jobDefinitionId"] === 'string' && guidPattern.test(value["jobDefinitionId"])) && (typeof value["jobDefinitionJobKey"] === 'string') && ((value["lastExecutionAtUtc"] === null) || (typeof value["lastExecutionAtUtc"] === 'string')) && (typeof value["misfirePolicy"] === 'string') && ((value["nextExecutionAtUtc"] === null) || (typeof value["nextExecutionAtUtc"] === 'string')) && (typeof value["numberOfErrors"] === 'number' && Number.isInteger(value["numberOfErrors"])) && (typeof value["numberOfRuns"] === 'number' && Number.isInteger(value["numberOfRuns"])) && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostJobWorkerInstanceResponse(value: unknown): HostJobWorkerInstanceResponse {
+  if (!(isHostJobWorkerInstanceResponse(value))) {
+    throw new Error('client.invalid_host_job_worker_instance_response');
+  }
+  return value;
+}
+
+function isHostJobWorkerInstanceResponse(value: unknown): value is HostJobWorkerInstanceResponse {
+  return isRecord(value) && (typeof value["hostProfile"] === 'string') && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["isStale"] === 'boolean') && (typeof value["lastHeartbeatAtUtc"] === 'string') && (typeof value["startedAtUtc"] === 'string') && ((value["workerVersion"] === null) || (typeof value["workerVersion"] === 'string'));
 }
 
 export function readHostMenuPermissionOptionResponse(value: unknown): HostMenuPermissionOptionResponse {
@@ -465,6 +1634,17 @@ function isHostRoleResponse(value: unknown): value is HostRoleResponse {
   return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isSuperAdministrator"] === 'boolean') && (typeof value["isSystem"] === 'boolean') && (typeof value["name"] === 'string') && (Array.isArray(value["permissionCodes"]) && value["permissionCodes"].every(item24 => typeof item24 === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readHostUserManagementOrganizationReferenceResponse(value: unknown): HostUserManagementOrganizationReferenceResponse {
+  if (!(isHostUserManagementOrganizationReferenceResponse(value))) {
+    throw new Error('client.invalid_host_user_management_organization_reference_response');
+  }
+  return value;
+}
+
+function isHostUserManagementOrganizationReferenceResponse(value: unknown): value is HostUserManagementOrganizationReferenceResponse {
+  return isRecord(value) && (Array.isArray(value["positions"]) && value["positions"].every(item18 => isOrganizationPositionResponse(item18))) && (Array.isArray(value["units"]) && value["units"].every(item14 => isOrganizationUnitResponse(item14))) && (Array.isArray(value["userPositions"]) && value["userPositions"].every(item22 => isOrganizationUserPositionResponse(item22))) && (Array.isArray(value["userUnits"]) && value["userUnits"].every(item18 => isOrganizationUserUnitResponse(item18)));
+}
+
 export function readHostUserProfileResponse(value: unknown): HostUserProfileResponse {
   if (!(isHostUserProfileResponse(value))) {
     throw new Error('client.invalid_host_user_profile_response');
@@ -520,6 +1700,28 @@ function isHostUserRolesResponse(value: unknown): value is HostUserRolesResponse
   return isRecord(value) && (Array.isArray(value["roleIds"]) && value["roleIds"].every(item16 => typeof item16 === 'string' && guidPattern.test(item16))) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readHttpJobArgs(value: unknown): HttpJobArgs {
+  if (!(isHttpJobArgs(value))) {
+    throw new Error('client.invalid_http_job_args');
+  }
+  return value;
+}
+
+function isHttpJobArgs(value: unknown): value is HttpJobArgs {
+  return isRecord(value) && (value["headers"] === undefined || ((value["headers"] === null) || (isRecord(value["headers"])))) && (typeof value["method"] === 'string') && (value["secretHeaders"] === undefined || ((value["secretHeaders"] === null) || (isRecord(value["secretHeaders"])))) && (value["successStatusCodes"] === undefined || ((value["successStatusCodes"] === null) || (Array.isArray(value["successStatusCodes"]) && value["successStatusCodes"].every(item27 => typeof item27 === 'number' && Number.isInteger(item27))))) && (value["timeoutSeconds"] === undefined || ((value["timeoutSeconds"] === null) || (typeof value["timeoutSeconds"] === 'number' && Number.isInteger(value["timeoutSeconds"])))) && (typeof value["url"] === 'string');
+}
+
+export function readHttpJobSecretHeaderRef(value: unknown): HttpJobSecretHeaderRef {
+  if (!(isHttpJobSecretHeaderRef(value))) {
+    throw new Error('client.invalid_http_job_secret_header_ref');
+  }
+  return value;
+}
+
+function isHttpJobSecretHeaderRef(value: unknown): value is HttpJobSecretHeaderRef {
+  return isRecord(value) && (typeof value["configKey"] === 'string');
+}
+
 export function readIFormFile(value: unknown): IFormFile {
   if (!(isIFormFile(value))) {
     throw new Error('client.invalid_iform_file');
@@ -564,6 +1766,28 @@ function isImportHostUsersResponse(value: unknown): value is ImportHostUsersResp
   return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isImportHostUserRowResult(item16))) && (typeof value["succeededCount"] === 'number' && Number.isInteger(value["succeededCount"]));
 }
 
+export function readInboxMessageResponse(value: unknown): InboxMessageResponse {
+  if (!(isInboxMessageResponse(value))) {
+    throw new Error('client.invalid_inbox_message_response');
+  }
+  return value;
+}
+
+function isInboxMessageResponse(value: unknown): value is InboxMessageResponse {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && ((value["createdByUserId"] === null) || (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string');
+}
+
+export function readInboxUnreadCountResponse(value: unknown): InboxUnreadCountResponse {
+  if (!(isInboxUnreadCountResponse(value))) {
+    throw new Error('client.invalid_inbox_unread_count_response');
+  }
+  return value;
+}
+
+function isInboxUnreadCountResponse(value: unknown): value is InboxUnreadCountResponse {
+  return isRecord(value) && (typeof value["unreadCount"] === 'number' && Number.isInteger(value["unreadCount"]));
+}
+
 export function readLocalePreferenceResponse(value: unknown): LocalePreferenceResponse {
   if (!(isLocalePreferenceResponse(value))) {
     throw new Error('client.invalid_locale_preference_response');
@@ -597,6 +1821,127 @@ function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEnt
   return isRecord(value) && (Array.isArray(value["dependencies"]) && value["dependencies"].every(item21 => typeof item21 === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["healthCapability"] === 'string') && (Array.isArray(value["hostProfiles"]) && value["hostProfiles"].every(item21 => typeof item21 === 'string')) && (typeof value["moduleKey"] === 'string') && (typeof value["sourceClassification"] === 'string') && (typeof value["version"] === 'string');
 }
 
+export function readOperationLogResponse(value: unknown): OperationLogResponse {
+  if (!(isOperationLogResponse(value))) {
+    throw new Error('client.invalid_operation_log_response');
+  }
+  return value;
+}
+
+function isOperationLogResponse(value: unknown): value is OperationLogResponse {
+  return isRecord(value) && (typeof value["actionKey"] === 'string') && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["durationMs"] === 'number' && Number.isInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && ((value["permissionCode"] === null) || (typeof value["permissionCode"] === 'string')) && (typeof value["requestPath"] === 'string') && (typeof value["statusCode"] === 'number' && Number.isInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+}
+
+export function readOrganizationAssignableUserResponse(value: unknown): OrganizationAssignableUserResponse {
+  if (!(isOrganizationAssignableUserResponse(value))) {
+    throw new Error('client.invalid_organization_assignable_user_response');
+  }
+  return value;
+}
+
+function isOrganizationAssignableUserResponse(value: unknown): value is OrganizationAssignableUserResponse {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["username"] === 'string');
+}
+
+export function readOrganizationPositionLevelResponse(value: unknown): OrganizationPositionLevelResponse {
+  if (!(isOrganizationPositionLevelResponse(value))) {
+    throw new Error('client.invalid_organization_position_level_response');
+  }
+  return value;
+}
+
+function isOrganizationPositionLevelResponse(value: unknown): value is OrganizationPositionLevelResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readOrganizationPositionResponse(value: unknown): OrganizationPositionResponse {
+  if (!(isOrganizationPositionResponse(value))) {
+    throw new Error('client.invalid_organization_position_response');
+  }
+  return value;
+}
+
+function isOrganizationPositionResponse(value: unknown): value is OrganizationPositionResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["positionLevelCode"] === null) || (typeof value["positionLevelCode"] === 'string')) && ((value["positionLevelId"] === null) || (typeof value["positionLevelId"] === 'string' && guidPattern.test(value["positionLevelId"]))) && ((value["positionLevelName"] === null) || (typeof value["positionLevelName"] === 'string')) && ((value["unitCode"] === null) || (typeof value["unitCode"] === 'string')) && ((value["unitId"] === null) || (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"]))) && ((value["unitName"] === null) || (typeof value["unitName"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readOrganizationUnitResponse(value: unknown): OrganizationUnitResponse {
+  if (!(isOrganizationUnitResponse(value))) {
+    throw new Error('client.invalid_organization_unit_response');
+  }
+  return value;
+}
+
+function isOrganizationUnitResponse(value: unknown): value is OrganizationUnitResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readOrganizationUserPositionResponse(value: unknown): OrganizationUserPositionResponse {
+  if (!(isOrganizationUserPositionResponse(value))) {
+    throw new Error('client.invalid_organization_user_position_response');
+  }
+  return value;
+}
+
+function isOrganizationUserPositionResponse(value: unknown): value is OrganizationUserPositionResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isPrimary"] === 'boolean') && (typeof value["positionCode"] === 'string') && (typeof value["positionId"] === 'string' && guidPattern.test(value["positionId"])) && (typeof value["positionName"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readOrganizationUserUnitResponse(value: unknown): OrganizationUserUnitResponse {
+  if (!(isOrganizationUserUnitResponse(value))) {
+    throw new Error('client.invalid_organization_user_unit_response');
+  }
+  return value;
+}
+
+function isOrganizationUserUnitResponse(value: unknown): value is OrganizationUserUnitResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["isPrimary"] === 'boolean') && (typeof value["unitCode"] === 'string') && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["unitName"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readOutboundCallLogResponse(value: unknown): OutboundCallLogResponse {
+  if (!(isOutboundCallLogResponse(value))) {
+    throw new Error('client.invalid_outbound_call_log_response');
+  }
+  return value;
+}
+
+function isOutboundCallLogResponse(value: unknown): value is OutboundCallLogResponse {
+  return isRecord(value) && (typeof value["destinationHostCategory"] === 'string') && (typeof value["durationMs"] === 'number' && Number.isInteger(value["durationMs"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["operationKey"] === 'string') && (typeof value["providerKey"] === 'string') && (typeof value["retryCount"] === 'number' && Number.isInteger(value["retryCount"])) && ((value["safeErrorCode"] === null) || (typeof value["safeErrorCode"] === 'string')) && (typeof value["statusCode"] === 'number' && Number.isInteger(value["statusCode"])) && (typeof value["succeeded"] === 'boolean') && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+}
+
+export function readPagedResultOfAccessLogResponse(value: unknown): PagedResultOfAccessLogResponse {
+  if (!(isPagedResultOfAccessLogResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_access_log_response');
+  }
+  return value;
+}
+
+function isPagedResultOfAccessLogResponse(value: unknown): value is PagedResultOfAccessLogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAccessLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfCodeGenerationRunResponse(value: unknown): PagedResultOfCodeGenerationRunResponse {
+  if (!(isPagedResultOfCodeGenerationRunResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_code_generation_run_response');
+  }
+  return value;
+}
+
+function isPagedResultOfCodeGenerationRunResponse(value: unknown): value is PagedResultOfCodeGenerationRunResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isCodeGenerationRunResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfCodeGenerationTemplateResponse(value: unknown): PagedResultOfCodeGenerationTemplateResponse {
+  if (!(isPagedResultOfCodeGenerationTemplateResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_code_generation_template_response');
+  }
+  return value;
+}
+
+function isPagedResultOfCodeGenerationTemplateResponse(value: unknown): value is PagedResultOfCodeGenerationTemplateResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isCodeGenerationTemplateResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResultOfConfigEntryResponse {
   if (!(isPagedResultOfConfigEntryResponse(value))) {
     throw new Error('client.invalid_paged_result_of_config_entry_response');
@@ -606,6 +1951,50 @@ export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResul
 
 function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResultOfConfigEntryResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isConfigEntryResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfDictItemResponse(value: unknown): PagedResultOfDictItemResponse {
+  if (!(isPagedResultOfDictItemResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_dict_item_response');
+  }
+  return value;
+}
+
+function isPagedResultOfDictItemResponse(value: unknown): value is PagedResultOfDictItemResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfDictTypeResponse(value: unknown): PagedResultOfDictTypeResponse {
+  if (!(isPagedResultOfDictTypeResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_dict_type_response');
+  }
+  return value;
+}
+
+function isPagedResultOfDictTypeResponse(value: unknown): value is PagedResultOfDictTypeResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDictTypeResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfExceptionLogResponse(value: unknown): PagedResultOfExceptionLogResponse {
+  if (!(isPagedResultOfExceptionLogResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_exception_log_response');
+  }
+  return value;
+}
+
+function isPagedResultOfExceptionLogResponse(value: unknown): value is PagedResultOfExceptionLogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isExceptionLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostAnnouncementResponse(value: unknown): PagedResultOfHostAnnouncementResponse {
+  if (!(isPagedResultOfHostAnnouncementResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_announcement_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostAnnouncementResponse(value: unknown): value is PagedResultOfHostAnnouncementResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostAnnouncementResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostApiKeyResponse(value: unknown): PagedResultOfHostApiKeyResponse {
@@ -619,6 +2008,28 @@ function isPagedResultOfHostApiKeyResponse(value: unknown): value is PagedResult
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostApiKeyResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfHostDocumentItemResponse(value: unknown): PagedResultOfHostDocumentItemResponse {
+  if (!(isPagedResultOfHostDocumentItemResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_document_item_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostDocumentItemResponse(value: unknown): value is PagedResultOfHostDocumentItemResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostDocumentShareResponse(value: unknown): PagedResultOfHostDocumentShareResponse {
+  if (!(isPagedResultOfHostDocumentShareResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_document_share_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostDocumentShareResponse(value: unknown): value is PagedResultOfHostDocumentShareResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentShareResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOfHostFileResponse {
   if (!(isPagedResultOfHostFileResponse(value))) {
     throw new Error('client.invalid_paged_result_of_host_file_response');
@@ -628,6 +2039,39 @@ export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOf
 
 function isPagedResultOfHostFileResponse(value: unknown): value is PagedResultOfHostFileResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostJobDefinitionResponse(value: unknown): PagedResultOfHostJobDefinitionResponse {
+  if (!(isPagedResultOfHostJobDefinitionResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_job_definition_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostJobDefinitionResponse(value: unknown): value is PagedResultOfHostJobDefinitionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobDefinitionResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostJobExecutionResponse(value: unknown): PagedResultOfHostJobExecutionResponse {
+  if (!(isPagedResultOfHostJobExecutionResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_job_execution_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostJobExecutionResponse(value: unknown): value is PagedResultOfHostJobExecutionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobExecutionResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostJobScheduleResponse(value: unknown): PagedResultOfHostJobScheduleResponse {
+  if (!(isPagedResultOfHostJobScheduleResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_job_schedule_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostJobScheduleResponse(value: unknown): value is PagedResultOfHostJobScheduleResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostJobScheduleResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostMenuResponse(value: unknown): PagedResultOfHostMenuResponse {
@@ -674,6 +2118,127 @@ function isPagedResultOfHostUserResponse(value: unknown): value is PagedResultOf
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostUserResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfInboxMessageResponse(value: unknown): PagedResultOfInboxMessageResponse {
+  if (!(isPagedResultOfInboxMessageResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_inbox_message_response');
+  }
+  return value;
+}
+
+function isPagedResultOfInboxMessageResponse(value: unknown): value is PagedResultOfInboxMessageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isInboxMessageResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOperationLogResponse(value: unknown): PagedResultOfOperationLogResponse {
+  if (!(isPagedResultOfOperationLogResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_operation_log_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOperationLogResponse(value: unknown): value is PagedResultOfOperationLogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOperationLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationAssignableUserResponse(value: unknown): PagedResultOfOrganizationAssignableUserResponse {
+  if (!(isPagedResultOfOrganizationAssignableUserResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_organization_assignable_user_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOrganizationAssignableUserResponse(value: unknown): value is PagedResultOfOrganizationAssignableUserResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationAssignableUserResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationPositionLevelResponse(value: unknown): PagedResultOfOrganizationPositionLevelResponse {
+  if (!(isPagedResultOfOrganizationPositionLevelResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_organization_position_level_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOrganizationPositionLevelResponse(value: unknown): value is PagedResultOfOrganizationPositionLevelResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionLevelResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationPositionResponse(value: unknown): PagedResultOfOrganizationPositionResponse {
+  if (!(isPagedResultOfOrganizationPositionResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_organization_position_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOrganizationPositionResponse(value: unknown): value is PagedResultOfOrganizationPositionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationPositionResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationUnitResponse(value: unknown): PagedResultOfOrganizationUnitResponse {
+  if (!(isPagedResultOfOrganizationUnitResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_organization_unit_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOrganizationUnitResponse(value: unknown): value is PagedResultOfOrganizationUnitResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUnitResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationUserPositionResponse(value: unknown): PagedResultOfOrganizationUserPositionResponse {
+  if (!(isPagedResultOfOrganizationUserPositionResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_organization_user_position_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOrganizationUserPositionResponse(value: unknown): value is PagedResultOfOrganizationUserPositionResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUserPositionResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOrganizationUserUnitResponse(value: unknown): PagedResultOfOrganizationUserUnitResponse {
+  if (!(isPagedResultOfOrganizationUserUnitResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_organization_user_unit_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOrganizationUserUnitResponse(value: unknown): value is PagedResultOfOrganizationUserUnitResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOrganizationUserUnitResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfOutboundCallLogResponse(value: unknown): PagedResultOfOutboundCallLogResponse {
+  if (!(isPagedResultOfOutboundCallLogResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_outbound_call_log_response');
+  }
+  return value;
+}
+
+function isPagedResultOfOutboundCallLogResponse(value: unknown): value is PagedResultOfOutboundCallLogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOutboundCallLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfSerialNumberRuleResponse(value: unknown): PagedResultOfSerialNumberRuleResponse {
+  if (!(isPagedResultOfSerialNumberRuleResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_serial_number_rule_response');
+  }
+  return value;
+}
+
+function isPagedResultOfSerialNumberRuleResponse(value: unknown): value is PagedResultOfSerialNumberRuleResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isSerialNumberRuleResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfTenantPackageSummary(value: unknown): PagedResultOfTenantPackageSummary {
+  if (!(isPagedResultOfTenantPackageSummary(value))) {
+    throw new Error('client.invalid_paged_result_of_tenant_package_summary');
+  }
+  return value;
+}
+
+function isPagedResultOfTenantPackageSummary(value: unknown): value is PagedResultOfTenantPackageSummary {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantPackageSummary(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTenantSummary {
   if (!(isPagedResultOfTenantSummary(value))) {
     throw new Error('client.invalid_paged_result_of_tenant_summary');
@@ -683,6 +2248,17 @@ export function readPagedResultOfTenantSummary(value: unknown): PagedResultOfTen
 
 function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTenantSummary {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
+  if (!(isPreviewSerialNumberRequest(value))) {
+    throw new Error('client.invalid_preview_serial_number_request');
+  }
+  return value;
+}
+
+function isPreviewSerialNumberRequest(value: unknown): value is PreviewSerialNumberRequest {
+  return isRecord(value) && (typeof value["atUtc"] === 'string') && (typeof value["pattern"] === 'string') && (isSerialNumberRuleScope(value["scope"])) && (typeof value["sequenceValue"] === 'number' && Number.isInteger(value["sequenceValue"])) && ((value["tenantIdentifier"] === null) || (typeof value["tenantIdentifier"] === 'string'));
 }
 
 export function readProblemDetails(value: unknown): ProblemDetails {
@@ -705,6 +2281,17 @@ export function readProvisionTenantRequest(value: unknown): ProvisionTenantReque
 
 function isProvisionTenantRequest(value: unknown): value is ProvisionTenantRequest {
   return isRecord(value) && (typeof value["domain"] === 'string') && (typeof value["identifier"] === 'string') && (typeof value["name"] === 'string') && (value["tenantPackageId"] === undefined || ((value["tenantPackageId"] === null) || (typeof value["tenantPackageId"] === 'string' && guidPattern.test(value["tenantPackageId"]))));
+}
+
+export function readPublishHostAnnouncementRequest(value: unknown): PublishHostAnnouncementRequest {
+  if (!(isPublishHostAnnouncementRequest(value))) {
+    throw new Error('client.invalid_publish_host_announcement_request');
+  }
+  return value;
+}
+
+function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostAnnouncementRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
@@ -751,6 +2338,28 @@ function isResetHostUserPasswordRequest(value: unknown): value is ResetHostUserP
   return isRecord(value) && (typeof value["password"] === 'string');
 }
 
+export function readRestoreDiagnosticPolicyRequest(value: unknown): RestoreDiagnosticPolicyRequest {
+  if (!(isRestoreDiagnosticPolicyRequest(value))) {
+    throw new Error('client.invalid_restore_diagnostic_policy_request');
+  }
+  return value;
+}
+
+function isRestoreDiagnosticPolicyRequest(value: unknown): value is RestoreDiagnosticPolicyRequest {
+  return isRecord(value) && (typeof value["configEntryVersion"] === 'number' && Number.isInteger(value["configEntryVersion"]));
+}
+
+export function readRestoreHostDocumentItemRequest(value: unknown): RestoreHostDocumentItemRequest {
+  if (!(isRestoreHostDocumentItemRequest(value))) {
+    throw new Error('client.invalid_restore_host_document_item_request');
+  }
+  return value;
+}
+
+function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostDocumentItemRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
   if (!(isRevokeSuperAdministratorRequest(value))) {
     throw new Error('client.invalid_revoke_super_administrator_request');
@@ -760,6 +2369,72 @@ export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuper
 
 function isRevokeSuperAdministratorRequest(value: unknown): value is RevokeSuperAdministratorRequest {
   return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string')));
+}
+
+export function readSendHostInboxMessageRequest(value: unknown): SendHostInboxMessageRequest {
+  if (!(isSendHostInboxMessageRequest(value))) {
+    throw new Error('client.invalid_send_host_inbox_message_request');
+  }
+  return value;
+}
+
+function isSendHostInboxMessageRequest(value: unknown): value is SendHostInboxMessageRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["recipientUserId"] === 'string' && guidPattern.test(value["recipientUserId"])) && (typeof value["title"] === 'string');
+}
+
+export function readSerialNumberPreviewResponse(value: unknown): SerialNumberPreviewResponse {
+  if (!(isSerialNumberPreviewResponse(value))) {
+    throw new Error('client.invalid_serial_number_preview_response');
+  }
+  return value;
+}
+
+function isSerialNumberPreviewResponse(value: unknown): value is SerialNumberPreviewResponse {
+  return isRecord(value) && (typeof value["value"] === 'string');
+}
+
+export function readSerialNumberResetInterval(value: unknown): SerialNumberResetInterval {
+  if (!(isSerialNumberResetInterval(value))) {
+    throw new Error('client.invalid_serial_number_reset_interval');
+  }
+  return value;
+}
+
+function isSerialNumberResetInterval(value: unknown): value is SerialNumberResetInterval {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readSerialNumberRuleResponse(value: unknown): SerialNumberRuleResponse {
+  if (!(isSerialNumberRuleResponse(value))) {
+    throw new Error('client.invalid_serial_number_rule_response');
+  }
+  return value;
+}
+
+function isSerialNumberRuleResponse(value: unknown): value is SerialNumberRuleResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"]))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readSerialNumberRuleScope(value: unknown): SerialNumberRuleScope {
+  if (!(isSerialNumberRuleScope(value))) {
+    throw new Error('client.invalid_serial_number_rule_scope');
+  }
+  return value;
+}
+
+function isSerialNumberRuleScope(value: unknown): value is SerialNumberRuleScope {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
+export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
+  if (!(isSetHostDocumentPermissionsRequest(value))) {
+    throw new Error('client.invalid_set_host_document_permissions_request');
+  }
+  return value;
+}
+
+function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
+  return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20)));
 }
 
 export function readStream(value: unknown): Stream {
@@ -806,6 +2481,17 @@ function isSuperAdministratorResponse(value: unknown): value is SuperAdministrat
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["isActive"] === 'boolean') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
+export function readTenantPackageSummary(value: unknown): TenantPackageSummary {
+  if (!(isTenantPackageSummary(value))) {
+    throw new Error('client.invalid_tenant_package_summary');
+  }
+  return value;
+}
+
+function isTenantPackageSummary(value: unknown): value is TenantPackageSummary {
+  return isRecord(value) && (value["assignedTenantCount"] === undefined || (typeof value["assignedTenantCount"] === 'number' && Number.isInteger(value["assignedTenantCount"]))) && (typeof value["code"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isActive"] === 'boolean') && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readTenantSummary(value: unknown): TenantSummary {
   if (!(isTenantSummary(value))) {
     throw new Error('client.invalid_tenant_summary');
@@ -839,6 +2525,17 @@ function isTotpEnrollmentStatusResponse(value: unknown): value is TotpEnrollment
   return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isEnrolled"] === 'boolean');
 }
 
+export function readUpdateCodeGenerationTemplateRequest(value: unknown): UpdateCodeGenerationTemplateRequest {
+  if (!(isUpdateCodeGenerationTemplateRequest(value))) {
+    throw new Error('client.invalid_update_code_generation_template_request');
+  }
+  return value;
+}
+
+function isUpdateCodeGenerationTemplateRequest(value: unknown): value is UpdateCodeGenerationTemplateRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (isCodeGenerationPreviewRequest(value["schema"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readUpdateConfigEntryRequest(value: unknown): UpdateConfigEntryRequest {
   if (!(isUpdateConfigEntryRequest(value))) {
     throw new Error('client.invalid_update_config_entry_request');
@@ -848,6 +2545,116 @@ export function readUpdateConfigEntryRequest(value: unknown): UpdateConfigEntryR
 
 function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryRequest {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateDiagnosticPolicyRequest(value: unknown): UpdateDiagnosticPolicyRequest {
+  if (!(isUpdateDiagnosticPolicyRequest(value))) {
+    throw new Error('client.invalid_update_diagnostic_policy_request');
+  }
+  return value;
+}
+
+function isUpdateDiagnosticPolicyRequest(value: unknown): value is UpdateDiagnosticPolicyRequest {
+  return isRecord(value) && (typeof value["configEntryVersion"] === 'number' && Number.isInteger(value["configEntryVersion"])) && (typeof value["pressureState"] === 'string') && (Array.isArray(value["rules"]) && value["rules"].every(item14 => isDiagnosticPolicyRuleRequest(item14)));
+}
+
+export function readUpdateDictItemRequest(value: unknown): UpdateDictItemRequest {
+  if (!(isUpdateDictItemRequest(value))) {
+    throw new Error('client.invalid_update_dict_item_request');
+  }
+  return value;
+}
+
+function isUpdateDictItemRequest(value: unknown): value is UpdateDictItemRequest {
+  return isRecord(value) && ((value["color"] === null) || (typeof value["color"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["label"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateDictTypeRequest(value: unknown): UpdateDictTypeRequest {
+  if (!(isUpdateDictTypeRequest(value))) {
+    throw new Error('client.invalid_update_dict_type_request');
+  }
+  return value;
+}
+
+function isUpdateDictTypeRequest(value: unknown): value is UpdateDictTypeRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostAnnouncementRequest(value: unknown): UpdateHostAnnouncementRequest {
+  if (!(isUpdateHostAnnouncementRequest(value))) {
+    throw new Error('client.invalid_update_host_announcement_request');
+  }
+  return value;
+}
+
+function isUpdateHostAnnouncementRequest(value: unknown): value is UpdateHostAnnouncementRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostDocumentCategoryRequest(value: unknown): UpdateHostDocumentCategoryRequest {
+  if (!(isUpdateHostDocumentCategoryRequest(value))) {
+    throw new Error('client.invalid_update_host_document_category_request');
+  }
+  return value;
+}
+
+function isUpdateHostDocumentCategoryRequest(value: unknown): value is UpdateHostDocumentCategoryRequest {
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (typeof value["sortOrder"] === 'number' && Number.isInteger(value["sortOrder"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostDocumentItemRequest(value: unknown): UpdateHostDocumentItemRequest {
+  if (!(isUpdateHostDocumentItemRequest(value))) {
+    throw new Error('client.invalid_update_host_document_item_request');
+  }
+  return value;
+}
+
+function isUpdateHostDocumentItemRequest(value: unknown): value is UpdateHostDocumentItemRequest {
+  return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["sort"] === null) || (typeof value["sort"] === 'number' && Number.isInteger(value["sort"]))) && ((value["status"] === null) || (isHostDocumentStatus(value["status"]))) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostDocumentShareStatusRequest(value: unknown): UpdateHostDocumentShareStatusRequest {
+  if (!(isUpdateHostDocumentShareStatusRequest(value))) {
+    throw new Error('client.invalid_update_host_document_share_status_request');
+  }
+  return value;
+}
+
+function isUpdateHostDocumentShareStatusRequest(value: unknown): value is UpdateHostDocumentShareStatusRequest {
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostDocumentTagRequest(value: unknown): UpdateHostDocumentTagRequest {
+  if (!(isUpdateHostDocumentTagRequest(value))) {
+    throw new Error('client.invalid_update_host_document_tag_request');
+  }
+  return value;
+}
+
+function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocumentTagRequest {
+  return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostJobDefinitionRequest(value: unknown): UpdateHostJobDefinitionRequest {
+  if (!(isUpdateHostJobDefinitionRequest(value))) {
+    throw new Error('client.invalid_update_host_job_definition_request');
+  }
+  return value;
+}
+
+function isUpdateHostJobDefinitionRequest(value: unknown): value is UpdateHostJobDefinitionRequest {
+  return isRecord(value) && (typeof value["allowConcurrentExecutions"] === 'boolean') && ((value["args"] === null) || (isHttpJobArgs(value["args"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["handlerKind"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostJobScheduleRequest(value: unknown): UpdateHostJobScheduleRequest {
+  if (!(isUpdateHostJobScheduleRequest(value))) {
+    throw new Error('client.invalid_update_host_job_schedule_request');
+  }
+  return value;
+}
+
+function isUpdateHostJobScheduleRequest(value: unknown): value is UpdateHostJobScheduleRequest {
+  return isRecord(value) && ((value["args"] === null) || (typeof value["args"] === 'string')) && ((value["cronExpression"] === null) || (typeof value["cronExpression"] === 'string')) && ((value["endTime"] === null) || (typeof value["endTime"] === 'string')) && (typeof value["misfirePolicy"] === 'string') && ((value["oneTimeAtUtc"] === null) || (typeof value["oneTimeAtUtc"] === 'string')) && ((value["startTime"] === null) || (typeof value["startTime"] === 'string')) && (typeof value["timeZoneId"] === 'string') && (typeof value["triggerKind"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readUpdateHostMenuRequest(value: unknown): UpdateHostMenuRequest {
@@ -883,6 +2690,17 @@ function isUpdateHostRoleRequest(value: unknown): value is UpdateHostRoleRequest
   return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readUpdateHostTenantPackageRequest(value: unknown): UpdateHostTenantPackageRequest {
+  if (!(isUpdateHostTenantPackageRequest(value))) {
+    throw new Error('client.invalid_update_host_tenant_package_request');
+  }
+  return value;
+}
+
+function isUpdateHostTenantPackageRequest(value: unknown): value is UpdateHostTenantPackageRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readUpdateHostTenantRequest(value: unknown): UpdateHostTenantRequest {
   if (!(isUpdateHostTenantRequest(value))) {
     throw new Error('client.invalid_update_host_tenant_request');
@@ -914,6 +2732,142 @@ export function readUpdateLocaleRequest(value: unknown): UpdateLocaleRequest {
 
 function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
   return isRecord(value) && (typeof value["locale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"]));
+}
+
+export function readUpdateOrganizationPositionLevelRequest(value: unknown): UpdateOrganizationPositionLevelRequest {
+  if (!(isUpdateOrganizationPositionLevelRequest(value))) {
+    throw new Error('client.invalid_update_organization_position_level_request');
+  }
+  return value;
+}
+
+function isUpdateOrganizationPositionLevelRequest(value: unknown): value is UpdateOrganizationPositionLevelRequest {
+  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateOrganizationPositionRequest(value: unknown): UpdateOrganizationPositionRequest {
+  if (!(isUpdateOrganizationPositionRequest(value))) {
+    throw new Error('client.invalid_update_organization_position_request');
+  }
+  return value;
+}
+
+function isUpdateOrganizationPositionRequest(value: unknown): value is UpdateOrganizationPositionRequest {
+  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateOrganizationUnitRequest(value: unknown): UpdateOrganizationUnitRequest {
+  if (!(isUpdateOrganizationUnitRequest(value))) {
+    throw new Error('client.invalid_update_organization_unit_request');
+  }
+  return value;
+}
+
+function isUpdateOrganizationUnitRequest(value: unknown): value is UpdateOrganizationUnitRequest {
+  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateOrganizationUserPositionRequest(value: unknown): UpdateOrganizationUserPositionRequest {
+  if (!(isUpdateOrganizationUserPositionRequest(value))) {
+    throw new Error('client.invalid_update_organization_user_position_request');
+  }
+  return value;
+}
+
+function isUpdateOrganizationUserPositionRequest(value: unknown): value is UpdateOrganizationUserPositionRequest {
+  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateOrganizationUserUnitRequest(value: unknown): UpdateOrganizationUserUnitRequest {
+  if (!(isUpdateOrganizationUserUnitRequest(value))) {
+    throw new Error('client.invalid_update_organization_user_unit_request');
+  }
+  return value;
+}
+
+function isUpdateOrganizationUserUnitRequest(value: unknown): value is UpdateOrganizationUserUnitRequest {
+  return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateSerialNumberRuleRequest(value: unknown): UpdateSerialNumberRuleRequest {
+  if (!(isUpdateSerialNumberRuleRequest(value))) {
+    throw new Error('client.invalid_update_serial_number_rule_request');
+  }
+  return value;
+}
+
+function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialNumberRuleRequest {
+  return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readCodeGenerationListCatalogTablesResponse(value: unknown): Array<CodeGenerationCatalogTableResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogTableResponse(item5)))) {
+    throw new Error('client.invalid_code_generation_list_catalog_tables_response');
+  }
+  return value as Array<CodeGenerationCatalogTableResponse>;
+}
+
+export function readDocumentHostDeleteCategoryResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_document_host_delete_category_response');
+  }
+  return value as boolean;
+}
+
+export function readDocumentHostDeleteItemResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_document_host_delete_item_response');
+  }
+  return value as boolean;
+}
+
+export function readDocumentHostDeleteTagResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_document_host_delete_tag_response');
+  }
+  return value as boolean;
+}
+
+export function readDocumentHostListCategoriesResponse(value: unknown): Array<HostDocumentCategoryResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentCategoryResponse(item5)))) {
+    throw new Error('client.invalid_document_host_list_categories_response');
+  }
+  return value as Array<HostDocumentCategoryResponse>;
+}
+
+export function readDocumentHostListDocumentPermissionsResponse(value: unknown): Array<HostDocumentPermissionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)))) {
+    throw new Error('client.invalid_document_host_list_document_permissions_response');
+  }
+  return value as Array<HostDocumentPermissionResponse>;
+}
+
+export function readDocumentHostListItemVersionsResponse(value: unknown): Array<HostDocumentVersionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentVersionResponse(item5)))) {
+    throw new Error('client.invalid_document_host_list_item_versions_response');
+  }
+  return value as Array<HostDocumentVersionResponse>;
+}
+
+export function readDocumentHostListTagsResponse(value: unknown): Array<HostDocumentTagResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentTagResponse(item5)))) {
+    throw new Error('client.invalid_document_host_list_tags_response');
+  }
+  return value as Array<HostDocumentTagResponse>;
+}
+
+export function readDocumentHostPurgeRecycleBinItemResponse(value: unknown): boolean {
+  if (!(typeof value === 'boolean')) {
+    throw new Error('client.invalid_document_host_purge_recycle_bin_item_response');
+  }
+  return value as boolean;
+}
+
+export function readDocumentHostSetDocumentPermissionsResponse(value: unknown): Array<HostDocumentPermissionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostDocumentPermissionResponse(item5)))) {
+    throw new Error('client.invalid_document_host_set_document_permissions_response');
+  }
+  return value as Array<HostDocumentPermissionResponse>;
 }
 
 export function readIdentityExportHostUsersResponse(value: unknown): Array<HostUserResponse> {
@@ -972,6 +2926,20 @@ export function readIdentityListSuperAdministratorsResponse(value: unknown): Arr
   return value as Array<SuperAdministratorResponse>;
 }
 
+export function readJobsListHostJobGroupsResponse(value: unknown): Array<HostJobGroupResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostJobGroupResponse(item5)))) {
+    throw new Error('client.invalid_jobs_list_host_job_groups_response');
+  }
+  return value as Array<HostJobGroupResponse>;
+}
+
+export function readJobsListHostJobScheduleDefinitionOptionsResponse(value: unknown): Array<HostJobScheduleDefinitionOptionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostJobScheduleDefinitionOptionResponse(item5)))) {
+    throw new Error('client.invalid_jobs_list_host_job_schedule_definition_options_response');
+  }
+  return value as Array<HostJobScheduleDefinitionOptionResponse>;
+}
+
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {
   if (!(typeof value === 'boolean')) {
     throw new Error('client.invalid_settings_batch_update_host_config_entry_values_response');
@@ -986,11 +2954,46 @@ export function readSettingsListAllHostConfigEntriesResponse(value: unknown): Ar
   return value as Array<ConfigEntryResponse>;
 }
 
+export function readSettingsListAllHostDictTypesResponse(value: unknown): Array<DictTypeResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isDictTypeResponse(item5)))) {
+    throw new Error('client.invalid_settings_list_all_host_dict_types_response');
+  }
+  return value as Array<DictTypeResponse>;
+}
+
+export function readSettingsListAllTenantDictTypesResponse(value: unknown): Array<DictTypeResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isDictTypeResponse(item5)))) {
+    throw new Error('client.invalid_settings_list_all_tenant_dict_types_response');
+  }
+  return value as Array<DictTypeResponse>;
+}
+
 export function readSettingsListHostConfigEntryGroupsResponse(value: unknown): Array<string> {
   if (!(Array.isArray(value) && value.every(item5 => typeof item5 === 'string'))) {
     throw new Error('client.invalid_settings_list_host_config_entry_groups_response');
   }
   return value as Array<string>;
+}
+
+export function readSettingsListHostDictItemsByTypeCodeResponse(value: unknown): Array<DictItemResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isDictItemResponse(item5)))) {
+    throw new Error('client.invalid_settings_list_host_dict_items_by_type_code_response');
+  }
+  return value as Array<DictItemResponse>;
+}
+
+export function readSettingsListHostEnumCatalogsResponse(value: unknown): Array<EnumCatalogSummary> {
+  if (!(Array.isArray(value) && value.every(item5 => isEnumCatalogSummary(item5)))) {
+    throw new Error('client.invalid_settings_list_host_enum_catalogs_response');
+  }
+  return value as Array<EnumCatalogSummary>;
+}
+
+export function readSettingsListTenantDictItemsByTypeCodeResponse(value: unknown): Array<DictItemResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isDictItemResponse(item5)))) {
+    throw new Error('client.invalid_settings_list_tenant_dict_items_by_type_code_response');
+  }
+  return value as Array<DictItemResponse>;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

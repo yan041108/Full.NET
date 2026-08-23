@@ -14,7 +14,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/document/host/items")
-            .WithTags("Document");
+            .WithTags("DocumentHostItems");
 
         group.MapGet("/", async (
             int? page,
@@ -28,7 +28,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListItems")
         .Produces<PagedResult<HostDocumentItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapGet("/{itemId:guid}", async (
@@ -41,7 +44,11 @@ internal static class Endpoint
             var result = await queries.GetByIdAsync(itemId, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostGetItem")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapGet("/{itemId:guid}/versions", async (
@@ -54,7 +61,11 @@ internal static class Endpoint
             var result = await queries.ListVersionsAsync(itemId, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListItemVersions")
         .Produces<IReadOnlyList<HostDocumentVersionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapPost("/", async (
@@ -77,7 +88,11 @@ internal static class Endpoint
 
             return Results.Created($"/api/v1/document/host/items/{result.Value!.Id:D}", result.Value);
         })
+        .WithName("documentHostCreateItem")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Create));
 
         group.MapPut("/{itemId:guid}", async (
@@ -97,7 +112,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostUpdateItem")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Update));
 
         group.MapPost("/{itemId:guid}/versions", async (
@@ -117,7 +138,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostAddItemVersion")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.AddVersion));
 
         group.MapPost("/{itemId:guid}/versions/upload", async (
@@ -155,7 +182,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostUploadItemVersion")
+        .Accepts<IFormFile>("multipart/form-data")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .DisableAntiforgery()
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.AddVersion));
 
@@ -170,7 +203,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return MapPreviewResult(result, mapper, httpContext);
         })
-        .Produces(StatusCodes.Status200OK)
+        .WithName("documentHostPreviewItemContent")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapGet("/{itemId:guid}/versions/{versionId:guid}/preview", async (
@@ -185,7 +222,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return MapPreviewResult(result, mapper, httpContext);
         })
-        .Produces(StatusCodes.Status200OK)
+        .WithName("documentHostPreviewItemVersionContent")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Read));
 
         group.MapGet("/{itemId:guid}/content", async (
@@ -211,7 +252,11 @@ internal static class Endpoint
                 content.OriginalFileName,
                 enableRangeProcessing: true);
         })
-        .Produces(StatusCodes.Status200OK)
+        .WithName("documentHostDownloadItemContent")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Download));
 
         group.MapPost("/{itemId:guid}/delete", async (
@@ -231,7 +276,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostDeleteItem")
         .Produces<bool>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Delete));
 
         group.MapPost("/{itemId:guid}/restore", async (
@@ -251,7 +302,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostRestoreItem")
         .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.Restore));
     }
 

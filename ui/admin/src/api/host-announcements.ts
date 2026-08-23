@@ -1,35 +1,46 @@
-import { request } from './http';
 import {
   isHostAnnouncement,
   isHostAnnouncementPage,
+  notificationsCreateHostAnnouncement,
+  notificationsListHostAnnouncements,
+  notificationsPublishHostAnnouncement,
+  notificationsUpdateHostAnnouncement,
   type HostAnnouncement,
   type HostAnnouncementPage
 } from '@fullnet/client-contracts';
+import { http } from './http';
 
 export async function listHostAnnouncements(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<HostAnnouncementPage> {
-  const value = await request<unknown>(
-    `/api/v1/notifications/host-announcements?page=${page}&pageSize=${pageSize}`
+  const value = await notificationsListHostAnnouncements(
+    http,
+    { page, pageSize },
+    signal
   );
   if (!isHostAnnouncementPage(value)) {
-    throw new Error('Invalid host announcement page payload.');
+    throw new Error('client.invalid_host_announcement_page');
   }
+
   return value;
 }
 
 export async function createHostAnnouncement(
   title: string,
-  content: string
+  content: string,
+  signal?: AbortSignal
 ): Promise<HostAnnouncement> {
-  const value = await request<unknown>('/api/v1/notifications/host-announcements', {
-    method: 'POST',
-    body: JSON.stringify({ title, content })
-  });
+  const value = await notificationsCreateHostAnnouncement(
+    http,
+    { body: { title, content } },
+    signal
+  );
   if (!isHostAnnouncement(value)) {
-    throw new Error('Invalid host announcement payload.');
+    throw new Error('client.invalid_host_announcement');
   }
+
   return value;
 }
 
@@ -37,34 +48,42 @@ export async function updateHostAnnouncement(
   id: string,
   title: string,
   content: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostAnnouncement> {
-  const value = await request<unknown>(
-    `/api/v1/notifications/host-announcements/${encodeURIComponent(id)}`,
+  const value = await notificationsUpdateHostAnnouncement(
+    http,
     {
-      method: 'PUT',
-      body: JSON.stringify({ title, content, version })
-    }
+      announcementId: id,
+      body: { title, content, version }
+    },
+    signal
   );
   if (!isHostAnnouncement(value)) {
-    throw new Error('Invalid host announcement payload.');
+    throw new Error('client.invalid_host_announcement');
   }
+
   return value;
 }
 
 export async function publishHostAnnouncement(
   id: string,
-  version: number
+  version: number,
+  signal?: AbortSignal
 ): Promise<HostAnnouncement> {
-  const value = await request<unknown>(
-    `/api/v1/notifications/host-announcements/${encodeURIComponent(id)}/publish`,
+  const value = await notificationsPublishHostAnnouncement(
+    http,
     {
-      method: 'POST',
-      body: JSON.stringify({ version })
-    }
+      announcementId: id,
+      body: { version }
+    },
+    signal
   );
   if (!isHostAnnouncement(value)) {
-    throw new Error('Invalid host announcement payload.');
+    throw new Error('client.invalid_host_announcement');
   }
+
   return value;
 }
+
+export type { HostAnnouncement, HostAnnouncementPage };

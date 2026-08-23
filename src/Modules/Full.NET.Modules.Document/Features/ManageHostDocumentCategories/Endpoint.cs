@@ -12,7 +12,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/document/host/categories")
-            .WithTags("Document");
+            .WithTags("DocumentHostCategories");
 
         group.MapGet("/", async (
             HostDocumentCategoryQueryService queries,
@@ -23,7 +23,10 @@ internal static class Endpoint
             var result = await queries.ListAsync(cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostListCategories")
         .Produces<IReadOnlyList<HostDocumentCategoryResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Read));
 
         group.MapGet("/{categoryId:guid}", async (
@@ -36,7 +39,11 @@ internal static class Endpoint
             var result = await queries.GetByIdAsync(categoryId, cancellationToken).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostGetCategory")
         .Produces<HostDocumentCategoryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Read));
 
         group.MapPost("/", async (
@@ -56,7 +63,12 @@ internal static class Endpoint
                 $"/api/v1/document/host/categories/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("documentHostCreateCategory")
         .Produces<HostDocumentCategoryResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Create));
 
         group.MapPut("/{categoryId:guid}", async (
@@ -71,7 +83,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostUpdateCategory")
         .Produces<HostDocumentCategoryResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Update));
 
         group.MapPost("/{categoryId:guid}/delete", async (
@@ -91,7 +109,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("documentHostDeleteCategory")
         .Produces<bool>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentCategoryPermissions.Delete));
     }
 

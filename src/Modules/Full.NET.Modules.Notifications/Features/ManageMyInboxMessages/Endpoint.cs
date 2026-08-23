@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/notifications/my-inbox-messages")
-            .WithTags("Notifications");
+            .WithTags("NotificationsMyInboxMessages");
 
         group.MapGet("/", async (
             int? page,
@@ -36,7 +36,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsListMyInboxMessages")
         .Produces<PagedResult<InboxMessageResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Read));
 
         group.MapGet("/unread-count", async (
@@ -54,7 +57,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsGetMyInboxUnreadCount")
         .Produces<InboxUnreadCountResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Read));
 
         group.MapPost("/{messageId:guid}/read", async (
@@ -73,7 +79,11 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsMarkMyInboxMessageRead")
         .Produces<InboxMessageResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.MarkRead));
 
         group.MapPost("/read-all", async (
@@ -91,7 +101,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("notificationsMarkAllMyInboxMessagesRead")
         .Produces<InboxUnreadCountResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.MarkAllRead));
     }
 

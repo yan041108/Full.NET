@@ -3,7 +3,8 @@
   "publicOperationIds": [
     "identityLogin",
     "identityRefreshSession",
-    "identityLogout"
+    "identityLogout",
+    "documentPublicAccessDocumentShare"
   ],
   "entries": [
     {
@@ -367,6 +368,240 @@
       "status": "generated"
     },
     {
+      "operationId": "tenancyListHostTenantPackages",
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "generatedGroup": "tenancy-host-tenant-packages",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyGetHostTenantPackage",
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "generatedGroup": "tenancy-host-tenant-packages",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyCreateHostTenantPackage",
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "generatedGroup": "tenancy-host-tenant-packages",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyUpdateHostTenantPackage",
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "generatedGroup": "tenancy-host-tenant-packages",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyDisableHostTenantPackage",
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "generatedGroup": "tenancy-host-tenant-packages",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListTenantUnits",
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "generatedGroup": "organization-tenant-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationGetTenantUnit",
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "generatedGroup": "organization-tenant-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateTenantUnit",
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "generatedGroup": "organization-tenant-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateTenantUnit",
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "generatedGroup": "organization-tenant-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableTenantUnit",
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "generatedGroup": "organization-tenant-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListAssignableTenantUserUnitUsers",
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "generatedGroup": "organization-tenant-user-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListTenantUserUnits",
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "generatedGroup": "organization-tenant-user-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateTenantUserUnit",
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "generatedGroup": "organization-tenant-user-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateTenantUserUnit",
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "generatedGroup": "organization-tenant-user-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableTenantUserUnit",
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "generatedGroup": "organization-tenant-user-units",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListTenantPositions",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationGetTenantPosition",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateTenantPosition",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateTenantPosition",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationAssignTenantPositionUnit",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationAssignTenantPositionLevel",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableTenantPosition",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListTenantPositionLevels",
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "generatedGroup": "organization-tenant-position-levels",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationGetTenantPositionLevel",
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "generatedGroup": "organization-tenant-position-levels",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateTenantPositionLevel",
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "generatedGroup": "organization-tenant-position-levels",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateTenantPositionLevel",
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "generatedGroup": "organization-tenant-position-levels",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableTenantPositionLevel",
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "generatedGroup": "organization-tenant-position-levels",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListAssignableTenantUserPositionUsers",
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "generatedGroup": "organization-tenant-user-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationListTenantUserPositions",
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "generatedGroup": "organization-tenant-user-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateTenantUserPosition",
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "generatedGroup": "organization-tenant-user-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateTenantUserPosition",
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "generatedGroup": "organization-tenant-user-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableTenantUserPosition",
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "generatedGroup": "organization-tenant-user-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationGetHostUserManagementReference",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateHostUserManagementUserUnit",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateHostUserManagementUserUnit",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableHostUserManagementUserUnit",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationCreateHostUserManagementUserPosition",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationUpdateHostUserManagementUserPosition",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDisableHostUserManagementUserPosition",
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "generatedGroup": "organization-host-user-management",
+      "status": "generated"
+    },
+    {
       "operationId": "filesListHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
@@ -460,6 +695,696 @@
       "operationId": "settingsListHostConfigEntryGroups",
       "apiModule": "ui/admin/src/api/config-entries.ts",
       "generatedGroup": "settings-host-config-entries",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetHostDiagnosticPolicy",
+      "apiModule": "ui/admin/src/api/diagnostic-policy.ts",
+      "generatedGroup": "settings-host-diagnostic-policy",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsUpdateHostDiagnosticPolicy",
+      "apiModule": "ui/admin/src/api/diagnostic-policy.ts",
+      "generatedGroup": "settings-host-diagnostic-policy",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsRestoreHostDiagnosticPolicy",
+      "apiModule": "ui/admin/src/api/diagnostic-policy.ts",
+      "generatedGroup": "settings-host-diagnostic-policy",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListHostDictTypes",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsCreateHostDictType",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsUpdateHostDictType",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDisableHostDictType",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDeleteHostDictType",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListAllHostDictTypes",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListHostDictItemsByTypeCode",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListHostDictItems",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsCreateHostDictItem",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetHostDictItem",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsUpdateHostDictItem",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDisableHostDictItem",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDeleteHostDictItem",
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "generatedGroup": "settings-host-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListHostEnumCatalogs",
+      "apiModule": "ui/admin/src/api/enum-catalogs.ts",
+      "generatedGroup": "settings-host-enum-catalogs",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetHostEnumCatalog",
+      "apiModule": "ui/admin/src/api/enum-catalogs.ts",
+      "generatedGroup": "settings-host-enum-catalogs",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListTenantDictTypes",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsCreateTenantDictType",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsUpdateTenantDictType",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDisableTenantDictType",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDeleteTenantDictType",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListAllTenantDictTypes",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListTenantDictItemsByTypeCode",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsListTenantDictItems",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsCreateTenantDictItem",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGetTenantDictItem",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsUpdateTenantDictItem",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDisableTenantDictItem",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsDeleteTenantDictItem",
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "generatedGroup": "settings-tenant-dict-types",
+      "status": "generated"
+    },
+    {
+      "operationId": "auditingListHostAccessLogs",
+      "apiModule": "ui/admin/src/api/access-logs.ts",
+      "generatedGroup": "auditing-host-access-logs",
+      "status": "generated"
+    },
+    {
+      "operationId": "auditingListHostAccessLogsByCursor",
+      "apiModule": "ui/admin/src/api/access-logs.ts",
+      "generatedGroup": "auditing-host-access-logs",
+      "status": "generated"
+    },
+    {
+      "operationId": "auditingListHostOperationLogs",
+      "apiModule": "ui/admin/src/api/operation-logs.ts",
+      "generatedGroup": "auditing-host-operation-logs",
+      "status": "generated"
+    },
+    {
+      "operationId": "auditingListHostExceptionLogs",
+      "apiModule": "ui/admin/src/api/exception-logs.ts",
+      "generatedGroup": "auditing-host-exception-logs",
+      "status": "generated"
+    },
+    {
+      "operationId": "auditingListHostOutboundCallLogs",
+      "apiModule": "ui/admin/src/api/outbound-call-logs.ts",
+      "generatedGroup": "auditing-host-outbound-call-logs",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformGetHostDashboardSummary",
+      "apiModule": "ui/admin/src/api/platform-dashboard.ts",
+      "generatedGroup": "platform-host-dashboard",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsListHostJobDefinitions",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsListHostJobGroups",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsCreateHostJobDefinition",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsUpdateHostJobDefinition",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsDisableHostJobDefinition",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsDeleteHostJobDefinition",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsTriggerHostJobDefinition",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsListHostJobExecutions",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsGetHostJobExecution",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsClearHostJobExecutions",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsListHostJobSchedules",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsListHostJobScheduleDefinitionOptions",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsPreviewHostJobScheduleCron",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsCreateHostJobSchedule",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsUpdateHostJobSchedule",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsPauseHostJobSchedule",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsResumeHostJobSchedule",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsDeleteHostJobSchedule",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsGetHostJobHealth",
+      "apiModule": "ui/admin/src/api/host-job-health.ts",
+      "generatedGroup": "jobs-host-job-health",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListHostAnnouncements",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcements",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateHostAnnouncement",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcements",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateHostAnnouncement",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcements",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsPublishHostAnnouncement",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcements",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListMyInboxMessages",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetMyInboxUnreadCount",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsMarkMyInboxMessageRead",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsMarkAllMyInboxMessagesRead",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsSendHostInboxMessage",
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationPreviewCrud",
+      "apiModule": "ui/admin/src/api/code-generation-previews.ts",
+      "generatedGroup": "code-generation-previews",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationPreviewRun",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationApplyRun",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationRollbackRun",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationRollbackRunChain",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationListRuns",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationDownloadRunArtifacts",
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "generatedGroup": "code-generation-runs",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationListTemplates",
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "generatedGroup": "code-generation-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationGetTemplate",
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "generatedGroup": "code-generation-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationCreateTemplate",
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "generatedGroup": "code-generation-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationUpdateTemplate",
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "generatedGroup": "code-generation-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationDeleteTemplate",
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "generatedGroup": "code-generation-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationListCatalogTables",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationListCatalogColumns",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationSyncCatalogColumns",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersListRules",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersCreateRule",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersUpdateRule",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersEnableRule",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersDisableRule",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersPreviewSerialNumber",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListCategories",
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "generatedGroup": "document-host-categories",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostCreateCategory",
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "generatedGroup": "document-host-categories",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostUpdateCategory",
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "generatedGroup": "document-host-categories",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostDeleteCategory",
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "generatedGroup": "document-host-categories",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListItems",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostCreateItem",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostUpdateItem",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListItemVersions",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostAddItemVersion",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostUploadItemVersion",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostDownloadItemContent",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostPreviewItemContent",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostPreviewItemVersionContent",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostDeleteItem",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostRestoreItem",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListTags",
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "generatedGroup": "document-host-tags",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostCreateTag",
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "generatedGroup": "document-host-tags",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostUpdateTag",
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "generatedGroup": "document-host-tags",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostDeleteTag",
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "generatedGroup": "document-host-tags",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListDocumentPermissions",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "generatedGroup": "document-host-permissions",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostSetDocumentPermissions",
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "generatedGroup": "document-host-permissions",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListRecycleBinItems",
+      "apiModule": "ui/admin/src/api/document-recycle-bin.ts",
+      "generatedGroup": "document-host-recycle-bin",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostRestoreRecycleBinItem",
+      "apiModule": "ui/admin/src/api/document-recycle-bin.ts",
+      "generatedGroup": "document-host-recycle-bin",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostPurgeRecycleBinItem",
+      "apiModule": "ui/admin/src/api/document-recycle-bin.ts",
+      "generatedGroup": "document-host-recycle-bin",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostListDocumentShares",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostCreateDocumentShare",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostUpdateDocumentShareStatus",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentPublicAccessDocumentShare",
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "generatedGroup": "document-host-shares",
+      "status": "generated"
+    },
+    {
+      "operationId": "documentHostGetDocumentStatistics",
+      "apiModule": "ui/admin/src/api/document-statistics.ts",
+      "generatedGroup": "document-host-statistics",
       "status": "generated"
     }
   ]

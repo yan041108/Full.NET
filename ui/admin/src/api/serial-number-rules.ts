@@ -2,6 +2,12 @@ import {
   isSerialNumberPreviewResponse,
   isSerialNumberRulePage,
   isSerialNumberRuleResponse,
+  serialNumbersCreateRule,
+  serialNumbersDisableRule,
+  serialNumbersEnableRule,
+  serialNumbersListRules,
+  serialNumbersPreviewSerialNumber,
+  serialNumbersUpdateRule,
   type ChangeSerialNumberRuleStatusRequest,
   type CreateSerialNumberRuleRequest,
   type PreviewSerialNumberRequest,
@@ -10,9 +16,7 @@ import {
   type SerialNumberRuleResponse,
   type UpdateSerialNumberRuleRequest
 } from '@fullnet/client-contracts';
-import { request } from './http';
-
-const rulesPath = '/api/v1/serial-numbers/rules';
+import { http } from './http';
 
 export type SerialNumberRuleSortBy =
   | 'displayOrder'
@@ -33,39 +37,33 @@ export interface ListSerialNumberRulesParams {
   sortDirection?: SerialNumberRuleSortDirection;
 }
 
-function buildListQuery(params: ListSerialNumberRulesParams): string {
-  const query = new URLSearchParams();
-  query.set('page', String(params.page ?? 1));
-  query.set('pageSize', String(params.pageSize ?? 20));
-  if (params.name?.trim()) {
-    query.set('name', params.name.trim());
-  }
-  if (params.key?.trim()) {
-    query.set('key', params.key.trim());
-  }
-  if (params.isEnabled !== undefined) {
-    query.set('isEnabled', String(params.isEnabled));
-  }
-  if (params.sortBy) {
-    query.set('sortBy', params.sortBy);
-  }
-  if (params.sortDirection) {
-    query.set('sortDirection', params.sortDirection);
-  }
-  return query.toString();
-}
-
 export async function listSerialNumberRules(
   params: ListSerialNumberRulesParams | number = {},
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<SerialNumberRulePage> {
-  // 兼容旧调用 listSerialNumberRules(page, pageSize)，新调用传对象参数。
   const normalized: ListSerialNumberRulesParams =
     typeof params === 'number'
       ? { page: params, pageSize }
       : params;
-  const value = await request<unknown>(
-    `${rulesPath}?${buildListQuery(normalized)}`
+  const name = normalized.name?.trim();
+  const key = normalized.key?.trim();
+  const value = await serialNumbersListRules(
+    http,
+    {
+      page: normalized.page ?? 1,
+      pageSize: normalized.pageSize ?? 20,
+      ...(name ? { name } : {}),
+      ...(key ? { key } : {}),
+      ...(normalized.isEnabled !== undefined
+        ? { isEnabled: normalized.isEnabled }
+        : {}),
+      ...(normalized.sortBy ? { sortBy: normalized.sortBy } : {}),
+      ...(normalized.sortDirection
+        ? { sortDirection: normalized.sortDirection }
+        : {})
+    },
+    signal
   );
   if (!isSerialNumberRulePage(value)) {
     throw new Error('client.invalid_serial_number_rule_page');
@@ -75,47 +73,60 @@ export async function listSerialNumberRules(
 }
 
 export async function createSerialNumberRule(
-  input: CreateSerialNumberRuleRequest
+  input: CreateSerialNumberRuleRequest,
+  signal?: AbortSignal
 ): Promise<SerialNumberRuleResponse> {
-  return readRule(await request<unknown>(rulesPath, jsonRequest('POST', input)));
+  const value = await serialNumbersCreateRule(http, { body: input }, signal);
+  return readRule(value);
 }
 
 export async function updateSerialNumberRule(
   ruleId: string,
-  input: UpdateSerialNumberRuleRequest
+  input: UpdateSerialNumberRuleRequest,
+  signal?: AbortSignal
 ): Promise<SerialNumberRuleResponse> {
-  return readRule(await request<unknown>(
-    `${rulesPath}/${encodeURIComponent(ruleId)}`,
-    jsonRequest('PUT', input)
-  ));
+  const value = await serialNumbersUpdateRule(
+    http,
+    { ruleId, body: input },
+    signal
+  );
+  return readRule(value);
 }
 
 export async function enableSerialNumberRule(
   ruleId: string,
-  input: ChangeSerialNumberRuleStatusRequest
+  input: ChangeSerialNumberRuleStatusRequest,
+  signal?: AbortSignal
 ): Promise<SerialNumberRuleResponse> {
-  return readRule(await request<unknown>(
-    `${rulesPath}/${encodeURIComponent(ruleId)}/enable`,
-    jsonRequest('POST', input)
-  ));
+  const value = await serialNumbersEnableRule(
+    http,
+    { ruleId, body: input },
+    signal
+  );
+  return readRule(value);
 }
 
 export async function disableSerialNumberRule(
   ruleId: string,
-  input: ChangeSerialNumberRuleStatusRequest
+  input: ChangeSerialNumberRuleStatusRequest,
+  signal?: AbortSignal
 ): Promise<SerialNumberRuleResponse> {
-  return readRule(await request<unknown>(
-    `${rulesPath}/${encodeURIComponent(ruleId)}/disable`,
-    jsonRequest('POST', input)
-  ));
+  const value = await serialNumbersDisableRule(
+    http,
+    { ruleId, body: input },
+    signal
+  );
+  return readRule(value);
 }
 
 export async function previewSerialNumber(
-  input: PreviewSerialNumberRequest
+  input: PreviewSerialNumberRequest,
+  signal?: AbortSignal
 ): Promise<SerialNumberPreviewResponse> {
-  const value = await request<unknown>(
-    `${rulesPath}/preview`,
-    jsonRequest('POST', input)
+  const value = await serialNumbersPreviewSerialNumber(
+    http,
+    { body: input },
+    signal
   );
   if (!isSerialNumberPreviewResponse(value)) {
     throw new Error('client.invalid_serial_number_preview');
@@ -132,10 +143,13 @@ function readRule(value: unknown): SerialNumberRuleResponse {
   return value;
 }
 
-function jsonRequest(method: string, body: unknown): RequestInit {
-  return {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
-  };
-}
+export type {
+  ChangeSerialNumberRuleStatusRequest,
+  CreateSerialNumberRuleRequest,
+  PreviewSerialNumberRequest,
+  SerialNumberPreviewResponse,
+  SerialNumberRulePage,
+  SerialNumberRuleResponse,
+  UpdateSerialNumberRuleRequest
+};
+

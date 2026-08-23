@@ -67,7 +67,12 @@ internal static class JobsHttpHandlerAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(JobHandlerKinds.Http, created.HandlerKind);
         Assert.IsNotNull(created.Args);
-        Assert.AreEqual(secretKey, created.Args.SecretHeaders!["Authorization"].ConfigKey);
+        var authorization = created.Args.SecretHeaders!
+            .Single(pair => string.Equals(
+                pair.Key,
+                "Authorization",
+                StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual(secretKey, authorization.Value.ConfigKey);
 
         using var authRejectRequest = JobsHostDefinitionAssertions.CreateBearerJsonRequest(
             HttpMethod.Post,

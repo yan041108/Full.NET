@@ -13,7 +13,7 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/jobs/host-definitions")
-            .WithTags("Jobs");
+            .WithTags("JobsHostJobDefinitions");
 
         group.MapGet("/", async (
             int? page,
@@ -30,7 +30,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsListHostJobDefinitions")
         .Produces<PagedResult<HostJobDefinitionResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsRead));
 
         group.MapGet("/{definitionId:guid}", async (
@@ -70,7 +73,12 @@ internal static class Endpoint
                 $"/api/v1/jobs/host-definitions/{result.Value!.Id:D}",
                 result.Value);
         })
+        .WithName("jobsCreateHostJobDefinition")
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsCreate));
 
         group.MapPut("/{definitionId:guid}", async (
@@ -94,7 +102,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsUpdateHostJobDefinition")
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsUpdate));
 
         group.MapPost("/{definitionId:guid}/disable", async (
@@ -118,7 +132,13 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsDisableHostJobDefinition")
         .Produces<HostJobDefinitionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsDisable));
 
         // 硬删除作业定义，对应 Admin.NET DeleteJobDetail；前置校验失败返回 ProblemDetails。
@@ -142,7 +162,13 @@ internal static class Endpoint
 
             return Results.NoContent();
         })
+        .WithName("jobsDeleteHostJobDefinition")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsDelete));
 
         // 查询作业分组去重列表，对应 Admin.NET ListJobGroup，供前端分组下拉使用。
@@ -156,7 +182,10 @@ internal static class Endpoint
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
+        .WithName("jobsListHostJobGroups")
         .Produces<IReadOnlyList<HostJobGroupResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsRead));
 
         group.MapPost("/{definitionId:guid}/trigger", async (
@@ -177,7 +206,13 @@ internal static class Endpoint
                 $"/api/v1/jobs/host-executions?jobDefinitionId={definitionId:D}",
                 result.Value);
         })
+        .WithName("jobsTriggerHostJobDefinition")
         .Produces<HostJobExecutionResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.DefinitionsTrigger));
     }
 

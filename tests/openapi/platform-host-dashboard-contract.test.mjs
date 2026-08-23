@@ -53,6 +53,8 @@ test('Host 工作台 OpenAPI 夹具与 C# 契约和端点源码一致', async ()
     endpointSource,
     /MapGet\(\s*"\/api\/v1\/platform\/host-dashboard-summary"/u
   );
+  assert.match(endpointSource, /WithTags\("PlatformHostDashboard"\)/u);
+  assert.match(endpointSource, /WithName\("platformGetHostDashboardSummary"\)/u);
   assert.match(endpointSource, /Produces<HostDashboardSummaryResponse>/u);
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {

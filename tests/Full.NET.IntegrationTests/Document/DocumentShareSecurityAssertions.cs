@@ -20,6 +20,7 @@ internal static class DocumentShareSecurityAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        await OpenApiDocumentHostSharesContractAssertions.VerifyAsync(client, cancellationToken);
         var identity = await factory.CreateHostIdentityAsync(
             $"document-share-{Guid.NewGuid():N}",
             [

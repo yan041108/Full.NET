@@ -73,6 +73,12 @@ test('租户用户-机构隶属 OpenAPI 夹具与 C# 契约和端点源码一致
   assert.match(contractsSource, /organization\.user_units\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/user-units"\)/u);
+  assert.match(endpointSource, /WithTags\("OrganizationTenantUserUnits"\)/u);
+  assert.match(endpointSource, /WithName\("organizationListAssignableTenantUserUnitUsers"\)/u);
+  assert.match(endpointSource, /WithName\("organizationListTenantUserUnits"\)/u);
+  assert.match(endpointSource, /WithName\("organizationCreateTenantUserUnit"\)/u);
+  assert.match(endpointSource, /WithName\("organizationUpdateTenantUserUnit"\)/u);
+  assert.match(endpointSource, /WithName\("organizationDisableTenantUserUnit"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/organization/user-units/assignable-users', new Map([

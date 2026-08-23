@@ -102,8 +102,34 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     assert.ok(contractsSource.includes(permission), `C# 契约缺少权限码：${permission}`);
   }
   assert.match(definitionsEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-definitions"\)/u);
+  assert.match(definitionsEndpoint, /WithTags\("JobsHostJobDefinitions"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsListHostJobDefinitions"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsCreateHostJobDefinition"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsUpdateHostJobDefinition"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsDisableHostJobDefinition"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsDeleteHostJobDefinition"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsListHostJobGroups"\)/u);
+  assert.match(definitionsEndpoint, /WithName\("jobsTriggerHostJobDefinition"\)/u);
   assert.match(executionsEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-executions"\)/u);
+  assert.match(executionsEndpoint, /WithTags\("JobsHostJobExecutions"\)/u);
+  assert.match(executionsEndpoint, /WithName\("jobsListHostJobExecutions"\)/u);
+  assert.match(executionsEndpoint, /WithName\("jobsGetHostJobExecution"\)/u);
+  assert.match(executionsEndpoint, /WithName\("jobsClearHostJobExecutions"\)/u);
   assert.match(schedulesEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-schedules"\)/u);
+  assert.match(schedulesEndpoint, /WithTags\("JobsHostJobSchedules"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsListHostJobSchedules"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsListHostJobScheduleDefinitionOptions"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsPreviewHostJobScheduleCron"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsCreateHostJobSchedule"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsUpdateHostJobSchedule"\)/u);
+  assert.match(
+    schedulesEndpoint,
+    /WithName\(enable \? "jobsResumeHostJobSchedule" : "jobsPauseHostJobSchedule"\)/u
+  );
+  assert.match(schedulesEndpoint, /WithName\("jobsDeleteHostJobSchedule"\)/u);
+  assert.match(healthEndpoint, /MapGet\(\s*"\/api\/v1\/jobs\/host-health"/u);
+  assert.match(healthEndpoint, /WithTags\("JobsHostJobHealth"\)/u);
+  assert.match(healthEndpoint, /WithName\("jobsGetHostJobHealth"\)/u);
 
   const routeMarkers = new Map([
     ['GET /api/v1/jobs/host-definitions', 'MapGet("/",'],
