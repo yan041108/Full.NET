@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Full.NET.Data.CodeGeneration.Schema;
 
 namespace Full.NET.Data.CodeGeneration.Generation;
@@ -553,74 +554,104 @@ public static class CrudArtifactGenerator
 
     private static string GenerateReport(FullNetCrudSchema schema)
     {
-        var entityCapabilities = schema.UsesLegacyEntityCapabilities
-            ? null
-            : new
-            {
-                deleteMode = FullNetCrudWireValues.ToWireValue(
-                    schema.EntityCapabilities.DeleteMode),
-                schema.EntityCapabilities.HasCreatedAudit,
-                schema.EntityCapabilities.HasUpdatedAudit,
-                schema.EntityCapabilities.HasDeletedAudit,
-                schema.EntityCapabilities.HasVersion,
-                ownershipMode = FullNetCrudWireValues.ToWireValue(
-                    schema.EntityCapabilities.OwnershipMode),
-            };
-        var report = new
+        var report = new JsonObject
         {
-            schema.OwnerKey,
-            schema.ModuleKey,
-            schema.EntityKey,
-            schema.DatabaseTableName,
-            schema.RootNamespace,
-            schema.ClrTypeName,
-            schema.ApiResourceName,
-            schema.PermissionResourceName,
-            schema.ReadPermission,
-            schema.CreatePermission,
-            schema.UpdatePermission,
-            schema.DisablePermission,
-            schema.WritePermission,
-            schema.IsTenantScoped,
-            dataScope = FullNetCrudWireValues.ToWireValue(schema.DataScope),
-            schema.HasVersion,
-            schema.UsesLegacyEntityCapabilities,
-            legacyLifecycle = schema.UsesLegacyEntityCapabilities
+            ["ownerKey"] = schema.OwnerKey,
+            ["moduleKey"] = schema.ModuleKey,
+            ["entityKey"] = schema.EntityKey,
+            ["databaseTableName"] = schema.DatabaseTableName,
+            ["rootNamespace"] = schema.RootNamespace,
+            ["clrTypeName"] = schema.ClrTypeName,
+            ["apiResourceName"] = schema.ApiResourceName,
+            ["permissionResourceName"] = schema.PermissionResourceName,
+            ["readPermission"] = schema.ReadPermission,
+            ["createPermission"] = schema.CreatePermission,
+            ["updatePermission"] = schema.UpdatePermission,
+            ["disablePermission"] = schema.DisablePermission,
+            ["writePermission"] = schema.WritePermission,
+            ["isTenantScoped"] = schema.IsTenantScoped,
+            ["dataScope"] = FullNetCrudWireValues.ToWireValue(schema.DataScope),
+            ["hasVersion"] = schema.HasVersion,
+            ["usesLegacyEntityCapabilities"] = schema.UsesLegacyEntityCapabilities,
+            ["legacyLifecycle"] = schema.UsesLegacyEntityCapabilities
                 ? "disable"
                 : null,
-            scene = FullNetCrudWireValues.ToWireValue(schema.Scene),
-            relationships = schema.Relationships.Select(relationship => new
-            {
-                relationship.PrincipalEntityKey,
-                relationship.PrincipalColumnName,
-                principalDataScope = FullNetCrudWireValues.ToWireValue(
-                    relationship.PrincipalDataScope),
-                relationship.DependentEntityKey,
-                relationship.DependentColumnName,
-                dependentDataScope = FullNetCrudWireValues.ToWireValue(
-                    relationship.DependentDataScope),
-                compositeKeyColumnNames = relationship.CompositeKeyColumnNames,
-                cascadeDelete = relationship.CascadeDelete,
-            }),
-            entityCapabilities,
-            migrationTemplateGenerated =
+            ["scene"] = FullNetCrudWireValues.ToWireValue(schema.Scene),
+            ["migrationTemplateGenerated"] =
                 schema.DataScope != FullNetCrudDataScope.Unspecified,
-            integrationTestTemplateGenerated =
+            ["integrationTestTemplateGenerated"] =
                 schema.DataScope != FullNetCrudDataScope.Unspecified,
-            columns = schema.Columns.Select(column => new
-            {
-                column.DatabaseName,
-                column.ClrPropertyName,
-                column.JsonPropertyName,
-                scalarType = FullNetCrudWireValues.ToWireValue(
-                    column.ScalarType),
-                column.IsNullable,
-                column.MaxLength,
-                column.NumericPrecision,
-                column.NumericScale,
-            }),
         };
-        return Normalize(JsonSerializer.Serialize(report, ReportJsonOptions));
+        if (!schema.UsesLegacyEntityCapabilities)
+        {
+            report["entityCapabilities"] = new JsonObject
+            {
+                ["deleteMode"] = FullNetCrudWireValues.ToWireValue(
+                    schema.EntityCapabilities.DeleteMode),
+                ["hasCreatedAudit"] = schema.EntityCapabilities.HasCreatedAudit,
+                ["hasUpdatedAudit"] = schema.EntityCapabilities.HasUpdatedAudit,
+                ["hasDeletedAudit"] = schema.EntityCapabilities.HasDeletedAudit,
+                ["hasVersion"] = schema.EntityCapabilities.HasVersion,
+                ["ownershipMode"] = FullNetCrudWireValues.ToWireValue(
+                    schema.EntityCapabilities.OwnershipMode),
+            };
+        }
+
+        var relationships = new JsonArray(
+            schema.Relationships
+                .Select(relationship => (JsonNode)new JsonObject
+                {
+                    ["principalEntityKey"] = relationship.PrincipalEntityKey,
+                    ["principalColumnName"] = relationship.PrincipalColumnName,
+                    ["principalDataScope"] = FullNetCrudWireValues.ToWireValue(
+                        relationship.PrincipalDataScope),
+                    ["dependentEntityKey"] = relationship.DependentEntityKey,
+                    ["dependentColumnName"] = relationship.DependentColumnName,
+                    ["dependentDataScope"] = FullNetCrudWireValues.ToWireValue(
+                        relationship.DependentDataScope),
+                    ["compositeKeyColumnNames"] = relationship.CompositeKeyColumnNames
+                            is { Count: > 0 } compositeKeyColumnNames
+                        ? new JsonArray(
+                            compositeKeyColumnNames
+                                .Select(name => (JsonNode)name)
+                                .ToArray())
+                        : null,
+                    ["cascadeDelete"] = relationship.CascadeDelete,
+                })
+                .ToArray());
+        report["relationships"] = relationships;
+
+        var columns = new JsonArray(
+            schema.Columns
+                .Select(column =>
+                {
+                    var columnObject = new JsonObject
+                    {
+                        ["databaseName"] = column.DatabaseName,
+                        ["clrPropertyName"] = column.ClrPropertyName,
+                        ["jsonPropertyName"] = column.JsonPropertyName,
+                        ["scalarType"] = FullNetCrudWireValues.ToWireValue(
+                            column.ScalarType),
+                        ["isNullable"] = column.IsNullable,
+                    };
+                    if (column.MaxLength is not null)
+                    {
+                        columnObject["maxLength"] = column.MaxLength.Value;
+                    }
+                    if (column.NumericPrecision is not null)
+                    {
+                        columnObject["numericPrecision"] = column.NumericPrecision.Value;
+                    }
+                    if (column.NumericScale is not null)
+                    {
+                        columnObject["numericScale"] = column.NumericScale.Value;
+                    }
+                    return (JsonNode)columnObject;
+                })
+                .ToArray());
+        report["columns"] = columns;
+
+        return Normalize(report.ToJsonString(ReportJsonOptions));
     }
 
     private static string GenerateExplicitContracts(FullNetCrudSchema schema)

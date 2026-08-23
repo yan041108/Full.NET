@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Full.NET.Data.CodeGeneration.Serialization;
 
 namespace Full.NET.Data.CodeGeneration.Generation;
 
@@ -20,11 +21,6 @@ public sealed class GenerationManifest
 {
     public const int CurrentSchemaVersion = 1;
 
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        WriteIndented = true,
-    };
-
     private readonly IReadOnlyDictionary<string, string> _sha256ByPath;
 
     private GenerationManifest(
@@ -37,9 +33,6 @@ public sealed class GenerationManifest
             StringComparer.Ordinal);
     }
 
-    /// <summary>
-    /// 获取按相对路径稳定排序的清单条目。
-    /// </summary>
     public IReadOnlyList<GenerationManifestEntry> Artifacts { get; }
 
     public static GenerationManifest Create(
@@ -61,12 +54,12 @@ public sealed class GenerationManifest
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
 
-        ManifestDocument? document;
+        GenerationManifestDocument? document;
         try
         {
-            document = JsonSerializer.Deserialize<ManifestDocument>(
+            document = JsonSerializer.Deserialize(
                 json,
-                SerializerOptions);
+                CodeGenerationToolchainJsonSerializerContext.Default.GenerationManifestDocument);
         }
         catch (JsonException exception)
         {
@@ -99,13 +92,15 @@ public sealed class GenerationManifest
 
     public string ToJson()
     {
-        var document = new ManifestDocument
+        var document = new GenerationManifestDocument
         {
             SchemaVersion = CurrentSchemaVersion,
             Artifacts = Artifacts.ToArray(),
         };
 
-        return JsonSerializer.Serialize(document, SerializerOptions)
+        return JsonSerializer.Serialize(
+                document,
+                CodeGenerationToolchainJsonSerializerContext.Default.GenerationManifestDocument)
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             + "\n";
     }
@@ -141,14 +136,5 @@ public sealed class GenerationManifest
                     nameof(artifacts));
             }
         }
-    }
-
-    private sealed class ManifestDocument
-    {
-        [JsonPropertyName("schemaVersion")]
-        public int SchemaVersion { get; init; }
-
-        [JsonPropertyName("artifacts")]
-        public GenerationManifestEntry[]? Artifacts { get; init; }
     }
 }

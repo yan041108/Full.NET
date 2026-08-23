@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Full.NET.Data.CodeGeneration.Serialization;
 
 namespace Full.NET.Data.CodeGeneration.Naming;
 
@@ -9,11 +10,6 @@ public sealed class NamingProfile
 {
     private const string ResourceName =
         "Full.NET.Data.CodeGeneration.fullnet-naming-profile.json";
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
-
     /// <summary>
     /// 获取命名规范结构版本。
     /// </summary>
@@ -43,7 +39,9 @@ public sealed class NamingProfile
         using var stream = typeof(NamingProfile).Assembly
             .GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException("找不到嵌入的 Naming Profile。");
-        var profile = JsonSerializer.Deserialize<NamingProfile>(stream, JsonOptions)
+        var profile = JsonSerializer.Deserialize(
+                stream,
+                CodeGenerationToolchainJsonSerializerContext.Default.NamingProfile)
             ?? throw new InvalidDataException("Naming Profile 内容为空。");
         if (profile.SchemaVersion != 1)
         {

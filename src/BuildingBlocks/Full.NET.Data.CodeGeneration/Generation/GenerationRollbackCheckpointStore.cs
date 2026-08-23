@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Full.NET.Data.CodeGeneration.Serialization;
 
 namespace Full.NET.Data.CodeGeneration.Generation;
 
@@ -18,10 +18,6 @@ public static class GenerationRollbackCheckpointStore
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        WriteIndented = true,
-    };
 
     public static async Task CreateAsync(
         string workspaceRoot,
@@ -63,7 +59,7 @@ public static class GenerationRollbackCheckpointStore
             fullRoot,
             plan.PreviousManifest,
             cancellationToken);
-        var document = new CheckpointDocument
+        var document = new GenerationRollbackCheckpointDocument
         {
             SchemaVersion = CurrentSchemaVersion,
             ApplyRunId = applyRunId,
@@ -77,7 +73,7 @@ public static class GenerationRollbackCheckpointStore
                     plan.PreviousManifest.ToJson()),
             PreviousArtifacts = previousContents
                 .OrderBy(item => item.Key, StringComparer.Ordinal)
-                .Select(item => new CheckpointArtifactDocument
+                .Select(item => new GenerationRollbackCheckpointArtifactDocument
                 {
                     RelativePath = item.Key,
                     Sha256 = GenerationContentHash.Compute(item.Value),
@@ -107,7 +103,10 @@ public static class GenerationRollbackCheckpointStore
                     cancellationToken);
             }
 
-            var json = JsonSerializer.Serialize(document, SerializerOptions)
+            var json = JsonSerializer.Serialize(
+                    document,
+                    CodeGenerationToolchainJsonSerializerContext
+                        .Default.GenerationRollbackCheckpointDocument)
                 .Replace("\r\n", "\n", StringComparison.Ordinal)
                 + "\n";
             await WriteDurableTextAsync(
@@ -156,12 +155,13 @@ public static class GenerationRollbackCheckpointStore
             metadataPath,
             StrictUtf8,
             cancellationToken);
-        CheckpointDocument document;
+        GenerationRollbackCheckpointDocument document;
         try
         {
-            document = JsonSerializer.Deserialize<CheckpointDocument>(
+            document = JsonSerializer.Deserialize(
                     json,
-                    SerializerOptions)
+                    CodeGenerationToolchainJsonSerializerContext
+                        .Default.GenerationRollbackCheckpointDocument)
                 ?? throw new ArgumentException("回滚检查点元数据为空。");
         }
         catch (JsonException exception)
@@ -390,38 +390,5 @@ public static class GenerationRollbackCheckpointStore
         await stream.WriteAsync(bytes, cancellationToken);
         await stream.FlushAsync(cancellationToken);
         stream.Flush(flushToDisk: true);
-    }
-
-    private sealed class CheckpointDocument
-    {
-        [JsonPropertyName("schemaVersion")]
-        public int SchemaVersion { get; init; }
-
-        [JsonPropertyName("applyRunId")]
-        public Guid ApplyRunId { get; init; }
-
-        [JsonPropertyName("appliedManifest")]
-        public string? AppliedManifest { get; init; }
-
-        [JsonPropertyName("appliedManifestSha256")]
-        public string? AppliedManifestSha256 { get; init; }
-
-        [JsonPropertyName("previousManifest")]
-        public string? PreviousManifest { get; init; }
-
-        [JsonPropertyName("previousManifestSha256")]
-        public string? PreviousManifestSha256 { get; init; }
-
-        [JsonPropertyName("previousArtifacts")]
-        public CheckpointArtifactDocument[]? PreviousArtifacts { get; init; }
-    }
-
-    private sealed class CheckpointArtifactDocument
-    {
-        [JsonPropertyName("relativePath")]
-        public string? RelativePath { get; init; }
-
-        [JsonPropertyName("sha256")]
-        public string? Sha256 { get; init; }
     }
 }

@@ -147,11 +147,7 @@ internal static class CrudOpenApiContractGenerator
             ["operationId"] = operationId,
             ["tags"] = new JsonArray(tag),
             ["x-fullnet-permission"] = permission,
-            ["security"] = new JsonArray
-            {
-                new JsonObject { ["Bearer"] = new JsonArray() },
-                new JsonObject { ["ApiKey"] = new JsonArray() },
-            },
+            ["security"] = CreateDefaultSecurity(),
             ["responses"] = Responses(successStatus, responseSchema),
         };
         if (parameters is { Count: > 0 })
@@ -360,6 +356,12 @@ internal static class CrudOpenApiContractGenerator
     {
         ["type"] = new JsonArray("null", "string"),
     };
+
+    private static JsonArray CreateDefaultSecurity() =>
+        new([
+            (JsonNode)new JsonObject { ["Bearer"] = new JsonArray() },
+            (JsonNode)new JsonObject { ["ApiKey"] = new JsonArray() },
+        ]);
 
     private static JsonObject Ref(string schemaName) => new()
     {
