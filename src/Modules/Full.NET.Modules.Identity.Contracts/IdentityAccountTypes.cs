@@ -14,6 +14,7 @@ public static class IdentityAccountTypes
     /// <summary>普通用户，默认账号类型。</summary>
     public const string NormalUser = "normal_user";
 
+    /// <summary>已发布的全部账号类型稳定机器码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         SuperAdmin,
@@ -21,10 +22,20 @@ public static class IdentityAccountTypes
         NormalUser,
     ]);
 
+    /// <summary>
+    /// 判断给定值是否为已发布账号类型；忽略首尾空白并使用序号比较。
+    /// </summary>
+    /// <param name="value">待校验的账号类型字符串。</param>
+    /// <returns>值为已发布账号类型时返回 <see langword="true"/>。</returns>
     public static bool IsValid(string? value) =>
         !string.IsNullOrWhiteSpace(value)
         && All.Contains(value.Trim(), StringComparer.Ordinal);
 
+    /// <summary>
+    /// 将给定值规范化为已发布账号类型；非法或空值回退为 <see cref="NormalUser"/>。
+    /// </summary>
+    /// <param name="value">待规范化的账号类型字符串。</param>
+    /// <returns>规范化后的账号类型机器码。</returns>
     public static string NormalizeOrDefault(string? value) =>
         IsValid(value) ? value!.Trim() : NormalUser;
 }

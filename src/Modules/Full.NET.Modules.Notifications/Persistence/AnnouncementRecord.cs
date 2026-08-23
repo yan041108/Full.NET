@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Notifications.Persistence;
 
+/// <summary>
+/// Host 公告表行的 Dapper 投影模型，列名与 PascalCase 列直接映射。
+/// </summary>
 internal sealed class AnnouncementRecord
 {
     public Guid Id { get; set; }

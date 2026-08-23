@@ -19,6 +19,7 @@ public sealed record GenerationManifestEntry(
 /// </summary>
 public sealed class GenerationManifest
 {
+    /// <summary>当前持久化清单支持的 schema 版本；Parse 拒绝其它版本。</summary>
     public const int CurrentSchemaVersion = 1;
 
     private readonly IReadOnlyDictionary<string, string> _sha256ByPath;
@@ -33,8 +34,12 @@ public sealed class GenerationManifest
             StringComparer.Ordinal);
     }
 
+    /// <summary>获取按相对路径排序的产物摘要条目集合。</summary>
     public IReadOnlyList<GenerationManifestEntry> Artifacts { get; }
 
+    /// <summary>
+    /// 校验并构造不可变清单；重复路径与不可移植别名会失败，避免双写漂移。
+    /// </summary>
     public static GenerationManifest Create(
         IEnumerable<GenerationManifestEntry> artifacts)
     {
@@ -50,6 +55,12 @@ public sealed class GenerationManifest
             new ReadOnlyCollection<GenerationManifestEntry>(ordered));
     }
 
+    /// <summary>
+    /// 解析持久化清单 JSON；schema 版本不符、artifacts 缺失或路径重复都会失败关闭。
+    /// </summary>
+    /// <param name="json">工作区清单文件的 UTF-8 文本。</param>
+    /// <returns>经过路径与摘要校验的不可变清单。</returns>
+    /// <exception cref="ArgumentException">JSON 无效、schema 版本不支持或 artifacts 缺失。</exception>
     public static GenerationManifest Parse(string json)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
@@ -82,6 +93,12 @@ public sealed class GenerationManifest
         return Create(document.Artifacts);
     }
 
+    /// <summary>
+    /// 查询清单是否拥有指定路径的产物及其摘要；路径必须先经 GenerationArtifactPath 校验。
+    /// </summary>
+    /// <param name="relativePath">要查询的工作区相对路径。</param>
+    /// <param name="sha256">命中时输出对应 SHA-256 摘要；未命中为 null。</param>
+    /// <returns>清单是否拥有该路径的产物。</returns>
     public bool TryGetSha256(
         string relativePath,
         out string? sha256)
@@ -90,6 +107,10 @@ public sealed class GenerationManifest
         return _sha256ByPath.TryGetValue(relativePath, out sha256);
     }
 
+    /// <summary>
+    /// 序列化为带 schema 版本的规范 JSON 文本；行尾统一为 LF 并追加末尾换行，便于哈希稳定。
+    /// </summary>
+    /// <returns>可直接写入磁盘清单文件的 JSON 文本。</returns>
     public string ToJson()
     {
         var document = new GenerationManifestDocument

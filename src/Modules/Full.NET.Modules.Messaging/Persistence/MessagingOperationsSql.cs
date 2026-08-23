@@ -2,6 +2,14 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Messaging.Persistence;
 
+/// <summary>
+/// 消息运维查询的参数化 SQL 语句集合，全部声明为 <see cref="SqlDataScope.Global"/>，
+/// 因死信与 Outbox 信封属 Host 级运维目录而非租户业务数据。
+/// </summary>
+/// <remarks>
+/// 死信查询复用 Inbox 表的 <c>Status = 'failed'</c> 行；列表查询分别提供
+/// SQL Server 的 <c>OFFSET/FETCH</c> 与 MySQL 的 <c>LIMIT/OFFSET</c> 成对实现，按接收时间倒序稳定分页。
+/// </remarks>
 internal static class MessagingOperationsSql
 {
     public static readonly SqlStatement CountDeadLetters =

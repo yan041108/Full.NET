@@ -9,6 +9,9 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public static class GenerationRollbackCheckpointStore
 {
+    /// <summary>
+    /// 工作区根下回滚检查点目录的相对路径；每个 Apply 运行在该目录下拥有独立子目录。
+    /// </summary>
     public const string RootRelativePath =
         ".fullnet/codegeneration-rollback-checkpoints";
 
@@ -19,6 +22,17 @@ public static class GenerationRollbackCheckpointStore
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在 Apply 写盘前原子发布回滚检查点；同一 ApplyRunId 已有证据时禁止覆盖。
+    /// </summary>
+    /// <remarks>
+    /// 仅对无冲突且带 NextManifest 的计划建立检查点。先写入 pending 目录，再用同卷 Move 原子切换到最终路径；
+    /// 旧产物内容以 CreateNew、FileShare.None 与 WriteThrough 持久化，并复验摘要。出现异常时保留 pending 残骸供运维审查。
+    /// </remarks>
+    /// <param name="workspaceRoot">工作区根目录；由调用方保证存在与权限。</param>
+    /// <param name="applyRunId">本次 Apply 运行的唯一标识，用作检查点子目录名。</param>
+    /// <param name="plan">已经通过冲突校验的写盘计划，提供 PreviousManifest 与 NextManifest。</param>
+    /// <param name="cancellationToken">用于取消检查点写入的令牌。</param>
     public static async Task CreateAsync(
         string workspaceRoot,
         Guid applyRunId,
@@ -123,6 +137,18 @@ public static class GenerationRollbackCheckpointStore
         }
     }
 
+    /// <summary>
+    /// 读取并完整校验指定 Apply 运行的回滚检查点；任一摘要漂移或不一致都会失败关闭。
+    /// </summary>
+    /// <remarks>
+    /// 校验 SchemaVersion、ApplyRunId、清单摘要以及旧产物逐条摘要；只有全部一致才返回可用检查点。
+    /// </remarks>
+    /// <param name="workspaceRoot">工作区根目录。</param>
+    /// <param name="applyRunId">要读取的 Apply 运行唯一标识。</param>
+    /// <param name="cancellationToken">用于取消元数据与内容读取的令牌。</param>
+    /// <returns>通过完整校验的回滚检查点。</returns>
+    /// <exception cref="DirectoryNotFoundException">指定 Apply 运行没有检查点目录。</exception>
+    /// <exception cref="ArgumentException">检查点元数据缺失、不完整或摘要与清单不一致。</exception>
     public static async Task<GenerationRollbackCheckpoint> ReadAsync(
         string workspaceRoot,
         Guid applyRunId,

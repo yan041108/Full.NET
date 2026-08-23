@@ -36,6 +36,19 @@ internal sealed class CompositionIntegrationBuildProjection
 
     public string TargetsContent { get; }
 
+    /// <summary>
+    /// 创建仅替换 Catalog 文件并按需追加模块 ProjectReference 的临时构建投影；所有源码均写入 <paramref name="projectionRoot"/>，不触碰仓库实际文件。
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="includeModuleReference"/> 仅在 Composition 项目首次接入模块时为 true；再次执行时若 ProjectReference 已存在则跳过，避免 MSBuild 报重复引用错误。
+    /// </remarks>
+    /// <param name="compositionProjectFullPath">Composition 项目文件的绝对路径，作为真实构建目标。</param>
+    /// <param name="moduleProjectFullPath">模块项目文件的绝对路径，仅在需要追加引用时使用。</param>
+    /// <param name="compositionCatalogFullPath">Composition Catalog 在仓库内的绝对路径，构建时由候选文件替换。</param>
+    /// <param name="desiredCatalogContent">候选 Catalog 内容，必须由编辑器保证结构正确。</param>
+    /// <param name="includeModuleReference">是否在临时 targets 中追加模块 ProjectReference。</param>
+    /// <param name="projectionRoot">系统临时目录下的绝对路径，所有候选源码与 targets 写入此目录。</param>
+    /// <returns>临时构建投影，调用方负责写入磁盘并在使用后删除目录。</returns>
     public static CompositionIntegrationBuildProjection Create(
         string compositionProjectFullPath,
         string moduleProjectFullPath,

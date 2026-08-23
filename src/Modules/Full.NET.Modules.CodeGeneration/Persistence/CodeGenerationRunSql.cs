@@ -61,6 +61,9 @@ internal static class CodeGenerationRunSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 按模块/实体列出已成功且尚未被成功回滚的 Apply（LIFO 投影）；rollback-chain 校验顺序以此结果集为权威，确保回滚不跳过较新的 Apply 而破坏一致性。
+    /// </summary>
     public static readonly SqlStatement ListPendingRollbackApplies = new(
         "codegen.run.list_pending_rollback_applies",
         """
@@ -92,6 +95,9 @@ internal static class CodeGenerationRunSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 将 running Apply 收敛为 failed 并清空 ModuleKey/EntityKey/Schema/Manifest 等字段，仅匹配 running 行避免重复终态；失败后不得保留可被误用的摘要。
+    /// </summary>
     public static readonly SqlStatement FailApply = new(
         "codegen.run.fail_apply",
         """
@@ -122,6 +128,9 @@ internal static class CodeGenerationRunSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 将 running Rollback 收敛为 failed 并清空敏感字段，仅匹配 running 行避免重复终态；与 FailApply 对称，防止失败回滚残留可被误用的摘要。
+    /// </summary>
     public static readonly SqlStatement FailRollback = new(
         "codegen.run.fail_rollback",
         """

@@ -2,6 +2,15 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Notifications.Persistence;
 
+/// <summary>
+/// Host 公告表的参数化 SQL 语句集合，全部声明为 <see cref="SqlDataScope.HostOnly"/>。
+/// </summary>
+/// <remarks>
+/// 公告属 Host 作用域，行守卫以 <c>TenantId IS NULL</c> 表达；
+/// 列表查询分别提供 SQL Server 的 <c>OFFSET/FETCH</c> 与 MySQL 的 <c>LIMIT/OFFSET</c> 成对实现。
+/// <see cref="UpdateDraft"/> 与 <see cref="Publish"/> 以 <c>Status AND Version</c> 作为 CAS 并发守卫，
+/// 影响行数为 0 即并发冲突，调用方据此返回冲突而非静默覆盖。
+/// </remarks>
 internal static class AnnouncementSql
 {
     public static readonly SqlStatement ListHostSqlServer =

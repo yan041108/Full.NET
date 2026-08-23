@@ -24,6 +24,14 @@ internal sealed class HostInboxMessageService(
     IIdGenerator idGenerator,
     ILogger<HostInboxMessageService> logger)
 {
+    /// <summary>
+    /// 向指定 Host 用户投递站内信：校验收件人存在后，在命令事务内写入站内信与实时修复 Outbox 事件。
+    /// </summary>
+    /// <remarks>
+    /// 站内信写入与 <see cref="InboxMessageReceivedIntegrationEvent"/> 在同一事务原子提交；
+    /// 事务提交后再尝试低延迟推送，推送失败仅告警，最终一致性由 Outbox 消费者保证。
+    /// 收件人必须为活动 Host 用户，否则返回未找到错误，不写入任何业务状态。
+    /// </remarks>
     public async Task<Result<InboxMessageResponse>> SendAsync(
         Guid actorUserId,
         SendHostInboxMessageRequest request,

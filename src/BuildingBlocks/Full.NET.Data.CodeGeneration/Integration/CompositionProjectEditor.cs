@@ -22,14 +22,19 @@ public sealed class CompositionIntegrationEditResult
             diagnostics.ToArray());
     }
 
+    /// <summary>编辑是否成功；失败结果不得用于写盘。</summary>
     public bool Succeeded { get; }
 
+    /// <summary>是否实际产生变更；幂等编辑时为 false。</summary>
     public bool Changed { get; }
 
+    /// <summary>期望写入的候选内容；失败时回退为原始内容。</summary>
     public string DesiredContent { get; }
 
+    /// <summary>失败时的诊断信息；成功时为空。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 
+    /// <summary>构造成功结果；按原文与候选内容是否一致判定是否变更。</summary>
     public static CompositionIntegrationEditResult Success(
         string originalContent,
         string desiredContent) =>
@@ -41,6 +46,7 @@ public sealed class CompositionIntegrationEditResult
             desiredContent,
             diagnostics: []);
 
+    /// <summary>构造失败结果，DesiredContent 回退为原始内容。</summary>
     public static CompositionIntegrationEditResult Failure(
         string originalContent,
         string diagnostic) =>
@@ -56,6 +62,13 @@ public sealed class CompositionIntegrationEditResult
 /// </summary>
 public static class CompositionProjectEditor
 {
+    /// <summary>
+    /// 向结构可验证的 Composition 项目追加一个精确模块 ProjectReference。
+    /// </summary>
+    /// <param name="source">Composition 项目的原始 XML 文本</param>
+    /// <param name="compositionProjectPath">Composition 项目绝对路径，用于解析相对引用</param>
+    /// <param name="moduleProjectPath">目标模块项目绝对路径</param>
+    /// <returns>包含期望内容与诊断的编辑结果，非标准形态 fail-closed</returns>
     public static CompositionIntegrationEditResult Edit(
         string source,
         string compositionProjectPath,

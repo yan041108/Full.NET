@@ -11,6 +11,13 @@ internal sealed class HostAnnouncementQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>
+    /// 分页查询 Host 公告，按创建时间倒序排列。
+    /// </summary>
+    /// <remarks>
+    /// 列表语句按当前数据库提供程序在 SQL Server 与 MySQL 实现间切换；
+    /// 分页参数在服务端做上下界钳制，<c>OFFSET/FETCH</c> 与 <c>LIMIT/OFFSET</c> 由稳定排序保证稳定。
+    /// </remarks>
     public async Task<Result<PagedResult<HostAnnouncementResponse>>> ListAsync(
         int page,
         int pageSize,
@@ -38,6 +45,9 @@ internal sealed class HostAnnouncementQueryService(
                 total));
     }
 
+    /// <summary>
+    /// 按标识查询单条 Host 公告；不存在时返回未找到错误。
+    /// </summary>
     public async Task<Result<HostAnnouncementResponse>> GetByIdAsync(
         Guid announcementId,
         CancellationToken cancellationToken)

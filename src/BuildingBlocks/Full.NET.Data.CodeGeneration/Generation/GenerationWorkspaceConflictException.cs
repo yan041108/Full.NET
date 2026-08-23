@@ -5,6 +5,12 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public sealed class GenerationWorkspaceConflictException : IOException
 {
+    /// <summary>
+    /// 初始化冲突异常；调用方捕获后必须重新捕获工作区快照并重新规划。
+    /// </summary>
+    /// <param name="message">说明冲突原因的消息文本。</param>
+    /// <param name="relativePath">发生冲突的工作区相对路径；根目录级冲突时为空。</param>
+    /// <param name="innerException">触发冲突的底层异常；无则为空。</param>
     public GenerationWorkspaceConflictException(
         string message,
         string? relativePath = null,

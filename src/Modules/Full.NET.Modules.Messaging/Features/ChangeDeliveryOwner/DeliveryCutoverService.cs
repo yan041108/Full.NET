@@ -14,6 +14,15 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner;
 
+/// <summary>
+/// 将指定事件流的交付所有权从 Legacy 轮询切换到 CDC Kafka，并通过 CAS 守卫避免并发双发布。
+/// </summary>
+/// <remarks>
+/// 切流属高风险运维操作，必须满足以下前置条件：环境已启用切流、所有者行已持久化、
+/// 当前生效所有者为 Legacy 轮询、Legacy Outbox 积压与死信已排空、目标流无活动租约或到期重试。
+/// 所有权 Upsert 以乐观版本号做 CAS 并发控制，并发冲突时返回错误而非静默覆盖；
+/// 切流与领域审计在同一事务原子写入，确保切流动作可追溯、可回滚。
+/// </remarks>
 internal sealed class DeliveryCutoverService(
     IOutboxBacklogReader backlogReader,
     IntegrationEventSubscriptionCatalog catalog,
@@ -28,6 +37,12 @@ internal sealed class DeliveryCutoverService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// 执行交付所有权切换：校验前置条件后，在命令事务内 CAS 写入新所有者、记录切流边界并写领域审计。
+    /// </summary>
+    /// <param name="request">切流请求，必须包含事件类型、版本、目标所有者与运维理由。</param>
+    /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <returns>切流结果；前置条件不满足或 CAS 并发冲突时返回对应错误，成功时返回切流边界事件。</returns>
     public Task<Result<DeliveryCutoverResponse>> CutoverAsync(
         ChangeDeliveryOwnerRequest request,
         CancellationToken cancellationToken = default)

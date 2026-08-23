@@ -10,6 +10,14 @@ namespace Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 
 internal static class Endpoint
 {
+    /// <summary>
+    /// 注册当前用户收件箱路由组，包含列表、未读计数、单条标记已读与全部标记已读操作。
+    /// </summary>
+    /// <remarks>
+    /// 收件箱按当前认证用户过滤，收件人标识来自可信 <c>sub</c> 声明而非请求体；
+    /// 每个操作绑定独立稳定权限码并经 <c>RequireAuthorization</c> 强制校验，
+    /// 已读状态变更后由 Outbox 修复未读数徽标。
+    /// </remarks>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/notifications/my-inbox-messages")

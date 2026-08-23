@@ -24,12 +24,16 @@ public sealed class ModuleEntryIntegrationApplyResult
             diagnostics.ToArray());
     }
 
+    /// <summary>是否已写盘手写模块入口；前置或编译失败时为 false。</summary>
     public bool Applied { get; }
 
+    /// <summary>是否实际改写了模块入口；幂等接入且无需修改时为 false。</summary>
     public bool Changed { get; }
 
+    /// <summary>候选入口编译验证结果；未触发编译时为 null。</summary>
     public ModuleIntegrationCompilationResult? Compilation { get; }
 
+    /// <summary>失败时的诊断信息；成功时为空。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 }
 
@@ -45,6 +49,14 @@ public static class ModuleEntryIntegrationApplyCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在聚合桥所有权验证、候选入口编译与工作区并发复核通过后原子改写模块入口。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的模块接入目标</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>包含应用状态、是否改写、编译结果与诊断的稳定结果</returns>
     public static async Task<ModuleEntryIntegrationApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

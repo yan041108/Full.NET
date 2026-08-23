@@ -10,6 +10,10 @@ namespace Full.NET.Modules.Messaging.Features.GetDeadLetters;
 
 internal static class Endpoint
 {
+    /// <summary>
+    /// 注册消费死信查询路由，分页返回死信列表，可按消费者名过滤。
+    /// </summary>
+    /// <remarks>绑定 <c>dead_letters.read</c> 权限，供运维排查消费失败与重放决策。</remarks>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/messaging/dead-letters")

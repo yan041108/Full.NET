@@ -14,6 +14,9 @@ internal sealed class CodeGenerationRunQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>
+    /// 按当前数据库 Provider 选择成对分页 SQL，在一次往返中返回总数与稳定摘要；status 仅接受 running/succeeded/failed，其余返回 InvalidQuery。
+    /// </summary>
     public async Task<Result<PagedResult<CodeGenerationRunResponse>>> ListAsync(
         int page,
         int pageSize,
@@ -58,6 +61,9 @@ internal sealed class CodeGenerationRunQueryService(
                 pageResult.Total));
     }
 
+    /// <summary>
+    /// 按 ID 读取单条运行摘要，不返回 Schema、源码或异常正文；不存在返回 NotFound。
+    /// </summary>
     public async Task<Result<CodeGenerationRunResponse>> GetByIdAsync(
         Guid runId,
         CancellationToken cancellationToken = default)

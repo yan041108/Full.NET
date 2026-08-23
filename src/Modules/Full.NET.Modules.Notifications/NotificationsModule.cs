@@ -14,6 +14,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modules.Notifications;
 
+/// <summary>
+/// 通知中心模块：负责 Host 公告、站内信收件箱与基于 SignalR 的实时推送。
+/// </summary>
+/// <remarks>
+/// 模块依赖 Identity 以解析 Host 用户目录；所有站内信与公告均属 Host 作用域，
+/// 不携带租户边界。业务状态变更与实时修复事件通过同事务 Outbox 原子提交，
+/// 实时推送仅作为低延迟广播，最终一致性由 Outbox 消费者保证。
+/// </remarks>
 public sealed class NotificationsModule : IFullNetModule
 {
     public string Name => "Notifications";

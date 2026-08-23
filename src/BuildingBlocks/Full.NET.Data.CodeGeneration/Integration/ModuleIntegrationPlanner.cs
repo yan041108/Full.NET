@@ -9,6 +9,13 @@ namespace Full.NET.Data.CodeGeneration.Integration;
 /// </summary>
 public static class ModuleIntegrationPlanner
 {
+    /// <summary>
+    /// 根据显式目标和只读文本快照生成保守的模块接入建议，仅做规划而不写盘。
+    /// </summary>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的接入目标路径与可选客户端路由</param>
+    /// <param name="snapshot">只读文件文本快照，禁止访问真实文件系统</param>
+    /// <returns>包含 8 个固定影响区域的接入计划，每项给出保守状态与说明</returns>
     public static ModuleIntegrationPlan Plan(
         FullNetCrudSchema schema,
         ModuleIntegrationTarget target,

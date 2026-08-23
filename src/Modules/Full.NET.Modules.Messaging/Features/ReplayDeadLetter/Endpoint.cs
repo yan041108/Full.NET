@@ -9,6 +9,13 @@ namespace Full.NET.Modules.Messaging.Features.ReplayDeadLetter;
 
 internal static class Endpoint
 {
+    /// <summary>
+    /// 注册消费死信重放路由，按消费者名与消息标识重放单条死信。
+    /// </summary>
+    /// <remarks>
+    /// 绑定 <c>dead_letters.replay</c> 权限；重放依赖消费 Inbox 幂等，
+    /// 重复重放不会产生重复业务写入。
+    /// </remarks>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/messaging/dead-letters")

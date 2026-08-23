@@ -7,12 +7,18 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.CodeGeneration.Retention;
 
+/// <summary>
+/// Worker 后台服务：按 PollSeconds 周期执行检查点保留清理；仅在 Apply 与本服务同时启用时生效，循环内吞掉异常以保持运行。
+/// </summary>
 internal sealed class CodeGenerationCheckpointRetentionHostedProcessor(
     IServiceScopeFactory scopeFactory,
     IOptionsMonitor<CodeGenerationCheckpointRetentionOptions> options,
     ILogger<CodeGenerationCheckpointRetentionHostedProcessor> logger)
     : BackgroundService
 {
+    /// <summary>
+    /// 循环执行清理并在每轮之间等待 PollSeconds；单轮异常被记录后继续，避免一次性故障终止整个后台服务。
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -37,6 +43,9 @@ internal sealed class CodeGenerationCheckpointRetentionHostedProcessor(
         }
     }
 
+    /// <summary>
+    /// 在独立作用域内执行一次清理，并显式将当前租户上下文设置为 Host；清理 SQL 为 Global 作用域，必须在此 Host 上下文内执行，结束时清除上下文避免泄漏到其他工作。
+    /// </summary>
     internal async Task<CodeGenerationCheckpointRetentionResult> ProcessOnceAsync(
         CancellationToken cancellationToken)
     {

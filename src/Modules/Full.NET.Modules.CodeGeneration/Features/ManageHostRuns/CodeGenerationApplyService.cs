@@ -28,6 +28,13 @@ internal sealed class CodeGenerationApplyService(
     IClock clock,
     IIdGenerator idGenerator)
 {
+    /// <summary>
+    /// 将已审查的预览绑定到本地工作区：先校验预览为 succeeded 且模板版本未变，重新生成产物并比对 Schema/Manifest 摘要防止 stale apply；
+    /// 通过 ApplyGate 串行化（可选跨实例互斥）后，先创建回滚检查点再写盘，失败路径将运行标记为 failed；可选执行模块集成编排，完成后发布 Git 提交，返回不含源码与路径的不可变摘要。
+    /// </summary>
+    /// <remarks>
+    /// 调用方必须持有 Apply 权限；预览摘要与重算摘要任一不一致即返回 StaleApplyPreview，避免把已过期的预览落到工作区。检查点必须在写盘前创建，否则对应 Apply 无法回滚。
+    /// </remarks>
     public async Task<Result<CodeGenerationRunApplyResponse>> ApplyAsync(
         Guid actorUserId,
         CodeGenerationRunApplyRequest request,

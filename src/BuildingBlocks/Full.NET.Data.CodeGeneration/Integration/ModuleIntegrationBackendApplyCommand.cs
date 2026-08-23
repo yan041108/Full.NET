@@ -20,10 +20,13 @@ public sealed class ModuleIntegrationBackendApplyResult
         Applied = applied;
     }
 
+    /// <summary>本次接入计划涉及的写盘动作集合，未应用时仍可用于诊断。</summary>
     public IReadOnlyList<GenerationWriteAction> Actions { get; }
 
+    /// <summary>隔离编译验证结果；未触发编译（如计划不可应用）时为 null。</summary>
     public ModuleIntegrationCompilationResult? Compilation { get; }
 
+    /// <summary>是否已真正写盘；编译失败或前置条件不满足时为 false。</summary>
     public bool Applied { get; }
 }
 
@@ -32,6 +35,14 @@ public sealed class ModuleIntegrationBackendApplyResult
 /// </summary>
 public static class ModuleIntegrationBackendApplyCommand
 {
+    /// <summary>
+    /// 先规划当前实体后端产物，再用隔离临时编译门禁保护并发安全的原子写盘。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的模块接入目标</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>包含写盘动作、编译结果与是否应用的稳定结果</returns>
     public static async Task<ModuleIntegrationBackendApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

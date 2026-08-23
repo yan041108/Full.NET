@@ -14,10 +14,13 @@ internal sealed class CodeGenerationCheckpointRetentionOptions
     /// </summary>
     public bool Enabled { get; set; }
 
+    /// <summary>检查点保留天数；超过后由 Worker 清理，默认 7 天。</summary>
     public int RetentionDays { get; set; } = 7;
 
+    /// <summary>Worker 清理扫描间隔秒数，默认 3600。</summary>
     public int PollSeconds { get; set; } = 3600;
 
+    /// <summary>单次清理循环最多删除的检查点目录数，默认 20，用于限制磁盘 IO 与锁占用。</summary>
     public int MaxDeletesPerRun { get; set; } = 20;
 
     /// <summary>
@@ -31,9 +34,15 @@ internal sealed class CodeGenerationCheckpointRetentionOptions
     public bool DeleteAfterSucceededRollback { get; set; }
 }
 
+/// <summary>
+/// 在启动期校验检查点保留选项落在安全区间，避免配置错误导致 Worker 误删、过载或扫描频率失控。
+/// </summary>
 internal sealed class CodeGenerationCheckpointRetentionOptionsValidator
     : IValidateOptions<CodeGenerationCheckpointRetentionOptions>
 {
+    /// <summary>
+    /// 校验 RetentionDays、PollSeconds、MaxDeletesPerRun 与 MaxCheckpointCount 全部落在安全上下界内。
+    /// </summary>
     public ValidateOptionsResult Validate(
         string? name,
         CodeGenerationCheckpointRetentionOptions options)

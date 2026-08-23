@@ -6,10 +6,20 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Messaging.Features.GetDeadLetters;
 
+/// <summary>
+/// 分页查询消费死信，可按消费者名过滤，用于运维排查消费失败与重放决策。
+/// </summary>
 internal sealed class DeadLetterQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>
+    /// 分页查询死信，按接收时间倒序排列，可按消费者名过滤。
+    /// </summary>
+    /// <remarks>
+    /// 列表语句按当前数据库提供程序在 SQL Server 与 MySQL 实现间切换；
+    /// 分页参数在服务端做上下界钳制，<c>consumerName</c> 为空时返回全部消费者死信。
+    /// </remarks>
     public async Task<Result<PagedResult<DeadLetterResponse>>> ListAsync(
         int page,
         int pageSize,

@@ -14,6 +14,17 @@ public static class CompositionIntegrationCompilationCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 用临时 ProjectReference 与候选 Catalog 验证 Composition 的真实 Release 构建。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="compositionProjectFullPath">真实 Composition 项目绝对路径</param>
+    /// <param name="moduleProjectFullPath">目标模块项目绝对路径</param>
+    /// <param name="compositionCatalogFullPath">真实 Catalog 绝对路径</param>
+    /// <param name="desiredCatalogContent">候选 Catalog 内容</param>
+    /// <param name="includeModuleReference">是否在临时 targets 中注入 ProjectReference</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>隔离编译结果，失败时包含脱敏诊断</returns>
     public static async Task<ModuleIntegrationCompilationResult> ValidateAsync(
         string repositoryRoot,
         string compositionProjectFullPath,

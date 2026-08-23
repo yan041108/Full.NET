@@ -5,6 +5,13 @@ using Full.NET.Modules.Messaging.Contracts;
 
 namespace Full.NET.Modules.Messaging.Features.GetDeliveryStatus;
 
+/// <summary>
+/// 查询事件交付状态总览：汇总 Outbox 积压并解析各事件流当前生效的交付所有者。
+/// </summary>
+/// <remarks>
+/// 所有者解析经 <see cref="EffectiveEventDeliveryOwnerResolver"/>，反映切流后的真实链路；
+/// 事件流按事件类型与版本稳定排序，保证运维视图顺序稳定。
+/// </remarks>
 internal sealed class DeliveryStatusQueryService(
     IOutboxBacklogReader backlogReader,
     IEffectiveEventDeliveryOwnerResolver ownerResolver,
@@ -12,6 +19,9 @@ internal sealed class DeliveryStatusQueryService(
 {
     private readonly IReadOnlyList<IntegrationEventTopicDefinition> _topics = topics.ToArray();
 
+    /// <summary>
+    /// 返回当前 Outbox 积压摘要与各事件流交付所有者总览。
+    /// </summary>
     public async Task<Result<DeliveryStatusResponse>> GetAsync(CancellationToken cancellationToken)
     {
         var backlog = await backlogReader.ReadBacklogAsync(cancellationToken).ConfigureAwait(false);

@@ -3,6 +3,13 @@ using Full.NET.Modules.Notifications.Contracts;
 
 namespace Full.NET.Modules.Notifications;
 
+/// <summary>
+/// 向授权目录贡献 Notifications 模块的权限、导航与操作定义。
+/// </summary>
+/// <remarks>
+/// 公告与站内信操作均归属 Host 作用域；每个受保护操作绑定独立稳定权限码，
+/// 客户端可见性仅负责体验，服务端 Endpoint 仍按精确权限重新校验。
+/// </remarks>
 internal sealed class NotificationsAuthorizationContributor
     : IAuthorizationCatalogContributor
 {

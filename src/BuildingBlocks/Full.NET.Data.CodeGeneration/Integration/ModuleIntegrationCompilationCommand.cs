@@ -20,13 +20,17 @@ public sealed class ModuleIntegrationCompilationResult
             diagnostics.ToArray());
     }
 
+    /// <summary>编译是否成功；失败时不得写盘任何业务文件。</summary>
     public bool Succeeded { get; }
 
+    /// <summary>已脱敏的编译诊断集合（最多 20 条），路径替换为占位符。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 
+    /// <summary>构造一个成功结果，诊断集合为空。</summary>
     public static ModuleIntegrationCompilationResult Success() =>
         new(true, []);
 
+    /// <summary>构造一个失败结果，必须至少包含一条诊断信息。</summary>
     public static ModuleIntegrationCompilationResult Failure(
         IEnumerable<string> diagnostics) =>
         new(false, diagnostics);
@@ -43,6 +47,14 @@ public static class ModuleIntegrationCompilationCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在临时目录中注入当前 Schema 的默认后端产物并执行 Release 编译验证。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的模块接入目标</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>隔离编译结果，失败时包含脱敏诊断</returns>
     public static async Task<ModuleIntegrationCompilationResult> ValidateAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

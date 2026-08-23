@@ -5,6 +5,13 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public static class GenerationWritePlanner
 {
+    /// <summary>
+    /// 根据期望产物与当前磁盘快照规划写盘动作；用户已修改且不在上一版清单拥有的产物会被标记为 Conflict。
+    /// </summary>
+    /// <param name="artifacts">本次生成期望写出的产物集合。</param>
+    /// <param name="existingFiles">按相对路径索引的当前磁盘文本快照。</param>
+    /// <param name="previousManifest">上一版已提交清单；为空表示工作区尚未受管。</param>
+    /// <returns>包含逐条动作与下一版清单的写盘计划；存在冲突时 NextManifest 为空。</returns>
     public static GenerationWritePlan Plan(
         IReadOnlyList<GeneratedArtifact> artifacts,
         IReadOnlyDictionary<string, string> existingFiles,

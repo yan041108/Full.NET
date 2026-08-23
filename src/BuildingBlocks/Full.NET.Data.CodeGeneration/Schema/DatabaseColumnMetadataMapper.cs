@@ -5,6 +5,12 @@ namespace Full.NET.Data.CodeGeneration.Schema;
 /// </summary>
 public static class DatabaseColumnMetadataMapper
 {
+    /// <summary>
+    /// 按原始列顺序映射整张表的列元数据；遇到无法安全表达的物理类型会抛出 NotSupportedException。
+    /// </summary>
+    /// <param name="provider">元数据方言，决定 SQL Server 与 MySQL 的类型映射分支。</param>
+    /// <param name="metadata">从 INFORMATION_SCHEMA 读出的原始列元数据。</param>
+    /// <returns>按 OrdinalPosition 排序后的 Full.NET 标量列集合。</returns>
     public static IReadOnlyList<FullNetColumn> Map(
         DatabaseMetadataProvider provider,
         IReadOnlyList<DatabaseColumnMetadata> metadata)

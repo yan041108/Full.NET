@@ -18,7 +18,9 @@ public sealed class GenerationWorkspaceSnapshot
         PreviousManifest = previousManifest;
     }
 
+    /// <summary>获取按相对路径索引的当前磁盘文本快照；缺失文件不进入字典。</summary>
     public IReadOnlyDictionary<string, string> ExistingFiles { get; }
 
+    /// <summary>获取捕获时读取的上一版清单；为空表示工作区尚未受管。</summary>
     public GenerationManifest? PreviousManifest { get; }
 }

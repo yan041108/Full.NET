@@ -51,6 +51,18 @@ internal static class CompositionIntegrationApplyCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在模块入口稳定聚合、Composition 候选编译与并发复核全部通过后，原子提交 Composition 项目与 Catalog 两个手写文件；任一前置失败均返回未提交结果。
+    /// </summary>
+    /// <remarks>
+    /// 提交顺序：先 stage 候选 Catalog 与原项目恢复副本，再原子 Move 候选 Catalog，再 Move 候选项目；任何中间失败均尝试用恢复副本回滚项目，回滚失败则抛出包含恢复副本路径的 GenerationWorkspaceConflictException 要求人工审查。
+    /// Composition 仓库锁与模块工作区锁同时持有，跨进程互斥；锁通过 DeleteOnClose 在异常退出时自动释放。
+    /// </remarks>
+    /// <param name="repositoryRoot">仓库根目录，用于解析 Composition 项目与 Catalog 路径。</param>
+    /// <param name="schema">CRUD Schema，提供根命名空间与模块名匹配。</param>
+    /// <param name="target">模块接入目标，提供模块项目、入口、Composition 项目与 Catalog 相对路径。</param>
+    /// <param name="cancellationToken">用于取消文件 IO、编译进程与锁操作的令牌。</param>
+    /// <returns>提交结果，包含是否已应用、项目是否变更、Catalog 是否变更、候选编译诊断与失败诊断。</returns>
     public static async Task<CompositionIntegrationApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

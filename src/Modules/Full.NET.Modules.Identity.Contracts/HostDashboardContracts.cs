@@ -26,6 +26,7 @@ public sealed record HostDashboardAuditMetrics(
     decimal TodayErrorRate,
     HostDashboardActivityResponse[] RecentActivities);
 
+/// <summary>Host 工作台展示的单条最近活动记录。</summary>
 public sealed record HostDashboardActivityResponse(
     string ActionKey,
     string HttpMethod,
@@ -33,6 +34,7 @@ public sealed record HostDashboardActivityResponse(
     bool Succeeded,
     DateTimeOffset OccurredAtUtc);
 
+/// <summary>Host 工作台汇总指标，供仪表盘首屏展示。</summary>
 public sealed record HostDashboardSummaryResponse(
     long ActiveTenantCount,
     long OnlineSessionCount,

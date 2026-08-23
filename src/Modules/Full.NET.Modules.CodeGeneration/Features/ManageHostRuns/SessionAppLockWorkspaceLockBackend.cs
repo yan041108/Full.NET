@@ -8,6 +8,9 @@ namespace Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
 internal sealed class SessionAppLockWorkspaceLockBackend(
     IDatabaseSessionLock sessionLock) : ICodeGenerationWorkspaceLockBackend
 {
+    /// <summary>
+    /// 委托数据库会话锁尝试获取；竞争失败时返回 null，由 ApplyGate 决定是否拒绝请求，不在此处自旋等待。
+    /// </summary>
     public Task<IAsyncDisposable?> TryAcquireAsync(
         string lockResource,
         CancellationToken cancellationToken) =>

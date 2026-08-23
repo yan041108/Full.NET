@@ -10,6 +10,13 @@ namespace Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 
 internal static class Endpoint
 {
+    /// <summary>
+    /// 注册 Host 公告管理路由组，包含列表、详情、创建、更新与发布操作。
+    /// </summary>
+    /// <remarks>
+    /// 每个操作绑定独立稳定权限码并经 <c>RequireAuthorization</c> 强制校验；
+    /// 创建、更新、发布使用乐观版本号做 CAS 并发控制，发布后由 Outbox 修复实时广播。
+    /// </remarks>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/notifications/host-announcements")

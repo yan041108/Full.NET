@@ -19,6 +19,14 @@ internal sealed class MyInboxManagementService(
     IClock clock,
     ILogger<MyInboxManagementService> logger)
 {
+    /// <summary>
+    /// 将当前用户的一条未读站内信标记为已读，并在事务内追加已读状态变更 Outbox 事件。
+    /// </summary>
+    /// <remarks>
+    /// 站内信按收件人隔离，<paramref name="recipientUserId"/> 必须来自可信认证上下文；
+    /// 重复标记已读幂等（已读状态直接返回当前值，不重复写 Outbox）。事务提交后再尝试
+    /// 低延迟刷新未读数，失败仅告警，最终一致性由 Outbox 消费者保证。
+    /// </remarks>
     public async Task<Result<InboxMessageResponse>> MarkReadAsync(
         Guid recipientUserId,
         Guid messageId,
@@ -37,6 +45,14 @@ internal sealed class MyInboxManagementService(
         return result;
     }
 
+    /// <summary>
+    /// 将当前用户所有未读站内信批量标记为已读，并在事务内追加已读状态变更 Outbox 事件。
+    /// </summary>
+    /// <remarks>
+    /// 更新以 <c>RecipientUserId AND TenantId IS NULL AND Status = Unread</c> 为行守卫，
+    /// 仅影响未读行；影响行数大于 0 时才写 Outbox，避免空操作产生无意义事件。
+    /// 返回的未读数固定为 0，反映事务提交后的权威状态。
+    /// </remarks>
     public async Task<Result<InboxUnreadCountResponse>> MarkAllReadAsync(
         Guid recipientUserId,
         CancellationToken cancellationToken = default)

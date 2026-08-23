@@ -25,6 +25,7 @@ public sealed record DiagnosticPolicyResponse(
     IReadOnlyList<DiagnosticPolicyRuleResponse> ActiveRules,
     int ConfigEntryVersion);
 
+/// <summary>限时诊断策略单条生效规则的响应投影。</summary>
 public sealed record DiagnosticPolicyRuleResponse(
     string ScopeKind,
     string ScopeValue,
@@ -40,6 +41,7 @@ public sealed record UpdateDiagnosticPolicyRequest(
     IReadOnlyList<DiagnosticPolicyRuleRequest> Rules,
     int ConfigEntryVersion);
 
+/// <summary>限时诊断策略单条规则的写入请求；覆盖项为空表示沿用生产安全默认。</summary>
 public sealed record DiagnosticPolicyRuleRequest(
     string ScopeKind,
     string ScopeValue,

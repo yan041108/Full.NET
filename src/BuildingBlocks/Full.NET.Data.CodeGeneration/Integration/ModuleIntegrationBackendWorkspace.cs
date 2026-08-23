@@ -8,6 +8,9 @@ namespace Full.NET.Data.CodeGeneration.Integration;
 /// </summary>
 public static class ModuleIntegrationBackendWorkspace
 {
+    /// <summary>
+    /// 模块聚合注册桥的相对路径常量，所有实体生成产物通过此桥统一调用 Add/Map 扩展。
+    /// </summary>
     public const string RegistryRelativePath =
         "Generated/FullNetGeneratedModuleFeatures.g.cs";
 

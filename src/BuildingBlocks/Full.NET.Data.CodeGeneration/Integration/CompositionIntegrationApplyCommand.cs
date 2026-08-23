@@ -25,14 +25,19 @@ public sealed class CompositionIntegrationApplyResult
             diagnostics.ToArray());
     }
 
+    /// <summary>是否已写盘 Composition 接入；前置或编译失败时为 false。</summary>
     public bool Applied { get; }
 
+    /// <summary>是否改写了 Composition 项目（ProjectReference）。</summary>
     public bool ProjectChanged { get; }
 
+    /// <summary>是否改写了 Composition Catalog（CreateModules 数组）。</summary>
     public bool CatalogChanged { get; }
 
+    /// <summary>候选 Catalog 编译验证结果；未触发编译时为 null。</summary>
     public ModuleIntegrationCompilationResult? Compilation { get; }
 
+    /// <summary>失败时的诊断信息；成功时为空。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 }
 
@@ -50,6 +55,14 @@ public static class CompositionIntegrationApplyCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在模块入口稳定、候选 Composition 编译与并发复核通过后提交 Project 与 Catalog。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的模块接入目标</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>包含应用状态、改写标记、编译结果与诊断的稳定结果</returns>
     public static async Task<CompositionIntegrationApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

@@ -14,6 +14,9 @@ internal sealed class CodeGenerationCatalogQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>
+    /// 按当前数据库 Provider 列举基础表名，过滤不安全名称并稳定排序；只读，禁止接受连接串或执行 DDL。
+    /// </summary>
     public async Task<Result<IReadOnlyList<CodeGenerationCatalogTableResponse>>>
         ListTablesAsync(CancellationToken cancellationToken = default)
     {
@@ -26,6 +29,9 @@ internal sealed class CodeGenerationCatalogQueryService(
                 .ToArray());
     }
 
+    /// <summary>
+    /// 按表名读取列元数据并映射为可生成列；表名先经 IsSafeTableName 与存在性双重校验，不识别的列类型进入 SkippedColumnNames 而非抛异常。
+    /// </summary>
     public async Task<Result<CodeGenerationCatalogColumnListResponse>>
         ListColumnsAsync(
             string tableName,
@@ -48,6 +54,9 @@ internal sealed class CodeGenerationCatalogQueryService(
                 mapped.SkippedColumnNames));
     }
 
+    /// <summary>
+    /// 用当前库列集合对照已编辑列配置：新增列带默认 UI，已有列保留人工 UI 并以实时列元数据覆盖物理属性，删除列只返回名称；按列名归并，重复配置取最后一条。
+    /// </summary>
     public async Task<Result<CodeGenerationCatalogColumnSyncResponse>>
         SyncColumnsAsync(
             CodeGenerationCatalogColumnSyncRequest request,

@@ -49,6 +49,19 @@ internal static class ClientRouteIntegrationApplyCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在所有后端接线（模块入口、Composition）稳定且本地适配文件通过复核后，原子提交 Vue 与 Layui 双管理端路由；任一前置失败均返回未提交结果。
+    /// </summary>
+    /// <remarks>
+    /// 三锁互斥：Composition 仓库锁 + 模块工作区锁 + 客户端路由专用锁，确保跨进程不会同时修改双管理端路由。
+    /// 提交顺序：先 stage 候选 Layui 路由与原 Vue 路由恢复副本，再原子 Move 候选 Vue 路由，再 Move 候选 Layui 路由；任何中间失败均尝试用恢复副本回滚 Vue 路由，回滚失败则抛出包含恢复副本路径的异常要求人工审查。
+    /// Vue 路由文件不能为空，Layui controller 必须包含目标 export function，否则拒绝猜测创建。
+    /// </remarks>
+    /// <param name="repositoryRoot">仓库根目录，用于解析 Vue 与 Layui 路由及适配文件路径。</param>
+    /// <param name="schema">CRUD Schema，提供根命名空间与模块名匹配。</param>
+    /// <param name="target">模块接入目标，必须包含 clientRoute 子目标。</param>
+    /// <param name="cancellationToken">用于取消文件 IO 与锁操作的令牌。</param>
+    /// <returns>提交结果，包含是否已应用、Vue 是否变更、Layui 是否变更与失败诊断。</returns>
     public static async Task<ClientRouteIntegrationApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

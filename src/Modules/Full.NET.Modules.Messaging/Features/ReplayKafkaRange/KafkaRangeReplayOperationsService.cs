@@ -10,12 +10,26 @@ using Full.NET.Modules.Messaging.Serialization;
 
 namespace Full.NET.Modules.Messaging.Features.ReplayKafkaRange;
 
+/// <summary>
+/// 执行 Kafka 范围重放运维操作：按时间或偏移量区间扫描并重新投递消息，全程写入领域审计终态。
+/// </summary>
+/// <remarks>
+/// 重放受执行策略约束：未启用时失败关闭，同步重放消息数不得超过配置上限，超出部分需异步重放；
+/// 执行使用链接取消令牌并在超时后取消。重放只触发消费端幂等副作用，重复消息由消费 Inbox 去重。
+/// 审计按请求、成功、取消/超时、失败分别写终态；成功审计失败表示结果不确定，不得被失败终态覆盖。
+/// </remarks>
 internal sealed class KafkaRangeReplayOperationsService(
     IKafkaReplayService replayService,
     KafkaReplayExecutionPolicy executionPolicy,
     ICommandTransaction transaction,
     ITransactionalDomainAuditWriter<MessagingDomainAuditWrite> domainAuditWriter)
 {
+    /// <summary>
+    /// 执行 Kafka 范围重放：校验执行策略与同步上限后，在链接取消令牌内扫描并重新投递消息，并写审计终态。
+    /// </summary>
+    /// <param name="request">范围重放请求，必须提供理由且消息数不超过同步上限。</param>
+    /// <param name="cancellationToken">调用方取消令牌，与执行超时链接后共同控制重放生命周期。</param>
+    /// <returns>重放结果，汇总扫描、处理、已处理与拒绝计数及是否触达上限。</returns>
     public async Task<Result<KafkaRangeReplayResponse>> ReplayAsync(
         KafkaRangeReplayRequest request,
         CancellationToken cancellationToken)

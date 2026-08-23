@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+// 调用 Full.NET Messaging 服务的 Kafka 范围重放 HTTP API；访问令牌必须通过 FULLNET_ACCESS_TOKEN 环境变量提供，禁止在命令行传递凭据。
 const string TokenEnvironmentVariable = "FULLNET_ACCESS_TOKEN";
 
 try
@@ -122,6 +123,14 @@ static string GetRequired(
         ? value
         : throw new ArgumentException($"Argument --{name} is required.");
 
+/// <summary>
+/// 携带 Kafka 范围重放请求的 HTTP API 契约；Offset 与 UTC 时间范围互斥，只能提供完整的一组。
+/// </summary>
+/// <remarks>
+/// <see cref="FromOffset"/> 与 <see cref="ToOffset"/> 必须同时提供，<see cref="FromTimestampUtc"/> 与 <see cref="ToTimestampUtc"/> 必须同时提供，且两组不能共存。
+/// <see cref="Partitions"/> 为空表示覆盖主题所有分区；<see cref="MaxMessages"/> 默认 1000，防止误操作重放海量消息。
+/// <see cref="ReplayConsumerName"/> 必须是显式注册的 Kafka 消费者名称，服务端据此解析订阅三元组。
+/// </remarks>
 internal sealed record ReplayRequest(
     string TopicCode,
     DateTimeOffset? FromTimestampUtc,

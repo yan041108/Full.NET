@@ -7,8 +7,14 @@ internal sealed class CodeGenerationApplyOptions
 {
     public const string SectionName = "CodeGeneration:Apply";
 
+    /// <summary>
+    /// 是否启用服务器本地 Apply；默认关闭，启用后必须配置已存在的本地工作区目录，否则启动期校验失败。
+    /// </summary>
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// Apply 与 Rollback 写盘使用的本地工作区根目录，必须是已存在的本地绝对路径，禁止 UNC 远程路径。
+    /// </summary>
     public string WorkspaceRoot { get; set; } = string.Empty;
 
     /// <summary>

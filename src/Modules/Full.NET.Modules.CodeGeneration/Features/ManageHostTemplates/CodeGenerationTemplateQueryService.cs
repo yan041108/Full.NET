@@ -18,6 +18,9 @@ internal sealed class CodeGenerationTemplateQueryService(
     CodeGenerationSchemaNormalizer schemaNormalizer,
     IOptions<DatabaseOptions> databaseOptions)
 {
+    /// <summary>
+    /// 按当前数据库 Provider 选择成对分页 SQL，在一次往返中返回总数与当前页；空白筛选归一为 null 以避免 LIKE 全匹配。
+    /// </summary>
     public async Task<Result<PagedResult<CodeGenerationTemplateResponse>>>
         ListAsync(
             int page,
@@ -66,6 +69,9 @@ internal sealed class CodeGenerationTemplateQueryService(
                 pageResult.Total));
     }
 
+    /// <summary>
+    /// 读取单条模板并重新规范化 Schema，校验摘要与持久化 SchemaSha256 一致；不一致抛 JsonException 防止返回损坏数据。
+    /// </summary>
     public async Task<Result<CodeGenerationTemplateResponse>> GetByIdAsync(
         Guid templateId,
         CancellationToken cancellationToken = default)

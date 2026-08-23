@@ -29,15 +29,25 @@ public static class ConfigEntryManagementPermissions
 /// <summary>配置值类型稳定机器码。</summary>
 public static class ConfigValueKinds
 {
+    /// <summary>字符串类型。</summary>
     public const string String = "string";
+
+    /// <summary>布尔类型。</summary>
     public const string Boolean = "boolean";
+
+    /// <summary>整数类型。</summary>
     public const string Integer = "integer";
+
+    /// <summary>十进制数类型。</summary>
     public const string Decimal = "decimal";
+
+    /// <summary>JSON 文档类型。</summary>
     public const string Json = "json";
 
     /// <summary>敏感密钥；读 API 脱敏，跨模块明文仅经 <see cref="ISettingsSecretValueResolver"/> 解析。</summary>
     public const string Secret = "secret";
 
+    /// <summary>已发布的全部配置值类型稳定机器码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         String,

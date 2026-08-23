@@ -32,15 +32,19 @@ public sealed class ModuleIntegrationBuildProjection
         TargetsContent = targetsContent;
     }
 
+    /// <summary>被投影的真实模块项目绝对路径，用于 MSBuild 注入。</summary>
     public string ModuleProjectFullPath { get; }
 
+    /// <summary>临时生成目录下的候选源文件列表，包括编译探针。</summary>
     public IReadOnlyList<ModuleIntegrationProjectedSourceFile> SourceFiles
     {
         get;
     }
 
+    /// <summary>临时 MSBuild targets 文件的绝对路径，用于在编译时替换真实模块入口。</summary>
     public string TargetsPath { get; }
 
+    /// <summary>临时 targets 文件的完整内容，描述 Compile 项移除与候选 Include。</summary>
     public string TargetsContent { get; }
 
     /// <summary>

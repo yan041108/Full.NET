@@ -33,6 +33,18 @@ internal sealed class ModuleIntegrationBackendApplyResult
 /// </summary>
 internal static class ModuleIntegrationBackendApplyCommand
 {
+    /// <summary>
+    /// 先规划并候选编译当前实体后端生成产物，再复用工作区存储器完成并发安全的原子写盘；候选编译失败或前置校验失败均返回未提交结果。
+    /// </summary>
+    /// <remarks>
+    /// 候选编译通过 ModuleIntegrationBuildProjection 在系统临时目录构建，不修改仓库；只有编译成功才允许写盘。
+    /// 写盘前过滤掉非本实体的动作，避免误删其他实体的生成产物。
+    /// </remarks>
+    /// <param name="repositoryRoot">仓库根目录，用于解析模块项目路径。</param>
+    /// <param name="schema">CRUD Schema，提供根命名空间、CLR 类型名与生成产物。</param>
+    /// <param name="target">模块接入目标，提供模块项目相对路径。</param>
+    /// <param name="cancellationToken">用于取消文件 IO 与编译进程的令牌。</param>
+    /// <returns>提交结果，包含已执行动作、候选编译诊断与是否已应用。</returns>
     public static async Task<ModuleIntegrationBackendApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

@@ -5,10 +5,19 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public enum GenerationWriteActionKind
 {
+    /// <summary>新产物路径在上一版清单未拥有，且当前磁盘不存在；可直接创建。</summary>
     Create = 1,
+
+    /// <summary>当前磁盘内容与上一版清单摘要一致，可安全替换为期望文本。</summary>
     Update = 2,
+
+    /// <summary>期望文本与当前磁盘逐字一致，无需写盘但仍纳入清单。</summary>
     Unchanged = 3,
+
+    /// <summary>当前磁盘内容与上一版清单不一致，禁止覆盖用户修改；计划不可整体应用。</summary>
     Conflict = 4,
+
+    /// <summary>上一版清单拥有的产物当前摘要仍一致，可安全删除并保留 recovery 证据。</summary>
     Delete = 5,
 }
 

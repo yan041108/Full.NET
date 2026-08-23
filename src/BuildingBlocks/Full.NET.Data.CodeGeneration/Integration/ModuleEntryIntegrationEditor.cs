@@ -20,14 +20,19 @@ public sealed class ModuleEntryIntegrationEditResult
             diagnostics.ToArray());
     }
 
+    /// <summary>编辑是否成功；失败结果不得用于写盘。</summary>
     public bool Succeeded { get; }
 
+    /// <summary>是否实际产生变更；幂等编辑时为 false。</summary>
     public bool Changed { get; }
 
+    /// <summary>期望写入的候选内容；失败时回退为原始内容。</summary>
     public string DesiredContent { get; }
 
+    /// <summary>失败时的诊断信息；成功时为空。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 
+    /// <summary>构造成功结果；按原文与候选内容是否一致判定是否变更。</summary>
     public static ModuleEntryIntegrationEditResult Success(
         string originalContent,
         string desiredContent) =>
@@ -39,6 +44,7 @@ public sealed class ModuleEntryIntegrationEditResult
             desiredContent,
             diagnostics: []);
 
+    /// <summary>构造失败结果，DesiredContent 回退为原始内容。</summary>
     public static ModuleEntryIntegrationEditResult Failure(
         string originalContent,
         params string[] diagnostics) =>
@@ -63,6 +69,12 @@ public static class ModuleEntryIntegrationEditor
     private const string MapEndpointsInvocation =
         "MapFullNetGeneratedModuleFeatures";
 
+    /// <summary>
+    /// 通过轻量词法分析向结构可证明的 AddServices/MapEndpoints 方法追加聚合调用。
+    /// </summary>
+    /// <param name="source">模块入口的原始 C# 源码</param>
+    /// <param name="rootNamespace">模块根命名空间，用于校验文件作用域 namespace</param>
+    /// <returns>包含期望内容与诊断的编辑结果，非标准形态 fail-closed</returns>
     public static ModuleEntryIntegrationEditResult Edit(
         string source,
         string rootNamespace)

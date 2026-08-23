@@ -23,17 +23,31 @@ public sealed class CompositionIntegrationBuildProjection
         TargetsContent = targetsContent;
     }
 
+    /// <summary>被投影的真实 Composition 项目绝对路径，用于 MSBuild 注入。</summary>
     public string CompositionProjectFullPath { get; }
 
+    /// <summary>临时目录下的候选 Catalog 源文件列表。</summary>
     public IReadOnlyList<ModuleIntegrationProjectedSourceFile> SourceFiles
     {
         get;
     }
 
+    /// <summary>临时 MSBuild targets 文件的绝对路径。</summary>
     public string TargetsPath { get; }
 
+    /// <summary>临时 targets 文件的完整内容，描述 ProjectReference 与 Catalog 替换。</summary>
     public string TargetsContent { get; }
 
+    /// <summary>
+    /// 创建不访问文件系统的临时 Composition 编译投影，候选 Catalog 与可选 ProjectReference 注入。
+    /// </summary>
+    /// <param name="compositionProjectFullPath">真实 Composition 项目绝对路径</param>
+    /// <param name="moduleProjectFullPath">目标模块项目绝对路径</param>
+    /// <param name="compositionCatalogFullPath">真实 Catalog 绝对路径</param>
+    /// <param name="desiredCatalogContent">候选 Catalog 内容</param>
+    /// <param name="includeModuleReference">是否在 targets 中注入临时 ProjectReference</param>
+    /// <param name="projectionRoot">临时投影根目录绝对路径</param>
+    /// <returns>纯内存投影，调用方负责落盘与清理</returns>
     public static CompositionIntegrationBuildProjection Create(
         string compositionProjectFullPath,
         string moduleProjectFullPath,

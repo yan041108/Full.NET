@@ -46,6 +46,18 @@ internal static class ModuleEntryIntegrationApplyCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在聚合桥所有权校验、模块入口候选编译与并发复核全部通过后，原子更新手写模块入口文件；任一前置检查失败均返回未提交结果而非抛异常。
+    /// </summary>
+    /// <remarks>
+    /// 安全顺序：先验证 Schema 与目标模块匹配、再校验聚合桥未被并发漂移、再候选编译验证、最后在工作区独占锁下重新校验聚合桥并按字节序一致性写入。
+    /// 写入采用临时文件 + 原子 Move + WriteThrough，避免崩溃导致入口文件半截。
+    /// </remarks>
+    /// <param name="repositoryRoot">仓库根目录，用于解析所有相对路径。</param>
+    /// <param name="schema">CRUD Schema，提供根命名空间与生成器入口签名。</param>
+    /// <param name="target">模块接入目标，提供模块项目与入口文件相对路径。</param>
+    /// <param name="cancellationToken">用于取消文件 IO、编译进程与锁操作的令牌。</param>
+    /// <returns>提交结果，包含是否已应用、是否发生改变、候选编译诊断与失败诊断。</returns>
     public static async Task<ModuleEntryIntegrationApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,
@@ -199,6 +211,16 @@ internal static class ModuleEntryIntegrationApplyCommand
             cancellationToken);
     }
 
+    /// <summary>
+    /// 通过捕获工作区快照并对比聚合桥清单中的 SHA256，验证模块聚合桥仍由生成清单拥有；任何漂移或缺失均返回中文诊断字符串而非抛异常。
+    /// </summary>
+    /// <remarks>
+    /// 该方法是 Composition 与 ClientRoute 接入命令的前置门禁：只有聚合桥仍由生成清单拥有时，才允许修改手写模块入口、Composition 或客户端路由。
+    /// 失败原因通常是用户在 apply-module-integration 之后手动编辑了聚合桥，或并发执行了 apply-module-integration；调用方应将返回的诊断直接反馈给 CLI 使用者。
+    /// </remarks>
+    /// <param name="moduleRoot">模块项目所在目录的绝对路径。</param>
+    /// <param name="cancellationToken">用于取消快照捕获的令牌。</param>
+    /// <returns>失败诊断字符串；返回 null 表示聚合桥仍由生成清单拥有，可继续修改手写文件。</returns>
     internal static async Task<string?> ValidateRegistryOwnershipAsync(
         string moduleRoot,
         CancellationToken cancellationToken)

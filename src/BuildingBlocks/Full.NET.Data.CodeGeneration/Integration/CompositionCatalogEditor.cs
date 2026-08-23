@@ -8,6 +8,13 @@ public static class CompositionCatalogEditor
     private const string CreateModulesSignature =
         "private static IReadOnlyList<IFullNetModule> CreateModules() =>";
 
+    /// <summary>
+    /// 向标准 CreateModules() => [ ... ]; 数组幂等追加精确模块构造与 using。
+    /// </summary>
+    /// <param name="source">Composition Catalog 的原始 C# 源码</param>
+    /// <param name="rootNamespace">模块根命名空间，用于追加 using</param>
+    /// <param name="moduleName">模块名称，用于构造 new {moduleName}Module()</param>
+    /// <returns>包含期望内容与诊断的编辑结果，非标准形态 fail-closed</returns>
     public static CompositionIntegrationEditResult Edit(
         string source,
         string rootNamespace,

@@ -8,6 +8,10 @@ namespace Full.NET.Modules.CodeGeneration.Configuration;
 internal sealed class CodeGenerationApplyOptionsValidator
     : IValidateOptions<CodeGenerationApplyOptions>
 {
+    /// <summary>
+    /// 仅在 Apply 启用时校验工作区为已存在的本地绝对目录、非 UNC 远程路径，
+    /// 且 MaxRollbackChainLength 落在 2..64 区间，避免首个写盘请求才暴露配置错误。
+    /// </summary>
     public ValidateOptionsResult Validate(
         string? name,
         CodeGenerationApplyOptions options)

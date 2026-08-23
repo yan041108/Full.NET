@@ -21,6 +21,9 @@ internal sealed class CodeGenerationRunService(
     IClock clock,
     IIdGenerator idGenerator)
 {
+    /// <summary>
+    /// 编排受跟踪预览：解析来源（内联 Schema 或模板 ID+版本，严格二选一），规范化后生成产物，即使失败也持久化一条 failed 运行摘要供审计；成功时写入不可变 Manifest 摘要。
+    /// </summary>
     public async Task<Result<CodeGenerationRunPreviewResponse>> PreviewAsync(
         Guid actorUserId,
         CodeGenerationRunPreviewRequest request,

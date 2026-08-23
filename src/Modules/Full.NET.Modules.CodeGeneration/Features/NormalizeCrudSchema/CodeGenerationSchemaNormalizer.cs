@@ -22,6 +22,11 @@ internal sealed class CodeGenerationSchemaNormalizer
         "The CRUD preview schema is invalid.",
         ErrorType.Validation);
 
+    /// <summary>
+    /// 将兼容输入收敛为经过领域校验的 Schema 与稳定规范 JSON：legacy（HasVersion）与 explicit（EntityCapabilities + Scene + Relationships）两种能力模型严格互斥；
+    /// 列数上限 128，DataScope/ScalarType/删除模式等机器码不识别时统一返回 InvalidPreviewSchema，避免把命名或能力细节反射给非受信调用方。
+    /// </summary>
+    /// <returns>成功返回 Schema、规范请求、规范 JSON 与 SchemaSha256；失败返回稳定 InvalidPreviewSchema 错误，不暴露内部异常。</returns>
     public Result<NormalizedCodeGenerationSchema> Normalize(
         CodeGenerationPreviewRequest request)
     {

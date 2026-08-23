@@ -2,6 +2,13 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Notifications.Persistence;
 
+/// <summary>
+/// 站内信表的参数化 SQL 语句集合，全部声明为 <see cref="SqlDataScope.HostOnly"/>。
+/// </summary>
+/// <remarks>
+/// 站内信属 Host 作用域，行守卫以 <c>TenantId IS NULL</c> 表达；
+/// 列表查询与未读计数分别提供 SQL Server 的 <c>OFFSET/FETCH</c> 与 MySQL 的 <c>LIMIT/OFFSET</c> 成对实现。
+/// </remarks>
 internal static class InboxMessageSql
 {
     public static readonly SqlStatement Insert =

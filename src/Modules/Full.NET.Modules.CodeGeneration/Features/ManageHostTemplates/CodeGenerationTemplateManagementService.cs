@@ -20,6 +20,9 @@ internal sealed class CodeGenerationTemplateManagementService(
     IClock clock,
     IIdGenerator idGenerator)
 {
+    /// <summary>
+    /// 规范化输入后在命令事务内创建模板，写入 SchemaJson、SchemaSha256 与初始版本 1；输入不通过规范化时以 Invalid 错误码返回且不开启事务。
+    /// </summary>
     public Task<Result<CodeGenerationTemplateResponse>> CreateAsync(
         Guid actorUserId,
         CreateCodeGenerationTemplateRequest request,
@@ -40,6 +43,9 @@ internal sealed class CodeGenerationTemplateManagementService(
             cancellationToken);
     }
 
+    /// <summary>
+    /// 规范化输入后以乐观并发更新模板；affected != 1 时返回 VersionConflict，成功后版本号自增并保留原始创建审计。
+    /// </summary>
     public Task<Result<CodeGenerationTemplateResponse>> UpdateAsync(
         Guid templateId,
         Guid actorUserId,
@@ -65,6 +71,9 @@ internal sealed class CodeGenerationTemplateManagementService(
             cancellationToken);
     }
 
+    /// <summary>
+    /// 软删除模板，先校验存在再以乐观并发标记 DeletedAt/DeletedBy；并发冲突或版本不符返回 VersionConflict。
+    /// </summary>
     public Task<Result<bool>> DeleteAsync(
         Guid templateId,
         Guid actorUserId,

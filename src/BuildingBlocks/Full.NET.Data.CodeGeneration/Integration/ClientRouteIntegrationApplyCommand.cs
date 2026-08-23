@@ -23,12 +23,16 @@ public sealed class ClientRouteIntegrationApplyResult
             diagnostics.ToArray());
     }
 
+    /// <summary>是否已写盘客户端路由；前置或编辑失败时为 false。</summary>
     public bool Applied { get; }
 
+    /// <summary>是否改写了 Vue Router 静态数组。</summary>
     public bool VueChanged { get; }
 
+    /// <summary>是否改写了 Layui controller Map；未声明 Layui 时为 false。</summary>
     public bool LayuiChanged { get; }
 
+    /// <summary>失败时的诊断信息；成功时为空。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 }
 
@@ -48,6 +52,14 @@ public static class ClientRouteIntegrationApplyCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在后端接线、Composition 接入与本地适配文件全部复核通过后提交双端路由。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的模块接入目标，必须包含 clientRoute</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>包含应用状态、Vue/Layui 改写标记与诊断的稳定结果</returns>
     public static async Task<ClientRouteIntegrationApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,

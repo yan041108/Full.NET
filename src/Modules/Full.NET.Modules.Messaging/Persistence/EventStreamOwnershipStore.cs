@@ -4,11 +4,23 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Messaging.Persistence;
 
+/// <summary>
+/// 事件流所有权的持久化存储，提供读取、CAS Upsert 与回退两阶段准备/解除能力。
+/// </summary>
+/// <remarks>
+/// <see cref="UpsertAsync"/> 的 UPDATE 分支以 <c>CurrentOwner = PreviousOwner</c> 作为 CAS 守卫，
+/// 影响行数为 0 表示并发期间所有权已被其他事务变更，抛出
+/// <see cref="EventStreamOwnershipConcurrencyException"/> 供调用方翻译为冲突错误。
+/// 回退准备与解除同样以 owner 与 rollback state 为 CAS 守卫，保证同一事件流只有一个进行中的回退代次。
+/// </remarks>
 internal sealed class EventStreamOwnershipStore(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IOptions<DatabaseOptions> databaseOptions) : IEventStreamOwnershipStore
 {
+    /// <summary>
+    /// 按事件类型与版本查找当前持久化的所有权记录；不存在时返回 null。
+    /// </summary>
     public async Task<EventStreamOwnershipRecord?> FindAsync(
         string messageType,
         int schemaVersion,
@@ -34,6 +46,13 @@ internal sealed class EventStreamOwnershipStore(
         return rows.Select(EventStreamOwnershipMapper.ToRecord).ToArray();
     }
 
+    /// <summary>
+    /// 插入或按 CAS 更新事件流所有权；并发冲突时抛出 <see cref="EventStreamOwnershipConcurrencyException"/>。
+    /// </summary>
+    /// <remarks>
+    /// 已有记录时执行以 <c>CurrentOwner = PreviousOwner</c> 为守卫的 UPDATE，影响行数为 0 即并发冲突；
+    /// 调用方应捕获该异常并翻译为可重试的 conflict 错误，不得静默重试或覆盖。
+    /// </remarks>
     public async Task UpsertAsync(
         EventStreamOwnershipRecord record,
         CancellationToken cancellationToken = default)

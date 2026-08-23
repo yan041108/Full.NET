@@ -13,6 +13,16 @@ using Full.NET.Modules.Messaging.Persistence;
 
 namespace Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 
+/// <summary>
+/// 将指定事件流的交付所有权从 CDC Kafka 回退到 Legacy 轮询，通过两阶段准备与控制面就绪证明安全回退。
+/// </summary>
+/// <remarks>
+/// 回退属高风险运维操作，分准备与完成两阶段：准备阶段获取 producer fence 并持久化回退代次，
+/// 完成阶段要求控制面提供新鲜（1 分钟内）就绪证明——Connector 已停止、Broker 消息已排空或隔离、
+/// 且 CDC 源位点覆盖 producer fence。所有权 Upsert 以 CAS 守卫避免并发双发布；
+/// 任意阶段失败均按 generation 解除准备，且必须先确认控制面恢复再解除数据库 producer fence，
+/// 防止新 Outbox 行进入已停止的 CDC 链路。回退与领域审计同事务原子写入。
+/// </remarks>
 internal sealed class DeliveryRollbackService(
     IntegrationEventSubscriptionCatalog catalog,
     IEffectiveEventDeliveryOwnerResolver ownerResolver,
@@ -26,6 +36,15 @@ internal sealed class DeliveryRollbackService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// 执行交付所有权回退：准备阶段获取 producer fence，完成阶段校验控制面就绪证明后 CAS 写回 Legacy 所有者。
+    /// </summary>
+    /// <param name="request">回退请求，目标所有者必须为 <see cref="EventDeliveryOwner.LegacyPolling"/> 且必须提供理由。</param>
+    /// <param name="cancellationToken">用于取消数据库与控制面操作的令牌。</param>
+    /// <returns>回退结果；前置条件不满足或就绪证明失效时返回错误，成功时返回回退边界事件。</returns>
+    /// <remarks>
+    /// 准备或完成阶段失败均按回退代次解除 producer fence；解除前必须先确认控制面 Connector/Consumer 已恢复。
+    /// </remarks>
     public async Task<Result<DeliveryRollbackResponse>> RollbackAsync(
         ChangeDeliveryOwnerRequest request,
         CancellationToken cancellationToken = default)

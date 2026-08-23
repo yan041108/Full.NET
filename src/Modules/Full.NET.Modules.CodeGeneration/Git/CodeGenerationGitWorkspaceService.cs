@@ -6,15 +6,24 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.CodeGeneration.Git;
 
+/// <summary>
+/// 在 Apply/Rollback 前同步本地工作区到远程分支，并在变更后提交推送；凭据从环境变量读取并作为 http.extraHeader 注入，禁止写入配置文件。
+/// </summary>
 internal sealed class CodeGenerationGitWorkspaceService(
     IOptions<CodeGenerationGitOptions> gitOptions,
     IOptions<CodeGenerationApplyOptions> applyOptions,
     ICodeGenerationGitCommandRunner commandRunner,
     ILogger<CodeGenerationGitWorkspaceService> logger)
 {
+    /// <summary>Git 与 Apply 同时启用时视为激活；未激活时同步与发布均为空操作。</summary>
     public bool IsActive =>
         gitOptions.Value.Enabled && applyOptions.Value.Enabled;
 
+    /// <summary>
+    /// 在工作区变更前执行 fetch + reset --hard 到远程分支，确保起点干净；任一步失败返回 GitSyncFailed，调用方必须中止后续 Apply/Rollback。
+    /// </summary>
+    /// <remarks>reset --hard 是破坏性操作，仅因工作区由代码生成独占写而安全；外部人工改动会被丢弃，不应在工作区与其他流程共享时启用。</remarks>
+    /// <returns>成功返回 null；失败返回 GitSyncFailed 错误。</returns>
     public async Task<Error?> SynchronizeAsync(CancellationToken cancellationToken)
     {
         if (!IsActive)
@@ -56,6 +65,10 @@ internal sealed class CodeGenerationGitWorkspaceService(
         return null;
     }
 
+    /// <summary>
+    /// 在工作区变更后按 status/add -A/commit/push 顺序发布；任一步失败仅记录 GitPublishFailed 警告不抛异常，避免回滚已成功的工作区变更。
+    /// PushEnabled 关闭或无 porcelain 变更时为空操作。
+    /// </summary>
     public async Task PublishAsync(
         string commitMessage,
         CancellationToken cancellationToken)

@@ -22,6 +22,12 @@ internal sealed class HostAnnouncementManagementService(
     IIdGenerator idGenerator,
     ILogger<HostAnnouncementManagementService> logger)
 {
+    /// <summary>
+    /// 创建一条处于草稿状态的 Host 公告；全程在命令事务内执行。
+    /// </summary>
+    /// <param name="actorUserId">触发创建操作的 Host 用户标识，用于审计。</param>
+    /// <param name="request">公告标题与正文，长度经服务端校验。</param>
+    /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
     public Task<Result<HostAnnouncementResponse>> CreateAsync(
         Guid actorUserId,
         CreateHostAnnouncementRequest request,
@@ -30,6 +36,13 @@ internal sealed class HostAnnouncementManagementService(
             token => CreateCoreAsync(actorUserId, request, token),
             cancellationToken);
 
+    /// <summary>
+    /// 更新未发布草稿公告的标题与正文，使用乐观版本号做 CAS 并发控制。
+    /// </summary>
+    /// <remarks>
+    /// 仅 <c>Draft</c> 状态可更新；SQL 以 <c>Status = Draft AND Version = 期望值</c> 作为守卫，
+    /// 影响行数为 0 时返回并发冲突而非静默覆盖。已发布公告不可再编辑。
+    /// </remarks>
     public Task<Result<HostAnnouncementResponse>> UpdateAsync(
         Guid actorUserId,
         Guid announcementId,
@@ -39,6 +52,13 @@ internal sealed class HostAnnouncementManagementService(
             token => UpdateCoreAsync(actorUserId, announcementId, request, token),
             cancellationToken);
 
+    /// <summary>
+    /// 发布草稿公告：CAS 推进状态为已发布，并在同一事务内追加实时修复 Outbox 事件。
+    /// </summary>
+    /// <remarks>
+    /// 事务提交成功后再尝试低延迟广播；广播失败仅告警，不影响已提交事实，
+    /// 最终一致性由 Outbox 消费者保证。CAS 失败（版本或状态不符）返回并发/状态错误。
+    /// </remarks>
     public async Task<Result<HostAnnouncementResponse>> PublishAsync(
         Guid actorUserId,
         Guid announcementId,

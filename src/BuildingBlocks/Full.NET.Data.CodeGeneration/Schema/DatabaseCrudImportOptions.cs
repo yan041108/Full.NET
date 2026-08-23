@@ -83,23 +83,32 @@ public sealed record DatabaseCrudImportOptions
         UsesLegacyEntityCapabilities = false;
     }
 
+    /// <summary>获取冻结的项目所有权键。</summary>
     public string OwnerKey { get; }
 
+    /// <summary>获取模块键。</summary>
     public string ModuleKey { get; }
 
+    /// <summary>获取实体键。</summary>
     public string EntityKey { get; }
 
+    /// <summary>获取生成 C# 类型使用的根命名空间。</summary>
     public string RootNamespace { get; }
 
+    /// <summary>获取实体 CLR 类型名。</summary>
     public string ClrTypeName { get; }
 
+    /// <summary>获取 API 集合资源路径分段。</summary>
     public string ApiResourceName { get; }
 
+    /// <summary>获取权限码资源分段。</summary>
     public string PermissionResourceName { get; }
 
+    /// <summary>获取是否要求可信租户上下文；等价于 DataScope 为 TenantRequired。</summary>
     public bool IsTenantScoped =>
         DataScope == FullNetCrudDataScope.TenantRequired;
 
+    /// <summary>获取是否使用 Version 乐观并发。</summary>
     public bool HasVersion { get; }
 
     /// <summary>获取数据库导入已经显式确认的数据作用域。</summary>

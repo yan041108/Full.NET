@@ -3,10 +3,16 @@ using System.Text;
 
 namespace Full.NET.Modules.CodeGeneration.Git;
 
+/// <summary>
+/// 基于本地 git 可执行文件的命令运行器；输出统一按 UTF-8 解码，取消时终止整个进程树避免遗留子进程。
+/// </summary>
 internal sealed class ProcessCodeGenerationGitCommandRunner : ICodeGenerationGitCommandRunner
 {
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
+    /// <summary>
+    /// 启动 git 进程并等待退出，按顺序注入 -c 配置项与子命令参数；取消令牌触发时 Kill 整个进程树并传播取消异常。
+    /// </summary>
     public async Task<GitCommandResult> RunAsync(
         string workingDirectory,
         IReadOnlyList<string> arguments,

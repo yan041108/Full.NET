@@ -2,6 +2,9 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.CodeGeneration.Persistence;
 
+/// <summary>
+/// Host 代码生成模板表的 SQL 边界：所有语句均为 HostOnly 作用域、参数化；分页提供 SQL Server/MySQL 成对实现，软删除与乐观并发通过 Version 守卫。
+/// </summary>
 internal static class CodeGenerationTemplateSql
 {
     private const string Projection = """

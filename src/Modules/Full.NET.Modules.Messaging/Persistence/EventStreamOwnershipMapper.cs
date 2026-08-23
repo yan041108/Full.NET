@@ -2,6 +2,13 @@ using Full.NET.Messaging.Abstractions;
 
 namespace Full.NET.Modules.Messaging.Persistence;
 
+/// <summary>
+/// 在 <see cref="EventStreamOwnershipRecord"/> 领域记录与持久化行之间互转，
+/// 所有者字段在 <see cref="EventDeliveryOwner"/> 枚举与 int 存储值之间强制转换。
+/// </summary>
+/// <remarks>
+/// <c>ToPersistenceRow</c> 固定将回退准备态字段重置为初始值，回退状态由专用 SQL 语句维护而非通用 Upsert。
+/// </remarks>
 internal static class EventStreamOwnershipMapper
 {
     public static EventStreamOwnershipRecord ToRecord(EventStreamOwnershipPersistenceRow row) =>

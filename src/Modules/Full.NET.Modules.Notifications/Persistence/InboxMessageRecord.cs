@@ -1,5 +1,8 @@
 namespace Full.NET.Modules.Notifications.Persistence;
 
+/// <summary>
+/// 站内信表行的 Dapper 投影模型，列名与 PascalCase 列直接映射。
+/// </summary>
 internal sealed class InboxMessageRecord
 {
     public Guid Id { get; set; }

@@ -9,6 +9,9 @@ namespace Full.NET.Data.CodeGeneration.Generation;
 /// </summary>
 public static class GenerationWorkspaceStore
 {
+    /// <summary>
+    /// 工作区根下生成清单文件的相对路径；清单记录所有受管产物的路径与摘要，且必须最后提交。
+    /// </summary>
     public const string ManifestRelativePath =
         ".fullnet/codegeneration-manifest.json";
 
@@ -29,6 +32,13 @@ public static class GenerationWorkspaceStore
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 捕获期望产物与上一版清单拥有产物的当前磁盘文本快照；入口先拒绝未清理的 recovery 残骸。
+    /// </summary>
+    /// <param name="workspaceRoot">工作区根目录。</param>
+    /// <param name="artifacts">本次生成期望写出的产物集合。</param>
+    /// <param name="cancellationToken">用于取消磁盘读取的令牌。</param>
+    /// <returns>包含磁盘文本与上一版清单的工作区快照。</returns>
     public static async Task<GenerationWorkspaceSnapshot> CaptureAsync(
         string workspaceRoot,
         IReadOnlyList<GeneratedArtifact> artifacts,
@@ -153,6 +163,17 @@ public static class GenerationWorkspaceStore
             previousManifest);
     }
 
+    /// <summary>
+    /// 在工作区锁内原子应用写盘计划；清单始终最后提交，删除声明保留 recovery 证据。
+    /// </summary>
+    /// <remarks>
+    /// 进入提交阶段后不再响应调用方取消，必须完成清单提交或按冲突恢复语义退出。
+    /// 删除走同卷无覆盖 rename 声明空位并复验摘要，清单提交走无覆盖 claim 并校验上一版未被并发替换。
+    /// 失败时已声明删除会按原路径恢复；recovery 与阶段证据保留供人工审查，禁止自动物理删除。
+    /// </remarks>
+    /// <param name="workspaceRoot">工作区根目录。</param>
+    /// <param name="plan">已经通过冲突校验且 CanApply 为真的写盘计划。</param>
+    /// <param name="cancellationToken">用于取消提交前校验的令牌；首个不可逆产物提交后不再响应。</param>
     public static Task ApplyAsync(
         string workspaceRoot,
         GenerationWritePlan plan,

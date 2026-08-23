@@ -17,6 +17,9 @@ internal sealed class CodeGenerationArtifactDownloadService(
     CodeGenerationTemplateQueryService templateQueries,
     CodeGenerationSchemaNormalizer schemaNormalizer)
 {
+    /// <summary>
+    /// 仅对已成功 Preview/Apply 的运行重新生成产物并打包为内存 zip；重算 Manifest 摘要与持久化值不一致时返回 StaleApplyPreview，禁止落盘 wwwroot 或暴露为公共 URL。
+    /// </summary>
     public async Task<Result<CodeGenerationArtifactZipResponse>> DownloadAsync(
         Guid runId,
         CancellationToken cancellationToken = default)

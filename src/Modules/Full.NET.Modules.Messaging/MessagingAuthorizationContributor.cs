@@ -3,6 +3,13 @@ using Full.NET.Modules.Messaging.Contracts;
 
 namespace Full.NET.Modules.Messaging;
 
+/// <summary>
+/// 向授权目录贡献 Messaging 运维模块的权限、导航与操作定义。
+/// </summary>
+/// <remarks>
+/// 交付所有权切换/回退与死信/Kafka 范围重放均为高风险运维操作，各自绑定独立稳定权限码；
+/// 客户端可见性仅负责体验，所有运维 Endpoint 仍按精确权限重新校验，避免越权触发切流或重放。
+/// </remarks>
 internal sealed class MessagingAuthorizationContributor : IAuthorizationCatalogContributor
 {
     public AuthorizationModuleDefinition Module { get; } =

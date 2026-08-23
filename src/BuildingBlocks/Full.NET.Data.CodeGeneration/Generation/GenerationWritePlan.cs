@@ -18,6 +18,7 @@ public sealed class GenerationWritePlan
         NextManifest = nextManifest;
     }
 
+    /// <summary>获取按相对路径排序的逐条写盘动作；包含 Create、Update、Unchanged、Conflict 与 Delete。</summary>
     public IReadOnlyList<GenerationWriteAction> Actions { get; }
 
     /// <summary>

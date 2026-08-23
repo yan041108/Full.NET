@@ -27,6 +27,13 @@ internal sealed class CodeGenerationRollbackService(
     IIdGenerator idGenerator,
     ILogger<CodeGenerationRollbackService> logger)
 {
+    /// <summary>
+    /// 回滚单次已成功 Apply：以 DB 成功 Apply 为资格权威，拒绝 running 回滚并对已 succeeded 的回滚按幂等重放；
+    /// 通过 ApplyGate 串行化后，从检查点恢复工作区，失败路径将回滚运行标记为 failed；成功后按保留策略可选删除检查点并发布 Git 提交。
+    /// </summary>
+    /// <remarks>
+    /// 重放路径会重新读取工作区当前 Manifest 并与历史回滚摘要比对，不一致返回 RollbackConflict，避免把已被外部改动的工作区误判为已回滚。
+    /// </remarks>
     public async Task<Result<CodeGenerationRunRollbackResponse>> RollbackAsync(
         Guid actorUserId,
         CodeGenerationRunRollbackRequest request,
@@ -124,6 +131,13 @@ internal sealed class CodeGenerationRollbackService(
         }
     }
 
+    /// <summary>
+    /// 按 LIFO 顺序回滚多个已成功 Apply：校验链长度（2..MaxRollbackChainLength）、去重、单一模块/实体且顺序与待回滚列表完全一致，任一不匹配返回 InvalidRollbackChain；
+    /// 串行执行每步回滚，已 succeeded 的步骤幂等重放，中途失败立即停止并返回已完成步骤。
+    /// </summary>
+    /// <remarks>
+    /// 顺序约束来自 ListPendingRollbackApplies 的 LIFO 投影，确保回滚不会跳过较新的 Apply 而破坏工作区一致性。
+    /// </remarks>
     public async Task<Result<CodeGenerationRunRollbackChainResponse>> RollbackChainAsync(
         Guid actorUserId,
         CodeGenerationRunRollbackChainRequest request,

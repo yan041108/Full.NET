@@ -24,6 +24,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modules.Messaging;
 
+/// <summary>
+/// 消息运维模块：提供事件交付所有权切换/回退、消费死信与 Kafka 范围重放、以及 Outbox 积压监控能力。
+/// </summary>
+/// <remarks>
+/// 模块依赖 Identity；所有运维操作归属 Host 作用域并绑定独立稳定权限码。
+/// 交付所有权切换通过 CAS 守卫避免并发双发布，切换前必须排空 Legacy 积压并完成影子验证；
+/// 死信与范围重放保持消费幂等，重放只触发既定业务的幂等副作用。
+/// 订阅目录按请求作用域解析，避免 Singleton Worker 跨消息持有 scoped Handler。
+/// </remarks>
 public sealed class MessagingModule : IFullNetModule
 {
     public string Name => "Messaging";

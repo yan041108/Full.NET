@@ -8,7 +8,15 @@ namespace Full.NET.Data.CodeGeneration.Integration;
 /// </summary>
 public static class ModuleIntegrationHostOrchestrator
 {
-    /// <summary>按显式目标执行接入链；官方 Full.NET.Modules.* 直接拒绝。</summary>
+    /// <summary>
+    /// 按显式目标执行整条接入链：后端→入口→Composition→Vue→AuthorizationContributor；
+    /// 任一子命令失败立即返回，不继续写盘后续文件。
+    /// </summary>
+    /// <param name="repositoryRoot">仓库根目录绝对路径</param>
+    /// <param name="schema">待接入实体的 CRUD Schema</param>
+    /// <param name="target">显式声明的模块接入目标</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>整条接入链的稳定结果；官方 Full.NET.Modules.* 直接拒绝</returns>
     public static async Task<ModuleIntegrationHostApplyResult> ApplyAsync(
         string repositoryRoot,
         FullNetCrudSchema schema,
@@ -171,17 +179,22 @@ public sealed class ModuleIntegrationHostApplyResult
         Diagnostics = diagnostics;
     }
 
+    /// <summary>整条接入链是否全部成功；任一子命令失败即为 false。</summary>
     public bool Succeeded { get; }
 
+    /// <summary>失败时返回子命令的诊断信息；成功时为空。</summary>
     public IReadOnlyList<string> Diagnostics { get; }
 
+    /// <summary>构造一个接入链成功结果，诊断集合为空。</summary>
     public static ModuleIntegrationHostApplyResult Success() =>
         new(true, []);
 
+    /// <summary>构造一个接入链失败结果，必须至少包含一条诊断。</summary>
     public static ModuleIntegrationHostApplyResult Failure(
         IEnumerable<string> diagnostics) =>
         new(false, diagnostics.ToArray());
 
+    /// <summary>构造一个接入链失败结果，包含单条诊断。</summary>
     public static ModuleIntegrationHostApplyResult Failure(string diagnostic) =>
         Failure([diagnostic]);
 }

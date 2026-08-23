@@ -64,6 +64,19 @@ internal static class CodeGenerationCli
             --target <json-file>
         """;
 
+    /// <summary>
+    /// 解析命令行参数并执行对应的代码生成、数据库导入或模块接入命令；所有用户可见输出通过 <paramref name="output"/> 与 <paramref name="error"/> 写入，便于测试捕获。
+    /// </summary>
+    /// <remarks>
+    /// 该方法是 CLI 唯一入口，承担三重安全语义：默认预览不写盘、<c>--apply</c> 显式触发写盘、工作区或候选编译冲突时以非零退出码失败关闭。
+    /// </remarks>
+    /// <param name="args">命令行参数；第一个非选项 token 决定子命令（import-database、list-database-tables 等）。</param>
+    /// <param name="output">标准输出流，写入已执行的动作、计划项和成功路径信息。</param>
+    /// <param name="error">标准错误流，写入使用错误、冲突诊断与编译失败信息；数据库驱动原始异常不会直接外泄。</param>
+    /// <param name="cancellationToken">用于取消数据库连接、文件 IO 和编译进程的令牌。</param>
+    /// <returns>
+    /// 退出码：0 表示成功；1 表示未受控运行时失败；2 表示工作区冲突或候选编译失败（可重试或修正后重试）；64 表示参数使用错误。
+    /// </returns>
     public static async Task<int> RunAsync(
         string[] args,
         TextWriter output,

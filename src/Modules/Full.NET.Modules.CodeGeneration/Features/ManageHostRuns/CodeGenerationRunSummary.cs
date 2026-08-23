@@ -14,6 +14,9 @@ internal static class CodeGenerationRunSummary
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 计算生成产物清单的稳定摘要：按相对路径排序拼接 路径/类型机器码/内容摘要，再取 SHA-256 小写十六进制，使 Apply 复核与预览确认比对同一确定性输入。
+    /// </summary>
     public static string ComputeManifestSha256(
         IReadOnlyList<GeneratedArtifact> artifacts)
     {
@@ -28,6 +31,9 @@ internal static class CodeGenerationRunSummary
             .ToLowerInvariant();
     }
 
+    /// <summary>
+    /// 计算预览产物清单的稳定摘要：按路径排序拼接 路径/类型/内容摘要，再取 SHA-256 小写十六进制，用于将预览与后续 Apply 绑定到同一确定性输入。
+    /// </summary>
     public static string ComputeManifestSha256(
         IReadOnlyList<CodeGenerationPreviewArtifactResponse> artifacts)
     {

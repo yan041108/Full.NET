@@ -16,6 +16,21 @@ internal static class CompositionIntegrationCompilationCommand
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
+    /// <summary>
+    /// 在系统临时目录创建 Composition 候选 Catalog 与 MSBuild targets，调用真实 dotnet build Release 验证候选 Catalog 可编译，结束后清理临时目录。
+    /// </summary>
+    /// <remarks>
+    /// 编译诊断经过脱敏：仓库路径与临时路径分别替换为 &lt;repository&gt; 与 &lt;temporary&gt;，最多保留 20 条去重诊断，避免暴露开发者本地路径。
+    /// 取消令牌触发时立即 Kill 整个进程树，避免 dotnet build 残留后台进程。
+    /// </remarks>
+    /// <param name="repositoryRoot">仓库根目录，作为 dotnet build 工作目录。</param>
+    /// <param name="compositionProjectFullPath">Composition 项目文件绝对路径，作为真实构建目标。</param>
+    /// <param name="moduleProjectFullPath">模块项目文件绝对路径，仅在追加引用时使用。</param>
+    /// <param name="compositionCatalogFullPath">仓库内真实 Catalog 文件绝对路径，构建时由候选文件替换。</param>
+    /// <param name="desiredCatalogContent">候选 Catalog 内容。</param>
+    /// <param name="includeModuleReference">是否在临时 targets 中追加模块 ProjectReference。</param>
+    /// <param name="cancellationToken">用于取消文件 IO 与编译进程的令牌。</param>
+    /// <returns>编译结果，包含是否成功与脱敏后的诊断信息。</returns>
     public static async Task<ModuleIntegrationCompilationResult> ValidateAsync(
         string repositoryRoot,
         string compositionProjectFullPath,

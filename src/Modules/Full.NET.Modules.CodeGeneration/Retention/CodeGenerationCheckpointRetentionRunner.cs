@@ -7,12 +7,19 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.CodeGeneration.Retention;
 
+/// <summary>
+/// Worker 调用的检查点保留清理器；按保留期与容量上限分两阶段删除已回滚检查点目录，删除前必须验证工作区仍处于回滚后状态。
+/// </summary>
 internal sealed class CodeGenerationCheckpointRetentionRunner(
     IQueryExecutor queryExecutor,
     IOptions<CodeGenerationApplyOptions> applyOptions,
     IOptions<DatabaseOptions> databaseOptions,
     IClock clock)
 {
+    /// <summary>
+    /// 执行一次清理：先按 RetentionDays 删除过冷却期的检查点，再按 MaxCheckpointCount 处理容量溢出；两阶段共享 MaxDeletesPerRun 预算并按 ApplyRunId 去重。
+    /// 删除前重新捕获工作区 Manifest 并与检查点 PreviousManifest 比对，不一致则跳过，避免误删仍需回滚的检查点。
+    /// </summary>
     public async Task<CodeGenerationCheckpointRetentionResult> RunOnceAsync(
         CodeGenerationCheckpointRetentionOptions options,
         CancellationToken cancellationToken)

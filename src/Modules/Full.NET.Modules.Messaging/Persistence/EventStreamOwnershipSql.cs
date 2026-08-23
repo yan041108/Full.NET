@@ -2,6 +2,16 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Messaging.Persistence;
 
+/// <summary>
+/// 事件流所有权表的参数化 SQL 语句集合，全部声明为 <see cref="SqlDataScope.Global"/>，
+/// 因所有权属 Host 级运维目录而非租户业务数据。
+/// </summary>
+/// <remarks>
+/// <see cref="Update"/> 以 <c>CurrentOwner = PreviousOwner</c> 作为 CAS 守卫；
+/// <see cref="BeginRollbackPreparation"/> 与 <see cref="AbortRollbackPreparation"/> 以
+/// <c>CurrentOwner = 2 (CdcKafka) AND RollbackState</c> 作为 CAS 守卫，保证回退代次唯一。
+/// 追加式 Outbox 的末位事件查询分别提供 SQL Server 的 <c>TOP 1</c> 与 MySQL 的 <c>LIMIT 1</c> 成对实现。
+/// </remarks>
 internal static class EventStreamOwnershipSql
 {
     public static readonly SqlStatement FindByStream =

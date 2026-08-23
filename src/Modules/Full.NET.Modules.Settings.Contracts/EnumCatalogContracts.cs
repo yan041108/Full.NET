@@ -12,6 +12,7 @@ public static class EnumCatalogPermissions
 /// <summary>模块向 Settings 注册稳定枚举/常量目录的贡献者。</summary>
 public interface IEnumCatalogContributor
 {
+    /// <summary>获取当前模块贡献的稳定枚举/常量目录定义集合。</summary>
     IReadOnlyCollection<EnumCatalogDefinition> Catalogs { get; }
 }
 

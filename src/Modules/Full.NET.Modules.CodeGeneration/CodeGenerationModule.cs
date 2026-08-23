@@ -26,6 +26,10 @@ public sealed class CodeGenerationModule : IFullNetModule
 
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
+    /// <summary>
+    /// 注册代码生成所需的授权贡献者、模板与运行用例服务、工作区锁、Git 集成与 JSON 序列化上下文，
+    /// 并绑定 Apply、检查点保留和 Git 选项的启动期校验，使 HTTP 管道与生成引擎保持边界分离。
+    /// </summary>
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
@@ -75,6 +79,9 @@ public sealed class CodeGenerationModule : IFullNetModule
                 CodeGenerationJsonSerializerContext.Default));
     }
 
+    /// <summary>
+    /// 映射预览、模板、目录与运行管理四个垂直切片的 HTTP Endpoint，所有端点由各自 Feature 内部声明权限策略。
+    /// </summary>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.PreviewCrudGeneration.Endpoint.Map(endpoints);
