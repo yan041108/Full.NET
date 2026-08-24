@@ -16,6 +16,7 @@
   <PropertyGroup Condition="'$(FullNetIsAotCompile)' == 'true' and '$(FullNetIsNetCoreAppAotEligible)' == 'true'">
     <DefineConstants>$(DefineConstants);FULLNET_AOT_COMPILE</DefineConstants>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Dapper.AOT</InterceptorsPreviewNamespaces>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Dapper.AOT</InterceptorsNamespaces>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>

@@ -7,13 +7,18 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dapper" />
-    <PackageReference Include="Dapper.AOT" Condition="'$(FullNetIsAotCompile)' == 'true'" />
+    <PackageReference Include="Dapper.AOT" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <Analyzer
+      Include="$(PkgDapper_AOT)/analyzers/dotnet/Dapper.AOT.Analyzers.dll"
+      Condition="'$(PkgDapper_AOT)' != ''" />
   </ItemGroup>
   <ItemGroup Condition="'$(FullNetIsAotCompile)' == 'true'">
     <RuntimeHostConfigurationOption

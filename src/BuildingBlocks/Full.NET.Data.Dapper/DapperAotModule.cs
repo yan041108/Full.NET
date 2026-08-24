@@ -1,6 +1,7 @@
 #if FULLNET_AOT_COMPILE
 global using Dapper;
 
-// Native AOT 发布闭包启用 Dapper 拦截器代码生成，避免运行时反射 emit。
 [module: DapperAot]
+[module: TypeHandler<Guid, Full.NET.Data.Dapper.AssignedGuidAotTypeHandler>]
+[module: TypeHandler<DateTimeOffset, Full.NET.Data.Dapper.UtcDateTimeOffsetAotTypeHandler>]
 #endif

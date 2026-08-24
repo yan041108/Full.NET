@@ -27,14 +27,24 @@ internal sealed class DbConnectionFactory(IOptions<DatabaseOptions> options)
     public DbConnection Create() => _options.Provider switch
     {
         DatabaseProvider.SqlServer => new SqlConnection(_options.ConnectionString),
-        DatabaseProvider.MySql => new MySqlConnection(
-            MySqlConnectionStringPolicy.Create(
-                _options.ConnectionString,
-                _options.MySqlGuidStorageMode,
-                allowUserVariables: false)),
+        DatabaseProvider.MySql => CreateMySqlConnection(),
         _ => throw new ArgumentOutOfRangeException(
             nameof(_options.Provider),
             _options.Provider,
             "Unsupported database provider."),
     };
+
+    private DbConnection CreateMySqlConnection()
+    {
+        var connection = new MySqlConnection(
+            MySqlConnectionStringPolicy.Create(
+                _options.ConnectionString,
+                _options.MySqlGuidStorageMode,
+                allowUserVariables: false));
+#if FULLNET_AOT_COMPILE
+        return new MySqlAotUtcDateTimeOffsetConnection(connection);
+#else
+        return connection;
+#endif
+    }
 }
