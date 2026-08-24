@@ -87,6 +87,11 @@ public static class ServiceCollectionExtensions
         SqlMapper.RemoveTypeMap(typeof(Guid));
         SqlMapper.AddTypeHandler(new AssignedGuidTypeHandler());
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
+#else
+        // Native AOT 仍依赖显式 TypeHandler 将 MySQL BINARY(16) 与 DateTimeOffset 映射到业务类型。
+        SqlMapper.RemoveTypeMap(typeof(Guid));
+        SqlMapper.AddTypeHandler(new AssignedGuidTypeHandler());
+        SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
 #endif
         var databaseSection = configuration.GetSection(DatabaseOptions.SectionName);
         var hasExplicitMySqlGuidStorageMode = databaseSection
