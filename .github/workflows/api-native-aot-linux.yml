@@ -87,6 +87,12 @@ jobs:
       - name: Run Native AOT external-process E2E
         run: pnpm test:aot:native:e2e
 
+      - name: Run Native AOT S3 Provider E2E
+        run: pnpm test:aot:native:s3:e2e
+
+      - name: Run Native AOT Kafka Replay Provider E2E
+        run: pnpm test:aot:native:kafka-replay:e2e
+
       - name: Upload publish manifest
         if: always()
         uses: actions/upload-artifact@v4

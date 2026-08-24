@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />

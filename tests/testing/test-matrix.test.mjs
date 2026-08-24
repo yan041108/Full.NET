@@ -44,6 +44,8 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
   );
   assert.deepEqual(matrix.nativeAotPublish.runtimeIdentifier, 'linux-x64');
   assert.ok(matrix.nativeAotIntegration.minimum > 0);
+  assert.ok(matrix.nativeAotS3Integration.minimum >= 2);
+  assert.ok(matrix.nativeAotKafkaReplayIntegration.minimum >= 2);
   assert.ok(matrix.integration.shards.full.minimum > 0);
   assert.ok(matrix.integration.mainPartitions.length > 1);
   assert.deepEqual(

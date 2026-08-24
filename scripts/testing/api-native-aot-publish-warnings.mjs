@@ -6,6 +6,7 @@ const allowedWarnings = new Map([
   ['Microsoft.Data.SqlClient.dll', new Set(['IL2104', 'IL3053'])],
   ['Microsoft.Data.SqlClient.Internal.Logging.dll', new Set(['IL2104'])],
   ['System.Configuration.ConfigurationManager.dll', new Set(['IL2104'])],
+  ['Confluent.Kafka.dll', new Set(['IL2104'])],
 ]);
 
 /**

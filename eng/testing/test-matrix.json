@@ -41,8 +41,20 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay",
     "minimum": 5,
+    "timeout": "45m"
+  },
+  "nativeAotS3Integration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeApiS3",
+    "minimum": 2,
+    "timeout": "45m"
+  },
+  "nativeAotKafkaReplayIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeApiKafkaReplay",
+    "minimum": 2,
     "timeout": "45m"
   },
   "integration": {
