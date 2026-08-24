@@ -73,7 +73,10 @@ internal static class NativeApiKafkaReplayE2EAssertions
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();
-        var token = await NativeApiE2EAssertions.LoginAsync(client, cancellationToken)
+        var token = await NativeApiE2EAssertions.LoginAsync(
+            client,
+            host.LogFilePath,
+            cancellationToken)
             .ConfigureAwait(false);
 
         var replayBody = new KafkaRangeReplayRequest(

@@ -36,7 +36,10 @@ internal static class NativeApiS3E2EAssertions
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();
-        var token = await NativeApiE2EAssertions.LoginAsync(client, cancellationToken)
+        var token = await NativeApiE2EAssertions.LoginAsync(
+            client,
+            host.LogFilePath,
+            cancellationToken)
             .ConfigureAwait(false);
 
         var payload = Encoding.UTF8.GetBytes($"native-s3-{Guid.NewGuid():N}");
