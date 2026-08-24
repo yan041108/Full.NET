@@ -83,9 +83,8 @@ public sealed class OrganizationModule : IFullNetModule
                 0,
                 OrganizationJsonSerializerContext.Default));
 #if FULLNET_AOT_COMPILE
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDapperAotMaterializerContributor,
-            Persistence.OrganizationDapperAotMaterializerContributor>());
+        new Persistence.OrganizationDapperAotMaterializerContributor()
+            .RegisterMaterializers(new DapperAotMaterializerRegistrar());
 #endif
     }
 

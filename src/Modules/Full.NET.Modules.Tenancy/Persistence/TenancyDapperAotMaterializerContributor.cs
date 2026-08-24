@@ -21,7 +21,7 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             reader.GetString(1),
             reader.GetString(2),
             reader.GetString(3),
-            reader.GetBoolean(4),
+            AotDataReaderExtensions.ReadBoolean(reader, 4),
             reader.GetInt32(5),
             reader.GetString(6),
             AotDataReaderExtensions.ReadNullableGuid(reader, 7),

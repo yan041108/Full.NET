@@ -158,7 +158,20 @@ internal sealed class DapperSqlExecutor(
             var connection = await session
                 .GetOpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+#if FULLNET_AOT_COMPILE
+            var dynamicParameters = command.Parameters as DynamicParameters
+                ?? throw new InvalidOperationException(
+                    "Native AOT requires DynamicParameters for SQL execution.");
+            return await DapperAotSqlExecution.ExecuteAsync(
+                connection,
+                statement.Text,
+                dynamicParameters,
+                session.Transaction,
+                _options.CommandTimeoutSeconds,
+                cancellationToken).ConfigureAwait(false);
+#else
             return await connection.ExecuteAsync(command).ConfigureAwait(false);
+#endif
         }
         catch (Exception caught)
         {

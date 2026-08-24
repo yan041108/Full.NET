@@ -24,5 +24,8 @@ internal static class AotDataReaderExtensions
 
     public static string? ReadNullableString(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
+    public static bool ReadBoolean(DbDataReader reader, int ordinal) =>
+        Convert.ToBoolean(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
 }
 #endif

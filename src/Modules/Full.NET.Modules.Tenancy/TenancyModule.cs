@@ -84,9 +84,8 @@ public sealed class TenancyModule : IFullNetModule
                 0,
                 TenancyJsonSerializerContext.Default));
 #if FULLNET_AOT_COMPILE
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDapperAotMaterializerContributor,
-            Persistence.TenancyDapperAotMaterializerContributor>());
+        new Persistence.TenancyDapperAotMaterializerContributor()
+            .RegisterMaterializers(new DapperAotMaterializerRegistrar());
 #endif
     }
 

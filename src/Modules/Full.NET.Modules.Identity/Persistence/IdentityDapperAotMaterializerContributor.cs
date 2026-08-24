@@ -33,7 +33,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             reader.GetString(4),
             reader.GetString(5),
             reader.GetString(6),
-            reader.GetBoolean(7),
+            AotDataReaderExtensions.ReadBoolean(reader, 7),
             reader.GetInt32(8),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9),
             reader.GetString(10),
@@ -47,7 +47,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
     private static IdentityAuthorizationRow ReadIdentityAuthorizationRow(DbDataReader reader) =>
         new(
             AotDataReaderExtensions.ReadNullableString(reader, 0),
-            reader.GetBoolean(1));
+            AotDataReaderExtensions.ReadBoolean(reader, 1));
 
     private static IdentityProfileRecord ReadIdentityProfileRecord(DbDataReader reader) =>
         new()
@@ -56,7 +56,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             ScopeKey = reader.GetString(1),
             Username = reader.GetString(2),
             DisplayName = reader.GetString(3),
-            IsActive = reader.GetBoolean(4),
+            IsActive = AotDataReaderExtensions.ReadBoolean(reader, 4),
             PreferredLocale = reader.GetString(5),
             ProfileVersion = reader.GetInt32(6),
         };

@@ -106,6 +106,23 @@ internal static class DapperAotSqlExecution
         return rows;
     }
 
+    public static async Task<int> ExecuteAsync(
+        DbConnection connection,
+        string sql,
+        DynamicParameters parameters,
+        IDbTransaction? transaction,
+        int commandTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        await using var command = CreateCommand(
+            connection,
+            sql,
+            parameters,
+            transaction,
+            commandTimeoutSeconds);
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private static DbCommand CreateCommand(
         DbConnection connection,
         string sql,

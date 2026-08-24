@@ -79,9 +79,8 @@ public sealed class CodeGenerationModule : IFullNetModule
                 0,
                 CodeGenerationJsonSerializerContext.Default));
 #if FULLNET_AOT_COMPILE
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDapperAotMaterializerContributor,
-            Persistence.CodeGenerationDapperAotMaterializerContributor>());
+        new Persistence.CodeGenerationDapperAotMaterializerContributor()
+            .RegisterMaterializers(new DapperAotMaterializerRegistrar());
 #endif
     }
 

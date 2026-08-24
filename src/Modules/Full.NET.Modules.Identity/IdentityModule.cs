@@ -61,9 +61,8 @@ public sealed class IdentityModule : IFullNetModule
         AddOrganizationUnitProjection(services);
         AddBackgroundServices(services, configuration);
 #if FULLNET_AOT_COMPILE
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<
-            IDapperAotMaterializerContributor,
-            Persistence.IdentityDapperAotMaterializerContributor>());
+        new Persistence.IdentityDapperAotMaterializerContributor()
+            .RegisterMaterializers(new DapperAotMaterializerRegistrar());
 #endif
     }
 

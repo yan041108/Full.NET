@@ -23,7 +23,7 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
             Code = reader.GetString(2),
             Name = reader.GetString(3),
             DisplayOrder = reader.GetInt32(4),
-            IsActive = reader.GetBoolean(5),
+            IsActive = AotDataReaderExtensions.ReadBoolean(reader, 5),
             CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
             UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7),
             Version = reader.GetInt32(8),

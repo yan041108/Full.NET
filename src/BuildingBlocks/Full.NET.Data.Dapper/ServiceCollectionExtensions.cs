@@ -180,9 +180,6 @@ public static class ServiceCollectionExtensions
             .AddCheck<DatabaseSchemaHealthCheck>(
                 "database-schema-contract",
                 tags: ["startup"]);
-#if FULLNET_AOT_COMPILE
-        services.AddHostedService<DapperAotMaterializerBootstrapHostedService>();
-#endif
         return services;
     }
 
