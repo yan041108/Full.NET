@@ -55,6 +55,7 @@ internal static class NativeApiMigratorRunner
         startInfo.Environment["Identity__Bootstrap__Password"] =
             NativeApiE2EAssertions.AdminPassword;
         startInfo.Environment["Identity__Bootstrap__DisplayName"] = "系统管理员";
+        startInfo.Environment["Identity__AllowDevelopmentEphemeralSigningKey"] = "true";
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("无法启动 JIT Migrator。");
