@@ -218,7 +218,7 @@ internal sealed class Handler(
                         current.Version),
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (affectedRows == 1)
+            if (IsSingleRowAffected(affectedRows))
             {
                 await WriteAuditAsync(
                     current.Id,
@@ -299,7 +299,7 @@ internal sealed class Handler(
                         current.Version),
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (affectedRows == 1)
+            if (IsSingleRowAffected(affectedRows))
             {
                 return current with
                 {
@@ -374,12 +374,17 @@ internal sealed class Handler(
                 parameters,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (affectedRows != 1)
+        if (!IsSingleRowAffected(affectedRows))
         {
             throw new InvalidOperationException(
                 $"Identity {operation} affected {affectedRows} rows instead of one.");
         }
     }
+
+    /// <summary>
+    /// 与 <see cref="ICommandExecutor.ExecuteAsync"/> 约定一致：部分提供程序在 NOCOUNT 等场景返回 -1。
+    /// </summary>
+    private static bool IsSingleRowAffected(int affectedRows) => affectedRows is 1 or -1;
 
     private static IdentityUser ToUser(IdentityUserRecord record) => new(
         record.Id,
