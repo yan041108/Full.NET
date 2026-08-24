@@ -2,6 +2,8 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- 集成测试直接使用 JIT Dapper；禁止 Dapper.AOT 顾问规则误伤 TreatWarningsAsErrors。 -->
+    <NoWarn>$(NoWarn);DAP005;DAP018;DAP200;DAP223;DAP224;DAP230;DAP241;DAP025;DAP037</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\benchmarks\Full.NET.Benchmarks\Full.NET.Benchmarks.csproj" Aliases="kafkabenchmarks" />
