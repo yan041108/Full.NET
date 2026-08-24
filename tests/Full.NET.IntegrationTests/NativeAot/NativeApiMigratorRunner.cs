@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using Full.NET.Data.Abstractions;
+using Full.NET.IntegrationTests.Migrations;
+using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
@@ -56,6 +58,7 @@ internal static class NativeApiMigratorRunner
             NativeApiE2EAssertions.AdminPassword;
         startInfo.Environment["Identity__Bootstrap__DisplayName"] = "系统管理员";
         startInfo.Environment["Identity__AllowDevelopmentEphemeralSigningKey"] = "true";
+        ApplyMigrationContractGates(startInfo.Environment);
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("无法启动 JIT Migrator。");
@@ -70,5 +73,24 @@ internal static class NativeApiMigratorRunner
             throw new InvalidOperationException(
                 $"JIT Migrator 退出码 {process.ExitCode}。stderr: {stderr}\nstdout: {stdout}");
         }
+    }
+
+    /// <summary>
+    /// 009/011 破坏性 DDL 迁移要求维护窗口证据；与集成测试 <see cref="MigrationContractOptionFactory"/> 对齐。
+    /// </summary>
+    private static void ApplyMigrationContractGates(
+        System.Collections.IDictionary environment)
+    {
+        environment[$"{UuidBinaryContractOptions.SectionName}__MaintenanceMode"] = "true";
+        environment[$"{UuidBinaryContractOptions.SectionName}__BackupVerified"] = "true";
+        environment[$"{UuidBinaryContractOptions.SectionName}__LegacyWritersStopped"] = "true";
+        environment[$"{UuidBinaryContractOptions.SectionName}__DestructiveDdlApprovalId"] =
+            MigrationContractOptionFactory.UuidApprovalId;
+        environment[$"{PreV1NamingContractOptions.SectionName}__MaintenanceMode"] = "true";
+        environment[$"{PreV1NamingContractOptions.SectionName}__BackupVerified"] = "true";
+        environment[$"{PreV1NamingContractOptions.SectionName}__LegacyWritersStopped"] = "true";
+        environment[$"{PreV1NamingContractOptions.SectionName}__LegacyOutboxDrained"] = "true";
+        environment[$"{PreV1NamingContractOptions.SectionName}__DestructiveDdlApprovalId"] =
+            MigrationContractOptionFactory.NamingApprovalId;
     }
 }
