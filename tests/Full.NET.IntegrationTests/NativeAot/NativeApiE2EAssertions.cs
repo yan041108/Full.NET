@@ -5,6 +5,7 @@ using System.Text.Json;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -43,7 +44,9 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyTenancyReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
-        await VerifyOrganizationReadAsync(client, token, cancellationToken)
+        var tenantToken = await EnterAcmeTenantAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifyOrganizationReadAsync(client, tenantToken, cancellationToken)
             .ConfigureAwait(false);
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -137,6 +140,46 @@ internal static class NativeApiE2EAssertions
         using var response = await client.SendAsync(request, cancellationToken)
             .ConfigureAwait(false);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task<string> EnterAcmeTenantAsync(
+        HttpClient client,
+        string hostAccessToken,
+        CancellationToken cancellationToken)
+    {
+        using var availableRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/tenancy/available");
+        availableRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            hostAccessToken);
+        using var availableResponse = await client.SendAsync(availableRequest, cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(HttpStatusCode.OK, availableResponse.StatusCode);
+        var available = await availableResponse.Content
+            .ReadFromJsonAsync<TenantContextSummary[]>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(available);
+        var acme = available.Single(tenant => tenant.Identifier == "acme");
+
+        using var enterRequest = new HttpRequestMessage(
+            HttpMethod.Put,
+            "/api/v1/tenancy/context")
+        {
+            Content = JsonContent.Create(new ChangeTenantContextRequest(acme.Id)),
+        };
+        enterRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            hostAccessToken);
+        using var enterResponse = await client.SendAsync(enterRequest, cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(HttpStatusCode.OK, enterResponse.StatusCode);
+        var entered = await enterResponse.Content
+            .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(entered);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(entered.AccessToken));
+        return entered.AccessToken;
     }
 
     private static async Task VerifyCodeGenerationCatalogReadAsync(

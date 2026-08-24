@@ -17,11 +17,14 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityUserRecord>(ReadIdentityUserRecord);
         registrar.Register<IdentityAuthorizationRow>(ReadIdentityAuthorizationRow);
         registrar.Register<IdentityProfileRecord>(ReadIdentityProfileRecord);
+        registrar.Register<RefreshSessionRecord>(ReadRefreshSessionRecord);
 
         DapperAotParameterRegistry.Register<LoginFailureUpdate>(BindLoginFailureUpdate);
         DapperAotParameterRegistry.Register<LoginSuccessUpdate>(BindLoginSuccessUpdate);
         DapperAotParameterRegistry.Register<AuthAuditEvent>(BindAuthAuditEvent);
         DapperAotParameterRegistry.Register<RefreshSession>(BindRefreshSession);
+        DapperAotParameterRegistry.Register<Features.ChangeSessionContext.RefreshSessionContextUpdate>(
+            BindRefreshSessionContextUpdate);
     }
 
     private static IdentityUserRecord ReadIdentityUserRecord(DbDataReader reader) =>
@@ -59,6 +62,38 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             IsActive = AotDataReaderExtensions.ReadBoolean(reader, 4),
             PreferredLocale = reader.GetString(5),
             ProfileVersion = reader.GetInt32(6),
+        };
+
+    private static RefreshSessionRecord ReadRefreshSessionRecord(DbDataReader reader) =>
+        new()
+        {
+            SessionId = reader.GetGuid(0),
+            UserId = reader.GetGuid(1),
+            FamilyId = reader.GetGuid(2),
+            ClientId = reader.GetString(3),
+            TokenHash = reader.GetString(4),
+            ExpiresAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
+            ConsumedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
+            RevokedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7),
+            ReplacedById = AotDataReaderExtensions.ReadNullableGuid(reader, 8),
+            ActiveTenantId = AotDataReaderExtensions.ReadNullableGuid(reader, 9),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 10),
+            SessionVersion = reader.GetInt32(11),
+            TenantId = AotDataReaderExtensions.ReadNullableGuid(reader, 12),
+            ScopeKey = reader.GetString(13),
+            Username = reader.GetString(14),
+            NormalizedUsername = reader.GetString(15),
+            DisplayName = reader.GetString(16),
+            PasswordHash = reader.GetString(17),
+            IsActive = AotDataReaderExtensions.ReadBoolean(reader, 18),
+            FailedLoginCount = reader.GetInt32(19),
+            LockoutEndUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 20),
+            SecurityStamp = reader.GetString(21),
+            UserCreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 22),
+            UserUpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 23),
+            UserVersion = reader.GetInt32(24),
+            PreferredLocale = reader.GetString(25),
+            ProfileVersion = reader.GetInt32(26),
         };
 
     private static DynamicParameters BindLoginFailureUpdate(LoginFailureUpdate update)
@@ -114,6 +149,17 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("ActiveTenantId", session.ActiveTenantId);
         parameters.Add("CreatedAtUtc", session.CreatedAtUtc);
         parameters.Add("Version", session.Version);
+        return parameters;
+    }
+
+    private static DynamicParameters BindRefreshSessionContextUpdate(
+        Features.ChangeSessionContext.RefreshSessionContextUpdate update)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("SessionId", update.SessionId);
+        parameters.Add("UserId", update.UserId);
+        parameters.Add("ActiveTenantId", update.ActiveTenantId);
+        parameters.Add("Version", update.Version);
         return parameters;
     }
 }

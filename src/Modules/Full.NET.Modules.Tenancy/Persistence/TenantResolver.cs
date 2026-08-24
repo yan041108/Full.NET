@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Hosting;
+using global::Dapper;
 
 namespace Full.NET.Modules.Tenancy.Persistence;
 
@@ -44,7 +45,7 @@ internal sealed class TenantResolver(
                     var tenant = await queryExecutor
                         .QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                             TenantSql.FindByDomain,
-                            new { Domain = normalizedDomain },
+                            CreateDomainParameters(normalizedDomain),
                             token)
                         .ConfigureAwait(false);
                     return TenantResolutionCacheMapper.ToCacheEntry(tenant?.ToSummary());
@@ -87,7 +88,7 @@ internal sealed class TenantResolver(
                     return TenantResolutionCacheMapper.ToCacheEntry(
                         (await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                             TenantSql.FindById,
-                            new { TenantId = tenantId },
+                            CreateTenantIdParameters(tenantId),
                             token)
                         .ConfigureAwait(false))?.ToSummary());
                 },
@@ -135,5 +136,19 @@ internal sealed class TenantResolver(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(domain);
         return domain.Trim().TrimEnd('.').ToLowerInvariant();
+    }
+
+    private static DynamicParameters CreateDomainParameters(string domain)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Domain", domain);
+        return parameters;
+    }
+
+    private static DynamicParameters CreateTenantIdParameters(Guid tenantId)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("TenantId", tenantId);
+        return parameters;
     }
 }

@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.IdentityModel.JsonWebTokens;
+using global::Dapper;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.ChangeSessionContext;
@@ -134,11 +135,15 @@ internal sealed class IdentitySessionContextService(
 
     private Task<RefreshSessionRecord?> FindSessionAsync(
         Guid sessionId,
-        CancellationToken cancellationToken) =>
-        queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+        CancellationToken cancellationToken)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("SessionId", sessionId);
+        return queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
             IdentitySql.FindRefreshSessionById,
-            new { SessionId = sessionId },
+            parameters,
             cancellationToken);
+    }
 
     private bool IsOwnedActiveHostSession(
         RefreshSessionRecord? record,

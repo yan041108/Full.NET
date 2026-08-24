@@ -13,7 +13,18 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         registrar.Register<HostTenantRecord>(ReadHostTenantRecord);
+        registrar.Register<TenantResolutionRecord>(ReadTenantResolutionRecord);
     }
+
+    private static TenantResolutionRecord ReadTenantResolutionRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            AotDataReaderExtensions.ReadBoolean(reader, 4),
+            reader.GetInt32(5),
+            reader.GetString(6));
 
     private static HostTenantRecord ReadHostTenantRecord(DbDataReader reader) =>
         new(
