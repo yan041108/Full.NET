@@ -28,6 +28,11 @@ export function parseSuiteOptions(options) {
 
   for (let index = 0; index < options.length; index += 1) {
     const option = options[index];
+    // pnpm/npm 在脚本名后插入的 `--` 分隔符，不是测试套件选项。
+    if (option === '--') {
+      continue;
+    }
+
     if (option === '--no-build') {
       parsed.noBuild = true;
       continue;

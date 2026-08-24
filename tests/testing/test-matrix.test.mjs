@@ -135,6 +135,16 @@ test('快速套件从测试矩阵解析命名聚焦集', () => {
     () => argumentsForSuite('architecture', { selection: 'unknown' }),
     /未知聚焦集/
   );
+  assert.deepEqual(parseSuiteOptions([
+    '--',
+    '--selection',
+    'api-native-aot'
+  ]), {
+    noBuild: false,
+    selection: 'api-native-aot',
+    filter: null,
+    minimumExpectedTests: null
+  });
 });
 
 test('原始聚焦过滤必须携带正整数最低发现数且不能覆盖命名聚焦集', () => {

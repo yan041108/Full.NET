@@ -79,7 +79,7 @@ jobs:
         run: pnpm test:aot:publish:linux
 
       - name: Verify Native AOT architecture gates
-        run: pnpm test:dotnet:architecture -- --selection api-native-aot
+        run: pnpm test:dotnet:architecture --selection api-native-aot
 
       - name: Build integration tests
         run: dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj -c Release --no-restore
