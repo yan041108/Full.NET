@@ -13,7 +13,7 @@ namespace Full.NET.IntegrationTests.NativeAot;
 internal sealed class NativeApiProcessHost : IAsyncDisposable
 {
     private static readonly Regex ListeningUrlRegex = new(
-        @"Now listening on:\s*(?<url>https?://[^\s]+)",
+        @"Now listening on:\s*(?<url>https?://[^\s\}""]+)|""address""\s*:\s*""(?<url>https?://[^""]+)""",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly string[] FatalLogMarkers =
@@ -309,8 +309,27 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
             if (process.HasExited)
             {
+                var exitLogTail = await ReadLogTailAsync(logFilePath, cancellationToken)
+                    .ConfigureAwait(false);
                 throw new InvalidOperationException(
-                    $"Native Host.Api 在启动完成前退出（代码 {process.ExitCode}）。日志：{logFilePath}");
+                    $"Native Host.Api 在启动完成前退出（代码 {process.ExitCode}）。日志：{logFilePath}\n{exitLogTail}");
+            }
+
+            try
+            {
+                using var response = await httpClient.GetAsync(
+                    new Uri(expectedBaseAddress, "/health/live"),
+                    cancellationToken).ConfigureAwait(false);
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
             }
 
             if (File.Exists(logFilePath))
@@ -319,22 +338,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                     .ConfigureAwait(false);
                 if (ListeningUrlRegex.IsMatch(content))
                 {
-                    try
-                    {
-                        using var response = await httpClient.GetAsync(
-                            new Uri(expectedBaseAddress, "/health/live"),
-                            cancellationToken).ConfigureAwait(false);
-                        if (response.StatusCode == HttpStatusCode.OK)
-                        {
-                            return;
-                        }
-                    }
-                    catch (HttpRequestException)
-                    {
-                    }
-                    catch (TaskCanceledException)
-                    {
-                    }
+                    // 结构化 Serilog 可能已写出监听地址，但 /health/live 仍不可达时继续轮询。
                 }
             }
 
@@ -342,8 +346,30 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                 .ConfigureAwait(false);
         }
 
+        var logTail = await ReadLogTailAsync(logFilePath, cancellationToken)
+            .ConfigureAwait(false);
         throw new TimeoutException(
-            $"Native Host.Api 未在 {timeout} 内进入可服务状态。日志：{logFilePath}");
+            $"Native Host.Api 未在 {timeout} 内进入可服务状态。日志：{logFilePath}\n{logTail}");
+    }
+
+    private static async Task<string> ReadLogTailAsync(
+        string logFilePath,
+        CancellationToken cancellationToken,
+        int maxChars = 4_000)
+    {
+        if (!File.Exists(logFilePath))
+        {
+            return string.Empty;
+        }
+
+        var content = await File.ReadAllTextAsync(logFilePath, cancellationToken)
+            .ConfigureAwait(false);
+        if (content.Length <= maxChars)
+        {
+            return content;
+        }
+
+        return content[^maxChars..];
     }
 
     private static void TrySendSigTerm(int processId)
