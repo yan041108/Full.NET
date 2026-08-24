@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
+using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Api;
 using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
@@ -81,6 +82,11 @@ public sealed class OrganizationModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 OrganizationJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDapperAotMaterializerContributor,
+            Persistence.OrganizationDapperAotMaterializerContributor>());
+#endif
     }
 
     /// <summary>

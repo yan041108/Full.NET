@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 using Full.NET.Modules.Identity.Authorization;
+using global::Dapper;
 
 namespace Full.NET.Modules.Identity.Features.Login;
 
@@ -48,7 +49,7 @@ internal sealed class Handler(
         var normalizedUsername = command.Username.Trim().ToUpperInvariant();
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindUserByScopeAndUsername,
-                new { ScopeKey = HostScope, NormalizedUsername = normalizedUsername },
+                CreateFindUserParameters(normalizedUsername),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -238,11 +239,7 @@ internal sealed class Handler(
             var refreshed = await queryExecutor
                 .QuerySingleOrDefaultAsync<IdentityUserRecord>(
                     IdentitySql.FindUserByScopeAndUsername,
-                    new
-                    {
-                        ScopeKey = HostScope,
-                        current.NormalizedUsername,
-                    },
+                    CreateFindUserParameters(current.NormalizedUsername),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (refreshed is null)
@@ -315,11 +312,7 @@ internal sealed class Handler(
             var refreshed = await queryExecutor
                 .QuerySingleOrDefaultAsync<IdentityUserRecord>(
                     IdentitySql.FindUserByScopeAndUsername,
-                    new
-                    {
-                        ScopeKey = HostScope,
-                        current.NormalizedUsername,
-                    },
+                    CreateFindUserParameters(current.NormalizedUsername),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (refreshed is null)
@@ -385,6 +378,14 @@ internal sealed class Handler(
     /// 与 <see cref="ICommandExecutor.ExecuteAsync"/> 约定一致：部分提供程序在 NOCOUNT 等场景返回 -1。
     /// </summary>
     private static bool IsSingleRowAffected(int affectedRows) => affectedRows is 1 or -1;
+
+    private static DynamicParameters CreateFindUserParameters(string normalizedUsername)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("ScopeKey", HostScope);
+        parameters.Add("NormalizedUsername", normalizedUsername);
+        return parameters;
+    }
 
     private static IdentityUser ToUser(IdentityUserRecord record) => new(
         record.Id,

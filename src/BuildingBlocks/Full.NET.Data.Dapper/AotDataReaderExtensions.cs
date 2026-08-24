@@ -1,0 +1,28 @@
+#if FULLNET_AOT_COMPILE
+using System.Data.Common;
+
+namespace Full.NET.Data.Dapper;
+
+/// <summary>
+/// Native AOT 读取辅助；MySQL DATETIME 在 shim 之外仍可能以 <see cref="DateTime"/> 出现。
+/// </summary>
+internal static class AotDataReaderExtensions
+{
+    public static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal) =>
+        reader.GetFieldType(ordinal) == typeof(DateTimeOffset)
+            ? reader.GetFieldValue<DateTimeOffset>(ordinal).ToUniversalTime()
+            : new DateTimeOffset(
+                DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
+
+    public static DateTimeOffset? ReadNullableDateTimeOffset(DbDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal)
+            ? null
+            : ReadDateTimeOffset(reader, ordinal);
+
+    public static Guid? ReadNullableGuid(DbDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
+
+    public static string? ReadNullableString(DbDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+}
+#endif

@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
+using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
@@ -82,6 +83,11 @@ public sealed class TenancyModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 TenancyJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDapperAotMaterializerContributor,
+            Persistence.TenancyDapperAotMaterializerContributor>());
+#endif
     }
 
     public void AddMigrationServices(

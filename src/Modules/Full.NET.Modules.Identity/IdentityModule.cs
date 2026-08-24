@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
+using Full.NET.Data.Dapper;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Authorization;
@@ -59,6 +60,11 @@ public sealed class IdentityModule : IFullNetModule
         services.AddIdentityHttpPolicies(configuration);
         AddOrganizationUnitProjection(services);
         AddBackgroundServices(services, configuration);
+#if FULLNET_AOT_COMPILE
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDapperAotMaterializerContributor,
+            Persistence.IdentityDapperAotMaterializerContributor>());
+#endif
     }
 
     public void AddMigrationServices(

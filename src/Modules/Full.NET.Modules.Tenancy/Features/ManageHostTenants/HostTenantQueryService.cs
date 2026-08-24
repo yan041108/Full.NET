@@ -38,7 +38,11 @@ internal sealed class HostTenantQueryService(
         };
         var rows = await queryExecutor.QueryAsync<HostTenantRecord>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["Offset"] = offset,
+                    ["PageSize"] = pageSize,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();

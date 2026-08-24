@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Time;
+using Full.NET.Data.Dapper;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.CodeGeneration.Configuration;
 using Full.NET.Modules.CodeGeneration.Features.ManageHostRuns;
@@ -77,6 +78,11 @@ public sealed class CodeGenerationModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 CodeGenerationJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDapperAotMaterializerContributor,
+            Persistence.CodeGenerationDapperAotMaterializerContributor>());
+#endif
     }
 
     /// <summary>

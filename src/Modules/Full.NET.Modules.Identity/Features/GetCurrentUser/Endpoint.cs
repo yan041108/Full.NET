@@ -6,6 +6,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Authorization;
+using global::Dapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -42,10 +43,13 @@ internal static class Endpoint
                 return mapper.Map(Unauthorized(), httpContext);
             }
 
+            var profileParameters = new DynamicParameters();
+            profileParameters.Add("UserId", userId);
+            profileParameters.Add("ScopeKey", actorScope);
             var profile = await queryExecutor
                 .QuerySingleOrDefaultAsync<IdentityProfileRecord>(
                     IdentitySql.FindProfileByIdentity,
-                    new { UserId = userId, ScopeKey = actorScope },
+                    profileParameters,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (profile is not { IsActive: true })

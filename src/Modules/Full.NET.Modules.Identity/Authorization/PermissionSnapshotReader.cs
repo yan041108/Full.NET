@@ -1,6 +1,7 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
+using global::Dapper;
 
 namespace Full.NET.Modules.Identity.Authorization;
 
@@ -14,9 +15,13 @@ internal sealed class PermissionSnapshotReader(
         Guid? tenantId,
         CancellationToken cancellationToken = default)
     {
+        var authorizationParameters = new DynamicParameters();
+        authorizationParameters.Add("UserId", userId);
+        authorizationParameters.Add("ScopeKey", scopeKey);
+        authorizationParameters.Add("TenantId", tenantId);
         var authorization = await queryExecutor.QueryAsync<IdentityAuthorizationRow>(
                 IdentitySql.GetUserAuthorization,
-                new { UserId = userId, ScopeKey = scopeKey, TenantId = tenantId },
+                authorizationParameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var requiredScope = tenantId.HasValue

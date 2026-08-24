@@ -53,7 +53,19 @@ internal sealed class DapperSqlExecutor(
             var connection = await session
                 .GetOpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+#if FULLNET_AOT_COMPILE
+            return await DapperAotSqlExecution.QuerySingleOrDefaultAsync<T>(
+                connection,
+                statement.Text,
+                command.Parameters as DynamicParameters
+                    ?? throw new InvalidOperationException(
+                        "Native AOT requires DynamicParameters for SQL execution."),
+                session.Transaction,
+                _options.CommandTimeoutSeconds,
+                cancellationToken).ConfigureAwait(false);
+#else
             return await connection.QuerySingleOrDefaultAsync<T>(command).ConfigureAwait(false);
+#endif
         }
         catch (Exception caught)
         {
@@ -95,8 +107,20 @@ internal sealed class DapperSqlExecutor(
             var connection = await session
                 .GetOpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+#if FULLNET_AOT_COMPILE
+            return await DapperAotSqlExecution.QueryAsync<T>(
+                connection,
+                statement.Text,
+                command.Parameters as DynamicParameters
+                    ?? throw new InvalidOperationException(
+                        "Native AOT requires DynamicParameters for SQL execution."),
+                session.Transaction,
+                _options.CommandTimeoutSeconds,
+                cancellationToken).ConfigureAwait(false);
+#else
             var rows = await connection.QueryAsync<T>(command).ConfigureAwait(false);
             return rows.AsList();
+#endif
         }
         catch (Exception caught)
         {
@@ -216,7 +240,7 @@ internal sealed class DapperSqlExecutor(
     {
         SqlScopeGuard.Validate(statement, currentTenant);
 
-        var parameters = new DynamicParameters(values);
+        var parameters = CreateDynamicParameters(values);
         if (statement.TenantBinding == SqlTenantBinding.CurrentTenantId)
         {
             parameters.Add("TenantId", currentTenant.Id!.Value);
@@ -228,6 +252,37 @@ internal sealed class DapperSqlExecutor(
             session.Transaction,
             _options.CommandTimeoutSeconds,
             cancellationToken: cancellationToken);
+    }
+
+    private static DynamicParameters CreateDynamicParameters(object? values)
+    {
+        switch (values)
+        {
+            case null:
+                return new DynamicParameters();
+            case DynamicParameters existing:
+                return existing;
+            case IReadOnlyDictionary<string, object?> dictionary:
+                var mapped = new DynamicParameters();
+                foreach (var (key, value) in dictionary)
+                {
+                    mapped.Add(key, value);
+                }
+
+                return mapped;
+            default:
+#if FULLNET_AOT_COMPILE
+                if (DapperAotParameterRegistry.TryBind(values, out var bound))
+                {
+                    return bound;
+                }
+
+                throw new InvalidOperationException(
+                    $"Native AOT SQL parameters must be DynamicParameters, IReadOnlyDictionary<string, object?>, or a registered parameter type; received {values.GetType().FullName}.");
+#else
+                return new DynamicParameters(values);
+#endif
+        }
     }
 
     private void LogExecution(

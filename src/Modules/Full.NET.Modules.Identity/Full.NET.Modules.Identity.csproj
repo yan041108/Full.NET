@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
     <ProjectReference Include="..\..\Generators\Full.NET.Messaging.Generators\Full.NET.Messaging.Generators.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
