@@ -22,7 +22,11 @@
 | `pnpm test:aot:native:kafka-replay:e2e`（Windows 发现） | 通过（2 项） | Linux 真跑待 CI |
 | **状态** | 开发中 | 目标：`Native-provider-verified: kafka-replay` |
 
-## 未验证
+## 推送与 CI
+
+- 本地 `git push` 因 GitHub 443 超时未成功（2026-08-24）；需网络恢复后推送并开 PR 触发 `api-native-aot-linux`。
+- Workflow `push` 仅监听 `main`；特性分支需 **PR** 或 `workflow_dispatch`。
+
 
 - AWS Workload Identity / 实例角色 / Web Identity
 - Worker Kafka Producer/Consumer Native 路径

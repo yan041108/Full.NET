@@ -44,6 +44,7 @@ public sealed class MessagingModule : IFullNetModule
         IConfiguration configuration)
     {
         RegisterMessagingCore(services);
+        MessagingNativeKafkaReplayTestHarness.RegisterIfTesting(services, configuration);
         services.AddOptions<DeliveryCutoverOptions>()
             .Bind(configuration.GetSection(DeliveryCutoverOptions.SectionName));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -73,6 +74,7 @@ public sealed class MessagingModule : IFullNetModule
         IConfiguration configuration)
     {
         RegisterMessagingCore(services);
+        MessagingNativeKafkaReplayTestHarness.RegisterIfTesting(services, configuration);
         RegisterSubscriptionCatalog(services);
     }
 
