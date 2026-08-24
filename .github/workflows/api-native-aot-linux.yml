@@ -15,6 +15,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - '.github/workflows/api-native-aot-linux.yml'
+      - 'docs/verification/api-native-aot-*.md'
   pull_request:
     paths:
       - 'src/**'
@@ -28,6 +29,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - '.github/workflows/api-native-aot-linux.yml'
+      - 'docs/verification/api-native-aot-*.md'
   workflow_dispatch:
 
 jobs:

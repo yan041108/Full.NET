@@ -1,8 +1,9 @@
 # Host.Api Native AOT Linux Publish 验证记录
 
-- 日期：2026-08-23
-- 分支：`cursor/api-native-aot-phase2`
-- 任务快照：`api-native-aot-phase2-review-20260824`
+- 日期：2026-08-24（fresh 复验）
+- 分支：`main`
+- 基线提交：`5d6e8c0e239d5191d06a971fdd5878fde1aaae47`
+- 任务快照：`api-native-aot-phase2-ci-20260824`
 - 关联计划：[`2026-08-23-api-native-aot-phase2.md`](../superpowers/plans/2026-08-23-api-native-aot-phase2.md)
 
 ## 状态摘要
@@ -11,15 +12,16 @@
 
 | 检查项 | 结果 | 证据 |
 |---|---|---|
-| `pnpm test:aot:analyzers` | 通过（2026-08-24，本地 fresh） | 0 warning / 0 error |
-| `pnpm test:aot:publish:linux` | 通过（2026-08-24，Windows → Docker fresh） | `artifacts/native-aot/linux-x64/publish-manifest.json`、`publish.log` |
+| `pnpm test:aot:analyzers` | 通过（2026-08-24 22:14 UTC+8 fresh，`5d6e8c0e`） | 0 warning / 0 error，构建约 1m29s |
+| `pnpm test:aot:publish:linux` | 通过（2026-08-24 22:20 UTC+8，Windows → Docker fresh） | `publish-manifest.json`（`publishMode=docker`，288087 ms）、`publish.log`（8 条已登记 IL 告警） |
+| `pnpm test:dotnet:architecture -- --selection api-native-aot` | 通过（2026-08-24 22:23 UTC+8 fresh） | 29/29 |
 | Linux 原生可执行文件 | 通过（70,253,808 bytes） | `artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api` |
-| `pnpm test:aot:native:e2e`（Windows 发现门禁） | 通过（发现 5 项、按平台跳过 5 项） | Linux 原生进程执行仍以 CI 为准 |
-| Native Smoke（live/ready/SIGTERM） | 待复验 | `NativeApiSmokeTests` |
-| SQL Server 关键 HTTP 链路 | 待复验 | `NativeApiSqlServerE2ETests` |
-| MySQL 关键 HTTP 链路 | 待复验 | `NativeApiMySqlE2ETests` |
-| SignalR JSON + Redis 配置 | 待复验 | `NativeApiSignalRJsonE2ETests` |
-| **ADR-0008 状态** | **`Aot-analysis-clean`**（Linux 外部进程 E2E 待 CI 复验） | — |
+| `pnpm test:aot:native:e2e`（Windows 发现门禁） | 通过（发现 5 项、按平台跳过 5 项） | Linux 原生进程执行以 `api-native-aot-linux` CI 为准 |
+| Native Smoke（live/ready/SIGTERM） | **CI 待跑** | `NativeApiSmokeTests` |
+| SQL Server 关键 HTTP 链路 | **CI 待跑** | `NativeApiSqlServerE2ETests` |
+| MySQL 关键 HTTP 链路 | **CI 待跑** | `NativeApiMySqlE2ETests` |
+| SignalR JSON + Redis 配置 | **CI 待跑** | `NativeApiSignalRJsonE2ETests` |
+| **ADR-0008 状态** | **`Aot-analysis-clean`**（`Aot-published` 待 Linux CI E2E 绿） | — |
 
 ## Publish 命令（权威）
 
