@@ -106,8 +106,56 @@ public sealed class NativeAotStaticBindingRulesTests
             extensionsSource,
             "RealtimeJsonSerializerContext.Default");
         Assert.IsFalse(
-            extensionsSource.Contains("AddMessagePackProtocol();", StringComparison.Ordinal)
-                && !extensionsSource.Contains("#if FULLNET_SIGNALR_MESSAGEPACK", StringComparison.Ordinal),
-            "MessagePack 协议必须受 FULLNET_SIGNALR_MESSAGEPACK 条件编译保护。");
+            extensionsSource.Contains("AddMessagePackProtocol", StringComparison.Ordinal),
+            "SignalR 已统一 JSON 协议，不得注册 MessagePack Hub 协议。");
+    }
+
+    [TestMethod]
+    public void FusionCacheL2_UsesSourceGeneratedJsonContext()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var serializerPath = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Caching.Fusion",
+            "Serialization",
+            "FullNetFusionCacheJsonSerializer.cs");
+        var contextPath = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Caching.Fusion",
+            "Serialization",
+            "FusionCacheJsonSerializerContext.cs");
+        var extensionsPath = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Caching.Fusion",
+            "ServiceCollectionExtensions.cs");
+
+        var serializerSource = File.ReadAllText(serializerPath);
+        var contextSource = File.ReadAllText(contextPath);
+        var extensionsSource = File.ReadAllText(extensionsPath);
+
+        StringAssert.Contains(serializerSource, "FusionCacheJsonSerializerContext.Default");
+        StringAssert.Contains(contextSource, "TenantResolutionCacheEntry");
+        StringAssert.Contains(contextSource, "GridPreferenceResponse");
+        StringAssert.Contains(contextSource, "DiagnosticPolicyDocument");
+        StringAssert.Contains(
+            extensionsSource,
+            "WithSerializer(new FullNetFusionCacheJsonSerializer())");
+        Assert.IsFalse(
+            extensionsSource.Contains(
+                "#if FULLNET_AOT_COMPILE",
+                StringComparison.Ordinal)
+                && extensionsSource.Contains(
+                    ".AsHybridCache();",
+                    StringComparison.Ordinal)
+                && !extensionsSource.Contains(
+                    "TryWithRegisteredDistributedCache()",
+                    StringComparison.Ordinal),
+            "Native AOT 缓存路径必须保留 Redis L2 与 Backplane 注册。");
     }
 }

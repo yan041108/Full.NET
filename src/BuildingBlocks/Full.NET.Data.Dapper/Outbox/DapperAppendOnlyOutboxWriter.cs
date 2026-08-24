@@ -54,7 +54,9 @@ internal class DapperAppendOnlyOutboxWriter(
     /// <param name="payload">事件负载对象。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <exception cref="NotSupportedException">始终抛出；请使用带 metadata 的重载。</exception>
-    public virtual Task AddAsync<TEvent>(
+    public virtual Task AddAsync<
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
@@ -73,7 +75,9 @@ internal class DapperAppendOnlyOutboxWriter(
     /// <param name="cancellationToken">取消令牌。</param>
     /// <exception cref="ArgumentException">当 eventType 格式/长度非法、schemaVersion 小于 1 时抛出。</exception>
     /// <exception cref="InvalidOperationException">当 INSERT 影响行数不为 1 时抛出。</exception>
-    public virtual async Task AddAsync<TEvent>(
+    public virtual async Task AddAsync<
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,

@@ -2,7 +2,7 @@ using System.Diagnostics.Metrics;
 using Full.NET.Caching.Fusion;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -29,7 +29,7 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
         await using var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IFusionCache>();
         cache.SetupBackplane(new ThrowingBackplane());
-        var serializer = new MessagePackIntegrationEventSerializer();
+        var serializer = new MemoryPackIntegrationEventSerializer();
         var handler = new TenantChangedCacheInvalidationHandler(
             serializer,
             new TenantCacheInvalidator(

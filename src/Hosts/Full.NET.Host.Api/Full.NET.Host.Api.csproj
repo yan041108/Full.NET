@@ -1,27 +1,77 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+
+
   <PropertyGroup>
+
     <FullNetPublishMode>Jit</FullNetPublishMode>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
-    <PublishAot>true</PublishAot>
-    <InvariantGlobalization>false</InvariantGlobalization>
+
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+
+    <PublishAot>true</PublishAot>
+
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <DefineConstants>$(DefineConstants);FULLNET_API_NATIVE_AOT</DefineConstants>
+
+    <!-- ADR-0008 §3.1：第三方程序集级 IL2104/IL3053 在 ILC 阶段不升级为错误；自有代码仍由 test:aot:analyzers 约束 -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+
+    <RuntimeHostConfigurationOption
+
+      Include="Microsoft.Data.SqlClient.EnableReflectionBasedAuthenticationProviderDiscovery"
+
+      Value="false"
+
+      Trim="true" />
+
+    <TrimmerRootAssembly Include="MemoryPack.Core" />
+
+  </ItemGroup>
+
+
+
   <ItemGroup>
+
     <ProjectReference Include="..\..\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />
+
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
+
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
+
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
+
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
+
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
-    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Messaging.Kafka\Full.NET.Messaging.Kafka.csproj" />
+
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Realtime.SignalR\Full.NET.Realtime.SignalR.csproj" />
-    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
+
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Serialization.MemoryPack\Full.NET.Serialization.MemoryPack.csproj" />
+
   </ItemGroup>
+
+  <ItemGroup Condition="'$(FullNetPublishMode)' != 'NativeAot'">
+
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Messaging.Kafka\Full.NET.Messaging.Kafka.csproj" />
+
+  </ItemGroup>
+
   <ItemGroup>
+
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+
     <PackageReference Include="Scalar.AspNetCore" />
+
   </ItemGroup>
+
+
 
 </Project>
+

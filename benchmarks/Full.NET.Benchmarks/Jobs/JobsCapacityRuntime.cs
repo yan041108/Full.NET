@@ -8,7 +8,7 @@ using Full.NET.Data.MySql;
 using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Settings.Contracts;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -163,7 +163,7 @@ public static class JobsCapacityRuntime
         services.AddScoped<ICurrentTenant>(serviceProvider =>
             serviceProvider.GetRequiredService<CurrentTenantAccessor>());
         services.AddFullNetDapper(configuration, "Benchmark");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddScoped<ISettingsSecretValueResolver, UnavailableSecretValueResolver>();
         new JobsModule().AddBackgroundServices(services, configuration);
         services.RemoveAll<IHostedService>();

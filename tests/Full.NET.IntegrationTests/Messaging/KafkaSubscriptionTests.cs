@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Confluent.Kafka;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
@@ -186,7 +186,7 @@ internal static class KafkaTestMessages
                 new Header(KafkaEnvelopeHeaderNames.EventId, Encoding.UTF8.GetBytes(eventId.ToString("D"))),
                 new Header(KafkaEnvelopeHeaderNames.MessageType, Encoding.UTF8.GetBytes(messageType)),
                 new Header(KafkaEnvelopeHeaderNames.SchemaVersion, Encoding.UTF8.GetBytes("1")),
-                new Header(KafkaEnvelopeHeaderNames.ContentType, Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMessagePack)),
+                new Header(KafkaEnvelopeHeaderNames.ContentType, Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMemoryPack)),
                 new Header(KafkaEnvelopeHeaderNames.Producer, Encoding.UTF8.GetBytes("fullnet.messaging.tests")),
                 new Header(KafkaEnvelopeHeaderNames.OccurredAtUtc, Encoding.UTF8.GetBytes(occurredAt.ToString("O"))),
             ],

@@ -82,10 +82,12 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
 
+#if !FULLNET_AOT_COMPILE
         // Dapper 内置 Guid 类型映射优先于 TypeHandler，必须先移除才会经过空值门禁。
         SqlMapper.RemoveTypeMap(typeof(Guid));
         SqlMapper.AddTypeHandler(new AssignedGuidTypeHandler());
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
+#endif
         var databaseSection = configuration.GetSection(DatabaseOptions.SectionName);
         var hasExplicitMySqlGuidStorageMode = databaseSection
             .GetSection(nameof(DatabaseOptions.MySqlGuidStorageMode))

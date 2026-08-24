@@ -7,12 +7,19 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dapper" />
+    <PackageReference Include="Dapper.AOT" Condition="'$(FullNetIsAotCompile)' == 'true'" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(FullNetIsAotCompile)' == 'true'">
+    <RuntimeHostConfigurationOption
+      Include="Microsoft.Data.SqlClient.EnableReflectionBasedAuthenticationProviderDiscovery"
+      Value="false"
+      Trim="true" />
   </ItemGroup>
 
 </Project>

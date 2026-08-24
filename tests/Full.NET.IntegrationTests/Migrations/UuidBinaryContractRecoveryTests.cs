@@ -134,7 +134,7 @@ public sealed class UuidBinaryContractRecoveryTests
             ["Database:MySqlGuidStorageMode"] = applicationMode.ToString(),
             ["Database:CommandTimeoutSeconds"] = "30",
         };
-        var builder = Host.CreateApplicationBuilder();
+        var builder = global::Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(settings);
         builder.Services.AddFullNetDapper(builder.Configuration, "Testing");
         builder.Services.AddFullNetDatabaseSchemaModeGuard();
@@ -155,7 +155,7 @@ public sealed class UuidBinaryContractRecoveryTests
             ["Database:MySqlGuidStorageMode"] = MySqlGuidStorageMode.LegacyChar36.ToString(),
             ["Database:CommandTimeoutSeconds"] = "30",
         };
-        var builder = Host.CreateApplicationBuilder();
+        var builder = global::Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(settings);
         builder.Services.AddFullNetDapper(builder.Configuration, Environments.Production);
         using var host = builder.Build();

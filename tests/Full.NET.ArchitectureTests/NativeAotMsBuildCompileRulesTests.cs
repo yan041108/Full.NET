@@ -24,6 +24,19 @@ public sealed class NativeAotMsBuildCompileRulesTests
     }
 
     [TestMethod]
+    public void RealtimeProject_JitPublishMode_DoesNotDefineMessagePackConstant()
+    {
+        var defineConstants = EvaluateMsBuildProperty(
+            "src/BuildingBlocks/Full.NET.Realtime.SignalR/Full.NET.Realtime.SignalR.csproj",
+            "DefineConstants",
+            []);
+
+        Assert.IsFalse(
+            ContainsDefineConstant(defineConstants, "FULLNET_SIGNALR_MESSAGEPACK"),
+            "JIT 发布闭包不得定义 FULLNET_SIGNALR_MESSAGEPACK。");
+    }
+
+    [TestMethod]
     public void RealtimeProject_NativeAotPublishMode_DoesNotDefineMessagePackConstant()
     {
         var defineConstants = EvaluateMsBuildProperty(

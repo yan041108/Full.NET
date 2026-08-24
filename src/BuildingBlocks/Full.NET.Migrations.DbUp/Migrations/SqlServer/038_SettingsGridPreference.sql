@@ -18,15 +18,87 @@ BEGIN
         CONSTRAINT CK_fn_settings_user_grid_preference_ColumnsJson
             CHECK (ISJSON(ColumnsJson) = 1)
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'系统设置user grid preference表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'列配置(JSON)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'ColumnsJson';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'表格键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'GridKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'SchemaVersion';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'UserId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'系统设置user grid preference表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'ColumnsJson', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'列配置(JSON)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'ColumnsJson';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'GridKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'表格键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'GridKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'SchemaVersion', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'SchemaVersion';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'UserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'UserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_settings_user_grid_preference')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_user_grid_preference'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_user_grid_preference', @level2type=N'COLUMN', @level2name=N'Version';
 
 END;
 

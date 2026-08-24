@@ -10,7 +10,7 @@ using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -47,7 +47,7 @@ public static class OutboxCapacityRunner
                     || recoveries.Count == options.Repetitions))
             {
                 Console.WriteLine(
-                    $"[{provider}] checkpoint 已完成，跳过容器启动。");
+                    $"[{provider}] checkpoint ???????????");
                 continue;
             }
 
@@ -172,8 +172,8 @@ public static class OutboxCapacityRunner
         OutboxCapacityRunBudget runBudget)
     {
         Console.WriteLine(
-            $"本次已新增 {runBudget.CompletedSamples} 个样本，"
-            + "达到 --max-new-samples，已正常保存 checkpoint。");
+            $"????? {runBudget.CompletedSamples} ????"
+            + "?? --max-new-samples?????? checkpoint?");
         Console.WriteLine(
             $"Outbox capacity artifacts: "
             + $"{Path.GetFullPath(options.OutputDirectory)}");
@@ -302,8 +302,8 @@ public static class OutboxCapacityRunner
         }
 
         probe.Reset();
-        // 预热消费者已经完全排空在途批次，补量不会与正式采样争用数据库；
-        // 采样结束只阻止领取新批次，终态写入继续使用外部取消令牌完成收尾。
+        // ???????????????????????????????
+        // ????????????????????????????????
         using var stopStartingBatches =
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
@@ -330,7 +330,7 @@ public static class OutboxCapacityRunner
         await Task.Delay(options.Duration, cancellationToken);
         stopwatch.Stop();
         await stopStartingBatches.CancelAsync();
-        // 先冻结窗口内证据，再等待在途批次排空；排空阶段不计入吞吐与正确性门禁。
+        // ???????????????????????????????????
         var handlerSnapshot = probe.Snapshot();
         var dapperSnapshot = dapper.Snapshot();
         var poolSnapshot = pool.Snapshot();
@@ -389,11 +389,11 @@ public static class OutboxCapacityRunner
             if (messages.Count != 1)
             {
                 throw new InvalidOperationException(
-                    $"遗弃租约恢复场景预期领取 1 条消息，实际为 {messages.Count}。");
+                    $"???????????? 1 ??????? {messages.Count}?");
             }
 
             abandoned = messages[0];
-            // 模拟 Handler 已开始产生副作用但进程在终态确认前退出，恢复投递必须复用同一 MessageId。
+            // ?? Handler ?????????????????????????????? MessageId?
             handler.RecordAbandonedDelivery(abandoned.Id);
         }
 
@@ -567,18 +567,18 @@ public static class OutboxCapacityRunner
 }
 
 /// <summary>
-/// 收集 Outbox 消息级失败摘要，避免容量门禁只有失败计数而缺少根因线索。
+/// ?? Outbox ????????????????????????????
 /// </summary>
-/// <typeparam name="TCategoryName">日志分类类型。</typeparam>
+/// <typeparam name="TCategoryName">???????</typeparam>
 public sealed class OutboxCapacityProcessorLogger<TCategoryName> :
     ILogger<TCategoryName>
 {
     private readonly ConcurrentQueue<string> _errors;
 
     /// <summary>
-    /// 创建共享失败队列的容量基准日志收集器。
+    /// ???????????????????
     /// </summary>
-    /// <param name="errors">保存单行异常摘要的线程安全队列。</param>
+    /// <param name="errors">????????????????</param>
     public OutboxCapacityProcessorLogger(ConcurrentQueue<string> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
@@ -636,7 +636,7 @@ public sealed class OutboxCapacityProcessorLogger<TCategoryName> :
 }
 
 /// <summary>
-/// 将容量基准中的 DI 日志路由到共享失败队列，使底层数据库错误与处理器结果进入同一份证据。
+/// ??????? DI ??????????????????????????????????
 /// </summary>
 public sealed class OutboxCapacityFailureLoggerProvider(
     ConcurrentQueue<string> errors) : ILoggerProvider
@@ -669,7 +669,7 @@ public static class OutboxCapacityServiceRegistration
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Benchmark");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddSingleton<IIntegrationEventHandler>(handler);
         return services;
     }
@@ -713,7 +713,7 @@ internal sealed class OutboxCapacityHandler(TimeSpan delay) :
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken) =>
         throw new NotSupportedException(
-            "容量基准必须使用包含 MessageId 的投递上下文。");
+            "?????????? MessageId ???????");
 
     public void Reset()
     {

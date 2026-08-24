@@ -6,7 +6,15 @@ BEGIN
         ALTER TABLE dbo.fn_codegeneration_run
             ADD SourceApplyRunId uniqueidentifier NULL;
     ');
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'来源应用运行标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'SourceApplyRunId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'SourceApplyRunId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'来源应用运行标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'SourceApplyRunId';
 END;
 
 IF OBJECT_ID(N'dbo.CK_fn_codegeneration_run_Outcome', N'C') IS NOT NULL

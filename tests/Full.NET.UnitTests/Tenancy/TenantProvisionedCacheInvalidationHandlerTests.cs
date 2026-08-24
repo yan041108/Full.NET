@@ -6,7 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,7 +31,7 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         services.AddSingleton<IHostEnvironment>(
             new TestHostEnvironment("Testing"));
         services.AddSingleton<IIntegrationEventSerializer,
-            MessagePackIntegrationEventSerializer>();
+            MemoryPackIntegrationEventSerializer>();
 
         new TenancyModule().AddBackgroundServices(
             services,
@@ -71,7 +71,7 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         await using var provider = services.BuildServiceProvider();
         var fusionCache = provider.GetRequiredService<IFusionCache>();
         var hybridCache = provider.GetRequiredService<HybridCache>();
-        var serializer = new MessagePackIntegrationEventSerializer();
+        var serializer = new MemoryPackIntegrationEventSerializer();
         var tenantId = Guid.CreateVersion7();
         const string domain = "acme.localhost";
         const string environmentName = "Testing";

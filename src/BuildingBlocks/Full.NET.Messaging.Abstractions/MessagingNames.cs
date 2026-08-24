@@ -7,7 +7,7 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public static class MessagingNames
 {
-    public const string ContentTypeMessagePack = "application/x-msgpack";
+    public const string ContentTypeMemoryPack = "application/x-memorypack";
 
     public const int PartitionKeyMaxUtf8Bytes = 256;
 

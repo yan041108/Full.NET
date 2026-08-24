@@ -9,6 +9,6 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Realtime.SignalR\Full.NET.Realtime.SignalR.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Messaging.Abstractions\Full.NET.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Messaging.Kafka\Full.NET.Messaging.Kafka.csproj" />
-    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Serialization.MessagePack\Full.NET.Serialization.MessagePack.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Serialization.MemoryPack\Full.NET.Serialization.MemoryPack.csproj" />
   </ItemGroup>
 </Project>

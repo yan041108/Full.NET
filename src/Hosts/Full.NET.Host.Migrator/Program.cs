@@ -7,7 +7,7 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -21,7 +21,7 @@ builder.Services.AddRouting();
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
-builder.Services.AddFullNetMessagePack();
+builder.Services.AddFullNetMemoryPack();
 builder.Services.AddFullNetMigrations(builder.Configuration);
 builder.Services.AddFullNetSeeding(builder.Configuration);
 builder.Services.AddFullNetApplicationModules(
@@ -105,7 +105,7 @@ catch (Exception exception)
 /// Full.NET Migrator 宿主入口；一次性进程，无 HTTP 管道。
 /// </summary>
 /// <remarks>
-/// 装配顺序：ServiceDefaults → Dapper/Caching/MessagePack → Migrations/Seeding →
+/// 装配顺序：ServiceDefaults → Dapper/Caching/MemoryPack → Migrations/Seeding →
 /// <see cref="FullNetHostProfile.Migrator"/> 模块迁移能力（仅 <c>AddMigrationServices</c>）→ <c>MigratorWorkflow</c>。
 /// <para>工作流顺序：迁移 Profile 最小闭包装配 → DbUp 执行迁移脚本 → 迁移成功后才按 CLI 运行可选 Seed Profile →
 /// 输出执行脚本数与 Seed 摘要审计；失败以稳定错误码退出。</para>

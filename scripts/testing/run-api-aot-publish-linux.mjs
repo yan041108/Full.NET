@@ -8,6 +8,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -80,13 +81,14 @@ function buildPublishShellCommand() {
   const output = shellQuote(
     `/src/${contract.outputRelativeDir.replace(/\\/g, '/')}`
   );
-  const configuration = contract.publishMsBuildProperties.Configuration;
 
-  // 必须用分号串联；空格拼接会让 head/dotnet publish 参数被 shell 误解析。
+  // 容器内先 restore 再 publish；挂载的 obj 若含 Windows NuGet 回退路径会导致 Linux SDK 失败。
   return [
     'set -euo pipefail',
+    'export NUGET_PACKAGES=/root/.nuget/packages',
     'echo "SDK version: $(dotnet --version)"',
-    `dotnet publish ${project} -c ${configuration} -r ${contract.runtimeIdentifier} --self-contained true ${propertyArgs} -o ${output} --nologo --no-restore`,
+    `dotnet restore ${project} ${propertyArgs} --nologo`,
+    `dotnet publish ${project} ${propertyArgs} -o ${output} --nologo --no-restore`,
   ].join('; ');
 }
 
@@ -108,28 +110,6 @@ function nugetPackagesVolumeMount() {
   }
 
   return `${mountPath}:/root/.nuget/packages`;
-}
-
-function preRestoreOnHost() {
-  console.log('Restoring Host.Api on host (linux-x64) for NuGet cache warm-up...');
-  const propertyArgs = Object.entries(contract.publishMsBuildProperties).flatMap(
-    ([key, value]) => ['-p', `${key}=${value}`]
-  );
-  const result = run(
-    'dotnet',
-    [
-      'restore',
-      projectPath,
-      '-r',
-      contract.runtimeIdentifier,
-      ...propertyArgs,
-      '--nologo',
-    ],
-    { cwd: contract.repositoryRoot, stdio: 'inherit' }
-  );
-  if (result.status !== 0) {
-    console.error('Host 本机 restore 失败；容器内将继续尝试 restore。');
-  }
 }
 
 function publishOnLinuxHost() {
@@ -191,8 +171,23 @@ function ensureDockerPublishImage() {
   return publishImage;
 }
 
+function clearProjectObjFolders(relativeProjectPaths) {
+  for (const relativeProjectPath of relativeProjectPaths) {
+    const objDir = path.join(
+      resolveRepositoryPath(path.dirname(relativeProjectPath)),
+      'obj'
+    );
+    if (existsSync(objDir)) {
+      rmSync(objDir, { recursive: true, force: true });
+    }
+  }
+}
+
 function publishViaDocker() {
-  preRestoreOnHost();
+  clearProjectObjFolders([
+    contract.projectRelativePath,
+    'src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj',
+  ]);
   const publishImage = ensureDockerPublishImage();
   const repoMount = contract.repositoryRoot.replace(/\\/g, '/');
   const volumeMounts = [

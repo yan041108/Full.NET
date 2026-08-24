@@ -27,20 +27,132 @@ BEGIN
         CONSTRAINT CK_fn_auditing_outbound_call_RetryCount
             CHECK (RetryCount >= 0)
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'审计出站调用表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'目标主机类别', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'DestinationHostCategory';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'耗时(毫秒)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'DurationMs';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'操作键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'OperationKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'存储提供程序键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'ProviderKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重试次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'RetryCount';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'安全错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'SafeErrorCode';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'HTTP 状态码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'StatusCode';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否成功', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'Succeeded';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'TenantId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'追踪标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'TraceId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'UserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'审计出站调用表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'DestinationHostCategory', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'目标主机类别', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'DestinationHostCategory';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'DurationMs', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'耗时(毫秒)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'DurationMs';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'OccurredAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'OperationKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'操作键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'OperationKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'ProviderKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'存储提供程序键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'ProviderKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'RetryCount', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重试次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'RetryCount';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'SafeErrorCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'安全错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'SafeErrorCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'StatusCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'HTTP 状态码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'StatusCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'Succeeded', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否成功', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'Succeeded';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'TraceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'追踪标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'TraceId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_outbound_call')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_outbound_call'), N'UserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_outbound_call', @level2type=N'COLUMN', @level2name=N'UserId';
 END;
 
 IF EXISTS

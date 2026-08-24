@@ -1,7 +1,15 @@
 IF COL_LENGTH(N'dbo.fn_identity_user', N'AccountType') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_user ADD AccountType varchar(32) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'账户类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user', @level2type=N'COLUMN', @level2name=N'AccountType';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_identity_user')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_user'), N'AccountType', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'账户类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user', @level2type=N'COLUMN', @level2name=N'AccountType';
 END;
 
 EXEC(N'UPDATE dbo.fn_identity_user SET AccountType = ''normal_user'' WHERE AccountType IS NULL;');

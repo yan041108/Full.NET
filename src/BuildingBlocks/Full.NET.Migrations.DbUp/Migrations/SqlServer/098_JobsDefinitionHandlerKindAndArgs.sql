@@ -5,12 +5,28 @@ BEGIN
     ALTER TABLE dbo.fn_jobs_definition
         ADD HandlerKind varchar(32) NOT NULL
             CONSTRAINT DF_fn_jobs_definition_HandlerKind DEFAULT ('ping');
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'内置执行器稳定机器码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'HandlerKind';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_definition')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_definition'), N'HandlerKind', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'内置执行器稳定机器码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'HandlerKind';
 END;
 
 IF COL_LENGTH(N'dbo.fn_jobs_definition', N'ArgsJson') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_definition
         ADD ArgsJson nvarchar(max) NULL;
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'执行参数 JSON；ping 必须为 NULL', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'ArgsJson';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_definition')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_definition'), N'ArgsJson', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'执行参数 JSON；ping 必须为 NULL', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'ArgsJson';
 END;

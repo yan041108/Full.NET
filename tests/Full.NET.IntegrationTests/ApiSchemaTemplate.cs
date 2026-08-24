@@ -591,7 +591,7 @@ internal static class ApiSchemaTemplate
                     SELECT COUNT(*)
                     FROM information_schema.TABLES
                     WHERE TABLE_SCHEMA = DATABASE()
-                      AND TABLE_NAME = 'SchemaVersions';
+                      AND LOWER(TABLE_NAME) = 'schemaversions';
                     """))
             .ConfigureAwait(false);
         return count == 0;

@@ -1,4 +1,4 @@
-using global::MessagePack;
+using global::MemoryPack;
 
 namespace Full.NET.Modules.Notifications.Contracts;
 
@@ -21,23 +21,23 @@ public static class NotificationRealtimeEventTypes
 /// <summary>表示 Host 公告发布事实已经与业务状态原子提交。</summary>
 /// <param name="AnnouncementId">已发布公告的稳定标识。</param>
 /// <param name="Title">供实时客户端刷新前展示的公告标题。</param>
-[MessagePackObject]
-public sealed record AnnouncementPublishedIntegrationEvent(
-    [property: Key(0)] Guid AnnouncementId,
-    [property: Key(1)] string Title);
+[MemoryPackable]
+public partial record AnnouncementPublishedIntegrationEvent(
+    Guid AnnouncementId,
+    string Title);
 
 /// <summary>表示一条 Host 站内信已经与业务状态原子提交。</summary>
 /// <param name="RecipientUserId">接收站内信的 Host 用户标识。</param>
 /// <param name="MessageId">已送达站内信的稳定标识。</param>
 /// <param name="Title">供实时客户端刷新前展示的站内信标题。</param>
-[MessagePackObject]
-public sealed record InboxMessageReceivedIntegrationEvent(
-    [property: Key(0)] Guid RecipientUserId,
-    [property: Key(1)] Guid MessageId,
-    [property: Key(2)] string Title);
+[MemoryPackable]
+public partial record InboxMessageReceivedIntegrationEvent(
+    Guid RecipientUserId,
+    Guid MessageId,
+    string Title);
 
 /// <summary>表示指定 Host 用户的站内信已读状态已经提交变更。</summary>
 /// <param name="RecipientUserId">需要重新读取未读数的 Host 用户标识。</param>
-[MessagePackObject]
-public sealed record InboxReadStateChangedIntegrationEvent(
-    [property: Key(0)] Guid RecipientUserId);
+[MemoryPackable]
+public partial record InboxReadStateChangedIntegrationEvent(
+    Guid RecipientUserId);

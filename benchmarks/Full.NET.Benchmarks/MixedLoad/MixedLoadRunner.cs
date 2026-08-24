@@ -1241,7 +1241,7 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
             var parameters = new DynamicParameters();
             parameters.Add("MessageType", "benchmark.retention.expired");
             parameters.Add("SchemaVersion", 1);
-            parameters.Add("ContentType", "application/x-msgpack");
+            parameters.Add("ContentType", "application/x-memorypack");
             parameters.Add("Payload", new byte[] { 0x90 });
             parameters.Add("OccurredAtUtc", occurredAtUtc);
             parameters.Add("ProcessedAtUtc", processedAtUtc);
@@ -1311,7 +1311,7 @@ internal abstract class MixedLoadDatabase : IAsyncDisposable
             var parameters = new DynamicParameters();
             parameters.Add("MessageType", messageType);
             parameters.Add("SchemaVersion", 1);
-            parameters.Add("ContentType", "application/x-msgpack");
+            parameters.Add("ContentType", "application/x-memorypack");
             parameters.Add("Payload", payload);
             parameters.Add("OccurredAtUtc", occurredAtUtc);
             for (var index = 0; index < currentBatchSize; index++)

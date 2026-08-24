@@ -4,7 +4,15 @@ IF COL_LENGTH(N'dbo.fn_jobs_execution', N'NextAttemptAtUtc') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_execution
         ADD NextAttemptAtUtc datetimeoffset(7) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次重试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_execution', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_jobs_execution')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_execution'), N'NextAttemptAtUtc', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次重试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_execution', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
 END;
 
 IF EXISTS

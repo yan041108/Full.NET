@@ -4,7 +4,7 @@
 
 本文档说明 Full.NET 当前 Outbox Worker 的默认部署拓扑、运行参数、死信语义与受控人工重放边界。它只覆盖当前仓库已经实现的能力：
 
-- MessagePack `application/x-msgpack` 载荷；
+- MemoryPack `application/x-memorypack` 载荷；
 - `(MessageType, SchemaVersion)` 精确路由；
 - 稳定消息上下文与 Handler 幂等策略启动门禁；
 - 数据库租约领取；
@@ -191,7 +191,7 @@ Worker 将 `Full.NET.Outbox` Meter 接入 OpenTelemetry，并按
 | `outbox.unsupported_content_type` | `ContentType` 不是当前 Worker 支持的线格式 |
 | `outbox.handler_not_found` | 找不到当前 `MessageType + SchemaVersion` 的唯一处理器 |
 | `outbox.ambiguous_handler` | 同一路由存在多个处理器 |
-| `outbox.invalid_payload` | MessagePack/格式损坏，继续重试无法恢复 |
+| `outbox.invalid_payload` | MemoryPack/格式损坏，继续重试无法恢复 |
 | `outbox.max_attempts_exceeded` | 瞬时失败累计达到 `OutboxWorker:MaxAttempts` 上限 |
 
 当前不会进入死信的场景：

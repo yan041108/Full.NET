@@ -142,8 +142,8 @@ Production 只允许 Baseline，测试专用数据不得进入发布物。
 `IRealtimeNotifier` 的 SignalR 实现，Hub 注册和连接管理在此封装。
 业务模块不感知 SignalR 细节。
 
-**`Full.NET.Serialization.MessagePack`**
-高性能二进制序列化，用于 Outbox 消息体等内部高吞吐场景。
+**`Full.NET.Serialization.MemoryPack`**
+高性能二进制序列化（MemoryPack 源生成），用于 Outbox 消息体等内部高吞吐场景。
 对外 HTTP API 使用 System.Text.Json，两者边界明确，不混用。
 
 **`Full.NET.Validation.FluentValidation`**

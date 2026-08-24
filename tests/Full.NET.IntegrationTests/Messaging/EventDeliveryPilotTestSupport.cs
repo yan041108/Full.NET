@@ -17,7 +17,7 @@ using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.Messaging.Features.ChangeDeliveryOwner;
 using Full.NET.Modules.Messaging.Features.RollbackDeliveryOwner;
 using Full.NET.Modules.Messaging.Persistence;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -57,7 +57,7 @@ internal static class EventDeliveryPilotTestSupport
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddOptions<DeliveryCutoverOptions>()
             .Configure(configured => configured.Enabled = cutoverEnabled);
         services.AddSingleton(
@@ -196,7 +196,7 @@ internal static class EventDeliveryPilotTestSupport
             Id = id,
             MessageType = eventType,
             SchemaVersion = schemaVersion,
-            ContentType = "application/x-msgpack",
+            ContentType = "application/x-memorypack",
             Payload = Array.Empty<byte>(),
             TenantId = tenantId,
             TraceId = (string?)null,

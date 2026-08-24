@@ -402,7 +402,7 @@ public sealed class IntegrationEventConsumerDispatcherTests
             eventId ?? Guid.CreateVersion7(),
             EventType,
             1,
-            MessagingNames.ContentTypeMessagePack,
+            MessagingNames.ContentTypeMemoryPack,
             tenantId,
             Guid.CreateVersion7().ToString("D"),
             "inbox-unit-test",

@@ -185,7 +185,7 @@ public sealed class DapperIntegrationEventInboxTests
             Guid.CreateVersion7(),
             "fullnet.messaging.inbox.test.event",
             1,
-            MessagingNames.ContentTypeMessagePack,
+            MessagingNames.ContentTypeMemoryPack,
             null,
             "aggregate-1",
             "inbox-unit-test",

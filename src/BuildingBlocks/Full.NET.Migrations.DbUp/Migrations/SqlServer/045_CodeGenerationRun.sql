@@ -60,21 +60,141 @@ BEGIN
         CONSTRAINT CK_fn_codegeneration_run_Time
             CHECK (FinishedAtUtc >= StartedAtUtc)
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'代码生成运行表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'产物数量', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ArtifactCount';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'实体键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'EntityKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ErrorCode';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'结束时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'FinishedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'清单 SHA256', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ManifestSha256';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'模块键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ModuleKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'操作类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'OperationKind';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'请求人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'RequestedByUserId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema SHA256', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'SchemaSha256';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'开始时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'StartedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'Status';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'模板标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'TemplateId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'模板版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'TemplateVersion';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'代码生成运行表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'ArtifactCount', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'产物数量', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ArtifactCount';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'EntityKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'实体键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'EntityKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'ErrorCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ErrorCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'FinishedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'结束时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'FinishedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'ManifestSha256', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'清单 SHA256', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ManifestSha256';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'ModuleKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'模块键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'ModuleKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'OperationKind', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'操作类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'OperationKind';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'RequestedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'请求人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'RequestedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'SchemaSha256', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema SHA256', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'SchemaSha256';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'StartedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'开始时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'StartedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'Status', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'Status';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'TemplateId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'模板标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'TemplateId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_codegeneration_run')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_codegeneration_run'), N'TemplateVersion', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'模板版本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_codegeneration_run', @level2type=N'COLUMN', @level2name=N'TemplateVersion';
 END;
 
 IF EXISTS

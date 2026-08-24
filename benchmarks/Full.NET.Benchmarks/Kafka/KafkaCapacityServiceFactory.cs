@@ -8,7 +8,7 @@ using Full.NET.Data.Dapper.Outbox;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
 using Full.NET.Modularity.Messaging;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -69,7 +69,7 @@ public static class KafkaCapacityServiceFactory
             .Configure(options => CopyKafkaOptions(configuration.Kafka, options));
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
@@ -136,7 +136,7 @@ public static class KafkaCapacityServiceFactory
 
         // WorkerParity：移除 Fast 专用 serializer/ownership override，保留 AddFullNetDapper 默认门控。
         services.RemoveAll<IIntegrationEventSerializer>();
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
     }
 
     private static ServiceProvider BuildProvider(ServiceCollection services) =>

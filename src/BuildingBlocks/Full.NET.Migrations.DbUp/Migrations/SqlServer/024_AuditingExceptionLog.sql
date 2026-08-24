@@ -16,18 +16,114 @@ BEGIN
         ClientIpFingerprint varchar(64) COLLATE Latin1_General_100_BIN2 NULL,
         CONSTRAINT PK_fn_auditing_exception_log PRIMARY KEY NONCLUSTERED (Id)
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'审计异常日志表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'客户端 IP 指纹', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'ClientIpFingerprint';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'异常类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'ExceptionType';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'HTTP 方法', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'HttpMethod';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息文本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'Message';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'请求路径', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'RequestPath';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'堆栈跟踪', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'StackTrace';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'TenantId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'追踪标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'TraceId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'UserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'审计异常日志表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'ClientIpFingerprint', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'客户端 IP 指纹', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'ClientIpFingerprint';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'ExceptionType', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'异常类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'ExceptionType';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'HttpMethod', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'HTTP 方法', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'HttpMethod';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'Message', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息文本', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'Message';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'OccurredAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'RequestPath', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'请求路径', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'RequestPath';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'StackTrace', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'堆栈跟踪', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'StackTrace';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'TraceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'追踪标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'TraceId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_auditing_exception_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_auditing_exception_log'), N'UserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_auditing_exception_log', @level2type=N'COLUMN', @level2name=N'UserId';
     CREATE CLUSTERED INDEX IX_fn_auditing_exception_log_OccurredAtUtc_Id
         ON dbo.fn_auditing_exception_log(OccurredAtUtc, Id);
     CREATE INDEX IX_fn_auditing_exception_log_ExceptionType_OccurredAtUtc

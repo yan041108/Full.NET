@@ -143,7 +143,7 @@ public sealed class KafkaCapacityOutboxCdcTests
     public void Raw_outbox_serializer_uses_messagepack_content_type_for_envelope_contract()
     {
         var serializer = new KafkaCapacityRawIntegrationEventSerializer();
-        Assert.AreEqual(MessagingNames.ContentTypeMessagePack, serializer.ContentType);
+        Assert.AreEqual(MessagingNames.ContentTypeMemoryPack, serializer.ContentType);
     }
 
     [TestMethod]

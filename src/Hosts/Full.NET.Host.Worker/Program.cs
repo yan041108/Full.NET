@@ -12,7 +12,7 @@ using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Realtime.SignalR;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Options;
 
@@ -40,7 +40,7 @@ builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetDatabaseSchemaModeGuard();
-builder.Services.AddFullNetMessagePack();
+builder.Services.AddFullNetMemoryPack();
 builder.Services
     .AddOpenTelemetry()
     .WithMetrics(metrics => metrics
@@ -216,7 +216,7 @@ static Task WriteErrorAsync(string code) =>
 /// Full.NET Worker 宿主入口；只承载后台任务，无 HTTP 管道。
 /// </summary>
 /// <remarks>
-/// 装配顺序：ServiceDefaults → Dapper/Caching/MessagePack/Realtime Publisher →
+/// 装配顺序：ServiceDefaults → Dapper/Caching/MemoryPack/Realtime Publisher →
 /// <see cref="FullNetHostProfile.Worker"/> 模块后台能力（仅 <c>AddBackgroundServices</c>）→ 后台服务与 Kafka 消费。
 /// <para>后台服务按 <c>MessagingWorkerMode</c> 选择注册：<c>OutboxProcessor</c>、<c>OutboxRetentionProcessor</c>、
 /// <c>ShadowEventComparisonProcessor</c> 与 Kafka 消费者；<c>CdcKafka</c> 作为过时别名规范化为 <c>HybridKafka</c>。</para>

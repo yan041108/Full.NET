@@ -6,5 +6,13 @@ BEGIN
     ALTER TABLE dbo.fn_jobs_definition
         ADD AllowConcurrentExecutions bit NOT NULL
             CONSTRAINT DF_fn_jobs_definition_AllowConcurrentExecutions DEFAULT (0);
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否允许同一作业重叠执行', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'AllowConcurrentExecutions';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_definition')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_definition'), N'AllowConcurrentExecutions', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否允许同一作业重叠执行', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'AllowConcurrentExecutions';
 END;

@@ -3,7 +3,7 @@ using BenchmarkDotNet.Attributes;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Serialization;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 
 namespace Full.NET.Benchmarks;
 
@@ -23,14 +23,14 @@ public class SerializationBenchmarks
         "acme",
         "acme.localhost");
 
-    private readonly IIntegrationEventSerializer _messagePack =
-        new MessagePackIntegrationEventSerializer();
+    private readonly IIntegrationEventSerializer _memoryPack =
+        new MemoryPackIntegrationEventSerializer();
 
-    private byte[] _messagePackPayload = [];
+    private byte[] _memoryPackPayload = [];
 
     [GlobalSetup]
     public void Setup() =>
-        _messagePackPayload = _messagePack.Serialize(_event);
+        _memoryPackPayload = _memoryPack.Serialize(_event);
 
     [Benchmark(Baseline = true)]
     public byte[] SystemTextJsonSourceGenerated() =>
@@ -39,11 +39,11 @@ public class SerializationBenchmarks
             TenancyJsonSerializerContext.Default.TenantSummary);
 
     [Benchmark]
-    public byte[] MessagePackSerialize() =>
-        _messagePack.Serialize(_event);
+    public byte[] MemoryPackSerialize() =>
+        _memoryPack.Serialize(_event);
 
     [Benchmark]
-    public TenantProvisionedIntegrationEvent MessagePackDeserialize() =>
-        _messagePack.Deserialize<TenantProvisionedIntegrationEvent>(
-            _messagePackPayload);
+    public TenantProvisionedIntegrationEvent MemoryPackDeserialize() =>
+        _memoryPack.Deserialize<TenantProvisionedIntegrationEvent>(
+            _memoryPackPayload);
 }

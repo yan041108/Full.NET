@@ -47,7 +47,7 @@ internal sealed class TenantResolver(
                             new { Domain = normalizedDomain },
                             token)
                         .ConfigureAwait(false);
-                    return new CachedTenantResolution(tenant?.ToSummary());
+                    return TenantResolutionCacheMapper.ToCacheEntry(tenant?.ToSummary());
                 },
                 policies.CreateHybridEntryOptions(
                     CacheEntryNames.TenantResolution,
@@ -56,8 +56,9 @@ internal sealed class TenantResolver(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (loaded && entry.Tenant is { IsActive: true } activeTenant)
+        if (loaded && entry.Tenant is { IsActive: true } activePayload)
         {
+            var activeTenant = TenantResolutionCacheMapper.ToTenantSummary(activePayload)!;
             await cache.SetAsync(
                     cacheKey,
                     entry,
@@ -67,7 +68,7 @@ internal sealed class TenantResolver(
                 .ConfigureAwait(false);
         }
 
-        return entry.Tenant;
+        return TenantResolutionCacheMapper.ToTenantSummary(entry);
     }
 
     public async Task<TenantSummary?> ResolveByIdAsync(
@@ -83,7 +84,7 @@ internal sealed class TenantResolver(
                 async token =>
                 {
                     loaded = true;
-                    return new CachedTenantResolution(
+                    return TenantResolutionCacheMapper.ToCacheEntry(
                         (await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                             TenantSql.FindById,
                             new { TenantId = tenantId },
@@ -107,7 +108,7 @@ internal sealed class TenantResolver(
                 .ConfigureAwait(false);
         }
 
-        return entry.Tenant;
+        return TenantResolutionCacheMapper.ToTenantSummary(entry);
     }
 
     public async Task<TenantContext?> ResolveActiveByIdAsync(
@@ -135,6 +136,4 @@ internal sealed class TenantResolver(
         ArgumentException.ThrowIfNullOrWhiteSpace(domain);
         return domain.Trim().TrimEnd('.').ToLowerInvariant();
     }
-
-    private sealed record CachedTenantResolution(TenantSummary? Tenant);
 }

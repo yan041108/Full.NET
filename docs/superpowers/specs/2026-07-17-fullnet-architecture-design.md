@@ -148,7 +148,7 @@ Full.NET/
 │   │   ├── Full.NET.Modularity
 │   │   ├── Full.NET.Data.Abstractions
 │   │   ├── Full.NET.Data.Dapper
-│   │   ├── Full.NET.Serialization.MessagePack
+│   │   ├── Full.NET.Serialization.MemoryPack
 │   │   ├── Full.NET.Migrations.DbUp
 │   │   ├── Full.NET.Caching.Fusion
 │   │   ├── Full.NET.Realtime.Abstractions
@@ -300,16 +300,16 @@ Api、Worker、Migrator 和 Test 使用显式 Host Profile 声明完整模块或
 | Admin.NET 兼容 API | HTTP 适配器 | System.Text.Json | 只改变响应形状，不伪造 HTTP 200 |
 | 同进程模块 | Contract Service、Command/Query | 无 | 不制造网络边界和序列化开销 |
 | 跨进程同步服务 | gRPC | Protobuf | 复用 Channel，统一 Deadline、取消、认证和追踪 |
-| 内部可靠异步事件 | Outbox + EventBus Provider | MessagePack；跨语言时可选 Protobuf | 二进制原样存储，消费者幂等，契约显式版本化 |
-| 浏览器实时通信 | SignalR | MessagePack 优先，JSON 兼容 | 不是内部 EventBus，不承载业务事务；Host.Api Native AOT 发布与分析构建仅 JSON，见 [`ADR-0008`](../../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) |
+| 内部可靠异步事件 | Outbox + EventBus Provider | MemoryPack（`application/x-memorypack`）；跨语言时可选 Protobuf | 二进制原样存储，消费者幂等，契约显式版本化 |
+| 浏览器实时通信 | SignalR | JSON + 源生成元数据 | 不是内部 EventBus，不承载业务事务；见 [`ADR-0008`](../../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) |
 | 文件和超大二进制 | HTTP 流或对象存储引用 | 原始二进制 | 不放入单个 gRPC/SignalR/Outbox 大消息 |
 | MCP、AG-UI 等开放 AI 协议 | 协议规定的 HTTP、SSE、JSON-RPC | 按协议标准 | 这是互操作边界，不受“内部业务消息不用 JSON”限制 |
 
-gRPC 是 RPC 框架，MessagePack 是序列化格式，二者不作为同层替代项。Full.NET 不在 gRPC 中嵌套 MessagePack，也不为了未来可能拆分服务而让当前模块化单体内部走 gRPC。
+gRPC 是 RPC 框架，MemoryPack 是序列化格式，二者不作为同层替代项。Full.NET 不在 gRPC 中嵌套 MemoryPack，也不为了未来可能拆分服务而让当前模块化单体内部走 gRPC。
 
 ### 5.5 二进制契约演进与安全
 
-MessagePack 集成事件使用显式 `[MessagePackObject]` 和整数 `[Key(n)]`。字段只能在尾部追加；已发布 Key 不得重排、复用或改变语义，删除字段后保留其编号。禁止 Typeless 和 Contractless Resolver，所有网络、数据库及消息来源均按不可信数据处理，启用 `MessagePackSecurity.UntrustedData` 并使用最新无已知高危漏洞的受支持版本。
+MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，由源生成器产出 AOT 友好格式化器。字段只能在尾部追加；已发布顺序不得重排、复用或改变语义。禁止反射式 Contractless 解析；所有网络、数据库及消息来源均按不可信数据处理，消费方须校验字段边界。
 
 每个可靠事件保存 `MessageId`、`MessageType`、`SchemaVersion`、`ContentType`、`TenantId`、`TraceId` 和 `OccurredAt` 等可查询元数据。载荷以 SQL Server `varbinary(max)` 或 MySQL `longblob` 保存，不做 Base64，不依赖人工直接阅读二进制正文。压缩只在基准证明载荷大小收益超过 CPU 成本时按阈值启用。
 
@@ -458,7 +458,7 @@ Query 默认不启动显式事务。Outbox 记录与业务数据在同一事务�
 
 Outbox 只承载需要与业务事务原子提交、可靠重试和跨模块/跨进程交付的重要业务 Integration Event。缓存失效、日志、Metrics、Trace、普通 HTTP Operation Log 和 Audit 均不使用 Outbox；Domain Audit 若要求“无审计不成功”，必须作为业务事实直接加入同一数据库事务，而不是转换为 Outbox 消息。
 
-Outbox 默认用 MessagePack 保存二进制载荷，并将消息类型、模式版本和内容类型保存为独立列。Worker 根据 `MessageType + SchemaVersion` 选择唯一处理器；处理器通过统一 `IIntegrationEventSerializer` 反序列化强类型事件。Outbox 处理路径不解析 JSON，也不启用 Typeless 反序列化。
+Outbox 默认用 MemoryPack 保存二进制载荷（`application/x-memorypack`），并将消息类型、模式版本和内容类型保存为独立列。Worker 根据 `MessageType + SchemaVersion` 选择唯一处理器；处理器通过统一 `IIntegrationEventSerializer` 反序列化强类型事件。Outbox 处理路径不解析 JSON，也不启用 Typeless 反序列化。
 
 跨模块立即一致操作通过 Contract Service 完成；最终一致操作通过 Integration Event 完成。不使用分布式事务。
 

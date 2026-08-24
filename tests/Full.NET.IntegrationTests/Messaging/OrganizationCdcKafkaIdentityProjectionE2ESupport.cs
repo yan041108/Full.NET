@@ -11,7 +11,7 @@ using Full.NET.Modularity.Messaging;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
@@ -108,7 +108,7 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddScoped<OrganizationUnitProjectionWriter>();
         services.AddScoped<IIntegrationEventHandler, OrganizationUnitChangedIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventSubscription, OrganizationUnitChangedKafkaSubscription>();

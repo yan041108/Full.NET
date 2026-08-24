@@ -6,7 +6,7 @@ using Full.NET.Data.MySql;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
 using Full.NET.Realtime.SignalR;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -100,7 +100,7 @@ public sealed class ModuleSelectionEndpointTests
         builder.AddFullNetServiceDefaults();
         builder.Services.AddFullNetDapper(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetDatabaseSchemaModeGuard();
-        builder.Services.AddFullNetMessagePack();
+        builder.Services.AddFullNetMemoryPack();
         builder.Services.AddFullNetCaching(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetRealtimeSignalR(
             builder.Configuration,

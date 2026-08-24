@@ -8,23 +8,23 @@ using Full.NET.Data.Dapper.Outbox;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Migrations.DbUp;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using global::MessagePack;
+using global::MemoryPack;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
-internal static class MessagingOutboxTestSupport
+internal static partial class MessagingOutboxTestSupport
 {
     internal const string TestEventType = "fullnet.messaging.outbox.test.event";
     internal const int TestSchemaVersion = 1;
 
-    [MessagePackObject(AllowPrivate = true)]
-    internal sealed record MessagingOutboxTestPayload([property: Key(0)] string Value);
+    [MemoryPackable]
+    internal partial record MessagingOutboxTestPayload(string Value);
 
     internal static async Task MigrateAsync(DatabaseOptions options)
     {
@@ -65,7 +65,7 @@ internal static class MessagingOutboxTestSupport
         services.AddSingleton<IEffectiveEventDeliveryOwnerResolver, AppendOnlyCdcOwnerResolver>();
         services.RemoveAll<IEventStreamOwnershipGate>();
         services.AddSingleton<IEventStreamOwnershipGate, PermissiveEventStreamOwnershipGate>();
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,

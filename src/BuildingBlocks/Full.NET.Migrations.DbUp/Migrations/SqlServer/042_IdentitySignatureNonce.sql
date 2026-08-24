@@ -15,12 +15,60 @@ BEGIN
         CONSTRAINT CK_fn_identity_signature_nonce_NonceDigest
             CHECK (LEN(NonceDigest) = 64)
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证签名随机数表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'访问密钥标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'AccessKeyId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'过期时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'ExpiresAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'随机数摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'NonceDigest';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_signature_nonce')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证签名随机数表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_signature_nonce')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_signature_nonce'), N'AccessKeyId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'访问密钥标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'AccessKeyId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_signature_nonce')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_signature_nonce'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_signature_nonce')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_signature_nonce'), N'ExpiresAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'过期时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'ExpiresAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_signature_nonce')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_signature_nonce'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_signature_nonce')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_signature_nonce'), N'NonceDigest', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'随机数摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_signature_nonce', @level2type=N'COLUMN', @level2name=N'NonceDigest';
 END;
 
 IF NOT EXISTS

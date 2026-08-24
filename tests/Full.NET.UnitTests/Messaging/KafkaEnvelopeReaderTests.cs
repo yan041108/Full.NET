@@ -24,7 +24,7 @@ public sealed class KafkaEnvelopeReaderTests
                 [KafkaEnvelopeHeaderNames.EventId] = eventId.ToString("D"),
                 [KafkaEnvelopeHeaderNames.MessageType] = "fullnet.messaging.kafka.test.event",
                 [KafkaEnvelopeHeaderNames.SchemaVersion] = "1",
-                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMessagePack,
+                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMemoryPack,
                 [KafkaEnvelopeHeaderNames.TenantId] = tenantId.ToString("D"),
                 [KafkaEnvelopeHeaderNames.CorrelationId] = eventId.ToString("D"),
                 [KafkaEnvelopeHeaderNames.TraceParent] = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
@@ -75,7 +75,7 @@ public sealed class KafkaEnvelopeReaderTests
                 [KafkaEnvelopeHeaderNames.EventId] = Convert.ToBase64String(bytes),
                 [KafkaEnvelopeHeaderNames.MessageType] = "fullnet.messaging.outbox.test.event",
                 [KafkaEnvelopeHeaderNames.SchemaVersion] = "1",
-                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMessagePack,
+                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMemoryPack,
                 [KafkaEnvelopeHeaderNames.Producer] = "fullnet.messaging.tests",
                 [KafkaEnvelopeHeaderNames.OccurredAtUtc] = "1786279788230443",
             });
@@ -98,7 +98,7 @@ public sealed class KafkaEnvelopeReaderTests
             {
                 [KafkaEnvelopeHeaderNames.MessageType] = "fullnet.messaging.kafka.test.event",
                 [KafkaEnvelopeHeaderNames.SchemaVersion] = "1",
-                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMessagePack,
+                [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMemoryPack,
                 [KafkaEnvelopeHeaderNames.Producer] = "fullnet.messaging",
                 [KafkaEnvelopeHeaderNames.OccurredAtUtc] = DateTimeOffset.UtcNow.ToString("O"),
             });
@@ -149,7 +149,7 @@ public sealed class KafkaEnvelopeReaderTests
             [KafkaEnvelopeHeaderNames.EventId] = Guid.CreateVersion7().ToString("D"),
             [KafkaEnvelopeHeaderNames.MessageType] = messageType,
             [KafkaEnvelopeHeaderNames.SchemaVersion] = "1",
-            [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMessagePack,
+            [KafkaEnvelopeHeaderNames.ContentType] = MessagingNames.ContentTypeMemoryPack,
             [KafkaEnvelopeHeaderNames.Producer] = "fullnet.messaging",
             [KafkaEnvelopeHeaderNames.OccurredAtUtc] = DateTimeOffset.UtcNow.ToString("O"),
         };

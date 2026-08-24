@@ -7,10 +7,12 @@ using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Realtime.SignalR;
-using Full.NET.Serialization.MessagePack;
-using MessagePack;
+using Full.NET.Serialization.MemoryPack;
+using global::MemoryPack;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
@@ -30,8 +32,20 @@ public sealed class SerializationRulesTests
         "TypelessFormatter",
         "TypelessContractlessStandardResolver",
         "ContractlessStandardResolver",
+        "MessagePackSerializer",
         "MessagePackSerializer.DefaultOptions",
+        "AddMessagePackProtocol",
         "Newtonsoft.Json",
+    ];
+
+    private static readonly Type[] ProductionIntegrationEventTypes =
+    [
+        typeof(TenantProvisionedIntegrationEvent),
+        typeof(TenantChangedIntegrationEvent),
+        typeof(AnnouncementPublishedIntegrationEvent),
+        typeof(InboxMessageReceivedIntegrationEvent),
+        typeof(InboxReadStateChangedIntegrationEvent),
+        typeof(IdentityOrganizationUnitChangedIntegrationEvent),
     ];
 
     [TestMethod]
@@ -57,41 +71,25 @@ public sealed class SerializationRulesTests
     }
 
     [TestMethod]
-    public void MessagePackSerializer_EnforcesUntrustedDataSecurity()
+    public void MemoryPackSerializer_UsesStableContentType()
     {
-        var repositoryRoot = FindRepositoryRoot();
-        var path = Path.Combine(
-            repositoryRoot,
-            "src",
-            "BuildingBlocks",
-            "Full.NET.Serialization.MessagePack",
-            "MessagePackIntegrationEventSerializer.cs");
-        var source = File.ReadAllText(path);
+        var serializer = new MemoryPackIntegrationEventSerializer();
 
-        StringAssert.Contains(
-            source,
-            "WithSecurity(MessagePackSecurity.UntrustedData)");
-        foreach (var token in ForbiddenTokens)
-        {
-            Assert.DoesNotContain(token, source, StringComparison.Ordinal);
-        }
+        Assert.AreEqual("application/x-memorypack", serializer.ContentType);
     }
 
     [TestMethod]
-    public void TenantProvisionedEvent_UsesUniqueIntegerKeysZeroThroughTwo()
+    public void IntegrationEvents_UseMemoryPackablePartialRecords()
     {
-        var eventType = typeof(TenantProvisionedIntegrationEvent);
-        Assert.IsNotNull(eventType.GetCustomAttribute<MessagePackObjectAttribute>());
-        var keys = eventType
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Select(property => property.GetCustomAttribute<KeyAttribute>())
-            .Where(attribute => attribute is not null)
-            .Select(attribute => attribute!.IntKey)
-            .OrderBy(key => key)
-            .ToArray();
-
-        CollectionAssert.AreEqual(new[] { 0, 1, 2 }, keys);
-        Assert.AreEqual(keys.Length, keys.Distinct().Count());
+        foreach (var eventType in ProductionIntegrationEventTypes)
+        {
+            Assert.IsNotNull(
+                eventType.GetCustomAttribute<MemoryPackableAttribute>(),
+                $"{eventType.FullName} ???? [MemoryPackable]?");
+            Assert.IsTrue(
+                eventType.IsDefined(typeof(MemoryPackableAttribute), inherit: false),
+                $"{eventType.FullName} ??? partial ??????????");
+        }
     }
 
     private static bool IsGeneratedOutput(string path) =>
@@ -122,7 +120,7 @@ public sealed class SerializationRulesTests
         builder.AddFullNetServiceDefaults();
         builder.Services.AddFullNetDapper(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetDatabaseSchemaModeGuard();
-        builder.Services.AddFullNetMessagePack();
+        builder.Services.AddFullNetMemoryPack();
         builder.Services.AddFullNetCaching(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetRealtimeSignalR(
             builder.Configuration,
@@ -192,7 +190,7 @@ public sealed class SerializationRulesTests
         Assert.HasCount(
             0,
             productionContracts,
-            "下列 HTTP Endpoint 契约未纳入已注册的 System.Text.Json 源生成上下文："
+            "?? HTTP Endpoint ????????? System.Text.Json ???????"
             + Environment.NewLine
             + string.Join(Environment.NewLine, productionContracts));
     }

@@ -8,7 +8,7 @@ using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Realtime.SignalR;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Microsoft.AspNetCore.Authorization;
@@ -619,7 +619,7 @@ public sealed class EndpointAuthorizationTests
         builder.AddFullNetServiceDefaults();
         builder.Services.AddFullNetDapper(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetDatabaseSchemaModeGuard();
-        builder.Services.AddFullNetMessagePack();
+        builder.Services.AddFullNetMemoryPack();
         builder.Services.AddFullNetCaching(builder.Configuration, builder.Environment.EnvironmentName);
         builder.Services.AddFullNetRealtimeSignalR(
             builder.Configuration,

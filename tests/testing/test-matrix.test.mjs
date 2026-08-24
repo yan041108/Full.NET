@@ -44,8 +44,8 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
   assert.deepEqual(
     matrix.dotnetSuites.architecture.selections['api-native-aot'],
     {
-      filter: 'FullyQualifiedName~NativeAot',
-      minimum: 22
+      filter: 'FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol',
+      minimum: 27
     }
   );
   assert.deepEqual(matrix.nativeAotPublish.runtimeIdentifier, 'linux-x64');
@@ -113,13 +113,13 @@ test('快速套件从测试矩阵解析命名聚焦集', () => {
   });
 
   assert.ok(args.includes('--filter'));
-  assert.ok(args.includes('FullyQualifiedName~NativeAot'));
+  assert.ok(args.includes('FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol'));
   assert.deepEqual(
     args.slice(
       args.indexOf('--minimum-expected-tests'),
       args.indexOf('--minimum-expected-tests') + 2
     ),
-    ['--minimum-expected-tests', '22']
+    ['--minimum-expected-tests', '27']
   );
   assert.deepEqual(parseSuiteOptions([
     '--no-build',

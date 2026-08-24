@@ -16,7 +16,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +38,14 @@ public sealed class DevelopmentSeedTests
     private const string BootstrapPassword = "Seed-Admin!Integration42";
     private const string BootstrapDisplayName = "种子管理员";
     private const string TenantProvisionedEventType = "fullnet.tenancy.tenant.provisioned";
+
+    private static readonly string[] DevelopmentContributors =
+    [
+        "identity.host_administrator",
+        "identity.host_navigation_catalog",
+        "settings.host_user_profile_dictionaries",
+        "tenancy.local_tenant",
+    ];
 
     [TestMethod]
     public async Task SqlServer_development_seed_contract()
@@ -85,8 +93,8 @@ public sealed class DevelopmentSeedTests
         await AssertDevelopmentDataStateAsync(scope.ServiceProvider, options, 1L);
         await AssertLatestRunContributorsAsync(
             options,
-            ["identity.host_administrator", "tenancy.local_tenant"],
-            ["identity.host_administrator", "tenancy.local_tenant"]);
+            DevelopmentContributors,
+            DevelopmentContributors);
 
         var second = await orchestrator.RunAsync(SeedProfile.Development);
         Assert.IsTrue(second.IsSuccess, second.Error?.Code);
@@ -98,8 +106,8 @@ public sealed class DevelopmentSeedTests
         await AssertDevelopmentDataStateAsync(scope.ServiceProvider, options, 2L);
         await AssertLatestRunContributorsAsync(
             options,
-            ["identity.host_administrator", "tenancy.local_tenant"],
-            ["identity.host_administrator", "tenancy.local_tenant"]);
+            DevelopmentContributors,
+            DevelopmentContributors);
 
         var hasher = scope.ServiceProvider
             .GetRequiredService<Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>>();
@@ -233,8 +241,18 @@ public sealed class DevelopmentSeedTests
 
         await AssertLatestRunContributorsAsync(
             testOptions,
-            ["identity.host_administrator", "testing.profile_contract_marker"],
-            ["identity.host_administrator", "testing.profile_contract_marker"]);
+            [
+                "identity.host_administrator",
+                "identity.host_navigation_catalog",
+                "settings.host_user_profile_dictionaries",
+                "testing.profile_contract_marker",
+            ],
+            [
+                "identity.host_administrator",
+                "identity.host_navigation_catalog",
+                "settings.host_user_profile_dictionaries",
+                "testing.profile_contract_marker",
+            ]);
         Assert.AreEqual(0L, await CountAsync(testOptions, "fn_tenancy_tenant"));
         Assert.AreEqual(
             1L,
@@ -415,7 +433,7 @@ public sealed class DevelopmentSeedTests
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetDapper(configuration, environmentName);
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddFullNetCaching(configuration, environmentName);
         services.AddFullNetSeeding(configuration);
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Migrator);

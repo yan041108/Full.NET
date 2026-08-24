@@ -5,7 +5,6 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.Options;
-using global::MessagePack;
 
 namespace Full.NET.Host.Worker;
 
@@ -199,7 +198,7 @@ internal sealed class OutboxProcessor(
         {
             if (!string.Equals(
                     message.ContentType,
-                    "application/x-msgpack",
+                    MessagingNames.ContentTypeMemoryPack,
                     StringComparison.Ordinal))
             {
                 throw new OutboxPermanentException(
@@ -532,8 +531,7 @@ internal sealed class OutboxProcessor(
             return true;
         }
 
-        if (exception is MessagePackSerializationException
-            || exception is FormatException
+        if (exception is FormatException
             || exception is InvalidDataException)
         {
             reasonCode = OutboxDeadLetterReasons.InvalidPayload;

@@ -35,23 +35,49 @@ function extractCreateTableColumns(body) {
   return columns;
 }
 
+function buildSqlServerExtendedPropertyLine(
+  indent,
+  tableName,
+  columnName,
+  comment,
+) {
+  const escapedTable = escapeSqlString(tableName);
+  const escapedComment = escapeSqlString(comment);
+  const objectId = `OBJECT_ID(N'dbo.${escapedTable}')`;
+  if (columnName) {
+    const escapedColumn = escapeSqlString(columnName);
+    const minorId = `COLUMNPROPERTY(${objectId}, N'${escapedColumn}', 'ColumnId')`;
+    return `${indent}IF NOT EXISTS (
+${indent}    SELECT 1
+${indent}    FROM sys.extended_properties
+${indent}    WHERE class = 1
+${indent}      AND major_id = ${objectId}
+${indent}      AND minor_id = ${minorId}
+${indent}      AND name = N'MS_Description'
+${indent})
+${indent}    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapedComment}', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'${escapedTable}', @level2type=N'COLUMN', @level2name=N'${escapedColumn}';`;
+  }
+
+  return `${indent}IF NOT EXISTS (
+${indent}    SELECT 1
+${indent}    FROM sys.extended_properties
+${indent}    WHERE class = 1
+${indent}      AND major_id = ${objectId}
+${indent}      AND minor_id = 0
+${indent}      AND name = N'MS_Description'
+${indent})
+${indent}    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapedComment}', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'${escapedTable}';`;
+}
+
 function buildSqlServerExtendedProperties(tableName, tableCatalog, columnNames) {
   const lines = [];
-  const escapedTable = escapeSqlString(tableName);
-  const escapedTableComment = escapeSqlString(tableCatalog.comment);
-  lines.push(
-    `    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapedTableComment}', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'${escapedTable}';`
-  );
+  lines.push(buildSqlServerExtendedPropertyLine('    ', tableName, null, tableCatalog.comment));
   for (const columnName of columnNames.sort()) {
     const comment = tableCatalog.columns[columnName];
     if (!comment) {
       continue;
     }
-    const escapedColumn = escapeSqlString(columnName);
-    const escapedComment = escapeSqlString(comment);
-    lines.push(
-      `    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapedComment}', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'${escapedTable}', @level2type=N'COLUMN', @level2name=N'${escapedColumn}';`
-    );
+    lines.push(buildSqlServerExtendedPropertyLine('    ', tableName, columnName, comment));
   }
   return lines.join('\n');
 }
@@ -189,7 +215,19 @@ function applySqlServerAlterAddComments(sql, catalog) {
       const escapedTable = escapeSqlString(tableName);
       const escapedColumn = escapeSqlString(columnName);
       const escapedComment = escapeSqlString(comment);
-      return `${statement}\nEXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapedComment}', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'${escapedTable}', @level2type=N'COLUMN', @level2name=N'${escapedColumn}';`;
+      const objectId = `OBJECT_ID(N'dbo.${escapedTable}')`;
+      const minorId = `COLUMNPROPERTY(${objectId}, N'${escapedColumn}', 'ColumnId')`;
+      const leading = statement.match(/^\s*/)?.[0] ?? '';
+      return `${statement}
+${leading}IF NOT EXISTS (
+${leading}    SELECT 1
+${leading}    FROM sys.extended_properties
+${leading}    WHERE class = 1
+${leading}      AND major_id = ${objectId}
+${leading}      AND minor_id = ${minorId}
+${leading}      AND name = N'MS_Description'
+${leading})
+${leading}    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapedComment}', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'${escapedTable}', @level2type=N'COLUMN', @level2name=N'${escapedColumn}';`;
     }
   );
 }

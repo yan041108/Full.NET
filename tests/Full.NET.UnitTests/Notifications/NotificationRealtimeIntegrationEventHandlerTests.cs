@@ -3,7 +3,7 @@ using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Realtime;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Notifications;
@@ -22,7 +22,7 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
                 Arg.Any<RealtimeMessage>(),
                 Arg.Any<CancellationToken>()))
             .Do(call => publishedMessages.Add(call.ArgAt<RealtimeMessage>(1)));
-        var serializer = new MessagePackIntegrationEventSerializer();
+        var serializer = new MemoryPackIntegrationEventSerializer();
         var handler = new AnnouncementPublishedRealtimeHandler(
             serializer,
             CreateDelivery(publisher));
@@ -63,7 +63,7 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
                 Arg.Any<RealtimeMessage>(),
                 Arg.Any<CancellationToken>()))
             .Do(call => publishedMessages.Add(call.ArgAt<RealtimeMessage>(1)));
-        var serializer = new MessagePackIntegrationEventSerializer();
+        var serializer = new MemoryPackIntegrationEventSerializer();
         var handler = new InboxMessageReceivedRealtimeHandler(
             serializer,
             new NotificationRealtimeDelivery(query, publisher));
@@ -110,7 +110,7 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
                 Arg.Any<RealtimeMessage>(),
                 Arg.Any<CancellationToken>()))
             .Do(call => publishedMessages.Add(call.ArgAt<RealtimeMessage>(1)));
-        var serializer = new MessagePackIntegrationEventSerializer();
+        var serializer = new MemoryPackIntegrationEventSerializer();
         var handler = new InboxReadStateChangedRealtimeHandler(
             serializer,
             new NotificationRealtimeDelivery(query, publisher));
@@ -153,7 +153,7 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(1L);
-        var serializer = new MessagePackIntegrationEventSerializer();
+        var serializer = new MemoryPackIntegrationEventSerializer();
         var delivery = new NotificationRealtimeDelivery(query, publisher);
 
         var announcement = new AnnouncementPublishedRealtimeHandler(

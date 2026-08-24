@@ -47,7 +47,7 @@ Wolverine 提供成熟的 Inbox/Outbox、Kafka、重试、死信、重放、代�
 2. CDC Relay 默认采用 Debezium `3.4.3.Final` 及 Outbox Event Router：SQL Server 使用官方 CDC，MySQL 使用 ROW Binlog。开发和集成测试可以使用固定 `quay.io/debezium/connect:3.4.3.Final`；Debezium 官方将该镜像定位为测试/评估用途，生产必须由受信任平台从固定 Connector 工件构建或采用经批准的受支持发行物，并完成漏洞扫描、签名、SBOM 和摘要固定。
 3. .NET Kafka Provider 使用 `Confluent.Kafka` `2.15.0`，通过 Full.NET 自有抽象暴露；业务模块不得直接引用 Kafka 客户端。
 4. 本地集成测试使用 `Testcontainers.Kafka` `4.13.0`；数据库继续使用当前 SQL Server/MySQL Testcontainers。
-5. 不引入 CAP、MassTransit、Confluent 商业 Schema Registry 或 Confluent 商业运行时作为默认依赖。Schema Registry 只有在 MessagePack 契约治理无法满足真实跨语言消费者时才另行决策。
+5. 不引入 CAP、MassTransit、Confluent 商业 Schema Registry 或 Confluent 商业运行时作为默认依赖。Schema Registry 只有在 MemoryPack 契约治理无法满足真实跨语言消费者时才另行决策。
 6. Wolverine 只作为成熟参考实现和性能对标对象，不进入生产依赖图；对标必须同时比较吞吐、P95/P99、数据库往返、重复投递、恢复时间和资源上限，禁止只比较理想路径 QPS。
 
 上述版本是首次实施基线，不表示永久锁死；任何升级都必须经中央包管理、镜像摘要、漏洞、许可和兼容验证。
@@ -77,7 +77,7 @@ Wolverine 提供成熟的 Inbox/Outbox、Kafka、重试、死信、重放、代�
 - `OccurredAtUtc`
 - `Payload`
 
-`MessageType` 继续使用 `{owner}.{module}.{entity}.{event}`；`EventId` 使用应用端 UUID v7；`PartitionKey` 必须来自稳定业务标识，默认由 `TenantId + AggregateType + AggregateId` 组成，禁止随机值和翻译文本。MessagePack 继续作为二进制 Payload 格式，未知版本失败关闭。
+`MessageType` 继续使用 `{owner}.{module}.{entity}.{event}`；`EventId` 使用应用端 UUID v7；`PartitionKey` 必须来自稳定业务标识，默认由 `TenantId + AggregateType + AggregateId` 组成，禁止随机值和翻译文本。MemoryPack 继续作为二进制 Payload 格式（`application/x-memorypack`），未知版本失败关闭。
 
 ### 4. Outbox 与 CDC
 

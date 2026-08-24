@@ -213,7 +213,7 @@ internal static class CdcShadowFixture
                     Encoding.UTF8.GetBytes(fingerprint.SchemaVersion.ToString())),
                 new Header(
                     KafkaEnvelopeHeaderNames.ContentType,
-                    Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMessagePack)),
+                    Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMemoryPack)),
                 new Header(
                     KafkaEnvelopeHeaderNames.Producer,
                     Encoding.UTF8.GetBytes("fullnet.messaging.tests")),

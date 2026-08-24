@@ -11,7 +11,7 @@ internal sealed class KafkaCapacityRawIntegrationEventSerializer : IIntegrationE
     /// <summary>
     /// 与 Scope B Kafka Header 一致，满足 Envelope V2 契约校验；负载仍为自定义二进制 Codec。
     /// </summary>
-    public string ContentType => MessagingNames.ContentTypeMessagePack;
+    public string ContentType => MessagingNames.ContentTypeMemoryPack;
 
     public byte[] Serialize<TEvent>(TEvent payload) =>
         payload switch

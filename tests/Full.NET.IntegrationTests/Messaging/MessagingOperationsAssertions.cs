@@ -494,7 +494,7 @@ internal static class MessagingOperationsAssertions
                     (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload,
                      OccurredAtUtc, ProcessedAtUtc, NextAttemptAtUtc, Attempts, LockId, LockedUntilUtc, Error)
                 VALUES
-                    (@Id, @MessageType, @SchemaVersion, 'application/x-msgpack', NULL, NULL, 0x01,
+                    (@Id, @MessageType, @SchemaVersion, 'application/x-memorypack', NULL, NULL, 0x01,
                      SYSDATETIMEOFFSET(), NULL, SYSDATETIMEOFFSET(), 0, NULL, NULL, NULL)
                 """,
                 new
@@ -526,7 +526,7 @@ internal static class MessagingOperationsAssertions
                     (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload,
                      OccurredAtUtc, ProcessedAtUtc, NextAttemptAtUtc, Attempts, LockId, LockedUntilUtc, Error)
                 VALUES
-                    (@Id, @MessageType, @SchemaVersion, 'application/x-msgpack', NULL, NULL, 0x01,
+                    (@Id, @MessageType, @SchemaVersion, 'application/x-memorypack', NULL, NULL, 0x01,
                      UTC_TIMESTAMP(6), NULL, UTC_TIMESTAMP(6), 0, NULL, NULL, NULL)
                 """,
                 new

@@ -4,7 +4,15 @@ IF COL_LENGTH(N'dbo.fn_settings_dict_type', N'TenantId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_settings_dict_type
         ADD TenantId uniqueidentifier NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_dict_type', @level2type=N'COLUMN', @level2name=N'TenantId';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_settings_dict_type')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_settings_dict_type'), N'TenantId', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_settings_dict_type', @level2type=N'COLUMN', @level2name=N'TenantId';
 END;
 
 IF EXISTS (

@@ -30,7 +30,9 @@ internal sealed class DapperRoutedOutboxWriter(
     /// 无 metadata overload：LegacyPolling/ShadowCdc 直接写 legacy 表；
     /// CdcKafka 失败关闭——已切流的流必须显式携带 PartitionKey 与 Producer。
     /// </summary>
-    public async Task AddAsync<TEvent>(
+    public async Task AddAsync<
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
@@ -77,7 +79,9 @@ internal sealed class DapperRoutedOutboxWriter(
     /// CdcKafka 写 append-only 表。业务模块始终只需调用本重载即可同时满足
     /// 切流前后两种模式，无需分支判断。
     /// </summary>
-    public async Task AddAsync<TEvent>(
+    public async Task AddAsync<
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(
+            System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,

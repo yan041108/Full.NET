@@ -47,11 +47,51 @@ BEGIN
         CONSTRAINT CK_fn_uuid_contract_state_SchemaMode
             CHECK (SchemaMode IN ('Contracting', 'Binary16'))
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'UUID 二进制契约迁移状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'破坏性 DDL 审批标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'DestructiveDdlApprovalId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 模式', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'SchemaMode';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_uuid_contract_state')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'UUID 二进制契约迁移状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_uuid_contract_state')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_uuid_contract_state'), N'DestructiveDdlApprovalId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'破坏性 DDL 审批标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'DestructiveDdlApprovalId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_uuid_contract_state')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_uuid_contract_state'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_uuid_contract_state')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_uuid_contract_state'), N'SchemaMode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Schema 模式', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'SchemaMode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_uuid_contract_state')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_uuid_contract_state'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_uuid_contract_state', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
 END;
 
 IF EXISTS(

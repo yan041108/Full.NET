@@ -15,16 +15,96 @@ BEGIN
         Version int NOT NULL CONSTRAINT DF_fn_tenancy_tenant_Version DEFAULT (1),
         CONSTRAINT PK_fn_tenancy_tenant PRIMARY KEY CLUSTERED (Id)
     );
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户租户表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'默认语言区域', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'DefaultLocale';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'域名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Domain';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'唯一标识符', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Identifier';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'IsActive';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Name';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户租户表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'DefaultLocale', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'默认语言区域', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'DefaultLocale';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'Domain', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'域名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Domain';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'Identifier', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'唯一标识符', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Identifier';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'IsActive', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'IsActive';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'Name', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Name';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_tenancy_tenant')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenancy_tenant'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Version';
     CREATE UNIQUE INDEX UX_fn_tenancy_tenant_Identifier ON dbo.fn_tenancy_tenant(Identifier);
     CREATE UNIQUE INDEX UX_fn_tenancy_tenant_Domain ON dbo.fn_tenancy_tenant(Domain);
 END;
@@ -79,19 +159,59 @@ WHERE NOT EXISTS
 
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'MessageType') IS NULL
     ALTER TABLE dbo.fn_outbox_message ADD MessageType nvarchar(256) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'MessageType';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_outbox_message'), N'MessageType', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'消息类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'MessageType';
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'OccurredAtUtc') IS NULL
     ALTER TABLE dbo.fn_outbox_message ADD OccurredAtUtc datetimeoffset(7) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_outbox_message'), N'OccurredAtUtc', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'ProcessedAtUtc') IS NULL
     ALTER TABLE dbo.fn_outbox_message ADD ProcessedAtUtc datetimeoffset(7) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'处理完成时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'ProcessedAtUtc';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_outbox_message'), N'ProcessedAtUtc', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'处理完成时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'ProcessedAtUtc';
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'NextAttemptAtUtc') IS NULL
     ALTER TABLE dbo.fn_outbox_message ADD NextAttemptAtUtc datetimeoffset(7) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次重试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_outbox_message'), N'NextAttemptAtUtc', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次重试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
 IF COL_LENGTH(N'dbo.fn_outbox_message', N'LockedUntilUtc') IS NULL
     ALTER TABLE dbo.fn_outbox_message ADD LockedUntilUtc datetimeoffset(7) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'锁定截止时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'LockedUntilUtc';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_outbox_message')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_outbox_message'), N'LockedUntilUtc', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'锁定截止时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_outbox_message', @level2type=N'COLUMN', @level2name=N'LockedUntilUtc';
 
 EXEC(N'
 IF EXISTS

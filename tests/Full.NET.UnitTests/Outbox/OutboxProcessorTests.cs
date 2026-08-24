@@ -9,8 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using global::MessagePack;
-
 namespace Full.NET.UnitTests.Outbox;
 
 [TestClass]
@@ -286,7 +284,7 @@ public sealed class OutboxProcessorTests
         Assert.IsGreaterThanOrEqualTo(
             2,
             storeScopeIds.Distinct().Count(),
-            "领取和主动续租必须解析自不同的依赖注入 Scope。");
+            "??????????????????? Scope?");
         handler.Release();
         Assert.AreEqual(
             1,
@@ -371,9 +369,9 @@ public sealed class OutboxProcessorTests
                 await renewalCallFailed.Task
                     .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
-                // 续租异常进入 catch 时已经记录失败顺序，随后才会进入异步 Scope 释放。
-                // 等到释放入口再标记终态，避免测试调度把“调用即将返回 faulted Task”误当成
-                // “Worker 已观察并记录续租失败”，造成非确定性的先后关系。
+                // ?????? catch ?????????????????? Scope ???
+                // ?????????????????????????? faulted Task????
+                // ?Worker ????????????????????????
                 await scopeDisposal.Entered
                     .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
@@ -504,7 +502,7 @@ public sealed class OutboxProcessorTests
         Assert.IsTrue(
             completionOrder.ShouldPreserveProcessingOutcome(
                 processingSucceeded: false),
-            "处理失败先发生时，稍后的续租清理故障不能覆盖原始异常。");
+            "???????????????????????????");
 
         var options = new OutboxWorkerOptions
         {
@@ -964,7 +962,7 @@ public sealed class OutboxProcessorTests
         int attempts,
         string messageType = "fullnet.test.event",
         int schemaVersion = 1,
-        string contentType = "application/x-msgpack",
+        string contentType = "application/x-memorypack",
         Guid? lockId = null) => new(
         Guid.CreateVersion7(),
         lockId ?? Guid.CreateVersion7(),
@@ -1113,7 +1111,7 @@ public sealed class OutboxProcessorTests
         public Task HandleAsync(
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken) =>
-            throw new MessagePackSerializationException("Bad payload.");
+            throw new FormatException("Bad payload.");
     }
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock

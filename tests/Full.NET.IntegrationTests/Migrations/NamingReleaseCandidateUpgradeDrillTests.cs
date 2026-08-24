@@ -136,7 +136,8 @@ public sealed class NamingReleaseCandidateUpgradeDrillTests
         string connectionString)
     {
         await using var factory = new FullNetApiFactory(provider, connectionString);
-        await factory.InitializeAsync();
+        // 升级演练库已有 Journal 与业务行，禁止 schema 模板覆盖。
+        await factory.InitializeAsync(useSchemaTemplate: false);
         using var client = factory.CreateClientForHost("localhost");
 
         using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")

@@ -1,4 +1,5 @@
 using Full.NET.Messaging.Abstractions;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Full.NET.Data.Abstractions;
 
@@ -41,7 +42,8 @@ public interface IOutboxWriter
     /// <param name="payload">事件载荷对象，由 <see cref="IIntegrationEventSerializer"/> 序列化。</param>
     /// <param name="cancellationToken">用于取消当前事务内插入的令牌。</param>
     /// <exception cref="InvalidOperationException">当前调用链上没有已打开的本地命令事务。</exception>
-    Task AddAsync<TEvent>(
+    Task AddAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,
@@ -63,7 +65,8 @@ public interface IOutboxWriter
     /// <param name="metadata">显式提供的事件元数据；其中 TenantId 为 null 时仍从上下文自动注入。</param>
     /// <param name="cancellationToken">用于取消当前事务内插入的令牌。</param>
     /// <exception cref="InvalidOperationException">当前调用链上没有已打开的本地命令事务。</exception>
-    Task AddAsync<TEvent>(
+    Task AddAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TEvent>(
         string eventType,
         int schemaVersion,
         TEvent payload,

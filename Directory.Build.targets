@@ -14,12 +14,11 @@
     <FullNetIsNetCoreAppAotEligible Condition="'$(FullNetIsNetStandard20Generator)' != 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and $([MSBuild]::VersionGreaterThanOrEquals($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), 8.0))">true</FullNetIsNetCoreAppAotEligible>
   </PropertyGroup>
   <PropertyGroup Condition="'$(FullNetIsAotCompile)' == 'true' and '$(FullNetIsNetCoreAppAotEligible)' == 'true'">
+    <DefineConstants>$(DefineConstants);FULLNET_AOT_COMPILE</DefineConstants>
+    <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Dapper.AOT</InterceptorsPreviewNamespaces>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(FullNetIsAotCompile)' != 'true' and '$(FullNetIsNetCoreAppAotEligible)' == 'true'">
-    <DefineConstants>$(DefineConstants);FULLNET_SIGNALR_MESSAGEPACK</DefineConstants>
   </PropertyGroup>
 </Project>

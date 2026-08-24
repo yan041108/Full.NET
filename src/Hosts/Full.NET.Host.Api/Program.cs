@@ -6,11 +6,10 @@ using Full.NET.Hosting.Observability;
 using Full.NET.Hosting.OpenApi;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Hosting.Security;
+using Full.NET.Host.Api;
 using Full.NET.Localization;
 using Full.NET.Modularity.Modules;
-using Full.NET.Messaging.Kafka;
 using Full.NET.Realtime.SignalR;
-using Full.NET.Serialization.MessagePack;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,8 +22,10 @@ builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);
 builder.Services.AddFullNetDatabaseSchemaModeGuard();
-builder.Services.AddFullNetMessagePack();
-builder.Services.AddFullNetKafkaReplayOperations(builder.Configuration);
+HostApiServiceRegistration.AddIntegrationEventSerialization(builder.Services);
+HostApiServiceRegistration.AddKafkaReplayOperations(
+    builder.Services,
+    builder.Configuration);
 builder.Services.AddFullNetCaching(
     builder.Configuration,
     builder.Environment.EnvironmentName);
@@ -66,7 +67,7 @@ app.Run();
 /// 启动顺序：
 /// <list type="number">
 /// <item><c>AddFullNetServiceDefaults</c>：基础观测与 ServiceDefaults；</item>
-/// <item>BuildingBlocks：DataProtection、Forwarding、OpenApi、RateLimiter、Dapper、MessagePack、Kafka、Caching、SignalR；</item>
+/// <item>BuildingBlocks：DataProtection、Forwarding、OpenApi、RateLimiter、Dapper、MemoryPack、Kafka、Caching、SignalR；</item>
 /// <item><c>AddFullNetApplicationModules</c> 以 <see cref="FullNetHostProfile.Api"/> 装配模块并物化只读目录；</item>
 /// <item>四阶段中间件管道：BeforeAuthentication → Authentication → BeforeAuthorization → Authorization → BeforeEndpoints；</item>
 /// <item>Endpoints：OpenApi/Scalar、Health、Realtime Hub 与模块 Endpoint。</item>

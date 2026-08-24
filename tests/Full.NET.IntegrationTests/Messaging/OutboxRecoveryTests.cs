@@ -12,20 +12,20 @@ using Full.NET.Data.Dapper;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
-using global::MessagePack;
+using global::MemoryPack;
 using WorkerHost = workerhost::Full.NET.Host.Worker;
 
 namespace Full.NET.IntegrationTests.Messaging;
 
 [TestClass]
-public sealed class OutboxRecoveryTests
+public sealed partial class OutboxRecoveryTests
 {
     [TestMethod]
     public async Task SqlServer_outbox_dead_letters_unknown_version_and_processes_next_message()
@@ -215,7 +215,7 @@ public sealed class OutboxRecoveryTests
         await using var services = BuildServices(
             configuration,
             clock,
-            new DeserializingHandler(new MessagePackIntegrationEventSerializer()));
+            new DeserializingHandler(new MemoryPackIntegrationEventSerializer()));
         await InsertOutboxAsync(
             services,
             DeserializingHandler.EventTypeValue,
@@ -394,7 +394,7 @@ public sealed class OutboxRecoveryTests
             Assert.IsTrue(
                 leaseAfterClockRollback.Min(row => row.LockedUntilUtc)
                 >= leaseBeforeClockRollback.Min(row => row.LockedUntilUtc),
-                "宿主时钟回拨后的主动续租不得缩短现有数据库租约。");
+                "????????????????????????");
             clock.UtcNow = initialNow.AddSeconds(leaseSeconds + 1);
 
             await using var competingScope = services.CreateAsyncScope();
@@ -412,7 +412,7 @@ public sealed class OutboxRecoveryTests
             Assert.AreEqual(
                 0,
                 competingLease.Count,
-                "主动续租必须同时保护正在执行的消息和尚未开始的批尾消息。");
+                "????????????????????????????");
         }
         finally
         {
@@ -467,7 +467,7 @@ public sealed class OutboxRecoveryTests
             await Task.Delay(TimeSpan.FromMilliseconds(100));
         }
 
-        Assert.Fail("Outbox 批次租约未在预期时间内完成主动续期。");
+        Assert.Fail("Outbox ??????????????????");
     }
 
     private static async Task<IReadOnlyList<ActiveLeaseRow>>
@@ -567,7 +567,7 @@ public sealed class OutboxRecoveryTests
             using var timeout = new CancellationTokenSource(
                 TimeSpan.FromSeconds(3));
 
-            // 终态事务持锁时，其他 Worker 必须跳过该行，禁止等待到命令超时或依赖重试恢复。
+            // ???????????Worker ?????????????????????????
             var rows = await store.AcquireAsync(
                 1,
                 TimeSpan.FromSeconds(30),
@@ -981,7 +981,7 @@ public sealed class OutboxRecoveryTests
         services.AddSingleton<IClock>(clock);
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         foreach (var handler in handlers)
         {
             services.AddSingleton<IIntegrationEventHandler>(handler);
@@ -1066,7 +1066,7 @@ public sealed class OutboxRecoveryTests
     {
         Assert.IsTrue(
             columnName is "ProcessedAtUtc" or "DeadLetteredAtUtc",
-            "测试夹具只允许更新已审核的 Outbox 终态时间列。");
+            "????????????? Outbox ??????");
         var databaseTimestamp = databaseProvider == DatabaseProvider.MySql
             ? (object)timestamp.UtcDateTime
             : timestamp;
@@ -1241,8 +1241,8 @@ public sealed class OutboxRecoveryTests
             _ => throw new ArgumentOutOfRangeException(nameof(databaseProvider)),
         };
 
-    [MessagePackObject(AllowPrivate = true)]
-    internal sealed record TestIntegrationEvent([property: Key(0)] string Value);
+    [MemoryPackable]
+    internal partial record TestIntegrationEvent(string Value);
 
     private sealed class RecordingHandler : IIntegrationEventHandler
     {

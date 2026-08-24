@@ -310,7 +310,7 @@ public sealed class KafkaCapacityWorkerExecutor(
             { KafkaEnvelopeHeaderNames.EventId, Encoding.UTF8.GetBytes(eventId.ToString("D")) },
             { KafkaEnvelopeHeaderNames.MessageType, Encoding.UTF8.GetBytes(KafkaCapacityWorkerContracts.EventType) },
             { KafkaEnvelopeHeaderNames.SchemaVersion, Encoding.UTF8.GetBytes("1") },
-            { KafkaEnvelopeHeaderNames.ContentType, Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMessagePack) },
+            { KafkaEnvelopeHeaderNames.ContentType, Encoding.UTF8.GetBytes(MessagingNames.ContentTypeMemoryPack) },
             { KafkaEnvelopeHeaderNames.Producer, Encoding.UTF8.GetBytes("fullnet.capacity.runner") },
             { KafkaEnvelopeHeaderNames.OccurredAtUtc, Encoding.UTF8.GetBytes(DateTimeOffset.UtcNow.ToString("O")) },
         };

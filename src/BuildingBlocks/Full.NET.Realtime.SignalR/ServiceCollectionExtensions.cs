@@ -13,7 +13,7 @@ using OpenTelemetry.Metrics;
 namespace Full.NET.Realtime.SignalR;
 
 /// <summary>
-/// 注册 SignalR Hub、MessagePack 协议与 <see cref="IRealtimePublisher"/> 实现。
+/// 注册 SignalR Hub、JSON 协议与 <see cref="IRealtimePublisher"/> 实现。
 /// </summary>
 /// <remarks>
 /// <para>该扩展是 API Host 启用实时推送的统一入口，禁止业务模块自行注册 Hub；
@@ -110,9 +110,6 @@ public static class ServiceCollectionExtensions
         }
 
         var signalRBuilder = services.AddSignalR();
-#if FULLNET_SIGNALR_MESSAGEPACK
-        signalRBuilder.AddMessagePackProtocol();
-#endif
         signalRBuilder.AddJsonProtocol(jsonOptions =>
         {
             jsonOptions.PayloadSerializerOptions.PropertyNamingPolicy =

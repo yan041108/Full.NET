@@ -24,7 +24,7 @@ using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Realtime;
 using Full.NET.Realtime.SignalR;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -278,7 +278,7 @@ public sealed class NotificationsRealtimeRepairTests
     private static IHost BuildWorkerHost(
         IConfiguration configuration)
     {
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        var builder = global::Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             ApplicationName = "Full.NET.IntegrationTests.Notifications.Worker",
             EnvironmentName = "Testing",
@@ -300,7 +300,7 @@ public sealed class NotificationsRealtimeRepairTests
             IIdentityOrganizationUnitDirectory,
             EmptyIdentityOrganizationUnitDirectory>();
         services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddFullNetCaching(configuration, "Testing");
         services.AddFullNetRealtimePublisher(configuration, "Testing");
         services.AddFullNetApplicationModules(

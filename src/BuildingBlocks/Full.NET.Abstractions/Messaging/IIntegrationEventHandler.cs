@@ -24,7 +24,7 @@ public interface IIntegrationEventHandler
     /// 使用完整消息上下文处理载荷；旧实现默认转发至 payload-only 重载。
     /// </summary>
     /// <param name="context">包含稳定 MessageId、租户、追踪和事件时间的投递上下文。</param>
-    /// <param name="payload">原始 MessagePack 载荷。</param>
+    /// <param name="payload">原始 MemoryPack 载荷。</param>
     /// <param name="cancellationToken">宿主退出或租约续期失败时触发的取消令牌。</param>
     Task HandleAsync(
         IntegrationEventContext context,
@@ -33,9 +33,9 @@ public interface IIntegrationEventHandler
         HandleAsync(payload, cancellationToken);
 
     /// <summary>
-    /// 处理原始 MessagePack 载荷；保留此重载以兼容尚未读取消息上下文的 Handler。
+    /// 处理原始 MemoryPack 载荷；保留此重载以兼容尚未读取消息上下文的 Handler。
     /// </summary>
-    /// <param name="payload">原始 MessagePack 载荷。</param>
+    /// <param name="payload">原始 MemoryPack 载荷。</param>
     /// <param name="cancellationToken">宿主退出或租约续期失败时触发的取消令牌。</param>
     Task HandleAsync(
         ReadOnlyMemory<byte> payload,

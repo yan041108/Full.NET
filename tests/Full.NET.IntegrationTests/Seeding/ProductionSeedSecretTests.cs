@@ -13,7 +13,7 @@ using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -136,7 +136,7 @@ public sealed class ProductionSeedSecretTests
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetDapper(configuration, "Production");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddFullNetCaching(configuration, "Production");
         services.AddFullNetSeeding(configuration);
         services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Migrator);

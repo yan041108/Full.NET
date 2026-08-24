@@ -9,6 +9,10 @@ using OpenTelemetry.Trace;
 using StackExchange.Redis;
 using ZiggyCreatures.Caching.Fusion;
 using Full.NET.Caching.Fusion.Health;
+using Full.NET.Caching.Fusion.Serialization;
+#if !FULLNET_AOT_COMPILE
+using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
+#endif
 
 namespace Full.NET.Caching.Fusion;
 
@@ -62,29 +66,15 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Options.Create(cacheOptions));
         services.AddSingleton<ICachePolicyRegistry>(policyRegistry);
 
-        if (cacheOptions.RedisConnectionString is { } redisConnectionString)
-        {
-            services.AddStackExchangeRedisCache(options =>
-            {
-                options.Configuration = redisConnectionString;
-                options.InstanceName = $"fullnet:{environment.ToLowerInvariant()}:";
-            });
-            services.AddFusionCacheStackExchangeRedisBackplane(options =>
-                options.Configuration = redisConnectionString);
-            services.TryAddSingleton<DistributedCacheHealthCheck>();
-            services.AddHealthChecks()
-                .Add(new HealthCheckRegistration(
-                    "distributed-cache",
-                    sp => sp.GetRequiredService<DistributedCacheHealthCheck>(),
-                    failureStatus: null,
-                    tags: ["ready"]));
-        }
+        RegisterRedisDistributedCacheIfConfigured(
+            services,
+            cacheOptions,
+            environment);
 
-        services
+        var fusionBuilder = services
             .AddFusionCache()
             .WithOptions(options =>
             {
-                // 安全关键缓存要求提交后尽快摘除旧条目；标签仅做惰性屏蔽会放大多节点陈旧窗口。
                 options.RemoveByTagBehavior = RemoveByTagBehavior.Remove;
             })
             .WithDefaultEntryOptions(options =>
@@ -92,8 +82,15 @@ public static class ServiceCollectionExtensions
                 options.Duration = cacheOptions.DefaultDuration;
                 options.JitterMaxDuration = cacheOptions.Jitter;
                 options.IsFailSafeEnabled = false;
-            })
-            .WithSystemTextJsonSerializer()
+            });
+
+#if FULLNET_AOT_COMPILE
+        fusionBuilder = fusionBuilder.WithSerializer(new FullNetFusionCacheJsonSerializer());
+#else
+        fusionBuilder = fusionBuilder.WithSystemTextJsonSerializer();
+#endif
+
+        fusionBuilder
             .TryWithRegisteredDistributedCache()
             .TryWithRegisteredBackplane()
             .AsHybridCache();
@@ -110,6 +107,32 @@ public static class ServiceCollectionExtensions
                 .AddFusionCacheInstrumentation());
 
         return services;
+    }
+
+    private static void RegisterRedisDistributedCacheIfConfigured(
+        IServiceCollection services,
+        CacheOptions cacheOptions,
+        string environment)
+    {
+        if (cacheOptions.RedisConnectionString is not { } redisConnectionString)
+        {
+            return;
+        }
+
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = redisConnectionString;
+            options.InstanceName = $"fullnet:{environment.ToLowerInvariant()}:";
+        });
+        services.AddFusionCacheStackExchangeRedisBackplane(options =>
+            options.Configuration = redisConnectionString);
+        services.TryAddSingleton<DistributedCacheHealthCheck>();
+        services.AddHealthChecks()
+            .Add(new HealthCheckRegistration(
+                "distributed-cache",
+                sp => sp.GetRequiredService<DistributedCacheHealthCheck>(),
+                failureStatus: null,
+                tags: ["ready"]));
     }
 
     private static string? ResolveRedisConnectionString(

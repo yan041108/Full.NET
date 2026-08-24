@@ -6,7 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Modularity.Messaging;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,7 +47,7 @@ internal static class MessagingInboxTestSupport
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddSingleton<IEffectiveEventDeliveryOwnerResolver>(new CdcOwnerResolver());
         services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
@@ -75,7 +75,7 @@ internal static class MessagingInboxTestSupport
             eventId,
             MessagingOutboxTestSupport.TestEventType,
             MessagingOutboxTestSupport.TestSchemaVersion,
-            MessagingNames.ContentTypeMessagePack,
+            MessagingNames.ContentTypeMemoryPack,
             tenantId,
             partitionKey,
             "messaging-inbox-test",

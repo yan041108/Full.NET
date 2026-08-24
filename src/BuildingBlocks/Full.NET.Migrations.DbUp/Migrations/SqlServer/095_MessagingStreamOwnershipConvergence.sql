@@ -5,19 +5,43 @@ BEGIN
     ALTER TABLE dbo.fn_messaging_stream_ownership
         ADD RollbackState tinyint NOT NULL
             CONSTRAINT DF_fn_messaging_stream_ownership_RollbackState DEFAULT (0);
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回滚状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_stream_ownership', @level2type=N'COLUMN', @level2name=N'RollbackState';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_messaging_stream_ownership')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_messaging_stream_ownership'), N'RollbackState', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回滚状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_stream_ownership', @level2type=N'COLUMN', @level2name=N'RollbackState';
 END;
 IF COL_LENGTH(N'dbo.fn_messaging_stream_ownership', N'RollbackGeneration') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_messaging_stream_ownership
         ADD RollbackGeneration uniqueidentifier NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回滚代数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_stream_ownership', @level2type=N'COLUMN', @level2name=N'RollbackGeneration';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_messaging_stream_ownership')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_messaging_stream_ownership'), N'RollbackGeneration', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回滚代数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_stream_ownership', @level2type=N'COLUMN', @level2name=N'RollbackGeneration';
 END;
 IF COL_LENGTH(N'dbo.fn_messaging_stream_ownership', N'RollbackPreparedAtUtc') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_messaging_stream_ownership
         ADD RollbackPreparedAtUtc datetimeoffset(7) NULL;
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回滚准备时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_stream_ownership', @level2type=N'COLUMN', @level2name=N'RollbackPreparedAtUtc';
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.extended_properties
+    WHERE class = 1
+      AND major_id = OBJECT_ID(N'dbo.fn_messaging_stream_ownership')
+      AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_messaging_stream_ownership'), N'RollbackPreparedAtUtc', 'ColumnId')
+      AND name = N'MS_Description'
+)
+    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回滚准备时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_messaging_stream_ownership', @level2type=N'COLUMN', @level2name=N'RollbackPreparedAtUtc';
 END;
 
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_fn_messaging_stream_ownership_SchemaVersion')

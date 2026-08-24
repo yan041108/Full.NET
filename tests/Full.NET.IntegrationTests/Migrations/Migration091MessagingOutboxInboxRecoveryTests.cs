@@ -34,7 +34,7 @@ public sealed class Migration091MessagingOutboxInboxRecoveryTests
                  CorrelationId, CausationId, TraceParent, Producer, Payload, OccurredAtUtc)
             VALUES
                 (@Id, 'fullnet.messaging.outbox.recovery.event', 1,
-                 'application/x-msgpack', NULL, @PartitionKey, NULL, NULL, NULL,
+                 'application/x-memorypack', NULL, @PartitionKey, NULL, NULL, NULL,
                  'fullnet.messaging.tests', 0x01, SYSDATETIMEOFFSET());
             DROP INDEX IX_fn_messaging_outbox_event_OccurredAtUtc_Id
                 ON dbo.fn_messaging_outbox_event;
@@ -78,7 +78,7 @@ public sealed class Migration091MessagingOutboxInboxRecoveryTests
                  CorrelationId, CausationId, TraceParent, Producer, Payload, OccurredAtUtc)
             VALUES
                 (@Id, 'fullnet.messaging.outbox.recovery.event', 1,
-                 'application/x-msgpack', NULL, @PartitionKey, NULL, NULL, NULL,
+                 'application/x-memorypack', NULL, @PartitionKey, NULL, NULL, NULL,
                  'fullnet.messaging.tests', 0x01, UTC_TIMESTAMP(6));
             DROP INDEX IX_fn_messaging_outbox_event_OccurredAtUtc_Id
                 ON fn_messaging_outbox_event;

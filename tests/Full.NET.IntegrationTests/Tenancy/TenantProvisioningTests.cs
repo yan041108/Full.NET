@@ -18,7 +18,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -152,7 +152,7 @@ public sealed class TenantProvisioningTests
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetModularity();
         services.AddFullNetDapper(configuration, "Testing");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddFullNetCaching(configuration, "Test");
         services.AddSingleton<
             ITenantOrganizationUnitDirectory,

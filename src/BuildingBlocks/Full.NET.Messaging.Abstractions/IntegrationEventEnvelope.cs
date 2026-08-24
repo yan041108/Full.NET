@@ -23,7 +23,8 @@ public sealed class IntegrationEventEnvelope
     public int SchemaVersion { get; }
 
     /// <summary>
-    /// 事件载荷序列化格式；当前实现仅接受 <c>application/x-messagepack</c> 以保证压缩与二进制兼容。
+    /// 事件载荷序列化格式；当前实现仅接受 <c>application/x-memorypack</c>，载荷为具体
+    /// <c>[MemoryPackable]</c> 契约的二进制块（见 ADR-0008 §4.6）。
     /// </summary>
     public string ContentType { get; }
 
@@ -63,7 +64,7 @@ public sealed class IntegrationEventEnvelope
     public DateTimeOffset OccurredAtUtc { get; }
 
     /// <summary>
-    /// 只读事件载荷字节；当前使用 MessagePack 序列化，禁止直接写入 JSON 明文。
+    /// 只读事件载荷字节；当前使用 MemoryPack 序列化，禁止直接写入 JSON 明文。
     /// </summary>
     public ReadOnlyMemory<byte> Payload { get; }
 
@@ -168,7 +169,7 @@ public sealed class IntegrationEventEnvelope
     {
         if (!string.Equals(
             contentType,
-            MessagingNames.ContentTypeMessagePack,
+            MessagingNames.ContentTypeMemoryPack,
             StringComparison.Ordinal))
         {
             throw new ArgumentException(

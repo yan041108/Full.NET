@@ -24,7 +24,7 @@ using Full.NET.Modules.Organization;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
-using Full.NET.Serialization.MessagePack;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -172,7 +172,7 @@ public sealed class TotpStrongReauthTests
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();
         services.AddFullNetModularity();
         services.AddFullNetDapper(configuration, "Production");
-        services.AddFullNetMessagePack();
+        services.AddFullNetMemoryPack();
         services.AddFullNetCaching(configuration, "Production");
         services.AddFullNetSeeding(configuration);
         services.AddFullNetModule<IdentityModule>(configuration);

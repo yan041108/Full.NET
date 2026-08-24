@@ -62,6 +62,8 @@ dotnet build Full.NET.slnx -c Release
 
 Phase 1 修正后：**无** `NoWarn=IL*`、无 `#if FULLNET_AOT_ANALYSIS` 隐藏路径、无无依据 `UnconditionalSuppressMessage`。
 
+Phase 2 起，Host.Api `FullNetPublishMode=NativeAot` 发布闭包允许 `IlcTreatWarningsAsErrors=false`，仅用于 ADR-0008 §3.1 登记的第三方程序集级 `IL2104`/`IL3053`；自有代码仍由 `pnpm test:aot:analyzers` 维持 `Aot-analysis-clean`。
+
 ## 7. 规则演进
 
 本次为已批准 ADR/计划实施，不新增 `rules/` 候选。
