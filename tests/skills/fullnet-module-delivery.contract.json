@@ -21,7 +21,7 @@
     "ProblemDetails",
     "Admin.NET",
     "FusionCache",
-    "MessagePack",
+    "MemoryPack",
     "Outbox",
     "中文",
     "rules/naming-conventions.md",
@@ -81,7 +81,7 @@
       "required_terms": [
         "事务",
         "Outbox",
-        "MessagePack",
+        "MemoryPack",
         "FusionCache",
         "提交后",
         "租户",

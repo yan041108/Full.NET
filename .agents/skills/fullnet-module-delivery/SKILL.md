@@ -43,7 +43,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 | `Domain` | 存在业务不变量和状态转换 | 实体、值对象、领域规则 |
 | `Features/<UseCase>` | 每个命令或查询 | Command/Query、Validator、Handler、Endpoint |
 | `Persistence` | 访问业务数据 | Dapper SQL、映射、Resolver/Repository |
-| `Serialization` | DTO 或事件进入线格式 | System.Text.Json 源生成、MessagePack Resolver |
+| `Serialization` | DTO 或事件进入线格式 | System.Text.Json 源生成、MemoryPack 契约 |
 | 模块注册 | 组件需要运行 | DI、Validator、Endpoint、序列化与事件处理器注册 |
 
 保持 HTTP Request、内部 Command/Query 和持久化模型分离。业务规则进入 Handler/Domain，Endpoint 只处理传输、授权、映射和结果转换。
@@ -86,7 +86,7 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 ### 事务、事件与缓存
 
 - 重要业务事件才允许 Outbox：仅把需要事务耦合、可幂等消费的业务 Integration Event 写入 Outbox，并与业务状态同一事务提交；外部调用不得进入数据库事务。
-- 跨进程可靠事件使用带版本元数据的 MessagePack；进程内调用不要序列化。
+- 跨进程可靠事件使用带版本元数据的 MemoryPack（`application/x-memorypack`）；契约必须是显式 `[MemoryPackable] partial` 具体 DTO，禁止 Union、接口、`object` 与反射式多态；进程内调用不要序列化。
 - 只有存在重复读取与明确失效点时才使用 FusionCache；缓存条目必须按 `C0/S0-L2/S1/S2/N0` 分类，细节见交付地图与 ADR-0005、总体 Spec §13。
 - 缓存失效不写 Outbox：事务提交后直接删除 L1/L2 并广播 Backplane；不要在提交前删除缓存，删除或通知失败由 TTL、版本与权威源收敛。
 - 不可变判断：
@@ -150,7 +150,7 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 | 新业务状态与写入 | Domain、Command、Validator、Handler、双库 SQL/测试 | 与当前用例无关的通用仓储 |
 | 新数据库结构 | SQL Server/MySQL DbUp 迁移与回归测试 | 单库迁移或运行时自动建表 |
 | 新数据库/API/消息命名 | Naming Profile、`Full.NET.Data.CodeGeneration`、`pnpm test:naming` | 自行截断、通配债务或复制存量旧名称 |
-| 跨模块可靠通知 | Contract 事件、MessagePack、事务 Outbox、Handler | 事务提交前直接推送；缓存/Audit/日志 Outbox |
+| 跨模块可靠通知 | Contract 事件、MemoryPack、事务 Outbox、Handler | 事务提交前直接推送；缓存/Audit/日志 Outbox |
 | 跨模块立即读取 | 消费方 Port、批量目录接口、Architecture 批量读取门禁 | 事务内 Contract、逐行 `FindActiveHostUserAsync`、跨模块 SQL |
 | 跨模块写入后失败 | `ExecuteResultAsync` 与事务回滚测试 | `ExecuteAsync` 返回失败 `Result` 仍提交 |
 | 领域参数 | 所有者模块强类型策略/表 + Outbox（经计划批准） | Settings `ConfigEntry` CRUD 或其他模块直查 `fn_settings_config_entry` |

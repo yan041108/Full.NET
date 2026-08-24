@@ -15,27 +15,84 @@ const repositoryRoot = path.resolve(
 const matrixPath = path.join(repositoryRoot, 'eng/testing/test-matrix.json');
 const matrix = JSON.parse(readFileSync(matrixPath, 'utf8'));
 const nativeGate = matrix.nativeAotIntegration;
+const integrationAssembly = matrix.integration.assembly;
 
-const result = spawnSync(
+const build = spawnSync(
   'dotnet',
   [
-    'test',
-    'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj',
-    '-c',
+    'build',
+    nativeGate.project,
+    '--configuration',
     'Release',
-    '--no-restore',
-    '--filter',
-    nativeGate.filter,
-    '--',
-    'MSTest',
-    `MinimumExpectedTests=${nativeGate.minimum}`,
+    '--nologo',
   ],
   {
     cwd: repositoryRoot,
     encoding: 'utf8',
     stdio: 'inherit',
-    shell: process.platform === 'win32',
+    shell: false,
+  }
+);
+if (build.status !== 0) {
+  process.exit(build.status ?? 1);
+}
+
+if (process.platform !== 'linux') {
+  const discovery = spawnSync(
+    'dotnet',
+    [
+      integrationAssembly,
+      '--list-tests',
+      'json',
+      '--no-ansi',
+      '--filter',
+      nativeGate.filter,
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+      shell: false,
+    }
+  );
+  if (discovery.status !== 0) {
+    process.exit(discovery.status ?? 1);
+  }
+
+  const discoveryPayload = JSON.parse(discovery.stdout);
+  const discoveredTests = discoveryPayload.tests?.length ?? 0;
+  if (discoveredTests < nativeGate.minimum) {
+    console.error(
+      `Native AOT E2E 发现数不足：${discoveredTests} < ${nativeGate.minimum}。`
+    );
+    process.exit(1);
+  }
+  console.log(`Native AOT E2E 非 Linux 发现门禁：${discoveredTests} 项。`);
+}
+
+const executionPolicyArgs = process.platform === 'linux'
+  ? ['--minimum-expected-tests', String(nativeGate.minimum)]
+  : ['--zero-tests-policy', 'allow-skipped'];
+
+const tests = spawnSync(
+  'dotnet',
+  [
+    integrationAssembly,
+    '--no-ansi',
+    '--progress',
+    'off',
+    '--timeout',
+    nativeGate.timeout,
+    '--filter',
+    nativeGate.filter,
+    ...executionPolicyArgs,
+  ],
+  {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    stdio: 'inherit',
+    shell: false,
   }
 );
 
-process.exit(result.status ?? 1);
+process.exit(tests.status ?? 1);

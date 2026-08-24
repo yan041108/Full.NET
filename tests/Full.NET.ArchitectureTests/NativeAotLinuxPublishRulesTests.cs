@@ -78,4 +78,60 @@ public sealed class NativeAotLinuxPublishRulesTests
         Assert.Contains("ubuntu-latest", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("windows-latest", workflow, StringComparison.Ordinal);
     }
+
+    [TestMethod]
+    public void LinuxNativeAotCiWorkflow_WatchesPublishToolchainAndDependencyInputs()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var workflow = File.ReadAllText(Path.Combine(
+            root,
+            ".github",
+            "workflows",
+            "api-native-aot-linux.yml"));
+
+        string[] requiredPaths =
+        [
+            "package.json",
+            "pnpm-lock.yaml",
+            "Directory.Packages.props",
+            "eng/docker/Dockerfile.api-native-aot-linux-sdk",
+        ];
+        foreach (var requiredPath in requiredPaths)
+        {
+            Assert.Contains(
+                $"- '{requiredPath}'",
+                workflow,
+                StringComparison.Ordinal,
+                $"Native AOT CI paths 必须覆盖 {requiredPath}。");
+        }
+    }
+
+    [TestMethod]
+    public void NativeAotDatabaseBootstrap_UsesOnlyMigratorForSchemaAndSeed()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var bootstrap = File.ReadAllText(Path.Combine(
+            root,
+            "tests",
+            "Full.NET.IntegrationTests",
+            "NativeAot",
+            "NativeApiDatabaseBootstrap.cs"));
+        var migratorRunner = File.ReadAllText(Path.Combine(
+            root,
+            "tests",
+            "Full.NET.IntegrationTests",
+            "NativeAot",
+            "NativeApiMigratorRunner.cs"));
+
+        Assert.DoesNotContain(
+            "FullNetApiFactory",
+            bootstrap,
+            StringComparison.Ordinal,
+            "Native E2E 数据准备不得启动 JIT API 测试宿主。");
+        Assert.Contains(
+            "SeedProfile.Development.ToCanonicalName()",
+            migratorRunner,
+            StringComparison.Ordinal,
+            "Native E2E 必须通过 JIT Migrator 显式执行 Development seed。");
+    }
 }

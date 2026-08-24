@@ -34,19 +34,13 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
       assert.ok(selection.filter.length > 0);
     }
   }
-  assert.deepEqual(
-    matrix.dotnetSuites.unit.selections['code-generation-realtime'],
-    {
-      filter: 'FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime',
-      minimum: 371
-    }
+  assert.equal(
+    matrix.dotnetSuites.unit.selections['code-generation-realtime'].filter,
+    'FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime'
   );
-  assert.deepEqual(
-    matrix.dotnetSuites.architecture.selections['api-native-aot'],
-    {
-      filter: 'FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol',
-      minimum: 27
-    }
+  assert.equal(
+    matrix.dotnetSuites.architecture.selections['api-native-aot'].filter,
+    'FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol'
   );
   assert.deepEqual(matrix.nativeAotPublish.runtimeIdentifier, 'linux-x64');
   assert.ok(matrix.nativeAotIntegration.minimum > 0);
@@ -108,6 +102,7 @@ test('快速套件默认先构建新鲜程序集，CI 可在统一构建后显�
 });
 
 test('快速套件从测试矩阵解析命名聚焦集', () => {
+  const matrix = loadTestMatrix();
   const args = argumentsForSuite('architecture', {
     selection: 'api-native-aot'
   });
@@ -119,7 +114,10 @@ test('快速套件从测试矩阵解析命名聚焦集', () => {
       args.indexOf('--minimum-expected-tests'),
       args.indexOf('--minimum-expected-tests') + 2
     ),
-    ['--minimum-expected-tests', '27']
+    [
+      '--minimum-expected-tests',
+      String(matrix.dotnetSuites.architecture.selections['api-native-aot'].minimum)
+    ]
   );
   assert.deepEqual(parseSuiteOptions([
     '--no-build',

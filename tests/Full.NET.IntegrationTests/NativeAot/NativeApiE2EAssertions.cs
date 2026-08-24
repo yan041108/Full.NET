@@ -13,6 +13,8 @@ namespace Full.NET.IntegrationTests.NativeAot;
 /// </summary>
 internal static class NativeApiE2EAssertions
 {
+    public const string AdminPassword = "FullNet!2026Integration";
+
     public static async Task VerifyCriticalHttpFlowAsync(
         DatabaseProvider provider,
         string connectionString,
@@ -23,7 +25,6 @@ internal static class NativeApiE2EAssertions
         await NativeApiDatabaseBootstrap.BootstrapAsync(
                 provider,
                 connectionString,
-                settingsOverrides,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -59,7 +60,7 @@ internal static class NativeApiE2EAssertions
             "/api/v1/auth/login")
         {
             Content = JsonContent.Create(
-                new LoginRequest("admin", FullNetApiFactory.TestPassword)),
+                new LoginRequest("admin", AdminPassword)),
         };
         loginRequest.Headers.Add("Origin", "http://localhost");
         using var loginResponse = await client.SendAsync(loginRequest, cancellationToken)

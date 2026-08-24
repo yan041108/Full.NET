@@ -109,9 +109,9 @@
 | 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |
 | System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | **Build-verified**（Architecture 门禁从生产 Endpoint 元数据枚举请求、响应、分页项与 ProblemDetails 类型并验证模块源生成上下文覆盖；生成式客户端 SDK 属于独立演进项） |
-| MessagePack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Implemented |
+| MemoryPack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Implemented |
 | gRPC/Protobuf 跨进程同步通信 | ServiceCommunication.Grpc | Provider/Template | 首次服务拆分时 | Mapped |
-| SignalR、MessagePack Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | **Build-verified**（`IRealtimePublisher` + Hub + JWT 分组；[验证记录](../verification/realtime-signalr-foundation-2026-07-26.md)） |
+| SignalR、JSON Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | **Build-verified**（`IRealtimePublisher` + Hub + JWT 分组；[验证记录](../verification/realtime-signalr-foundation-2026-07-26.md)） |
 | 模型供应商中立 AI 抽象 | AI.Abstractions | Official Module | M5+ | Mapped |
 | Agent、MCP 与 Agentic Web | Agents + AgenticWeb | Official Module + Protocol Adapter | M5+ | Mapped |
 
@@ -165,7 +165,7 @@ Document 队列 #1 已于 2026-08-16 关闭（**Verified**）。后续按依赖�
 
 AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还包括 `Microsoft.Extensions.AI` 供应商中立抽象、模型/Token/费用配额、显式 Tool 权限、Agent 会话与步骤、人工审批、MCP Client/Server、AG-UI 或等价标准 Web 协议、租户隔离和可靠审计。预览协议包必须封装在独立适配器中，不能成为核心稳定 API。
 
-Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR、MessagePack Hub Protocol、连接鉴权、租户分组和 Redis Backplane；M3 的 Notifications 再消费该抽象实现公告、站内信、未读数和多渠道通知。业务模块不得直接持有 `IHubContext`。
+Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR JSON Hub Protocol、连接鉴权、租户分组和 Redis Backplane；M3 的 Notifications 再消费该抽象实现公告、站内信、未读数和多渠道通知。业务模块不得直接持有 `IHubContext`。
 
 ## 5. 客户端与交付形态
 

@@ -15,6 +15,7 @@ export const apiNativeAotPublishContract = {
   projectRelativePath: 'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj',
   outputRelativeDir: 'artifacts/native-aot/linux-x64/publish',
   manifestRelativePath: 'artifacts/native-aot/linux-x64/publish-manifest.json',
+  publishLogRelativePath: 'artifacts/native-aot/linux-x64/publish.log',
   executableName: 'Full.NET.Host.Api',
   runtimeIdentifier: 'linux-x64',
   sdkImage: 'mcr.microsoft.com/dotnet/sdk:10.0',

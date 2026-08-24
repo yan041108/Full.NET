@@ -55,3 +55,72 @@ test('publish 脚本与契约包含完整 MSBuild 参数', async () => {
   assert.match(contractSource, /linux-x64/);
   assert.match(contractSource, /SelfContained:\s*'true'/);
 });
+
+test('publish 脚本在链接前删除旧产物与 manifest', async () => {
+  const script = await read('scripts/testing/run-api-aot-publish-linux.mjs');
+  assert.match(script, /rmSync\(outputDir,\s*\{ recursive: true, force: true \}\)/);
+  assert.match(script, /rmSync\(manifestPath,\s*\{ force: true \}\)/);
+  assert.ok(
+    script.indexOf('clearPreviousPublishEvidence();')
+      < script.indexOf('const startedAt = Date.now();'),
+    '旧发布证据必须在本轮计时和 publish 前清理'
+  );
+});
+
+test('publish warning 门禁只接受 ADR 登记的程序集与告警码', async () => {
+  let validatePublishWarnings;
+  try {
+    ({ validatePublishWarnings } = await import(
+      '../../scripts/testing/api-native-aot-publish-warnings.mjs'
+    ));
+  } catch {
+    // 缺少门禁模块时由下方函数断言给出稳定失败，而不是泄漏模块加载异常。
+  }
+  assert.equal(typeof validatePublishWarnings, 'function');
+
+  const accepted = validatePublishWarnings(`
+/root/.nuget/packages/memorypack.core/1.21.4/lib/net8.0/MemoryPack.Core.dll : warning IL2104: trim
+/root/.nuget/packages/memorypack.core/1.21.4/lib/net8.0/MemoryPack.Core.dll : warning IL3053: aot
+/root/.nuget/packages/dapper/2.1.79/lib/net10.0/Dapper.dll : warning IL2104: trim
+/root/.nuget/packages/dapper/2.1.79/lib/net10.0/Dapper.dll : warning IL3053: aot
+/root/.nuget/packages/microsoft.data.sqlclient/7.0.2/Microsoft.Data.SqlClient.dll : warning IL2104: trim
+/root/.nuget/packages/microsoft.data.sqlclient/7.0.2/Microsoft.Data.SqlClient.dll : warning IL3053: aot
+/root/.nuget/packages/microsoft.data.sqlclient.internal.logging/7.0.2/Microsoft.Data.SqlClient.Internal.Logging.dll : warning IL2104: trim
+/root/.nuget/packages/system.configuration.configurationmanager/9.0.13/System.Configuration.ConfigurationManager.dll : warning IL2104: trim
+`);
+  assert.equal(accepted.length, 8);
+
+  assert.throws(
+    () => validatePublishWarnings(
+      '/src/Full.NET.Custom.dll : warning IL2104: trim'
+    ),
+    /未登记的 Native AOT publish warning/
+  );
+  assert.throws(
+    () => validatePublishWarnings(
+      '/root/.nuget/packages/dapper/2.1.79/Dapper.dll : warning IL2026: new warning'
+    ),
+    /未登记的 Native AOT publish warning/
+  );
+});
+
+test('Docker publish 将 bin 与 obj 隔离在容器临时目录', async () => {
+  const script = await read('scripts/testing/run-api-aot-publish-linux.mjs');
+  assert.match(script, /UseArtifactsOutput=true/);
+  assert.match(script, /ArtifactsPath=\/tmp\/fullnet-native-aot\/artifacts/);
+  assert.doesNotMatch(script, /BaseIntermediateOutputPath/);
+  assert.doesNotMatch(script, /BaseOutputPath/);
+  assert.doesNotMatch(script, /clearProjectObjFolders/);
+});
+
+test('Native E2E 直接运行已构建程序集并执行最低发现数门禁', async () => {
+  const script = await read('scripts/testing/run-native-aot-e2e.mjs');
+  assert.match(script, /nativeGate\.project/);
+  assert.match(script, /'build'/);
+  assert.match(script, /matrix\.integration\.assembly/);
+  assert.match(script, /--list-tests/);
+  assert.match(script, /JSON\.parse/);
+  assert.match(script, /--zero-tests-policy/);
+  assert.match(script, /--minimum-expected-tests/);
+  assert.doesNotMatch(script, /'test',\s*'tests\/Full\.NET\.IntegrationTests/);
+});

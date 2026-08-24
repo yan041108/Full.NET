@@ -41,13 +41,17 @@ Native AOT 与 Trim 分析会暴露反射式配置绑定、匿名 Minimal API �
 |---|---|---|---|
 | `MemoryPack.Core` | `IL2104`、`IL3053` | 上游程序集级 Trim/AOT 标注不完整；Integration Event 已使用 `[MemoryPackable]` 与显式序列化器 | [MemoryPack#211](https://github.com/Cysharp/MemoryPack/issues/211)、[#251](https://github.com/Cysharp/MemoryPack/issues/251) |
 | `Microsoft.Data.SqlClient` | `IL2104`、`IL3053` | 认证 Provider 反射发现；Native 发布通过 `EnableReflectionBasedAuthenticationProviderDiscovery=false` 收窄 | SqlClient Native AOT 文档 |
-| `Dapper` | `IL3053`（经 `Dapper.AOT` 拦截后） | 数据访问经 `Dapper.AOT` 源生成拦截器与 `FULLNET_AOT_COMPILE` TypeHandler 排除 | [Dapper.AOT](https://github.com/DapperLib/DapperAOT) |
+| `Microsoft.Data.SqlClient.Internal.Logging` | `IL2104` | SqlClient 的内部日志传递依赖；只允许当前程序集级告警，不扩大到自有代码 | 随 SqlClient 版本共同跟踪 |
+| `System.Configuration.ConfigurationManager` | `IL2104` | SqlClient 的传递依赖仍包含配置反射路径；Host.Api 不通过该路径发现认证 Provider | 随 SqlClient 依赖树共同跟踪 |
+| `Dapper` | `IL2104`、`IL3053`（经 `Dapper.AOT` 拦截后） | 数据访问经 `Dapper.AOT` 源生成拦截器与 `FULLNET_AOT_COMPILE` TypeHandler 排除 | [Dapper.AOT](https://github.com/DapperLib/DapperAOT) |
 
 **允许且仅限 Host.Api `FullNetPublishMode=NativeAot` 发布闭包：**
 
 1. `IlcTreatWarningsAsErrors=false`——防止上述第三方程序集级告警在 ILC 阶段升级为失败；不得用于 JIT 或分析构建；
 2. 对单程序集 `TrimmerRootAssembly`（如 `MemoryPack.Core`）仅作辅助，不得替代上表登记；
 3. 禁止通配 `TrimmerRootAssembly`、通配 linker descriptor 或 `NoWarn=IL*` 掩盖自有代码告警。
+
+`pnpm test:aot:publish:linux` 必须保存本轮 publish 日志，并按“程序集 + 告警码”精确校验上表；任何自有程序集、未知第三方程序集或新 IL 告警码都失败关闭，禁止仅依赖 `IlcTreatWarningsAsErrors=false` 判断发布成功。
 
 ## 4. 运行时边界
 

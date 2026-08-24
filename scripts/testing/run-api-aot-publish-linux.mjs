@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   rmSync,
   statSync,
@@ -18,10 +19,12 @@ import {
   apiNativeAotPublishContract,
   resolveRepositoryPath,
 } from './api-native-aot-publish-contract.mjs';
+import { validatePublishWarnings } from './api-native-aot-publish-warnings.mjs';
 
 const contract = apiNativeAotPublishContract;
 const outputDir = resolveRepositoryPath(contract.outputRelativeDir);
 const manifestPath = resolveRepositoryPath(contract.manifestRelativePath);
+const publishLogPath = resolveRepositoryPath(contract.publishLogRelativePath);
 const projectPath = resolveRepositoryPath(contract.projectRelativePath);
 const executablePath = path.join(outputDir, contract.executableName);
 
@@ -74,6 +77,10 @@ function buildPublishShellCommand() {
   const propertyArgs = Object.entries(contract.publishMsBuildProperties)
     .map(([key, value]) => `-p:${key}=${value}`)
     .join(' ');
+  const isolatedOutputArgs = [
+    '-p:UseArtifactsOutput=true',
+    '-p:ArtifactsPath=/tmp/fullnet-native-aot/artifacts',
+  ].join(' ');
 
   const project = shellQuote(
     `/src/${contract.projectRelativePath.replace(/\\/g, '/')}`
@@ -81,14 +88,17 @@ function buildPublishShellCommand() {
   const output = shellQuote(
     `/src/${contract.outputRelativeDir.replace(/\\/g, '/')}`
   );
+  const publishLog = shellQuote(
+    `/src/${contract.publishLogRelativePath.replace(/\\/g, '/')}`
+  );
 
-  // 容器内先 restore 再 publish；挂载的 obj 若含 Windows NuGet 回退路径会导致 Linux SDK 失败。
+  // 容器的 bin/obj 固定写入 /tmp，禁止 Linux restore 污染 Windows 挂载工作区。
   return [
     'set -euo pipefail',
     'export NUGET_PACKAGES=/root/.nuget/packages',
     'echo "SDK version: $(dotnet --version)"',
-    `dotnet restore ${project} ${propertyArgs} --nologo`,
-    `dotnet publish ${project} ${propertyArgs} -o ${output} --nologo --no-restore`,
+    `dotnet restore ${project} ${propertyArgs} ${isolatedOutputArgs} --nologo`,
+    `dotnet publish ${project} ${propertyArgs} ${isolatedOutputArgs} -o ${output} --nologo --no-restore 2>&1 | tee ${publishLog}`,
   ].join('; ');
 }
 
@@ -171,23 +181,7 @@ function ensureDockerPublishImage() {
   return publishImage;
 }
 
-function clearProjectObjFolders(relativeProjectPaths) {
-  for (const relativeProjectPath of relativeProjectPaths) {
-    const objDir = path.join(
-      resolveRepositoryPath(path.dirname(relativeProjectPath)),
-      'obj'
-    );
-    if (existsSync(objDir)) {
-      rmSync(objDir, { recursive: true, force: true });
-    }
-  }
-}
-
 function publishViaDocker() {
-  clearProjectObjFolders([
-    contract.projectRelativePath,
-    'src/BuildingBlocks/Full.NET.Data.Dapper/Full.NET.Data.Dapper.csproj',
-  ]);
   const publishImage = ensureDockerPublishImage();
   const repoMount = contract.repositoryRoot.replace(/\\/g, '/');
   const volumeMounts = [
@@ -220,8 +214,28 @@ function publishViaDocker() {
   };
 }
 
-function ensureOutputDirectory() {
+function clearPreviousPublishEvidence() {
+  rmSync(outputDir, { recursive: true, force: true });
+  rmSync(manifestPath, { force: true });
+  rmSync(publishLogPath, { force: true });
   mkdirSync(path.dirname(outputDir), { recursive: true });
+}
+
+function verifyPublishWarnings(result, publishMode) {
+  if (publishMode === 'linux-host') {
+    writeFileSync(
+      publishLogPath,
+      `${result.stdout ?? ''}${result.stderr ?? ''}`,
+      'utf8'
+    );
+  }
+
+  if (!existsSync(publishLogPath)) {
+    throw new Error(`Native AOT publish 缺少日志：${publishLogPath}`);
+  }
+
+  const warnings = validatePublishWarnings(readFileSync(publishLogPath, 'utf8'));
+  console.log(`Publish warning gate: ${warnings.length} allowed warning(s).`);
 }
 
 function verifyArtifact() {
@@ -261,6 +275,7 @@ function writeManifest(executableStat, publishDurationMs, publishMode) {
     baseSdkImage: contract.sdkImage,
     sdkImageLabel: contract.sdkImageLabel,
     outputRelativeDir: contract.outputRelativeDir,
+    publishLogRelativePath: contract.publishLogRelativePath,
     executableRelativePath: path
       .join(contract.outputRelativeDir, contract.executableName)
       .replace(/\\/g, '/'),
@@ -280,7 +295,7 @@ function writeManifest(executableStat, publishDurationMs, publishMode) {
 }
 
 function main() {
-  ensureOutputDirectory();
+  clearPreviousPublishEvidence();
   const startedAt = Date.now();
   let publishMode;
   let result;
@@ -314,6 +329,7 @@ function main() {
     process.exit(result.status ?? 1);
   }
 
+  verifyPublishWarnings(result, publishMode);
   const executableStat = verifyArtifact();
   writeManifest(executableStat, Date.now() - startedAt, publishMode);
 }

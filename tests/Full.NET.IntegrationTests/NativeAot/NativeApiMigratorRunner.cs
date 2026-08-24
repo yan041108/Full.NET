@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Full.NET.Data.Abstractions;
+using Full.NET.Seeding.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -38,6 +39,8 @@ internal static class NativeApiMigratorRunner
         startInfo.ArgumentList.Add("--no-launch-profile");
         startInfo.ArgumentList.Add("--");
         startInfo.ArgumentList.Add("migrate");
+        startInfo.ArgumentList.Add("--seed");
+        startInfo.ArgumentList.Add(SeedProfile.Development.ToCanonicalName());
 
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Testing";
         startInfo.Environment[$"{DatabaseOptions.SectionName}__Provider"] =
@@ -48,6 +51,10 @@ internal static class NativeApiMigratorRunner
             "300";
         startInfo.Environment[$"{DatabaseOptions.SectionName}__MySqlGuidStorageMode"] =
             "Binary16";
+        startInfo.Environment["Identity__Bootstrap__Username"] = "admin";
+        startInfo.Environment["Identity__Bootstrap__Password"] =
+            NativeApiE2EAssertions.AdminPassword;
+        startInfo.Environment["Identity__Bootstrap__DisplayName"] = "系统管理员";
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("无法启动 JIT Migrator。");

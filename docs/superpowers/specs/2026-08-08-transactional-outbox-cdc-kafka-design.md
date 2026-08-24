@@ -93,14 +93,14 @@ public sealed record IntegrationEventEnvelope(
 
 - `EventId`：应用端 UUID v7，跨 Outbox、Kafka、Inbox、日志和重放保持不变。
 - `MessageType`：匹配 `^[a-z][a-z0-9]*(\.[a-z][a-z0-9_]*){3,}$`，继续使用 `{owner}.{module}.{entity}.{event}`。
-- `SchemaVersion`：正整数，与 MessagePack 契约版本独立治理。
-- `ContentType`：首期仅允许 `application/x-msgpack`。
+- `SchemaVersion`：正整数，与 MemoryPack 契约版本独立治理。
+- `ContentType`：仅允许 `application/x-memorypack`。
 - `PartitionKey`：非空、最大 256 UTF-8 字节；不得含 Secret、翻译文本或随机值。
 - `CorrelationId`：跨用例关联，最大 128 字符；无现有值时使用 `EventId` 规范文本。
 - `CausationId`：由上游消息触发时记录其 `EventId`。
 - `TraceParent`：W3C Trace Context；不得把完整 Baggage 写入消息。
 - `Producer`：稳定模块/宿主机器码，例如 `fullnet.tenancy`，不是 CLR 类型名。
-- `Payload`：MessagePack 二进制，不可信反序列化安全策略保持开启。
+- `Payload`：MemoryPack 受控二进制协议；只允许白名单 `[MemoryPackable] partial` 具体 DTO，详细边界见 ADR-0008 §4.6。
 
 ### 4.2 写入接口
 
@@ -294,7 +294,7 @@ Trace Span 至少覆盖 `outbox.append`、`cdc.capture`（从 Connector 指标�
 
 ### 11.1 契约与架构
 
-- Envelope 字段、MessagePack 往返、未知 Schema、PartitionKey 和 TraceParent 校验。
+- Envelope 字段、MemoryPack 往返、未知 Schema、PartitionKey 和 TraceParent 校验。
 - 业务模块禁止引用 Kafka/Debezium；Host/Provider 依赖方向正确。
 - Topic/Subscription Catalog 拒绝重复、未知、无 Handler 和未批准路由。
 

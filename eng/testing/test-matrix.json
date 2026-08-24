@@ -27,7 +27,7 @@
       "selections": {
         "api-native-aot": {
           "filter": "FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol",
-          "minimum": 27
+          "minimum": 29
         }
       }
     }
@@ -40,6 +40,7 @@
     "sdkImage": "mcr.microsoft.com/dotnet/sdk:10.0"
   },
   "nativeAotIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot",
     "minimum": 5,
     "timeout": "45m"

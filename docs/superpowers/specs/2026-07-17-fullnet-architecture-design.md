@@ -34,7 +34,7 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - [FusionCache](https://github.com/ZiggyCreatures/FusionCache)：唯一缓存实现。
 - [System.Text.Json](https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/source-generation)：外部 HTTP JSON 的唯一默认实现。
 - [gRPC for .NET](https://learn.microsoft.com/aspnet/core/grpc/)：出现跨进程同步调用时的默认 RPC 技术。
-- [MessagePack-CSharp](https://github.com/MessagePack-CSharp/MessagePack-CSharp)：内部可靠异步事件和高性能二进制传输的默认序列化实现。
+- [MemoryPack](https://github.com/Cysharp/MemoryPack)：内部可靠异步事件的 AOT 友好受控二进制序列化实现。
 - [Serilog](https://github.com/serilog/serilog)：`ILogger<T>` 后面的默认结构化日志实现。
 - [ASP.NET Core SignalR](https://learn.microsoft.com/aspnet/core/signalr/)：浏览器和应用客户端实时通信实现。
 - [Microsoft.Extensions.AI](https://learn.microsoft.com/dotnet/ai/microsoft-extensions-ai)、[Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/overview/) 和 [MCP C# SDK](https://csharp.sdk.modelcontextprotocol.io/)：AI、Agent 与 Agentic Web 的基础抽象和协议适配参考。
@@ -51,9 +51,9 @@ Full.NET 的定位不是业务成品，也不是 Admin.NET.Pro 的原地重构�
 - Vue 3 管理端是后台产品唯一持续交付线；Layui 2 原生 JS/HTML 管理端自 2026-08-02 起作为存量冻结客户端，不再新增功能或参与新能力验收；所有客户端通过 OpenAPI 与后端解耦。
 - H5、微信小程序和支付宝小程序采用 uni-app Vue 3；原生移动端和 Windows/macOS/Linux 桌面端默认采用 Flutter，.NET MAUI 仅作为命中决策门禁后的可选模板。
 - 外部 REST JSON 统一使用 System.Text.Json 源代码生成；Newtonsoft.Json 只允许作为可选兼容 Provider。
-- 同进程模块调用不序列化；跨进程同步调用使用 gRPC + Protobuf；可靠异步事件默认使用 MessagePack，不使用 JSON 载荷。
+- 同进程模块调用不序列化；跨进程同步调用使用 gRPC + Protobuf；可靠异步事件默认使用 MemoryPack，不使用 JSON 载荷。
 - 业务代码只依赖 `ILogger<T>`；高频日志使用 `LoggerMessage` 源生成，Serilog 负责异步有界结构化输出。
-- SignalR 通过实时通信抽象接入；官方客户端优先 MessagePack Hub Protocol，同时保留 JSON 客户端兼容。
+- SignalR 通过实时通信抽象接入；JIT 与 Native AOT 宿主统一只启用 JSON Hub Protocol。
 - AI 核心保持模型供应商中立；Agent、MCP、AG-UI 等能力必须位于独立模块或协议适配层。
 - 成熟生产参考拓扑采用 Kubernetes + Helm，强化型模块化单体以 API、Worker、Migrator 运行角色多实例部署；应用 Chart 不安装生产数据库、Redis、对象存储和可观测性后端。
 - 月度可用性 SLO 为 `99.9%`。单体 `1 万个同时在途动态请求` 是正式容量认证目标，不是开发机功能交付门禁，也不等同于固定 QPS 承诺。
@@ -788,7 +788,7 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 
 实时能力分为 `Full.NET.Realtime.Abstractions` 与 `Full.NET.Realtime.SignalR`。业务模块依赖 `IRealtimePublisher`，不得直接依赖 `IHubContext`；Hub 只负责连接、鉴权、分组和传输，不实现业务规则。所有业务通知在数据库事务提交后由 Outbox/Worker 触发，不能在事务提交前直接推送。
 
-服务端使用强类型 `Hub<TClient>`。租户、用户、角色和业务对象采用有命名空间的组名，所有加入组操作重新验证租户和权限。官方 .NET/Vue 客户端优先使用 MessagePack Hub Protocol，普通浏览器和兼容客户端可继续选择 JSON。服务端限制消息大小、连接数、调用速率和流持续时间，并支持取消和断线重连。
+服务端使用强类型 `Hub<TClient>`。租户、用户、角色和业务对象采用有命名空间的组名，所有加入组操作重新验证租户和权限。官方 .NET/Vue、浏览器和兼容客户端统一使用 JSON Hub Protocol，禁止按 JIT/Native AOT 分叉协议。服务端限制消息大小、连接数、调用速率和流持续时间，并支持取消和断线重连。
 
 单实例使用本机 SignalR；自建多实例使用同机房 Redis Backplane。开发环境可以与 FusionCache 共用 Redis；生产参考拓扑使用独立 `Realtime` Redis，与 `Cache/Backplane` Redis 分离，例外必须有容量和故障域证据。除非客户端被约束为 WebSockets-only 且启用 `SkipNegotiation`，负载均衡入口必须为 SignalR 保持连接亲和；在线状态使用 Redis TTL 或可替换 Presence Store，不保存在某一台 API 的进程内存。
 
@@ -843,7 +843,7 @@ H5、微信小程序与支付宝小程序统一放在 `clients/uniapp`，采用 
 
 ### 20.5 性能基线
 
-建立单行查询、分页、批量写入、权限检查、租户解析、Token、System.Text.Json 源生成、MessagePack、gRPC 契约、日志热路径和 Outbox 的可重复 Benchmark。日常开发只要求按高并发目标完成正确性、资源边界、可观测性和轻量回归验证，不要求在没有目标硬件的开发机达到 2K/5K/10K 在途或固定 QPS。未完成正式容量认证时状态必须为 `Capacity-not-verified`。
+建立单行查询、分页、批量写入、权限检查、租户解析、Token、System.Text.Json 源生成、MemoryPack、gRPC 契约、日志热路径和 Outbox 的可重复 Benchmark。日常开发只要求按高并发目标完成正确性、资源边界、可观测性和轻量回归验证，不要求在没有目标硬件的开发机达到 2K/5K/10K 在途或固定 QPS。未完成正式容量认证时状态必须为 `Capacity-not-verified`。
 
 性能变更必须记录场景、数据规模、并发、预热、时长、运行环境、Provider、基线提交、吞吐、错误率、P50/P95/P99 与受影响资源指标。请求链优先减少数据库和网络往返；Dapper 仅按稳定 Statement 名称暴露低基数指标。认证撤销、租户隔离、Audit/Outbox 可靠性和双库兼容是性能优化的硬停止条件，不能用缓存、fire-and-forget 或单库执行计划换取表面吞吐。
 
@@ -971,11 +971,11 @@ MIT 项目可以在遵守原版权和许可证声明的前提下复用。依赖�
 
 ### M1：可运行垂直底座
 
-Dapper、DbUp、SQL Server/MySQL、租户上下文、事务、MessagePack Outbox、ProblemDetails、OpenTelemetry、FusionCache 和最小 API 链路。记录 gRPC 和实时通信边界，但不为未出现的跨进程调用提前引入运行时依赖。
+Dapper、DbUp、SQL Server/MySQL、租户上下文、事务、MemoryPack Outbox、ProblemDetails、OpenTelemetry、FusionCache 和最小 API 链路。记录 gRPC 和实时通信边界，但不为未出现的跨进程调用提前引入运行时依赖。
 
 ### M2：核心后台能力
 
-Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR/MessagePack、Redis Backplane，以及 Vue 管理端核心流程与逐页面/逐操作授权。
+Tenancy、Identity、Organization、RBAC、数据范围、菜单、Realtime 抽象、SignalR JSON、Redis Backplane，以及 Vue 管理端核心流程与逐页面/逐操作授权。
 
 ### M3：快速交付能力
 
@@ -1007,8 +1007,8 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - 日志、Trace、Metrics 和健康检查可用；
 - 普通 HTTP Operation Log、Diagnostic、B0/B1 Audit 按逻辑分组、脱敏、批写和可靠性契约分流，缓存与日志/Audit 均不借用 Outbox；
 - Data Protection Key Ring、对象存储、Cache/Backplane Redis 与 Realtime Redis 满足多实例共享和恢复边界；
-- 对外 JSON 热路径使用 System.Text.Json 源生成，Outbox 使用带版本元数据的 MessagePack 二进制载荷；
-- SignalR 实时通道具备租户隔离、MessagePack 客户端和 Redis 多实例验证；
+- 对外 JSON 热路径使用 System.Text.Json 源生成，Outbox 使用带版本元数据的 MemoryPack 二进制载荷；
+- SignalR 实时通道具备租户隔离、JSON 客户端和 Redis 多实例验证；
 - 架构、集成、生成器和 E2E 测试通过；
 - 仓库满足 MIT 和第三方许可证发布要求。
 
@@ -1051,10 +1051,10 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 - [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
 - [Kubernetes Pod Disruption Budgets](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
 - [Grafana Loki storage](https://grafana.com/docs/loki/latest/operations/storage/)
-- [MessagePack-CSharp](https://github.com/MessagePack-CSharp/MessagePack-CSharp)
+- [MemoryPack](https://github.com/Cysharp/MemoryPack)
 - [High-performance logging in .NET](https://learn.microsoft.com/dotnet/core/extensions/logging/high-performance-logging)
 - [Serilog.Sinks.Async](https://github.com/serilog/serilog-sinks-async)
-- [SignalR MessagePack Hub Protocol](https://learn.microsoft.com/aspnet/core/signalr/messagepackhubprotocol?view=aspnetcore-10.0)
+- [ASP.NET Core SignalR configuration](https://learn.microsoft.com/aspnet/core/signalr/configuration?view=aspnetcore-10.0)
 - [Microsoft.Extensions.AI](https://learn.microsoft.com/dotnet/ai/microsoft-extensions-ai)
 - [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/overview/)
 - [MCP C# SDK](https://csharp.sdk.modelcontextprotocol.io/)

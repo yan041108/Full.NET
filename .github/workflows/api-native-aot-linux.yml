@@ -7,18 +7,26 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'scripts/testing/**'
+      - 'eng/docker/Dockerfile.api-native-aot-linux-sdk'
       - 'eng/testing/test-matrix.json'
       - 'Directory.Build.*'
+      - 'Directory.Packages.props'
       - 'global.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/api-native-aot-linux.yml'
   pull_request:
     paths:
       - 'src/**'
       - 'tests/**'
       - 'scripts/testing/**'
+      - 'eng/docker/Dockerfile.api-native-aot-linux-sdk'
       - 'eng/testing/test-matrix.json'
       - 'Directory.Build.*'
+      - 'Directory.Packages.props'
       - 'global.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/api-native-aot-linux.yml'
   workflow_dispatch:
 
@@ -93,4 +101,5 @@ jobs:
           name: api-native-aot-linux-logs
           path: |
             artifacts/**/*.trx
+            artifacts/**/*.log
             TestResults/**

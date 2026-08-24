@@ -19,6 +19,7 @@ public sealed class NativeApiSignalRJsonE2ETests
     [TestMethod]
     public async Task SqlServer_native_artifact_supports_json_signalr_with_redis_backplane()
     {
+        _ = NativeApiArtifactLocator.RequireArtifact();
         await VerifySignalRJsonFlowAsync(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
@@ -27,6 +28,7 @@ public sealed class NativeApiSignalRJsonE2ETests
     [TestMethod]
     public async Task MySql_native_artifact_supports_json_signalr_with_redis_backplane()
     {
+        _ = NativeApiArtifactLocator.RequireArtifact();
         await VerifySignalRJsonFlowAsync(
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
@@ -51,8 +53,7 @@ public sealed class NativeApiSignalRJsonE2ETests
 
         await NativeApiDatabaseBootstrap.BootstrapAsync(
             provider,
-            connectionString,
-            settings);
+            connectionString);
 
         await using var host = await NativeApiProcessHost.StartAsync(
             artifact,

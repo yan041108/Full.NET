@@ -30,7 +30,7 @@
 - `src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs`：模块服务注册、后台能力（`AddBackgroundServices`）与中间件贡献（`UseModuleMiddleware`）；宿主通过 `UseFullNetModuleMiddleware(stage)` 统一应用，禁止在宿主直接引用模块或手写 `UseXxx`；
 - `src/Modules/Full.NET.Modules.Tenancy/Features/`：同一主项目内同时承载 Command、Validator、Handler、Endpoint 与服务；只有满足项目拓扑门禁时才允许把 Web 面拆到独立 `.Http`；
 - `src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs`：显式 SQL；
-- `src/Modules/Full.NET.Modules.Tenancy/Serialization/`：JSON 源生成与 MessagePack Resolver；
+- `src/Modules/Full.NET.Modules.Tenancy/Serialization/`：JSON 源生成；可靠事件 DTO 在 Contracts 中使用 `[MemoryPackable] partial`；
 - `tests/Full.NET.IntegrationTests/Tenancy/TenantProvisioningTests.cs`：双数据库事务与 Outbox；
 - `tests/Full.NET.IntegrationTests/Api/`：SQL Server/MySQL API 契约。
 
@@ -41,7 +41,7 @@
 | 新 Command/Query | 模块 `Features/<UseCase>/`、Dispatcher 注册、Unit Tests |
 | 新校验 | `IValidator<T>`、模块显式注册、Validation Behavior Tests |
 | 新表或列 | `Migrations/SqlServer` 与 `Migrations/MySql` 同序号脚本、旧结构升级与未记账部分完成恢复 Integration Tests |
-| 新集成事件 | 模块 `Contracts`、MessagePack Resolver、Outbox 写入、Worker Handler、序列化测试；仅重要业务 Integration Event 才允许 Outbox |
+| 新集成事件 | 模块 `Contracts` 的 `[MemoryPackable] partial` DTO、Outbox 写入、Worker Handler、序列化测试；仅重要业务 Integration Event 才允许 Outbox |
 | 新缓存 | 模块缓存消费者、租户化 Key、`C0/S0-L2/S1/S2/N0` 分类、事务提交后直接删除 L1/L2 并广播 Backplane、Unit/Integration Tests |
 | 新公开 JSON DTO | 模块 `JsonSerializerContext`、API 测试、兼容性评估 |
 | 新对外 HTTP 契约 | 冻结 `contracts/openapi/<slice>-v1.json`、补充 `tests/openapi/<slice>-contract.test.mjs`、运行 `pnpm test:openapi`；对应 C# 契约/Endpoint 变化后用 Integration `OpenApi*ContractAssertions` 对运行时 `/openapi/v1.json` 做断言，不把 node 夹具当唯一证据 |

@@ -48,7 +48,7 @@
 - Full.NET 官方表逻辑主键为应用端生成的 UUID v7，C# 与业务模块只使用 `Guid`；物理类型、字节序、聚集索引与转换边界以 [`rules/naming-conventions.md`](rules/naming-conventions.md) 第 4、5 节为准。
 - 数据库表采用 `{owner}_{module}_{entity}`（官方 OwnerKey 固定为 `fn`，`sys` 保留，禁止运行时动态表前缀），列使用 PascalCase 与 Dapper 投影直接映射；完整命名以 [`rules/naming-conventions.md`](rules/naming-conventions.md) 为准。
 - 对外 HTTP API 使用标准状态码与 ProblemDetails，Admin.NET 统一包络只存在于兼容适配层；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节。
-- JSON 使用 System.Text.Json，内部高性能序列化按既定边界使用 MessagePack，服务契约可使用 gRPC；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节。
+- JSON 使用 System.Text.Json，可靠 Integration Event 按既定边界使用 MemoryPack，服务契约可使用 gRPC；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节与 [`ADR-0008`](docs/architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md)。
 - 缓存以 FusionCache 为唯一实现并通过 `.AsHybridCache()` 暴露双抽象；多实例失效采用当前实例 L1/L2 删除 + Redis Backplane + TTL/版本/权威源兜底，强一致类别禁用 L1；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 8 节。
 - 成熟生产参考采用 Kubernetes + Helm 的模块化单体多实例拓扑，月度可用性 SLO 为 99.9%；开发阶段以 1 万同时在途为设计目标但不承担容量达标门禁，专用生产等价环境认证前必须标记 `Capacity-not-verified`。正式边界见 [`ADR-0005`](docs/architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 与[总体架构 Spec §20.5](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#205-性能基线)。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界；对标方式见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节。

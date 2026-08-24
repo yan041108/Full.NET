@@ -181,7 +181,7 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 
 ## 4. 正确性、预算和背压
 
-以下正确性条件是不可关闭的硬门禁：Ack 与消费数量一致、零丢失、零重复、零损坏、分区内零乱序、零未 Flush、零非法序号且排空完成。Scope C 额外要求 `Enqueued == Acknowledged == CdcPublished == Consumed`（`samples.ndjson` 的 `outboxCdc.cdcPublished` 扩展字段），Outbox 负载必须使用 Envelope V2 认可的 MessagePack ContentType 进入 CDC Header，否则生产 `KafkaEnvelopeReader` 会在 Inbox 前拒绝消息。发送使用绝对到达时间的有界开放环调度；librdkafka 本地队列满时在同一有界阶段内可取消重试，消息只有被 Producer 接受后才保留入队证据。连续 10 个一秒窗口低于目标 95%、周期快照及最终证据的实际调度 P99 超过预算上限（无预算时为 5 秒）、托管堆峰值超过 2 GiB、延迟直方图溢出或发现正确性错误时，立即停止当前样本并阻止后续升档。停止后 Flush、Broker 水位取证、消费排空和 Consumer Close 共用剩余 `drain-seconds`，关闭阶段不得重新获得完整超时。
+以下正确性条件是不可关闭的硬门禁：Ack 与消费数量一致、零丢失、零重复、零损坏、分区内零乱序、零未 Flush、零非法序号且排空完成。Scope C 额外要求 `Enqueued == Acknowledged == CdcPublished == Consumed`（`samples.ndjson` 的 `outboxCdc.cdcPublished` 扩展字段），Outbox 负载必须使用 Envelope V2 认可的 MemoryPack ContentType（`application/x-memorypack`）进入 CDC Header，否则生产 `KafkaEnvelopeReader` 会在 Inbox 前拒绝消息。发送使用绝对到达时间的有界开放环调度；librdkafka 本地队列满时在同一有界阶段内可取消重试，消息只有被 Producer 接受后才保留入队证据。连续 10 个一秒窗口低于目标 95%、周期快照及最终证据的实际调度 P99 超过预算上限（无预算时为 5 秒）、托管堆峰值超过 2 GiB、延迟直方图溢出或发现正确性错误时，立即停止当前样本并阻止后续升档。停止后 Flush、Broker 水位取证、消费排空和 Consumer Close 共用剩余 `drain-seconds`，关闭阶段不得重新获得完整超时。
 
 性能预算是可选门禁，必须精确绑定环境、ClusterId 摘要、基线提交和完整场景键。示例：
 

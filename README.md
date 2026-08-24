@@ -14,7 +14,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - Dapper-first 数据访问、SQL 作用域保护和事务边界，不引入 EF Core；原生 QueryMultiple 已通过自有抽象和 SQL Server/MySQL 真实测试落地，SqlBuilder 仍等待首个真实动态列表命中准入门禁。
 - 跨工具 Naming Profile、SQL/C#／稳定协议命名门禁，以及供脚手架复用的确定性 CodeGeneration 命名内核；存量债务按文件和值精确登记，不会被新代码继承。
 - SQL Server/MySQL 双数据库 DbUp 迁移及 Testcontainers 集成测试。
-- MessagePack 二进制 Outbox、精确 schema 版本路由、最大尝试、死信终态、租约式至少一次消费，以及默认关闭且使用独立消息作用域的有界并发。
+- MemoryPack 二进制 Outbox、精确 schema 版本路由、最大尝试、死信终态、租约式至少一次消费，以及默认关闭且使用独立消息作用域的有界并发。
 - 追加式 Outbox、SQL Server CDC/MySQL Binlog、Kafka 与消费 Inbox 已达 `Build-verified / Pilot`（Organization 真实 CDC E2E）；**默认不切流**（`Messaging:DeliveryCutover:Enabled=false`）。权威边界见 [`ADR-0006`](docs/architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)与[验证记录](docs/verification/cdc-kafka-pilot-2026-08-08.md)。
 - FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`；安全关键租户缓存已实现“提交后本机同步失效 + Outbox 跨节点修复”的最小闭环，并暴露失效时延/失败、陈旧命中与 Backplane 熔断恢复的低基数指标。
 - System.Text.Json 源生成 HTTP 合约、Serilog 普通/高优先级独立有界异步日志、OpenTelemetry 和健康检查。
@@ -103,4 +103,4 @@ Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新�
 
 ## 当前边界
 
-M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、MessagePack、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、首次失败退避恢复、切租户重连、未读徽标、当前通知页刷新、独立 Worker Outbox 修复推送和双库真实浏览器断网恢复 E2E 已达 `Build-verified`；生产多副本编排/告警与 Redis Cluster/Sentinel 仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。
+M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、JSON Hub 协议、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、首次失败退避恢复、切租户重连、未读徽标、当前通知页刷新、独立 Worker Outbox 修复推送和双库真实浏览器断网恢复 E2E 已达 `Build-verified`；生产多副本编排/告警与 Redis Cluster/Sentinel 仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。

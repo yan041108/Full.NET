@@ -281,9 +281,9 @@ builder.Services.AddAdminNetCompatibility();
 
 事务内禁止等待 HTTP、gRPC、Broker、Redis、对象存储或文件副作用。写入后可能返回失败 `Result` 的路径使用 `ICommandTransaction.ExecuteResultAsync`，避免失败结果仍提交。
 
-可靠 Integration Event 以 MessagePack 二进制写入 `fn_outbox_message`，同时保存 `MessageId`、`MessageType`、`SchemaVersion`、`ContentType`、Tenant、Trace 和发生时间。Worker 使用数据库租约至少一次处理，按 `MessageType + SchemaVersion` 精确匹配 Handler；重复处理必须幂等，坏载荷、未知版本或超过尝试上限进入可查询死信。
+可靠 Integration Event 以 MemoryPack 二进制写入 `fn_outbox_message`，同时保存 `MessageId`、`MessageType`、`SchemaVersion`、`ContentType`、Tenant、Trace 和发生时间。Worker 使用数据库租约至少一次处理，按 `MessageType + SchemaVersion` 精确匹配 Handler；重复处理必须幂等，坏载荷、未知版本或超过尝试上限进入可查询死信。
 
-禁止为 Outbox 增加 JSON fallback、Typeless 或 Contractless MessagePack Resolver。版本发布采用 consumer-first、producer-second、最后退役旧消费者，具体见 [Outbox Worker 运维说明](../operations/outbox-worker-topology.md)。
+禁止为 Outbox 增加 JSON fallback、MemoryPack Union、接口、`object` 或反射式多态。事件必须使用白名单 `[MemoryPackable] partial` 具体 DTO；版本发布采用 consumer-first、producer-second、最后退役旧消费者，具体见 [Outbox Worker 运维说明](../operations/outbox-worker-topology.md)。
 
 ## 10. 日志、指标与基准
 
@@ -313,8 +313,8 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 |---|---|---|
 | 同进程模块通信 | 强类型 Contract Port、Command/Query | 默认模式，不制造网络边界 |
 | 跨进程同步服务 | gRPC + Protobuf | 出现真实独立部署、SLA 或容量边界后 |
-| 可靠异步事件 | MessagePack Outbox | 需要本模块状态与事件原子提交时 |
-| 浏览器实时通信 | SignalR，按需使用 MessagePack | 尽力通知，不代替可靠业务事件 |
+| 可靠异步事件 | MemoryPack Outbox | 需要本模块状态与事件原子提交时 |
+| 浏览器实时通信 | SignalR JSON | 尽力通知，不代替可靠业务事件 |
 | AI / Agent / MCP | 供应商中立抽象和可替换 Provider | 独立业务规格、数据边界和审计获批后 |
 
 不要为了“未来可能微服务化”提前把模块内调用改成 HTTP 或 gRPC。先保持数据所有权、契约、投影、幂等和对账边界稳定，再依据可测量的独立伸缩、故障隔离或发布需求拆分。

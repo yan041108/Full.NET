@@ -2,7 +2,7 @@
 
 - 日期：2026-08-23
 - 分支：`cursor/api-native-aot-phase2`
-- 任务快照：`api-native-aot-phase2`
+- 任务快照：`api-native-aot-phase2-review-20260824`
 - 关联计划：[`2026-08-23-api-native-aot-phase2.md`](../superpowers/plans/2026-08-23-api-native-aot-phase2.md)
 
 ## 状态摘要
@@ -11,14 +11,15 @@
 
 | 检查项 | 结果 | 证据 |
 |---|---|---|
-| `pnpm test:aot:analyzers` | 待复验 | — |
-| `pnpm test:aot:publish:linux` | 待复验 | `artifacts/native-aot/linux-x64/publish-manifest.json` |
-| Linux 原生可执行文件 | 待复验 | `artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api` |
+| `pnpm test:aot:analyzers` | 通过（2026-08-24，本地 fresh） | 0 warning / 0 error |
+| `pnpm test:aot:publish:linux` | 通过（2026-08-24，Windows → Docker fresh） | `artifacts/native-aot/linux-x64/publish-manifest.json`、`publish.log` |
+| Linux 原生可执行文件 | 通过（70,253,808 bytes） | `artifacts/native-aot/linux-x64/publish/Full.NET.Host.Api` |
+| `pnpm test:aot:native:e2e`（Windows 发现门禁） | 通过（发现 5 项、按平台跳过 5 项） | Linux 原生进程执行仍以 CI 为准 |
 | Native Smoke（live/ready/SIGTERM） | 待复验 | `NativeApiSmokeTests` |
 | SQL Server 关键 HTTP 链路 | 待复验 | `NativeApiSqlServerE2ETests` |
 | MySQL 关键 HTTP 链路 | 待复验 | `NativeApiMySqlE2ETests` |
 | SignalR JSON + Redis 配置 | 待复验 | `NativeApiSignalRJsonE2ETests` |
-| **ADR-0008 状态** | **`Aot-analysis-clean`**（publish/E2E 待 CI 复验） | — |
+| **ADR-0008 状态** | **`Aot-analysis-clean`**（Linux 外部进程 E2E 待 CI 复验） | — |
 
 ## Publish 命令（权威）
 
@@ -54,4 +55,4 @@ pnpm test:aot:native:e2e
 
 ## Suppression 清单
 
-Phase 2 **未新增** `NoWarn=IL*`、通配 linker descriptor、整程序集 Root 或 `UnconditionalSuppressMessage`。
+Phase 2 **未新增** `NoWarn=IL*`、通配 linker descriptor、通配程序集 Root 或 `UnconditionalSuppressMessage`；仅按 ADR-0008 §3.1 对 `MemoryPack.Core` 使用单程序集 `TrimmerRootAssembly`。publish 日志对已登记第三方程序集及 IL 告警码执行精确 allowlist，未知告警失败关闭。
