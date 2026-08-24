@@ -37,7 +37,8 @@ internal static class NativeApiE2EAssertions
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();
-        var token = await LoginAsync(client, cancellationToken).ConfigureAwait(false);
+        var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
         await VerifyAuthenticatedMeAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyTenancyReadAsync(client, token, cancellationToken)
@@ -53,7 +54,8 @@ internal static class NativeApiE2EAssertions
 
     public static async Task<string> LoginAsync(
         HttpClient client,
-        CancellationToken cancellationToken)
+        string? nativeLogFilePath = null,
+        CancellationToken cancellationToken = default)
     {
         using var loginRequest = new HttpRequestMessage(
             HttpMethod.Post,
@@ -65,7 +67,17 @@ internal static class NativeApiE2EAssertions
         loginRequest.Headers.Add("Origin", "http://localhost");
         using var loginResponse = await client.SendAsync(loginRequest, cancellationToken)
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
+        if (loginResponse.StatusCode != HttpStatusCode.OK)
+        {
+            var errorBody = await loginResponse.Content.ReadAsStringAsync(cancellationToken)
+                .ConfigureAwait(false);
+            var logTail = ReadNativeLogTail(nativeLogFilePath);
+            Assert.Fail(
+                $"Login failed ({loginResponse.StatusCode}): {errorBody}"
+                + (string.IsNullOrEmpty(logTail)
+                    ? string.Empty
+                    : $"\nNative log tail:\n{logTail}"));
+        }
         var token = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(
                 cancellationToken)
             .ConfigureAwait(false);
@@ -154,5 +166,21 @@ internal static class NativeApiE2EAssertions
         using var response = await client.GetAsync("/health/ready", cancellationToken)
             .ConfigureAwait(false);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static string ReadNativeLogTail(string? logFilePath, int maxChars = 4_000)
+    {
+        if (string.IsNullOrEmpty(logFilePath) || !File.Exists(logFilePath))
+        {
+            return string.Empty;
+        }
+
+        var content = File.ReadAllText(logFilePath);
+        if (content.Length <= maxChars)
+        {
+            return content;
+        }
+
+        return content[^maxChars..];
     }
 }

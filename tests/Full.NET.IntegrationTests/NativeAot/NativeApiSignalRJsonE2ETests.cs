@@ -63,7 +63,10 @@ public sealed class NativeApiSignalRJsonE2ETests
             TimeSpan.FromMinutes(2));
 
         using var client = host.CreateClient();
-        var token = await NativeApiE2EAssertions.LoginAsync(client, CancellationToken.None);
+        var token = await NativeApiE2EAssertions.LoginAsync(
+            client,
+            host.LogFilePath,
+            CancellationToken.None);
 
         var receivedMessages = Channel.CreateUnbounded<RealtimeMessage>();
         var hubUrl = new Uri(host.BaseAddress, "hubs/notifications");

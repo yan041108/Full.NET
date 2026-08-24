@@ -245,6 +245,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             [$"{DatabaseOptions.SectionName}__CommandTimeoutSeconds"] = "30",
             [$"{DatabaseOptions.SectionName}__MySqlGuidStorageMode"] = "Binary16",
             ["Identity__AllowDevelopmentEphemeralSigningKey"] = "true",
+            ["Identity__RequireSecureCookies"] = "false",
             ["Identity__EnableRemoteSuperAdministratorManagement"] = "true",
             ["Identity__LoginRateLimitPermitLimitPerMinute"] = "1000",
             ["Identity__AllowedOrigins__0"] = "http://localhost",
