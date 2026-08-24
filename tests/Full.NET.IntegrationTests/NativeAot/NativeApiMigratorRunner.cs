@@ -79,7 +79,7 @@ internal static class NativeApiMigratorRunner
     /// 009/011 破坏性 DDL 迁移要求维护窗口证据；与集成测试 <see cref="MigrationContractOptionFactory"/> 对齐。
     /// </summary>
     private static void ApplyMigrationContractGates(
-        System.Collections.IDictionary environment)
+        IDictionary<string, string?> environment)
     {
         environment[$"{UuidBinaryContractOptions.SectionName}__MaintenanceMode"] = "true";
         environment[$"{UuidBinaryContractOptions.SectionName}__BackupVerified"] = "true";
