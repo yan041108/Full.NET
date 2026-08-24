@@ -16,6 +16,10 @@ const matrixPath = path.join(repositoryRoot, 'eng/testing/test-matrix.json');
 const matrix = JSON.parse(readFileSync(matrixPath, 'utf8'));
 const nativeGate = matrix.nativeAotS3Integration;
 const integrationAssembly = matrix.integration.assembly;
+const resultsDirectory = path.join(
+  repositoryRoot,
+  'artifacts/native-aot/linux-x64/test-results'
+);
 
 const build = spawnSync(
   'dotnet',
@@ -85,6 +89,11 @@ const tests = spawnSync(
     nativeGate.timeout,
     '--filter',
     nativeGate.filter,
+    '--results-directory',
+    resultsDirectory,
+    '--report-trx',
+    '--report-trx-filename',
+    'Full.NET.IntegrationTests-native-aot-s3.trx',
     ...executionPolicyArgs,
   ],
   {

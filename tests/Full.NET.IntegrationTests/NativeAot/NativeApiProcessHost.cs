@@ -70,8 +70,15 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             "src",
             "Hosts",
             "Full.NET.Host.Api");
+        var logDirectory = Path.Combine(
+            artifact.RepositoryRoot,
+            "artifacts",
+            "native-aot",
+            "linux-x64",
+            "test-logs");
+        Directory.CreateDirectory(logDirectory);
         var logFilePath = Path.Combine(
-            Path.GetTempPath(),
+            logDirectory,
             $"fullnet-native-aot-{Guid.NewGuid():N}.log");
 
         var environment = BuildEnvironment(

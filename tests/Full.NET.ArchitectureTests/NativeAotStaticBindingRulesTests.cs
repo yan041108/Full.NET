@@ -158,4 +158,23 @@ public sealed class NativeAotStaticBindingRulesTests
                     StringComparison.Ordinal),
             "Native AOT 缓存路径必须保留 Redis L2 与 Backplane 注册。");
     }
+
+    [TestMethod]
+    public void AccessSessionValidator_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var path = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Identity",
+            "Security",
+            "AccessSessionValidator.cs");
+        var source = File.ReadAllText(path);
+
+        Assert.IsFalse(
+            source.Contains("new { SessionId", StringComparison.Ordinal),
+            "JWT 验证发生在所有受保护 Endpoint 之前，会话查询参数必须使用 Native AOT 可静态执行的参数容器。");
+        StringAssert.Contains(source, "IReadOnlyDictionary<string, object?>");
+    }
 }

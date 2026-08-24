@@ -16,6 +16,10 @@ const matrixPath = path.join(repositoryRoot, 'eng/testing/test-matrix.json');
 const matrix = JSON.parse(readFileSync(matrixPath, 'utf8'));
 const nativeGate = matrix.nativeAotKafkaReplayIntegration;
 const integrationAssembly = matrix.integration.assembly;
+const resultsDirectory = path.join(
+  repositoryRoot,
+  'artifacts/native-aot/linux-x64/test-results'
+);
 
 const build = spawnSync(
   'dotnet',
@@ -76,6 +80,11 @@ const tests = spawnSync(
     nativeGate.timeout,
     '--filter',
     nativeGate.filter,
+    '--results-directory',
+    resultsDirectory,
+    '--report-trx',
+    '--report-trx-filename',
+    'Full.NET.IntegrationTests-native-aot-kafka-replay.trx',
     ...executionPolicyArgs,
   ],
   { cwd: repositoryRoot, encoding: 'utf8', stdio: 'inherit', shell: false }

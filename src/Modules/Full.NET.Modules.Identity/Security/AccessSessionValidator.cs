@@ -29,9 +29,14 @@ internal sealed class AccessSessionValidator(
             return false;
         }
 
+        IReadOnlyDictionary<string, object?> parameters =
+            new Dictionary<string, object?>
+            {
+                ["SessionId"] = sessionId,
+            };
         var record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
                 IdentitySql.FindRefreshSessionById,
-                new { SessionId = sessionId },
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!IsActive(record, userId, securityStamp))

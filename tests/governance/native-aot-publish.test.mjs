@@ -125,3 +125,26 @@ test('Native E2E 直接运行已构建程序集并执行最低发现数门禁', 
   assert.match(script, /--minimum-expected-tests/);
   assert.doesNotMatch(script, /'test',\s*'tests\/Full\.NET\.IntegrationTests/);
 });
+
+test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目录', async () => {
+  const runners = [
+    ['scripts/testing/run-native-aot-e2e.mjs', 'native-aot'],
+    ['scripts/testing/run-native-aot-s3-e2e.mjs', 'native-aot-s3'],
+    ['scripts/testing/run-native-aot-kafka-replay-e2e.mjs', 'native-aot-kafka-replay'],
+  ];
+  const processHost = await read(
+    'tests/Full.NET.IntegrationTests/NativeAot/NativeApiProcessHost.cs'
+  );
+
+  for (const [runnerPath, reportName] of runners) {
+    const runner = await read(runnerPath);
+    assert.match(runner, /--results-directory/);
+    assert.match(runner, /--report-trx/);
+    assert.ok(
+      runner.includes(`Full.NET.IntegrationTests-${reportName}.trx`),
+      `${runnerPath} 必须生成独立 TRX。`
+    );
+  }
+  assert.match(processHost, /artifacts["'],\s*["']native-aot["']/);
+  assert.match(processHost, /test-logs/);
+});
