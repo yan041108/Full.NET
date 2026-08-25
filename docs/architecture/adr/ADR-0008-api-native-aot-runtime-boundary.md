@@ -44,6 +44,7 @@ Native AOT 与 Trim 分析会暴露反射式配置绑定、匿名 Minimal API �
 | `Microsoft.Data.SqlClient.Internal.Logging` | `IL2104` | SqlClient 的内部日志传递依赖；只允许当前程序集级告警，不扩大到自有代码 | 随 SqlClient 版本共同跟踪 |
 | `System.Configuration.ConfigurationManager` | `IL2104` | SqlClient 的传递依赖仍包含配置反射路径；Host.Api 不通过该路径发现认证 Provider | 随 SqlClient 依赖树共同跟踪 |
 | `Dapper` | `IL2104`、`IL3053`（经 `Dapper.AOT` 拦截后） | 数据访问经 `Dapper.AOT` 源生成拦截器与 `FULLNET_AOT_COMPILE` TypeHandler 排除 | [Dapper.AOT](https://github.com/DapperLib/DapperAOT) |
+| `Confluent.Kafka` | `IL2104` | API Replay 使用的 native binding 由 `NativeAotRoots.xml` 精确保留；SQL Server/MySQL Kafka Replay 原生 E2E 已通过 | [`ADR-0009`](ADR-0009-host-api-native-aot-provider-runtime-boundary.md) |
 
 **允许且仅限 Host.Api `FullNetPublishMode=NativeAot` 发布闭包：**
 
@@ -119,7 +120,7 @@ Full.NET 已采用**双层信封**（与 Kafka/Outbox 长期契约一致）：
 ## 6. 后果
 
 - _positive_：API 闭包获得可重复的静态分析与发布边界，SignalR/JSON/配置绑定漂移可被架构测试捕获；
-- _negative_：模块 Minimal API 与 JSON 必须持续维护源生成类型；Native 发布仍受 Windows 链接器、Linux publish 与外部 SDK 闭包约束，Phase 1 不得宣称 `Aot-published`。
+- _negative_：模块 Minimal API 与 JSON 必须持续维护源生成类型；`Aot-published` 只覆盖 Host.Api 已验证闭包，Worker/Migrator、生产容量及未在 ADR-0009 精确列明的 Provider 路径不得外推。
 
 ## 7. 规则演进
 

@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-08-16。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-08-25。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 ## 状态定义
 
@@ -57,8 +57,10 @@
 | Flutter 客户端 | Designing | 需按真实移动/桌面场景、共享契约和发布许可单独立项。 |
 | 全栈本地化 | Build-verified | 使用规范 BCP 47 标签和稳定机器码；新增模块按跨端验证更新状态。 |
 | Baseline + Overlay 种子体系 | Build-verified | Production 只允许 Baseline，API/Worker 禁止启动播种，Contributor 必须幂等并通过双库验证。 |
-| SignalR 实时通知 | Build-verified | 路径、鉴权、Backplane、连接指标和失败关闭已完成持续硬化；Host.Api Native AOT Phase 1 在分析/NativeAot 条件下仅 JSON Hub 协议，见 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 与 [`api-native-aot-readiness-2026-08-23.md`](../verification/api-native-aot-readiness-2026-08-23.md)。 |
-| Host.Api Native AOT（分析闭包） | Build-verified | Phase 1 达成 `Aot-analysis-clean`：`FullNetAotAnalysis` 覆盖完整 net10.0 API 闭包且零 IL2026/IL3050。Phase 2 已落地 `pnpm test:aot:publish:linux` 与外部进程 E2E 夹具；`Aot-published` 待 Linux CI publish + 双库/SignalR 原生证据，见 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
+| SignalR 实时通知 | Build-verified | 路径、鉴权、Backplane、连接指标和失败关闭已完成持续硬化；Host.Api Native AOT 已通过 SQL Server/MySQL + Redis 的 JSON Hub 原生进程收发，仍不代表多节点 Native Backplane 投递认证。见 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
+| Host.Api Native AOT | Build-verified | **`Aot-published`**：完整 net10.0 API 闭包已通过 Linux 原生 publish、启动、双库关键 HTTP、双库 SignalR JSON 与架构门禁；CI 证据为 [run 32821397581](https://github.com/yan041108/Full.NET/actions/runs/32821397581)。Worker/Migrator 与生产容量仍未验证。见 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 与 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
+| Host.Api Native AOT S3 Provider | Build-verified | **`Native-provider-verified: s3`**：Linux Native Host.Api + SQL Server/MySQL 文件元数据 + 真实 MinIO S3 HTTP 上传/下载/删除已通过；AWS Workload Identity、实例角色与 Web Identity 未验证。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
+| Host.Api Native AOT Kafka Replay | Build-verified | **`Native-provider-verified: kafka-replay`**：Linux Native Host.Api + 真实 Kafka 范围重放在 SQL Server/MySQL 下已通过。仅覆盖 API Replay；不覆盖 Worker Producer/Consumer、CDC Relay、DLQ 或 Lag Observer。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |
 | AI 能力 | Planned | 必须先确定数据边界、审计、模型供应、成本与降级策略。 |
 | Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。 |

@@ -56,4 +56,12 @@ Phase 3 在不关闭模块、不替换为空实现的前提下，为 **Provider 
 
 | 程序集 | 告警 | 证据 | 状态 |
 |---|---|---|---|
-| `Confluent.Kafka` | `IL2104` | 2026-08-24 publish spike；`librdkafka.so` 随 linux-x64 产物发布 | Native Kafka Replay E2E 待 Linux CI 闭合 |
+| `Confluent.Kafka` | `IL2104` | `librdkafka.so` 随 linux-x64 产物发布；`NativeAotRoots.xml` 精确保留 API Replay native binding | **`Native-provider-verified: kafka-replay`**；Linux CI 双库 E2E 已闭合 |
+
+## 6. 完成证据
+
+- 基线：`f3ea5f51c76275968f0525b4b5c57c0a865eed6b`
+- CI：[`api-native-aot-linux` run 32821397581](https://github.com/yan041108/Full.NET/actions/runs/32821397581)，2026-08-25 结论 `success`
+- S3：Native Host.Api + SQL Server/MySQL 元数据 + 真实 MinIO HTTP E2E 通过
+- Kafka Replay：Native Host.Api + SQL Server/MySQL + 真实 Kafka 范围重放 E2E 通过
+- 精确状态：`Native-provider-verified: s3`、`Native-provider-verified: kafka-replay`
