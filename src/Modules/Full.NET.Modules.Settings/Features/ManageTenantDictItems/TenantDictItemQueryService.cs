@@ -20,7 +20,7 @@ internal sealed class TenantDictItemQueryService(
     {
         var typeExists = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (typeExists is null)
@@ -33,7 +33,7 @@ internal sealed class TenantDictItemQueryService(
         var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 TenantDictItemSql.CountByTypeId,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
@@ -45,12 +45,11 @@ internal sealed class TenantDictItemQueryService(
         };
         var rows = await queryExecutor.QueryAsync<DictItemRecord>(
                 statement,
-                new
-                {
-                    DictTypeId = dictTypeId,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -64,7 +63,7 @@ internal sealed class TenantDictItemQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<DictItemRecord>(
                 TenantDictItemSql.FindById,
-                new { DictItemId = dictItemId },
+                SettingsSqlParameters.Create(("DictItemId", dictItemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -92,7 +91,7 @@ internal sealed class TenantDictItemQueryService(
 
         var rows = await queryExecutor.QueryAsync<DictItemRecord>(
                 TenantDictItemSql.ListByTypeCode,
-                new { Code = normalizedCode },
+                SettingsSqlParameters.Create(("Code", normalizedCode)),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();

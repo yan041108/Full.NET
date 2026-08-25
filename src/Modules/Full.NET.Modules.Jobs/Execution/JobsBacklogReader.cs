@@ -14,11 +14,10 @@ internal sealed class JobsBacklogReader(
         DateTimeOffset observedAtUtc,
         CancellationToken cancellationToken)
     {
-        var parameters = new
-        {
-            ObservedAtUtc = observedAtUtc,
-            PendingStatus = JobExecutionStatuses.Pending,
-        };
+        var parameters = JobsSqlParameters.Create(
+            ("ObservedAtUtc", observedAtUtc),
+            ("PendingStatus", JobExecutionStatuses.Pending)
+        );
         if (databaseOptions.Value.Provider == DatabaseProvider.SqlServer)
         {
             var row = await queryExecutor

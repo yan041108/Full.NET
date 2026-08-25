@@ -53,6 +53,10 @@ public sealed class JobsModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 JobsJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.JobsDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

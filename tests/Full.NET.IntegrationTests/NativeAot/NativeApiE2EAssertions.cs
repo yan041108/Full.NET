@@ -142,6 +142,12 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
+    public static Task<string> EnterLocalTenantAsync(
+        HttpClient client,
+        string hostAccessToken,
+        CancellationToken cancellationToken = default) =>
+        EnterDevelopmentTenantAsync(client, hostAccessToken, cancellationToken);
+
     private static async Task<string> EnterDevelopmentTenantAsync(
         HttpClient client,
         string hostAccessToken,

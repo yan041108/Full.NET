@@ -8,6 +8,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Modules.Settings.Features.ManageHostConfigEntries;
 using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Modules.Settings.Serialization;
 
@@ -24,14 +25,12 @@ internal sealed class DiagnosticPolicyManagementService(
     IClock clock,
     IIdGenerator idGenerator)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public async Task<Result<DiagnosticPolicyResponse>> GetAsync(CancellationToken cancellationToken)
     {
         var snapshot = await policyStore.GetCurrentAsync(cancellationToken).ConfigureAwait(false);
-        var row = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRow>(
+        var row = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
                 ConfigEntrySql.FindByKey,
-                new { ConfigKey = DiagnosticPolicyLimits.ConfigKey },
+                SettingsSqlParameters.Create(("ConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<DiagnosticPolicyResponse>.Success(MapResponse(snapshot, row?.Version ?? 0));
@@ -102,9 +101,9 @@ internal sealed class DiagnosticPolicyManagementService(
         var now = clock.UtcNow;
         var pressure = ParsePressure(request.PressureState);
         var rules = request.Rules.Select(MapRule).ToArray();
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRow>(
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
                 ConfigEntrySql.FindByKey,
-                new { ConfigKey = DiagnosticPolicyLimits.ConfigKey },
+                SettingsSqlParameters.Create(("ConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -116,23 +115,21 @@ internal sealed class DiagnosticPolicyManagementService(
             var document = new DiagnosticPolicyDocument(nextVersion, pressure, rules);
             await commandExecutor.ExecuteAsync(
                     ConfigEntrySql.Insert,
-                    new
-                    {
-                        Id = entityId,
-                        ConfigKey = DiagnosticPolicyLimits.ConfigKey,
-                        DisplayName = "Logging diagnostic policy",
-                        Description = "Expiring Host diagnostic sampling and Best Effort capacity overrides.",
-                        // 诊断策略占用独立 ConfigKey，不进入配置分组目录。
-                        GroupName = (string?)null,
-                        ValueKind = ConfigValueKinds.Json,
-                        Value = JsonSerializer.Serialize(
+                    SettingsSqlParameters.Create(
+                        ("Id", entityId),
+                        ("ConfigKey", DiagnosticPolicyLimits.ConfigKey),
+                        ("DisplayName", "Logging diagnostic policy"),
+                        ("Description", "Expiring Host diagnostic sampling and Best Effort capacity overrides."),
+                        ("GroupName", (string?)null),
+                        ("ValueKind", ConfigValueKinds.Json),
+                        ("Value", JsonSerializer.Serialize(
                             document,
-                            SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument),
-                        DisplayOrder = 0,
-                        IsActive = true,
-                        CreatedAtUtc = now,
-                        Version = 1,
-                    },
+                            SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument)),
+                        ("DisplayOrder", 0),
+                        ("IsActive", true),
+                        ("CreatedAtUtc", now),
+                        ("Version", 1)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -149,19 +146,18 @@ internal sealed class DiagnosticPolicyManagementService(
             var document = new DiagnosticPolicyDocument(nextVersion, pressure, rules);
             var affected = await commandExecutor.ExecuteAsync(
                     ConfigEntrySql.UpdateHostConfigEntry,
-                    new
-                    {
-                        ConfigEntryId = existing.Id,
-                        DisplayName = existing.DisplayName,
-                        Description = existing.Description,
-                        GroupName = existing.GroupName,
-                        Value = JsonSerializer.Serialize(
+                    SettingsSqlParameters.Create(
+                        ("ConfigEntryId", existing.Id),
+                        ("DisplayName", existing.DisplayName),
+                        ("Description", existing.Description),
+                        ("GroupName", existing.GroupName),
+                        ("Value", JsonSerializer.Serialize(
                             document,
-                            SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument),
-                        DisplayOrder = existing.DisplayOrder,
-                        UpdatedAtUtc = now,
-                        Version = existing.Version,
-                    },
+                            SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument)),
+                        ("DisplayOrder", existing.DisplayOrder),
+                        ("UpdatedAtUtc", now),
+                        ("Version", existing.Version)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affected != 1)
@@ -198,9 +194,9 @@ internal sealed class DiagnosticPolicyManagementService(
         int configEntryVersion,
         CancellationToken cancellationToken)
     {
-        var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRow>(
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
                 ConfigEntrySql.FindByKey,
-                new { ConfigKey = DiagnosticPolicyLimits.ConfigKey },
+                SettingsSqlParameters.Create(("ConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -219,19 +215,18 @@ internal sealed class DiagnosticPolicyManagementService(
         var empty = new DiagnosticPolicyDocument(0, LoggingPressureState.Normal, []);
         var affected = await commandExecutor.ExecuteAsync(
                 ConfigEntrySql.UpdateHostConfigEntry,
-                new
-                {
-                    ConfigEntryId = existing.Id,
-                    DisplayName = existing.DisplayName,
-                    Description = existing.Description,
-                    GroupName = existing.GroupName,
-                    Value = JsonSerializer.Serialize(
+                SettingsSqlParameters.Create(
+                    ("ConfigEntryId", existing.Id),
+                    ("DisplayName", existing.DisplayName),
+                    ("Description", existing.Description),
+                    ("GroupName", existing.GroupName),
+                    ("Value", JsonSerializer.Serialize(
                         empty,
-                        SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument),
-                    DisplayOrder = existing.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    Version = existing.Version,
-                },
+                        SettingsJsonSerializerContext.Default.DiagnosticPolicyDocument)),
+                    ("DisplayOrder", existing.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", existing.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -391,18 +386,4 @@ internal sealed class DiagnosticPolicyManagementService(
                 rule.MaxResponsePayloadBytesOverride,
                 rule.ExpiresAtUtc)).ToArray(),
             configEntryVersion);
-
-    private sealed record ConfigEntryRow(
-        Guid Id,
-        string ConfigKey,
-        string DisplayName,
-        string? Description,
-        string? GroupName,
-        string ValueKind,
-        string Value,
-        int DisplayOrder,
-        bool IsActive,
-        DateTimeOffset CreatedAtUtc,
-        DateTimeOffset? UpdatedAtUtc,
-        int Version);
 }

@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Hosting.Observability;
+using Full.NET.Modules.Settings.Features.ManageHostConfigEntries;
 using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Modules.Settings.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,6 @@ internal sealed class DiagnosticPolicyStore(
     IClock clock,
     ILogger<DiagnosticPolicyStore> logger) : IDiagnosticPolicyStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly object _gate = new();
     private DiagnosticPolicySnapshot _snapshot =
         DiagnosticPolicySnapshot.CreateDefault(DateTimeOffset.UtcNow);
@@ -140,9 +140,9 @@ internal sealed class DiagnosticPolicyStore(
         try
         {
             var queryExecutor = scope.ServiceProvider.GetRequiredService<IQueryExecutor>();
-            var row = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryValueRow>(
+            var row = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
                     ConfigEntrySql.FindByKey,
-                    new { ConfigKey = DiagnosticPolicyLimits.ConfigKey },
+                    SettingsSqlParameters.Create(("ConfigKey", DiagnosticPolicyLimits.ConfigKey)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (row is null || string.IsNullOrWhiteSpace(row.Value) || !row.IsActive)
@@ -183,18 +183,4 @@ internal sealed class DiagnosticPolicyStore(
             utcNow,
             IsDefault: false);
     }
-
-    private sealed record ConfigEntryValueRow(
-        Guid Id,
-        string ConfigKey,
-        string DisplayName,
-        string? Description,
-        string? GroupName,
-        string ValueKind,
-        string Value,
-        int DisplayOrder,
-        bool IsActive,
-        DateTimeOffset CreatedAtUtc,
-        DateTimeOffset? UpdatedAtUtc,
-        int Version);
 }

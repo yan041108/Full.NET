@@ -236,14 +236,16 @@ internal static class JobSql
         new(
             "jobs.find_host_schedule_by_id",
             """
-            SELECT Id, TenantId, JobDefinitionId, TriggerKind, CronExpression,
-                   TimeZoneId, OneTimeAtUtc, MisfirePolicy, IsEnabled,
-                   NextExecutionAtUtc, LastExecutionAtUtc, CompletedAtUtc,
-                   NumberOfRuns, NumberOfErrors, StartTime, EndTime, Args,
-                   CreatedAtUtc, CreatedByUserId, UpdatedAtUtc, UpdatedByUserId,
-                   Version
-            FROM fn_jobs_schedule
-            WHERE Id = @Id AND TenantId IS NULL
+            SELECT s.Id, s.TenantId, s.JobDefinitionId, s.TriggerKind, s.CronExpression,
+                   s.TimeZoneId, s.OneTimeAtUtc, s.MisfirePolicy, s.IsEnabled,
+                   s.NextExecutionAtUtc, s.LastExecutionAtUtc, s.CompletedAtUtc,
+                   s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args,
+                   s.CreatedAtUtc, s.CreatedByUserId, s.UpdatedAtUtc, s.UpdatedByUserId,
+                   s.Version, d.AllowConcurrentExecutions
+            FROM fn_jobs_schedule AS s
+            INNER JOIN fn_jobs_definition AS d
+                ON d.Id = s.JobDefinitionId AND d.TenantId IS NULL
+            WHERE s.Id = @Id AND s.TenantId IS NULL
             """,
             SqlDataScope.HostOnly);
 
@@ -623,7 +625,8 @@ internal static class JobSql
                 StartedAtUtc = COALESCE(StartedAtUtc, @Now),
                 AttemptCount = AttemptCount + 1
             OUTPUT inserted.Id, inserted.TenantId, inserted.JobDefinitionId,
-                   inserted.Status, inserted.TriggerKind, inserted.ErrorMessage,
+                   inserted.JobScheduleId, inserted.Status, inserted.TriggerKind,
+                   inserted.ScheduledForUtc, inserted.ErrorMessage,
                    inserted.StartedAtUtc, inserted.FinishedAtUtc, inserted.LeaseId,
                    inserted.LeaseExpiresAtUtc, inserted.NextAttemptAtUtc,
                    inserted.AttemptCount, inserted.CreatedAtUtc,

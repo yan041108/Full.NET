@@ -20,7 +20,7 @@ internal sealed class HostDictItemQueryService(
     {
         var typeExists = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (typeExists is null)
@@ -33,7 +33,7 @@ internal sealed class HostDictItemQueryService(
         var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 DictItemSql.CountByTypeId,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         var statement = databaseOptions.Value.Provider switch
@@ -45,12 +45,11 @@ internal sealed class HostDictItemQueryService(
         };
         var rows = await queryExecutor.QueryAsync<DictItemRecord>(
                 statement,
-                new
-                {
-                    DictTypeId = dictTypeId,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -64,7 +63,7 @@ internal sealed class HostDictItemQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<DictItemRecord>(
                 DictItemSql.FindById,
-                new { DictItemId = dictItemId },
+                SettingsSqlParameters.Create(("DictItemId", dictItemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -92,7 +91,7 @@ internal sealed class HostDictItemQueryService(
 
         var rows = await queryExecutor.QueryAsync<DictItemRecord>(
                 DictItemSql.ListByTypeCode,
-                new { Code = normalizedCode },
+                SettingsSqlParameters.Create(("Code", normalizedCode)),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();

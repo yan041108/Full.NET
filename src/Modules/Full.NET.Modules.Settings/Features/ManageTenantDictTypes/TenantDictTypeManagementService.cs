@@ -80,7 +80,7 @@ internal sealed partial class TenantDictTypeManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindByCode,
-                new { Code = code },
+                SettingsSqlParameters.Create(("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -92,18 +92,17 @@ internal sealed partial class TenantDictTypeManagementService(
         var dictTypeId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 TenantDictTypeSql.Insert,
-                new
-                {
-                    Id = dictTypeId,
-                    TenantId = currentTenant.Id,
-                    Code = code,
-                    Name = name,
-                    Description = description,
-                    DisplayOrder = request.DisplayOrder,
-                    IsActive = true,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                SettingsSqlParameters.Create(
+                    ("Id", dictTypeId),
+                    ("TenantId", currentTenant.Id),
+                    ("Code", code),
+                    ("Name", name),
+                    ("Description", description),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -131,7 +130,7 @@ internal sealed partial class TenantDictTypeManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -142,15 +141,14 @@ internal sealed partial class TenantDictTypeManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantDictTypeSql.UpdateTenantDictType,
-                new
-                {
-                    DictTypeId = dictTypeId,
-                    Name = name,
-                    Description = description,
-                    DisplayOrder = request.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Name", name),
+                    ("Description", description),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -170,7 +168,7 @@ internal sealed partial class TenantDictTypeManagementService(
         EnsureTenantContext();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -186,7 +184,7 @@ internal sealed partial class TenantDictTypeManagementService(
 
         var activeItemCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 TenantDictTypeSql.CountActiveItems,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeItemCount > 0)
@@ -197,11 +195,10 @@ internal sealed partial class TenantDictTypeManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantDictTypeSql.DisableTenantDictType,
-                new
-                {
-                    DictTypeId = dictTypeId,
-                    UpdatedAtUtc = now,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("UpdatedAtUtc", now)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -219,7 +216,7 @@ internal sealed partial class TenantDictTypeManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -242,7 +239,7 @@ internal sealed partial class TenantDictTypeManagementService(
         EnsureTenantContext();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -259,7 +256,7 @@ internal sealed partial class TenantDictTypeManagementService(
         // 仍有启用字典项时拒绝删除，避免删除被引用的字典类型。
         var activeItemCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 TenantDictTypeSql.CountActiveItems,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeItemCount > 0)
@@ -270,13 +267,16 @@ internal sealed partial class TenantDictTypeManagementService(
         // 先级联清理全部字典项（含已禁用），再删除类型本身。
         await commandExecutor.ExecuteAsync(
                 TenantDictTypeSql.DeleteItemsByType,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantDictTypeSql.DeleteTenantDictType,
-                new { DictTypeId = dictTypeId, Version = version },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)

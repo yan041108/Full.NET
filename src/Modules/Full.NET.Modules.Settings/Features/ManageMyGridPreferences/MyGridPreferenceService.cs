@@ -105,7 +105,10 @@ internal sealed class MyGridPreferenceService(
                 {
                     await commandExecutor.ExecuteAsync(
                             GridPreferenceSql.Delete,
-                            new { UserId = userId, GridKey = definition.GridKey },
+                            SettingsSqlParameters.Create(
+                                ("UserId", userId),
+                                ("GridKey", definition.GridKey)
+                            ),
                             token)
                         .ConfigureAwait(false);
                     return Result<GridPreferenceResponse>.Success(
@@ -127,7 +130,10 @@ internal sealed class MyGridPreferenceService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<GridPreferenceRecord>(
                 GridPreferenceSql.FindByUserAndGrid,
-                new { UserId = userId, GridKey = definition.GridKey },
+                SettingsSqlParameters.Create(
+                    ("UserId", userId),
+                    ("GridKey", definition.GridKey)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -163,7 +169,10 @@ internal sealed class MyGridPreferenceService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<GridPreferenceRecord>(
                 GridPreferenceSql.FindByUserAndGrid,
-                new { UserId = userId, GridKey = definition.GridKey },
+                SettingsSqlParameters.Create(
+                    ("UserId", userId),
+                    ("GridKey", definition.GridKey)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         var columnsJson = JsonSerializer.Serialize(
@@ -184,16 +193,15 @@ internal sealed class MyGridPreferenceService(
             {
                 await commandExecutor.ExecuteAsync(
                         GridPreferenceSql.Insert,
-                        new
-                        {
-                            Id = idGenerator.NewId(),
-                            UserId = userId,
-                            GridKey = definition.GridKey,
-                            SchemaVersion = definition.SchemaVersion,
-                            ColumnsJson = columnsJson,
-                            CreatedAtUtc = now,
-                            Version = nextVersion,
-                        },
+                        SettingsSqlParameters.Create(
+                            ("Id", idGenerator.NewId()),
+                            ("UserId", userId),
+                            ("GridKey", definition.GridKey),
+                            ("SchemaVersion", definition.SchemaVersion),
+                            ("ColumnsJson", columnsJson),
+                            ("CreatedAtUtc", now),
+                            ("Version", nextVersion)
+                        ),
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -212,14 +220,13 @@ internal sealed class MyGridPreferenceService(
 
             var affected = await commandExecutor.ExecuteAsync(
                     GridPreferenceSql.ReplaceStaleSchema,
-                    new
-                    {
-                        UserId = userId,
-                        GridKey = definition.GridKey,
-                        SchemaVersion = definition.SchemaVersion,
-                        ColumnsJson = columnsJson,
-                        UpdatedAtUtc = now,
-                    },
+                    SettingsSqlParameters.Create(
+                        ("UserId", userId),
+                        ("GridKey", definition.GridKey),
+                        ("SchemaVersion", definition.SchemaVersion),
+                        ("ColumnsJson", columnsJson),
+                        ("UpdatedAtUtc", now)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affected != 1)
@@ -238,15 +245,14 @@ internal sealed class MyGridPreferenceService(
 
             var affected = await commandExecutor.ExecuteAsync(
                     GridPreferenceSql.UpdateCurrentSchema,
-                    new
-                    {
-                        UserId = userId,
-                        GridKey = definition.GridKey,
-                        SchemaVersion = definition.SchemaVersion,
-                        ColumnsJson = columnsJson,
-                        UpdatedAtUtc = now,
-                        Version = requestedVersion,
-                    },
+                    SettingsSqlParameters.Create(
+                        ("UserId", userId),
+                        ("GridKey", definition.GridKey),
+                        ("SchemaVersion", definition.SchemaVersion),
+                        ("ColumnsJson", columnsJson),
+                        ("UpdatedAtUtc", now),
+                        ("Version", requestedVersion)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affected != 1)

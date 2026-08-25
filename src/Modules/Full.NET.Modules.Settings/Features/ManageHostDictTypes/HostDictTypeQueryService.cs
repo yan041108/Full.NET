@@ -32,7 +32,10 @@ internal sealed class HostDictTypeQueryService(
         };
         var rows = await queryExecutor.QueryAsync<DictTypeRecord>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                SettingsSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -46,7 +49,7 @@ internal sealed class HostDictTypeQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeRecord>(
                 DictTypeSql.FindById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

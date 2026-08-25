@@ -6,4 +6,6 @@
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Files")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Notifications")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Messaging")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Settings")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Jobs")]
 #endif

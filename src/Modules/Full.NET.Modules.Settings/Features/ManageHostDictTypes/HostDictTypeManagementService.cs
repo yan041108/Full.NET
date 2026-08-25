@@ -77,7 +77,7 @@ internal sealed partial class HostDictTypeManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindByCode,
-                new { Code = code },
+                SettingsSqlParameters.Create(("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -89,17 +89,16 @@ internal sealed partial class HostDictTypeManagementService(
         var dictTypeId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 DictTypeSql.Insert,
-                new
-                {
-                    Id = dictTypeId,
-                    Code = code,
-                    Name = name,
-                    Description = description,
-                    DisplayOrder = request.DisplayOrder,
-                    IsActive = true,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                SettingsSqlParameters.Create(
+                    ("Id", dictTypeId),
+                    ("Code", code),
+                    ("Name", name),
+                    ("Description", description),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -126,7 +125,7 @@ internal sealed partial class HostDictTypeManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -137,15 +136,14 @@ internal sealed partial class HostDictTypeManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 DictTypeSql.UpdateHostDictType,
-                new
-                {
-                    DictTypeId = dictTypeId,
-                    Name = name,
-                    Description = description,
-                    DisplayOrder = request.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Name", name),
+                    ("Description", description),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -164,7 +162,7 @@ internal sealed partial class HostDictTypeManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -180,7 +178,7 @@ internal sealed partial class HostDictTypeManagementService(
 
         var activeItemCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 DictTypeSql.CountActiveItems,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeItemCount > 0)
@@ -191,11 +189,10 @@ internal sealed partial class HostDictTypeManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 DictTypeSql.DisableHostDictType,
-                new
-                {
-                    DictTypeId = dictTypeId,
-                    UpdatedAtUtc = now,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("UpdatedAtUtc", now)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -213,7 +210,7 @@ internal sealed partial class HostDictTypeManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -234,7 +231,7 @@ internal sealed partial class HostDictTypeManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -251,7 +248,7 @@ internal sealed partial class HostDictTypeManagementService(
         // 仍有启用字典项时拒绝删除，避免删除被引用的字典类型。
         var activeItemCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 DictTypeSql.CountActiveItems,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeItemCount > 0)
@@ -262,13 +259,16 @@ internal sealed partial class HostDictTypeManagementService(
         // 先级联清理全部字典项（含已禁用），再删除类型本身。
         await commandExecutor.ExecuteAsync(
                 DictTypeSql.DeleteItemsByType,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 DictTypeSql.DeleteDictType,
-                new { DictTypeId = dictTypeId, Version = version },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)

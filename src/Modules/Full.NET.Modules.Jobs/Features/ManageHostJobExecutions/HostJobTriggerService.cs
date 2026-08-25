@@ -49,7 +49,7 @@ internal sealed class HostJobTriggerService(
     {
         var definition = await queryExecutor.QuerySingleOrDefaultAsync<JobDefinitionRecord>(
                 JobSql.FindDefinitionById,
-                new { Id = definitionId },
+                JobsSqlParameters.Create(("Id", definitionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (definition is null)
@@ -69,14 +69,13 @@ internal sealed class HostJobTriggerService(
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 JobSql.InsertExecution,
-                new
-                {
-                    Id = executionId,
-                    JobDefinitionId = definitionId,
-                    Status = JobExecutionStatuses.Pending,
-                    TriggerKind = JobTriggerKinds.Manual,
-                    CreatedAtUtc = now,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", executionId),
+                    ("JobDefinitionId", definitionId),
+                    ("Status", JobExecutionStatuses.Pending),
+                    ("TriggerKind", JobTriggerKinds.Manual),
+                    ("CreatedAtUtc", now)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 

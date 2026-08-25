@@ -22,12 +22,12 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 128,
+      "minimum": 132,
       "timeout": "10m",
       "selections": {
         "api-native-aot": {
           "filter": "FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol",
-          "minimum": 32
+          "minimum": 36
         }
       }
     }
@@ -41,7 +41,7 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications&FullyQualifiedName!~NativeApiSettings&FullyQualifiedName!~NativeApiJobs",
     "minimum": 5,
     "timeout": "45m"
   },
@@ -49,6 +49,12 @@
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~NativeApiNotifications",
     "minimum": 2,
+    "timeout": "45m"
+  },
+  "nativeAotSettingsJobsIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeApiSettings|FullyQualifiedName~NativeApiJobs",
+    "minimum": 4,
     "timeout": "45m"
   },
   "nativeAotS3Integration": {
@@ -310,9 +316,9 @@
         "minimum": 312,
         "timeout": "90m"
       },
-      "infrastructure": {
+        "infrastructure": {
         "filter": "FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
-        "minimum": 138,
+        "minimum": 141,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -321,7 +327,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 630,
+        "minimum": 633,
         "timeout": "90m"
       }
     }

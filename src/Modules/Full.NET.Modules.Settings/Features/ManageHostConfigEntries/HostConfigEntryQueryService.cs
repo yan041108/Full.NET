@@ -32,7 +32,10 @@ internal sealed class HostConfigEntryQueryService(
         };
         var rows = await queryExecutor.QueryAsync<ConfigEntryRecord>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                SettingsSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -46,7 +49,7 @@ internal sealed class HostConfigEntryQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
                 ConfigEntrySql.FindById,
-                new { ConfigEntryId = configEntryId },
+                SettingsSqlParameters.Create(("ConfigEntryId", configEntryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -69,7 +72,7 @@ internal sealed class HostConfigEntryQueryService(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryRecord>(
                 ConfigEntrySql.FindByKey,
-                new { ConfigKey = normalizedKey },
+                SettingsSqlParameters.Create(("ConfigKey", normalizedKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

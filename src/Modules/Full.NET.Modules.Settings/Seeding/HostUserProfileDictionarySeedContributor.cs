@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Settings.Features.ManageHostDictItems;
 using Full.NET.Modules.Settings.Features.ManageHostDictTypes;
 using Full.NET.Modules.Settings.Persistence;
 using Full.NET.Seeding.Abstractions;
@@ -67,7 +68,7 @@ internal sealed class HostUserProfileDictionarySeedContributor(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 DictTypeSql.FindByCode,
-                new { Code = definition.Code },
+                SettingsSqlParameters.Create(("Code", definition.Code)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -80,17 +81,16 @@ internal sealed class HostUserProfileDictionarySeedContributor(
             var now = clock.UtcNow;
             await commandExecutor.ExecuteAsync(
                     DictTypeSql.Insert,
-                    new
-                    {
-                        Id = dictTypeId,
-                        Code = definition.Code,
-                        Name = definition.Name,
-                        Description = definition.Description,
-                        DisplayOrder = definition.DisplayOrder,
-                        IsActive = true,
-                        CreatedAtUtc = now,
-                        Version = 1
-                    },
+                    SettingsSqlParameters.Create(
+                        ("Id", dictTypeId),
+                        ("Code", definition.Code),
+                        ("Name", definition.Name),
+                        ("Description", definition.Description),
+                        ("DisplayOrder", definition.DisplayOrder),
+                        ("IsActive", true),
+                        ("CreatedAtUtc", now),
+                        ("Version", 1)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             created++;
@@ -103,9 +103,12 @@ internal sealed class HostUserProfileDictionarySeedContributor(
 
         foreach (var item in definition.Items)
         {
-            var existingItem = await queryExecutor.QuerySingleOrDefaultAsync<DictItemSeedRow>(
+            var existingItem = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
                     DictItemSql.FindByTypeAndValue,
-                    new { DictTypeId = dictTypeId, Value = item.Value },
+                    SettingsSqlParameters.Create(
+                        ("DictTypeId", dictTypeId),
+                        ("Value", item.Value)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existingItem is not null)
@@ -116,18 +119,17 @@ internal sealed class HostUserProfileDictionarySeedContributor(
 
             await commandExecutor.ExecuteAsync(
                     DictItemSql.Insert,
-                    new
-                    {
-                        Id = idGenerator.NewId(),
-                        DictTypeId = dictTypeId,
-                        Label = item.Label,
-                        Value = item.Value,
-                        Color = item.Color,
-                        DisplayOrder = item.DisplayOrder,
-                        IsActive = true,
-                        CreatedAtUtc = clock.UtcNow,
-                        Version = 1
-                    },
+                    SettingsSqlParameters.Create(
+                        ("Id", idGenerator.NewId()),
+                        ("DictTypeId", dictTypeId),
+                        ("Label", item.Label),
+                        ("Value", item.Value),
+                        ("Color", item.Color),
+                        ("DisplayOrder", item.DisplayOrder),
+                        ("IsActive", true),
+                        ("CreatedAtUtc", clock.UtcNow),
+                        ("Version", 1)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             created++;
@@ -240,9 +242,4 @@ internal sealed class HostUserProfileDictionarySeedContributor(
         string Value,
         int DisplayOrder,
         string? Color);
-
-    private sealed class DictItemSeedRow
-    {
-        public Guid Id { get; set; }
-    }
 }

@@ -119,7 +119,7 @@ internal sealed partial class HostConfigEntryManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityByKey,
-                new { ConfigKey = configKey },
+                SettingsSqlParameters.Create(("ConfigKey", configKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -131,20 +131,19 @@ internal sealed partial class HostConfigEntryManagementService(
         var configEntryId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 ConfigEntrySql.Insert,
-                new
-                {
-                    Id = configEntryId,
-                    ConfigKey = configKey,
-                    DisplayName = displayName,
-                    Description = description,
-                    GroupName = groupName,
-                    ValueKind = valueKind,
-                    Value = normalizedValue,
-                    DisplayOrder = request.DisplayOrder,
-                    IsActive = true,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                SettingsSqlParameters.Create(
+                    ("Id", configEntryId),
+                    ("ConfigKey", configKey),
+                    ("DisplayName", displayName),
+                    ("Description", description),
+                    ("GroupName", groupName),
+                    ("ValueKind", valueKind),
+                    ("Value", normalizedValue),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -177,7 +176,7 @@ internal sealed partial class HostConfigEntryManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityById,
-                new { ConfigEntryId = configEntryId },
+                SettingsSqlParameters.Create(("ConfigEntryId", configEntryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -197,17 +196,16 @@ internal sealed partial class HostConfigEntryManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ConfigEntrySql.UpdateHostConfigEntry,
-                new
-                {
-                    ConfigEntryId = configEntryId,
-                    DisplayName = displayName,
-                    Description = description,
-                    GroupName = groupName,
-                    Value = normalizedValue,
-                    DisplayOrder = request.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                SettingsSqlParameters.Create(
+                    ("ConfigEntryId", configEntryId),
+                    ("DisplayName", displayName),
+                    ("Description", description),
+                    ("GroupName", groupName),
+                    ("Value", normalizedValue),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -226,7 +224,7 @@ internal sealed partial class HostConfigEntryManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityById,
-                new { ConfigEntryId = configEntryId },
+                SettingsSqlParameters.Create(("ConfigEntryId", configEntryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -243,11 +241,10 @@ internal sealed partial class HostConfigEntryManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ConfigEntrySql.DisableHostConfigEntry,
-                new
-                {
-                    ConfigEntryId = configEntryId,
-                    UpdatedAtUtc = now,
-                },
+                SettingsSqlParameters.Create(
+                    ("ConfigEntryId", configEntryId),
+                    ("UpdatedAtUtc", now)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -265,7 +262,7 @@ internal sealed partial class HostConfigEntryManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityById,
-                new { ConfigEntryId = configEntryId },
+                SettingsSqlParameters.Create(("ConfigEntryId", configEntryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -286,7 +283,7 @@ internal sealed partial class HostConfigEntryManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                 ConfigEntrySql.FindIdentityById,
-                new { ConfigEntryId = configEntryId },
+                SettingsSqlParameters.Create(("ConfigEntryId", configEntryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -302,7 +299,10 @@ internal sealed partial class HostConfigEntryManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ConfigEntrySql.DeleteConfigEntry,
-                new { ConfigEntryId = configEntryId, Version = version },
+                SettingsSqlParameters.Create(
+                    ("ConfigEntryId", configEntryId),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)
@@ -334,7 +334,7 @@ internal sealed partial class HostConfigEntryManagementService(
         {
             var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                     ConfigEntrySql.FindIdentityById,
-                    new { ConfigEntryId = id },
+                    SettingsSqlParameters.Create(("ConfigEntryId", id)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existing is null)
@@ -350,7 +350,7 @@ internal sealed partial class HostConfigEntryManagementService(
 
         await commandExecutor.ExecuteAsync(
                 ConfigEntrySql.BatchDeleteConfigEntries,
-                new { Ids = ids },
+                SettingsSqlParameters.Create(("Ids", ids)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -386,7 +386,7 @@ internal sealed partial class HostConfigEntryManagementService(
 
             var existing = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntryIdentityRecord>(
                     ConfigEntrySql.FindIdentityByKey,
-                    new { ConfigKey = configKey },
+                    SettingsSqlParameters.Create(("ConfigKey", configKey)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existing is null)
@@ -404,7 +404,11 @@ internal sealed partial class HostConfigEntryManagementService(
 
             await commandExecutor.ExecuteAsync(
                     ConfigEntrySql.UpdateValueByConfigKey,
-                    new { ConfigKey = configKey, Value = normalizedValue, UpdatedAtUtc = now },
+                    SettingsSqlParameters.Create(
+                        ("ConfigKey", configKey),
+                        ("Value", normalizedValue),
+                        ("UpdatedAtUtc", now)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

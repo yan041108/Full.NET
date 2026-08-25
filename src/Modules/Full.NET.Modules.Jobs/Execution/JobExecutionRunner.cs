@@ -130,13 +130,10 @@ internal sealed class JobExecutionRunner(
     {
         var definitions = await queryExecutor.QueryAsync<JobDefinitionRecord>(
                 JobSql.FindDefinitionsByIds,
-                new
-                {
-                    Ids = acquired
+                JobsSqlParameters.Create(("Ids", acquired
                         .Select(execution => execution.JobDefinitionId)
                         .Distinct()
-                        .ToArray(),
-                },
+                        .ToArray())),
                 cancellationToken)
             .ConfigureAwait(false);
         var definitionsById = definitions.ToDictionary(
@@ -237,12 +234,11 @@ internal sealed class JobExecutionRunner(
                 .ConfigureAwait(false);
             var renewed = await commandExecutor.ExecuteAsync(
                     JobSql.RenewExecutionLease,
-                    new
-                    {
-                        LeaseId = leaseId,
-                        LeaseExpiresAtUtc = clock.UtcNow.Add(leaseDuration),
-                        RunningStatus = JobExecutionStatuses.Running,
-                    },
+                    JobsSqlParameters.Create(
+                        ("LeaseId", leaseId),
+                        ("LeaseExpiresAtUtc", clock.UtcNow.Add(leaseDuration)),
+                        ("RunningStatus", JobExecutionStatuses.Running)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (renewed == 0)
@@ -421,15 +417,14 @@ internal sealed class JobExecutionRunner(
         DateTimeOffset leaseExpiresAt,
         CancellationToken cancellationToken)
     {
-        var parameters = new
-        {
-            BatchSize = batchSize,
-            LeaseId = leaseId,
-            Now = now,
-            LeaseExpiresAtUtc = leaseExpiresAt,
-            PendingStatus = JobExecutionStatuses.Pending,
-            RunningStatus = JobExecutionStatuses.Running,
-        };
+        var parameters = JobsSqlParameters.Create(
+            ("BatchSize", batchSize),
+            ("LeaseId", leaseId),
+            ("Now", now),
+            ("LeaseExpiresAtUtc", leaseExpiresAt),
+            ("PendingStatus", JobExecutionStatuses.Pending),
+            ("RunningStatus", JobExecutionStatuses.Running)
+        );
 
         if (databaseOptions.Value.Provider == DatabaseProvider.SqlServer)
         {
@@ -459,19 +454,18 @@ internal sealed class JobExecutionRunner(
 
                         await commandExecutor.ExecuteAsync(
                                 JobSql.ClaimExecutionsByIdsMySql,
-                                new
-                                {
-                                    Ids = ids.ToArray(),
-                                    LeaseId = leaseId,
-                                    Now = now,
-                                    LeaseExpiresAtUtc = leaseExpiresAt,
-                                    RunningStatus = JobExecutionStatuses.Running,
-                                },
+                                JobsSqlParameters.Create(
+                                    ("Ids", ids.ToArray()),
+                                    ("LeaseId", leaseId),
+                                    ("Now", now),
+                                    ("LeaseExpiresAtUtc", leaseExpiresAt),
+                                    ("RunningStatus", JobExecutionStatuses.Running)
+                                ),
                                 transactionCancellationToken)
                             .ConfigureAwait(false);
                         var rows = await queryExecutor.QueryAsync<JobExecutionRecord>(
                                 JobSql.SelectExecutionsByLeaseMySql,
-                                new { LeaseId = leaseId },
+                                JobsSqlParameters.Create(("LeaseId", leaseId)),
                                 transactionCancellationToken)
                             .ConfigureAwait(false);
                         return rows.ToArray();
@@ -492,14 +486,13 @@ internal sealed class JobExecutionRunner(
         IClock scopedClock) =>
         scopedCommandExecutor.ExecuteAsync(
             JobSql.MarkExecutionSucceeded,
-            new
-            {
-                Id = executionId,
-                LeaseId = leaseId,
-                RunningStatus = JobExecutionStatuses.Running,
-                SucceededStatus = JobExecutionStatuses.Succeeded,
-                FinishedAtUtc = scopedClock.UtcNow,
-            },
+            JobsSqlParameters.Create(
+                ("Id", executionId),
+                ("LeaseId", leaseId),
+                ("RunningStatus", JobExecutionStatuses.Running),
+                ("SucceededStatus", JobExecutionStatuses.Succeeded),
+                ("FinishedAtUtc", scopedClock.UtcNow)
+            ),
             cancellationToken);
 
     private static Task<int> MarkFailedAsync(
@@ -511,15 +504,14 @@ internal sealed class JobExecutionRunner(
         IClock scopedClock) =>
         scopedCommandExecutor.ExecuteAsync(
             JobSql.MarkExecutionFailed,
-            new
-            {
-                Id = executionId,
-                LeaseId = leaseId,
-                RunningStatus = JobExecutionStatuses.Running,
-                FailedStatus = JobExecutionStatuses.Failed,
-                FinishedAtUtc = scopedClock.UtcNow,
-                ErrorMessage = BoundErrorMessage(errorMessage),
-            },
+            JobsSqlParameters.Create(
+                ("Id", executionId),
+                ("LeaseId", leaseId),
+                ("RunningStatus", JobExecutionStatuses.Running),
+                ("FailedStatus", JobExecutionStatuses.Failed),
+                ("FinishedAtUtc", scopedClock.UtcNow),
+                ("ErrorMessage", BoundErrorMessage(errorMessage))
+            ),
             cancellationToken);
 
     /// <summary>
@@ -534,7 +526,7 @@ internal sealed class JobExecutionRunner(
             ? Task.CompletedTask
             : scopedCommandExecutor.ExecuteAsync(
                 JobSql.IncrementScheduleErrorCount,
-                new { Id = jobScheduleId.Value },
+                JobsSqlParameters.Create(("Id", jobScheduleId.Value)),
                 cancellationToken);
 
     private static Task<int> RescheduleAsync(
@@ -546,15 +538,14 @@ internal sealed class JobExecutionRunner(
         ICommandExecutor scopedCommandExecutor) =>
         scopedCommandExecutor.ExecuteAsync(
             JobSql.RescheduleExecution,
-            new
-            {
-                Id = executionId,
-                LeaseId = leaseId,
-                RunningStatus = JobExecutionStatuses.Running,
-                PendingStatus = JobExecutionStatuses.Pending,
-                NextAttemptAtUtc = nextAttemptAtUtc,
-                ErrorMessage = BoundErrorMessage(errorMessage),
-            },
+            JobsSqlParameters.Create(
+                ("Id", executionId),
+                ("LeaseId", leaseId),
+                ("RunningStatus", JobExecutionStatuses.Running),
+                ("PendingStatus", JobExecutionStatuses.Pending),
+                ("NextAttemptAtUtc", nextAttemptAtUtc),
+                ("ErrorMessage", BoundErrorMessage(errorMessage))
+            ),
             cancellationToken);
 
     private static string BoundErrorMessage(string errorMessage) =>

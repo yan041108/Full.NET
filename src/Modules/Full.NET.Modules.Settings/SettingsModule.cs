@@ -79,6 +79,10 @@ public sealed class SettingsModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 SettingsJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.SettingsDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     public void AddMigrationServices(

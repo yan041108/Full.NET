@@ -66,7 +66,7 @@ internal sealed partial class TenantDictItemManagementService(
         EnsureTenantContext();
         var typeExists = await queryExecutor.QuerySingleOrDefaultAsync<DictTypeIdentityRecord>(
                 TenantDictTypeSql.FindIdentityById,
-                new { DictTypeId = dictTypeId },
+                SettingsSqlParameters.Create(("DictTypeId", dictTypeId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (typeExists is null)
@@ -95,7 +95,10 @@ internal sealed partial class TenantDictItemManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
                 TenantDictItemSql.FindByTypeAndValue,
-                new { DictTypeId = dictTypeId, Value = value },
+                SettingsSqlParameters.Create(
+                    ("DictTypeId", dictTypeId),
+                    ("Value", value)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -107,18 +110,17 @@ internal sealed partial class TenantDictItemManagementService(
         var dictItemId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 TenantDictItemSql.Insert,
-                new
-                {
-                    Id = dictItemId,
-                    DictTypeId = dictTypeId,
-                    Label = label,
-                    Value = value,
-                    Color = color,
-                    DisplayOrder = request.DisplayOrder,
-                    IsActive = true,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                SettingsSqlParameters.Create(
+                    ("Id", dictItemId),
+                    ("DictTypeId", dictTypeId),
+                    ("Label", label),
+                    ("Value", value),
+                    ("Color", color),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -146,7 +148,7 @@ internal sealed partial class TenantDictItemManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
                 TenantDictItemSql.FindIdentityById,
-                new { DictItemId = dictItemId },
+                SettingsSqlParameters.Create(("DictItemId", dictItemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -164,15 +166,14 @@ internal sealed partial class TenantDictItemManagementService(
         };
         var affectedRows = await commandExecutor.ExecuteAsync(
                 updateStatement,
-                new
-                {
-                    DictItemId = dictItemId,
-                    Label = label,
-                    Color = color,
-                    DisplayOrder = request.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictItemId", dictItemId),
+                    ("Label", label),
+                    ("Color", color),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -192,7 +193,7 @@ internal sealed partial class TenantDictItemManagementService(
         EnsureTenantContext();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
                 TenantDictItemSql.FindIdentityById,
-                new { DictItemId = dictItemId },
+                SettingsSqlParameters.Create(("DictItemId", dictItemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -216,11 +217,10 @@ internal sealed partial class TenantDictItemManagementService(
         };
         var affectedRows = await commandExecutor.ExecuteAsync(
                 disableStatement,
-                new
-                {
-                    DictItemId = dictItemId,
-                    UpdatedAtUtc = now,
-                },
+                SettingsSqlParameters.Create(
+                    ("DictItemId", dictItemId),
+                    ("UpdatedAtUtc", now)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -238,7 +238,7 @@ internal sealed partial class TenantDictItemManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
                 TenantDictItemSql.FindIdentityById,
-                new { DictItemId = dictItemId },
+                SettingsSqlParameters.Create(("DictItemId", dictItemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -261,7 +261,7 @@ internal sealed partial class TenantDictItemManagementService(
         EnsureTenantContext();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<DictItemIdentityRecord>(
                 TenantDictItemSql.FindIdentityById,
-                new { DictItemId = dictItemId },
+                SettingsSqlParameters.Create(("DictItemId", dictItemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -277,7 +277,10 @@ internal sealed partial class TenantDictItemManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantDictItemSql.DeleteTenantDictItem,
-                new { DictItemId = dictItemId, Version = version },
+                SettingsSqlParameters.Create(
+                    ("DictItemId", dictItemId),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)

@@ -46,15 +46,14 @@ internal sealed class HostJobScheduleService(
                     ErrorType.Validation));
         }
 
-        var parameters = new
-        {
-            JobDefinitionId = jobDefinitionId,
-            Search = NormalizeSearch(search),
-            IsEnabled = isEnabled,
-            TriggerKind = NormalizeOptional(triggerKind),
-            Offset = (page - 1) * pageSize,
-            PageSize = pageSize,
-        };
+        var parameters = JobsSqlParameters.Create(
+            ("JobDefinitionId", jobDefinitionId),
+            ("Search", NormalizeSearch(search)),
+            ("IsEnabled", isEnabled),
+            ("TriggerKind", NormalizeOptional(triggerKind)),
+            ("Offset", (page - 1) * pageSize),
+            ("PageSize", pageSize)
+        );
         var statement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => JobSql.ListSchedulesSqlServer,
@@ -222,7 +221,7 @@ internal sealed class HostJobScheduleService(
         var definition =
             await queryExecutor.QuerySingleOrDefaultAsync<JobDefinitionRecord>(
                     JobSql.FindDefinitionById,
-                    new { Id = request.JobDefinitionId },
+                    JobsSqlParameters.Create(("Id", request.JobDefinitionId)),
                     cancellationToken)
                 .ConfigureAwait(false);
         if (definition is null)
@@ -265,24 +264,23 @@ internal sealed class HostJobScheduleService(
         var scheduleId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 JobSql.InsertSchedule,
-                new
-                {
-                    Id = scheduleId,
-                    request.JobDefinitionId,
-                    normalized.Value.TriggerKind,
-                    normalized.Value.CronExpression,
-                    normalized.Value.TimeZoneId,
-                    normalized.Value.OneTimeAtUtc,
-                    normalized.Value.MisfirePolicy,
-                    IsEnabled = true,
-                    NextExecutionAtUtc = nextExecutionAtUtc,
-                    normalized.Value.StartTime,
-                    normalized.Value.EndTime,
-                    normalized.Value.Args,
-                    CreatedAtUtc = now,
-                    CreatedByUserId = actorUserId,
-                    Version = 1,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", scheduleId),
+                    ("JobDefinitionId", request.JobDefinitionId),
+                    ("TriggerKind", normalized.Value.TriggerKind),
+                    ("CronExpression", normalized.Value.CronExpression),
+                    ("TimeZoneId", normalized.Value.TimeZoneId),
+                    ("OneTimeAtUtc", normalized.Value.OneTimeAtUtc),
+                    ("MisfirePolicy", normalized.Value.MisfirePolicy),
+                    ("IsEnabled", true),
+                    ("NextExecutionAtUtc", nextExecutionAtUtc),
+                    ("StartTime", normalized.Value.StartTime),
+                    ("EndTime", normalized.Value.EndTime),
+                    ("Args", normalized.Value.Args),
+                    ("CreatedAtUtc", now),
+                    ("CreatedByUserId", actorUserId),
+                    ("Version", 1)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -300,7 +298,7 @@ internal sealed class HostJobScheduleService(
         var schedule = await queryExecutor
             .QuerySingleOrDefaultAsync<JobScheduleRecord>(
                 JobSql.FindScheduleById,
-                new { Id = scheduleId },
+                JobsSqlParameters.Create(("Id", scheduleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (schedule is null)
@@ -330,15 +328,14 @@ internal sealed class HostJobScheduleService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 enable ? JobSql.ResumeSchedule : JobSql.PauseSchedule,
-                new
-                {
-                    Id = scheduleId,
-                    NextExecutionAtUtc = nextExecutionAtUtc,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    NextVersion = version + 1,
-                    Version = version,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", scheduleId),
+                    ("NextExecutionAtUtc", nextExecutionAtUtc),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("NextVersion", version + 1),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected == 0)
@@ -359,7 +356,7 @@ internal sealed class HostJobScheduleService(
         var schedule = await queryExecutor
             .QuerySingleOrDefaultAsync<JobScheduleRecord>(
                 JobSql.FindScheduleById,
-                new { Id = scheduleId },
+                JobsSqlParameters.Create(("Id", scheduleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (schedule is null)
@@ -406,23 +403,22 @@ internal sealed class HostJobScheduleService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.UpdateSchedule,
-                new
-                {
-                    Id = scheduleId,
-                    normalized.Value.TriggerKind,
-                    normalized.Value.CronExpression,
-                    normalized.Value.TimeZoneId,
-                    normalized.Value.OneTimeAtUtc,
-                    normalized.Value.MisfirePolicy,
-                    NextExecutionAtUtc = nextExecutionAtUtc,
-                    normalized.Value.StartTime,
-                    normalized.Value.EndTime,
-                    normalized.Value.Args,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    NextVersion = request.Version + 1,
-                    request.Version,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", scheduleId),
+                    ("TriggerKind", normalized.Value.TriggerKind),
+                    ("CronExpression", normalized.Value.CronExpression),
+                    ("TimeZoneId", normalized.Value.TimeZoneId),
+                    ("OneTimeAtUtc", normalized.Value.OneTimeAtUtc),
+                    ("MisfirePolicy", normalized.Value.MisfirePolicy),
+                    ("NextExecutionAtUtc", nextExecutionAtUtc),
+                    ("StartTime", normalized.Value.StartTime),
+                    ("EndTime", normalized.Value.EndTime),
+                    ("Args", normalized.Value.Args),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("NextVersion", request.Version + 1),
+                    ("Version", request.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected == 0)
@@ -446,7 +442,7 @@ internal sealed class HostJobScheduleService(
         // 未终结执行记录存在时拒绝删除，避免丢失正在运行的任务证据。
         var activeExecutions = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountActiveExecutionsBySchedule,
-                new { JobScheduleId = scheduleId },
+                JobsSqlParameters.Create(("JobScheduleId", scheduleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeExecutions > 0)
@@ -459,7 +455,10 @@ internal sealed class HostJobScheduleService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.DeleteSchedule,
-                new { Id = scheduleId, Version = version },
+                JobsSqlParameters.Create(
+                    ("Id", scheduleId),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected == 0)
@@ -497,7 +496,7 @@ internal sealed class HostJobScheduleService(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<JobScheduleDetailRecord>(
             JobSql.FindScheduleDetailById,
-            new { Id = scheduleId },
+            JobsSqlParameters.Create(("Id", scheduleId)),
             cancellationToken);
 
     private static string? NormalizeSearch(string? search)

@@ -24,19 +24,18 @@ internal sealed class DiagnosticPolicyAuditWriter(
         var traceId = Activity.Current?.TraceId.ToString();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 DiagnosticPolicyAuditSql.Insert,
-                new
-                {
-                    Id = idGenerator.NewId(),
-                    auditWrite.TenantId,
-                    auditWrite.ActionKey,
-                    auditWrite.EntityId,
-                    auditWrite.Outcome,
-                    auditWrite.ActorUserId,
-                    auditWrite.ActorDisplayName,
-                    TraceId = traceId,
-                    auditWrite.DiffSummaryJson,
-                    OccurredAtUtc = clock.UtcNow,
-                },
+                SettingsSqlParameters.Create(
+                    ("Id", idGenerator.NewId()),
+                    ("TenantId", auditWrite.TenantId),
+                    ("ActionKey", auditWrite.ActionKey),
+                    ("EntityId", auditWrite.EntityId),
+                    ("Outcome", auditWrite.Outcome),
+                    ("ActorUserId", auditWrite.ActorUserId),
+                    ("ActorDisplayName", auditWrite.ActorDisplayName),
+                    ("TraceId", traceId),
+                    ("DiffSummaryJson", auditWrite.DiffSummaryJson),
+                    ("OccurredAtUtc", clock.UtcNow)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

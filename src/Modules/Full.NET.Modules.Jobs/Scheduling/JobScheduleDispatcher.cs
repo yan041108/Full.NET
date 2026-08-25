@@ -43,7 +43,10 @@ internal sealed class JobScheduleDispatcher(
         };
         var schedules = await queryExecutor.QueryAsync<JobScheduleRecord>(
                 statement,
-                new { BatchSize = batchSize, Now = now },
+                JobsSqlParameters.Create(
+                    ("BatchSize", batchSize),
+                    ("Now", now)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -57,12 +60,11 @@ internal sealed class JobScheduleDispatcher(
             {
                 var activeRunningCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                         JobSql.HasActiveRunningForDefinition,
-                        new
-                        {
-                            schedule.JobDefinitionId,
-                            Now = now,
-                            RunningStatus = JobExecutionStatuses.Running,
-                        },
+                        JobsSqlParameters.Create(
+                            ("JobDefinitionId", schedule.JobDefinitionId),
+                            ("Now", now),
+                            ("RunningStatus", JobExecutionStatuses.Running)
+                        ),
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (activeRunningCount > 0)
@@ -75,16 +77,15 @@ internal sealed class JobScheduleDispatcher(
             {
                 await commandExecutor.ExecuteAsync(
                         JobSql.InsertScheduledExecution,
-                        new
-                        {
-                            Id = idGenerator.NewId(),
-                            schedule.JobDefinitionId,
-                            JobScheduleId = schedule.Id,
-                            Status = JobExecutionStatuses.Pending,
-                            schedule.TriggerKind,
-                            ScheduledForUtc = decision.ScheduledForUtc,
-                            CreatedAtUtc = now,
-                        },
+                        JobsSqlParameters.Create(
+                            ("Id", idGenerator.NewId()),
+                            ("JobDefinitionId", schedule.JobDefinitionId),
+                            ("JobScheduleId", schedule.Id),
+                            ("Status", JobExecutionStatuses.Pending),
+                            ("TriggerKind", schedule.TriggerKind),
+                            ("ScheduledForUtc", decision.ScheduledForUtc),
+                            ("CreatedAtUtc", now)
+                        ),
                         cancellationToken)
                     .ConfigureAwait(false);
                 createdCount++;
@@ -92,19 +93,18 @@ internal sealed class JobScheduleDispatcher(
 
             var affected = await commandExecutor.ExecuteAsync(
                     JobSql.AdvanceSchedule,
-                    new
-                    {
-                        schedule.Id,
-                        IsEnabled = decision.CompletedAtUtc is null,
-                        decision.NextExecutionAtUtc,
-                        LastExecutionAtUtc = shouldCreateExecution
+                    JobsSqlParameters.Create(
+                        ("Id", schedule.Id),
+                        ("IsEnabled", decision.CompletedAtUtc is null),
+                        ("NextExecutionAtUtc", decision.NextExecutionAtUtc),
+                        ("LastExecutionAtUtc", shouldCreateExecution
                             ? now
-                            : (DateTimeOffset?)null,
-                        decision.CompletedAtUtc,
-                        UpdatedAtUtc = now,
-                        NextVersion = schedule.Version + 1,
-                        schedule.Version,
-                    },
+                            : (DateTimeOffset?)null),
+                        ("CompletedAtUtc", decision.CompletedAtUtc),
+                        ("UpdatedAtUtc", now),
+                        ("NextVersion", schedule.Version + 1),
+                        ("Version", schedule.Version)
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affected != 1)

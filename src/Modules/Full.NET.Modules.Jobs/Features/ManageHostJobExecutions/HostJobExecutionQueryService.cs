@@ -25,7 +25,7 @@ internal sealed class HostJobExecutionQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<JobExecutionRecord>(
                 JobSql.FindExecutionById,
-                new { Id = executionId },
+                JobsSqlParameters.Create(("Id", executionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null
@@ -49,31 +49,22 @@ internal sealed class HostJobExecutionQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
-        var filter = new
-        {
-            JobDefinitionId = jobDefinitionId,
-            JobScheduleId = jobScheduleId,
-            Status = string.IsNullOrWhiteSpace(status) ? null : status.Trim(),
-            FromUtc = fromUtc,
-            ToUtc = toUtc,
-        };
+        var listParameters = JobsSqlParameters.Create(
+            ("JobDefinitionId", jobDefinitionId),
+            ("JobScheduleId", jobScheduleId),
+            ("Status", string.IsNullOrWhiteSpace(status) ? null : status.Trim()),
+            ("FromUtc", fromUtc),
+            ("ToUtc", toUtc),
+            ("Offset", offset),
+            ("PageSize", pageSize));
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountExecutions,
-                filter,
+                listParameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<JobExecutionRecord>(
                 ResolveListStatement(),
-                new
-                {
-                    Offset = offset,
-                    PageSize = pageSize,
-                    filter.JobDefinitionId,
-                    filter.JobScheduleId,
-                    filter.Status,
-                    filter.FromUtc,
-                    filter.ToUtc,
-                },
+                listParameters,
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<HostJobExecutionResponse>>.Success(
@@ -101,7 +92,7 @@ internal sealed class HostJobExecutionQueryService(
     {
         await commandExecutor.ExecuteAsync(
                 JobSql.ClearExecutionsByDefinition,
-                new { JobDefinitionId = jobDefinitionId },
+                JobsSqlParameters.Create(("JobDefinitionId", jobDefinitionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<bool>.Success(true);

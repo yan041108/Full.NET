@@ -88,7 +88,7 @@ internal sealed class HostJobDefinitionManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<JobDefinitionRecord>(
                 JobSql.FindDefinitionByJobKey,
-                new { JobKey = request.JobKey.Trim() },
+                JobsSqlParameters.Create(("JobKey", request.JobKey.Trim())),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -106,21 +106,20 @@ internal sealed class HostJobDefinitionManagementService(
             request.Args);
         await commandExecutor.ExecuteAsync(
                 JobSql.InsertDefinition,
-                new
-                {
-                    Id = definitionId,
-                    JobKey = request.JobKey.Trim(),
-                    HandlerKind = handlerKind,
-                    ArgsJson = argsJson,
-                    DisplayName = request.DisplayName.Trim(),
-                    Description = NormalizeDescription(request.Description),
-                    GroupName = NormalizeGroupName(request.GroupName),
-                    IsEnabled = true,
-                    AllowConcurrentExecutions = request.AllowConcurrentExecutions,
-                    CreatedAtUtc = now,
-                    CreatedByUserId = actorUserId,
-                    Version = 1,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", definitionId),
+                    ("JobKey", request.JobKey.Trim()),
+                    ("HandlerKind", handlerKind),
+                    ("ArgsJson", argsJson),
+                    ("DisplayName", request.DisplayName.Trim()),
+                    ("Description", NormalizeDescription(request.Description)),
+                    ("GroupName", NormalizeGroupName(request.GroupName)),
+                    ("IsEnabled", true),
+                    ("AllowConcurrentExecutions", request.AllowConcurrentExecutions),
+                    ("CreatedAtUtc", now),
+                    ("CreatedByUserId", actorUserId),
+                    ("Version", 1)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -167,20 +166,19 @@ internal sealed class HostJobDefinitionManagementService(
             request.Args);
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.UpdateDefinition,
-                new
-                {
-                    Id = definitionId,
-                    DisplayName = request.DisplayName.Trim(),
-                    Description = NormalizeDescription(request.Description),
-                    GroupName = groupName,
-                    HandlerKind = handlerKind,
-                    ArgsJson = argsJson,
-                    AllowConcurrentExecutions = request.AllowConcurrentExecutions,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    NextVersion = request.Version + 1,
-                    Version = request.Version,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", definitionId),
+                    ("DisplayName", request.DisplayName.Trim()),
+                    ("Description", NormalizeDescription(request.Description)),
+                    ("GroupName", groupName),
+                    ("HandlerKind", handlerKind),
+                    ("ArgsJson", argsJson),
+                    ("AllowConcurrentExecutions", request.AllowConcurrentExecutions),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("NextVersion", request.Version + 1),
+                    ("Version", request.Version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected == 0)
@@ -199,7 +197,7 @@ internal sealed class HostJobDefinitionManagementService(
     {
         var activeSchedules = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountActiveSchedulesByDefinition,
-                new { JobDefinitionId = definitionId },
+                JobsSqlParameters.Create(("JobDefinitionId", definitionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeSchedules > 0)
@@ -212,7 +210,7 @@ internal sealed class HostJobDefinitionManagementService(
 
         var activeExecutions = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 JobSql.CountActiveExecutionsByDefinition,
-                new { JobDefinitionId = definitionId },
+                JobsSqlParameters.Create(("JobDefinitionId", definitionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (activeExecutions > 0)
@@ -225,13 +223,16 @@ internal sealed class HostJobDefinitionManagementService(
 
         await commandExecutor.ExecuteAsync(
                 JobSql.DeleteSchedulesByDefinition,
-                new { JobDefinitionId = definitionId },
+                JobsSqlParameters.Create(("JobDefinitionId", definitionId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.DeleteDefinition,
-                new { Id = definitionId, Version = version },
+                JobsSqlParameters.Create(
+                    ("Id", definitionId),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected == 0)
@@ -258,14 +259,13 @@ internal sealed class HostJobDefinitionManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 JobSql.DisableDefinition,
-                new
-                {
-                    Id = definitionId,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    NextVersion = version + 1,
-                    Version = version,
-                },
+                JobsSqlParameters.Create(
+                    ("Id", definitionId),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("NextVersion", version + 1),
+                    ("Version", version)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected == 0)

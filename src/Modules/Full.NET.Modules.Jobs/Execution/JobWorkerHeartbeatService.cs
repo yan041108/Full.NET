@@ -38,17 +38,16 @@ internal sealed class JobWorkerHeartbeatService(
                 .GetRequiredService<ICommandExecutor>();
             await commandExecutor.ExecuteAsync(
                     statement,
-                    new
-                    {
-                        InstanceId = _instanceId,
-                        HostProfile = Environment.MachineName,
-                        StartedAtUtc = _startedAtUtc,
-                        LastHeartbeatAtUtc = now,
-                        WorkerVersion = typeof(JobWorkerHeartbeatService).Assembly
+                    JobsSqlParameters.Create(
+                        ("InstanceId", _instanceId),
+                        ("HostProfile", Environment.MachineName),
+                        ("StartedAtUtc", _startedAtUtc),
+                        ("LastHeartbeatAtUtc", now),
+                        ("WorkerVersion", typeof(JobWorkerHeartbeatService).Assembly
                             .GetName()
                             .Version?
-                            .ToString(),
-                    },
+                            .ToString())
+                    ),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

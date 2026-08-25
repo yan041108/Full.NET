@@ -130,6 +130,7 @@ test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目�
   const runners = [
     ['scripts/testing/run-native-aot-e2e.mjs', 'native-aot'],
     ['scripts/testing/run-native-aot-notifications-e2e.mjs', 'native-aot-notifications'],
+    ['scripts/testing/run-native-aot-settings-jobs-e2e.mjs', 'native-aot-settings-jobs'],
     ['scripts/testing/run-native-aot-s3-e2e.mjs', 'native-aot-s3'],
     ['scripts/testing/run-native-aot-kafka-replay-e2e.mjs', 'native-aot-kafka-replay'],
   ];
@@ -194,5 +195,59 @@ test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 
   assert.match(
     matrix.nativeAotIntegration.filter,
     /FullyQualifiedName!~NativeApiNotifications/
+  );
+});
+
+test('Settings/Jobs Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', async () => {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  const packageJson = JSON.parse(await read('package.json'));
+  const workflow = await read('.github/workflows/api-native-aot-linux.yml');
+  const runner = await read('scripts/testing/run-native-aot-settings-jobs-e2e.mjs');
+
+  const settingsJobsGate = matrix.nativeAotSettingsJobsIntegration;
+  assert.ok(
+    settingsJobsGate,
+    'eng/testing/test-matrix.json 必须包含 nativeAotSettingsJobsIntegration 节'
+  );
+  assert.equal(
+    settingsJobsGate.project,
+    'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
+  );
+  assert.equal(
+    settingsJobsGate.filter,
+    'FullyQualifiedName~NativeApiSettings|FullyQualifiedName~NativeApiJobs'
+  );
+  assert.equal(settingsJobsGate.minimum, 4);
+  assert.equal(settingsJobsGate.timeout, '45m');
+
+  assert.equal(
+    packageJson.scripts['test:aot:native:settings-jobs:e2e'],
+    'node scripts/testing/run-native-aot-settings-jobs-e2e.mjs'
+  );
+
+  const notificationsE2EIndex = workflow.indexOf('Run Native AOT Notifications E2E');
+  const settingsJobsE2EIndex = workflow.indexOf('Run Native AOT Settings Jobs E2E');
+  const s3E2EIndex = workflow.indexOf('Run Native AOT S3 Provider E2E');
+  assert.ok(notificationsE2EIndex >= 0);
+  assert.ok(settingsJobsE2EIndex > notificationsE2EIndex);
+  assert.ok(s3E2EIndex > settingsJobsE2EIndex);
+  assert.match(workflow, /pnpm test:aot:native:settings-jobs:e2e/);
+
+  assert.match(runner, /nativeAotSettingsJobsIntegration/);
+  assert.match(runner, /matrix\.integration\.assembly/);
+  assert.match(
+    runner,
+    /Full\.NET\.IntegrationTests-native-aot-settings-jobs\.trx/
+  );
+  assert.match(runner, /artifacts\/native-aot\/linux-x64\/test-results/);
+  assert.match(runner, /--minimum-expected-tests/);
+
+  assert.match(
+    matrix.nativeAotIntegration.filter,
+    /FullyQualifiedName!~NativeApiSettings/
+  );
+  assert.match(
+    matrix.nativeAotIntegration.filter,
+    /FullyQualifiedName!~NativeApiJobs/
   );
 });

@@ -21,7 +21,7 @@ internal sealed class SettingsSecretValueResolver(IQueryExecutor queryExecutor)
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<ConfigEntrySecretRecord>(
                 ConfigEntrySql.FindSecretByKey,
-                new { ConfigKey = normalizedKey },
+                SettingsSqlParameters.Create(("ConfigKey", normalizedKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null

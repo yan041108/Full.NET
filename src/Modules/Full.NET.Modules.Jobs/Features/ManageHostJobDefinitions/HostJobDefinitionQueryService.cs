@@ -28,7 +28,10 @@ internal sealed class HostJobDefinitionQueryService(
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<JobDefinitionRecord>(
                 ResolveListStatement(),
-                new { Offset = offset, PageSize = pageSize },
+                JobsSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize)
+                ),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<HostJobDefinitionResponse>>.Success(
@@ -45,7 +48,7 @@ internal sealed class HostJobDefinitionQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<JobDefinitionRecord>(
                 JobSql.FindDefinitionById,
-                new { Id = definitionId },
+                JobsSqlParameters.Create(("Id", definitionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null

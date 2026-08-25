@@ -577,6 +577,284 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void SettingsModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Settings");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Settings 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void JobsModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Jobs");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Jobs 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void SettingsModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Settings");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "SettingsModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "SettingsDapperAotMaterializerContributor.cs"));
+        var dictTypeSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "DictTypeSql.cs"));
+        var dictItemSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "DictItemSql.cs"));
+        var tenantDictTypeSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "TenantDictTypeSql.cs"));
+        var tenantDictItemSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "TenantDictItemSql.cs"));
+        var configSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "ConfigEntrySql.cs"));
+        var gridSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "GridPreferenceSql.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "SettingsDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "HostDictTypes.DictTypeRecord",
+                     "TenantDictTypes.DictTypeRecord",
+                     "HostDictTypes.DictTypeIdentityRecord",
+                     "TenantDictTypes.DictTypeIdentityRecord",
+                     "HostDictItems.DictItemRecord",
+                     "TenantDictItems.DictItemRecord",
+                     "HostDictItems.DictItemIdentityRecord",
+                     "TenantDictItems.DictItemIdentityRecord",
+                     "ConfigEntryRecord",
+                     "ConfigEntryIdentityRecord",
+                     "ConfigEntrySecretRecord",
+                     "GridPreferenceRecord",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+
+        const string dictTypeProjection =
+            "Id, Code, Name, Description, DisplayOrder, IsActive, "
+            + "CreatedAtUtc, UpdatedAtUtc, Version";
+        foreach (var statement in new[]
+                 {
+                     "ListHostDictTypesSqlServer",
+                     "ListHostDictTypesMySql",
+                     "FindById",
+                     "ListAllHostDictTypes",
+                 })
+        {
+            Assert.AreEqual(
+                dictTypeProjection,
+                ExtractSelectProjection(dictTypeSql, statement),
+                $"Host 字典类型 SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string dictItemProjection =
+            "Id, DictTypeId, Label, Value, Color, DisplayOrder, IsActive, "
+            + "CreatedAtUtc, UpdatedAtUtc, Version";
+        foreach (var statement in new[]
+                 {
+                     "ListByTypeIdSqlServer",
+                     "ListByTypeIdMySql",
+                     "FindById",
+                 })
+        {
+            Assert.AreEqual(
+                dictItemProjection,
+                ExtractSelectProjection(dictItemSql, statement),
+                $"Host 字典项 SQL 投影顺序必须一致：{statement}");
+        }
+
+        foreach (var statement in new[]
+                 {
+                     "ListTenantDictTypesSqlServer",
+                     "ListTenantDictTypesMySql",
+                     "FindById",
+                 })
+        {
+            Assert.AreEqual(
+                dictTypeProjection,
+                ExtractSelectProjection(tenantDictTypeSql, statement),
+                $"租户字典类型 SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string tenantDictItemProjection =
+            "item.Id, item.DictTypeId, item.Label, item.Value, item.Color, "
+            + "item.DisplayOrder, item.IsActive, item.CreatedAtUtc, item.UpdatedAtUtc, item.Version";
+        foreach (var statement in new[]
+                 {
+                     "ListByTypeIdSqlServer",
+                     "ListByTypeIdMySql",
+                     "FindById",
+                 })
+        {
+            Assert.AreEqual(
+                tenantDictItemProjection,
+                ExtractSelectProjection(tenantDictItemSql, statement),
+                $"租户字典项 SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string configProjection =
+            "Id, ConfigKey, DisplayName, Description, GroupName, ValueKind, Value, "
+            + "DisplayOrder, IsActive, CreatedAtUtc, UpdatedAtUtc, Version";
+        foreach (var statement in new[]
+                 {
+                     "ListHostConfigEntriesSqlServer",
+                     "ListHostConfigEntriesMySql",
+                     "FindById",
+                     "FindByKey",
+                     "ListAllHostConfigEntries",
+                 })
+        {
+            Assert.AreEqual(
+                configProjection,
+                ExtractSelectProjection(configSql, statement),
+                $"配置项 SQL 投影顺序必须一致：{statement}");
+        }
+
+        Assert.AreEqual(
+            "Id, UserId, GridKey, SchemaVersion, ColumnsJson, CreatedAtUtc, UpdatedAtUtc, Version",
+            ExtractSelectProjection(gridSql, "FindByUserAndGrid"),
+            "网格偏好 SQL 投影顺序必须一致。");
+        Assert.AreEqual(
+            "ValueKind, Value, IsActive",
+            ExtractSelectProjection(configSql, "FindSecretByKey"),
+            "Secret 配置项最小投影顺序必须一致。");
+    }
+
+    [TestMethod]
+    public void JobsModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Jobs");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "JobsModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "JobsDapperAotMaterializerContributor.cs"));
+        var jobSql = File.ReadAllText(Path.Combine(moduleDirectory, "Persistence", "JobSql.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "JobsDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "JobDefinitionRecord",
+                     "JobExecutionRecord",
+                     "JobDefinitionOptionRecord",
+                     "JobScheduleRecord",
+                     "JobScheduleDetailRecord",
+                     "JobWorkerInstanceRecord",
+                     "JobsBacklogSqlServerRow",
+                     "JobsBacklogMySqlRow",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+
+        const string definitionProjection =
+            "Id, TenantId, JobKey, HandlerKind, ArgsJson, DisplayName, Description, GroupName, IsEnabled, "
+            + "AllowConcurrentExecutions, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version";
+        foreach (var statement in new[]
+                 {
+                     "ListDefinitionsSqlServer",
+                     "ListDefinitionsMySql",
+                     "FindDefinitionById",
+                     "FindDefinitionsByIds",
+                     "FindDefinitionByJobKey",
+                 })
+        {
+            Assert.AreEqual(
+                definitionProjection,
+                ExtractSelectProjection(jobSql, statement),
+                $"任务定义 SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string executionProjection =
+            "e.Id, e.TenantId, e.JobDefinitionId, e.JobScheduleId, "
+            + "e.Status, e.TriggerKind, e.ScheduledForUtc, "
+            + "e.ErrorMessage, e.StartedAtUtc, e.FinishedAtUtc, "
+            + "e.LeaseId, e.LeaseExpiresAtUtc, e.NextAttemptAtUtc, "
+            + "e.AttemptCount, e.CreatedAtUtc, d.JobKey";
+        foreach (var statement in new[]
+                 {
+                     "ListExecutionsSqlServer",
+                     "ListExecutionsMySql",
+                     "FindExecutionById",
+                     "SelectExecutionsByLeaseMySql",
+                 })
+        {
+            Assert.AreEqual(
+                executionProjection,
+                ExtractSelectProjection(jobSql, statement),
+                $"任务执行 SQL 投影顺序必须一致：{statement}");
+        }
+
+        StringAssert.Contains(
+            jobSql,
+            "inserted.JobScheduleId, inserted.Status, inserted.TriggerKind");
+        StringAssert.Contains(jobSql, "inserted.ScheduledForUtc");
+        StringAssert.Contains(jobSql, "CAST(NULL AS varchar(64)) AS JobKey");
+
+        const string scheduleProjection =
+            "s.Id, s.TenantId, s.JobDefinitionId, s.TriggerKind, s.CronExpression, "
+            + "s.TimeZoneId, s.OneTimeAtUtc, s.MisfirePolicy, s.IsEnabled, "
+            + "s.NextExecutionAtUtc, s.LastExecutionAtUtc, s.CompletedAtUtc, "
+            + "s.NumberOfRuns, s.NumberOfErrors, s.StartTime, s.EndTime, s.Args, "
+            + "s.CreatedAtUtc, s.CreatedByUserId, s.UpdatedAtUtc, s.UpdatedByUserId, "
+            + "s.Version, d.AllowConcurrentExecutions";
+        Assert.AreEqual(
+            scheduleProjection,
+            ExtractSelectProjection(jobSql, "FindScheduleById"),
+            "按 Id 查找计划必须与到期领取共用 JobScheduleRecord 序数，含 AllowConcurrentExecutions。");
+        Assert.AreEqual(
+            scheduleProjection,
+            ExtractSelectProjection(jobSql, "SelectDueSchedulesMySql"),
+            "MySQL 到期计划投影必须与 FindScheduleById 一致。");
+        Assert.AreEqual(
+            "InstanceId, HostProfile, StartedAtUtc, LastHeartbeatAtUtc, WorkerVersion",
+            ExtractSelectProjection(jobSql, "ListWorkerInstances"),
+            "Worker 心跳列表投影顺序必须一致。");
+    }
+
+    [TestMethod]
     public void DapperInbox_RegistersAotMaterializersAndUsesSafeParameters()
     {
         var root = ArchitectureRepositoryRoot.Find();
