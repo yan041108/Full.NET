@@ -1,5 +1,7 @@
 #if FULLNET_AOT_COMPILE
 using Full.NET.Data.Dapper.Inbox;
+using Full.NET.Data.Dapper.Outbox;
+using global::Dapper;
 
 namespace Full.NET.Data.Dapper;
 
@@ -29,8 +31,23 @@ internal static class DapperAotInfrastructureRegistration
                     reader.GetInt32(0),
                     AotDataReaderExtensions.ReadNullableString(reader, 1),
                     reader.IsDBNull(2) ? null : reader.GetFieldValue<byte[]>(2)));
+            DapperAotParameterRegistry.Register<OutboxMessage>(BindOutboxMessage);
             _registered = true;
         }
+    }
+
+    private static DynamicParameters BindOutboxMessage(OutboxMessage message)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", message.Id);
+        parameters.Add("MessageType", message.MessageType);
+        parameters.Add("SchemaVersion", message.SchemaVersion);
+        parameters.Add("ContentType", message.ContentType);
+        parameters.Add("TenantId", message.TenantId);
+        parameters.Add("TraceId", message.TraceId);
+        parameters.Add("Payload", message.Payload);
+        parameters.Add("OccurredAtUtc", message.OccurredAtUtc);
+        return parameters;
     }
 }
 #endif

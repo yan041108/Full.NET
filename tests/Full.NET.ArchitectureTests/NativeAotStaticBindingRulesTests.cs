@@ -364,6 +364,23 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void EventStreamOwnershipStore_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var source = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Messaging",
+            "Persistence",
+            "EventStreamOwnershipStore.cs"));
+
+        Assert.IsFalse(
+            source.Contains("new {", StringComparison.Ordinal),
+            "Native AOT 事件流所有权存储不得使用匿名 SQL 参数。");
+    }
+
+    [TestMethod]
     public void DapperNativeAotScalarReader_SupportsNullableScalars()
     {
         var root = ArchitectureRepositoryRoot.Find();

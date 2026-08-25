@@ -29,7 +29,7 @@ internal sealed class EventStreamOwnershipStore(
         var row = await queryExecutor
             .QuerySingleOrDefaultAsync<EventStreamOwnershipPersistenceRow>(
                 EventStreamOwnershipSql.FindByStream,
-                new { MessageType = messageType, SchemaVersion = schemaVersion },
+                CreateStreamKeyParameters(messageType, schemaVersion),
                 cancellationToken)
             .ConfigureAwait(false);
         return row is null ? null : EventStreamOwnershipMapper.ToRecord(row);
@@ -66,14 +66,14 @@ internal sealed class EventStreamOwnershipStore(
         {
             affected = await commandExecutor.ExecuteAsync(
                 EventStreamOwnershipSql.Insert,
-                persistenceRow,
+                CreatePersistenceParameters(persistenceRow),
                 cancellationToken).ConfigureAwait(false);
         }
         else
         {
             affected = await commandExecutor.ExecuteAsync(
                 EventStreamOwnershipSql.Update,
-                persistenceRow,
+                CreatePersistenceParameters(persistenceRow),
                 cancellationToken).ConfigureAwait(false);
             if (affected == 0)
             {
@@ -103,12 +103,12 @@ internal sealed class EventStreamOwnershipStore(
     {
         var affected = await commandExecutor.ExecuteAsync(
             EventStreamOwnershipSql.BeginRollbackPreparation,
-            new
+            new Dictionary<string, object?>
             {
-                MessageType = messageType,
-                SchemaVersion = schemaVersion,
-                RollbackGeneration = rollbackGeneration,
-                RollbackPreparedAtUtc = preparedAtUtc,
+                ["MessageType"] = messageType,
+                ["SchemaVersion"] = schemaVersion,
+                ["RollbackGeneration"] = rollbackGeneration,
+                ["RollbackPreparedAtUtc"] = preparedAtUtc,
             },
             cancellationToken).ConfigureAwait(false);
         return affected == 1;
@@ -120,7 +120,7 @@ internal sealed class EventStreamOwnershipStore(
         CancellationToken cancellationToken = default) =>
         queryExecutor.QuerySingleOrDefaultAsync<RollbackPreparationRecord>(
             EventStreamOwnershipSql.FindRollbackPreparation,
-            new { MessageType = messageType, SchemaVersion = schemaVersion },
+            CreateStreamKeyParameters(messageType, schemaVersion),
             cancellationToken);
 
     internal async Task<bool> TryAbortRollbackPreparationAsync(
@@ -132,12 +132,12 @@ internal sealed class EventStreamOwnershipStore(
     {
         var affected = await commandExecutor.ExecuteAsync(
             EventStreamOwnershipSql.AbortRollbackPreparation,
-            new
+            new Dictionary<string, object?>
             {
-                MessageType = messageType,
-                SchemaVersion = schemaVersion,
-                RollbackGeneration = rollbackGeneration,
-                UpdatedAtUtc = updatedAtUtc,
+                ["MessageType"] = messageType,
+                ["SchemaVersion"] = schemaVersion,
+                ["RollbackGeneration"] = rollbackGeneration,
+                ["UpdatedAtUtc"] = updatedAtUtc,
             },
             cancellationToken).ConfigureAwait(false);
         return affected == 1;
@@ -167,8 +167,40 @@ internal sealed class EventStreamOwnershipStore(
         return await queryExecutor
             .QuerySingleOrDefaultAsync<OutboxStreamCutoffRecord>(
                 statement,
-                new { MessageType = messageType, SchemaVersion = schemaVersion },
+                CreateStreamKeyParameters(messageType, schemaVersion),
                 cancellationToken)
             .ConfigureAwait(false);
     }
+
+    private static IReadOnlyDictionary<string, object?> CreateStreamKeyParameters(
+        string messageType,
+        int schemaVersion) =>
+        new Dictionary<string, object?>
+        {
+            ["MessageType"] = messageType,
+            ["SchemaVersion"] = schemaVersion,
+        };
+
+    private static IReadOnlyDictionary<string, object?> CreatePersistenceParameters(
+        EventStreamOwnershipPersistenceRow row) =>
+        new Dictionary<string, object?>
+        {
+            ["MessageType"] = row.MessageType,
+            ["SchemaVersion"] = row.SchemaVersion,
+            ["TopicCode"] = row.TopicCode,
+            ["CurrentOwner"] = row.CurrentOwner,
+            ["PreviousOwner"] = row.PreviousOwner,
+            ["CutoffEventId"] = row.CutoffEventId,
+            ["CutoffOccurredAtUtc"] = row.CutoffOccurredAtUtc,
+            ["CdcSourcePositionJson"] = row.CdcSourcePositionJson,
+            ["OperatorUserId"] = row.OperatorUserId,
+            ["Reason"] = row.Reason,
+            ["RollbackBoundaryEventId"] = row.RollbackBoundaryEventId,
+            ["RollbackOccurredAtUtc"] = row.RollbackOccurredAtUtc,
+            ["RollbackState"] = row.RollbackState,
+            ["RollbackGeneration"] = row.RollbackGeneration,
+            ["RollbackPreparedAtUtc"] = row.RollbackPreparedAtUtc,
+            ["CreatedAtUtc"] = row.CreatedAtUtc,
+            ["UpdatedAtUtc"] = row.UpdatedAtUtc,
+        };
 }
