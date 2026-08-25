@@ -10,6 +10,7 @@
 | [`development-quality.md`](development-quality.md) | 所有开发、修复、重构和审查任务 | 防止需求、架构、安全、数据、测试、文档、许可和 Git 遗漏 |
 | [`performance-engineering.md`](performance-engineering.md) | 性能分析、基准、负载测试以及请求、SQL、缓存、Worker 或客户端包体优化 | 规定性能证据、语义门禁、低基数指标、双库和尾延迟验证 |
 | [`naming-conventions.md`](naming-conventions.md) | 新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置/缓存键或生成器产物 | 规定跨 SQL Server/MySQL、Dapper、C# 与多客户端的命名、兼容和验证方式 |
+| [`native-aot.md`](native-aot.md) | 修改 Host.Api 可达代码或依赖、AOT 编译条件、JSON/配置源生成、Dapper AOT、Provider native binding、AOT 测试或工作流 | 规定静态闭包、序列化、DI、SQL、第三方依赖、发布状态与原生 E2E 门禁 |
 | [`client-frontend.md`](client-frontend.md) | 新增或修改 Vue 管理端、Layui 存量代码、uni-app、Flutter/桌面端或客户端依赖 | 规定 Vue 单一后台交付线、Layui 冻结边界、逐页面/逐操作权限、各端框架、UI、许可与 `Verified` 验收方式 |
 | [`rule-evolution.md`](rule-evolution.md) | 用户纠正、重复失败、高风险新类别、规则冲突或里程碑复盘 | 将有证据的遗漏升级为项目规则 |
 | [`skill-evolution.md`](skill-evolution.md) | 已有 Skill 出现真实缺口或里程碑集中复盘 | 将重复且稳定的复杂工作流升级为可验证的项目 Skill |

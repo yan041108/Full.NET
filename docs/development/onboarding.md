@@ -11,6 +11,7 @@
 | 怎么在本机跑起来？ | [`getting-started.md`](getting-started.md) |
 | 架构为什么是模块化单体？ | [`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) |
 | 写代码前读哪些规则？ | [`rules/README.md`](../../rules/README.md) → 至少 `development-quality`；动库/API/机器码再加 `naming-conventions`；动前端再加 `client-frontend` |
+| Host.Api 怎么保持 Native AOT？ | [`native-aot-development-guide.md`](native-aot-development-guide.md)；强制边界见 [`rules/native-aot.md`](../../rules/native-aot.md) |
 | 新增模块怎么交付？ | [`.agents/skills/fullnet-module-delivery`](../../.agents/skills/fullnet-module-delivery/SKILL.md) |
 
 当前阶段一句话：**M2 安全与基础设施底座已可用；完整后台 CRUD 仍在路线图。** 禁止把路线图上的 `Mapped`/`Planned` 说成已交付。
@@ -36,7 +37,8 @@
 3. [`ADR-0002`](../architecture/adr/ADR-0002-modular-monolith-evolution.md) + 架构 Spec 中与你工作相关的章节（数据/安全/Outbox）。
 4. 若改 Identity/会话：会话基础 Spec + 超级管理员 Spec。
 5. 若改前端：[`client-frontend.md`](../../rules/client-frontend.md) + [`client-delivery-roadmap.md`](../roadmap/client-delivery-roadmap.md)。
-6. 动手前打开对应 `plans/`，按任务做，不要从零发明目录结构。
+6. 若改 Host.Api 可达闭包、JSON/配置源生成、Dapper AOT 或 native Provider：[`native-aot-development-guide.md`](native-aot-development-guide.md) + [`native-aot.md`](../../rules/native-aot.md)。
+7. 动手前打开对应 `plans/`，按任务做，不要从零发明目录结构。
 
 ## 4. 仓库地图（按需下钻）
 

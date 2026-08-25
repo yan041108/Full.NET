@@ -13,7 +13,7 @@
 ### 开始前
 
 1. 必须读取本文件和 [`rules/README.md`](rules/README.md)。
-2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)；新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成器产物时，还必须读取 [`rules/naming-conventions.md`](rules/naming-conventions.md)。
+2. 必须读取 [`rules/development-quality.md`](rules/development-quality.md)；涉及代码、SQL、配置或脚本时，还必须读取 [`rules/code-comments.md`](rules/code-comments.md)；新增或修改数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成器产物时，还必须读取 [`rules/naming-conventions.md`](rules/naming-conventions.md)；修改 Host.Api 可达代码或依赖、AOT 编译条件、JSON/配置源生成、Dapper AOT、Provider native binding、AOT 测试或工作流时，还必须读取 [`rules/native-aot.md`](rules/native-aot.md)。
 3. 必须检查 `.agents/skills/` 是否存在匹配当前任务的项目 Skill；新增或扩展模块、CRUD、Endpoint、Command/Query、Dapper 持久化或双库迁移时必须使用 [`fullnet-module-delivery`](.agents/skills/fullnet-module-delivery/SKILL.md)；性能分析、基准、负载测试或请求/SQL/缓存/Worker/客户端包体优化必须使用 [`fullnet-performance-hardening`](.agents/skills/fullnet-performance-hardening/SKILL.md)。
 4. 必须检查当前分支、`git status`、相关设计与计划，保留用户已有和无关变更。代码、SQL、配置或脚本任务必须记录 `git rev-parse HEAD`；工作区已脏或任务会跨多个窗口时，还必须运行 `pnpm test:task:start -- <task-id>` 创建任务快照，避免把既有改动混入影响集。
 5. 必须确认需求、授权边界和验收条件；能从仓库安全确定的信息不得反复询问。
@@ -49,6 +49,7 @@
 - 数据库表采用 `{owner}_{module}_{entity}`（官方 OwnerKey 固定为 `fn`，`sys` 保留，禁止运行时动态表前缀），列使用 PascalCase 与 Dapper 投影直接映射；完整命名以 [`rules/naming-conventions.md`](rules/naming-conventions.md) 为准。
 - 对外 HTTP API 使用标准状态码与 ProblemDetails，Admin.NET 统一包络只存在于兼容适配层；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节。
 - JSON 使用 System.Text.Json，可靠 Integration Event 按既定边界使用 MemoryPack，服务契约可使用 gRPC；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 7 节与 [`ADR-0008`](docs/architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md)。
+- Host.Api Native AOT 可达路径必须保持静态闭包；JSON 元数据、闭合泛型 DI、Dapper 参数/物化、第三方 native binding 和状态声明必须通过对应分析、Linux publish 与原生进程门禁，细则见 [`rules/native-aot.md`](rules/native-aot.md)、[`ADR-0008`](docs/architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md)与[`ADR-0009`](docs/architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md)。
 - 缓存以 FusionCache 为唯一实现并通过 `.AsHybridCache()` 暴露双抽象；多实例失效采用当前实例 L1/L2 删除 + Redis Backplane + TTL/版本/权威源兜底，强一致类别禁用 L1；细则见 [`rules/development-quality.md`](rules/development-quality.md) 第 8 节。
 - 成熟生产参考采用 Kubernetes + Helm 的模块化单体多实例拓扑，月度可用性 SLO 为 99.9%；开发阶段以 1 万同时在途为设计目标但不承担容量达标门禁，专用生产等价环境认证前必须标记 `Capacity-not-verified`。正式边界见 [`ADR-0005`](docs/architecture/adr/ADR-0005-high-concurrency-modular-monolith-multi-instance-production-baseline.md) 与[总体架构 Spec §20.5](docs/superpowers/specs/2026-07-17-fullnet-architecture-design.md#205-性能基线)。
 - 后续功能以 Admin.NET 为功能参考目标，但实现必须遵守 Full.NET 的架构、安全和发布许可边界；对标方式见 [`rules/development-quality.md`](rules/development-quality.md) 第 3 节。
@@ -65,6 +66,7 @@
 - [`rules/development-quality.md`](rules/development-quality.md)：常见遗漏防护和完成定义。
 - [`rules/performance-engineering.md`](rules/performance-engineering.md)：性能证据、请求链、双库、Worker 与客户端包体门禁。
 - [`rules/naming-conventions.md`](rules/naming-conventions.md)：数据库、C#、API、机器码、配置、缓存和生成器的统一命名边界。
+- [`rules/native-aot.md`](rules/native-aot.md)：Host.Api Native AOT 静态闭包、编码约束、第三方依赖与发布/E2E 门禁。
 - [`rules/client-frontend.md`](rules/client-frontend.md)：Vue 单一后台交付线、Layui 存量冻结、逐页面/逐操作权限，以及 uni-app、Flutter 与桌面端的框架、UI、许可和验收边界。
 - [`rules/rule-evolution.md`](rules/rule-evolution.md)：自动复盘、规则升级、冲突与退役机制。
 - [`rules/skill-evolution.md`](rules/skill-evolution.md)：项目 Skills 候选、测试先行、升级与退役机制。
