@@ -5,4 +5,5 @@
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.CodeGeneration")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Files")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Notifications")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Messaging")]
 #endif
