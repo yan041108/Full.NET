@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
+/// <summary>SQL Server 上的 Notifications Native AOT 外部进程门禁。</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NativeApiNotificationsSqlServerE2ETests
