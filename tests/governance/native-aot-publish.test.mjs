@@ -129,6 +129,7 @@ test('Native E2E 直接运行已构建程序集并执行最低发现数门禁', 
 test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目录', async () => {
   const runners = [
     ['scripts/testing/run-native-aot-e2e.mjs', 'native-aot'],
+    ['scripts/testing/run-native-aot-notifications-e2e.mjs', 'native-aot-notifications'],
     ['scripts/testing/run-native-aot-s3-e2e.mjs', 'native-aot-s3'],
     ['scripts/testing/run-native-aot-kafka-replay-e2e.mjs', 'native-aot-kafka-replay'],
   ];
@@ -147,4 +148,51 @@ test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目�
   }
   assert.match(processHost, /artifacts["'],\s*["']native-aot["']/);
   assert.match(processHost, /test-logs/);
+});
+
+test('Notifications Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', async () => {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  const packageJson = JSON.parse(await read('package.json'));
+  const workflow = await read('.github/workflows/api-native-aot-linux.yml');
+  const runner = await read('scripts/testing/run-native-aot-notifications-e2e.mjs');
+
+  const notificationsGate = matrix.nativeAotNotificationsIntegration;
+  assert.ok(
+    notificationsGate,
+    'eng/testing/test-matrix.json 必须包含 nativeAotNotificationsIntegration 节'
+  );
+  assert.equal(
+    notificationsGate.project,
+    'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
+  );
+  assert.equal(notificationsGate.filter, 'FullyQualifiedName~NativeApiNotifications');
+  assert.equal(notificationsGate.minimum, 2);
+  assert.equal(notificationsGate.timeout, '45m');
+
+  assert.equal(
+    packageJson.scripts['test:aot:native:notifications:e2e'],
+    'node scripts/testing/run-native-aot-notifications-e2e.mjs'
+  );
+
+  const externalE2EIndex = workflow.indexOf('Run Native AOT external-process E2E');
+  const notificationsE2EIndex = workflow.indexOf('Run Native AOT Notifications E2E');
+  const s3E2EIndex = workflow.indexOf('Run Native AOT S3 Provider E2E');
+  assert.ok(externalE2EIndex >= 0);
+  assert.ok(notificationsE2EIndex > externalE2EIndex);
+  assert.ok(s3E2EIndex > notificationsE2EIndex);
+  assert.match(workflow, /pnpm test:aot:native:notifications:e2e/);
+
+  assert.match(runner, /nativeAotNotificationsIntegration/);
+  assert.match(runner, /matrix\.integration\.assembly/);
+  assert.match(
+    runner,
+    /Full\.NET\.IntegrationTests-native-aot-notifications\.trx/
+  );
+  assert.match(runner, /artifacts\/native-aot\/linux-x64\/test-results/);
+  assert.match(runner, /--minimum-expected-tests/);
+
+  assert.match(
+    matrix.nativeAotIntegration.filter,
+    /FullyQualifiedName!~NativeApiNotifications/
+  );
 });

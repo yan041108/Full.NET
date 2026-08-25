@@ -31,16 +31,16 @@ internal sealed class MyInboxQueryService(
 
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 InboxMessageSql.CountForRecipient,
-                new { RecipientUserId = recipientUserId },
+                new Dictionary<string, object?> { ["RecipientUserId"] = recipientUserId },
                 cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<InboxMessageRecord>(
                 ResolveListStatement(),
-                new
+                new Dictionary<string, object?>
                 {
-                    RecipientUserId = recipientUserId,
-                    Offset = offset,
-                    PageSize = pageSize,
+                    ["RecipientUserId"] = recipientUserId,
+                    ["Offset"] = offset,
+                    ["PageSize"] = pageSize,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -62,10 +62,10 @@ internal sealed class MyInboxQueryService(
     {
         var unreadCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 InboxMessageSql.CountUnreadForRecipient,
-                new
+                new Dictionary<string, object?>
                 {
-                    RecipientUserId = recipientUserId,
-                    UnreadStatus = InboxMessageStatuses.Unread,
+                    ["RecipientUserId"] = recipientUserId,
+                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

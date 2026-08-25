@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Full.NET.ArchitectureTests;
 
 /// <summary>
@@ -377,6 +379,93 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void NotificationsModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Notifications");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Notifications 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void NotificationsModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Notifications");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "NotificationsModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "NotificationsDapperAotMaterializerContributor.cs"));
+        var announcementSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "AnnouncementSql.cs"));
+        var inboxSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "InboxMessageSql.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "NotificationsDapperAotMaterializerContributor");
+        foreach (var recordType in new[] { "AnnouncementRecord", "InboxMessageRecord" })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+
+        const string announcementProjection =
+            "Id, TenantId, Title, Content, Status, PublishedAtUtc, "
+            + "CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version";
+        foreach (var statement in new[]
+                 {
+                     "ListHostSqlServer",
+                     "ListHostMySql",
+                     "FindHostById",
+                 })
+        {
+            Assert.AreEqual(
+                announcementProjection,
+                ExtractSelectProjection(announcementSqlSource, statement),
+                $"Announcement SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string inboxProjection =
+            "Id, TenantId, RecipientUserId, Title, Content, Status, "
+            + "ReadAtUtc, CreatedAtUtc, CreatedByUserId";
+        foreach (var statement in new[]
+                 {
+                     "ListForRecipientSqlServer",
+                     "ListForRecipientMySql",
+                     "FindForRecipientById",
+                 })
+        {
+            Assert.AreEqual(
+                inboxProjection,
+                ExtractSelectProjection(inboxSqlSource, statement),
+                $"Inbox SQL 投影顺序必须一致：{statement}");
+        }
+    }
+
+    [TestMethod]
     public void DapperInbox_RegistersAotMaterializersAndUsesSafeParameters()
     {
         var root = ArchitectureRepositoryRoot.Find();
@@ -398,5 +487,26 @@ public sealed class NativeAotStaticBindingRulesTests
             "Native AOT Inbox 不得使用匿名 SQL 参数。");
         StringAssert.Contains(registrationSource, "Register<InboxClaimRow>");
         StringAssert.Contains(registrationSource, "Register<InboxBatchPrecheckRow>");
+    }
+
+    private static bool ContainsAnonymousSqlParameterObject(string source) =>
+        source.Contains("new {", StringComparison.Ordinal)
+        || Regex.IsMatch(source, @"new\s*\{", RegexOptions.CultureInvariant);
+
+    private static string ExtractSelectProjection(string source, string statementField)
+    {
+        var fieldIndex = source.IndexOf(
+            $"SqlStatement {statementField}",
+            StringComparison.Ordinal);
+        Assert.IsTrue(fieldIndex >= 0, $"未找到 SQL 语句字段：{statementField}");
+
+        var selectIndex = source.IndexOf("SELECT", fieldIndex, StringComparison.Ordinal);
+        var fromIndex = source.IndexOf("FROM", selectIndex, StringComparison.Ordinal);
+        Assert.IsTrue(selectIndex >= 0 && fromIndex > selectIndex, $"未找到 SELECT 投影：{statementField}");
+
+        return Regex.Replace(
+            source[(selectIndex + "SELECT".Length)..fromIndex],
+            @"\s+",
+            " ").Trim();
     }
 }

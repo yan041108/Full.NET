@@ -77,22 +77,26 @@ internal sealed class HostInboxMessageService(
         var messageId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 InboxMessageSql.Insert,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = messageId,
-                    request.RecipientUserId,
-                    Title = request.Title.Trim(),
-                    Content = request.Content.Trim(),
-                    Status = InboxMessageStatuses.Unread,
-                    CreatedAtUtc = now,
-                    CreatedByUserId = actorUserId,
+                    ["Id"] = messageId,
+                    ["RecipientUserId"] = request.RecipientUserId,
+                    ["Title"] = request.Title.Trim(),
+                    ["Content"] = request.Content.Trim(),
+                    ["Status"] = InboxMessageStatuses.Unread,
+                    ["CreatedAtUtc"] = now,
+                    ["CreatedByUserId"] = actorUserId,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
-                new { Id = messageId, RecipientUserId = request.RecipientUserId },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = messageId,
+                    ["RecipientUserId"] = request.RecipientUserId,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

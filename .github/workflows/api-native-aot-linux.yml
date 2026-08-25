@@ -87,6 +87,9 @@ jobs:
       - name: Run Native AOT external-process E2E
         run: pnpm test:aot:native:e2e
 
+      - name: Run Native AOT Notifications E2E
+        run: pnpm test:aot:native:notifications:e2e
+
       - name: Run Native AOT S3 Provider E2E
         run: pnpm test:aot:native:s3:e2e
 
