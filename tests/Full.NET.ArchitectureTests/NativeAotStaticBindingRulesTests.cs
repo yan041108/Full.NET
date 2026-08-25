@@ -381,6 +381,33 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void HostUserDirectory_FindActiveHostUser_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var source = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Identity",
+            "HostUsers",
+            "HostUserDirectory.cs"));
+
+        var findActiveIndex = source.IndexOf(
+            "FindActiveHostUserAsync",
+            StringComparison.Ordinal);
+        Assert.IsTrue(findActiveIndex >= 0, "未找到 FindActiveHostUserAsync。");
+        var methodOpen = source.IndexOf('{', findActiveIndex);
+        Assert.IsTrue(methodOpen > findActiveIndex, "未找到 FindActiveHostUserAsync 方法体。");
+        var methodClose = source.LastIndexOf('}');
+        var findActiveBody = source[methodOpen..methodClose];
+        Assert.IsFalse(
+            findActiveBody.Contains("new {", StringComparison.Ordinal),
+            "Native AOT Host 用户活动校验不得使用匿名 SQL 参数。");
+        StringAssert.Contains(findActiveBody, "Dictionary<string, object?>");
+        StringAssert.Contains(findActiveBody, "[\"UserId\"]");
+    }
+
+    [TestMethod]
     public void DapperNativeAotScalarReader_SupportsNullableScalars()
     {
         var root = ArchitectureRepositoryRoot.Find();

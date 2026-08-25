@@ -41,7 +41,7 @@ internal sealed class HostUserDirectory(IQueryExecutor queryExecutor)
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                new Dictionary<string, object?> { ["UserId"] = userId },
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null || !record.IsActive
