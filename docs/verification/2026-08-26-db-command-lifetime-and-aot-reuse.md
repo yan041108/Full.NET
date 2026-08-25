@@ -114,3 +114,41 @@ This benchmark measures only the `SqlCommand`/parameter object graph; it exclude
 - Command-scoped connection disposal returns a logical provider connection to its pool; it does not close the physical socket on each query. It intentionally increases logical Open/Dispose calls in exchange for accurate admission occupancy and fairness.
 - No production-equivalent soak, 2K/5K/10K concurrency run or application-level before/after allocation profile was executed. The repository remains `Capacity-not-verified`.
 - `git diff --check` reported no whitespace errors; Git emitted only the repository's Windows LF-to-CRLF working-copy notices.
+
+## Future P4 candidate: typed factory and fixed plan handle
+
+Status: **Not approved / evidence-triggered**. This section records a future investigation point; it is not an implementation commitment or a statement that the current registry is a production bottleneck.
+
+The `DirectFactoryReuse` benchmark is a lower bound rather than a production-equivalent alternative. It uses a factory resolved during `GlobalSetup`, skips the statement-name/Provider registry lookup, and does not set the command timeout performed by `StaticPlanReuse`. The production static-plan path already calls the same `DapperAotCommandFactory` after resolving the plan and must additionally preserve collection fallback, Provider selection, transaction attachment, reader lifetime and success-only recycle semantics.
+
+### Evidence required to start P4
+
+Do not implement P4 from the current nanosecond benchmark alone. Reconsider it only when a representative Native AOT Outbox profile shows that command preparation, parameter binding or related allocation is a material part of the write path after serialization, database I/O, locks and connection waiting are separated. Before implementation, define an explicit CPU/allocation threshold and capture the same workload, data, concurrency and duration for SQL Server and MySQL.
+
+At minimum, preserve these inputs for the decision:
+
+- Outbox throughput, error and duplicate rates;
+- P50, P95 and P99 write latency;
+- allocated bytes per write and GC rate;
+- CPU stacks attributed to parameter creation/binding, plan resolution and command creation;
+- database CPU, log/write latency, locks and connection-pool waiting.
+
+If the full write path cannot distinguish the candidate from noise, keep the current registry even if a command-object microbenchmark remains faster.
+
+### Candidate design boundary
+
+The preferred candidate is a generated, strongly typed `CommandPlan<TArgs>` or equivalent fixed plan handle. It should resolve the Provider-specific factory once, update parameters by ordinal from `TArgs`, and avoid `DynamicParameters`, `Get<object>` and value-type boxing on the registered hot path. The generic executor and create/bind/dispose fallback must remain available for unregistered statements and collection-expanded SQL.
+
+The candidate must not:
+
+- expose Dapper.AOT factories directly to business modules;
+- add a Dapper-specific dependency to the public `SqlStatement` abstraction;
+- share commands across SQL Server and MySQL or across different parameter shapes;
+- recycle a command after cancellation, execution/materialization failure, or before its reader is disposed;
+- weaken tenant validation, transaction ownership, timeout, telemetry, admission or Outbox reliability semantics.
+
+### P4 comparison and acceptance gate
+
+Use an apples-to-apples command benchmark in which registry, fixed-handle and typed-direct candidates all perform the same timeout, transaction, connection attachment, cleanup and recycle work. Then run real SQL Server and MySQL Outbox writes with identical payloads and concurrency.
+
+Accept P4 only when both Providers show a repeatable end-to-end CPU or allocation improvement outside benchmark noise, without worsening P99, errors, duplicates, connection waiting, transaction behavior or Native AOT closure. Required verification includes focused Unit/Architecture tests, dual-provider integration, AOT analyzers, Linux Native AOT publish and native-process Outbox flows. Otherwise record the result and retain the current static registry.
