@@ -67,6 +67,10 @@ public sealed class MessagingModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 MessagingJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.MessagingDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     public void AddBackgroundServices(

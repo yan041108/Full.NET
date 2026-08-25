@@ -420,6 +420,73 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void MessagingModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Messaging");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "MessagingModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "MessagingDapperAotMaterializerContributor.cs"));
+        var ownershipSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "EventStreamOwnershipSql.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "MessagingDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "EventStreamOwnershipPersistenceRow",
+                     "RollbackPreparationRecord",
+                     "OutboxStreamCutoffRecord",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+
+        const string ownershipProjection =
+            "MessageType, SchemaVersion, TopicCode, CurrentOwner, PreviousOwner, "
+            + "CutoffEventId, CutoffOccurredAtUtc, CdcSourcePositionJson, OperatorUserId, "
+            + "Reason, RollbackBoundaryEventId, RollbackOccurredAtUtc, "
+            + "RollbackState, RollbackGeneration, RollbackPreparedAtUtc, "
+            + "CreatedAtUtc, UpdatedAtUtc";
+        foreach (var statement in new[] { "FindByStream", "ListAll" })
+        {
+            Assert.AreEqual(
+                ownershipProjection,
+                ExtractSelectProjection(ownershipSqlSource, statement),
+                $"Stream ownership SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string rollbackProjection =
+            "RollbackState, RollbackGeneration, RollbackPreparedAtUtc";
+        Assert.AreEqual(
+            rollbackProjection,
+            ExtractSelectProjection(ownershipSqlSource, "FindRollbackPreparation"),
+            "Rollback preparation SQL 投影顺序必须一致。");
+
+        const string cutoffProjection = "Id AS CutoffEventId, OccurredAtUtc AS CutoffOccurredAtUtc";
+        Assert.AreEqual(
+            $"TOP 1 {cutoffProjection}",
+            ExtractSelectProjection(
+                ownershipSqlSource,
+                "FindLastAppendOnlyOutboxEventByStreamSqlServer"),
+            "Append-only cutoff SQL Server 投影顺序必须一致。");
+        Assert.AreEqual(
+            cutoffProjection,
+            ExtractSelectProjection(
+                ownershipSqlSource,
+                "FindLastAppendOnlyOutboxEventByStreamMySql"),
+            "Append-only cutoff MySQL 投影顺序必须一致。");
+    }
+
+    [TestMethod]
     public void NotificationsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();
