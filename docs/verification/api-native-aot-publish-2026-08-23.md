@@ -23,6 +23,7 @@
 | MySQL 关键 HTTP 链路 | 通过 | `NativeApiMySqlE2ETests` |
 | SignalR JSON + Redis 配置 | 通过（SQL Server + MySQL） | `NativeApiSignalRJsonE2ETests` |
 | Notifications HTTP/JSON/SignalR | 通过（SQL Server + MySQL） | 见 [`api-native-aot-notifications-2026-08-25.md`](api-native-aot-notifications-2026-08-25.md)；CI [`run 32849677783`](https://github.com/yan041108/Full.NET/actions/runs/32849677783) 实际执行 2/2 |
+| Settings / Jobs HTTP/JSON | 通过（SQL Server + MySQL） | 见 [`api-native-aot-settings-jobs-2026-08-25.md`](api-native-aot-settings-jobs-2026-08-25.md)；CI [`run 32872774812`](https://github.com/yan041108/Full.NET/actions/runs/32872774812) 实际执行 4/4 |
 | **ADR-0008 状态** | **`Aot-published`** | Linux publish、启动及关键双库/SignalR 原生 E2E 已闭合 |
 
 ## Publish 命令（权威）
@@ -53,7 +54,8 @@ pnpm test:aot:native:e2e
 ## 剩余边界
 
 - Worker/Migrator Native AOT
-- Notifications HTTP/JSON/SignalR Native 切片见 [`api-native-aot-notifications-2026-08-25.md`](api-native-aot-notifications-2026-08-25.md)；Settings 与 Jobs 仍需各自闭包
+- Notifications HTTP/JSON/SignalR Native 切片见 [`api-native-aot-notifications-2026-08-25.md`](api-native-aot-notifications-2026-08-25.md)
+- Settings / Jobs HTTP/JSON Native 切片见 [`api-native-aot-settings-jobs-2026-08-25.md`](api-native-aot-settings-jobs-2026-08-25.md)
 - S3 与 Kafka Replay 的精确 Provider 状态见 [`api-native-aot-phase3-providers-2026-08-24.md`](api-native-aot-phase3-providers-2026-08-24.md)
 - 多实例 SignalR Backplane 跨节点投递（JIT 集成测试已覆盖；Native 仅验证 Redis 配置下 JSON Hub 收发）
 - 生产容量与 1 万并发 SLO（`Capacity-not-verified`）

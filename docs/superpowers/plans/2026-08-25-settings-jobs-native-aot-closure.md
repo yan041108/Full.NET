@@ -10,32 +10,39 @@
 
 ## Global Constraints
 
-- [ ] Record `git rev-parse HEAD` and use snapshot `settings-jobs-native-aot-closure` for affected tests.
-- [ ] Test-first: failing architecture/governance gates before production/CI wiring.
-- [ ] Do not add reflection fallbacks or mark capability verified from Windows discovery, analyzers, or publish alone.
-- [ ] Evidence threshold: green Linux `api-native-aot-linux` executing Settings and Jobs native tests against the published binary.
+- [x] Record `git rev-parse HEAD` and use snapshot `settings-jobs-native-aot-closure` for affected tests.
+- [x] Test-first: failing architecture/governance gates before production/CI wiring.
+- [x] Do not add reflection fallbacks or mark capability verified from Windows discovery, analyzers, or publish alone.
+- [x] Evidence threshold: green Linux `api-native-aot-linux` executing Settings and Jobs native tests against the published binary.
 
 ---
 
 ## Task 1: Static-binding gates
 
-- [ ] `SettingsModule_UsesAotSafeSqlParameters` / `JobsModule_UsesAotSafeSqlParameters`
-- [ ] `SettingsModule_RegistersAllNativeAotRowMaterializers` / `JobsModule_RegistersAllNativeAotRowMaterializers`
-- [ ] Projection-order assertions for dict/config/grid and job definition/execution/schedule/health families
+- [x] `SettingsModule_UsesAotSafeSqlParameters` / `JobsModule_UsesAotSafeSqlParameters`
+- [x] `SettingsModule_RegistersAllNativeAotRowMaterializers` / `JobsModule_RegistersAllNativeAotRowMaterializers`
+- [x] Projection-order assertions for dict/config/grid and job definition/execution/schedule/health families
 
 ## Task 2: Close Dapper parameters and materializers
 
-- [ ] Convert every Settings/Jobs `new { ... }` SQL argument to `Dictionary<string, object?>`
-- [ ] Register AOT materializers; unify Jobs execution acquire OUTPUT with list/find projection
-- [ ] Align `FindScheduleById` with due-schedule `JobScheduleRecord` columns including `AllowConcurrentExecutions`
+- [x] Convert every Settings/Jobs `new { ... }` SQL argument to `Dictionary<string, object?>`
+- [x] Register AOT materializers; unify Jobs execution acquire OUTPUT with list/find projection
+- [x] Align `FindScheduleById` with due-schedule `JobScheduleRecord` columns including `AllowConcurrentExecutions`
 
 ## Task 3: Native E2E + CI
 
-- [ ] Dual-DB Settings HTTP/JSON native tests (dict, config, diagnostic, grid, tenant dict list)
-- [ ] Dual-DB Jobs HTTP/JSON native tests (definition, trigger/ping, executions, schedules, health)
-- [ ] Matrix, runner, workflow, governance; exclude from general native E2E filter
+- [x] Dual-DB Settings HTTP/JSON native tests (dict, config, diagnostic, grid, tenant dict list)
+- [x] Dual-DB Jobs HTTP/JSON native tests (definition, trigger/ping, executions, schedules, health)
+- [x] Matrix, runner, workflow, governance; exclude from general native E2E filter
 
 ## Task 4: Verify on Linux CI, then evidence
 
-- [ ] Push and wait for `api-native-aot-linux`
-- [ ] Only then update verification docs and capability status
+- [x] Push and wait for `api-native-aot-linux`
+- [x] Only then update verification docs and capability status
+
+## Evidence
+
+- Module/CI wiring: `bc7727d68b4735517208f1964e3337560a1bd3ea`
+- AOT `IN @Ids` collection expand fix + green dual-DB Settings/Jobs native E2E: `7162c3297c17580544a61b7cc0cab0f5694847c4`
+- CI: https://github.com/yan041108/Full.NET/actions/runs/32872774812 (`4/4` Settings/Jobs)
+- Verification: [`api-native-aot-settings-jobs-2026-08-25.md`](../../verification/api-native-aot-settings-jobs-2026-08-25.md)
