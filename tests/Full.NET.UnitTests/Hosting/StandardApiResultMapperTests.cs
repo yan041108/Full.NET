@@ -73,6 +73,32 @@ public sealed class StandardApiResultMapperTests
     }
 
     [TestMethod]
+    public void Database_capacity_exception_maps_to_sanitized_503_with_retry_after()
+    {
+        var context = new DefaultHttpContext();
+        var mapped = CreateMapper().MapException(
+            new ServiceCapacityExceededException(
+                ServiceCapacityFailureKind.Rejected,
+                TimeSpan.FromMilliseconds(250)),
+            context);
+
+        Assert.AreEqual(
+            StatusCodes.Status503ServiceUnavailable,
+            ((IStatusCodeHttpResult)mapped).StatusCode);
+        var problem = (ProblemDetails?)((IValueHttpResult)mapped).Value;
+        Assert.IsNotNull(problem);
+        Assert.AreEqual(
+            CommonErrorCodes.DatabaseCapacityExhausted,
+            problem.Extensions["code"]);
+        Assert.AreEqual(context.TraceIdentifier, problem.Extensions["traceId"]);
+        Assert.AreEqual("1", context.Response.Headers.RetryAfter.ToString());
+        Assert.DoesNotContain(
+            "250",
+            problem.Title ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    [TestMethod]
     public void Validation_failure_exposes_structured_violations_and_language_headers()
     {
         var context = new DefaultHttpContext();

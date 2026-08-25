@@ -79,12 +79,34 @@ groups:
           summary: Redis reconnect/eviction/replication lag
 
       - alert: FullNetDatabaseConnectionWait
-        expr: histogram_quantile(0.95, sum(rate(fullnet_db_connection_wait_seconds_bucket[5m])) by (le)) > 0.2
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(fullnet_db_connection_wait_seconds_bucket[5m])) by (le, provider, host_role)
+          ) > 0.2
+          and on (provider, host_role)
+          sum(rate(fullnet_db_connection_acquire_total[5m])) by (provider, host_role) > 0.1
         for: 5m
         labels:
           severity: critical
         annotations:
           summary: Database connection pool wait elevated
+
+      - alert: FullNetDatabaseConnectionAcquireTimeout
+        expr: sum(increase(fullnet_db_connection_acquire_total{outcome="timeout"}[5m])) by (provider, host_role) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Database connection acquisition timed out
+
+      - alert: FullNetDatabaseConnectionAdmissionRejected
+        expr: sum(increase(fullnet_db_connection_acquire_total{outcome="rejected"}[5m])) by (provider, host_role) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Database admission queue rejected requests
 
       - alert: FullNetOutboxJobsBacklogAge
         expr: max(fullnet_outbox_backlog_oldest_age_seconds) > 300 or max(fullnet_jobs_backlog_oldest_age_seconds) > 300

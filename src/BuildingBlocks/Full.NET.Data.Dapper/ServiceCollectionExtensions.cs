@@ -135,7 +135,21 @@ public static class ServiceCollectionExtensions
                 "LegacyChar36 is not permitted in Production; use Binary16.")
             .ValidateOnStart();
 
+        services.AddSingleton<
+            IValidateOptions<DatabaseCapacityOptions>,
+            DatabaseCapacityOptionsValidator>();
+        services.AddOptions<DatabaseCapacityOptions>()
+            .BindConfiguration(DatabaseCapacityOptions.SectionName)
+            .ValidateOnStart();
+
         services.AddSingleton<DbConnectionFactory>();
+        services.AddSingleton<IDbConnectionFactory>(provider =>
+            provider.GetRequiredService<DbConnectionFactory>());
+        services.AddSingleton<DatabaseConnectionTelemetry>();
+        services.AddSingleton<DatabaseAdmissionGate>();
+        services.AddScoped<DatabaseAdmissionPriorityScope>();
+        services.AddScoped<IDatabaseAdmissionPriorityScope>(provider =>
+            provider.GetRequiredService<DatabaseAdmissionPriorityScope>());
         services.AddSingleton<IDatabaseSessionLock, DapperDatabaseSessionLock>();
         services.AddScoped<DbSession>();
         services.AddScoped<IDbTransactionCoordinator>(provider =>
@@ -174,7 +188,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommandTransaction, DapperCommandTransaction>();
         services
             .AddOpenTelemetry()
-            .WithMetrics(metrics => metrics.AddMeter(DapperTelemetry.MeterName));
+            .WithMetrics(metrics => metrics
+                .AddMeter(DapperTelemetry.MeterName)
+                .AddMeter(DatabaseConnectionTelemetry.MeterName));
         services.AddHealthChecks()
             .AddCheck<DatabaseConnectivityHealthCheck>(
                 "database-connectivity",

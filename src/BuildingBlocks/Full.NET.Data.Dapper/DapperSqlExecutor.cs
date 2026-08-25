@@ -1,3 +1,4 @@
+using System.Data;
 using System.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -41,26 +42,31 @@ internal sealed class DapperSqlExecutor(
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var command = CreateCommand(
-            statement,
-            parameters,
-            cancellationToken);
+        var commandParameters = CreateParameters(statement, parameters);
         var stopwatch = Stopwatch.StartNew();
         Exception? exception = null;
 
         try
         {
-            var connection = await session
-                .GetOpenConnectionAsync(cancellationToken)
+            await using var connectionLease = await session
+                .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            var command = CreateCommand(
+                statement,
+                commandParameters,
+                connectionLease.Transaction,
+                cancellationToken);
+            var connection = connectionLease.Connection;
 #if FULLNET_AOT_COMPILE
             return await DapperAotSqlExecution.QuerySingleOrDefaultAsync<T>(
                 connection,
+                statement.Name,
+                _options.Provider,
                 statement.Text,
                 command.Parameters as DynamicParameters
                     ?? throw new InvalidOperationException(
                         "Native AOT requires DynamicParameters for SQL execution."),
-                session.Transaction,
+                connectionLease.Transaction,
                 _options.CommandTimeoutSeconds,
                 cancellationToken).ConfigureAwait(false);
 #else
@@ -95,26 +101,31 @@ internal sealed class DapperSqlExecutor(
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var command = CreateCommand(
-            statement,
-            parameters,
-            cancellationToken);
+        var commandParameters = CreateParameters(statement, parameters);
         var stopwatch = Stopwatch.StartNew();
         Exception? exception = null;
 
         try
         {
-            var connection = await session
-                .GetOpenConnectionAsync(cancellationToken)
+            await using var connectionLease = await session
+                .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            var command = CreateCommand(
+                statement,
+                commandParameters,
+                connectionLease.Transaction,
+                cancellationToken);
+            var connection = connectionLease.Connection;
 #if FULLNET_AOT_COMPILE
             return await DapperAotSqlExecution.QueryAsync<T>(
                 connection,
+                statement.Name,
+                _options.Provider,
                 statement.Text,
                 command.Parameters as DynamicParameters
                     ?? throw new InvalidOperationException(
                         "Native AOT requires DynamicParameters for SQL execution."),
-                session.Transaction,
+                connectionLease.Transaction,
                 _options.CommandTimeoutSeconds,
                 cancellationToken).ConfigureAwait(false);
 #else
@@ -146,27 +157,32 @@ internal sealed class DapperSqlExecutor(
         object? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        var command = CreateCommand(
-            statement,
-            parameters,
-            cancellationToken);
+        var commandParameters = CreateParameters(statement, parameters);
         var stopwatch = Stopwatch.StartNew();
         Exception? exception = null;
 
         try
         {
-            var connection = await session
-                .GetOpenConnectionAsync(cancellationToken)
+            await using var connectionLease = await session
+                .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            var command = CreateCommand(
+                statement,
+                commandParameters,
+                connectionLease.Transaction,
+                cancellationToken);
+            var connection = connectionLease.Connection;
 #if FULLNET_AOT_COMPILE
             var dynamicParameters = command.Parameters as DynamicParameters
                 ?? throw new InvalidOperationException(
                     "Native AOT requires DynamicParameters for SQL execution.");
             return await DapperAotSqlExecution.ExecuteAsync(
                 connection,
+                statement.Name,
+                _options.Provider,
                 statement.Text,
                 dynamicParameters,
-                session.Transaction,
+                connectionLease.Transaction,
                 _options.CommandTimeoutSeconds,
                 cancellationToken).ConfigureAwait(false);
 #else
@@ -206,18 +222,21 @@ internal sealed class DapperSqlExecutor(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(projector);
-        var command = CreateCommand(
-            statement,
-            parameters,
-            cancellationToken);
+        var commandParameters = CreateParameters(statement, parameters);
         var stopwatch = Stopwatch.StartNew();
         Exception? exception = null;
 
         try
         {
-            var connection = await session
-                .GetOpenConnectionAsync(cancellationToken)
+            await using var connectionLease = await session
+                .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            var command = CreateCommand(
+                statement,
+                commandParameters,
+                connectionLease.Transaction,
+                cancellationToken);
+            var connection = connectionLease.Connection;
             await using var grid = await connection
                 .QueryMultipleAsync(command)
                 .ConfigureAwait(false);
@@ -248,8 +267,21 @@ internal sealed class DapperSqlExecutor(
 
     private CommandDefinition CreateCommand(
         SqlStatement statement,
-        object? values,
+        DynamicParameters parameters,
+        IDbTransaction? transaction,
         CancellationToken cancellationToken)
+    {
+        return new CommandDefinition(
+            statement.Text,
+            parameters,
+            transaction,
+            _options.CommandTimeoutSeconds,
+            cancellationToken: cancellationToken);
+    }
+
+    private DynamicParameters CreateParameters(
+        SqlStatement statement,
+        object? values)
     {
         SqlScopeGuard.Validate(statement, currentTenant);
 
@@ -259,12 +291,7 @@ internal sealed class DapperSqlExecutor(
             parameters.Add("TenantId", currentTenant.Id!.Value);
         }
 
-        return new CommandDefinition(
-            statement.Text,
-            parameters,
-            session.Transaction,
-            _options.CommandTimeoutSeconds,
-            cancellationToken: cancellationToken);
+        return parameters;
     }
 
     private static DynamicParameters CreateDynamicParameters(object? values)

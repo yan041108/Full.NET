@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -23,6 +24,7 @@ internal sealed class OutboxProcessor(
         while (!stoppingToken.IsCancellationRequested)
         {
             var processedCount = 0;
+            TimeSpan? capacityBackoff = null;
             try
             {
                 processedCount = await ProcessOnceAsync(stoppingToken)
@@ -32,12 +34,20 @@ internal sealed class OutboxProcessor(
             {
                 break;
             }
+            catch (ServiceCapacityExceededException exception)
+            {
+                capacityBackoff = GetDelayAfterCapacityRejection();
+                OutboxProcessorLog.DatabaseCapacityUnavailable(
+                    logger,
+                    exception.Kind,
+                    capacityBackoff.Value.TotalMilliseconds);
+            }
             catch (Exception exception)
             {
                 OutboxProcessorLog.BatchFailed(logger, exception);
             }
 
-            var delay = GetDelayAfterBatch(processedCount);
+            var delay = capacityBackoff ?? GetDelayAfterBatch(processedCount);
             if (delay > TimeSpan.Zero)
             {
                 await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
@@ -76,6 +86,8 @@ internal sealed class OutboxProcessor(
                         .ToArray();
                     var ownerResolver = services
                         .GetService<IEffectiveEventDeliveryOwnerResolver>();
+                    var databasePriority = services
+                        .GetService<IDatabaseAdmissionPriorityScope>();
                     return await ProcessBatchWithLeaseRenewalAsync(
                             messages,
                             async (
@@ -89,6 +101,7 @@ internal sealed class OutboxProcessor(
                                             handlers,
                                             store,
                                             ownerResolver,
+                                            databasePriority,
                                             batchCancellationToken)
                                         .ConfigureAwait(false);
                                 }
@@ -157,6 +170,10 @@ internal sealed class OutboxProcessor(
         return backoff;
     }
 
+    internal TimeSpan GetDelayAfterCapacityRejection() =>
+        TimeSpan.FromMilliseconds(
+            _options.DatabaseCapacityBackoffMilliseconds);
+
     private async Task RecordBacklogAsync(
         IOutboxBacklogReader backlogReader,
         CancellationToken cancellationToken)
@@ -192,6 +209,7 @@ internal sealed class OutboxProcessor(
         IReadOnlyCollection<IIntegrationEventHandler> handlers,
         IOutboxStore store,
         IEffectiveEventDeliveryOwnerResolver? ownerResolver,
+        IDatabaseAdmissionPriorityScope? databasePriority,
         CancellationToken cancellationToken)
     {
         try
@@ -251,12 +269,15 @@ internal sealed class OutboxProcessor(
             await matchingHandlers[0]
                 .HandleAsync(context, message.Payload, cancellationToken)
                 .ConfigureAwait(false);
-            await store
-                .MarkProcessedAsync(
-                    message.Id,
-                    message.LockId,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            using (databasePriority?.EnterCritical())
+            {
+                await store
+                    .MarkProcessedAsync(
+                        message.Id,
+                        message.LockId,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             OutboxProcessorLog.MessageProcessed(
                 logger,
                 message.Id,
@@ -274,15 +295,18 @@ internal sealed class OutboxProcessor(
             if (TryGetDeadLetterReasonCode(message, exception, out var reasonCode))
             {
                 var deadLetteredAt = clock.UtcNow;
-                await store
-                    .MarkDeadLetterAsync(
-                        message.Id,
-                        message.LockId,
-                        error,
-                        reasonCode,
-                        deadLetteredAt,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                using (databasePriority?.EnterCritical())
+                {
+                    await store
+                        .MarkDeadLetterAsync(
+                            message.Id,
+                            message.LockId,
+                            error,
+                            reasonCode,
+                            deadLetteredAt,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
                 OutboxProcessorLog.MessageDeadLettered(
                     logger,
                     exception,
@@ -296,14 +320,17 @@ internal sealed class OutboxProcessor(
             }
 
             var retryAt = clock.UtcNow.Add(CalculateBackoff(message.Attempts));
-            await store
-                .MarkFailedAsync(
-                    message.Id,
-                    message.LockId,
-                    error,
-                    retryAt,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            using (databasePriority?.EnterCritical())
+            {
+                await store
+                    .MarkFailedAsync(
+                        message.Id,
+                        message.LockId,
+                        error,
+                        retryAt,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             OutboxProcessorLog.MessageFailed(
                 logger,
                 exception,
@@ -469,13 +496,18 @@ internal sealed class OutboxProcessor(
                     services.GetRequiredService<CurrentTenantAccessor>();
                 currentTenant.SetHost();
                 var store = services.GetRequiredService<IOutboxStore>();
-                await store
-                    .RenewLeaseAsync(
-                        messageIds,
-                        lockId,
-                        leaseDuration,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                var databasePriority = services
+                    .GetService<IDatabaseAdmissionPriorityScope>();
+                using (databasePriority?.EnterCritical())
+                {
+                    await store
+                        .RenewLeaseAsync(
+                            messageIds,
+                            lockId,
+                            leaseDuration,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
                 OutboxProcessorLog.LeaseRenewed(logger, lockId);
             }
             catch
@@ -506,11 +538,14 @@ internal sealed class OutboxProcessor(
                 .ToArray();
             var store = services.GetRequiredService<IOutboxStore>();
             var ownerResolver = services.GetService<IEffectiveEventDeliveryOwnerResolver>();
+            var databasePriority = services
+                .GetService<IDatabaseAdmissionPriorityScope>();
             await ProcessMessageAsync(
                     message,
                     handlers,
                     store,
                     ownerResolver,
+                    databasePriority,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -681,6 +716,15 @@ internal static partial class OutboxProcessorLog
         Level = LogLevel.Debug,
         Message = "Renewed Outbox lease {LockId}")]
     public static partial void LeaseRenewed(ILogger logger, Guid lockId);
+
+    [LoggerMessage(
+        EventId = 3007,
+        Level = LogLevel.Information,
+        Message = "Database capacity unavailable ({FailureKind}); pausing new Outbox acquisition for {BackoffMilliseconds} ms")]
+    public static partial void DatabaseCapacityUnavailable(
+        ILogger logger,
+        ServiceCapacityFailureKind failureKind,
+        double backoffMilliseconds);
 }
 
 internal sealed class OutboxPermanentException(string reasonCode, string message)

@@ -1,6 +1,7 @@
 using BenchmarkDotNet.Running;
 using Full.NET.Benchmarks;
 using Full.NET.Benchmarks.Auditing;
+using Full.NET.Benchmarks.Data;
 using Full.NET.Benchmarks.Jobs;
 using Full.NET.Benchmarks.Kafka;
 using Full.NET.Benchmarks.MixedLoad;
@@ -108,6 +109,9 @@ else if (args.FirstOrDefault() is "kafka-capacity")
 else
 {
     BenchmarkSwitcher
-        .FromTypes([typeof(SerializationBenchmarks)])
+        .FromTypes([
+            typeof(SerializationBenchmarks),
+            typeof(DapperAotCommandReuseBenchmarks),
+        ])
         .Run(args);
 }

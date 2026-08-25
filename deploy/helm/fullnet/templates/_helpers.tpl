@@ -91,6 +91,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
   {{- fail (printf "database connection budget exceeded: need %d but total=%d (apiMaxReplicas*apiMaxPoolSize + workerMaxReplicas*workerMaxPoolSize + migrationReserve)." $needed $budget) -}}
 {{- end -}}
 
+{{- $apiProcessNeeded := add (.Values.databaseConnectionBudget.apiPermitLimit | int) (.Values.databaseConnectionBudget.healthReserve | int) -}}
+{{- if gt $apiProcessNeeded (.Values.databaseConnectionBudget.apiMaxPoolSize | int) -}}
+  {{- fail (printf "api database admission plus health reserve requires %d connections but apiMaxPoolSize=%d." $apiProcessNeeded (.Values.databaseConnectionBudget.apiMaxPoolSize | int)) -}}
+{{- end -}}
+{{- $workerProcessNeeded := add (.Values.databaseConnectionBudget.workerPermitLimit | int) (add (.Values.databaseConnectionBudget.healthReserve | int) (.Values.databaseConnectionBudget.workerCriticalReserve | int)) -}}
+{{- if gt $workerProcessNeeded (.Values.databaseConnectionBudget.workerMaxPoolSize | int) -}}
+  {{- fail (printf "worker database admission plus health/critical reserves requires %d connections but workerMaxPoolSize=%d." $workerProcessNeeded (.Values.databaseConnectionBudget.workerMaxPoolSize | int)) -}}
+{{- end -}}
+
 {{- if and .Values.api.hpa.customMetrics.enabled (not .Values.api.hpa.customMetrics.adapterInstalledAndVerified) -}}
   {{- fail "api.hpa.customMetrics requires adapterInstalledAndVerified=true with a verified Metrics Adapter query/metricName." -}}
 {{- end -}}

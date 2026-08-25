@@ -59,10 +59,47 @@ public sealed class StandardApiResultMapper(
     }
 
     /// <inheritdoc />
-    public IResult MapException(Exception exception, HttpContext httpContext) =>
-        Map(
+    public IResult MapException(Exception exception, HttpContext httpContext)
+    {
+        if (exception is ServiceCapacityExceededException capacityException)
+        {
+            return MapDatabaseCapacityException(capacityException, httpContext);
+        }
+
+        return Map(
             Result<object?>.Failure(UnexpectedError()),
             httpContext);
+    }
+
+    private IResult MapDatabaseCapacityException(
+        ServiceCapacityExceededException exception,
+        HttpContext httpContext)
+    {
+        var locale = localeContext.CurrentLocale;
+        var error = new Error(
+            Code: CommonErrorCodes.DatabaseCapacityExhausted,
+            Message: "Database capacity is temporarily unavailable.",
+            Type: ErrorType.Unexpected);
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status503ServiceUnavailable,
+            Title = localizer.Localize(error, CultureInfo.GetCultureInfo(locale)),
+            Type = $"https://full.net/errors/{error.Code}",
+        };
+        problem.Extensions["code"] = error.Code;
+        problem.Extensions["traceId"] =
+            Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
+        var retryAfterSeconds = Math.Max(
+            1,
+            (int)Math.Ceiling(exception.RetryAfter.TotalSeconds));
+        httpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString(
+            CultureInfo.InvariantCulture);
+        LocalizationHttpHeaders.Apply(
+            httpContext.Response,
+            locale,
+            varyByAcceptLanguage: true);
+        return Results.Problem(problem);
+    }
 
     private IReadOnlyDictionary<string, string[]> LocalizeValidationErrors(
         Error error,

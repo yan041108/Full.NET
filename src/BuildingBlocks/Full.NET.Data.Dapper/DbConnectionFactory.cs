@@ -16,6 +16,7 @@ namespace Full.NET.Data.Dapper;
 /// 强制统一 GuidStorageMode 与 UserVariables 开关，避免应用层配置漂移。</para>
 /// </remarks>
 internal sealed class DbConnectionFactory(IOptions<DatabaseOptions> options)
+    : IDbConnectionFactory
 {
     private readonly DatabaseOptions _options = options.Value;
 

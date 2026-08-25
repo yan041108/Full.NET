@@ -7,6 +7,38 @@ metadata:
     {{- include "fullnet.labels" . | nindent 4 }}
 data:
   Database__Provider: {{ .Values.database.provider | quote }}
+{{- if .Values.roles.api }}
+  DatabaseCapacity__Enabled: "true"
+  DatabaseCapacity__HostRole: "Api"
+  DatabaseCapacity__PermitLimit: {{ .Values.databaseConnectionBudget.apiPermitLimit | quote }}
+  DatabaseCapacity__QueueLimit: {{ .Values.databaseConnectionBudget.apiQueueLimit | quote }}
+  DatabaseCapacity__AcquireTimeoutMilliseconds: {{ .Values.databaseConnectionBudget.apiAcquireTimeoutMilliseconds | quote }}
+  DatabaseCapacity__ExpectedMaxPoolSize: {{ .Values.databaseConnectionBudget.apiMaxPoolSize | quote }}
+  DatabaseCapacity__CriticalWorkerReserve: "0"
+{{- else if .Values.roles.worker }}
+  DatabaseCapacity__Enabled: "true"
+  DatabaseCapacity__HostRole: "Worker"
+  DatabaseCapacity__PermitLimit: {{ .Values.databaseConnectionBudget.workerPermitLimit | quote }}
+  DatabaseCapacity__QueueLimit: {{ .Values.databaseConnectionBudget.workerQueueLimit | quote }}
+  DatabaseCapacity__AcquireTimeoutMilliseconds: {{ .Values.databaseConnectionBudget.workerAcquireTimeoutMilliseconds | quote }}
+  DatabaseCapacity__ExpectedMaxPoolSize: {{ .Values.databaseConnectionBudget.workerMaxPoolSize | quote }}
+  DatabaseCapacity__CriticalWorkerReserve: {{ .Values.databaseConnectionBudget.workerCriticalReserve | quote }}
+{{- else }}
+  DatabaseCapacity__Enabled: "false"
+  DatabaseCapacity__HostRole: "Migrator"
+  DatabaseCapacity__PermitLimit: "1"
+  DatabaseCapacity__QueueLimit: "0"
+  DatabaseCapacity__AcquireTimeoutMilliseconds: "1000"
+  DatabaseCapacity__ExpectedMaxPoolSize: {{ .Values.databaseConnectionBudget.migrationReserve | quote }}
+  DatabaseCapacity__CriticalWorkerReserve: "0"
+{{- end }}
+  DatabaseCapacity__HealthReserve: {{ .Values.databaseConnectionBudget.healthReserve | quote }}
+  DatabaseCapacity__ApiMaxReplicas: {{ .Values.api.hpa.maxReplicas | quote }}
+  DatabaseCapacity__ApiMaxPoolSize: {{ .Values.databaseConnectionBudget.apiMaxPoolSize | quote }}
+  DatabaseCapacity__WorkerMaxReplicas: {{ .Values.worker.hpa.maxReplicas | quote }}
+  DatabaseCapacity__WorkerMaxPoolSize: {{ .Values.databaseConnectionBudget.workerMaxPoolSize | quote }}
+  DatabaseCapacity__MigrationReserve: {{ .Values.databaseConnectionBudget.migrationReserve | quote }}
+  DatabaseCapacity__TotalBudget: {{ .Values.databaseConnectionBudget.total | quote }}
   ASPNETCORE_URLS: "http://+:8080"
   Realtime__TransportMode: {{ .Values.realtime.transportMode | quote }}
   Realtime__SkipNegotiation: {{ .Values.realtime.skipNegotiation | quote }}
@@ -14,6 +46,7 @@ data:
   DataProtection__ApplicationName: {{ .Values.dataProtection.applicationName | quote }}
   Jobs__Worker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
   OutboxWorker__MaxConcurrency: {{ .Values.worker.maxConcurrency | quote }}
+  OutboxWorker__DatabaseCapacityBackoffMilliseconds: {{ .Values.worker.databaseCapacityBackoffMilliseconds | quote }}
   Messaging__Worker__Mode: {{ .Values.worker.messaging.mode | quote }}
 {{- if eq .Values.worker.messaging.mode "ShadowCdc" }}
   Messaging__ShadowComparison__Enabled: "true"

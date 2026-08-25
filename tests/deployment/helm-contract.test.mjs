@@ -71,6 +71,12 @@ test('values encode production replica, HPA, MaxConcurrency and budget keys', as
   assert.match(values, /apiMaxPoolSize:/);
   assert.match(values, /workerMaxPoolSize:/);
   assert.match(values, /migrationReserve:/);
+  assert.match(values, /healthReserve:\s*2/);
+  assert.match(values, /workerCriticalReserve:\s*1/);
+  assert.match(values, /apiPermitLimit:\s*38/);
+  assert.match(values, /apiQueueLimit:\s*0/);
+  assert.match(values, /workerPermitLimit:\s*7/);
+  assert.match(values, /workerQueueLimit:\s*1/);
   assert.match(values, /edgeProtection:/);
   assert.match(values, /codeGeneration:/);
   assert.match(values, /enabledWhenProduction:/);
@@ -97,6 +103,30 @@ test('API deployment uses zero-downtime rolling and hardened security context', 
   assert.match(deployment, /preStop/);
   assert.match(deployment, /secretKeyRef/);
   assert.doesNotMatch(deployment, /X-Forwarded-For/);
+});
+
+test('config map wires static database capacity budget and role-specific admission', async () => {
+  const configMap = await read('deploy/helm/fullnet/templates/configmap.yaml');
+  for (const key of [
+    'DatabaseCapacity__Enabled',
+    'DatabaseCapacity__HostRole',
+    'DatabaseCapacity__PermitLimit',
+    'DatabaseCapacity__QueueLimit',
+    'DatabaseCapacity__AcquireTimeoutMilliseconds',
+    'DatabaseCapacity__ExpectedMaxPoolSize',
+    'DatabaseCapacity__HealthReserve',
+    'DatabaseCapacity__CriticalWorkerReserve',
+    'DatabaseCapacity__ApiMaxReplicas',
+    'DatabaseCapacity__ApiMaxPoolSize',
+    'DatabaseCapacity__WorkerMaxReplicas',
+    'DatabaseCapacity__WorkerMaxPoolSize',
+    'DatabaseCapacity__MigrationReserve',
+    'DatabaseCapacity__TotalBudget',
+  ]) {
+    assert.match(configMap, new RegExp(key));
+  }
+  assert.match(configMap, /\.Values\.roles\.api/);
+  assert.match(configMap, /\.Values\.roles\.worker/);
 });
 
 test('Migrator is a Helm hook Job', async () => {
@@ -169,6 +199,10 @@ test('rendered API manifest keeps Capacity-not-verified marker', () => {
   })();
   assert.equal(rendered.status, 0, rendered.stderr);
   assert.match(rendered.stdout, /Capacity-not-verified/);
+  assert.match(rendered.stdout, /DatabaseCapacity__Enabled:\s*"true"/);
+  assert.match(rendered.stdout, /DatabaseCapacity__HostRole:\s*"Api"/);
+  assert.match(rendered.stdout, /DatabaseCapacity__PermitLimit:\s*"38"/);
+  assert.match(rendered.stdout, /DatabaseCapacity__QueueLimit:\s*"0"/);
   assert.match(rendered.stdout, /kind:\s*Deployment/);
   assert.match(rendered.stdout, /component:\s*api/);
   assert.doesNotMatch(rendered.stdout, /kind:\s*StatefulSet/);

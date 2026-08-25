@@ -619,6 +619,31 @@ public sealed class OutboxProcessorTests
     }
 
     [TestMethod]
+    public void GetDelayAfterCapacityRejection_UsesDedicatedBackoffWithoutAdvancingEmptyState()
+    {
+        var options = new OutboxWorkerOptions
+        {
+            BatchSize = 10,
+            PollMilliseconds = 200,
+            MaximumIdlePollMilliseconds = 1_000,
+            DatabaseCapacityBackoffMilliseconds = 750,
+        };
+        var store = CreateStore();
+        using var provider = CreateProvider(store);
+        var processor = CreateProcessor(
+            provider,
+            new DateTimeOffset(2026, 8, 26, 0, 0, 0, TimeSpan.Zero),
+            options);
+
+        Assert.AreEqual(
+            TimeSpan.FromMilliseconds(750),
+            processor.GetDelayAfterCapacityRejection());
+        Assert.AreEqual(
+            TimeSpan.FromMilliseconds(200),
+            processor.GetDelayAfterBatch(0));
+    }
+
+    [TestMethod]
     public void GetDelayAfterBatch_RecordsEmptyPollBackoffGauge()
     {
         var options = new OutboxWorkerOptions
@@ -842,6 +867,40 @@ public sealed class OutboxProcessorTests
         CollectionAssert.Contains(
             (invalidRange.Failures ?? []).ToArray(),
             "OutboxWorker:LeaseRenewalSeconds must be between 1 and 1200.");
+
+        var invalidCapacityBackoff = validator.Validate(
+            Options.DefaultName,
+            new OutboxWorkerOptions
+            {
+                DatabaseCapacityBackoffMilliseconds = 99,
+            });
+        CollectionAssert.Contains(
+            (invalidCapacityBackoff.Failures ?? []).ToArray(),
+            "OutboxWorker:DatabaseCapacityBackoffMilliseconds must be between 100 and 300000.");
+    }
+
+    [TestMethod]
+    public async Task ProcessOnceAsync_UsesCriticalDatabasePriorityForTerminalWrite()
+    {
+        var message = CreateMessage(attempts: 1);
+        var store = CreateStore(message);
+        var handler = new RecordingHandler(message.MessageType, message.SchemaVersion);
+        var priority = new RecordingDatabaseAdmissionPriorityScope();
+        await using var provider = CreateProviderWithPriority(
+            store,
+            priority,
+            handler);
+        var processor = CreateProcessor(
+            provider,
+            new DateTimeOffset(2026, 8, 26, 0, 0, 0, TimeSpan.Zero));
+
+        await processor.ProcessOnceAsync(CancellationToken.None);
+
+        Assert.AreEqual(1, priority.EnterCount);
+        await store.Received(1).MarkProcessedAsync(
+            message.Id,
+            message.LockId,
+            Arg.Any<CancellationToken>());
     }
 
     private static OutboxProcessor CreateProcessor(
@@ -894,6 +953,24 @@ public sealed class OutboxProcessorTests
         services.AddSingleton(store);
         services.AddSingleton(BacklogReader(store));
         services.AddSingleton(resolver);
+        foreach (var handler in handlers)
+        {
+            services.AddSingleton(handler);
+        }
+
+        return services.BuildServiceProvider();
+    }
+
+    private static ServiceProvider CreateProviderWithPriority(
+        IOutboxStore store,
+        IDatabaseAdmissionPriorityScope priority,
+        params IIntegrationEventHandler[] handlers)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<CurrentTenantAccessor>();
+        services.AddSingleton(store);
+        services.AddSingleton(BacklogReader(store));
+        services.AddSingleton(priority);
         foreach (var handler in handlers)
         {
             services.AddSingleton(handler);
@@ -1117,5 +1194,26 @@ public sealed class OutboxProcessorTests
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
         public DateTimeOffset UtcNow => utcNow;
+    }
+
+    private sealed class RecordingDatabaseAdmissionPriorityScope
+        : IDatabaseAdmissionPriorityScope
+    {
+        public int EnterCount { get; private set; }
+
+        public IDisposable EnterCritical()
+        {
+            EnterCount++;
+            return NullScope.Instance;
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            internal static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
     }
 }

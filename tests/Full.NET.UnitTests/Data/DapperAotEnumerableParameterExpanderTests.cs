@@ -63,6 +63,7 @@ public sealed class DapperAotEnumerableParameterExpanderTests
             parameters);
 
         Assert.AreEqual("SELECT 1 WHERE Name = @Name AND Payload = @Payload", sql);
+        Assert.AreSame(parameters, expanded);
         Assert.AreEqual("host", expanded.Get<string>("Name"));
         CollectionAssert.AreEqual(
             new byte[] { 1, 2, 3 },

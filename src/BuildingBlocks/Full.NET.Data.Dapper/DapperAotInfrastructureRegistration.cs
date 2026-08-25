@@ -32,6 +32,36 @@ internal static class DapperAotInfrastructureRegistration
                     AotDataReaderExtensions.ReadNullableString(reader, 1),
                     reader.IsDBNull(2) ? null : reader.GetFieldValue<byte[]>(2)));
             DapperAotParameterRegistry.Register<OutboxMessage>(BindOutboxMessage);
+            DapperAotParameterRegistry.Register<AppendOnlyOutboxMessage>(
+                BindAppendOnlyOutboxMessage);
+            DapperAotStaticCommandPlanRegistry.Register(
+                "outbox.insert",
+                [
+                    "Id",
+                    "MessageType",
+                    "SchemaVersion",
+                    "ContentType",
+                    "TenantId",
+                    "TraceId",
+                    "Payload",
+                    "OccurredAtUtc",
+                ]);
+            DapperAotStaticCommandPlanRegistry.Register(
+                "messaging.outbox.append",
+                [
+                    "Id",
+                    "MessageType",
+                    "SchemaVersion",
+                    "ContentType",
+                    "TenantId",
+                    "PartitionKey",
+                    "CorrelationId",
+                    "CausationId",
+                    "TraceParent",
+                    "Producer",
+                    "Payload",
+                    "OccurredAtUtc",
+                ]);
             _registered = true;
         }
     }
@@ -45,6 +75,25 @@ internal static class DapperAotInfrastructureRegistration
         parameters.Add("ContentType", message.ContentType);
         parameters.Add("TenantId", message.TenantId);
         parameters.Add("TraceId", message.TraceId);
+        parameters.Add("Payload", message.Payload);
+        parameters.Add("OccurredAtUtc", message.OccurredAtUtc);
+        return parameters;
+    }
+
+    private static DynamicParameters BindAppendOnlyOutboxMessage(
+        AppendOnlyOutboxMessage message)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", message.Id);
+        parameters.Add("MessageType", message.MessageType);
+        parameters.Add("SchemaVersion", message.SchemaVersion);
+        parameters.Add("ContentType", message.ContentType);
+        parameters.Add("TenantId", message.TenantId);
+        parameters.Add("PartitionKey", message.PartitionKey);
+        parameters.Add("CorrelationId", message.CorrelationId);
+        parameters.Add("CausationId", message.CausationId);
+        parameters.Add("TraceParent", message.TraceParent);
+        parameters.Add("Producer", message.Producer);
         parameters.Add("Payload", message.Payload);
         parameters.Add("OccurredAtUtc", message.OccurredAtUtc);
         return parameters;

@@ -31,6 +31,9 @@ public sealed class OutboxWorkerOptions
     /// <summary>空队列连续轮询时指数退避的最大等待毫秒数。</summary>
     public int MaximumIdlePollMilliseconds { get; set; } = 30_000;
 
+    /// <summary>获取或设置数据库准入拒绝后暂停新一轮领取的毫秒数。</summary>
+    public int DatabaseCapacityBackoffMilliseconds { get; set; } = 1_000;
+
     /// <summary>获取或设置积压指标的数据库采样周期秒数。</summary>
     public int BacklogSampleSeconds { get; set; } = 30;
 
@@ -92,6 +95,12 @@ internal sealed class OutboxWorkerOptionsValidator : IValidateOptions<OutboxWork
         {
             failures.Add(
                 "OutboxWorker:MaximumIdlePollMilliseconds must not be less than PollMilliseconds.");
+        }
+
+        if (options.DatabaseCapacityBackoffMilliseconds is < 100 or > 300_000)
+        {
+            failures.Add(
+                "OutboxWorker:DatabaseCapacityBackoffMilliseconds must be between 100 and 300000.");
         }
 
         if (options.BacklogSampleSeconds is < 5 or > 3600)

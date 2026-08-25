@@ -1,6 +1,7 @@
 #if FULLNET_AOT_COMPILE
 using System.Data;
 using System.Data.Common;
+using Full.NET.Data.Abstractions;
 using global::Dapper;
 
 namespace Full.NET.Data.Dapper;
@@ -27,107 +28,159 @@ internal static class DapperAotSqlExecution
 
     public static async Task<T?> QuerySingleOrDefaultAsync<T>(
         DbConnection connection,
+        string statementName,
+        DatabaseProvider provider,
         string sql,
         DynamicParameters parameters,
         IDbTransaction? transaction,
         int commandTimeoutSeconds,
         CancellationToken cancellationToken)
     {
-        await using var command = CreateCommand(
+        var commandRental = CreateCommandRental(
             connection,
+            statementName,
+            provider,
             sql,
             parameters,
             transaction,
             commandTimeoutSeconds);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        if (IsScalarType(typeof(T)))
+        var reusable = false;
+        try
         {
-            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            T? result;
+            await using (var reader = await commandRental.Command
+                .ExecuteReaderAsync(cancellationToken)
+                .ConfigureAwait(false))
             {
-                return default;
+                if (IsScalarType(typeof(T)))
+                {
+                    result = await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+                        ? ReadScalar<T>(reader, 0)
+                        : default;
+                }
+                else
+                {
+                    if (!DapperAotMaterializerRegistry.TryGetReader<T>(out var readRow))
+                    {
+                        throw new InvalidOperationException(
+                            $"Native AOT has no row materializer registered for {typeof(T).FullName}.");
+                    }
+
+                    result = await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
+                        ? readRow(reader)
+                        : default;
+                }
             }
 
-            return ReadScalar<T>(reader, 0);
+            reusable = true;
+            return result;
         }
-
-        if (!DapperAotMaterializerRegistry.TryGetReader<T>(out var readRow))
+        finally
         {
-            throw new InvalidOperationException(
-                $"Native AOT has no row materializer registered for {typeof(T).FullName}.");
+            await commandRental.ReleaseAsync(reusable).ConfigureAwait(false);
         }
-
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return default;
-        }
-
-        return readRow(reader);
     }
 
     public static async Task<IReadOnlyList<T>> QueryAsync<T>(
         DbConnection connection,
+        string statementName,
+        DatabaseProvider provider,
         string sql,
         DynamicParameters parameters,
         IDbTransaction? transaction,
         int commandTimeoutSeconds,
         CancellationToken cancellationToken)
     {
-        await using var command = CreateCommand(
+        var commandRental = CreateCommandRental(
             connection,
+            statementName,
+            provider,
             sql,
             parameters,
             transaction,
             commandTimeoutSeconds);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        if (IsScalarType(typeof(T)))
+        var reusable = false;
+        try
         {
-            var scalarRows = new List<T>();
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            IReadOnlyList<T> result;
+            await using (var reader = await commandRental.Command
+                .ExecuteReaderAsync(cancellationToken)
+                .ConfigureAwait(false))
             {
-                scalarRows.Add(ReadScalar<T>(reader, 0));
+                if (IsScalarType(typeof(T)))
+                {
+                    var scalarRows = new List<T>();
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        scalarRows.Add(ReadScalar<T>(reader, 0));
+                    }
+
+                    result = scalarRows;
+                }
+                else
+                {
+                    if (!DapperAotMaterializerRegistry.TryGetReader<T>(out var readRow))
+                    {
+                        throw new InvalidOperationException(
+                            $"Native AOT has no row materializer registered for {typeof(T).FullName}.");
+                    }
+
+                    var rows = new List<T>();
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        rows.Add(readRow(reader));
+                    }
+
+                    result = rows;
+                }
             }
 
-            return scalarRows;
+            reusable = true;
+            return result;
         }
-
-        if (!DapperAotMaterializerRegistry.TryGetReader<T>(out var readRow))
+        finally
         {
-            throw new InvalidOperationException(
-                $"Native AOT has no row materializer registered for {typeof(T).FullName}.");
+            await commandRental.ReleaseAsync(reusable).ConfigureAwait(false);
         }
-
-        var rows = new List<T>();
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            rows.Add(readRow(reader));
-        }
-
-        return rows;
     }
 
     public static async Task<int> ExecuteAsync(
         DbConnection connection,
+        string statementName,
+        DatabaseProvider provider,
         string sql,
         DynamicParameters parameters,
         IDbTransaction? transaction,
         int commandTimeoutSeconds,
         CancellationToken cancellationToken)
     {
-        await using var command = CreateCommand(
+        var commandRental = CreateCommandRental(
             connection,
+            statementName,
+            provider,
             sql,
             parameters,
             transaction,
             commandTimeoutSeconds);
-        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        var reusable = false;
+        try
+        {
+            var affectedRows = await commandRental.Command
+                .ExecuteNonQueryAsync(cancellationToken)
+                .ConfigureAwait(false);
+            reusable = true;
+            return affectedRows;
+        }
+        finally
+        {
+            await commandRental.ReleaseAsync(reusable).ConfigureAwait(false);
+        }
     }
 
-    private static DbCommand CreateCommand(
+    private static CommandRental CreateCommandRental(
         DbConnection connection,
+        string statementName,
+        DatabaseProvider provider,
         string sql,
         DynamicParameters parameters,
         IDbTransaction? transaction,
@@ -137,28 +190,70 @@ internal static class DapperAotSqlExecution
         var (expandedSql, expandedParameters) = DapperAotEnumerableParameterExpander.Expand(
             sql,
             parameters);
-        var command = connection.CreateCommand();
-        command.CommandText = expandedSql;
-        command.CommandType = CommandType.Text;
-        command.CommandTimeout = commandTimeoutSeconds;
-        if (transaction is DbTransaction dbTransaction)
+        var dbTransaction = transaction as DbTransaction;
+        DapperAotCommandFactory? factory = null;
+        DbCommand? command = null;
+        try
         {
-            command.Transaction = dbTransaction;
-        }
+            if (ReferenceEquals(expandedParameters, parameters)
+                && DapperAotStaticCommandPlanRegistry.TryGetFactory(
+                    statementName,
+                    provider,
+                    out factory))
+            {
+                command = factory.GetCommand(
+                    connection,
+                    expandedSql,
+                    CommandType.Text,
+                    expandedParameters);
+            }
+            else
+            {
+                command = connection.CreateCommand();
+                command.CommandText = expandedSql;
+                command.CommandType = CommandType.Text;
+                BindParameters(command, expandedParameters);
+            }
 
-        BindParameters(command, expandedParameters);
-        return command;
+            command.Connection = connection;
+            command.Transaction = dbTransaction;
+            command.CommandTimeout = commandTimeoutSeconds;
+            return new CommandRental(command, factory);
+        }
+        catch
+        {
+            command?.Dispose();
+            throw;
+        }
     }
 
-    private static void BindParameters(IDbCommand command, DynamicParameters parameters)
+    private static void BindParameters(
+        IDbCommand command,
+        DynamicParameters parameters)
     {
         foreach (var name in parameters.ParameterNames)
         {
             var parameter = command.CreateParameter();
             parameter.ParameterName = name;
-            var value = parameters.Get<object>(name);
-            parameter.Value = value ?? DBNull.Value;
+            parameter.Value = parameters.Get<object>(name) ?? DBNull.Value;
             command.Parameters.Add(parameter);
+        }
+    }
+
+    private readonly record struct CommandRental(
+        DbCommand Command,
+        DapperAotCommandFactory? Factory)
+    {
+        public ValueTask ReleaseAsync(bool reusable)
+        {
+            if (reusable
+                && Factory is not null
+                && Factory.TryRecycle(Command))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            return Command.DisposeAsync();
         }
     }
 

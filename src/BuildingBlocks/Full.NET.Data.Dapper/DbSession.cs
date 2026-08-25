@@ -1,21 +1,26 @@
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 
 namespace Full.NET.Data.Dapper;
 
 /// <summary>
-/// 数据库会话（Database Session），持有当前 Scope 内唯一的 DbConnection 与 DbTransaction。
+/// 数据库会话（Database Session），非事务命令按次租用连接，显式事务持有唯一连接。
 /// </summary>
 /// <remarks>
 /// <para>生命周期：Scoped，与业务请求/工作单元绑定；Dispose 时按事务→连接顺序释放资源。</para>
 /// <para>线程安全：该类非线程安全，不应在并发异步流中共享同一实例。</para>
 /// <para>事务隔离级别：默认使用 ReadCommitted，以避免脏读并平衡并发性能。</para>
 /// </remarks>
-internal sealed class DbSession(DbConnectionFactory connectionFactory)
+internal sealed class DbSession(
+    IDbConnectionFactory connectionFactory,
+    DatabaseAdmissionGate admissionGate,
+    DatabaseConnectionTelemetry telemetry,
+    DatabaseAdmissionPriorityScope admissionPriority)
     : IAsyncDisposable, IDbTransactionCoordinator
 {
-    private DbConnection? _connection;
     private DbTransaction? _transaction;
+    private DbSessionConnectionLease? _transactionConnectionLease;
 
     /// <summary>
     /// 获取当前活动的数据库事务；若未开启事务则为 null。
@@ -28,20 +33,21 @@ internal sealed class DbSession(DbConnectionFactory connectionFactory)
     public bool HasTransaction => _transaction is not null;
 
     /// <summary>
-    /// 获取已打开的数据库连接；若连接尚未创建或已关闭，则惰性创建并打开。
+    /// 为一次命令获取连接租约；无事务时由租约拥有连接，有事务时只借用会话连接。
     /// </summary>
     /// <param name="cancellationToken">用于取消打开连接操作的令牌。</param>
-    /// <returns>已打开的 DbConnection 实例。</returns>
-    public async Task<DbConnection> GetOpenConnectionAsync(
+    /// <returns>包含已打开连接和当前事务的异步租约。</returns>
+    public async Task<DbSessionConnectionLease> AcquireConnectionAsync(
         CancellationToken cancellationToken)
     {
-        _connection ??= connectionFactory.Create();
-        if (_connection.State != ConnectionState.Open)
+        if (_transaction is not null)
         {
-            await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return DbSessionConnectionLease.CreateBorrowed(
+                _transactionConnectionLease!.Connection,
+                _transaction);
         }
 
-        return _connection;
+        return await OpenOwnedConnectionAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -56,10 +62,22 @@ internal sealed class DbSession(DbConnectionFactory connectionFactory)
             throw new InvalidOperationException("A database transaction is already active.");
         }
 
-        var connection = await GetOpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        _transaction = await connection
-            .BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken)
+        var connectionLease = await OpenOwnedConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
+        try
+        {
+            var transaction = await connectionLease.Connection
+                .BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken)
+                .ConfigureAwait(false);
+            connectionLease.Transaction = transaction;
+            _transactionConnectionLease = connectionLease;
+            _transaction = transaction;
+        }
+        catch
+        {
+            await connectionLease.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary>
@@ -73,8 +91,15 @@ internal sealed class DbSession(DbConnectionFactory connectionFactory)
             "No database transaction is active.");
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        await transaction.DisposeAsync().ConfigureAwait(false);
         _transaction = null;
+        try
+        {
+            await transaction.DisposeAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            await ReleaseTransactionConnectionAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -90,29 +115,110 @@ internal sealed class DbSession(DbConnectionFactory connectionFactory)
             return;
         }
 
-        await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
-        await transaction.DisposeAsync().ConfigureAwait(false);
         _transaction = null;
+        try
+        {
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                await transaction.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                await ReleaseTransactionConnectionAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>
     /// 异步释放当前会话持有的事务与连接资源。
     /// </summary>
     /// <remarks>
-    /// 释放顺序：先 DbTransaction（若未提交/回滚将隐式回滚），后 DbConnection。
+    /// 释放顺序：先 DbTransaction（若未提交/回滚将隐式回滚），后事务连接租约。
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        if (_transaction is not null)
+        try
         {
-            await _transaction.DisposeAsync().ConfigureAwait(false);
+            var transaction = _transaction;
             _transaction = null;
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync().ConfigureAwait(false);
+            }
         }
-
-        if (_connection is not null)
+        finally
         {
-            await _connection.DisposeAsync().ConfigureAwait(false);
-            _connection = null;
+            await ReleaseTransactionConnectionAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task<DbSessionConnectionLease> OpenOwnedConnectionAsync(
+        CancellationToken cancellationToken)
+    {
+        var connection = connectionFactory.Create();
+        DatabaseAdmissionLease? admissionLease = null;
+        var acquisitionStartedAt = Stopwatch.GetTimestamp();
+        try
+        {
+            admissionLease = admissionPriority.IsCritical
+                ? await admissionGate
+                    .AcquireCriticalAsync(cancellationToken)
+                    .ConfigureAwait(false)
+                : await admissionGate
+                    .AcquireAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            try
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                telemetry.RecordAcquisition(
+                    DatabaseConnectionAcquireOutcome.Canceled,
+                    Stopwatch.GetElapsedTime(acquisitionStartedAt));
+                throw;
+            }
+            catch
+            {
+                telemetry.RecordAcquisition(
+                    DatabaseConnectionAcquireOutcome.Failure,
+                    Stopwatch.GetElapsedTime(acquisitionStartedAt));
+                throw;
+            }
+
+            telemetry.RecordAcquisition(
+                DatabaseConnectionAcquireOutcome.Success,
+                Stopwatch.GetElapsedTime(acquisitionStartedAt));
+            return DbSessionConnectionLease.CreateOwned(
+                connection,
+                admissionLease,
+                telemetry,
+                Stopwatch.GetTimestamp());
+        }
+        catch
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            if (admissionLease is not null)
+            {
+                await admissionLease.DisposeAsync().ConfigureAwait(false);
+            }
+
+            throw;
+        }
+    }
+
+    private async ValueTask ReleaseTransactionConnectionAsync()
+    {
+        var connectionLease = _transactionConnectionLease;
+        _transactionConnectionLease = null;
+        if (connectionLease is not null)
+        {
+            await connectionLease.DisposeAsync().ConfigureAwait(false);
         }
     }
 }

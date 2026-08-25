@@ -79,6 +79,15 @@ databaseConnectionBudget:
   apiMaxPoolSize: 40
   workerMaxPoolSize: 10
   migrationReserve: 20
+  # 普通准入上限必须为健康检查和 Worker 关键续租/终态写入留下静态余量。
+  healthReserve: 2
+  workerCriticalReserve: 1
+  apiPermitLimit: 38
+  apiQueueLimit: 0
+  apiAcquireTimeoutMilliseconds: 250
+  workerPermitLimit: 7
+  workerQueueLimit: 1
+  workerAcquireTimeoutMilliseconds: 1000
 
 edgeProtection:
   # 生产必须声明已部署的全局 Edge 能力；Chart 只引用 Secret/Service/注解。
@@ -160,6 +169,7 @@ api:
 worker:
   replicaCount: 2
   maxConcurrency: 1
+  databaseCapacityBackoffMilliseconds: 1000
   messaging:
     mode: LegacyPolling
     kafka:

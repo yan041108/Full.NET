@@ -8,9 +8,8 @@
   <ItemGroup>
     <PackageReference Include="Dapper" />
     <PackageReference Include="Dapper.AOT"
-                      Condition="'$(FullNetIsAotCompile)' == 'true'"
                       GeneratePathProperty="true">
-      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>analyzers</ExcludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />

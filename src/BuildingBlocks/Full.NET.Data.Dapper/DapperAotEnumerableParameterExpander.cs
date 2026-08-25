@@ -21,6 +21,14 @@ internal static class DapperAotEnumerableParameterExpander
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
 
+        if (!parameters.ParameterNames.Any(name =>
+                TryGetExpandableItems(
+                    parameters.Get<object>(name),
+                    out _)))
+        {
+            return (sql, parameters);
+        }
+
         var expanded = new DynamicParameters();
         var resultSql = sql;
         foreach (var name in parameters.ParameterNames)

@@ -29,12 +29,33 @@
     },
     "databaseConnectionBudget": {
       "type": "object",
-      "required": ["total", "apiMaxPoolSize", "workerMaxPoolSize", "migrationReserve"],
+      "required": [
+        "total",
+        "apiMaxPoolSize",
+        "workerMaxPoolSize",
+        "migrationReserve",
+        "healthReserve",
+        "workerCriticalReserve",
+        "apiPermitLimit",
+        "apiQueueLimit",
+        "apiAcquireTimeoutMilliseconds",
+        "workerPermitLimit",
+        "workerQueueLimit",
+        "workerAcquireTimeoutMilliseconds"
+      ],
       "properties": {
         "total": { "type": "integer", "minimum": 1 },
         "apiMaxPoolSize": { "type": "integer", "minimum": 1 },
         "workerMaxPoolSize": { "type": "integer", "minimum": 1 },
-        "migrationReserve": { "type": "integer", "minimum": 0 }
+        "migrationReserve": { "type": "integer", "minimum": 0 },
+        "healthReserve": { "type": "integer", "minimum": 0 },
+        "workerCriticalReserve": { "type": "integer", "minimum": 0 },
+        "apiPermitLimit": { "type": "integer", "minimum": 1 },
+        "apiQueueLimit": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "apiAcquireTimeoutMilliseconds": { "type": "integer", "minimum": 1, "maximum": 60000 },
+        "workerPermitLimit": { "type": "integer", "minimum": 1 },
+        "workerQueueLimit": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "workerAcquireTimeoutMilliseconds": { "type": "integer", "minimum": 1, "maximum": 60000 }
       },
       "additionalProperties": false
     },
@@ -119,6 +140,7 @@
       "properties": {
         "replicaCount": { "type": "integer", "minimum": 2 },
         "maxConcurrency": { "type": "integer", "const": 1 },
+        "databaseCapacityBackoffMilliseconds": { "type": "integer", "minimum": 100, "maximum": 300000 },
         "messaging": {
           "type": "object",
           "properties": {

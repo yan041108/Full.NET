@@ -878,6 +878,35 @@ public sealed class NativeAotStaticBindingRulesTests
         StringAssert.Contains(registrationSource, "Register<InboxBatchPrecheckRow>");
     }
 
+    [TestMethod]
+    public void DapperOutbox_RegistersFixedCommandPlansAndAppendParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var dapperDirectory = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.Dapper");
+        var registrationSource = File.ReadAllText(Path.Combine(
+            dapperDirectory,
+            "DapperAotInfrastructureRegistration.cs"));
+        var executionSource = File.ReadAllText(Path.Combine(
+            dapperDirectory,
+            "DapperAotSqlExecution.cs"));
+
+        StringAssert.Contains(
+            registrationSource,
+            "Register<AppendOnlyOutboxMessage>");
+        StringAssert.Contains(registrationSource, "\"outbox.insert\"");
+        StringAssert.Contains(registrationSource, "\"messaging.outbox.append\"");
+        StringAssert.Contains(
+            executionSource,
+            "DapperAotStaticCommandPlanRegistry.TryGetFactory");
+        StringAssert.Contains(
+            executionSource,
+            "ReferenceEquals(expandedParameters, parameters)");
+    }
+
     private static bool ContainsAnonymousSqlParameterObject(string source) =>
         source.Contains("new {", StringComparison.Ordinal)
         || Regex.IsMatch(source, @"new\s*\{", RegexOptions.CultureInvariant);
