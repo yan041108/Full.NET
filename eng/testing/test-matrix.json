@@ -22,7 +22,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 123,
+      "minimum": 125,
       "timeout": "10m",
       "selections": {
         "api-native-aot": {
@@ -41,8 +41,14 @@
   },
   "nativeAotIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
-    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay",
+    "filter": "FullyQualifiedName~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~NativeApiS3&FullyQualifiedName!~NativeApiKafkaReplay&FullyQualifiedName!~NativeApiNotifications",
     "minimum": 5,
+    "timeout": "45m"
+  },
+  "nativeAotNotificationsIntegration": {
+    "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
+    "filter": "FullyQualifiedName~NativeApiNotifications",
+    "minimum": 2,
     "timeout": "45m"
   },
   "nativeAotS3Integration": {

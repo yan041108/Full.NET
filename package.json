@@ -23,6 +23,7 @@
     "test:aot:analyzers": "node scripts/testing/run-api-aot-analyzers.mjs",
     "test:aot:publish:linux": "node scripts/testing/run-api-aot-publish-linux.mjs",
     "test:aot:native:e2e": "node scripts/testing/run-native-aot-e2e.mjs",
+    "test:aot:native:notifications:e2e": "node scripts/testing/run-native-aot-notifications-e2e.mjs",
     "test:aot:native:s3:e2e": "node scripts/testing/run-native-aot-s3-e2e.mjs",
     "test:aot:native:kafka-replay:e2e": "node scripts/testing/run-native-aot-kafka-replay-e2e.mjs",
     "test:aot:native:providers:e2e": "node scripts/testing/run-native-aot-providers-e2e.mjs",
