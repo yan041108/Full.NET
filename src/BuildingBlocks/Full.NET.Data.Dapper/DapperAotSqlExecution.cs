@@ -133,8 +133,12 @@ internal static class DapperAotSqlExecution
         IDbTransaction? transaction,
         int commandTimeoutSeconds)
     {
+        // AOT 不走 SqlMapper 的集合展开；必须先把 IN @Ids 展开为标量占位符再绑定。
+        var (expandedSql, expandedParameters) = DapperAotEnumerableParameterExpander.Expand(
+            sql,
+            parameters);
         var command = connection.CreateCommand();
-        command.CommandText = sql;
+        command.CommandText = expandedSql;
         command.CommandType = CommandType.Text;
         command.CommandTimeout = commandTimeoutSeconds;
         if (transaction is DbTransaction dbTransaction)
@@ -142,7 +146,7 @@ internal static class DapperAotSqlExecution
             command.Transaction = dbTransaction;
         }
 
-        BindParameters(command, parameters);
+        BindParameters(command, expandedParameters);
         return command;
     }
 
