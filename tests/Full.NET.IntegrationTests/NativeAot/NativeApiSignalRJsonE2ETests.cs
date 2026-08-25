@@ -83,23 +83,40 @@ public sealed class NativeApiSignalRJsonE2ETests
             "ReceiveMessageAsync",
             message => receivedMessages.Writer.TryWrite(message));
         await connection.StartAsync();
+        Assert.AreEqual(HubConnectionState.Connected, connection.State);
 
-        using var probeRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            "/api/v1/realtime/probes/self");
-        probeRequest.Headers.Add("Origin", "http://localhost");
-        probeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var probeResponse = await client.SendAsync(probeRequest);
-        await NativeApiE2EAssertions.AssertStatusAsync(
-            probeResponse,
-            HttpStatusCode.OK,
-            "Publish realtime self probe");
+        // Long Polling 的接收循环在 StartAsync 返回后仍可能尚未挂上；
+        // 立即发探针会把消息打到空连接上。业务 Notifications 测试先走 HTTP/SQL，
+        // 无意中避开了该窗口；本探针必须显式重试。
+        RealtimeMessage? received = null;
+        for (var attempt = 1; attempt <= 3 && received is null; attempt++)
+        {
+            using var probeRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/realtime/probes/self");
+            probeRequest.Headers.Add("Origin", "http://localhost");
+            probeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var probeResponse = await client.SendAsync(probeRequest);
+            await NativeApiE2EAssertions.AssertStatusAsync(
+                probeResponse,
+                HttpStatusCode.OK,
+                $"Publish realtime self probe (attempt {attempt})");
+            received = await WaitForMessageAsync(
+                receivedMessages.Reader,
+                RealtimeMessageCodes.ProbeSelf,
+                TimeSpan.FromSeconds(5));
+        }
 
-        var received = await WaitForMessageAsync(
-            receivedMessages.Reader,
-            RealtimeMessageCodes.ProbeSelf,
-            TimeSpan.FromSeconds(15));
-        Assert.IsNotNull(received);
+        if (received is null)
+        {
+            var logTail = ReadNativeLogTail(host.LogFilePath);
+            Assert.Fail(
+                "Timed out waiting for realtime.probe.self after three probe attempts."
+                + (string.IsNullOrEmpty(logTail)
+                    ? string.Empty
+                    : $"{Environment.NewLine}Native log tail:{Environment.NewLine}{logTail}"));
+        }
+
         Assert.AreEqual(RealtimeMessageCodes.ProbeSelf, received.Code);
         Assert.IsNotNull(received.Data);
         Assert.IsNotNull(ReadGuid(received.Data, "probeId"));
@@ -145,6 +162,17 @@ public sealed class NativeApiSignalRJsonE2ETests
         }
 
         return null;
+    }
+
+    private static string ReadNativeLogTail(string? logFilePath, int maxChars = 4_000)
+    {
+        if (string.IsNullOrEmpty(logFilePath) || !File.Exists(logFilePath))
+        {
+            return string.Empty;
+        }
+
+        var content = File.ReadAllText(logFilePath);
+        return content.Length <= maxChars ? content : content[^maxChars..];
     }
 
     private static Guid? ReadGuid(IReadOnlyDictionary<string, object?> data, string key)
