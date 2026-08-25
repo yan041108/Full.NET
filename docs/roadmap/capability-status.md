@@ -45,7 +45,7 @@
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
 | Document | Build-verified | 2026-08-16：核心 Verified 切片（限流、版本历史、MVP 预览、统计修复、OpenAPI/权限清单、Integration 双库）已落地；admin-parity WCAG 全绿与 admin-real-stack 双库 E2E 复验仍待 fresh 输出后升档。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
-| Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径在事务外调用 `IHostUserDirectory` 校验收件人，事务内仅写入 Notifications 表，Architecture 本地事务扫描无登记债务。 |
+| Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径在事务外调用 `IHostUserDirectory` 校验收件人，事务内仅写入 Notifications 表，Architecture 本地事务扫描无登记债务。Host.Api Native AOT 已在 SQL Server/MySQL 上通过公告、站内信、HTTP JSON 与 SignalR JSON 外部进程验证，见 [`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md)；不外推 Settings/Jobs。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。 |
 | 在线会话治理 | Build-verified | 会话状态、撤销与多实例协调已有基础能力。 |
 | 受保护超级管理员 | Build-verified | 动态投影授权目录权限，仍受租户、会话、Endpoint、审计和最后一名保护约束。 |
@@ -58,7 +58,7 @@
 | 全栈本地化 | Build-verified | 使用规范 BCP 47 标签和稳定机器码；新增模块按跨端验证更新状态。 |
 | Baseline + Overlay 种子体系 | Build-verified | Production 只允许 Baseline，API/Worker 禁止启动播种，Contributor 必须幂等并通过双库验证。 |
 | SignalR 实时通知 | Build-verified | 路径、鉴权、Backplane、连接指标和失败关闭已完成持续硬化；Host.Api Native AOT 已通过 SQL Server/MySQL + Redis 的 JSON Hub 原生进程收发，仍不代表多节点 Native Backplane 投递认证。见 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
-| Host.Api Native AOT | Build-verified | **`Aot-published`**：完整 net10.0 API 闭包已通过 Linux 原生 publish、启动、双库关键 HTTP、双库 SignalR JSON 与架构门禁；CI 证据为 [run 32821397581](https://github.com/yan041108/Full.NET/actions/runs/32821397581)。Worker/Migrator 与生产容量仍未验证。见 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 与 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
+| Host.Api Native AOT | Build-verified | **`Aot-published`**：完整 net10.0 API 闭包已通过 Linux 原生 publish、启动、双库关键 HTTP、双库 SignalR JSON 与架构门禁；Notifications HTTP/JSON/SignalR 双库原生进程证据为 [run 32849677783](https://github.com/yan041108/Full.NET/actions/runs/32849677783)。Worker/Migrator 与生产容量仍未验证。见 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md)、[`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md) 与 [`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md)。 |
 | Host.Api Native AOT S3 Provider | Build-verified | **`Native-provider-verified: s3`**：Linux Native Host.Api + SQL Server/MySQL 文件元数据 + 真实 MinIO S3 HTTP 上传/下载/删除已通过；AWS Workload Identity、实例角色与 Web Identity 未验证。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | Host.Api Native AOT Kafka Replay | Build-verified | **`Native-provider-verified: kafka-replay`**：Linux Native Host.Api + 真实 Kafka 范围重放在 SQL Server/MySQL 下已通过。仅覆盖 API Replay；不覆盖 Worker Producer/Consumer、CDC Relay、DLQ 或 Lag Observer。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |
