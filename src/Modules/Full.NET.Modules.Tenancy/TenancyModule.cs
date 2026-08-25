@@ -100,7 +100,7 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<TenancyOptions>,
             TenancyOptionsValidator>());
-        services.AddFullNetFluentValidation();
+        services.AddFullNetFluentValidation<ProvisionTenantCommand, TenantSummary>();
         services.TryAddScoped<
             IValidator<ProvisionTenantCommand>,
             ProvisionTenantCommandValidator>();

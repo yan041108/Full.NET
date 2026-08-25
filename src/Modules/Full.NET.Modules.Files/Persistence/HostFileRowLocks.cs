@@ -21,7 +21,7 @@ internal static class HostFileRowLocks
         var lockedId = await queryExecutor
             .QuerySingleOrDefaultAsync<Guid>(
                 statement,
-                new { FileId = fileId },
+                new Dictionary<string, object?> { ["FileId"] = fileId },
                 cancellationToken)
             .ConfigureAwait(false);
         return lockedId != Guid.Empty;

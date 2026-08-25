@@ -105,6 +105,9 @@ public sealed class NativeAotStaticBindingRulesTests
         StringAssert.Contains(
             extensionsSource,
             "RealtimeJsonSerializerContext.Default");
+        StringAssert.Contains(
+            extensionsSource,
+            "ConfigureHttpJsonOptions");
         Assert.IsFalse(
             extensionsSource.Contains("AddMessagePackProtocol", StringComparison.Ordinal),
             "SignalR 已统一 JSON 协议，不得注册 MessagePack Hub 协议。");
@@ -176,5 +179,224 @@ public sealed class NativeAotStaticBindingRulesTests
             source.Contains("new { SessionId", StringComparison.Ordinal),
             "JWT 验证发生在所有受保护 Endpoint 之前，会话查询参数必须使用 Native AOT 可静态执行的参数容器。");
         StringAssert.Contains(source, "IReadOnlyDictionary<string, object?>");
+    }
+
+    [TestMethod]
+    public void ModuleValidationBehaviors_UseClosedGenericRegistrations()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleRoot = Path.Combine(root, "src", "Modules");
+        var offenders = Directory.EnumerateFiles(
+                moduleRoot,
+                "*.cs",
+                SearchOption.AllDirectories)
+            .Where(path => File.ReadAllText(path).Contains(
+                "AddFullNetFluentValidation();",
+                StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT 模块必须为有校验器的消息注册闭合 Behavior，避免 DI 在运行时创建未保留元数据的泛型数组："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void DomainAuditWriters_UseAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleRoot = Path.Combine(root, "src", "Modules");
+        var offenders = Directory.EnumerateFiles(
+                moduleRoot,
+                "*DomainAuditWriter.cs",
+                SearchOption.AllDirectories)
+            .Where(path => !File.ReadAllText(path).Contains(
+                "IReadOnlyDictionary<string, object?>",
+                StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT 域内审计写入必须使用静态 SQL 参数容器："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void HostFileServices_UseAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var path = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Files",
+            "Features",
+            "ManageHostFiles",
+            "HostFileManagementService.cs");
+        var source = File.ReadAllText(path);
+
+        StringAssert.Contains(source, "IReadOnlyDictionary<string, object?>");
+        Assert.IsFalse(
+            source.Contains("HostFileSql.Insert,\n                                new", StringComparison.Ordinal)
+            || source.Contains("HostFileSql.ClaimPublication,\n                                new", StringComparison.Ordinal)
+            || source.Contains("HostFileSql.MarkReady,\n                                    new", StringComparison.Ordinal)
+            || source.Contains("HostFileSql.SoftDelete,\n                new", StringComparison.Ordinal),
+            "Native AOT 文件状态机 SQL 不得使用匿名参数。");
+
+        var queryPath = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Files",
+            "Features",
+            "ManageHostFiles",
+            "HostFileQueryService.cs");
+        var querySource = File.ReadAllText(queryPath);
+
+        StringAssert.Contains(querySource, "Dictionary<string, object?>");
+        Assert.IsFalse(
+            querySource.Contains("new {", StringComparison.Ordinal),
+            "Native AOT 文件查询 SQL 不得使用匿名参数。");
+
+        var filesSources = Directory
+            .EnumerateFiles(
+                Path.Combine(root, "src", "Modules", "Full.NET.Modules.Files"),
+                "*.cs",
+                SearchOption.AllDirectories)
+            .Select(File.ReadAllText)
+            .ToArray();
+        Assert.IsFalse(
+            filesSources.Any(source => source.Contains("new {", StringComparison.Ordinal)),
+            "Native AOT Files 模块不得向 SQL 执行器传递匿名参数。");
+    }
+
+    [TestMethod]
+    public void MessagingAuditSchema_AllowsRequestedReplayOutcome()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        foreach (var provider in new[] { "SqlServer", "MySql" })
+        {
+            var path = Path.Combine(
+                root,
+                "src",
+                "BuildingBlocks",
+                "Full.NET.Migrations.DbUp",
+                "Migrations",
+                provider,
+                "100_MessagingDomainAuditRequestedOutcome.sql");
+            var source = File.ReadAllText(path);
+
+            StringAssert.Contains(
+                source,
+                "Outcome IN ('requested', 'success', 'failure')");
+        }
+    }
+
+    [TestMethod]
+    public void ApiNativeAot_PreservesConfluentKafkaLinuxNativeMethods()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var hostDirectory = Path.Combine(root, "src", "Hosts", "Full.NET.Host.Api");
+        var projectSource = File.ReadAllText(Path.Combine(hostDirectory, "Full.NET.Host.Api.csproj"));
+        var rootsSource = File.ReadAllText(Path.Combine(hostDirectory, "NativeAotRoots.xml"));
+
+        StringAssert.Contains(projectSource, "<RdXmlFile Include=\"NativeAotRoots.xml\" />");
+        foreach (var nativeMethodsType in new[]
+                 {
+                     "Confluent.Kafka.Impl.NativeMethods.NativeMethods",
+                     "Confluent.Kafka.Impl.NativeMethods.NativeMethods_Centos8",
+                     "Confluent.Kafka.Impl.NativeMethods.NativeMethods_Alpine",
+                 })
+        {
+            StringAssert.Contains(rootsSource, $"<Type Name=\"{nativeMethodsType}\" Dynamic=\"Required All\" />");
+        }
+    }
+
+    [TestMethod]
+    public void FilesModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(root, "src", "Modules", "Full.NET.Modules.Files");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "FilesModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "FilesDapperAotMaterializerContributor.cs"));
+
+        StringAssert.Contains(moduleSource, "FilesDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "HostFileListRecord",
+                     "HostFileDetailRecord",
+                     "DeletedHostFileBlobRecord",
+                     "PendingHostFileRecord",
+                     "HostFileReferenceClaimRecord",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+    }
+
+    [TestMethod]
+    public void EventStreamOwnershipGate_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var source = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.Dapper",
+            "Outbox",
+            "DapperEventStreamOwnershipGate.cs"));
+
+        StringAssert.Contains(source, "IReadOnlyDictionary<string, object?>");
+        Assert.IsFalse(
+            source.Contains("new {", StringComparison.Ordinal),
+            "Native AOT 事件流所有权门禁不得使用匿名参数。");
+    }
+
+    [TestMethod]
+    public void DapperNativeAotScalarReader_SupportsNullableScalars()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var source = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.Dapper",
+            "DapperAotSqlExecution.cs"));
+
+        StringAssert.Contains(source, "Nullable.GetUnderlyingType(type) ?? type");
+        StringAssert.Contains(source, "Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)");
+    }
+
+    [TestMethod]
+    public void DapperInbox_RegistersAotMaterializersAndUsesSafeParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var dapperDirectory = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.Dapper");
+        var inboxSource = File.ReadAllText(Path.Combine(
+            dapperDirectory,
+            "Inbox",
+            "DapperIntegrationEventInbox.cs"));
+        var registrationSource = File.ReadAllText(Path.Combine(
+            dapperDirectory,
+            "DapperAotInfrastructureRegistration.cs"));
+
+        Assert.IsFalse(
+            inboxSource.Contains("new {", StringComparison.Ordinal),
+            "Native AOT Inbox 不得使用匿名 SQL 参数。");
+        StringAssert.Contains(registrationSource, "Register<InboxClaimRow>");
+        StringAssert.Contains(registrationSource, "Register<InboxBatchPrecheckRow>");
     }
 }

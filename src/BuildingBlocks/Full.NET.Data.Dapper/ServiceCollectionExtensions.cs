@@ -87,6 +87,8 @@ public static class ServiceCollectionExtensions
         SqlMapper.RemoveTypeMap(typeof(Guid));
         SqlMapper.AddTypeHandler(new AssignedGuidTypeHandler());
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetTypeHandler());
+#else
+        DapperAotInfrastructureRegistration.Register();
 #endif
         var databaseSection = configuration.GetSection(DatabaseOptions.SectionName);
         var hasExplicitMySqlGuidStorageMode = databaseSection

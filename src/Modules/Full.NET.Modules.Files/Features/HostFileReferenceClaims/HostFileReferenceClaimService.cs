@@ -55,7 +55,10 @@ internal sealed class HostFileReferenceClaimService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<HostFileReferenceClaimRecord>(
                 HostFileReferenceClaimSql.FindByIdempotencyKey,
-                new { request.IdempotencyKey },
+                new Dictionary<string, object?>
+                {
+                    ["IdempotencyKey"] = request.IdempotencyKey,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -76,7 +79,7 @@ internal sealed class HostFileReferenceClaimService(
         var file = await queryExecutor
             .QuerySingleOrDefaultAsync<HostFileDetailRecord>(
                 HostFileSql.FindActiveById,
-                new { FileId = request.FileId },
+                new Dictionary<string, object?> { ["FileId"] = request.FileId },
                 cancellationToken)
             .ConfigureAwait(false);
         if (file is null)
@@ -91,18 +94,18 @@ internal sealed class HostFileReferenceClaimService(
         var claimId = idGenerator.NewId();
         var inserted = await commandExecutor.ExecuteAsync(
                 HostFileReferenceClaimSql.InsertPending,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = claimId,
-                    request.IdempotencyKey,
-                    request.FileId,
-                    request.ConsumerModule,
-                    request.ConsumerReferenceId,
-                    State = HostFileReferenceClaimStates.Pending,
-                    file.ContentHash,
-                    file.SizeBytes,
-                    CreatedAtUtc = now,
-                    UpdatedAtUtc = now,
+                    ["Id"] = claimId,
+                    ["IdempotencyKey"] = request.IdempotencyKey,
+                    ["FileId"] = request.FileId,
+                    ["ConsumerModule"] = request.ConsumerModule,
+                    ["ConsumerReferenceId"] = request.ConsumerReferenceId,
+                    ["State"] = HostFileReferenceClaimStates.Pending,
+                    ["ContentHash"] = file.ContentHash,
+                    ["SizeBytes"] = file.SizeBytes,
+                    ["CreatedAtUtc"] = now,
+                    ["UpdatedAtUtc"] = now,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -126,7 +129,7 @@ internal sealed class HostFileReferenceClaimService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<HostFileReferenceClaimRecord>(
                 HostFileReferenceClaimSql.FindByIdempotencyKey,
-                new { IdempotencyKey = idempotencyKey },
+                new Dictionary<string, object?> { ["IdempotencyKey"] = idempotencyKey },
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -147,12 +150,12 @@ internal sealed class HostFileReferenceClaimService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 HostFileReferenceClaimSql.ConfirmPending,
-                new
+                new Dictionary<string, object?>
                 {
-                    IdempotencyKey = idempotencyKey,
-                    PendingState = HostFileReferenceClaimStates.Pending,
-                    ActiveState = HostFileReferenceClaimStates.Active,
-                    Now = now,
+                    ["IdempotencyKey"] = idempotencyKey,
+                    ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                    ["ActiveState"] = HostFileReferenceClaimStates.Active,
+                    ["Now"] = now,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -169,7 +172,7 @@ internal sealed class HostFileReferenceClaimService(
         var reloaded = await queryExecutor
             .QuerySingleOrDefaultAsync<HostFileReferenceClaimRecord>(
                 HostFileReferenceClaimSql.FindByIdempotencyKey,
-                new { IdempotencyKey = idempotencyKey },
+                new Dictionary<string, object?> { ["IdempotencyKey"] = idempotencyKey },
                 cancellationToken)
             .ConfigureAwait(false);
         return reloaded is not null
@@ -185,13 +188,13 @@ internal sealed class HostFileReferenceClaimService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 HostFileReferenceClaimSql.ReleaseOpen,
-                new
+                new Dictionary<string, object?>
                 {
-                    IdempotencyKey = idempotencyKey,
-                    PendingState = HostFileReferenceClaimStates.Pending,
-                    ActiveState = HostFileReferenceClaimStates.Active,
-                    ReleasedState = HostFileReferenceClaimStates.Released,
-                    Now = now,
+                    ["IdempotencyKey"] = idempotencyKey,
+                    ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                    ["ActiveState"] = HostFileReferenceClaimStates.Active,
+                    ["ReleasedState"] = HostFileReferenceClaimStates.Released,
+                    ["Now"] = now,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -203,7 +206,7 @@ internal sealed class HostFileReferenceClaimService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<HostFileReferenceClaimRecord>(
                 HostFileReferenceClaimSql.FindByIdempotencyKey,
-                new { IdempotencyKey = idempotencyKey },
+                new Dictionary<string, object?> { ["IdempotencyKey"] = idempotencyKey },
                 cancellationToken)
             .ConfigureAwait(false);
         return existing is not null
@@ -219,11 +222,11 @@ internal sealed class HostFileReferenceClaimService(
         var count = await queryExecutor
             .QuerySingleOrDefaultAsync<int>(
                 HostFileReferenceClaimSql.CountOpenByFileId,
-                new
+                new Dictionary<string, object?>
                 {
-                    FileId = fileId,
-                    PendingState = HostFileReferenceClaimStates.Pending,
-                    ActiveState = HostFileReferenceClaimStates.Active,
+                    ["FileId"] = fileId,
+                    ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                    ["ActiveState"] = HostFileReferenceClaimStates.Active,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

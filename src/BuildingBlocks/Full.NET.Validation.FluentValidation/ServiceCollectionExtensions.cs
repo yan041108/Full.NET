@@ -33,4 +33,20 @@ public static class ServiceCollectionExtensions
             typeof(FluentValidationBehavior<,>)));
         return services;
     }
+
+    /// <summary>
+    /// 仅为指定消息与结果注册闭合校验行为，供 Native AOT 宿主保留准确泛型元数据。
+    /// </summary>
+    /// <typeparam name="TMessage">存在显式 Validator 注册的消息类型。</typeparam>
+    /// <typeparam name="TResult">对应 Handler 的结果类型。</typeparam>
+    /// <param name="services">服务集合。</param>
+    /// <returns>传入的服务集合，便于链式注册。</returns>
+    public static IServiceCollection AddFullNetFluentValidation<TMessage, TResult>(
+        this IServiceCollection services)
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDispatchBehavior<TMessage, TResult>,
+            FluentValidationBehavior<TMessage, TResult>>());
+        return services;
+    }
 }

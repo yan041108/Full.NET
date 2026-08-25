@@ -31,21 +31,23 @@ internal sealed class TenancyDomainAuditWriter(
         // 使用环境 Activity 的 TraceId 而非请求取消令牌相关的上下文，
         // 使同一事务内跨模块写入的审计记录可以按 TraceId 关联到同一次请求。
         var traceId = Activity.Current?.TraceId.ToString();
+        IReadOnlyDictionary<string, object?> parameters =
+            new Dictionary<string, object?>
+            {
+                ["Id"] = idGenerator.NewId(),
+                ["TenantId"] = auditWrite.TenantId,
+                ["ActionKey"] = auditWrite.ActionKey,
+                ["EntityId"] = auditWrite.EntityId,
+                ["Outcome"] = auditWrite.Outcome,
+                ["ActorUserId"] = auditWrite.ActorUserId,
+                ["ActorDisplayName"] = auditWrite.ActorDisplayName,
+                ["TraceId"] = traceId,
+                ["DiffSummaryJson"] = auditWrite.DiffSummaryJson,
+                ["OccurredAtUtc"] = clock.UtcNow,
+            };
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenancyDomainAuditSql.Insert,
-                new
-                {
-                    Id = idGenerator.NewId(),
-                    auditWrite.TenantId,
-                    auditWrite.ActionKey,
-                    auditWrite.EntityId,
-                    auditWrite.Outcome,
-                    auditWrite.ActorUserId,
-                    auditWrite.ActorDisplayName,
-                    TraceId = traceId,
-                    auditWrite.DiffSummaryJson,
-                    OccurredAtUtc = clock.UtcNow,
-                },
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

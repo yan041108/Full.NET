@@ -10,17 +10,20 @@ namespace Full.NET.Data.Dapper;
 /// </summary>
 internal static class DapperAotSqlExecution
 {
-    public static bool IsScalarType(Type type) =>
-        type == typeof(long)
-        || type == typeof(int)
-        || type == typeof(bool)
-        || type == typeof(Guid)
-        || type == typeof(string)
-        || type == typeof(decimal)
-        || type == typeof(double)
-        || type == typeof(float)
-        || type == typeof(short)
-        || type == typeof(byte);
+    public static bool IsScalarType(Type type)
+    {
+        var scalarType = Nullable.GetUnderlyingType(type) ?? type;
+        return scalarType == typeof(long)
+            || scalarType == typeof(int)
+            || scalarType == typeof(bool)
+            || scalarType == typeof(Guid)
+            || scalarType == typeof(string)
+            || scalarType == typeof(decimal)
+            || scalarType == typeof(double)
+            || scalarType == typeof(float)
+            || scalarType == typeof(short)
+            || scalarType == typeof(byte);
+    }
 
     public static async Task<T?> QuerySingleOrDefaultAsync<T>(
         DbConnection connection,
@@ -168,7 +171,8 @@ internal static class DapperAotSqlExecution
             return typed;
         }
 
-        return (T)Convert.ChangeType(value, typeof(T));
+        var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        return (T)Convert.ChangeType(value, targetType);
     }
 }
 #endif

@@ -13,7 +13,7 @@ internal sealed class HostFileReferenceReader(IQueryExecutor queryExecutor) : IH
     {
         var row = await queryExecutor.QuerySingleOrDefaultAsync<HostFileDetailRecord>(
                 HostFileSql.FindActiveById,
-                new { FileId = fileId },
+                new Dictionary<string, object?> { ["FileId"] = fileId },
                 cancellationToken)
             .ConfigureAwait(false);
         return row is null

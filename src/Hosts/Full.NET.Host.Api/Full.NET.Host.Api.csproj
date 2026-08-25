@@ -18,6 +18,7 @@
       Value="false"
       Trim="true" />
     <TrimmerRootAssembly Include="MemoryPack.Core" />
+    <RdXmlFile Include="NativeAotRoots.xml" />
   </ItemGroup>
 
   <ItemGroup>

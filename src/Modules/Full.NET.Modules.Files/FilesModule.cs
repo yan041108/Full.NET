@@ -56,6 +56,10 @@ public sealed class FilesModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 FilesJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.FilesDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) =>

@@ -28,21 +28,23 @@ internal sealed class MessagingDomainAuditWriter(
     {
         ArgumentNullException.ThrowIfNull(auditWrite);
         var traceId = Activity.Current?.TraceId.ToString();
+        IReadOnlyDictionary<string, object?> parameters =
+            new Dictionary<string, object?>
+            {
+                ["Id"] = idGenerator.NewId(),
+                ["TenantId"] = auditWrite.TenantId,
+                ["ActionKey"] = auditWrite.ActionKey,
+                ["EntityId"] = auditWrite.EntityId,
+                ["Outcome"] = auditWrite.Outcome,
+                ["ActorUserId"] = auditWrite.ActorUserId,
+                ["ActorDisplayName"] = auditWrite.ActorDisplayName,
+                ["TraceId"] = traceId,
+                ["DiffSummaryJson"] = auditWrite.DiffSummaryJson,
+                ["OccurredAtUtc"] = clock.UtcNow,
+            };
         var affectedRows = await commandExecutor.ExecuteAsync(
                 MessagingDomainAuditSql.Insert,
-                new
-                {
-                    Id = idGenerator.NewId(),
-                    auditWrite.TenantId,
-                    auditWrite.ActionKey,
-                    auditWrite.EntityId,
-                    auditWrite.Outcome,
-                    auditWrite.ActorUserId,
-                    auditWrite.ActorDisplayName,
-                    TraceId = traceId,
-                    auditWrite.DiffSummaryJson,
-                    OccurredAtUtc = clock.UtcNow,
-                },
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

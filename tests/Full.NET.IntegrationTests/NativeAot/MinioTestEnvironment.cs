@@ -43,11 +43,20 @@ internal sealed class MinioTestEnvironment : IAsyncDisposable
             .WithEnvironment("MINIO_ROOT_USER", RootUser)
             .WithEnvironment("MINIO_ROOT_PASSWORD", RootPassword)
             .WithPortBinding(ApiPort, assignRandomHostPort: true)
+            .WithWaitStrategy(Wait.ForUnixContainer()
+                .UntilHttpRequestIsSucceeded(request => request
+                    .ForPort(ApiPort)
+                    .ForPath("/minio/health/ready")))
             .Build();
         await container.StartAsync().ConfigureAwait(false);
 
         var hostPort = container.GetMappedPublicPort(ApiPort);
-        var serviceUri = new Uri($"http://127.0.0.1:{hostPort}");
+        var dockerHost = Environment.GetEnvironmentVariable(
+            "TESTCONTAINERS_HOST_OVERRIDE");
+        var serviceHost = string.IsNullOrWhiteSpace(dockerHost)
+            ? "127.0.0.1"
+            : dockerHost.Trim();
+        var serviceUri = new UriBuilder("http", serviceHost, hostPort).Uri;
         var bucketName = $"fullnet-native-aot-{Guid.NewGuid():N}".ToLowerInvariant();
         var environment = new MinioTestEnvironment(container, bucketName, serviceUri);
         await environment.EnsureBucketAsync().ConfigureAwait(false);

@@ -85,6 +85,19 @@ internal sealed class HostFileManagementService(
             var contentHash = await ComputeSha256HexAsync(buffered, cancellationToken)
                 .ConfigureAwait(false);
             buffered.Position = 0;
+            IReadOnlyDictionary<string, object?> insertParameters =
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = fileId,
+                    ["OriginalFileName"] = normalizedName,
+                    ["ContentType"] = normalizedContentType,
+                    ["SizeBytes"] = actualContentLength,
+                    ["ProviderKey"] = storageProvider.ProviderKey,
+                    ["StorageKey"] = storageKey,
+                    ["ContentHash"] = contentHash,
+                    ["CreatedAtUtc"] = now,
+                    ["CreatedByUserId"] = createdByUserId,
+                };
 
             // 必须先提交不可见的 pending 元数据；若提交结果不确定，此时尚未发布 Blob。
             await transaction.ExecuteAsync(
@@ -92,18 +105,7 @@ internal sealed class HostFileManagementService(
                     {
                         var affectedRows = await commandExecutor.ExecuteAsync(
                                 HostFileSql.Insert,
-                                new
-                                {
-                                    Id = fileId,
-                                    OriginalFileName = normalizedName,
-                                    ContentType = normalizedContentType,
-                                    SizeBytes = actualContentLength,
-                                    storageProvider.ProviderKey,
-                                    StorageKey = storageKey,
-                                    ContentHash = contentHash,
-                                    CreatedAtUtc = now,
-                                    CreatedByUserId = createdByUserId,
-                                },
+                                insertParameters,
                                 token)
                             .ConfigureAwait(false);
                         if (affectedRows != 1)
@@ -120,14 +122,16 @@ internal sealed class HostFileManagementService(
             await transaction.ExecuteAsync(
                     async token =>
                     {
+                        IReadOnlyDictionary<string, object?> claimParameters =
+                            new Dictionary<string, object?>
+                            {
+                                ["FileId"] = fileId,
+                                ["ProviderKey"] = storageProvider.ProviderKey,
+                                ["StorageKey"] = storageKey,
+                            };
                         var affectedRows = await commandExecutor.ExecuteAsync(
                                 HostFileSql.ClaimPublication,
-                                new
-                                {
-                                    FileId = fileId,
-                                    storageProvider.ProviderKey,
-                                    StorageKey = storageKey,
-                                },
+                                claimParameters,
                                 token)
                             .ConfigureAwait(false);
                         if (affectedRows != 1)
@@ -161,14 +165,16 @@ internal sealed class HostFileManagementService(
                 return await transaction.ExecuteAsync(
                         async token =>
                         {
+                            IReadOnlyDictionary<string, object?> readyParameters =
+                                new Dictionary<string, object?>
+                                {
+                                    ["FileId"] = fileId,
+                                    ["ProviderKey"] = storageProvider.ProviderKey,
+                                    ["StorageKey"] = storageKey,
+                                };
                             var affectedRows = await commandExecutor.ExecuteAsync(
                                     HostFileSql.MarkReady,
-                                    new
-                                    {
-                                        FileId = fileId,
-                                        storageProvider.ProviderKey,
-                                        StorageKey = storageKey,
-                                    },
+                                    readyParameters,
                                     token)
                                 .ConfigureAwait(false);
                             // 0 可能表示对账器已凭同一对象证据并发完成 ready；负数或多行仍必须 fail-closed。
@@ -282,15 +288,17 @@ internal sealed class HostFileManagementService(
         // Provider 必须在数据库写入前按持久化机器码解析；未知值不得回退到当前默认 Provider。
         var storageProvider = storageProviders.Resolve(detail.ProviderKey);
         var now = clock.UtcNow;
+        IReadOnlyDictionary<string, object?> deleteParameters =
+            new Dictionary<string, object?>
+            {
+                ["FileId"] = fileId,
+                ["DeletedAtUtc"] = now,
+                ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                ["ActiveState"] = HostFileReferenceClaimStates.Active,
+            };
         var affected = await commandExecutor.ExecuteAsync(
                 HostFileSql.SoftDelete,
-                new
-                {
-                    FileId = fileId,
-                    DeletedAtUtc = now,
-                    PendingState = HostFileReferenceClaimStates.Pending,
-                    ActiveState = HostFileReferenceClaimStates.Active,
-                },
+                deleteParameters,
                 cancellationToken)
             .ConfigureAwait(false);
         // 单文件删除最多只能影响一行；异常计数必须回滚，避免错误提交后继续删除 blob。

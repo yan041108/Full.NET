@@ -90,7 +90,10 @@ public sealed class NativeApiSignalRJsonE2ETests
         probeRequest.Headers.Add("Origin", "http://localhost");
         probeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var probeResponse = await client.SendAsync(probeRequest);
-        Assert.AreEqual(HttpStatusCode.OK, probeResponse.StatusCode);
+        await NativeApiE2EAssertions.AssertStatusAsync(
+            probeResponse,
+            HttpStatusCode.OK,
+            "Publish realtime self probe");
 
         var received = await WaitForMessageAsync(
             receivedMessages.Reader,

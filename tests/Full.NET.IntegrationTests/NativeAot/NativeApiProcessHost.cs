@@ -205,15 +205,6 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         }
 
         _disposed = true;
-        _logPumpCancellation.Cancel();
-        try
-        {
-            await Task.WhenAll(_stdoutPump, _stderrPump).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-
         if (!_process.HasExited)
         {
             if (OperatingSystem.IsLinux())
@@ -222,12 +213,24 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
                 if (!_process.WaitForExit(15_000))
                 {
                     _process.Kill(entireProcessTree: true);
+                    await _process.WaitForExitAsync().ConfigureAwait(false);
                 }
             }
             else
             {
                 _process.Kill(entireProcessTree: true);
+                await _process.WaitForExitAsync().ConfigureAwait(false);
             }
+        }
+
+        // 先让宿主正常退出并刷新异步日志，再结束输出泵；否则失败现场会只留下启动日志。
+        _logPumpCancellation.Cancel();
+        try
+        {
+            await Task.WhenAll(_stdoutPump, _stderrPump).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
         }
 
         await _logWriter.DisposeAsync().ConfigureAwait(false);

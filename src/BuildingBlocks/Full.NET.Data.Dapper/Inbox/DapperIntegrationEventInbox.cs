@@ -85,10 +85,10 @@ internal sealed class DapperIntegrationEventInbox(
         };
         var rows = await queryExecutor.QueryAsync<InboxBatchPrecheckRow>(
                 statement,
-                new
+                new Dictionary<string, object?>
                 {
-                    ConsumerName = consumerName,
-                    MessagesJson = BuildMessagesJson(messages),
+                    ["ConsumerName"] = consumerName,
+                    ["MessagesJson"] = BuildMessagesJson(messages),
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -146,17 +146,17 @@ internal sealed class DapperIntegrationEventInbox(
         var claim = await queryExecutor
             .QuerySingleOrDefaultAsync<InboxClaimRow>(
                 claimStatement,
-                new
+                new Dictionary<string, object?>
                 {
-                    ConsumerName = consumerName,
-                    MessageId = envelope.EventId,
-                    MessageType = envelope.MessageType,
-                    SchemaVersion = envelope.SchemaVersion,
-                    TenantId = envelope.TenantId,
-                    PayloadHash = payloadHash,
-                    StatusProcessing = InboxSql.StatusProcessing,
-                    StatusFailed = InboxSql.StatusFailed,
-                    ReceivedAtUtc = clock.UtcNow,
+                    ["ConsumerName"] = consumerName,
+                    ["MessageId"] = envelope.EventId,
+                    ["MessageType"] = envelope.MessageType,
+                    ["SchemaVersion"] = envelope.SchemaVersion,
+                    ["TenantId"] = envelope.TenantId,
+                    ["PayloadHash"] = payloadHash,
+                    ["StatusProcessing"] = InboxSql.StatusProcessing,
+                    ["StatusFailed"] = InboxSql.StatusFailed,
+                    ["ReceivedAtUtc"] = clock.UtcNow,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -207,13 +207,13 @@ internal sealed class DapperIntegrationEventInbox(
         var affected = await commandExecutor
             .ExecuteAsync(
                 InboxSql.MarkProcessed,
-                new
+                new Dictionary<string, object?>
                 {
-                    ConsumerName = consumerName,
-                    MessageId = messageId,
-                    Status = InboxSql.StatusProcessed,
-                    ExpectedStatus = InboxSql.StatusProcessing,
-                    ProcessedAtUtc = clock.UtcNow,
+                    ["ConsumerName"] = consumerName,
+                    ["MessageId"] = messageId,
+                    ["Status"] = InboxSql.StatusProcessed,
+                    ["ExpectedStatus"] = InboxSql.StatusProcessing,
+                    ["ProcessedAtUtc"] = clock.UtcNow,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

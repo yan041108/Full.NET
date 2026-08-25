@@ -1,0 +1,10 @@
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+  <Application>
+    <Assembly Name="Confluent.Kafka">
+      <!-- Confluent.Kafka 通过方法名反射绑定 librdkafka，Native AOT 必须保留三个 Linux 候选类型的方法元数据。 -->
+      <Type Name="Confluent.Kafka.Impl.NativeMethods.NativeMethods" Dynamic="Required All" />
+      <Type Name="Confluent.Kafka.Impl.NativeMethods.NativeMethods_Centos8" Dynamic="Required All" />
+      <Type Name="Confluent.Kafka.Impl.NativeMethods.NativeMethods_Alpine" Dynamic="Required All" />
+    </Assembly>
+  </Application>
+</Directives>

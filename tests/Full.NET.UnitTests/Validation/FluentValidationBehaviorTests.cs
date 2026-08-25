@@ -118,6 +118,22 @@ public sealed class FluentValidationBehaviorTests
             registrations[0].ImplementationType?.Name);
     }
 
+    [TestMethod]
+    public void Closed_registration_is_idempotent_and_does_not_add_open_behavior()
+    {
+        var services = new ServiceCollection();
+
+        services.AddFullNetFluentValidation<TestCommand, string>();
+        services.AddFullNetFluentValidation<TestCommand, string>();
+
+        var registrations = services
+            .Where(item => item.ServiceType == typeof(IDispatchBehavior<TestCommand, string>))
+            .ToArray();
+        Assert.HasCount(1, registrations);
+        Assert.IsFalse(services.Any(item =>
+            item.ServiceType == typeof(IDispatchBehavior<,>)));
+    }
+
     private static IServiceCollection CreateServices(RecordingHandler handler) =>
         new ServiceCollection()
             .AddFullNetFluentValidation()

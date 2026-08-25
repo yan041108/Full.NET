@@ -1,9 +1,11 @@
 using Full.NET.Realtime;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Realtime.SignalR.Health;
+using Full.NET.Realtime.SignalR.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -15,6 +17,24 @@ namespace Full.NET.UnitTests.Realtime;
 [TestClass]
 public sealed class RealtimeBackplaneRegistrationTests
 {
+    [TestMethod]
+    public void Registration_adds_realtime_context_to_http_json_options()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFullNetRealtimeSignalR(
+            new ConfigurationBuilder().Build(),
+            "Testing");
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<JsonOptions>>()
+            .Value
+            .SerializerOptions;
+
+        Assert.IsTrue(options.TypeInfoResolverChain.Contains(
+            RealtimeJsonSerializerContext.Default));
+    }
+
     [TestMethod]
     public void Redis_configuration_keeps_reconnect_enabled_and_scopes_channels()
     {

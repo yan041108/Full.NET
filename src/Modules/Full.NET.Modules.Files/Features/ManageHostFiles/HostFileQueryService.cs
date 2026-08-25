@@ -66,7 +66,15 @@ internal sealed class HostFileQueryService(
 
                 statement,
 
-                new { Offset = offset, PageSize = pageSize },
+                new Dictionary<string, object?>
+
+                {
+
+                    ["Offset"] = offset,
+
+                    ["PageSize"] = pageSize,
+
+                },
 
                 cancellationToken)
 
@@ -94,7 +102,7 @@ internal sealed class HostFileQueryService(
 
                 HostFileSql.FindActiveById,
 
-                new { FileId = fileId },
+                new Dictionary<string, object?> { ["FileId"] = fileId },
 
                 cancellationToken)
 
@@ -128,7 +136,7 @@ internal sealed class HostFileQueryService(
 
                 HostFileSql.FindActiveById,
 
-                new { FileId = fileId },
+                new Dictionary<string, object?> { ["FileId"] = fileId },
 
                 cancellationToken)
 

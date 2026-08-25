@@ -44,11 +44,11 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyTenancyReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
-        var tenantToken = await EnterAcmeTenantAsync(client, token, cancellationToken)
+        await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyOrganizationReadAsync(client, tenantToken, cancellationToken)
-            .ConfigureAwait(false);
-        await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyReadinessAsync(client, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
@@ -142,7 +142,7 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static async Task<string> EnterAcmeTenantAsync(
+    private static async Task<string> EnterDevelopmentTenantAsync(
         HttpClient client,
         string hostAccessToken,
         CancellationToken cancellationToken)
@@ -155,18 +155,29 @@ internal static class NativeApiE2EAssertions
             hostAccessToken);
         using var availableResponse = await client.SendAsync(availableRequest, cancellationToken)
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.OK, availableResponse.StatusCode);
+        await AssertStatusAsync(
+                availableResponse,
+                HttpStatusCode.OK,
+                "List available tenants",
+                cancellationToken)
+            .ConfigureAwait(false);
         var available = await availableResponse.Content
             .ReadFromJsonAsync<TenantContextSummary[]>(cancellationToken)
             .ConfigureAwait(false);
         Assert.IsNotNull(available);
-        var acme = available.Single(tenant => tenant.Identifier == "acme");
+        var developmentTenant = available.SingleOrDefault(tenant =>
+            tenant.Identifier == "local");
+        Assert.IsNotNull(
+            developmentTenant,
+            "Available tenants did not contain the Development seed 'local': "
+                + string.Join(", ", available.Select(tenant =>
+                    $"{tenant.Identifier} ({tenant.Id})")));
 
         using var enterRequest = new HttpRequestMessage(
             HttpMethod.Put,
             "/api/v1/tenancy/context")
         {
-            Content = JsonContent.Create(new ChangeTenantContextRequest(acme.Id)),
+            Content = JsonContent.Create(new ChangeTenantContextRequest(developmentTenant.Id)),
         };
         enterRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
@@ -225,5 +236,23 @@ internal static class NativeApiE2EAssertions
         }
 
         return content[^maxChars..];
+    }
+
+    internal static async Task AssertStatusAsync(
+        HttpResponseMessage response,
+        HttpStatusCode expectedStatusCode,
+        string operation,
+        CancellationToken cancellationToken = default)
+    {
+        if (response.StatusCode == expectedStatusCode)
+        {
+            return;
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.Fail(
+            $"{operation} failed. Expected {expectedStatusCode}, actual {response.StatusCode}. "
+            + $"Response body: {body}");
     }
 }

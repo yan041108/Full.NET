@@ -103,7 +103,7 @@ internal sealed class DapperEventStreamOwnershipGate(
         };
         var owner = await queryExecutor.QuerySingleOrDefaultAsync<int?>(
             statement,
-            new { MessageType = eventType, SchemaVersion = schemaVersion },
+            CreateParameters(eventType, schemaVersion),
             cancellationToken).ConfigureAwait(false);
         if (!owner.HasValue)
         {
@@ -159,7 +159,7 @@ internal sealed class DapperEventStreamOwnershipGate(
         };
         var owner = await queryExecutor.QuerySingleOrDefaultAsync<int?>(
             statement,
-            new { MessageType = eventType, SchemaVersion = schemaVersion },
+            CreateParameters(eventType, schemaVersion),
             cancellationToken).ConfigureAwait(false);
         if (rejectRollbackPreparing && owner == -1)
         {
@@ -168,6 +168,15 @@ internal sealed class DapperEventStreamOwnershipGate(
 
         return owner.HasValue;
     }
+
+    private static IReadOnlyDictionary<string, object?> CreateParameters(
+        string eventType,
+        int schemaVersion) =>
+        new Dictionary<string, object?>
+        {
+            ["MessageType"] = eventType,
+            ["SchemaVersion"] = schemaVersion,
+        };
 
     private void ValidateArgumentsAndTransaction(string eventType, int schemaVersion)
     {

@@ -102,6 +102,16 @@ public static class ServiceCollectionExtensions
             options,
             environmentName);
         services.AddSingleton(Options.Create(options));
+        services.ConfigureHttpJsonOptions(jsonOptions =>
+        {
+            if (!jsonOptions.SerializerOptions.TypeInfoResolverChain.Contains(
+                    RealtimeJsonSerializerContext.Default))
+            {
+                jsonOptions.SerializerOptions.TypeInfoResolverChain.Insert(
+                    0,
+                    RealtimeJsonSerializerContext.Default);
+            }
+        });
 
         if (!options.Enabled)
         {

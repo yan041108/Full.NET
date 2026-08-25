@@ -97,7 +97,11 @@ internal static class NativeApiKafkaReplayE2EAssertions
             replayBody);
         using var firstResponse = await client.SendAsync(firstRequest, cancellationToken)
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.OK, firstResponse.StatusCode);
+        await NativeApiE2EAssertions.AssertStatusAsync(
+            firstResponse,
+            HttpStatusCode.OK,
+            "Kafka range replay",
+            cancellationToken).ConfigureAwait(false);
         var first = await firstResponse.Content.ReadFromJsonAsync<KafkaRangeReplayResponse>(
                 cancellationToken)
             .ConfigureAwait(false);

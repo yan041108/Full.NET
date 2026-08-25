@@ -61,7 +61,11 @@ internal static class NativeApiS3E2EAssertions
             token);
         using var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken)
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.Created, uploadResponse.StatusCode);
+        await NativeApiE2EAssertions.AssertStatusAsync(
+            uploadResponse,
+            HttpStatusCode.Created,
+            "S3 host file upload",
+            cancellationToken).ConfigureAwait(false);
 
         var created = await uploadResponse.Content.ReadFromJsonAsync<HostFileResponse>(
                 cancellationToken)

@@ -69,7 +69,10 @@ internal static class IdentityDomainServiceCollectionExtensions
             IHostUserSelectionDirectory,
             HostUsers.HostUserSelectionDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
-        services.AddFullNetFluentValidation();
+        services.AddFullNetFluentValidation<Command, LoginSessionResult>();
+        services.AddFullNetFluentValidation<
+            Features.UpdateLocale.Command,
+            LocalePreferenceResponse>();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
         services.TryAddScoped<
             IValidator<Features.UpdateLocale.Command>,
