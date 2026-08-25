@@ -75,10 +75,10 @@ internal sealed class NotificationRealtimeDelivery(
         // 延迟或并发的 Outbox 事件可能乱序，消费时读取当前值才能让徽标收敛到数据库事实。
         var unreadCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 InboxMessageSql.CountUnreadForRecipient,
-                new
+                new Dictionary<string, object?>
                 {
-                    RecipientUserId = recipientUserId,
-                    UnreadStatus = InboxMessageStatuses.Unread,
+                    ["RecipientUserId"] = recipientUserId,
+                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

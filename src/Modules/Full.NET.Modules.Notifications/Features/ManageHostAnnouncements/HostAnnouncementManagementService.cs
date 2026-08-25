@@ -93,15 +93,15 @@ internal sealed class HostAnnouncementManagementService(
         var announcementId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 AnnouncementSql.Insert,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = announcementId,
-                    Title = request.Title.Trim(),
-                    Content = request.Content.Trim(),
-                    Status = AnnouncementStatuses.Draft,
-                    CreatedAtUtc = now,
-                    CreatedByUserId = actorUserId,
-                    Version = 1,
+                    ["Id"] = announcementId,
+                    ["Title"] = request.Title.Trim(),
+                    ["Content"] = request.Content.Trim(),
+                    ["Status"] = AnnouncementStatuses.Draft,
+                    ["CreatedAtUtc"] = now,
+                    ["CreatedByUserId"] = actorUserId,
+                    ["Version"] = 1,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -124,7 +124,7 @@ internal sealed class HostAnnouncementManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<AnnouncementRecord>(
                 AnnouncementSql.FindHostById,
-                new { Id = announcementId },
+                new Dictionary<string, object?> { ["Id"] = announcementId },
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -140,16 +140,16 @@ internal sealed class HostAnnouncementManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 AnnouncementSql.UpdateDraft,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = announcementId,
-                    Title = request.Title.Trim(),
-                    Content = request.Content.Trim(),
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    NextVersion = request.Version + 1,
-                    DraftStatus = AnnouncementStatuses.Draft,
-                    Version = request.Version,
+                    ["Id"] = announcementId,
+                    ["Title"] = request.Title.Trim(),
+                    ["Content"] = request.Content.Trim(),
+                    ["UpdatedAtUtc"] = now,
+                    ["UpdatedByUserId"] = actorUserId,
+                    ["NextVersion"] = request.Version + 1,
+                    ["DraftStatus"] = AnnouncementStatuses.Draft,
+                    ["Version"] = request.Version,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -170,7 +170,7 @@ internal sealed class HostAnnouncementManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<AnnouncementRecord>(
                 AnnouncementSql.FindHostById,
-                new { Id = announcementId },
+                new Dictionary<string, object?> { ["Id"] = announcementId },
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -186,16 +186,16 @@ internal sealed class HostAnnouncementManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 AnnouncementSql.Publish,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = announcementId,
-                    PublishedStatus = AnnouncementStatuses.Published,
-                    DraftStatus = AnnouncementStatuses.Draft,
-                    PublishedAtUtc = now,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    NextVersion = version + 1,
-                    Version = version,
+                    ["Id"] = announcementId,
+                    ["PublishedStatus"] = AnnouncementStatuses.Published,
+                    ["DraftStatus"] = AnnouncementStatuses.Draft,
+                    ["PublishedAtUtc"] = now,
+                    ["UpdatedAtUtc"] = now,
+                    ["UpdatedByUserId"] = actorUserId,
+                    ["NextVersion"] = version + 1,
+                    ["Version"] = version,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

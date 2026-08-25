@@ -50,6 +50,10 @@ public sealed class NotificationsModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 NotificationsJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.NotificationsDapperAotMaterializerContributor()
+            .RegisterMaterializers(new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     /// <summary>

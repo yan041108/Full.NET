@@ -33,7 +33,11 @@ internal sealed class HostAnnouncementQueryService(
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<AnnouncementRecord>(
                 ResolveListStatement(),
-                new { Offset = offset, PageSize = pageSize },
+                new Dictionary<string, object?>
+                {
+                    ["Offset"] = offset,
+                    ["PageSize"] = pageSize,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -54,7 +58,7 @@ internal sealed class HostAnnouncementQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<AnnouncementRecord>(
                 AnnouncementSql.FindHostById,
-                new { Id = announcementId },
+                new Dictionary<string, object?> { ["Id"] = announcementId },
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

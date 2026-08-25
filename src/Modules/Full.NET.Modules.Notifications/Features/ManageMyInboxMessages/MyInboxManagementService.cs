@@ -77,7 +77,11 @@ internal sealed class MyInboxManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
-                new { Id = messageId, RecipientUserId = recipientUserId },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = messageId,
+                    ["RecipientUserId"] = recipientUserId,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -93,13 +97,13 @@ internal sealed class MyInboxManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 InboxMessageSql.MarkRead,
-                new
+                new Dictionary<string, object?>
                 {
-                    Id = messageId,
-                    RecipientUserId = recipientUserId,
-                    ReadStatus = InboxMessageStatuses.Read,
-                    UnreadStatus = InboxMessageStatuses.Unread,
-                    ReadAtUtc = now,
+                    ["Id"] = messageId,
+                    ["RecipientUserId"] = recipientUserId,
+                    ["ReadStatus"] = InboxMessageStatuses.Read,
+                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
+                    ["ReadAtUtc"] = now,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -113,7 +117,11 @@ internal sealed class MyInboxManagementService(
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
-                new { Id = messageId, RecipientUserId = recipientUserId },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = messageId,
+                    ["RecipientUserId"] = recipientUserId,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<InboxMessageResponse>.Success(MyInboxQueryService.Map(updated!));
@@ -126,12 +134,12 @@ internal sealed class MyInboxManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 InboxMessageSql.MarkAllRead,
-                new
+                new Dictionary<string, object?>
                 {
-                    RecipientUserId = recipientUserId,
-                    ReadStatus = InboxMessageStatuses.Read,
-                    UnreadStatus = InboxMessageStatuses.Unread,
-                    ReadAtUtc = now,
+                    ["RecipientUserId"] = recipientUserId,
+                    ["ReadStatus"] = InboxMessageStatuses.Read,
+                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
+                    ["ReadAtUtc"] = now,
                 },
                 cancellationToken)
             .ConfigureAwait(false);
