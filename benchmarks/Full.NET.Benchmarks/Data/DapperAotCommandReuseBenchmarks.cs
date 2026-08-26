@@ -15,8 +15,8 @@ namespace Full.NET.Benchmarks.Data;
 [MemoryDiagnoser]
 public class DapperAotCommandReuseBenchmarks
 {
-    // 单次约 2 us；批次 65536 次使 iteration 时长达到 BenchmarkDotNet 建议的 100 ms 以上。
-    private const int OperationsPerBatch = 80_000;
+    // 批量执行 160_000 次，使四条路径的单次 iteration 都超过 BenchmarkDotNet 建议的 100 ms。
+    private const int OperationsPerBatch = 160_000;
 
     private readonly SqlConnection _connection = new();
     private SqlTransaction? _transaction;
@@ -77,17 +77,17 @@ public class DapperAotCommandReuseBenchmarks
     [Benchmark(OperationsPerInvoke = OperationsPerBatch)]
     public int StaticRegistryPlan()
     {
-        if (!DapperAotStaticCommandPlanRegistry.TryGetFactory(
-                OutboxInsertCommandBenchmarkHarness.StatementName,
-                DatabaseProvider.SqlServer,
-                out var factory))
-        {
-            throw new InvalidOperationException("The benchmark command plan was not registered.");
-        }
-
         var total = 0;
         for (var index = 0; index < OperationsPerBatch; index++)
         {
+            if (!DapperAotStaticCommandPlanRegistry.TryGetFactory(
+                    OutboxInsertCommandBenchmarkHarness.StatementName,
+                    DatabaseProvider.SqlServer,
+                    out var factory))
+            {
+                throw new InvalidOperationException("The benchmark command plan was not registered.");
+            }
+
             var command = factory.GetCommand(
                 _connection,
                 OutboxInsertCommandBenchmarkHarness.Sql,

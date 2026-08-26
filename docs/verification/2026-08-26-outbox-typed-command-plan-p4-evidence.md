@@ -32,7 +32,7 @@ This verification evaluates whether Outbox Native AOT hot paths should move from
 
 
 
-Command and parameter-object preparation is not a material share of end-to-end Outbox write CPU or allocation after separating serialization, connection waiting and database execution. Even after correcting the typed recycle path and batching micro-benchmark iterations, typed savings collapse to about **1.6%** of real per-write allocation (well below the **10%** gate), and a **conservative CPU upper-bound estimate** remains **0.04%–0.23%** of per-write CPU (well below the **5%** gate). Production effort should stay on database latency, serialization, transaction/connection orchestration and pool sizing.
+Command and parameter-object preparation is not a material share of end-to-end Outbox write CPU or allocation after separating serialization, connection waiting and database execution. Even after correcting the typed recycle path, measuring the registry lookup once per operation and batching micro-benchmark iterations, typed savings collapse to about **1.6%** of real per-write allocation (well below the **10%** gate), and a **conservative CPU upper-bound estimate** remains **0.04%–0.26%** of per-write CPU (well below the **5%** gate). Production effort should stay on database latency, serialization, transaction/connection orchestration and pool sizing.
 
 
 
@@ -52,7 +52,9 @@ Command and parameter-object preparation is not a material share of end-to-end O
 
 - `GlobalSetup` asserts two consecutive typed rentals return the **same undisposed** `DbCommand` instance with detached connection/transaction after recycle.
 
-- All four paths execute **`OperationsPerBatch = 80_000`** identical operations per benchmark invocation (`[Benchmark(OperationsPerInvoke = 80_000)]`). Baseline `CreateBindDispose` minimum iteration time exceeds **100 ms**; faster paths complete the same work in less wall time, which is expected.
+- All four paths execute **`OperationsPerBatch = 160_000`** identical operations per benchmark invocation (`[Benchmark(OperationsPerInvoke = 160_000)]`). Every path's minimum observed iteration time exceeds BenchmarkDotNet's recommended **100 ms**.
+
+- `StaticRegistryPlan` performs `TryGetFactory` inside the operation loop, so its per-operation result includes the registry lookup instead of amortizing one lookup across the entire batch.
 
 
 
@@ -72,11 +74,11 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj -
 
 
 
-Raw log: `BenchmarkDotNet.Artifacts/p4-command-reuse-medium-v2.log`
+Raw log: `BenchmarkDotNet.Artifacts/p4-command-reuse-medium-v3.log`
 
 
 
-### Results (BenchmarkDotNet `MediumRun`, 80_000 ops/invoke, per-operation means, no database I/O)
+### Results (BenchmarkDotNet `MediumRun`, 160_000 ops/invoke, per-operation means, no database I/O)
 
 
 
@@ -84,13 +86,13 @@ Raw log: `BenchmarkDotNet.Artifacts/p4-command-reuse-medium-v2.log`
 
 | --- | ---: | ---: | ---: | ---: |
 
-| CreateBindDispose | 2.073 us | ±0.657 us | 6.07 KB | 1.00 |
+| CreateBindDispose | 2.316 us | ±0.164 us | 6.07 KB | 1.00 |
 
-| StaticRegistryPlan | 1.497 us | ±0.159 us | 4.52 KB | 0.75 |
+| StaticRegistryPlan | 1.695 us | ±0.117 us | 4.52 KB | 0.75 |
 
-| FixedFactoryHandle | 1.624 us | ±0.223 us | 4.52 KB | 0.75 |
+| FixedFactoryHandle | 1.526 us | ±0.168 us | 4.52 KB | 0.75 |
 
-| TypedParameterFactoryPrototype | 1.289 us | ±0.186 us | 3.47 KB | 0.57 |
+| TypedParameterFactoryPrototype | 1.124 us | ±0.111 us | 3.47 KB | 0.57 |
 
 
 
@@ -100,11 +102,11 @@ Raw log: `BenchmarkDotNet.Artifacts/p4-command-reuse-medium-v2.log`
 
 - **Earlier typed numbers are invalid** — passing `factory: null` into `FinalizeCommand` disposed every typed command instead of recycling.
 
-- **Registry lookup** costs time on `StaticRegistryPlan` vs `FixedFactoryHandle` (1.50 us vs 1.62 us; overlapping CIs) but not allocation (both 4.52 KB).
+- **Registry lookup** adds about **0.17 us** at the observed means (`StaticRegistryPlan` 1.70 us vs `FixedFactoryHandle` 1.53 us) and no allocation (both 4.52 KB). Their 99.9% confidence intervals still overlap, so this is directional evidence rather than a stable standalone gain.
 
 - **Typed prototype** lowers allocation **43%** vs baseline and **23%** vs static registry (3.47 KB vs 4.52 KB) with correct recycle semantics.
 
-- **Typed time vs fixed handle** (1.29 us vs 1.62 us) shows a micro-benchmark gain, but this does not translate to end-to-end write CPU or allocation gates below.
+- **Typed time vs fixed handle** (1.12 us vs 1.53 us) shows a micro-benchmark gain, but this does not translate to end-to-end write CPU or allocation gates below. BenchmarkDotNet also reports multimodal distributions, so the end-to-end gate remains the decision authority.
 
 
 
@@ -244,11 +246,11 @@ All **36 completed cells** finished after the append producer-name fix. **SQL Se
 
 | Typed savings as % of write alloc | **1.6%** |
 
-| **Conservative CPU upper-bound estimate** | **0.04% – 0.23%** |
+| **Conservative CPU upper-bound estimate** | **0.04% – 0.26%** |
 
 
 
-**Conservative CPU upper-bound estimate (not CPU stack attribution):** divide the slowest corrected micro-benchmark per-operation time (`CreateBindDispose` **2.073 us**) by per-write CPU microseconds (`Process.CpuMilliseconds × 1000 / SuccessfulWrites`) from the profile JSON. Mean profile cell → **0.15%**; fastest-write cells (highest CPU us/write) → **0.04%**; slowest-write cells → **0.23%**. This assumes the entire create/bind/dispose command graph could be eliminated for free, so it is an upper bound, not measured on-stack CPU.
+**Conservative CPU upper-bound estimate (not CPU stack attribution):** divide the slowest corrected micro-benchmark per-operation time (`CreateBindDispose` **2.316 us**) by per-write CPU microseconds (`Process.CpuMilliseconds × 1000 / SuccessfulWrites`) from the profile JSON. Mean profile cell → **0.17%**; fastest-write cells (highest CPU us/write) → **0.04%**; slowest-write cells → **0.26%**. This assumes the entire create/bind/dispose command graph could be eliminated for free, so it is an upper bound, not measured on-stack CPU.
 
 
 
@@ -268,7 +270,7 @@ SQL telemetry (`fullnet.data.sql.duration`) starts after `CreateParameters` in `
 
 | --- | --- | --- |
 
-| Start P4 implementation | Command/param CPU ≥ 5% **or** alloc ≥ 10% (ex-payload) | **Not met** (≈0.04%–0.23% conservative CPU upper bound; ≈1.6% alloc) |
+| Start P4 implementation | Command/param CPU ≥ 5% **or** alloc ≥ 10% (ex-payload) | **Not met** (≈0.04%–0.26% conservative CPU upper bound; ≈1.6% alloc) |
 
 | Typed prototype stable gain | Repeatable outside noise | **Met in micro-benchmark only**; **not met end-to-end** |
 
@@ -326,7 +328,7 @@ Native AOT Linux publish and native-process Outbox E2E were **not re-run** for t
 
 - Micro-benchmarks exclude network I/O and database execution; profile harness uses Testcontainers, not production hardware.
 
-- Faster benchmark paths complete the same 80_000 operations in less wall time than `CreateBindDispose`; only the baseline path enforces the 100 ms minimum iteration recommendation.
+- All paths clear the 100 ms minimum iteration recommendation at 160_000 operations per invocation. The current run still reports multimodal distributions for three methods, so micro-benchmark time deltas must not replace end-to-end evidence.
 
 - `TypedParameterFactoryPrototype` lives only under `benchmarks/`; production still uses `DapperAotStaticCommandPlanRegistry` and create/bind/dispose fallback.
 
