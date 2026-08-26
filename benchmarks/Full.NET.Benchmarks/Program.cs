@@ -92,6 +92,18 @@ else if (args.FirstOrDefault() is "jobs-capacity")
     await JobsCapacityRunner.RunAsync(
         JobsCapacityOptions.Parse(capacityArguments));
 }
+else if (args.FirstOrDefault() is "outbox-write-profile")
+{
+    var profileArguments = args.Skip(1).ToArray();
+    if (profileArguments.Contains("--help", StringComparer.OrdinalIgnoreCase))
+    {
+        Console.WriteLine(OutboxWriteProfileOptions.HelpText);
+        return;
+    }
+
+    await OutboxWriteProfileRunner.RunAsync(
+        OutboxWriteProfileOptions.Parse(profileArguments));
+}
 else if (args.FirstOrDefault() is "kafka-capacity")
 {
     var capacityArguments = args.Skip(1).ToArray();

@@ -1,121 +1,196 @@
 using System.Data;
+using System.Data.Common;
 using BenchmarkDotNet.Attributes;
+using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
+using Full.NET.Data.Dapper.Outbox;
 using global::Dapper;
 using Microsoft.Data.SqlClient;
 
 namespace Full.NET.Benchmarks.Data;
 
 /// <summary>
-/// 只比较命令与参数对象图的创建分配；不包含连接打开、网络或数据库执行时间。
+/// 比较 Outbox insert 命令对象图在四条路径上的时间与分配；不包含连接打开、网络或数据库执行。
 /// </summary>
 [MemoryDiagnoser]
 public class DapperAotCommandReuseBenchmarks
 {
-    private const string Sql = "SELECT @Id, @Name, @OccurredAtUtc";
-    private const string StatementName = "benchmark.dapper-aot.command-reuse";
+    // 单次约 2 us；批次 65536 次使 iteration 时长达到 BenchmarkDotNet 建议的 100 ms 以上。
+    private const int OperationsPerBatch = 80_000;
 
     private readonly SqlConnection _connection = new();
-    private readonly DynamicParameters _parameters = CreateParameters();
-    private DapperAotCommandFactory _factory = null!;
+    private SqlTransaction? _transaction;
+    private OutboxMessage _message = OutboxInsertCommandBenchmarkHarness.CreateSampleMessage();
+    private DynamicParameters _parameters = null!;
+    private DapperAotCommandFactory _fixedFactory = null!;
+    private OutboxInsertTypedCommandPrototype _typedPrototype = null!;
 
     [GlobalSetup]
     public void WarmCommandPlan()
     {
-        DapperAotStaticCommandPlanRegistry.Register(
-            StatementName,
-            ["Id", "Name", "OccurredAtUtc"]);
+        OutboxInsertCommandBenchmarkHarness.RegisterPlan();
         if (!DapperAotStaticCommandPlanRegistry.TryGetFactory(
-                StatementName,
-                Full.NET.Data.Abstractions.DatabaseProvider.SqlServer,
-                out _factory))
+                OutboxInsertCommandBenchmarkHarness.StatementName,
+                DatabaseProvider.SqlServer,
+                out _fixedFactory))
         {
             throw new InvalidOperationException("The benchmark command plan was not registered.");
         }
 
-        var command = _factory.GetCommand(
-            _connection,
-            Sql,
-            CommandType.Text,
-            _parameters);
-        if (!_factory.TryRecycle(command))
+        _message = OutboxInsertCommandBenchmarkHarness.CreateSampleMessage();
+        _parameters = OutboxInsertCommandBenchmarkHarness.BindDynamicParameters(_message);
+        _typedPrototype = new OutboxInsertTypedCommandPrototype(
+            OutboxInsertCommandBenchmarkHarness.Sql);
+
+        try
         {
-            command.Dispose();
+            _connection.Open();
+            _transaction = _connection.BeginTransaction();
         }
+        catch
+        {
+            _transaction = null;
+        }
+
+        AssertTypedCommandReuse();
+        WarmPath(() => CreateBindDispose());
+        WarmPath(() => StaticRegistryPlan());
+        WarmPath(() => FixedFactoryHandle());
+        WarmPath(() => TypedParameterFactoryPrototype());
     }
 
-    [Benchmark(Baseline = true)]
+    [Benchmark(Baseline = true, OperationsPerInvoke = OperationsPerBatch)]
     public int CreateBindDispose()
     {
-        using var command = _connection.CreateCommand();
-        command.CommandText = Sql;
-        command.CommandType = CommandType.Text;
-        command.CommandTimeout = 30;
-        foreach (var name in _parameters.ParameterNames)
+        var total = 0;
+        for (var index = 0; index < OperationsPerBatch; index++)
         {
-            var parameter = command.CreateParameter();
-            parameter.ParameterName = name;
-            parameter.Value = _parameters.Get<object>(name) ?? DBNull.Value;
-            command.Parameters.Add(parameter);
+            total += OutboxInsertCommandBenchmarkHarness.CreateBindDispose(
+                _connection,
+                _transaction,
+                _parameters);
         }
 
-        return command.Parameters.Count;
+        return total;
     }
 
-    [Benchmark]
-    public int StaticPlanReuse()
+    [Benchmark(OperationsPerInvoke = OperationsPerBatch)]
+    public int StaticRegistryPlan()
     {
         if (!DapperAotStaticCommandPlanRegistry.TryGetFactory(
-                StatementName,
-                Full.NET.Data.Abstractions.DatabaseProvider.SqlServer,
+                OutboxInsertCommandBenchmarkHarness.StatementName,
+                DatabaseProvider.SqlServer,
                 out var factory))
         {
             throw new InvalidOperationException("The benchmark command plan was not registered.");
         }
 
-        var command = factory.GetCommand(
-            _connection,
-            Sql,
-            CommandType.Text,
-            _parameters);
-        command.Connection = _connection;
-        command.CommandTimeout = 30;
-        var count = command.Parameters.Count;
-        if (!factory.TryRecycle(command))
+        var total = 0;
+        for (var index = 0; index < OperationsPerBatch; index++)
         {
-            command.Dispose();
+            var command = factory.GetCommand(
+                _connection,
+                OutboxInsertCommandBenchmarkHarness.Sql,
+                CommandType.Text,
+                _parameters);
+            total += OutboxInsertCommandBenchmarkHarness.FinalizeCommand(
+                command,
+                _connection,
+                _transaction,
+                factory);
         }
 
-        return count;
+        return total;
     }
 
-    [Benchmark]
-    public int DirectFactoryReuse()
+    [Benchmark(OperationsPerInvoke = OperationsPerBatch)]
+    public int FixedFactoryHandle()
     {
-        var command = _factory.GetCommand(
-            _connection,
-            Sql,
-            CommandType.Text,
-            _parameters);
-        command.Connection = _connection;
-        var count = command.Parameters.Count;
-        if (!_factory.TryRecycle(command))
+        var total = 0;
+        for (var index = 0; index < OperationsPerBatch; index++)
         {
-            command.Dispose();
+            var command = _fixedFactory.GetCommand(
+                _connection,
+                OutboxInsertCommandBenchmarkHarness.Sql,
+                CommandType.Text,
+                _parameters);
+            total += OutboxInsertCommandBenchmarkHarness.FinalizeCommand(
+                command,
+                _connection,
+                _transaction,
+                _fixedFactory);
         }
 
-        return count;
+        return total;
+    }
+
+    [Benchmark(OperationsPerInvoke = OperationsPerBatch)]
+    public int TypedParameterFactoryPrototype()
+    {
+        var total = 0;
+        for (var index = 0; index < OperationsPerBatch; index++)
+        {
+            var command = _typedPrototype.GetCommand(
+                _connection,
+                _message,
+                CommandType.Text);
+            total += OutboxInsertCommandBenchmarkHarness.FinalizeTypedCommand(
+                command,
+                _connection,
+                _transaction,
+                _typedPrototype);
+        }
+
+        return total;
+    }
+
+    [IterationSetup]
+    public void RefreshMessage()
+    {
+        _message = OutboxInsertCommandBenchmarkHarness.CreateSampleMessage();
+        _parameters = OutboxInsertCommandBenchmarkHarness.BindDynamicParameters(_message);
     }
 
     [GlobalCleanup]
-    public void Dispose() => _connection.Dispose();
-
-    private static DynamicParameters CreateParameters()
+    public void Dispose()
     {
-        var parameters = new DynamicParameters();
-        parameters.Add("Id", 42);
-        parameters.Add("Name", "fullnet");
-        parameters.Add("OccurredAtUtc", DateTimeOffset.UnixEpoch);
-        return parameters;
+        _transaction?.Dispose();
+        _connection.Dispose();
+    }
+
+    private void AssertTypedCommandReuse()
+    {
+        var first = _typedPrototype.GetCommand(_connection, _message, CommandType.Text);
+        OutboxInsertCommandBenchmarkHarness.FinalizeTypedCommand(
+            first,
+            _connection,
+            _transaction,
+            _typedPrototype);
+        var second = _typedPrototype.GetCommand(_connection, _message, CommandType.Text);
+        if (!ReferenceEquals(first, second))
+        {
+            throw new InvalidOperationException(
+                "Typed command reuse did not return the same command instance.");
+        }
+
+        if (first.Connection is not null || first.Transaction is not null)
+        {
+            throw new InvalidOperationException(
+                "Recycled typed command must detach connection and transaction.");
+        }
+
+        OutboxInsertCommandBenchmarkHarness.FinalizeTypedCommand(
+            second,
+            _connection,
+            _transaction,
+            _typedPrototype);
+    }
+
+    private static void WarmPath(Func<int> path)
+    {
+        for (var index = 0; index < 4; index++)
+        {
+            _ = path();
+        }
     }
 }
