@@ -27,5 +27,8 @@ internal static class AotDataReaderExtensions
 
     public static bool ReadBoolean(DbDataReader reader, int ordinal) =>
         Convert.ToBoolean(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
+
+    public static int ReadInt32(DbDataReader reader, int ordinal) =>
+        Convert.ToInt32(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
 }
 #endif

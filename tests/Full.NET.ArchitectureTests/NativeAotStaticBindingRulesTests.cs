@@ -625,6 +625,66 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void SerialNumbersModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.SerialNumbers");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT SerialNumbers 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void SerialNumbersModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.SerialNumbers");
+        var moduleSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "SerialNumbersModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "SerialNumbersDapperAotMaterializerContributor.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(
+            moduleSource,
+            "SerialNumbersDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "SerialNumberRuleRecord",
+                     "AllocatedCounterValue",
+                     "SerialNumberAllocationRecord",
+                 })
+        {
+            StringAssert.Contains(
+                contributorSource,
+                $"registrar.Register<{recordType}>");
+        }
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();

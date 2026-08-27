@@ -47,14 +47,12 @@ internal sealed class HostSerialRuleService(
         };
         var result = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new
-                {
-                    Offset = offset,
-                    PageSize = pageSize,
-                    NameContains = NormalizeContains(name),
-                    KeyContains = NormalizeContains(key),
-                    IsEnabled = isEnabled,
-                },
+                SerialNumbersSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize),
+                    ("NameContains", NormalizeContains(name)),
+                    ("KeyContains", NormalizeContains(key)),
+                    ("IsEnabled", isEnabled)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -187,22 +185,20 @@ internal sealed class HostSerialRuleService(
                         var id = idGenerator.NewId();
                         await commandExecutor.ExecuteAsync(
                                 SerialNumberSql.InsertRule,
-                                new
-                                {
-                                    Id = id,
-                                    input.RuleKey,
-                                    input.DisplayName,
-                                    input.Description,
-                                    Scope = (int)input.Scope,
-                                    ResetInterval = (int)input.ResetInterval,
-                                    input.Pattern,
-                                    input.MinimumValue,
-                                    input.MaximumValue,
-                                    input.DisplayOrder,
-                                    input.IsEnabled,
-                                    CreatedAtUtc = now,
-                                    CreatedByUserId = actorUserId,
-                                },
+                                SerialNumbersSqlParameters.Create(
+                                    ("Id", id),
+                                    ("RuleKey", input.RuleKey),
+                                    ("DisplayName", input.DisplayName),
+                                    ("Description", input.Description),
+                                    ("Scope", (int)input.Scope),
+                                    ("ResetInterval", (int)input.ResetInterval),
+                                    ("Pattern", input.Pattern),
+                                    ("MinimumValue", input.MinimumValue),
+                                    ("MaximumValue", input.MaximumValue),
+                                    ("DisplayOrder", input.DisplayOrder),
+                                    ("IsEnabled", input.IsEnabled),
+                                    ("CreatedAtUtc", now),
+                                    ("CreatedByUserId", actorUserId)),
                                 token)
                             .ConfigureAwait(false);
                         return Result<SerialNumberRuleResponse>.Success(
@@ -261,7 +257,7 @@ internal sealed class HostSerialRuleService(
             var allocationCount = await queryExecutor
                 .QuerySingleOrDefaultAsync<long>(
                     SerialNumberSql.CountAllocationsByRule,
-                    new { RuleId = ruleId },
+                    SerialNumbersSqlParameters.Create(("RuleId", ruleId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (allocationCount > 0)
@@ -273,22 +269,20 @@ internal sealed class HostSerialRuleService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 SerialNumberSql.UpdateRule,
-                new
-                {
-                    Id = ruleId,
-                    input.DisplayName,
-                    input.Description,
-                    Scope = (int)input.Scope,
-                    ResetInterval = (int)input.ResetInterval,
-                    input.Pattern,
-                    input.MinimumValue,
-                    input.MaximumValue,
-                    input.DisplayOrder,
-                    input.IsEnabled,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = version,
-                },
+                SerialNumbersSqlParameters.Create(
+                    ("Id", ruleId),
+                    ("DisplayName", input.DisplayName),
+                    ("Description", input.Description),
+                    ("Scope", (int)input.Scope),
+                    ("ResetInterval", (int)input.ResetInterval),
+                    ("Pattern", input.Pattern),
+                    ("MinimumValue", input.MinimumValue),
+                    ("MaximumValue", input.MaximumValue),
+                    ("DisplayOrder", input.DisplayOrder),
+                    ("IsEnabled", input.IsEnabled),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         return affected == 1
@@ -329,14 +323,12 @@ internal sealed class HostSerialRuleService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 SerialNumberSql.SetRuleEnabled,
-                new
-                {
-                    Id = ruleId,
-                    IsEnabled = isEnabled,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = version,
-                },
+                SerialNumbersSqlParameters.Create(
+                    ("Id", ruleId),
+                    ("IsEnabled", isEnabled),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -358,7 +350,7 @@ internal sealed class HostSerialRuleService(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<SerialNumberRuleRecord>(
             SerialNumberSql.FindRuleById,
-            new { Id = ruleId },
+            SerialNumbersSqlParameters.Create(("Id", ruleId)),
             cancellationToken);
 
     private Task<SerialNumberRuleRecord?> FindForMutationAsync(
@@ -376,7 +368,7 @@ internal sealed class HostSerialRuleService(
         };
         return queryExecutor.QuerySingleOrDefaultAsync<SerialNumberRuleRecord>(
             statement,
-            new { Id = ruleId },
+            SerialNumbersSqlParameters.Create(("Id", ruleId)),
             cancellationToken);
     }
 

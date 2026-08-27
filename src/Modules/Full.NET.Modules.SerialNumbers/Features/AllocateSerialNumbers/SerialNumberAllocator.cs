@@ -148,20 +148,18 @@ internal sealed class SerialNumberAllocator(
         var counter = await queryExecutor
             .QuerySingleOrDefaultAsync<AllocatedCounterValue>(
                 counterStatement,
-                new
-                {
-                    CounterId = idGenerator.NewId(),
-                    RuleId = rule.Id,
-                    TenantId = tenantId,
-                    ResetBucket = resetBucket,
-                    LockResource = CreateLockResource(
+                SerialNumbersSqlParameters.Create(
+                    ("CounterId", idGenerator.NewId()),
+                    ("RuleId", rule.Id),
+                    ("TenantId", tenantId),
+                    ("ResetBucket", resetBucket),
+                    ("LockResource", CreateLockResource(
                         rule.Id,
                         tenantId,
-                        resetBucket),
-                    rule.MinimumValue,
-                    rule.MaximumValue,
-                    UpdatedAtUtc = now,
-                },
+                        resetBucket)),
+                    ("MinimumValue", rule.MinimumValue),
+                    ("MaximumValue", rule.MaximumValue),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (counter is null || counter.Value < rule.MinimumValue)
@@ -186,18 +184,16 @@ internal sealed class SerialNumberAllocator(
                 tenantId is null
                     ? SerialNumberSql.InsertHostAllocation
                     : SerialNumberSql.InsertTenantAllocation,
-                new
-                {
-                    Id = idGenerator.NewId(),
-                    RuleId = rule.Id,
-                    TenantId = tenantId,
-                    rule.RuleKey,
-                    ResetBucket = resetBucket,
-                    IdempotencyKey = idempotencyKey,
-                    SequenceValue = counter.Value,
-                    SerialNumber = serialNumber,
-                    AllocatedAtUtc = now,
-                },
+                SerialNumbersSqlParameters.Create(
+                    ("Id", idGenerator.NewId()),
+                    ("RuleId", rule.Id),
+                    ("TenantId", tenantId),
+                    ("RuleKey", rule.RuleKey),
+                    ("ResetBucket", resetBucket),
+                    ("IdempotencyKey", idempotencyKey),
+                    ("SequenceValue", counter.Value),
+                    ("SerialNumber", serialNumber),
+                    ("AllocatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<SerialNumberAllocation>.Success(allocation);
@@ -218,7 +214,7 @@ internal sealed class SerialNumberAllocator(
         };
         return queryExecutor.QuerySingleOrDefaultAsync<SerialNumberRuleRecord>(
             statement,
-            new { RuleKey = ruleKey },
+            SerialNumbersSqlParameters.Create(("RuleKey", ruleKey)),
             cancellationToken);
     }
 
@@ -231,7 +227,7 @@ internal sealed class SerialNumberAllocator(
         var rule = await queryExecutor
             .QuerySingleOrDefaultAsync<SerialNumberRuleRecord>(
                 SerialNumberSql.FindRuleByKey,
-                new { RuleKey = ruleKey },
+                SerialNumbersSqlParameters.Create(("RuleKey", ruleKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (rule is null)
@@ -294,12 +290,10 @@ internal sealed class SerialNumberAllocator(
             tenantId is null
                 ? SerialNumberSql.FindHostAllocation
                 : SerialNumberSql.FindTenantAllocation,
-            new
-            {
-                RuleId = ruleId,
-                TenantId = tenantId,
-                IdempotencyKey = idempotencyKey,
-            },
+            SerialNumbersSqlParameters.Create(
+                ("RuleId", ruleId),
+                ("TenantId", tenantId),
+                ("IdempotencyKey", idempotencyKey)),
             cancellationToken);
 
     private static bool IsSafeKey(string value, int maximumLength) =>

@@ -294,12 +294,25 @@ internal sealed class DapperSqlExecutor(
             await using var connectionLease = await session
                 .AcquireConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
+            var connection = connectionLease.Connection;
+#if FULLNET_AOT_COMPILE
+            return await DapperAotSqlExecution.QueryMultipleAsync(
+                    connection,
+                    statement.Name,
+                    _options.Provider,
+                    statement.Text,
+                    commandParameters,
+                    connectionLease.Transaction,
+                    _options.CommandTimeoutSeconds,
+                    projector,
+                    cancellationToken)
+                .ConfigureAwait(false);
+#else
             var command = CreateCommand(
                 statement,
                 commandParameters,
                 connectionLease.Transaction,
                 cancellationToken);
-            var connection = connectionLease.Connection;
             await using var grid = await connection
                 .QueryMultipleAsync(command)
                 .ConfigureAwait(false);
@@ -312,6 +325,7 @@ internal sealed class DapperSqlExecutor(
             }
 
             return result;
+#endif
         }
         catch (Exception caught)
         {

@@ -2,9 +2,11 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.IntegrationTests.NativeAot;
@@ -45,6 +47,8 @@ internal static class NativeApiE2EAssertions
         await VerifyTenancyReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -219,6 +223,107 @@ internal static class NativeApiE2EAssertions
         Assert.IsTrue(payload.RootElement.ValueKind == JsonValueKind.Array);
     }
 
+    private static async Task VerifySerialNumbersFlowAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        const string rulesPath = "/api/v1/serial-numbers/rules";
+        var ruleKey = "native_aot_" + Guid.NewGuid().ToString("N");
+        var create = new CreateSerialNumberRuleRequest(
+            ruleKey,
+            "Native AOT serial rule",
+            null,
+            SerialNumberRuleScope.Host,
+            SerialNumberResetInterval.Never,
+            "N-{sequence:4}",
+            1,
+            9999,
+            1,
+            true);
+
+        using var createRequest = AuthorizedJson(
+            HttpMethod.Post,
+            rulesPath,
+            accessToken,
+            create);
+        using var createResponse = await client.SendAsync(
+                createRequest,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                createResponse,
+                HttpStatusCode.Created,
+                "Create Native AOT serial number rule",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var created = await createResponse.Content
+            .ReadFromJsonAsync<SerialNumberRuleResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(created);
+        Assert.AreEqual(ruleKey, created.RuleKey);
+
+        using var getRequest = Authorized(
+            HttpMethod.Get,
+            $"{rulesPath}/{created.Id:D}",
+            accessToken);
+        using var getResponse = await client.SendAsync(getRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                getResponse,
+                HttpStatusCode.OK,
+                "Read Native AOT serial number rule",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var found = await getResponse.Content
+            .ReadFromJsonAsync<SerialNumberRuleResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(created.Id, found?.Id);
+
+        using var listRequest = Authorized(
+            HttpMethod.Get,
+            rulesPath + "?page=1&pageSize=20&key=" + Uri.EscapeDataString(ruleKey),
+            accessToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                listResponse,
+                HttpStatusCode.OK,
+                "List Native AOT serial number rules",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var page = await listResponse.Content
+            .ReadFromJsonAsync<PagedResult<SerialNumberRuleResponse>>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(page);
+        Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
+
+        using var previewRequest = AuthorizedJson(
+            HttpMethod.Post,
+            rulesPath + "/preview",
+            accessToken,
+            new PreviewSerialNumberRequest(
+                SerialNumberRuleScope.Host,
+                "N-{sequence:4}",
+                null,
+                7,
+                new DateTimeOffset(2026, 8, 28, 0, 0, 0, TimeSpan.Zero)));
+        using var previewResponse = await client.SendAsync(
+                previewRequest,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                previewResponse,
+                HttpStatusCode.OK,
+                "Preview Native AOT serial number",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var preview = await previewResponse.Content
+            .ReadFromJsonAsync<SerialNumberPreviewResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual("N-0007", preview?.Value);
+    }
+
     private static async Task VerifyReadinessAsync(
         HttpClient client,
         CancellationToken cancellationToken)
@@ -242,6 +347,29 @@ internal static class NativeApiE2EAssertions
         }
 
         return content[^maxChars..];
+    }
+
+    private static HttpRequestMessage Authorized(
+        HttpMethod method,
+        string path,
+        string accessToken)
+    {
+        var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            accessToken);
+        return request;
+    }
+
+    private static HttpRequestMessage AuthorizedJson<T>(
+        HttpMethod method,
+        string path,
+        string accessToken,
+        T body)
+    {
+        var request = Authorized(method, path, accessToken);
+        request.Content = JsonContent.Create(body);
+        return request;
     }
 
     internal static async Task AssertStatusAsync(

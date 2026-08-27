@@ -177,6 +177,54 @@ internal static class DapperAotSqlExecution
         }
     }
 
+    public static async Task<TResult> QueryMultipleAsync<TResult>(
+        DbConnection connection,
+        string statementName,
+        DatabaseProvider provider,
+        string sql,
+        DynamicParameters parameters,
+        IDbTransaction? transaction,
+        int commandTimeoutSeconds,
+        Func<IMultiResultReader, CancellationToken, Task<TResult>> projector,
+        CancellationToken cancellationToken)
+    {
+        var commandRental = CreateCommandRental(
+            connection,
+            statementName,
+            provider,
+            sql,
+            parameters,
+            transaction,
+            commandTimeoutSeconds);
+        var reusable = false;
+        try
+        {
+            TResult result;
+            await using (var reader = await commandRental.Command
+                .ExecuteReaderAsync(cancellationToken)
+                .ConfigureAwait(false))
+            {
+                var multiResultReader = new AotMultiResultReader(
+                    reader,
+                    cancellationToken);
+                result = await projector(multiResultReader, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!multiResultReader.IsConsumed)
+                {
+                    throw new InvalidOperationException(
+                        "The multi-result projector must consume every result set in order.");
+                }
+            }
+
+            reusable = true;
+            return result;
+        }
+        finally
+        {
+            await commandRental.ReleaseAsync(reusable).ConfigureAwait(false);
+        }
+    }
+
     private static CommandRental CreateCommandRental(
         DbConnection connection,
         string statementName,
@@ -272,6 +320,101 @@ internal static class DapperAotSqlExecution
 
         var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
         return (T)Convert.ChangeType(value, targetType);
+    }
+
+    private static T ReadRow<T>(DbDataReader reader)
+    {
+        if (IsScalarType(typeof(T)))
+        {
+            return ReadScalar<T>(reader, 0);
+        }
+
+        if (!DapperAotMaterializerRegistry.TryGetReader<T>(out var readRow))
+        {
+            throw new InvalidOperationException(
+                $"Native AOT has no row materializer registered for {typeof(T).FullName}.");
+        }
+
+        return readRow(reader);
+    }
+
+    /// <summary>
+    /// Native AOT 多结果读取器只允许按顺序消费，并在每次读取完成后推进到下一结果集。
+    /// </summary>
+    private sealed class AotMultiResultReader(
+        DbDataReader reader,
+        CancellationToken cancellationToken) : IMultiResultReader
+    {
+        private int _reading;
+
+        public bool IsConsumed { get; private set; }
+
+        public async Task<T?> ReadSingleOrDefaultAsync<T>()
+        {
+            EnterRead();
+            try
+            {
+                var hasRow = await reader.ReadAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                var result = hasRow ? ReadRow<T>(reader) : default;
+                if (hasRow
+                    && await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    throw new InvalidOperationException(
+                        "The current result set contains more than one row.");
+                }
+
+                await AdvanceAsync().ConfigureAwait(false);
+                return result;
+            }
+            finally
+            {
+                ExitRead();
+            }
+        }
+
+        public async Task<IReadOnlyList<T>> ReadAsync<T>()
+        {
+            EnterRead();
+            try
+            {
+                var rows = new List<T>();
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    rows.Add(ReadRow<T>(reader));
+                }
+
+                await AdvanceAsync().ConfigureAwait(false);
+                return rows;
+            }
+            finally
+            {
+                ExitRead();
+            }
+        }
+
+        private async Task AdvanceAsync()
+        {
+            IsConsumed = !await reader.NextResultAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private void EnterRead()
+        {
+            if (IsConsumed)
+            {
+                throw new InvalidOperationException(
+                    "All multi-result sets have already been consumed.");
+            }
+
+            if (Interlocked.Exchange(ref _reading, 1) != 0)
+            {
+                throw new InvalidOperationException(
+                    "Multi-result sets must be consumed sequentially.");
+            }
+        }
+
+        private void ExitRead() => Volatile.Write(ref _reading, 0);
     }
 }
 #endif
