@@ -16,7 +16,7 @@ internal sealed class MySqlAotUtcDateTimeOffsetConnection(DbConnection inner)
 {
     private readonly DbConnection _inner = inner;
 
-    internal DbConnection InnerConnection => _inner;
+    public DbConnection InnerConnection => _inner;
 
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
         _inner.BeginTransaction(isolationLevel);

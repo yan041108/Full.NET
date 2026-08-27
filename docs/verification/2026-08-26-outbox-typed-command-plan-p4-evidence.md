@@ -1,5 +1,7 @@
 # Outbox Native AOT typed CommandPlan P4 evidence
 
+> 2026-08-28 follow-up：已实现 Outbox-only 内部 Typed Plan 候选并完成双库交错 A/B。资源收益成立，但生产切流仍为 No-Go；详见 [Outbox Typed Command Plan 端到端 A/B 证据](2026-08-28-outbox-typed-command-plan-ab.md)。
+
 
 
 ## Scope
