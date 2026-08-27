@@ -282,3 +282,36 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 两库 `AttemptFailures` 均为空并与 `Errors = 0` 一致，连接获取样本均为 `EvidenceComplete=true` 且零丢弃。窗口取消与 SQL 取消不要求相等：前者统计每个 worker 在窗口结束时被取消的在途尝试，后者只统计取消发生在 Dapper SQL 计量边界内的执行。该结果证明采集链路有效，不是性能 A/B，也不用于重开 Typed Plan 决策；状态仍为 `Capacity-not-verified`，Production 仍为 `StaticRegistry`。
 
 验证结果：聚焦 Profile 合约测试 8/8；Benchmark Release 构建 0 警告/0 错误；受影响 Integration inner 选择器判定无目标；Governance 52/52；项目 Skill 合同通过；独立复审修复了监听器逐写入采样可能污染分配指标的问题，修复后无剩余 Critical/Important finding。Naming 仍为 29/30，唯一失败是任务基线已有的 migration 100 `FNSQL003` 四处 unsupported DDL，与本次 benchmark/docs 影响集无关。`git diff --check` 无错误，仅有工作区行尾转换提示。
+
+## SQL Server 窗口错误归类复核（2026-08-28）
+
+本轮只回答前述 SQL Server 错误是否发生在有效测量窗口内。范围固定为此前错误较多的 concurrency 32：2 targets × 2 paths × 2 repetitions，共 8 个交错样本；每样本 warmup 3 s、measurement 10 s。它不是新的性能决策矩阵。
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
+  -c Release --no-build -- outbox-write-profile `
+  --providers sqlserver `
+  --concurrency 32 `
+  --targets legacy,append `
+  --command-paths registry,typed `
+  --payload-size 256 `
+  --repetitions 2 `
+  --warmup-seconds 3 `
+  --duration-seconds 10 `
+  --output BenchmarkDotNet.Artifacts/outbox-sqlserver-failure-classification-20260828
+```
+
+原始工件（本地、未提交）：`BenchmarkDotNet.Artifacts/outbox-sqlserver-failure-classification-20260828/outbox-write-profile.json`，27,186 B，SHA-256 `46F2C5AB5A2276001F24327538FCE21760A9B4BBDEBD879FEFDD1FAA06EED00D`。
+
+| Target | Path | Writes | Errors / SQL failures | SQL cancellations | Window cancellations | code 0 / code 3980 | Non-window failures | Max acquisition P99 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| AppendOnly | Registry | 40,365 | 26 / 26 | 22 | 24 | 17 / 9 | 0 | 0.0386 ms |
+| AppendOnly | Typed | 41,364 | 17 / 17 | 20 | 33 | 16 / 1 | 0 | 0.0351 ms |
+| Legacy | Registry | 34,292 | 14 / 14 | 2 | 23 | 6 / 8 | 0 | 0.0498 ms |
+| Legacy | Typed | 38,333 | 26 / 26 | 25 | 27 | 22 / 4 | 0 | 0.0405 ms |
+
+结论：全部 83 个业务错误的 `WindowOwned` 均为 `true`，没有测量窗口运行期间的非取消失败。SQL Server 官方错误目录将 3980 定义为批次已中止，可能由客户端 abort signal 或同一会话仍忙导致；本轮 22 个 3980 全部与窗口取消同时发生，和该定义一致。其余 61 个 Provider code 0 不根据数字本身推断具体根因，只能由本轮 `WindowOwned=true` 证明它们发生在窗口取消之后。SqlClient 可能以 `SqlException` 而非 `OperationCanceledException` 呈现异步取消，因此 `Errors`/`SqlFailures` 与 `SqlCancellations` 不要求逐项相等。
+
+8 个连接获取快照全部 `EvidenceComplete=true`、`DroppedSamples=0`；acquisition P99 最大为 0.0498 ms。这批错误不是连接获取饱和证据，也没有证明 Typed 或 Registry 的运行期正确性差异。它关闭了“错误来源未分类”这一证据缺口，但此前 7/12 cell 的 P99 中位数回退仍然成立，所以 Production 继续 `StaticRegistry`、Typed Plan 继续 Testing/benchmark-only，状态保持 `Capacity-not-verified`。
+
+参考：[SQL Server Database Engine errors 3000–3999](https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-3000-to-3999)、[SqlClient cancellation behavior discussion](https://github.com/dotnet/SqlClient/issues/26)。

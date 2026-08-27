@@ -283,3 +283,27 @@ Run one Registry/legacy sample for SQL Server and MySQL with 1 s warmup and 5 s 
 - [x] **Step 4: Close repository verification**
 
 Run focused Unit, benchmark Release build, affected inner plan/tests, governance, `git diff --check`, status/branch checks and independent code review. Record fresh results and keep `Capacity-not-verified` and Production `StaticRegistry` unchanged.
+
+### Task 9: SQL Server measurement-window failure classification
+
+**Approved basis:** Task 8 added the missing failure ownership and error-code evidence. The prior five-repetition run had SQL Server errors that could not be distinguished from measurement-window cancellation. This evidence-only task resolves that single uncertainty and does not reopen the Typed Plan performance decision.
+
+**Files:**
+- Modify: `docs/verification/2026-08-28-outbox-typed-command-plan-ab.md`
+- No source, SQL, configuration, migration or public contract changes.
+
+**Interfaces:**
+- Consumes: Task 8 `AttemptFailures`, `WindowOwned`, `DatabaseErrorCode`, `ConnectionAcquisition` and bounded-sample completeness fields.
+- Produces: a focused classification record for the SQL Server concurrency-32 cells that previously reported errors.
+
+- [x] **Step 1: Run the focused interleaved samples**
+
+Run SQL Server only, both Outbox targets, Registry/Typed, concurrency 32, two repetitions, 3 s warmup and 10 s measurement. This is 8 samples, within the local 2–4 comparable samples per changed cell; do not run the full matrix.
+
+- [x] **Step 2: Reconcile failures and window ownership**
+
+Require every connection-acquisition snapshot to be complete with zero dropped samples. Aggregate attempt failures by stable error code and `WindowOwned`; compare business errors, Dapper failures/cancellations and worker window cancellations without assuming the counters must be equal.
+
+- [x] **Step 3: Record the bounded conclusion**
+
+Use the official SQL Server error catalog to interpret code 3980, retain code 0 as an opaque Provider code, and state whether any non-window-owned failure remains. Do not use this diagnostic run to promote Typed Plan or make capacity claims.
