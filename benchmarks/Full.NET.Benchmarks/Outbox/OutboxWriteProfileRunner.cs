@@ -46,34 +46,24 @@ public static class OutboxWriteProfileRunner
                 provider,
                 poolName,
                 cancellationToken);
-            foreach (var target in options.Targets)
+            foreach (var scenario in OutboxWriteProfileScenarioMatrix.Create(options))
             {
-                foreach (var commandPath in options.CommandPaths)
-                {
-                    foreach (var concurrency in options.ConcurrencyLevels)
-                    {
-                        for (var repetition = 1;
-                             repetition <= options.Repetitions;
-                             repetition++)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            Console.WriteLine(
-                                $"[{provider}] {target} path={commandPath} "
-                                + $"concurrency={concurrency} "
-                                + $"repeat {repetition}/{options.Repetitions}");
-                            results.Add(await RunScenarioAsync(
-                                database,
-                                poolName,
-                                provider,
-                                target,
-                                commandPath,
-                                concurrency,
-                                repetition,
-                                options,
-                                cancellationToken));
-                        }
-                    }
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                Console.WriteLine(
+                    $"[{provider}] {scenario.Target} "
+                    + $"path={scenario.CommandPath} "
+                    + $"concurrency={scenario.Concurrency} "
+                    + $"repeat {scenario.Repetition}/{options.Repetitions}");
+                results.Add(await RunScenarioAsync(
+                    database,
+                    poolName,
+                    provider,
+                    scenario.Target,
+                    scenario.CommandPath,
+                    scenario.Concurrency,
+                    scenario.Repetition,
+                    options,
+                    cancellationToken));
             }
         }
 
