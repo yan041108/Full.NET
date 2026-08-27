@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using System.Text.Json.Serialization;
+
 namespace Full.NET.Benchmarks.Outbox;
 
 public enum OutboxWriteProfileTarget
@@ -10,8 +12,25 @@ public enum OutboxWriteProfileTarget
 
 public enum OutboxWriteProfileCommandPath
 {
+    [JsonStringEnumMemberName("registry")]
     Registry,
+
+    [JsonStringEnumMemberName("typed")]
     Typed,
+}
+
+internal static class OutboxWriteProfileCommandPathExtensions
+{
+    public static string ToToken(this OutboxWriteProfileCommandPath path) =>
+        path switch
+        {
+            OutboxWriteProfileCommandPath.Registry => "registry",
+            OutboxWriteProfileCommandPath.Typed => "typed",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(path),
+                path,
+                "Unsupported Outbox write profile command path."),
+        };
 }
 
 public sealed record OutboxWriteProfileOptions(

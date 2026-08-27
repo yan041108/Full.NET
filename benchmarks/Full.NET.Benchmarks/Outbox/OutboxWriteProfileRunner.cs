@@ -51,7 +51,7 @@ public static class OutboxWriteProfileRunner
                 cancellationToken.ThrowIfCancellationRequested();
                 Console.WriteLine(
                     $"[{provider}] {scenario.Target} "
-                    + $"path={scenario.CommandPath} "
+                    + $"path={scenario.CommandPath.ToToken()} "
                     + $"concurrency={scenario.Concurrency} "
                     + $"repeat {scenario.Repetition}/{options.Repetitions}");
                 results.Add(await RunScenarioAsync(
@@ -96,14 +96,10 @@ public static class OutboxWriteProfileRunner
             database,
             target,
             commandPath);
-        var databaseBefore = await database.CaptureStateAsync(cancellationToken);
         using var dapperTelemetry = new MixedLoadDapperTelemetry();
         using var poolTelemetry = MixedLoadConnectionPoolTelemetry.Create(
             database.Provider,
             poolName);
-        dapperTelemetry.Reset();
-        poolTelemetry.Reset();
-        var processBefore = CaptureProcessResources();
         await RunWindowAsync(
             services,
             target,
@@ -113,8 +109,16 @@ public static class OutboxWriteProfileRunner
             new ConcurrentQueue<double>(),
             new OutboxWriteProfileCounters(),
             cancellationToken);
+        await ResetTargetTableAsync(database, target, cancellationToken);
+        if (target == OutboxWriteProfileTarget.AppendOnly)
+        {
+            await ResetLegacyTableAsync(database, cancellationToken);
+        }
+
+        var databaseBefore = await database.CaptureStateAsync(cancellationToken);
         dapperTelemetry.Reset();
         poolTelemetry.Reset();
+        var processBefore = CaptureProcessResources();
         var writeLatencies = new ConcurrentQueue<double>();
         var counters = new OutboxWriteProfileCounters();
         var windowStarted = Stopwatch.StartNew();

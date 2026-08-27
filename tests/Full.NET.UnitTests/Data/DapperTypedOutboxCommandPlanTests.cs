@@ -1,4 +1,8 @@
+using System.Data;
+using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 using Full.NET.Data.Dapper.Outbox;
 using Microsoft.Data.SqlClient;
 
@@ -101,8 +105,118 @@ public sealed class DapperTypedOutboxCommandPlanTests
         Assert.AreEqual(message.PartitionKey, command.Parameters[5].Value);
         Assert.AreEqual(message.Producer, command.Parameters[9].Value);
         Assert.AreSame(message.Payload, command.Parameters[10].Value);
-        Assert.AreEqual(message.OccurredAtUtc, command.Parameters[11].Value);
+        Assert.AreEqual(message.OccurredAtUtc.UtcDateTime, command.Parameters[11].Value);
         command.Dispose();
+    }
+
+    [TestMethod]
+    public void Legacy_plan_preserves_guid_and_utc_parameter_invariants()
+    {
+        var plan = new OutboxInsertTypedCommandPlan();
+        using var connection = new SqlConnection();
+        var localTime = new DateTimeOffset(
+            2026,
+            8,
+            28,
+            8,
+            30,
+            0,
+            TimeSpan.FromHours(8));
+        var message = CreateLegacyMessage(7, "typed") with
+        {
+            TenantId = null,
+            OccurredAtUtc = localTime,
+        };
+
+        var command = plan.GetCommand(
+            connection,
+            DatabaseProvider.SqlServer,
+            message);
+
+        Assert.AreEqual(DbType.Guid, command.Parameters[0].DbType);
+        Assert.AreEqual(DbType.Guid, command.Parameters[4].DbType);
+        Assert.AreEqual(DBNull.Value, command.Parameters[4].Value);
+        Assert.AreEqual(localTime.UtcDateTime, command.Parameters[7].Value);
+        Assert.IsInstanceOfType<DateTime>(command.Parameters[7].Value);
+        Assert.AreEqual(
+            DateTimeKind.Utc,
+            ((DateTime)command.Parameters[7].Value!).Kind);
+        command.Dispose();
+    }
+
+    [TestMethod]
+    public void Legacy_plan_rejects_unassigned_id()
+    {
+        var plan = new OutboxInsertTypedCommandPlan();
+        using var connection = new SqlConnection();
+        var message = CreateLegacyMessage(8, "empty") with { Id = Guid.Empty };
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            plan.GetCommand(
+                connection,
+                DatabaseProvider.SqlServer,
+                message));
+    }
+
+    [TestMethod]
+    public void Wrapped_connection_attaches_inner_connection_to_typed_command()
+    {
+        var plan = new OutboxInsertTypedCommandPlan();
+        var innerConnection = new SqlConnection();
+        using var connection = new TestWrappedConnection(innerConnection);
+
+        var command = plan.GetCommand(
+            connection,
+            DatabaseProvider.MySql,
+            CreateLegacyMessage(9, "wrapped"));
+
+        Assert.AreSame(innerConnection, command.Connection);
+        command.Dispose();
+    }
+
+    private sealed class TestWrappedConnection(DbConnection inner)
+        : DbConnection, IDapperDbConnectionWrapper
+    {
+        public DbConnection InnerConnection { get; } = inner;
+
+        [AllowNull]
+        public override string ConnectionString
+        {
+            get => InnerConnection.ConnectionString;
+            set => InnerConnection.ConnectionString = value;
+        }
+
+        public override string Database => InnerConnection.Database;
+
+        public override string DataSource => InnerConnection.DataSource;
+
+        public override string ServerVersion => InnerConnection.ServerVersion;
+
+        public override ConnectionState State => InnerConnection.State;
+
+        public override void ChangeDatabase(string databaseName) =>
+            InnerConnection.ChangeDatabase(databaseName);
+
+        public override void Close() => InnerConnection.Close();
+
+        public override void Open() => InnerConnection.Open();
+
+        protected override DbTransaction BeginDbTransaction(
+            IsolationLevel isolationLevel) =>
+            InnerConnection.BeginTransaction(isolationLevel);
+
+        protected override DbCommand CreateDbCommand() =>
+            InnerConnection.CreateCommand();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                InnerConnection.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
     }
 
     private static OutboxMessage CreateLegacyMessage(int suffix, string traceId) =>

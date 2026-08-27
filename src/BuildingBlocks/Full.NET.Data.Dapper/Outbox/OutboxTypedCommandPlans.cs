@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 
 namespace Full.NET.Data.Dapper.Outbox;
@@ -20,11 +21,11 @@ internal sealed class OutboxInsertTypedCommandPlan()
 
     protected override void AddParameters(DbCommand command)
     {
-        AddParameter(command, "Id");
+        AddParameter(command, "Id", DbType.Guid);
         AddParameter(command, "MessageType");
         AddParameter(command, "SchemaVersion");
         AddParameter(command, "ContentType");
-        AddParameter(command, "TenantId");
+        AddParameter(command, "TenantId", DbType.Guid);
         AddParameter(command, "TraceId");
         AddParameter(command, "Payload");
         AddParameter(command, "OccurredAtUtc");
@@ -32,14 +33,14 @@ internal sealed class OutboxInsertTypedCommandPlan()
 
     protected override void UpdateParameters(DbCommand command, OutboxMessage args)
     {
-        command.Parameters[0].Value = args.Id;
+        SetAssignedGuid(command.Parameters[0], args.Id);
         command.Parameters[1].Value = args.MessageType;
         command.Parameters[2].Value = args.SchemaVersion;
         command.Parameters[3].Value = args.ContentType;
-        command.Parameters[4].Value = AsValue(args.TenantId);
+        SetOptionalAssignedGuid(command.Parameters[4], args.TenantId);
         command.Parameters[5].Value = AsValue(args.TraceId);
         command.Parameters[6].Value = args.Payload;
-        command.Parameters[7].Value = args.OccurredAtUtc;
+        SetUtcDateTimeOffset(command.Parameters[7], args.OccurredAtUtc);
     }
 }
 
@@ -63,14 +64,14 @@ internal sealed class AppendOnlyOutboxInsertTypedCommandPlan()
 
     protected override void AddParameters(DbCommand command)
     {
-        AddParameter(command, "Id");
+        AddParameter(command, "Id", DbType.Guid);
         AddParameter(command, "MessageType");
         AddParameter(command, "SchemaVersion");
         AddParameter(command, "ContentType");
-        AddParameter(command, "TenantId");
+        AddParameter(command, "TenantId", DbType.Guid);
         AddParameter(command, "PartitionKey");
         AddParameter(command, "CorrelationId");
-        AddParameter(command, "CausationId");
+        AddParameter(command, "CausationId", DbType.Guid);
         AddParameter(command, "TraceParent");
         AddParameter(command, "Producer");
         AddParameter(command, "Payload");
@@ -81,17 +82,17 @@ internal sealed class AppendOnlyOutboxInsertTypedCommandPlan()
         DbCommand command,
         AppendOnlyOutboxMessage args)
     {
-        command.Parameters[0].Value = args.Id;
+        SetAssignedGuid(command.Parameters[0], args.Id);
         command.Parameters[1].Value = args.MessageType;
         command.Parameters[2].Value = args.SchemaVersion;
         command.Parameters[3].Value = args.ContentType;
-        command.Parameters[4].Value = AsValue(args.TenantId);
+        SetOptionalAssignedGuid(command.Parameters[4], args.TenantId);
         command.Parameters[5].Value = args.PartitionKey;
         command.Parameters[6].Value = AsValue(args.CorrelationId);
-        command.Parameters[7].Value = AsValue(args.CausationId);
+        SetOptionalAssignedGuid(command.Parameters[7], args.CausationId);
         command.Parameters[8].Value = AsValue(args.TraceParent);
         command.Parameters[9].Value = args.Producer;
         command.Parameters[10].Value = args.Payload;
-        command.Parameters[11].Value = args.OccurredAtUtc;
+        SetUtcDateTimeOffset(command.Parameters[11], args.OccurredAtUtc);
     }
 }

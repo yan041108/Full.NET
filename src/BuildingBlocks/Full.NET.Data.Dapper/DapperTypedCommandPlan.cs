@@ -5,6 +5,14 @@ using Full.NET.Data.Abstractions;
 namespace Full.NET.Data.Dapper;
 
 /// <summary>
+/// 标识只负责适配命令/读取行为的连接包装器，命令归属必须落到真实 Provider 连接。
+/// </summary>
+internal interface IDapperDbConnectionWrapper
+{
+    DbConnection InnerConnection { get; }
+}
+
+/// <summary>
 /// 为一条固定 SQL 和强类型参数形状提供按序号更新与 Provider 隔离的单槽命令复用。
 /// </summary>
 /// <typeparam name="TArgs">编译期闭合的参数类型。</typeparam>
@@ -33,7 +41,9 @@ internal abstract class DapperTypedCommandPlan<TArgs>
         var command = TryTake(provider) ?? CreateCommand(connection);
         try
         {
-            command.Connection = connection;
+            command.Connection = connection is IDapperDbConnectionWrapper wrapper
+                ? wrapper.InnerConnection
+                : connection;
             UpdateParameters(command, args);
             return command;
         }
@@ -74,15 +84,62 @@ internal abstract class DapperTypedCommandPlan<TArgs>
 
     protected abstract void UpdateParameters(DbCommand command, TArgs args);
 
-    protected static void AddParameter(DbCommand command, string name)
+    protected static void AddParameter(
+        DbCommand command,
+        string name,
+        DbType? dbType = null)
     {
         var parameter = command.CreateParameter();
         parameter.ParameterName = name;
+        if (dbType is not null)
+        {
+            parameter.DbType = dbType.Value;
+        }
+
         parameter.Value = DBNull.Value;
         command.Parameters.Add(parameter);
     }
 
     protected static object AsValue(object? value) => value ?? DBNull.Value;
+
+    /// <summary>
+    /// 保持与既有 Guid TypeHandler 相同的“应用预分配 + DbType.Guid”不变量。
+    /// </summary>
+    protected static void SetAssignedGuid(DbParameter parameter, Guid value)
+    {
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("持久化标识必须由应用预先分配。", nameof(value));
+        }
+
+        parameter.DbType = DbType.Guid;
+        parameter.Value = value;
+    }
+
+    /// <summary>
+    /// 可空关联标识在 null 时仍固定参数类型，非 null 时复用预分配标识门禁。
+    /// </summary>
+    protected static void SetOptionalAssignedGuid(
+        DbParameter parameter,
+        Guid? value)
+    {
+        parameter.DbType = DbType.Guid;
+        if (value is { } assigned)
+        {
+            SetAssignedGuid(parameter, assigned);
+            return;
+        }
+
+        parameter.Value = DBNull.Value;
+    }
+
+    /// <summary>
+    /// 与既有 UTC TypeHandler 对齐，只向数据库写入 UTC DateTime。
+    /// </summary>
+    protected static void SetUtcDateTimeOffset(
+        DbParameter parameter,
+        DateTimeOffset value) =>
+        parameter.Value = value.UtcDateTime;
 
     private DbCommand CreateCommand(DbConnection connection)
     {

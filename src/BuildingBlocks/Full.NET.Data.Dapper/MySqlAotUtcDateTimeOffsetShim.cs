@@ -11,9 +11,12 @@ namespace Full.NET.Data.Dapper;
 /// MySQL DATETIME 在 Native AOT Dapper.AOT 路径下返回 <see cref="DateTime"/>；
 /// 将读取面对齐为 UTC <see cref="DateTimeOffset"/>，避免 CommandUtils.As 转换失败。
 /// </summary>
-internal sealed class MySqlAotUtcDateTimeOffsetConnection(DbConnection inner) : DbConnection
+internal sealed class MySqlAotUtcDateTimeOffsetConnection(DbConnection inner)
+    : DbConnection, IDapperDbConnectionWrapper
 {
     private readonly DbConnection _inner = inner;
+
+    internal DbConnection InnerConnection => _inner;
 
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
         _inner.BeginTransaction(isolationLevel);
@@ -106,7 +109,9 @@ internal sealed class MySqlAotUtcDateTimeOffsetCommand(DbCommand inner) : DbComm
     protected override DbConnection? DbConnection
     {
         get => _inner.Connection;
-        set => _inner.Connection = value;
+        set => _inner.Connection = value is IDapperDbConnectionWrapper wrapper
+            ? wrapper.InnerConnection
+            : value;
     }
 
     protected override DbParameterCollection DbParameterCollection => _inner.Parameters;

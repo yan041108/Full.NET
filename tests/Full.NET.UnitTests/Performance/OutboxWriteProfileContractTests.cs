@@ -71,4 +71,15 @@ public sealed class OutboxWriteProfileContractTests
             },
             order);
     }
+
+    [TestMethod]
+    public void Command_paths_expose_stable_lowercase_tokens()
+    {
+        Assert.AreEqual(
+            "registry",
+            OutboxWriteProfileCommandPath.Registry.ToToken());
+        Assert.AreEqual(
+            "typed",
+            OutboxWriteProfileCommandPath.Typed.ToToken());
+    }
 }
