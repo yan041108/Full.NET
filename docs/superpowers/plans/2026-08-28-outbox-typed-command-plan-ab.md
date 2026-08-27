@@ -252,3 +252,34 @@ Append the exact environment, command, raw artifact path, paired table, aggregat
 - [x] **Step 5: Verify and deliver evidence only**
 
 Run focused benchmark contract tests, benchmark Release build, governance, `git diff --check`, status/branch checks, independent evidence review, then commit and push only the plan/verification updates. Rule/Skill files remain unchanged unless their explicit evolution gates are independently met.
+
+### Task 8: Profile observability closure
+
+**Approved basis:** The five-repetition review identified two evidence defects in the benchmark harness: SQL Server cannot publish the MySqlConnector-specific pool wait histogram, and the Outbox worker drops exception classification and measurement-window ownership. This task repairs benchmark evidence only; it does not alter the production Outbox path or reopen the No-Go decision.
+
+**Files:**
+- Create: `benchmarks/Full.NET.Benchmarks/MixedLoad/MixedLoadDatabaseConnectionTelemetry.cs`
+- Create: `benchmarks/Full.NET.Benchmarks/Outbox/OutboxWriteProfileFailureClassifier.cs`
+- Modify: `benchmarks/Full.NET.Benchmarks/Outbox/OutboxWriteProfileRunner.cs`
+- Modify: `tests/Full.NET.UnitTests/Performance/OutboxWriteProfileContractTests.cs`
+- Modify: `docs/verification/2026-08-28-outbox-typed-command-plan-ab.md`
+
+**Interfaces:**
+- Preserves `ConnectionWait` as the Provider-driver pool metric and adds `ConnectionAcquisition` from Full.NET's `DbSession` acquisition boundary for both providers.
+- Adds stable SQL failure reasons, SQL cancellation count, attempt failure reason/error code/window ownership, and explicit measurement-window cancellation count. Exception messages, SQL and parameters remain excluded.
+
+- [x] **Step 1: Establish root cause and RED tests**
+
+Trace both telemetry paths and prove that SQL Server's listener intentionally returns no wait histogram while MySqlConnector publishes `db.client.connections.wait_time`; prove the worker's terminal catch only increments an error counter. Add focused tests for SQL Server acquisition capture and stable wrapped database-error classification, then observe compilation fail because both contracts are absent.
+
+- [x] **Step 2: Implement the minimum evidence closure**
+
+Listen to `fullnet.data.connection_pool/fullnet.db.connection.wait`, filter by the stable Provider tag, and aggregate milliseconds/outcomes. Preserve the driver-specific pool snapshot separately. Classify caught failures without messages and record whether the measurement token had already been canceled.
+
+- [x] **Step 3: Verify with one dual-provider smoke**
+
+Run one Registry/legacy sample for SQL Server and MySQL with 1 s warmup and 5 s measurement. Confirm both results contain `ConnectionAcquisition`, SQL Server still reports Provider `ConnectionWait` as unavailable, and the new cancellation/failure fields reconcile with totals. This smoke validates instrumentation only and must not be used to revise the Typed Plan decision.
+
+- [x] **Step 4: Close repository verification**
+
+Run focused Unit, benchmark Release build, affected inner plan/tests, governance, `git diff --check`, status/branch checks and independent code review. Record fresh results and keep `Capacity-not-verified` and Production `StaticRegistry` unchanged.

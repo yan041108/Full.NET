@@ -245,3 +245,40 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 ### 下一步与停止条件
 
 当前五次重复证据已经足够支持本轮裁决：**不切**；不再为本次决策追加本地样本。若未来 Outbox 命令准备重新成为生产 Profile 的显著瓶颈，应在隔离、固定 CPU/memory 的 Linux 性能环境中重新建模，并让 runner 记录 SQL failure 的异常类别、稳定错误码与采样窗口归属；当前 JSON 只有失败计数，原因仍未分类，不能预设为窗口边界噪声。在此之前保持 `StaticRegistry`，不再扩大 Typed Factory 范围。
+
+## Profile 可观测性闭环（2026-08-28）
+
+本节只修复后续证据工具，不重算前述 120 样本，也不改变 **No-Go**。根因已经从源码确认：MySqlConnector 发布 `db.client.connections.wait_time`，而 SqlClient EventCounters 没有对应等待直方图，原 SQL Server 监听器因此按设计返回 `ConnectionWait = null`；同时 Outbox Profile worker 的最终异常分支只有 `Errors++`，异常类别、Provider 错误码和测量窗口归属会丢失。
+
+修复后保留两层不同语义：
+
+- `ConnectionWait` 继续表示 Provider 驱动公开的池内部等待；SQL Server 缺失时仍为 `null`，不伪造为零。
+- `ConnectionAcquisition` 监听生产同源的 `fullnet.data.connection_pool/fullnet.db.connection.wait`，记录 `DbSession` 从进入准入边界到连接打开成功或失败的等待，因此 SQL Server/MySQL 都可比较。样本缓冲在测量前固定分配 131,072 项，热路径只做数组写入与固定原子计数；溢出会增加 `DroppedSamples` 并令 `EvidenceComplete=false`，避免监听器逐写入分配污染 A/B 资源指标或静默截断。
+- `SqlFailureReasons` 与 `SqlCancellations` 保留 Dapper 低基数失败原因和取消计数；`AttemptFailures` 记录稳定原因、Provider 数字错误码、`WindowOwned` 与计数；`WindowCanceledAttempts` 单独记录窗口按期结束时取消的在途尝试。工件不包含异常消息、原始 SQL 或参数。
+
+双库最小 smoke 命令：
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
+  -c Release --no-build -- outbox-write-profile `
+  --providers sqlserver,mysql `
+  --concurrency 8 `
+  --targets legacy `
+  --command-paths registry `
+  --payload-size 256 `
+  --repetitions 1 `
+  --warmup-seconds 1 `
+  --duration-seconds 5 `
+  --output BenchmarkDotNet.Artifacts/outbox-profile-observability-smoke-20260828
+```
+
+原始工件（本地、未提交）：`BenchmarkDotNet.Artifacts/outbox-profile-observability-smoke-20260828/outbox-write-profile.json`，7,007 B，SHA-256 `7B7B807EA47B369635592832BE8E1B79516C55AAF5B9F33AF88E47F334DF20F2`。
+
+| Provider | Writes | Errors | SQL failures | SQL cancellations | Window cancellations | Acquisition captured/dropped | Acquisition P50 | Provider wait |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| SQL Server | 4,402 | 0 | 0 | 1 | 8 | 4,410 / 0 | 0.0164 ms | unavailable |
+| MySQL | 2,837 | 0 | 0 | 1 | 2 | 2,839 / 0 | 0.8534 ms | available |
+
+两库 `AttemptFailures` 均为空并与 `Errors = 0` 一致，连接获取样本均为 `EvidenceComplete=true` 且零丢弃。窗口取消与 SQL 取消不要求相等：前者统计每个 worker 在窗口结束时被取消的在途尝试，后者只统计取消发生在 Dapper SQL 计量边界内的执行。该结果证明采集链路有效，不是性能 A/B，也不用于重开 Typed Plan 决策；状态仍为 `Capacity-not-verified`，Production 仍为 `StaticRegistry`。
+
+验证结果：聚焦 Profile 合约测试 8/8；Benchmark Release 构建 0 警告/0 错误；受影响 Integration inner 选择器判定无目标；Governance 52/52；项目 Skill 合同通过；独立复审修复了监听器逐写入采样可能污染分配指标的问题，修复后无剩余 Critical/Important finding。Naming 仍为 29/30，唯一失败是任务基线已有的 migration 100 `FNSQL003` 四处 unsupported DDL，与本次 benchmark/docs 影响集无关。`git diff --check` 无错误，仅有工作区行尾转换提示。

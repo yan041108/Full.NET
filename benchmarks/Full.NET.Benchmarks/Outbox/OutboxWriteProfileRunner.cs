@@ -97,6 +97,8 @@ public static class OutboxWriteProfileRunner
             target,
             commandPath);
         using var dapperTelemetry = new MixedLoadDapperTelemetry();
+        using var connectionTelemetry =
+            new MixedLoadDatabaseConnectionTelemetry(provider);
         using var poolTelemetry = MixedLoadConnectionPoolTelemetry.Create(
             database.Provider,
             poolName);
@@ -117,6 +119,7 @@ public static class OutboxWriteProfileRunner
 
         var databaseBefore = await database.CaptureStateAsync(cancellationToken);
         dapperTelemetry.Reset();
+        connectionTelemetry.Reset();
         poolTelemetry.Reset();
         var processBefore = CaptureProcessResources();
         var writeLatencies = new ConcurrentQueue<double>();
@@ -136,6 +139,7 @@ public static class OutboxWriteProfileRunner
         var databaseAfter = await database.CaptureStateAsync(cancellationToken);
         var statementName = GetStatementName(target);
         var dapperSnapshot = dapperTelemetry.Snapshot();
+        var connectionSnapshot = connectionTelemetry.Snapshot();
         var poolSnapshot = poolTelemetry.Snapshot();
         var latencySamples = writeLatencies.ToArray();
         var writesPerSecond = counters.SuccessfulWrites
@@ -166,7 +170,14 @@ public static class OutboxWriteProfileRunner
             databaseBefore,
             databaseAfter,
             CreateProcessDelta(processBefore, processAfter, counters.SuccessfulWrites),
-            statementName);
+            statementName)
+        {
+            ConnectionAcquisition = connectionSnapshot,
+            SqlCancellations = dapperSnapshot.Cancellations,
+            SqlFailureReasons = dapperSnapshot.FailureReasons,
+            AttemptFailures = counters.GetFailures(),
+            WindowCanceledAttempts = counters.WindowCanceledAttempts,
+        };
     }
 
     private static async Task RunWindowAsync(
@@ -248,15 +259,18 @@ public static class OutboxWriteProfileRunner
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                counters.RecordWindowCancellation();
                 break;
             }
             catch (Exception exception) when (IsDuplicate(exception))
             {
                 counters.RecordDuplicate();
             }
-            catch
+            catch (Exception exception)
             {
-                counters.RecordError();
+                counters.RecordError(
+                    exception,
+                    cancellationToken.IsCancellationRequested);
             }
         }
     }
@@ -417,6 +431,10 @@ public static class OutboxWriteProfileRunner
         private long _successfulWrites;
         private long _errors;
         private long _duplicateAttempts;
+        private long _windowCanceledAttempts;
+        private readonly ConcurrentDictionary<
+            OutboxWriteProfileFailureClassification,
+            long> _failures = new();
 
         public long SuccessfulWrites => Interlocked.Read(ref _successfulWrites);
 
@@ -424,14 +442,41 @@ public static class OutboxWriteProfileRunner
 
         public long DuplicateAttempts => Interlocked.Read(ref _duplicateAttempts);
 
+        public long WindowCanceledAttempts =>
+            Interlocked.Read(ref _windowCanceledAttempts);
+
         public void RecordSuccess() =>
             Interlocked.Increment(ref _successfulWrites);
 
-        public void RecordError() =>
+        public void RecordError(Exception exception, bool windowOwned)
+        {
             Interlocked.Increment(ref _errors);
+            var classification = OutboxWriteProfileFailureClassifier.Classify(
+                exception,
+                windowOwned);
+            _failures.AddOrUpdate(
+                classification,
+                1,
+                (_, value) => value + 1);
+        }
 
         public void RecordDuplicate() =>
             Interlocked.Increment(ref _duplicateAttempts);
+
+        public void RecordWindowCancellation() =>
+            Interlocked.Increment(ref _windowCanceledAttempts);
+
+        public IReadOnlyList<OutboxWriteProfileFailureSummary> GetFailures() =>
+            _failures
+                .OrderBy(pair => pair.Key.Reason, StringComparer.Ordinal)
+                .ThenBy(pair => pair.Key.DatabaseErrorCode, StringComparer.Ordinal)
+                .ThenBy(pair => pair.Key.WindowOwned)
+                .Select(pair => new OutboxWriteProfileFailureSummary(
+                    pair.Key.Reason,
+                    pair.Key.DatabaseErrorCode,
+                    pair.Key.WindowOwned,
+                    pair.Value))
+                .ToArray();
     }
 
     private sealed class LegacyOwnerResolver : IEffectiveEventDeliveryOwnerResolver
@@ -498,7 +543,28 @@ public sealed record OutboxWriteProfileRunResult(
     MixedLoadDatabaseSnapshot DatabaseBefore,
     MixedLoadDatabaseSnapshot DatabaseAfter,
     OutboxWriteProfileProcessDelta Process,
-    string StatementName);
+    string StatementName)
+{
+    /// <summary>Full.NET 会话边界记录的跨 Provider 连接获取等待。</summary>
+    public MixedLoadDatabaseConnectionSnapshot? ConnectionAcquisition { get; init; }
+
+    /// <summary>Dapper SQL 在测量窗口结束时观察到的取消次数。</summary>
+    public long SqlCancellations { get; init; }
+
+    /// <summary>按稳定低基数原因汇总的非取消 SQL 失败。</summary>
+    public IReadOnlyDictionary<string, long> SqlFailureReasons { get; init; } =
+        new Dictionary<string, long>(StringComparer.Ordinal);
+
+    /// <summary>写入尝试失败的稳定分类、Provider 错误码与窗口归属。</summary>
+    public IReadOnlyList<OutboxWriteProfileFailureSummary> AttemptFailures
+    {
+        get;
+        init;
+    } = [];
+
+    /// <summary>因测量窗口按期结束而取消的在途写入尝试数。</summary>
+    public long WindowCanceledAttempts { get; init; }
+}
 
 public sealed record OutboxWriteProfileProcessDelta(
     double CpuMilliseconds,
