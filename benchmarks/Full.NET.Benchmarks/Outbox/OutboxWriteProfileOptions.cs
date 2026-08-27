@@ -8,10 +8,17 @@ public enum OutboxWriteProfileTarget
     AppendOnly,
 }
 
+public enum OutboxWriteProfileCommandPath
+{
+    Registry,
+    Typed,
+}
+
 public sealed record OutboxWriteProfileOptions(
     IReadOnlyList<string> Providers,
     IReadOnlyList<int> ConcurrencyLevels,
     IReadOnlyList<OutboxWriteProfileTarget> Targets,
+    IReadOnlyList<OutboxWriteProfileCommandPath> CommandPaths,
     int PayloadSizeBytes,
     int Repetitions,
     TimeSpan Warmup,
@@ -29,6 +36,7 @@ public sealed record OutboxWriteProfileOptions(
           --providers <list>           sqlserver,mysql 的逗号分隔子集，默认两者
           --concurrency <list>         并发写入数，默认 1,8,32
           --targets <list>             legacy,append 的逗号分隔子集，默认两者
+          --command-paths <list>       registry,typed 的逗号分隔子集，默认 registry
           --payload-size <bytes>       Payload 字节数，默认 256
           --repetitions <n>            每个场景重复次数，默认 3
           --warmup-seconds <n>         预热秒数，默认 10
@@ -53,6 +61,7 @@ public sealed record OutboxWriteProfileOptions(
             minimum: 1,
             maximum: 64);
         var targets = ParseTargets(values);
+        var commandPaths = ParseCommandPaths(values);
         var payloadSize = ParseBoundedInt(
             values,
             "--payload-size",
@@ -94,6 +103,7 @@ public sealed record OutboxWriteProfileOptions(
             providers,
             concurrency,
             targets,
+            commandPaths,
             payloadSize,
             repetitions,
             TimeSpan.FromSeconds(warmupSeconds),
@@ -187,6 +197,39 @@ public sealed record OutboxWriteProfileOptions(
                 "只支持 legacy 与 append。"),
         };
 
+    private static IReadOnlyList<OutboxWriteProfileCommandPath> ParseCommandPaths(
+        IReadOnlyDictionary<string, string> values)
+    {
+        var paths = values.GetValueOrDefault(
+                "--command-paths",
+                "registry")
+            .Split(
+                ',',
+                StringSplitOptions.TrimEntries
+                | StringSplitOptions.RemoveEmptyEntries)
+            .Select(ParseCommandPath)
+            .ToArray();
+        if (paths.Length == 0 || paths.Distinct().Count() != paths.Length)
+        {
+            throw new ArgumentException(
+                "--command-paths 不能为空或包含重复值。",
+                "--command-paths");
+        }
+
+        return paths;
+    }
+
+    private static OutboxWriteProfileCommandPath ParseCommandPath(string value) =>
+        value.ToLowerInvariant() switch
+        {
+            "registry" => OutboxWriteProfileCommandPath.Registry,
+            "typed" => OutboxWriteProfileCommandPath.Typed,
+            _ => throw new ArgumentOutOfRangeException(
+                "--command-paths",
+                value,
+                "只支持 registry 与 typed。"),
+        };
+
     private static IReadOnlyList<int> ParseList(
         IReadOnlyDictionary<string, string> values,
         string key,
@@ -269,6 +312,7 @@ public sealed record OutboxWriteProfileOptions(
         "--providers",
         "--concurrency",
         "--targets",
+        "--command-paths",
         "--payload-size",
         "--repetitions",
         "--warmup-seconds",

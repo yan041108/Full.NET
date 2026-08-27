@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Diagnostics;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
@@ -28,6 +29,68 @@ internal sealed class DapperSqlExecutor(
     : IQueryExecutor, ICommandExecutor, IMultiResultQueryExecutor
 {
     private readonly DatabaseOptions _options = options.Value;
+
+    /// <summary>
+    /// 仅为显式候选的固定强类型 Plan 执行非查询命令，保留通用执行器的会话、事务和可观测边界。
+    /// </summary>
+    internal async Task<int> ExecuteTypedAsync<TArgs>(
+        SqlStatement statement,
+        TArgs parameters,
+        DapperTypedCommandPlan<TArgs> plan,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentNullException.ThrowIfNull(plan);
+        SqlScopeGuard.Validate(statement, currentTenant);
+        var stopwatch = Stopwatch.StartNew();
+        Exception? exception = null;
+
+        try
+        {
+            await using var connectionLease = await session
+                .AcquireConnectionAsync(cancellationToken)
+                .ConfigureAwait(false);
+            DbCommand? command = null;
+            var reusable = false;
+            try
+            {
+                command = plan.GetCommand(
+                    connectionLease.Connection,
+                    _options.Provider,
+                    parameters);
+                command.Transaction = connectionLease.Transaction as DbTransaction;
+                command.CommandTimeout = _options.CommandTimeoutSeconds;
+                var affectedRows = await command
+                    .ExecuteNonQueryAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                reusable = true;
+                return affectedRows;
+            }
+            finally
+            {
+                if (command is not null
+                    && (!reusable
+                        || !plan.TryRecycle(_options.Provider, command)))
+                {
+                    await command.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception caught)
+        {
+            exception = caught;
+            if (DataCommandExceptionMapper.TryMap(caught, out var mapped))
+            {
+                throw mapped;
+            }
+
+            throw;
+        }
+        finally
+        {
+            LogExecution(statement, DapperOperation.Execute, stopwatch, exception);
+        }
+    }
 
     /// <summary>
     /// 异步执行查询并返回单条结果；若无匹配则返回默认值。

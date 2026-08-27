@@ -24,16 +24,29 @@ internal class DapperOutboxWriter(
     IIntegrationEventSerializer serializer,
     IIdGenerator idGenerator,
     ICurrentTenant currentTenant,
-    IClock clock) : IOutboxWriter
+    IClock clock,
+    DapperOutboxCommandPath commandPath)
+    : IOutboxWriter
 {
+    internal DapperOutboxWriter(
+        ICommandExecutor commandExecutor,
+        IIntegrationEventSerializer serializer,
+        IIdGenerator idGenerator,
+        ICurrentTenant currentTenant,
+        IClock clock)
+        : this(
+            commandExecutor,
+            serializer,
+            idGenerator,
+            currentTenant,
+            clock,
+            DapperOutboxCommandPath.StaticRegistry)
+    {
+    }
+
     private static readonly SqlStatement InsertStatement = new(
         "outbox.insert",
-        """
-        INSERT INTO fn_outbox_message
-            (Id, MessageType, SchemaVersion, ContentType, TenantId, TraceId, Payload, OccurredAtUtc, Attempts)
-        VALUES
-            (@Id, @MessageType, @SchemaVersion, @ContentType, @TenantId, @TraceId, @Payload, @OccurredAtUtc, 0)
-        """,
+        OutboxInsertTypedCommandPlan.Sql,
         SqlDataScope.Global);
 
     /// <summary>
@@ -74,8 +87,7 @@ internal class DapperOutboxWriter(
             serializer.Serialize(payload),
             clock.UtcNow);
 
-        var affectedRows = await commandExecutor
-            .ExecuteAsync(InsertStatement, message, cancellationToken)
+        var affectedRows = await ExecuteInsertAsync(message, cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
@@ -83,6 +95,29 @@ internal class DapperOutboxWriter(
                 $"Outbox insert affected {affectedRows} rows instead of one.");
         }
     }
+
+    private Task<int> ExecuteInsertAsync(
+        OutboxMessage message,
+        CancellationToken cancellationToken) =>
+        commandPath switch
+        {
+            DapperOutboxCommandPath.StaticRegistry => commandExecutor.ExecuteAsync(
+                InsertStatement,
+                message,
+                cancellationToken),
+            DapperOutboxCommandPath.TypedPlan => commandExecutor is DapperSqlExecutor executor
+                ? executor.ExecuteTypedAsync(
+                    InsertStatement,
+                    message,
+                    OutboxInsertTypedCommandPlan.Instance,
+                    cancellationToken)
+                : Task.FromException<int>(new InvalidOperationException(
+                    "Typed Outbox command plans require DapperSqlExecutor.")),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(commandPath),
+                commandPath,
+                "Unsupported Outbox command path."),
+        };
 
     /// <summary>
     /// 带 IntegrationEventMetadata 的重载——传统 Outbox 不支持扩展元数据，

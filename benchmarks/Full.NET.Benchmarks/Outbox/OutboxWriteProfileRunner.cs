@@ -11,6 +11,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Benchmarks.MixedLoad;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper;
+using Full.NET.Data.Dapper.Outbox;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Serialization.MemoryPack;
 using Microsoft.Data.SqlClient;
@@ -47,25 +48,30 @@ public static class OutboxWriteProfileRunner
                 cancellationToken);
             foreach (var target in options.Targets)
             {
-                foreach (var concurrency in options.ConcurrencyLevels)
+                foreach (var commandPath in options.CommandPaths)
                 {
-                    for (var repetition = 1;
-                         repetition <= options.Repetitions;
-                         repetition++)
+                    foreach (var concurrency in options.ConcurrencyLevels)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        Console.WriteLine(
-                            $"[{provider}] {target} concurrency={concurrency} "
-                            + $"repeat {repetition}/{options.Repetitions}");
-                        results.Add(await RunScenarioAsync(
-                            database,
-                            poolName,
-                            provider,
-                            target,
-                            concurrency,
-                            repetition,
-                            options,
-                            cancellationToken));
+                        for (var repetition = 1;
+                             repetition <= options.Repetitions;
+                             repetition++)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            Console.WriteLine(
+                                $"[{provider}] {target} path={commandPath} "
+                                + $"concurrency={concurrency} "
+                                + $"repeat {repetition}/{options.Repetitions}");
+                            results.Add(await RunScenarioAsync(
+                                database,
+                                poolName,
+                                provider,
+                                target,
+                                commandPath,
+                                concurrency,
+                                repetition,
+                                options,
+                                cancellationToken));
+                        }
                     }
                 }
             }
@@ -85,6 +91,7 @@ public static class OutboxWriteProfileRunner
         string poolName,
         string provider,
         OutboxWriteProfileTarget target,
+        OutboxWriteProfileCommandPath commandPath,
         int concurrency,
         int repetition,
         OutboxWriteProfileOptions options,
@@ -97,7 +104,8 @@ public static class OutboxWriteProfileRunner
         }
         await using var services = BuildServices(
             database,
-            target);
+            target,
+            commandPath);
         var databaseBefore = await database.CaptureStateAsync(cancellationToken);
         using var dapperTelemetry = new MixedLoadDapperTelemetry();
         using var poolTelemetry = MixedLoadConnectionPoolTelemetry.Create(
@@ -143,6 +151,7 @@ public static class OutboxWriteProfileRunner
             database.ContainerImage,
             database.DatabaseVersion,
             target,
+            commandPath,
             concurrency,
             repetition,
             options.PayloadSizeBytes,
@@ -308,7 +317,8 @@ public static class OutboxWriteProfileRunner
 
     private static ServiceProvider BuildServices(
         MixedLoadDatabase database,
-        OutboxWriteProfileTarget target)
+        OutboxWriteProfileTarget target,
+        OutboxWriteProfileCommandPath commandPath)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -330,6 +340,27 @@ public static class OutboxWriteProfileRunner
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Benchmark");
+        services.RemoveAll<DapperOutboxWriter>();
+        services.RemoveAll<DapperAppendOnlyOutboxWriter>();
+        var runtimeCommandPath = commandPath switch
+        {
+            OutboxWriteProfileCommandPath.Registry =>
+                DapperOutboxCommandPath.StaticRegistry,
+            OutboxWriteProfileCommandPath.Typed =>
+                DapperOutboxCommandPath.TypedPlan,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(commandPath),
+                commandPath,
+                "Unsupported Outbox command path."),
+        };
+        services.AddScoped(provider =>
+            ActivatorUtilities.CreateInstance<DapperOutboxWriter>(
+                provider,
+                runtimeCommandPath));
+        services.AddScoped(provider =>
+            ActivatorUtilities.CreateInstance<DapperAppendOnlyOutboxWriter>(
+                provider,
+                runtimeCommandPath));
         services.AddFullNetMemoryPack();
         services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
         services.RemoveAll<IEventStreamOwnershipGate>();
@@ -454,6 +485,7 @@ public sealed record OutboxWriteProfileRunResult(
     string ContainerImage,
     string DatabaseVersion,
     OutboxWriteProfileTarget Target,
+    OutboxWriteProfileCommandPath CommandPath,
     int Concurrency,
     int Repetition,
     int PayloadSizeBytes,
@@ -515,6 +547,7 @@ public static class OutboxWriteProfileReportWriter
                 providers = options.Providers,
                 concurrency = options.ConcurrencyLevels,
                 targets = options.Targets,
+                commandPaths = options.CommandPaths,
                 payloadSizeBytes = options.PayloadSizeBytes,
                 repetitions = options.Repetitions,
                 warmupSeconds = options.Warmup.TotalSeconds,
