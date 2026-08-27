@@ -55,7 +55,7 @@ internal sealed class HostRecycleBinManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindDeletedById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -67,13 +67,7 @@ internal sealed class HostRecycleBinManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Restore,
-                new
-                {
-                    Id = itemId,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", itemId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -92,7 +86,7 @@ internal sealed class HostRecycleBinManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindDeletedById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -103,7 +97,7 @@ internal sealed class HostRecycleBinManagementService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Purge,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
 

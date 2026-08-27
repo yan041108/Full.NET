@@ -50,7 +50,7 @@ internal sealed class HostDocumentPermissionManagementService(
         var document = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemRecord>(
                 DocumentItemSql.FindActiveById,
-                new { Id = request.DocumentId },
+                DocumentSqlParameters.Create(("Id", request.DocumentId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -61,7 +61,7 @@ internal sealed class HostDocumentPermissionManagementService(
 
         await commandExecutor.ExecuteAsync(
                 DocumentPermissionSql.DeleteByDocument,
-                new { DocumentId = request.DocumentId },
+                DocumentSqlParameters.Create(("DocumentId", request.DocumentId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -71,14 +71,7 @@ internal sealed class HostDocumentPermissionManagementService(
             var id = idGenerator.NewId();
             await commandExecutor.ExecuteAsync(
                     DocumentPermissionSql.Insert,
-                    new
-                    {
-                        Id = id,
-                        DocumentId = request.DocumentId,
-                        UserId = perm.UserId,
-                        PermissionLevel = perm.PermissionLevel.Trim(),
-                        CreatedAtUtc = now,
-                    },
+                    DocumentSqlParameters.Create(("Id", id), ("DocumentId", request.DocumentId), ("UserId", perm.UserId), ("PermissionLevel", perm.PermissionLevel.Trim()), ("CreatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

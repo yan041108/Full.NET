@@ -33,7 +33,7 @@ internal sealed class HostDocumentShareQueryService(
 
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                DocumentSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -58,7 +58,7 @@ internal sealed class HostDocumentShareQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentShareRecord>(
                 DocumentShareSql.FindById,
-                new { Id = shareId },
+                DocumentSqlParameters.Create(("Id", shareId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -74,7 +74,7 @@ internal sealed class HostDocumentShareQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentShareRecord>(
                 DocumentShareSql.FindByCode,
-                new { ShareCode = shareCode },
+                DocumentSqlParameters.Create(("ShareCode", shareCode)),
                 cancellationToken)
             .ConfigureAwait(false);
 

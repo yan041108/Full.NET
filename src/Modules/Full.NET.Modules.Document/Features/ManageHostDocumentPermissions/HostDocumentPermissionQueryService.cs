@@ -18,7 +18,7 @@ internal sealed class HostDocumentPermissionQueryService(IQueryExecutor queryExe
         var rows = await queryExecutor
             .QueryAsync<DocumentPermissionRecord>(
                 DocumentPermissionSql.ListByDocument,
-                new { DocumentId = documentId },
+                DocumentSqlParameters.Create(("DocumentId", documentId)),
                 cancellationToken)
             .ConfigureAwait(false);
 

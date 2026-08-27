@@ -88,7 +88,7 @@ internal sealed class HostDocumentShareManagementService(
         var share = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentShareRecord>(
                 DocumentShareSql.FindByCode,
-                new { ShareCode = shareCode },
+                DocumentSqlParameters.Create(("ShareCode", shareCode)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -139,7 +139,7 @@ internal sealed class HostDocumentShareManagementService(
         var document = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
-                new { Id = share.DocumentId },
+                DocumentSqlParameters.Create(("Id", share.DocumentId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (document is null)
@@ -150,7 +150,7 @@ internal sealed class HostDocumentShareManagementService(
         // 有效性与访问上限必须由同一条更新语句判断；内存预检不能承担并发正确性。
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentShareSql.TryConsumeAccess,
-                new { share.Id, Now = now, share.Version },
+                DocumentSqlParameters.Create(("Id", share.Id), ("Now", now), ("Version", share.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -158,7 +158,7 @@ internal sealed class HostDocumentShareManagementService(
             var current = await queryExecutor
                 .QuerySingleOrDefaultAsync<DocumentShareRecord>(
                     DocumentShareSql.FindById,
-                    new { share.Id },
+                    DocumentSqlParameters.Create(("Id", share.Id)),
                     cancellationToken)
                 .ConfigureAwait(false);
             return current?.MaxAccessCount is int limit && current.AccessCount >= limit
@@ -169,7 +169,7 @@ internal sealed class HostDocumentShareManagementService(
         var consumed = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentShareRecord>(
                 DocumentShareSql.FindById,
-                new { share.Id },
+                DocumentSqlParameters.Create(("Id", share.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (consumed is null)
@@ -204,7 +204,7 @@ internal sealed class HostDocumentShareManagementService(
         var document = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemRecord>(
                 DocumentItemSql.FindActiveById,
-                new { Id = request.DocumentId },
+                DocumentSqlParameters.Create(("Id", request.DocumentId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -225,17 +225,7 @@ internal sealed class HostDocumentShareManagementService(
 
         await commandExecutor.ExecuteAsync(
                 DocumentShareSql.Insert,
-                new
-                {
-                    Id = id,
-                    DocumentId = request.DocumentId,
-                    ShareCode = shareCode,
-                    CreatedAtUtc = now,
-                    ExpireTime = now.AddDays(request.ValidDays),
-                    PasswordHash = passwordHash,
-                    MaxAccessCount = request.MaxAccessCount,
-                    Version = 1L,
-                },
+                DocumentSqlParameters.Create(("Id", id), ("DocumentId", request.DocumentId), ("ShareCode", shareCode), ("CreatedAtUtc", now), ("ExpireTime", now.AddDays(request.ValidDays)), ("PasswordHash", passwordHash), ("MaxAccessCount", request.MaxAccessCount), ("Version", 1L)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -250,7 +240,7 @@ internal sealed class HostDocumentShareManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentShareRecord>(
                 DocumentShareSql.FindById,
-                new { Id = shareId },
+                DocumentSqlParameters.Create(("Id", shareId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -261,12 +251,7 @@ internal sealed class HostDocumentShareManagementService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentShareSql.UpdateStatus,
-                new
-                {
-                    Id = shareId,
-                    IsEnabled = request.IsEnabled ? 1 : 0,
-                    Version = request.Version,
-                },
+                DocumentSqlParameters.Create(("Id", shareId), ("IsEnabled", request.IsEnabled ? 1 : 0), ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
 

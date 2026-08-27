@@ -46,6 +46,11 @@ public sealed class DocumentModule : IFullNetModule
     /// </summary>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.DocumentDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.AddOptions<DocumentOptions>()
             .Bind(configuration.GetSection(DocumentOptions.SectionName))
             .ValidateOnStart();

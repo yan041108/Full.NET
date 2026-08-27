@@ -5,6 +5,7 @@ using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -49,6 +50,8 @@ internal static class NativeApiE2EAssertions
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifyDocumentFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -322,6 +325,206 @@ internal static class NativeApiE2EAssertions
             .ReadFromJsonAsync<SerialNumberPreviewResponse>(cancellationToken)
             .ConfigureAwait(false);
         Assert.AreEqual("N-0007", preview?.Value);
+    }
+
+    private static async Task VerifyDocumentFlowAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var categoryRequest = new CreateHostDocumentCategoryRequest(
+            "Native AOT category " + suffix,
+            null,
+            1);
+        var category = await PostAndReadAsync<
+                CreateHostDocumentCategoryRequest,
+                HostDocumentCategoryResponse>(
+                client,
+                "/api/v1/document/host/categories/",
+                accessToken,
+                categoryRequest,
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+        using (var duplicateCategoryRequest = AuthorizedJson(
+                   HttpMethod.Post,
+                   "/api/v1/document/host/categories/",
+                   accessToken,
+                   categoryRequest))
+        using (var duplicateCategoryResponse = await client
+                   .SendAsync(duplicateCategoryRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    duplicateCategoryResponse,
+                    HttpStatusCode.Conflict,
+                    "Reject duplicate Native AOT document category",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        var tag = await PostAndReadAsync<
+                CreateHostDocumentTagRequest,
+                HostDocumentTagResponse>(
+                client,
+                "/api/v1/document/host/tags/",
+                accessToken,
+                new CreateHostDocumentTagRequest("Native AOT tag " + suffix),
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var item = await PostAndReadAsync<
+                CreateHostDocumentItemRequest,
+                HostDocumentItemResponse>(
+                client,
+                "/api/v1/document/host/items/",
+                accessToken,
+                new CreateHostDocumentItemRequest(
+                    "Native AOT document " + suffix,
+                    "Native process closure",
+                    HostDocumentType.Document,
+                    HostDocumentStatus.Draft,
+                    1,
+                    null,
+                    category.Id,
+                    [tag.Id]),
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        using (var getRequest = Authorized(
+                   HttpMethod.Get,
+                   $"/api/v1/document/host/items/{item.Id:D}",
+                   accessToken))
+        using (var getResponse = await client.SendAsync(getRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    getResponse,
+                    HttpStatusCode.OK,
+                    "Read Native AOT document item",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var found = await getResponse.Content
+                .ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(item.Id, found?.Id);
+        }
+
+        using (var listRequest = Authorized(
+                   HttpMethod.Get,
+                   "/api/v1/document/host/items/?page=1&pageSize=20",
+                   accessToken))
+        using (var listResponse = await client.SendAsync(listRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    listResponse,
+                    HttpStatusCode.OK,
+                    "List Native AOT document items",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var page = await listResponse.Content
+                .ReadFromJsonAsync<PagedResult<HostDocumentItemResponse>>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(page);
+            Assert.IsTrue(page.Items.Any(candidate => candidate.Id == item.Id));
+        }
+
+        var share = await PostAndReadAsync<
+                CreateHostDocumentShareRequest,
+                HostDocumentShareResponse>(
+                client,
+                "/api/v1/document/host/shares/",
+                accessToken,
+                new CreateHostDocumentShareRequest(item.Id, 1),
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(item.Id, share.DocumentId);
+
+        var permissionUserId = Guid.NewGuid();
+        var permissions = await PostAndReadAsync<
+                SetHostDocumentPermissionsRequest,
+                IReadOnlyList<HostDocumentPermissionResponse>>(
+                client,
+                "/api/v1/document/host/permissions/",
+                accessToken,
+                new SetHostDocumentPermissionsRequest(
+                    item.Id,
+                    [new HostDocumentPermissionEntry(permissionUserId, "read")]),
+                HttpStatusCode.OK,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.HasCount(1, permissions);
+        Assert.AreEqual(item.Id, permissions[0].DocumentId);
+        Assert.AreEqual(permissionUserId, permissions[0].UserId);
+        Assert.AreEqual("read", permissions[0].PermissionLevel);
+
+        using (var statisticsRequest = Authorized(
+                   HttpMethod.Get,
+                   "/api/v1/document/host/statistics/",
+                   accessToken))
+        using (var statisticsResponse = await client
+                   .SendAsync(statisticsRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    statisticsResponse,
+                    HttpStatusCode.OK,
+                    "Read Native AOT document statistics",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var statistics = await statisticsResponse.Content
+                .ReadFromJsonAsync<HostDocumentStatisticsResponse>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(statistics);
+            Assert.IsTrue(statistics.Summary.TotalItems >= 1);
+            Assert.IsTrue(statistics.ByCategory.Any(entry => entry.Count >= 1));
+            Assert.IsTrue(statistics.ShareCount >= 1);
+        }
+
+        foreach (var path in new[]
+                 {
+                     "/api/v1/document/host/categories/",
+                     "/api/v1/document/host/tags/",
+                     "/api/v1/document/host/shares/?page=1&pageSize=20",
+                     "/api/v1/document/host/recycle-bin/?page=1&pageSize=20",
+                 })
+        {
+            using var request = Authorized(HttpMethod.Get, path, accessToken);
+            using var response = await client.SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            await AssertStatusAsync(
+                    response,
+                    HttpStatusCode.OK,
+                    "Read Native AOT Document endpoint " + path,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<TResponse> PostAndReadAsync<TRequest, TResponse>(
+        HttpClient client,
+        string path,
+        string accessToken,
+        TRequest body,
+        HttpStatusCode expectedStatusCode,
+        CancellationToken cancellationToken)
+    {
+        using var request = AuthorizedJson(HttpMethod.Post, path, accessToken, body);
+        using var response = await client.SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                response,
+                expectedStatusCode,
+                "POST " + path,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(value);
+        return value;
     }
 
     private static async Task VerifyReadinessAsync(

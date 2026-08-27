@@ -14,7 +14,7 @@ internal sealed class DocumentHostFileRetentionContributor(IQueryExecutor queryE
         var referenced = await queryExecutor
             .QuerySingleOrDefaultAsync<int>(
                 DocumentItemSql.IsFileReferenced,
-                new { FileId = fileId },
+                DocumentSqlParameters.Create(("FileId", fileId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return referenced == 1;

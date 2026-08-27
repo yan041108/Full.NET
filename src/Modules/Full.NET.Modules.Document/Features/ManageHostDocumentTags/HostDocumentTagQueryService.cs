@@ -28,7 +28,7 @@ internal sealed class HostDocumentTagQueryService(IQueryExecutor queryExecutor)
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentTagRecord>(
                 DocumentTagSql.FindActiveById,
-                new { Id = tagId },
+                DocumentSqlParameters.Create(("Id", tagId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : Result<HostDocumentTagResponse>.Success(Map(record));

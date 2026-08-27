@@ -28,7 +28,7 @@ internal sealed class HostDocumentCategoryQueryService(IQueryExecutor queryExecu
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
                 DocumentCategorySql.FindActiveById,
-                new { Id = categoryId },
+                DocumentSqlParameters.Create(("Id", categoryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : Result<HostDocumentCategoryResponse>.Success(Map(record));

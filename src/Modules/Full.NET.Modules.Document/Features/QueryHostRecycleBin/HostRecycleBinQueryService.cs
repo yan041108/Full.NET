@@ -34,7 +34,7 @@ internal sealed class HostRecycleBinQueryService(
 
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                DocumentSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -59,7 +59,7 @@ internal sealed class HostRecycleBinQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindDeletedById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
 

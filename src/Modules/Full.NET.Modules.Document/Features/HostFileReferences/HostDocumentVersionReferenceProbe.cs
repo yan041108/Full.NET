@@ -20,7 +20,7 @@ internal sealed class HostDocumentVersionReferenceProbe(IQueryExecutor queryExec
             var exists = await queryExecutor
                 .QuerySingleOrDefaultAsync<int>(
                     DocumentItemSql.VersionExistsByIdAndFile,
-                    new { VersionId = consumerReferenceId, FileId = fileId },
+                    DocumentSqlParameters.Create(("VersionId", consumerReferenceId), ("FileId", fileId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             return new HostFileReferenceClaimProbeResult(

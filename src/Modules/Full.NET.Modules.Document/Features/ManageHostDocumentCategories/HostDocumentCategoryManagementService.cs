@@ -85,7 +85,7 @@ internal sealed class HostDocumentCategoryManagementService(
             var parent = await queryExecutor
                 .QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
                     DocumentCategorySql.FindActiveById,
-                    new { Id = parentId.Value },
+                    DocumentSqlParameters.Create(("Id", parentId.Value)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (parent is null)
@@ -104,19 +104,7 @@ internal sealed class HostDocumentCategoryManagementService(
         // 修复：Insert SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保写入数据库完整
         await commandExecutor.ExecuteAsync(
                 DocumentCategorySql.Insert,
-                new
-                {
-                    Id = id,
-                    ParentId = parentId,
-                    Name = name,
-                    SortOrder = sortOrder,
-                    Code = code,
-                    Icon = icon,
-                    Color = color,
-                    Description = description,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                DocumentSqlParameters.Create(("Id", id), ("ParentId", parentId), ("Name", name), ("SortOrder", sortOrder), ("Code", code), ("Icon", icon), ("Color", color), ("Description", description), ("CreatedAtUtc", now), ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -151,7 +139,7 @@ internal sealed class HostDocumentCategoryManagementService(
             var parent = await queryExecutor
                 .QuerySingleOrDefaultAsync<DocumentCategoryRecord>(
                     DocumentCategorySql.FindActiveById,
-                    new { Id = parentId.Value },
+                    DocumentSqlParameters.Create(("Id", parentId.Value)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (parent is null)
@@ -169,19 +157,7 @@ internal sealed class HostDocumentCategoryManagementService(
         // 修复：Update SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保更新操作完整写入
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentCategorySql.Update,
-                new
-                {
-                    Id = categoryId,
-                    ParentId = parentId,
-                    Name = name,
-                    SortOrder = sortOrder,
-                    Code = code,
-                    Icon = icon,
-                    Color = color,
-                    Description = description,
-                    UpdatedAtUtc = now,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", categoryId), ("ParentId", parentId), ("Name", name), ("SortOrder", sortOrder), ("Code", code), ("Icon", icon), ("Color", color), ("Description", description), ("UpdatedAtUtc", now), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -205,7 +181,7 @@ internal sealed class HostDocumentCategoryManagementService(
 
         var childCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 DocumentCategorySql.CountActiveChildren,
-                new { ParentId = categoryId },
+                DocumentSqlParameters.Create(("ParentId", categoryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (childCount > 0)
@@ -215,7 +191,7 @@ internal sealed class HostDocumentCategoryManagementService(
 
         var itemCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 DocumentCategorySql.CountActiveItems,
-                new { CategoryId = categoryId },
+                DocumentSqlParameters.Create(("CategoryId", categoryId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (itemCount > 0)
@@ -225,13 +201,7 @@ internal sealed class HostDocumentCategoryManagementService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentCategorySql.SoftDelete,
-                new
-                {
-                    Id = categoryId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedByUserId = actorUserId,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", categoryId), ("DeletedAtUtc", clock.UtcNow), ("DeletedByUserId", actorUserId), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         return affected == 1
@@ -248,7 +218,7 @@ internal sealed class HostDocumentCategoryManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
                 DocumentCategorySql.FindActiveByParentAndName,
-                new { ParentId = parentId, Name = name },
+                DocumentSqlParameters.Create(("ParentId", parentId), ("Name", name)),
                 cancellationToken)
             .ConfigureAwait(false);
         return existing is not null && existing.Id != excludeId;

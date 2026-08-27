@@ -685,6 +685,89 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void DocumentModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Document");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Document 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void DocumentModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Document");
+        var moduleSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "DocumentModule.cs"));
+        var contributorPath = Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "DocumentDapperAotMaterializerContributor.cs");
+
+        Assert.IsTrue(File.Exists(contributorPath), "Document AOT 物化器 contributor 尚未建立。");
+        var contributorSource = File.ReadAllText(contributorPath);
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "DocumentDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "DocumentCategoryRecord",
+                     "DocumentTagRecord",
+                     "DocumentNameConflictRecord",
+                     "DocumentItemRecord",
+                     "DocumentItemDetailRecord",
+                     "DocumentVersionRecord",
+                     "DocumentPermissionRecord",
+                     "DocumentShareRecord",
+                     "DocumentStatisticsSummaryRecord",
+                     "DocumentStatisticsByTypeRecord",
+                     "DocumentStatisticsByCategoryRecord",
+                     "DocumentStatisticsShareCountRecord",
+                 })
+        {
+            StringAssert.Contains(
+                contributorSource,
+                $"registrar.Register<{recordType}>");
+        }
+
+        StringAssert.Contains(
+            contributorSource,
+            "private static int RequiredOrdinal(DbDataReader reader, string name) => reader.GetOrdinal(name);");
+        StringAssert.Contains(
+            contributorSource,
+            "DocumentNo = ReadOptionalString(reader, \"DocumentNo\")");
+        StringAssert.Contains(
+            contributorSource,
+            "ChangeDescription = ReadOptionalNullableString(reader, \"ChangeDescription\")");
+        Assert.IsFalse(
+            contributorSource.Contains(
+                "return ordinal < 0 ? Guid.Empty",
+                StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();

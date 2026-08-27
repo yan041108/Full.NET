@@ -155,15 +155,7 @@ internal sealed class HostDocumentItemManagementService(
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Insert,
-                new
-                {
-                    Id = id,
-                    Title = request.Title.Trim(),
-                    Description = request.Description?.Trim(),
-                    CreatedAtUtc = now,
-                    CreatedByUserId = actorUserId,
-                    Version = 1L,
-                },
+                DocumentSqlParameters.Create(("Id", id), ("Title", request.Title.Trim()), ("Description", request.Description?.Trim()), ("CreatedAtUtc", now), ("CreatedByUserId", actorUserId), ("Version", 1L)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -184,15 +176,7 @@ internal sealed class HostDocumentItemManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Update,
-                new
-                {
-                    Id = itemId,
-                    Title = request.Title.Trim(),
-                    Description = request.Description?.Trim(),
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = request.Version,
-                },
+                DocumentSqlParameters.Create(("Id", itemId), ("Title", request.Title.Trim()), ("Description", request.Description?.Trim()), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -274,36 +258,19 @@ internal sealed class HostDocumentItemManagementService(
 
         var versionNumber = await queryExecutor.QuerySingleOrDefaultAsync<int>(
                 DocumentItemSql.NextVersionNumber,
-                new { DocumentItemId = itemId },
+                DocumentSqlParameters.Create(("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 DocumentItemSql.InsertVersion,
-                new
-                {
-                    Id = versionId,
-                    DocumentItemId = itemId,
-                    FileId = fileReference.FileId,
-                    VersionNumber = versionNumber,
-                    ContentHash = fileReference.ContentHash,
-                    SizeBytes = fileReference.SizeBytes,
-                    UploadedByUserId = actorUserId,
-                    CreatedAtUtc = now,
-                },
+                DocumentSqlParameters.Create(("Id", versionId), ("DocumentItemId", itemId), ("FileId", fileReference.FileId), ("VersionNumber", versionNumber), ("ContentHash", fileReference.ContentHash), ("SizeBytes", fileReference.SizeBytes), ("UploadedByUserId", actorUserId), ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.SetCurrentVersion,
-                new
-                {
-                    Id = itemId,
-                    CurrentVersionId = versionId,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = item.Version,
-                },
+                DocumentSqlParameters.Create(("Id", itemId), ("CurrentVersionId", versionId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", item.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -327,13 +294,7 @@ internal sealed class HostDocumentItemManagementService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.SoftDelete,
-                new
-                {
-                    Id = itemId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedByUserId = actorUserId,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", itemId), ("DeletedAtUtc", clock.UtcNow), ("DeletedByUserId", actorUserId), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         return affected == 1
@@ -350,7 +311,7 @@ internal sealed class HostDocumentItemManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindAnyById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -361,13 +322,7 @@ internal sealed class HostDocumentItemManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Restore,
-                new
-                {
-                    Id = itemId,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", itemId), ("UpdatedAtUtc", now), ("UpdatedByUserId", actorUserId), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -383,7 +338,7 @@ internal sealed class HostDocumentItemManagementService(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
             DocumentItemSql.FindActiveById,
-            new { Id = itemId },
+            DocumentSqlParameters.Create(("Id", itemId)),
             cancellationToken);
 
     private async Task<Result<HostDocumentItemResponse>> ReloadActiveAsync(

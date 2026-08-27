@@ -87,18 +87,7 @@ internal sealed class HostDocumentTagManagementService(
         // 修复：Insert SQL 匿名对象补齐 Code/Icon/Color/Description/UseCount，UseCount 新标签默认 0
         await commandExecutor.ExecuteAsync(
                 DocumentTagSql.Insert,
-                new
-                {
-                    Id = id,
-                    Name = name,
-                    Code = code,
-                    Icon = icon,
-                    Color = color,
-                    Description = description,
-                    UseCount = 0,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                DocumentSqlParameters.Create(("Id", id), ("Name", name), ("Code", code), ("Icon", icon), ("Color", color), ("Description", description), ("UseCount", 0), ("CreatedAtUtc", now), ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -130,17 +119,7 @@ internal sealed class HostDocumentTagManagementService(
         // 修复：Update SQL 匿名对象补齐 Code/Icon/Color/Description 四个新字段，确保更新操作完整写入
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentTagSql.Update,
-                new
-                {
-                    Id = tagId,
-                    Name = name,
-                    Code = code,
-                    Icon = icon,
-                    Color = color,
-                    Description = description,
-                    UpdatedAtUtc = now,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", tagId), ("Name", name), ("Code", code), ("Icon", icon), ("Color", color), ("Description", description), ("UpdatedAtUtc", now), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -164,7 +143,7 @@ internal sealed class HostDocumentTagManagementService(
 
         var assignmentCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 DocumentTagSql.CountAssignments,
-                new { TagId = tagId },
+                DocumentSqlParameters.Create(("TagId", tagId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (assignmentCount > 0)
@@ -174,13 +153,7 @@ internal sealed class HostDocumentTagManagementService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentTagSql.SoftDelete,
-                new
-                {
-                    Id = tagId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedByUserId = actorUserId,
-                    Version = version,
-                },
+                DocumentSqlParameters.Create(("Id", tagId), ("DeletedAtUtc", clock.UtcNow), ("DeletedByUserId", actorUserId), ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         return affected == 1
@@ -196,7 +169,7 @@ internal sealed class HostDocumentTagManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentNameConflictRecord>(
                 DocumentTagSql.FindActiveByName,
-                new { Name = name },
+                DocumentSqlParameters.Create(("Name", name)),
                 cancellationToken)
             .ConfigureAwait(false);
         return existing is not null && existing.Id != excludeId;

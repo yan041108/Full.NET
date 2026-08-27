@@ -35,7 +35,7 @@ internal sealed class HostDocumentItemQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                DocumentSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>().ConfigureAwait(false);
@@ -60,7 +60,7 @@ internal sealed class HostDocumentItemQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : Result<HostDocumentItemResponse>.Success(Map(record));
@@ -73,7 +73,7 @@ internal sealed class HostDocumentItemQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -98,7 +98,7 @@ internal sealed class HostDocumentItemQueryService(
         var item = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                 DocumentItemSql.FindActiveById,
-                new { Id = itemId },
+                DocumentSqlParameters.Create(("Id", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (item is null)
@@ -109,7 +109,7 @@ internal sealed class HostDocumentItemQueryService(
         var versions = await queryExecutor
             .QueryAsync<DocumentVersionRecord>(
                 DocumentItemSql.ListVersionsByItemId,
-                new { DocumentItemId = itemId },
+                DocumentSqlParameters.Create(("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -156,7 +156,7 @@ internal sealed class HostDocumentItemQueryService(
             var record = await queryExecutor
                 .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
                     DocumentItemSql.FindActiveById,
-                    new { Id = itemId },
+                    DocumentSqlParameters.Create(("Id", itemId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (record is null)
@@ -175,7 +175,7 @@ internal sealed class HostDocumentItemQueryService(
         var version = await queryExecutor
             .QuerySingleOrDefaultAsync<DocumentVersionRecord>(
                 DocumentItemSql.FindVersionById,
-                new { VersionId = versionId.Value, DocumentItemId = itemId },
+                DocumentSqlParameters.Create(("VersionId", versionId.Value), ("DocumentItemId", itemId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (version is null)
