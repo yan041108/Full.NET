@@ -206,3 +206,49 @@ Publish `linux-x64`, then run `pnpm test:aot:native:notifications:e2e` on Linux.
 - [x] **Step 6: Close verification and retain the decision**
 
 Run focused Unit, affected inner, AOT analyzer, Native AOT architecture, governance, `git diff --check`, and branch/status checks. Update the existing verification record with the exact commit/artifact and dual-provider native result while retaining `StaticRegistry` as Production default and `Capacity-not-verified`.
+
+### Task 7: Five-repetition fixed-host A/B decision
+
+**Approved basis:** The repository owner requested execution of the next recommendation in the verification record: increase each dual-provider cell to at least five repetitions before reconsidering an Outbox-only default switch.
+
+**Files:**
+- Modify: `docs/verification/2026-08-28-outbox-typed-command-plan-ab.md`
+- No production code, SQL, configuration, migration or public contract changes are authorized by this task.
+
+**Interfaces:**
+- Consumes: `outbox-write-profile` with the existing interleaved Registry/Typed order and corrected post-warmup process-resource window.
+- Produces: 120 raw samples covering 2 providers × 2 targets × 3 concurrency levels × 2 paths × 5 repetitions, plus a renewed Go/No-Go decision.
+
+- [x] **Step 1: Freeze the local test boundary**
+
+Record commit `f75e150c`, Docker engine/version, active container load, host CPU count and output path. Run no other build or database workload concurrently. Treat this as a focused fixed-host comparison, not production capacity certification.
+
+- [x] **Step 2: Run the five-repetition matrix**
+
+```powershell
+dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
+  -c Release -- outbox-write-profile `
+  --providers sqlserver,mysql `
+  --concurrency 1,8,32 `
+  --targets legacy,append `
+  --command-paths registry,typed `
+  --payload-size 256 `
+  --repetitions 5 `
+  --warmup-seconds 5 `
+  --duration-seconds 10 `
+  --output BenchmarkDotNet.Artifacts/outbox-typed-plan-ab-5x-20260828
+```
+
+Expected: JSON contains exactly 120 unique scenario samples; every Provider/target/concurrency/path cell contains repetitions 1..5.
+
+- [x] **Step 3: Evaluate paired distributions**
+
+For each Provider/target/concurrency cell, compare repetition-paired throughput, P50/P95/P99, errors, allocation/write, CPU/write, SQL duration and connection waits. Report median relative change plus the number of repetitions improved. A production switch remains No-Go if correctness differs, any cell has a material P99 regression without a stable counter-explanation, or neither allocation nor CPU gate is met consistently.
+
+- [x] **Step 4: Record the renewed decision**
+
+Append the exact environment, command, raw artifact path, paired table, aggregate resource results, limitations and decision to the existing verification record. Keep `Capacity-not-verified`; do not promote Typed Plan from the Testing-only candidate unless every gate passes.
+
+- [x] **Step 5: Verify and deliver evidence only**
+
+Run focused benchmark contract tests, benchmark Release build, governance, `git diff --check`, status/branch checks, independent evidence review, then commit and push only the plan/verification updates. Rule/Skill files remain unchanged unless their explicit evolution gates are independently met.
