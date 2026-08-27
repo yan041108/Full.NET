@@ -33,6 +33,7 @@ internal static class NativeApiNotificationsE2EAssertions
         {
             ["Realtime:RedisBackplaneConnectionString"] = redisConnectionString,
             ["ConnectionStrings:redis"] = redisConnectionString,
+            ["Testing:OutboxCommandPath"] = "TypedPlan",
         };
 
         await NativeApiDatabaseBootstrap.BootstrapAsync(

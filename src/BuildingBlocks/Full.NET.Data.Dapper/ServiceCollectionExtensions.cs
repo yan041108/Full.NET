@@ -163,14 +163,17 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DapperSqlExecutor>());
         services.AddOptions<MessagingOutboxOptions>()
             .BindConfiguration(MessagingOutboxOptions.SectionName);
+        var outboxCommandPath = DapperOutboxCommandPathPolicy.Resolve(
+            configuration,
+            environmentName);
         services.AddScoped(provider =>
             ActivatorUtilities.CreateInstance<DapperOutboxWriter>(
                 provider,
-                DapperOutboxCommandPath.StaticRegistry));
+                outboxCommandPath));
         services.AddScoped(provider =>
             ActivatorUtilities.CreateInstance<DapperAppendOnlyOutboxWriter>(
                 provider,
-                DapperOutboxCommandPath.StaticRegistry));
+                outboxCommandPath));
         services.AddScoped<IEventStreamOwnershipGate, DapperEventStreamOwnershipGate>();
         services.AddScoped<IEventDeliveryProducerFencePositionReader, DapperEventDeliveryProducerFencePositionReader>();
         services.TryAddScoped<IEffectiveEventDeliveryOwnerResolver, LegacyPollingEventDeliveryOwnerResolver>();

@@ -4,6 +4,8 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.Dapper.Outbox;
 using Full.NET.Messaging.Abstractions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Data;
@@ -14,6 +16,58 @@ namespace Full.NET.UnitTests.Data;
 [TestClass]
 public sealed class DapperTypedOutboxWriterTests
 {
+    [TestMethod]
+    public void Testing_environment_can_select_typed_plan_explicitly()
+    {
+        var configuration = CreateConfiguration(
+            (DapperOutboxCommandPathPolicy.ConfigurationKey, "TypedPlan"));
+
+        var path = DapperOutboxCommandPathPolicy.Resolve(
+            configuration,
+            "Testing");
+
+        Assert.AreEqual(DapperOutboxCommandPath.TypedPlan, path);
+    }
+
+    [TestMethod]
+    public void Missing_testing_selection_keeps_static_registry()
+    {
+        var path = DapperOutboxCommandPathPolicy.Resolve(
+            CreateConfiguration(),
+            "Testing");
+
+        Assert.AreEqual(DapperOutboxCommandPath.StaticRegistry, path);
+    }
+
+    [TestMethod]
+    public void Production_ignores_testing_only_typed_plan_selection()
+    {
+        var configuration = CreateConfiguration(
+            (DapperOutboxCommandPathPolicy.ConfigurationKey, "TypedPlan"));
+
+        var path = DapperOutboxCommandPathPolicy.Resolve(
+            configuration,
+            Environments.Production);
+
+        Assert.AreEqual(DapperOutboxCommandPath.StaticRegistry, path);
+    }
+
+    [TestMethod]
+    public void Unknown_testing_selection_fails_closed()
+    {
+        var configuration = CreateConfiguration(
+            (DapperOutboxCommandPathPolicy.ConfigurationKey, "dynamic"));
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => DapperOutboxCommandPathPolicy.Resolve(
+                configuration,
+                "Testing"));
+
+        StringAssert.Contains(
+            exception.Message,
+            DapperOutboxCommandPathPolicy.ConfigurationKey);
+    }
+
     [TestMethod]
     public async Task Legacy_writer_defaults_to_static_registry_executor_path()
     {
@@ -121,6 +175,15 @@ public sealed class DapperTypedOutboxWriterTests
             currentTenant,
             clock);
     }
+
+    private static IConfiguration CreateConfiguration(
+        params (string Key, string? Value)[] values) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(values.ToDictionary(
+                static pair => pair.Key,
+                static pair => pair.Value,
+                StringComparer.Ordinal))
+            .Build();
 
     private sealed record Collaborators(
         ICommandExecutor Command,

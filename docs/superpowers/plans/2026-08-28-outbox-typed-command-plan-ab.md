@@ -159,3 +159,50 @@ Execute only the selector-proposed Outbox integration filters for both providers
 - [ ] **Step 4: Final checks and commit**
 
 Run Release build, `git diff --check`, `git status`, rule/Skill evolution checks, commit the focused change and push `main` only after all required gates pass.
+
+### Task 6: Native AOT typed-path runtime closure
+
+**Approved basis:** The repository owner explicitly approved the Outbox-only internal Typed Plan candidate and then requested completion of its Native AOT handling. This task does not revise the A/B No-Go decision or enable the candidate in Production.
+
+**Files:**
+- Create: `src/BuildingBlocks/Full.NET.Data.Dapper/Outbox/DapperOutboxCommandPathPolicy.cs`
+- Modify: `src/BuildingBlocks/Full.NET.Data.Dapper/ServiceCollectionExtensions.cs`
+- Modify: `tests/Full.NET.UnitTests/Data/DapperTypedOutboxWriterTests.cs`
+- Modify: `tests/Full.NET.IntegrationTests/NativeAot/NativeApiNotificationsE2EAssertions.cs`
+- Modify: `tests/Full.NET.IntegrationTests/NativeAot/NativeApiNotificationsMySqlE2ETests.cs`
+- Modify: `tests/Full.NET.IntegrationTests/NativeAot/NativeApiNotificationsSqlServerE2ETests.cs`
+- Modify: `docs/verification/2026-08-28-outbox-typed-command-plan-ab.md`
+
+**Interfaces:**
+- Produces: `DapperOutboxCommandPathPolicy.Resolve(IConfiguration, string)`; only `Testing:OutboxCommandPath=TypedPlan` in the `Testing` environment selects the candidate.
+- Consumes: the existing Notifications native external-process flow, whose successful mutation response depends on a real legacy Outbox write committing through `IOutboxWriter`; its post-commit SignalR notification separately verifies the API realtime/JSON closure and is not an Outbox-consumption assertion.
+
+- [x] **Step 1: Write failing selection tests**
+
+Add tests proving that Testing plus the exact `TypedPlan` token selects the typed path, the default stays `StaticRegistry`, Production ignores the testing-only key, and an unknown Testing token fails closed.
+
+- [x] **Step 2: Verify RED**
+
+Run:
+
+```powershell
+dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~DapperTypedOutboxWriterTests"
+```
+
+Expected: compilation fails because `DapperOutboxCommandPathPolicy` does not exist.
+
+- [x] **Step 3: Implement the Testing-only selector**
+
+Resolve the enum once during `AddFullNetDapper`; capture it in both writer factories. Outside `Testing`, always return `StaticRegistry`. In `Testing`, accept an absent/`StaticRegistry` value or exact `TypedPlan`, and throw for any other token. Keep the key internal and omit it from production configuration examples.
+
+- [x] **Step 4: Route the existing native Notifications gate through Typed Plan**
+
+Pass `Testing:OutboxCommandPath=TypedPlan` to the native process. Rename both provider tests so the machine-visible test name states that the typed Outbox path is exercised. Preserve the existing HTTP/JSON/SignalR lifecycle; the successful mutation response proves the transaction containing the Typed Outbox insert committed, while SignalR verifies its separate post-commit API path. This Host.Api-only gate does not claim Worker consumption.
+
+- [x] **Step 5: Verify the Linux native process on both providers**
+
+Publish `linux-x64`, then run `pnpm test:aot:native:notifications:e2e` on Linux. On a Windows development host, execute the built integration assembly in a Linux SDK container with the Docker socket and `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`; discovery-only skips do not satisfy this step.
+
+- [x] **Step 6: Close verification and retain the decision**
+
+Run focused Unit, affected inner, AOT analyzer, Native AOT architecture, governance, `git diff --check`, and branch/status checks. Update the existing verification record with the exact commit/artifact and dual-provider native result while retaining `StaticRegistry` as Production default and `Capacity-not-verified`.

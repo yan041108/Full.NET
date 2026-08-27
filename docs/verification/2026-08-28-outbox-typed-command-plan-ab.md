@@ -34,8 +34,39 @@ Typed Plan 的分配收益方向稳定：12 个配对场景的每写入分配全
 - 回收前清空参数值并脱离 `Connection` / `Transaction`；在用 command 不共享，槽已满或异常路径直接释放。
 - Legacy Outbox 使用 8 参数计划，Append-only Outbox 使用 12 参数计划。
 - Typed 执行仍经过现有 `DbSession`、事务、命令超时、异常映射、Telemetry 与受影响行检查。
-- `ServiceCollectionExtensions` 显式注册 `StaticRegistry`；Typed 只由测试和 Profile harness 显式选择。
+- `ServiceCollectionExtensions` 在 Production 及所有非 Testing 环境强制注册 `StaticRegistry`；只有 Native 外部进程测试可通过内部键 `Testing:OutboxCommandPath=TypedPlan` 显式选择候选，未知测试值失败关闭。
 - Native AOT 路径只使用闭合泛型与显式绑定，没有反射、匿名参数形状或运行时类型发现。
+
+## Native AOT 运行闭环（2026-08-28）
+
+- 验证输入：`1235a4df01eca5962b0bde7df93934e2d2ae4bf6` 加本任务工作区差异；任务快照 `outbox-typed-plan-native-aot-20260828`。
+- `pnpm test:aot:publish:linux`：通过；warning gate 仅接受 9 个已登记第三方告警，生成 `linux-x64` 原生 Host.Api，大小 72,269,952 B，publish manifest 位于 `artifacts/native-aot/linux-x64/publish-manifest.json`。
+- Windows discovery：`pnpm test:aot:native:notifications:e2e` 发现 2 项并按平台规则跳过；该结果仅证明可发现，不作为运行证据。
+- Linux 原生执行：在 `mcr.microsoft.com/dotnet/sdk:10.0` 容器中挂载仓库与 Docker socket，并设置 `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`，直接运行已构建 Integration 程序集及新发布的 ELF。SQL Server/MySQL Notifications Typed Outbox 流程 2/2 通过、0 失败、0 跳过，耗时 2m22s；TRX 为 `artifacts/native-aot/linux-x64/test-results/Full.NET.IntegrationTests-native-aot-notifications-linux-local.trx`。
+- 两个 Provider 都完成登录、Announcement 与 Inbox 事务写入、HTTP/JSON/SignalR 返回及原生进程优雅停止；成功的 mutation response 依赖包含 Typed Outbox INSERT 的业务事务提交，因此证明 Legacy Outbox Typed Plan 在真实 Native AOT Provider connection/transaction 链路可执行。
+- Notifications 服务在事务提交后直接发布 SignalR，本门禁只启动 Host.Api、未启动 Host.Worker；因此 SignalR 成功只验证独立的 realtime/JSON 闭包，不证明 Outbox row 已被后台领取或消费。
+- 本轮原生门禁证明提交路径，不单独构造“Outbox 已插入后再强制回滚”的原生故障点；事务回滚仍由既有双库 Integration/Typed Plan 生命周期门禁覆盖，禁止把本条证据扩大解释为全部原生故障矩阵。
+- Production 默认没有改变，A/B 的生产切流结论仍为 No-Go，容量状态仍为 `Capacity-not-verified`。
+
+Linux 本地门禁命令：
+
+```powershell
+docker run --rm --add-host host.docker.internal:host-gateway `
+  -e CI=true `
+  -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal `
+  -v "G:\wwwroot\github_fork\Full.NET:/repo" `
+  -v //var/run/docker.sock:/var/run/docker.sock `
+  -w /repo mcr.microsoft.com/dotnet/sdk:10.0 `
+  dotnet /repo/tests/Full.NET.IntegrationTests/bin/Release/net10.0/Full.NET.IntegrationTests.dll `
+  --no-ansi --progress off --timeout 45m `
+  --filter "FullyQualifiedName~NativeApiNotifications" `
+  --minimum-expected-tests 2 `
+  --results-directory /repo/artifacts/native-aot/linux-x64/test-results `
+  --report-trx `
+  --report-trx-filename Full.NET.IntegrationTests-native-aot-notifications-linux-local.trx
+```
+
+本地执行注意：Docker Linux publish 后，Windows inner 首次因 `obj/project.assets.json` 暂时指向容器 NuGet 路径 `/root/.nuget/packages/` 而在编译前失败；宿主包缓存实际完整。执行 `dotnet restore Full.NET.slnx` 恢复 Windows assets 后，同一 `pnpm test:inner -- --snapshot outbox-typed-plan-native-aot-20260828` 原样重跑 14/14 通过。该环境恢复不涉及产品代码。
 
 ## A/B 方法
 
@@ -105,10 +136,10 @@ dotnet run --project benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj `
 - `pnpm test:inner -- --snapshot outbox-typed-plan-ab-20260828`：14/14，通过；包含 MySQL Outbox/smoke。
 - SQL Server Outbox 精确筛选：3/3，通过；覆盖 schema、append-only 字段持久化和事务回滚。
 - `pnpm test:aot:analyzers`：通过，0 警告/0 错误；覆盖 `FULLNET_AOT_COMPILE` 下的 MySQL wrapper 实现。
-- `pnpm test:aot:publish:linux`：最终 HEAD 发布通过；warning gate 接受 9 个已登记第三方告警，生成 72,269,968 B 的 Linux x64 原生 Host.Api。
+- `pnpm test:aot:publish:linux`：本轮 Native 闭环发布通过；warning gate 接受 9 个已登记第三方告警，生成 72,269,952 B 的 Linux x64 原生 Host.Api。
 - API Native AOT Architecture：49/49，通过。
 - Governance：52/52，通过。
-- Native AOT E2E Windows 发现门禁：发现 5 项、0 失败、5 项按设计跳过；这不等价于 Linux 原生进程执行。
+- Native AOT 核心 E2E Windows 发现门禁：发现 5 项、0 失败、5 项按设计跳过；这不等价于 Linux 原生进程执行。Typed Outbox 的 Notifications 专用 Linux 原生门禁已在上节单独完成双库 2/2。
 - 独立代码复审：修正 4 项发现后，无剩余 Critical/Important finding。
 - Naming：29/30；唯一失败是本任务未修改、任务基线已存在的 migration 100 静态扫描 `FNSQL003`（4 处 unsupported DDL），不计为本候选通过。
 - SQL Server 首次精确筛选的 2 个迁移失败不计为代码失败：复用测试容器累计约 1,200 个测试数据库并在 recovery 中退出（`OOMKilled=false`、exit 255）。删除无挂载的已退出测试容器后，同一测试集 3/3 通过。

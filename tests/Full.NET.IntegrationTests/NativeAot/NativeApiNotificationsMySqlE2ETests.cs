@@ -7,7 +7,7 @@ namespace Full.NET.IntegrationTests.NativeAot;
 public sealed class NativeApiNotificationsMySqlE2ETests
 {
     [TestMethod]
-    public async Task MySql_native_artifact_supports_notifications_http_json_signalr()
+    public async Task MySql_native_artifact_supports_typed_outbox_notifications_flow()
     {
         _ = NativeApiArtifactLocator.RequireArtifact();
         await NativeApiNotificationsE2EAssertions.VerifyNotificationsFlowAsync(
