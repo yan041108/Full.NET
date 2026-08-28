@@ -51,15 +51,13 @@ internal sealed class HostExceptionLogQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 pageStatement,
-                new
-                {
-                    filter.FromUtc,
-                    filter.ToUtc,
-                    filter.ExceptionTypeContains,
-                    filter.PathContains,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                AuditingSqlParameters.Create(
+                    ("FromUtc", filter.FromUtc),
+                    ("ToUtc", filter.ToUtc),
+                    ("ExceptionTypeContains", filter.ExceptionTypeContains),
+                    ("PathContains", filter.PathContains),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -84,7 +82,7 @@ internal sealed class HostExceptionLogQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<ExceptionLogRecord>(
                 ExceptionLogSql.FindById,
-                new { ExceptionLogId = exceptionLogId },
+                AuditingSqlParameters.Create(("ExceptionLogId", exceptionLogId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

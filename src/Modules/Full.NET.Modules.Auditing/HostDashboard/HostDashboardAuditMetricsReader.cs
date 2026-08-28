@@ -21,12 +21,12 @@ internal sealed class HostDashboardAuditMetricsReader(
         var metrics = await queryExecutor.QuerySingleOrDefaultAsync<
                 HostDashboardAccessMetricsRecord>(
                 HostDashboardAuditSql.ReadTodayAccessMetrics,
-                new { StartOfDayUtc = startOfDayUtc },
+                AuditingSqlParameters.Create(("StartOfDayUtc", startOfDayUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
         var activities = await queryExecutor.QueryAsync<HostDashboardActivityRecord>(
                 ResolveRecentActivitiesStatement(),
-                new { Take = recentActivityTake },
+                AuditingSqlParameters.Create(("Take", recentActivityTake)),
                 cancellationToken)
             .ConfigureAwait(false);
 

@@ -141,7 +141,7 @@ internal sealed class AuditingRetentionRunner(
     {
         var affectedRows = await commandExecutor.ExecuteAsync(
                 AuditingRetentionSql.GetSqlServerDelete(category),
-                new { CutoffUtc = cutoffUtc, BatchSize = batchSize },
+                AuditingSqlParameters.Create(("CutoffUtc", cutoffUtc), ("BatchSize", batchSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureAffectedRowsWithinBatch(affectedRows, batchSize);
@@ -158,7 +158,7 @@ internal sealed class AuditingRetentionRunner(
             {
                 var ids = await queryExecutor.QueryAsync<Guid>(
                         AuditingRetentionSql.GetMySqlSelect(category),
-                        new { CutoffUtc = cutoffUtc, BatchSize = batchSize },
+                        AuditingSqlParameters.Create(("CutoffUtc", cutoffUtc), ("BatchSize", batchSize)),
                         transactionToken)
                     .ConfigureAwait(false);
                 if (ids.Count == 0)
@@ -169,7 +169,7 @@ internal sealed class AuditingRetentionRunner(
                 var claimedIds = ids.ToArray();
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         AuditingRetentionSql.GetMySqlDelete(category),
-                        new { Ids = claimedIds },
+                        AuditingSqlParameters.Create(("Ids", claimedIds)),
                         transactionToken)
                     .ConfigureAwait(false);
                 if (affectedRows != claimedIds.Length)

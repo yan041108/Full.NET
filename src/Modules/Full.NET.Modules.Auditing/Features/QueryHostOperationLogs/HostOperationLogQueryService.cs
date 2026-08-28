@@ -50,16 +50,14 @@ internal sealed class HostOperationLogQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 pageStatement,
-                new
-                {
-                    filter.FromUtc,
-                    filter.ToUtc,
-                    filter.HttpMethod,
-                    filter.Succeeded,
-                    filter.PathContains,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                AuditingSqlParameters.Create(
+                    ("FromUtc", filter.FromUtc),
+                    ("ToUtc", filter.ToUtc),
+                    ("HttpMethod", filter.HttpMethod),
+                    ("Succeeded", filter.Succeeded),
+                    ("PathContains", filter.PathContains),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -84,7 +82,7 @@ internal sealed class HostOperationLogQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OperationLogRecord>(
                 OperationLogSql.FindById,
-                new { OperationLogId = operationLogId },
+                AuditingSqlParameters.Create(("OperationLogId", operationLogId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

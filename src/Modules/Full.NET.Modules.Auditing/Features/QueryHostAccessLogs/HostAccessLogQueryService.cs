@@ -50,16 +50,14 @@ internal sealed class HostAccessLogQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 pageStatement,
-                new
-                {
-                    filter.FromUtc,
-                    filter.ToUtc,
-                    filter.HttpMethod,
-                    filter.StatusCode,
-                    filter.PathContains,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                AuditingSqlParameters.Create(
+                    ("FromUtc", filter.FromUtc),
+                    ("ToUtc", filter.ToUtc),
+                    ("HttpMethod", filter.HttpMethod),
+                    ("StatusCode", filter.StatusCode),
+                    ("PathContains", filter.PathContains),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -136,17 +134,15 @@ internal sealed class HostAccessLogQueryService(
         };
         var rows = await queryExecutor.QueryAsync<AccessLogRecord>(
                 statement,
-                new
-                {
-                    filter.FromUtc,
-                    filter.ToUtc,
-                    filter.HttpMethod,
-                    filter.StatusCode,
-                    filter.PathContains,
-                    CursorOccurredAtUtc = boundary?.OccurredAtUtc,
-                    CursorId = boundary?.Id,
-                    FetchSize = limit + 1,
-                },
+                AuditingSqlParameters.Create(
+                    ("FromUtc", filter.FromUtc),
+                    ("ToUtc", filter.ToUtc),
+                    ("HttpMethod", filter.HttpMethod),
+                    ("StatusCode", filter.StatusCode),
+                    ("PathContains", filter.PathContains),
+                    ("CursorOccurredAtUtc", boundary?.OccurredAtUtc),
+                    ("CursorId", boundary?.Id),
+                    ("FetchSize", limit + 1)),
                 cancellationToken)
             .ConfigureAwait(false);
         var hasMore = rows.Count > limit;
@@ -169,7 +165,7 @@ internal sealed class HostAccessLogQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<AccessLogRecord>(
                 AccessLogSql.FindById,
-                new { AccessLogId = accessLogId },
+                AuditingSqlParameters.Create(("AccessLogId", accessLogId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

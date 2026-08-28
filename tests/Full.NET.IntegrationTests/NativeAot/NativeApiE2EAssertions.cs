@@ -5,6 +5,7 @@ using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
@@ -52,6 +53,8 @@ internal static class NativeApiE2EAssertions
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyDocumentFlowAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifyAuditingFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -502,6 +505,129 @@ internal static class NativeApiE2EAssertions
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+    }
+
+    private static async Task VerifyAuditingFlowAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var outboundProviderKey = "native-aot-" + Guid.NewGuid().ToString("N");
+        using (var outboundProbeRequest = AuthorizedJson(
+                   HttpMethod.Post,
+                   "/api/v1/auditing/outbound-call-probes",
+                   accessToken,
+                   new OutboundCallAuditProbeRequest(
+                       new OutboundCallAuditRequest(
+                           outboundProviderKey,
+                           "record",
+                           "test",
+                           204,
+                           true,
+                           1,
+                           0))))
+        using (var outboundProbeResponse = await client
+                   .SendAsync(outboundProbeRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    outboundProbeResponse,
+                    HttpStatusCode.NoContent,
+                    "Write Native AOT outbound audit probe",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        using (var exceptionProbeRequest = Authorized(
+                   HttpMethod.Post,
+                   "/api/v1/auditing/exception-probes",
+                   accessToken))
+        using (var exceptionProbeResponse = await client
+                   .SendAsync(exceptionProbeRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    exceptionProbeResponse,
+                    HttpStatusCode.InternalServerError,
+                    "Write Native AOT exception audit probe",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        using (var accessRequest = Authorized(
+                   HttpMethod.Get,
+                   "/api/v1/auditing/access-logs?page=1&pageSize=100",
+                   accessToken))
+        using (var accessResponse = await client.SendAsync(accessRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    accessResponse,
+                    HttpStatusCode.OK,
+                    "Read Native AOT access audit page",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var page = await accessResponse.Content
+                .ReadFromJsonAsync<PagedResult<AccessLogResponse>>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(page);
+        }
+        _ = await WaitForAuditPageItemAsync<OperationLogResponse>(
+                client,
+                "/api/v1/auditing/operation-logs?page=1&pageSize=100",
+                accessToken,
+                static item => item.RequestPath.Contains("/api/v1/", StringComparison.Ordinal),
+                cancellationToken)
+            .ConfigureAwait(false);
+        _ = await WaitForAuditPageItemAsync<ExceptionLogResponse>(
+                client,
+                "/api/v1/auditing/exception-logs?page=1&pageSize=100",
+                accessToken,
+                static item => item.RequestPath == "/api/v1/auditing/exception-probes",
+                cancellationToken)
+            .ConfigureAwait(false);
+        _ = await WaitForAuditPageItemAsync<OutboundCallLogResponse>(
+                client,
+                "/api/v1/auditing/outbound-call-logs?page=1&pageSize=100",
+                accessToken,
+                item => item.ProviderKey == outboundProviderKey,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<T> WaitForAuditPageItemAsync<T>(
+        HttpClient client,
+        string path,
+        string accessToken,
+        Func<T, bool> predicate,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            using var request = Authorized(HttpMethod.Get, path, accessToken);
+            using var response = await client.SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            await AssertStatusAsync(
+                    response,
+                    HttpStatusCode.OK,
+                    "Read Native AOT audit page " + path,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var page = await response.Content.ReadFromJsonAsync<PagedResult<T>>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(page);
+            var match = page.Items.FirstOrDefault(predicate);
+            if (match is not null)
+            {
+                return match;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        Assert.Fail("Timed out waiting for Native AOT audit row from " + path);
+        throw new InvalidOperationException("Unreachable after Assert.Fail.");
     }
 
     private static async Task<TResponse> PostAndReadAsync<TRequest, TResponse>(

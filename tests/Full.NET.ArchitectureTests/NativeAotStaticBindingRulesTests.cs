@@ -768,6 +768,65 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void AuditingModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Auditing");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Auditing 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void AuditingModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Auditing");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "AuditingModule.cs"));
+        var contributorPath = Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "AuditingDapperAotMaterializerContributor.cs");
+
+        Assert.IsTrue(File.Exists(contributorPath), "Auditing AOT 物化器 contributor 尚未建立。");
+        var contributorSource = File.ReadAllText(contributorPath);
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "AuditingDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "HostAccessLogQueryService.AccessLogRecord",
+                     "HostOperationLogQueryService.OperationLogRecord",
+                     "HostExceptionLogQueryService.ExceptionLogRecord",
+                     "OutboundCallLogRecord",
+                     "HostDashboardAccessMetricsRecord",
+                     "HostDashboardActivityRecord",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();

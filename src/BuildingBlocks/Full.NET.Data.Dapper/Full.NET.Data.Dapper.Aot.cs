@@ -10,4 +10,5 @@
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Jobs")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.SerialNumbers")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Document")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Auditing")]
 #endif

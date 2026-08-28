@@ -50,16 +50,14 @@ internal sealed class HostOutboundCallLogQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 pageStatement,
-                new
-                {
-                    filter.FromUtc,
-                    filter.ToUtc,
-                    filter.ProviderKey,
-                    filter.Succeeded,
-                    filter.OperationContains,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                AuditingSqlParameters.Create(
+                    ("FromUtc", filter.FromUtc),
+                    ("ToUtc", filter.ToUtc),
+                    ("ProviderKey", filter.ProviderKey),
+                    ("Succeeded", filter.Succeeded),
+                    ("OperationContains", filter.OperationContains),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -84,7 +82,7 @@ internal sealed class HostOutboundCallLogQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OutboundCallLogRecord>(
                 OutboundCallLogSql.FindById,
-                new { OutboundCallLogId = outboundCallLogId },
+                AuditingSqlParameters.Create(("OutboundCallLogId", outboundCallLogId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
