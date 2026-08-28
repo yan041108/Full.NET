@@ -59,11 +59,9 @@ internal sealed class DeadLetterReplayService(
     {
         var deadLetter = await queryExecutor.QuerySingleOrDefaultAsync<DeadLetterRecord>(
                 MessagingOperationsSql.FindDeadLetterByKey,
-                new
-                {
-                    ConsumerName = request.ConsumerName,
-                    MessageId = request.MessageId,
-                },
+                MessagingSqlParameters.Create(
+                    ("ConsumerName", request.ConsumerName),
+                    ("MessageId", request.MessageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (deadLetter is null)
@@ -76,7 +74,7 @@ internal sealed class DeadLetterReplayService(
 
         var outbox = await queryExecutor.QuerySingleOrDefaultAsync<OutboxEnvelopeRecord>(
                 MessagingOperationsSql.FindOutboxEnvelopeById,
-                new { Id = request.MessageId },
+                MessagingSqlParameters.Create(("Id", request.MessageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (outbox is null)

@@ -31,17 +31,15 @@ internal sealed class DeadLetterQueryService(
         var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 MessagingOperationsSql.CountDeadLetters,
-                new { ConsumerName = consumerName },
+                MessagingSqlParameters.Create(("ConsumerName", consumerName)),
                 cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<DeadLetterRecord>(
                 ResolveListStatement(),
-                new
-                {
-                    Offset = offset,
-                    PageSize = pageSize,
-                    ConsumerName = consumerName,
-                },
+                MessagingSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize),
+                    ("ConsumerName", consumerName)),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<PagedResult<DeadLetterResponse>>.Success(

@@ -14,6 +14,8 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
         registrar.Register<EventStreamOwnershipPersistenceRow>(ReadEventStreamOwnershipPersistenceRow);
         registrar.Register<RollbackPreparationRecord>(ReadRollbackPreparationRecord);
         registrar.Register<OutboxStreamCutoffRecord>(ReadOutboxStreamCutoffRecord);
+        registrar.Register<DeadLetterRecord>(ReadDeadLetterRecord);
+        registrar.Register<OutboxEnvelopeRecord>(ReadOutboxEnvelopeRecord);
     }
 
     private static EventStreamOwnershipPersistenceRow ReadEventStreamOwnershipPersistenceRow(
@@ -51,5 +53,32 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
         new(
             reader.GetGuid(0),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 1));
+
+    private static DeadLetterRecord ReadDeadLetterRecord(DbDataReader reader) =>
+        new(
+            reader.GetString(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetInt32(3),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 4),
+            reader.GetInt32(5),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
+            AotDataReaderExtensions.ReadNullableString(reader, 7),
+            AotDataReaderExtensions.ReadNullableString(reader, 8));
+
+    private static OutboxEnvelopeRecord ReadOutboxEnvelopeRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.GetInt32(2),
+            reader.GetString(3),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 4),
+            reader.GetString(5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 7),
+            AotDataReaderExtensions.ReadNullableString(reader, 8),
+            reader.GetString(9),
+            reader.GetFieldValue<byte[]>(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11));
 }
 #endif

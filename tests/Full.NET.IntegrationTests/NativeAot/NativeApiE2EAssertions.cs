@@ -1,16 +1,22 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
+using Dapper;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Messaging.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
@@ -56,6 +62,13 @@ internal static class NativeApiE2EAssertions
         await VerifyDocumentFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAuditingFlowAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifyMessagingDeadLetterFlowAsync(
+                provider,
+                connectionString,
+                client,
+                token,
+                cancellationToken)
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -785,6 +798,137 @@ internal static class NativeApiE2EAssertions
         using var response = await client.GetAsync("/health/ready", cancellationToken)
             .ConfigureAwait(false);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task VerifyMessagingDeadLetterFlowAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        const string consumerName = "fullnet.native_aot.unregistered.consumer";
+        const string messageType = "fullnet.native_aot.messaging.materializer_probe";
+        var messageId = Guid.CreateVersion7();
+        var payload = JsonSerializer.SerializeToUtf8Bytes(new { Probe = messageId });
+        await SeedFailedDeadLetterAsync(
+                provider,
+                connectionString,
+                consumerName,
+                messageId,
+                messageType,
+                payload,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await AssertPageContainsAsync<DeadLetterResponse>(
+                client,
+                "/api/v1/messaging/dead-letters?page=1&pageSize=20&consumerName="
+                    + Uri.EscapeDataString(consumerName),
+                accessToken,
+                item => item.ConsumerName == consumerName && item.MessageId == messageId,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        using var replayRequest = AuthorizedJson(
+            HttpMethod.Post,
+            "/api/v1/messaging/dead-letters/replay",
+            accessToken,
+            new ReplayDeadLetterRequest(consumerName, messageId));
+        using var replayResponse = await client.SendAsync(replayRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                replayResponse,
+                HttpStatusCode.UnprocessableEntity,
+                "Replay Native AOT dead letter through the Outbox envelope materializer",
+                cancellationToken)
+            .ConfigureAwait(false);
+        using var problem = JsonDocument.Parse(
+            await replayResponse.Content.ReadAsStringAsync(cancellationToken)
+                .ConfigureAwait(false));
+        Assert.AreEqual(
+            MessagingErrorCodes.SubscriptionRouteNotFound,
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task SeedFailedDeadLetterAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        string consumerName,
+        Guid messageId,
+        string messageType,
+        byte[] payload,
+        CancellationToken cancellationToken)
+    {
+        var parameters = new
+        {
+            ConsumerName = consumerName,
+            MessageId = messageId,
+            MessageType = messageType,
+            SchemaVersion = 1,
+            ContentType = "application/json",
+            PartitionKey = $"native-aot-{messageId:N}",
+            Producer = "fullnet.native_aot.tests",
+            Payload = payload,
+            PayloadHash = SHA256.HashData(payload),
+            LastErrorCode = "messaging.native_aot.probe",
+            LastError = "Injected dead letter for Native AOT materializer verification.",
+        };
+        var command = provider switch
+        {
+            DatabaseProvider.SqlServer => new CommandDefinition(
+                """
+                INSERT INTO dbo.fn_messaging_outbox_event
+                    (Id, MessageType, SchemaVersion, ContentType, TenantId, PartitionKey,
+                     CorrelationId, CausationId, TraceParent, Producer, Payload, OccurredAtUtc)
+                VALUES
+                    (@MessageId, @MessageType, @SchemaVersion, @ContentType, NULL, @PartitionKey,
+                     NULL, NULL, NULL, @Producer, @Payload, SYSDATETIMEOFFSET());
+
+                INSERT INTO dbo.fn_messaging_inbox_message
+                    (ConsumerName, MessageId, MessageType, SchemaVersion, TenantId, PayloadHash,
+                     Status, Attempts, ReceivedAtUtc, ProcessedAtUtc, LastErrorCode, LastError)
+                VALUES
+                    (@ConsumerName, @MessageId, @MessageType, @SchemaVersion, NULL, @PayloadHash,
+                     'failed', 1, SYSDATETIMEOFFSET(), NULL, @LastErrorCode, @LastError);
+                """,
+                parameters,
+                cancellationToken: cancellationToken),
+            DatabaseProvider.MySql => new CommandDefinition(
+                """
+                INSERT INTO fn_messaging_outbox_event
+                    (Id, MessageType, SchemaVersion, ContentType, TenantId, PartitionKey,
+                     CorrelationId, CausationId, TraceParent, Producer, Payload, OccurredAtUtc)
+                VALUES
+                    (@MessageId, @MessageType, @SchemaVersion, @ContentType, NULL, @PartitionKey,
+                     NULL, NULL, NULL, @Producer, @Payload, UTC_TIMESTAMP(6));
+
+                INSERT INTO fn_messaging_inbox_message
+                    (ConsumerName, MessageId, MessageType, SchemaVersion, TenantId, PayloadHash,
+                     Status, Attempts, ReceivedAtUtc, ProcessedAtUtc, LastErrorCode, LastError)
+                VALUES
+                    (@ConsumerName, @MessageId, @MessageType, @SchemaVersion, NULL, @PayloadHash,
+                     'failed', 1, UTC_TIMESTAMP(6), NULL, @LastErrorCode, @LastError);
+                """,
+                parameters,
+                cancellationToken: cancellationToken),
+            _ => throw new InvalidOperationException(
+                $"Unsupported database provider '{provider}'."),
+        };
+
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.ExecuteAsync(command).ConfigureAwait(false);
+            return;
+        }
+
+        await using var mySqlConnection = new MySqlConnection(
+            MySqlConnectionStringPolicy.Create(
+                connectionString,
+                MySqlGuidStorageMode.Binary16,
+                allowUserVariables: false));
+        await mySqlConnection.ExecuteAsync(command).ConfigureAwait(false);
     }
 
     private static string ReadNativeLogTail(string? logFilePath, int maxChars = 4_000)

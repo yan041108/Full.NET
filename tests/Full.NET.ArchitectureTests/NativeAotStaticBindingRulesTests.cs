@@ -881,6 +881,45 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void MessagingModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(root, "src", "Modules", "Full.NET.Modules.Messaging");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Messaging 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void MessagingOperations_RegistersNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var contributorPath = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Messaging",
+            "Persistence",
+            "MessagingDapperAotMaterializerContributor.cs");
+        var contributorSource = File.ReadAllText(contributorPath);
+
+        StringAssert.Contains(contributorSource, "registrar.Register<DeadLetterRecord>");
+        StringAssert.Contains(contributorSource, "registrar.Register<OutboxEnvelopeRecord>");
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();
