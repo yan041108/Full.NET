@@ -202,7 +202,7 @@ internal sealed class HostUserManagementService(
         var normalizedUsername = username.ToUpperInvariant();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindUserByScopeAndUsername,
-                new { ScopeKey = HostScope, NormalizedUsername = normalizedUsername },
+                IdentitySqlParameters.Create(("ScopeKey", HostScope), ("NormalizedUsername", normalizedUsername)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -287,7 +287,7 @@ internal sealed class HostUserManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -314,12 +314,10 @@ internal sealed class HostUserManagementService(
         var now = clock.UtcNow;
         var disabledRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.DisableHostUser,
-                new
-                {
-                    UserId = userId,
-                    SecurityStamp = idGenerator.NewId().ToString("N"),
-                    UpdatedAtUtc = now,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("SecurityStamp", idGenerator.NewId().ToString("N")),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (disabledRows != 1)
@@ -329,13 +327,13 @@ internal sealed class HostUserManagementService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.RevokeAllUserSessions,
-                new { UserId = userId, RevokedAtUtc = now },
+                IdentitySqlParameters.Create(("UserId", userId), ("RevokedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (updated is null)
@@ -352,7 +350,7 @@ internal sealed class HostUserManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || record.IsActive)
@@ -363,11 +361,9 @@ internal sealed class HostUserManagementService(
         var now = clock.UtcNow;
         var enabledRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.EnableHostUser,
-                new
-                {
-                    UserId = userId,
-                    UpdatedAtUtc = now,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (enabledRows != 1)
@@ -377,7 +373,7 @@ internal sealed class HostUserManagementService(
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (updated is null)
@@ -405,7 +401,7 @@ internal sealed class HostUserManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -425,21 +421,19 @@ internal sealed class HostUserManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostUserDisplayName,
-                new
-                {
-                    UserId = userId,
-                    DisplayName = displayName,
-                    AccountType = accountType,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("DisplayName", displayName),
+                    ("AccountType", accountType),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
             var exists = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                     IdentitySql.FindHostUserById,
-                    new { UserId = userId },
+                    IdentitySqlParameters.Create(("UserId", userId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (exists is null)
@@ -452,7 +446,7 @@ internal sealed class HostUserManagementService(
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (updated is null)
@@ -503,7 +497,7 @@ internal sealed class HostUserManagementService(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -531,13 +525,11 @@ internal sealed class HostUserManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.ResetHostUserPassword,
-                new
-                {
-                    UserId = userId,
-                    PasswordHash = passwordHash,
-                    SecurityStamp = securityStamp,
-                    UpdatedAtUtc = now,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("PasswordHash", passwordHash),
+                    ("SecurityStamp", securityStamp),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -547,13 +539,13 @@ internal sealed class HostUserManagementService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.RevokeAllUserSessions,
-                new { UserId = userId, RevokedAtUtc = now },
+                IdentitySqlParameters.Create(("UserId", userId), ("RevokedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (updated is null)
@@ -572,7 +564,7 @@ internal sealed class HostUserManagementService(
     {
         var existing = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
                 IdentitySql.ListHostUserProfilesByIds,
-                new { UserIds = new[] { userId } },
+                IdentitySqlParameters.Create(("UserIds", new[] { userId })),
                 cancellationToken)
             .ConfigureAwait(false)).FirstOrDefault();
         var mergedProfile = HostUserProfileMapper.Merge(
@@ -624,7 +616,7 @@ internal sealed class HostUserManagementService(
     {
         var record = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
                 IdentitySql.ListHostUserProfilesByIds,
-                new { UserIds = new[] { userId } },
+                IdentitySqlParameters.Create(("UserIds", new[] { userId })),
                 cancellationToken)
             .ConfigureAwait(false)).FirstOrDefault();
         return HostUserProfileMapper.ToResponse(record, allowedProfileFieldKeys);
@@ -635,7 +627,7 @@ internal sealed class HostUserManagementService(
         CancellationToken cancellationToken) =>
         await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 IdentitySql.CountActiveSuperAdministratorAssignment,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false) > 0;
 

@@ -33,7 +33,7 @@ internal sealed class HostMenuQueryService(
         };
         var rows = await queryExecutor.QueryAsync<HostMenuListRow>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -58,7 +58,7 @@ internal sealed class HostMenuQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuById,
-                new { MenuId = menuId },
+                IdentitySqlParameters.Create(("MenuId", menuId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

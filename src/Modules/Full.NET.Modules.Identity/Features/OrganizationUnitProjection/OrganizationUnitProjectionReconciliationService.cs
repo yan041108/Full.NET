@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
@@ -159,7 +160,7 @@ internal sealed class OrganizationUnitProjectionReconciliationService(
 
         return await queryExecutor.QueryAsync<OrganizationUnitProjectionRecord>(
                 OrganizationUnitProjectionSql.FindByTenantAndUnits,
-                new { TenantId = tenantId, UnitIds = unitIds },
+                IdentitySqlParameters.Create(("TenantId", tenantId), ("UnitIds", unitIds)),
                 cancellationToken)
             .ConfigureAwait(false);
     }

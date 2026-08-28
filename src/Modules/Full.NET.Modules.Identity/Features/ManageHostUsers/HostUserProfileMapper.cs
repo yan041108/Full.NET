@@ -130,35 +130,33 @@ internal static class HostUserProfileMapper
             Version: patch.Version ?? existing?.Version ?? 0);
     }
 
-    public static object ToParameters(
+    public static Dictionary<string, object?> ToParameters(
         Guid userId,
         HostUserProfileWriteRequest profile) =>
-        new
-        {
-            UserId = userId,
-            Nickname = Normalize(profile.Nickname),
-            PhoneNumber = Normalize(profile.PhoneNumber),
-            Email = Normalize(profile.Email),
-            EmployeeNumber = Normalize(profile.EmployeeNumber),
-            Gender = Normalize(profile.Gender),
-            JoinDateUtc = ParseDate(profile.JoinDateUtc),
-            SortOrder = profile.SortOrder ?? 100,
-            IdCardType = Normalize(profile.IdCardType),
-            IdCardNumber = Normalize(profile.IdCardNumber),
-            BirthDate = ParseDate(profile.BirthDate),
-            Ethnicity = Normalize(profile.Ethnicity),
-            Address = Normalize(profile.Address),
-            GraduatedSchool = Normalize(profile.GraduatedSchool),
-            EducationLevel = Normalize(profile.EducationLevel),
-            PoliticalStatus = Normalize(profile.PoliticalStatus),
-            OfficePhone = Normalize(profile.OfficePhone),
-            EmergencyContact = Normalize(profile.EmergencyContact),
-            EmergencyContactRelation = Normalize(profile.EmergencyContactRelation),
-            EmergencyContactPhone = Normalize(profile.EmergencyContactPhone),
-            EmergencyContactAddress = Normalize(profile.EmergencyContactAddress),
-            Remark = Normalize(profile.Remark),
-            Version = profile.Version ?? 0
-        };
+        IdentitySqlParameters.Create(
+            ("UserId", userId),
+            ("Nickname", Normalize(profile.Nickname)),
+            ("PhoneNumber", Normalize(profile.PhoneNumber)),
+            ("Email", Normalize(profile.Email)),
+            ("EmployeeNumber", Normalize(profile.EmployeeNumber)),
+            ("Gender", Normalize(profile.Gender)),
+            ("JoinDateUtc", ParseDate(profile.JoinDateUtc)),
+            ("SortOrder", profile.SortOrder ?? 100),
+            ("IdCardType", Normalize(profile.IdCardType)),
+            ("IdCardNumber", Normalize(profile.IdCardNumber)),
+            ("BirthDate", ParseDate(profile.BirthDate)),
+            ("Ethnicity", Normalize(profile.Ethnicity)),
+            ("Address", Normalize(profile.Address)),
+            ("GraduatedSchool", Normalize(profile.GraduatedSchool)),
+            ("EducationLevel", Normalize(profile.EducationLevel)),
+            ("PoliticalStatus", Normalize(profile.PoliticalStatus)),
+            ("OfficePhone", Normalize(profile.OfficePhone)),
+            ("EmergencyContact", Normalize(profile.EmergencyContact)),
+            ("EmergencyContactRelation", Normalize(profile.EmergencyContactRelation)),
+            ("EmergencyContactPhone", Normalize(profile.EmergencyContactPhone)),
+            ("EmergencyContactAddress", Normalize(profile.EmergencyContactAddress)),
+            ("Remark", Normalize(profile.Remark)),
+            ("Version", profile.Version ?? 0));
 
     public static IReadOnlyList<string> NormalizeFieldKeys(
         IReadOnlyList<string>? fieldKeys,

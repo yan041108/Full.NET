@@ -89,7 +89,7 @@ internal sealed partial class SignatureAuthenticationService(
 
         var rows = await queryExecutor.QueryAsync<ApiKeyAuthenticationRow>(
                 ApiKeySql.FindForSignatureAuthentication,
-                new { AccessKeyId = headers.AccessKeyId },
+                IdentitySqlParameters.Create(("AccessKeyId", headers.AccessKeyId)),
                 cancellationToken)
             .ConfigureAwait(false);
         var candidates = rows
@@ -246,14 +246,12 @@ internal sealed partial class SignatureAuthenticationService(
         {
             await commandExecutor.ExecuteAsync(
                     SignatureNonceSql.TryInsert,
-                    new
-                    {
-                        Id = idGenerator.NewId(),
-                        AccessKeyId = headers.AccessKeyId,
-                        NonceDigest = nonceDigest,
-                        CreatedAtUtc = now,
-                        ExpiresAtUtc = expiresAtUtc,
-                    },
+                    IdentitySqlParameters.Create(
+                        ("Id", idGenerator.NewId()),
+                        ("AccessKeyId", headers.AccessKeyId),
+                        ("NonceDigest", nonceDigest),
+                        ("CreatedAtUtc", now),
+                        ("ExpiresAtUtc", expiresAtUtc)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -355,12 +353,10 @@ internal sealed partial class SignatureAuthenticationService(
 
         await commandExecutor.ExecuteAsync(
                 ApiKeySql.TouchLastUsed,
-                new
-                {
-                    ApiKeyId = row.ApiKeyId,
-                    LastUsedAtUtc = now,
-                    LastUsedBeforeUtc = lastUsedBeforeUtc,
-                },
+                IdentitySqlParameters.Create(
+                    ("ApiKeyId", row.ApiKeyId),
+                    ("LastUsedAtUtc", now),
+                    ("LastUsedBeforeUtc", lastUsedBeforeUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
     }

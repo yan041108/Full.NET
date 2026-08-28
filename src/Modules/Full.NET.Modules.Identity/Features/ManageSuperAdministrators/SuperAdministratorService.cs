@@ -74,7 +74,7 @@ internal sealed class SuperAdministratorService(
 
         var targetExists = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 IdentitySql.CountActiveHostUser,
-                new { UserId = targetUserId },
+                IdentitySqlParameters.Create(("UserId", targetUserId)),
                 cancellationToken)
             .ConfigureAwait(false) > 0;
         if (!targetExists)
@@ -86,7 +86,7 @@ internal sealed class SuperAdministratorService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.EnsureUserRole,
-                new { UserId = targetUserId, RoleId = role.Id },
+                IdentitySqlParameters.Create(("UserId", targetUserId), ("RoleId", role.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows > 1)
@@ -148,7 +148,7 @@ internal sealed class SuperAdministratorService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.DeleteSuperAdministratorAssignment,
-                new { UserId = targetUserId, RoleId = role.Id },
+                IdentitySqlParameters.Create(("UserId", targetUserId), ("RoleId", role.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -185,7 +185,7 @@ internal sealed class SuperAdministratorService(
         CancellationToken cancellationToken) =>
         await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 IdentitySql.CountActiveSuperAdministratorAssignment,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false) > 0;
 
@@ -198,12 +198,10 @@ internal sealed class SuperAdministratorService(
         var now = clock.UtcNow;
         var userRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.RotateSecurityStamp,
-                new
-                {
-                    UserId = targetUserId,
-                    SecurityStamp = idGenerator.NewId().ToString("N"),
-                    UpdatedAtUtc = now,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", targetUserId),
+                    ("SecurityStamp", idGenerator.NewId().ToString("N")),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (userRows != 1)
@@ -214,26 +212,24 @@ internal sealed class SuperAdministratorService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.RevokeAllUserSessions,
-                new { UserId = targetUserId, RevokedAtUtc = now },
+                IdentitySqlParameters.Create(("UserId", targetUserId), ("RevokedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         var auditRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertSuperAdministratorAudit,
-                new
-                {
-                    Id = idGenerator.NewId(),
-                    UserId = targetUserId,
-                    SessionId = (Guid?)null,
-                    UsernameFingerprint = TokenHash.Compute(targetUserId.ToString("N")),
-                    EventType = eventType,
-                    ResultCode = eventType,
-                    Succeeded = true,
-                    IpAddress = (string?)null,
-                    UserAgent = (string?)null,
-                    ContextTenantId = (Guid?)null,
-                    OccurredAtUtc = now,
-                    ActorUserId = operatorUserId,
-                },
+                IdentitySqlParameters.Create(
+                    ("Id", idGenerator.NewId()),
+                    ("UserId", targetUserId),
+                    ("SessionId", null),
+                    ("UsernameFingerprint", TokenHash.Compute(targetUserId.ToString("N"))),
+                    ("EventType", eventType),
+                    ("ResultCode", eventType),
+                    ("Succeeded", true),
+                    ("IpAddress", null),
+                    ("UserAgent", null),
+                    ("ContextTenantId", null),
+                    ("OccurredAtUtc", now),
+                    ("ActorUserId", operatorUserId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (auditRows != 1)

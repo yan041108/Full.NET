@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
@@ -39,16 +40,14 @@ internal sealed class OrganizationUnitProjectionWriter(
         var projectedAtUtc = clock.UtcNow;
         var updatedRows = await commandExecutor.ExecuteAsync(
                 OrganizationUnitProjectionSql.UpdateIfNewer,
-                new
-                {
-                    integrationEvent.TenantId,
-                    integrationEvent.UnitId,
-                    integrationEvent.Name,
-                    integrationEvent.IsActive,
-                    SourceVersion = integrationEvent.Version,
-                    SourceUpdatedAtUtc = integrationEvent.ChangedAtUtc,
-                    ProjectedAtUtc = projectedAtUtc,
-                },
+                IdentitySqlParameters.Create(
+                    ("TenantId", integrationEvent.TenantId),
+                    ("UnitId", integrationEvent.UnitId),
+                    ("Name", integrationEvent.Name),
+                    ("IsActive", integrationEvent.IsActive),
+                    ("SourceVersion", integrationEvent.Version),
+                    ("SourceUpdatedAtUtc", integrationEvent.ChangedAtUtc),
+                    ("ProjectedAtUtc", projectedAtUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (updatedRows > 0)
@@ -58,16 +57,14 @@ internal sealed class OrganizationUnitProjectionWriter(
 
         await commandExecutor.ExecuteAsync(
                 OrganizationUnitProjectionSql.InsertIfMissing,
-                new
-                {
-                    integrationEvent.TenantId,
-                    integrationEvent.UnitId,
-                    integrationEvent.Name,
-                    integrationEvent.IsActive,
-                    SourceVersion = integrationEvent.Version,
-                    SourceUpdatedAtUtc = integrationEvent.ChangedAtUtc,
-                    ProjectedAtUtc = projectedAtUtc,
-                },
+                IdentitySqlParameters.Create(
+                    ("TenantId", integrationEvent.TenantId),
+                    ("UnitId", integrationEvent.UnitId),
+                    ("Name", integrationEvent.Name),
+                    ("IsActive", integrationEvent.IsActive),
+                    ("SourceVersion", integrationEvent.Version),
+                    ("SourceUpdatedAtUtc", integrationEvent.ChangedAtUtc),
+                    ("ProjectedAtUtc", projectedAtUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
         return true;

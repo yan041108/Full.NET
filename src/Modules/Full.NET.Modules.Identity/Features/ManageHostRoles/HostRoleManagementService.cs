@@ -74,7 +74,7 @@ internal sealed class HostRoleManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindRoleByScopeAndCode,
-                new { ScopeKey = HostScope, Code = code },
+                IdentitySqlParameters.Create(("ScopeKey", HostScope), ("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -137,7 +137,7 @@ internal sealed class HostRoleManagementService(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -153,13 +153,11 @@ internal sealed class HostRoleManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostRoleName,
-                new
-                {
-                    RoleId = roleId,
-                    Name = name,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("RoleId", roleId),
+                    ("Name", name),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -178,7 +176,7 @@ internal sealed class HostRoleManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -218,12 +216,10 @@ internal sealed class HostRoleManagementService(
         var now = clock.UtcNow;
         var versionRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostRoleVersion,
-                new
-                {
-                    RoleId = roleId,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("RoleId", roleId),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (versionRows != 1)
@@ -234,7 +230,7 @@ internal sealed class HostRoleManagementService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.DeleteRolePermissions,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -259,7 +255,7 @@ internal sealed class HostRoleManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -275,7 +271,7 @@ internal sealed class HostRoleManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.DisableHostRole,
-                new { RoleId = roleId, UpdatedAtUtc = now },
+                IdentitySqlParameters.Create(("RoleId", roleId), ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -296,17 +292,15 @@ internal sealed class HostRoleManagementService(
     {
         await commandExecutor.ExecuteAsync(
                 IdentitySql.RotateSecurityStampsByRole,
-                new
-                {
-                    RoleId = roleId,
-                    SecurityStamp = idGenerator.NewId().ToString("N"),
-                    UpdatedAtUtc = now,
-                },
+                IdentitySqlParameters.Create(
+                    ("RoleId", roleId),
+                    ("SecurityStamp", idGenerator.NewId().ToString("N")),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(
                 IdentitySql.RevokeSessionsByRole,
-                new { RoleId = roleId, RevokedAtUtc = now },
+                IdentitySqlParameters.Create(("RoleId", roleId), ("RevokedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -317,7 +311,7 @@ internal sealed class HostRoleManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -339,7 +333,7 @@ internal sealed class HostRoleManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

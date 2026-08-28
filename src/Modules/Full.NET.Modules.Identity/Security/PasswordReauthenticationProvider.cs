@@ -30,7 +30,7 @@ internal sealed class PasswordReauthenticationProvider(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = operatorUserId },
+                IdentitySqlParameters.Create(("UserId", operatorUserId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is not { IsActive: true })

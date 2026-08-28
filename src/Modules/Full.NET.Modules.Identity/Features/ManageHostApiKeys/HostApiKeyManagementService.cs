@@ -64,7 +64,7 @@ internal sealed class HostApiKeyManagementService(
     {
         var row = await queryExecutor.QuerySingleOrDefaultAsync<ApiKeyListRow>(
                 ApiKeySql.FindById,
-                new { ApiKeyId = apiKeyId },
+                IdentitySqlParameters.Create(("ApiKeyId", apiKeyId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (row is null || !row.IsActive)
@@ -76,7 +76,7 @@ internal sealed class HostApiKeyManagementService(
             row.PermissionsJson);
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = row.UserId },
+                IdentitySqlParameters.Create(("UserId", row.UserId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (user is null)
@@ -123,11 +123,9 @@ internal sealed class HostApiKeyManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ApiKeySql.Disable,
-                new
-                {
-                    ApiKeyId = apiKeyId,
-                    DisabledAtUtc = clock.UtcNow,
-                },
+                IdentitySqlParameters.Create(
+                    ("ApiKeyId", apiKeyId),
+                    ("DisabledAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows < 1)
@@ -191,7 +189,7 @@ internal sealed class HostApiKeyManagementService(
 
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = request.UserId },
+                IdentitySqlParameters.Create(("UserId", request.UserId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (user is null)
@@ -284,7 +282,7 @@ internal sealed class HostApiKeyManagementService(
     {
         var row = await queryExecutor.QuerySingleOrDefaultAsync<ApiKeyListRow>(
                 ApiKeySql.FindById,
-                new { ApiKeyId = apiKeyId },
+                IdentitySqlParameters.Create(("ApiKeyId", apiKeyId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (row is null || !row.IsActive)
@@ -294,11 +292,9 @@ internal sealed class HostApiKeyManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 ApiKeySql.Disable,
-                new
-                {
-                    ApiKeyId = apiKeyId,
-                    DisabledAtUtc = clock.UtcNow,
-                },
+                IdentitySqlParameters.Create(
+                    ("ApiKeyId", apiKeyId),
+                    ("DisabledAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows < 1)

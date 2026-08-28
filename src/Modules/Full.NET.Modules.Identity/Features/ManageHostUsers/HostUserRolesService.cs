@@ -57,7 +57,7 @@ internal sealed class HostUserRolesService(
         {
             var role = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                     IdentitySql.FindHostRoleById,
-                    new { RoleId = roleId },
+                    IdentitySqlParameters.Create(("RoleId", roleId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (role is null)
@@ -74,13 +74,11 @@ internal sealed class HostUserRolesService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostUserRoleAssignments,
-                new
-                {
-                    UserId = userId,
-                    SecurityStamp = idGenerator.NewId().ToString("N"),
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("SecurityStamp", idGenerator.NewId().ToString("N")),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)
@@ -90,7 +88,7 @@ internal sealed class HostUserRolesService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.DeleteUserAssignableRoles,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         foreach (var roleId in roleIds)
@@ -104,7 +102,7 @@ internal sealed class HostUserRolesService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.RevokeAllUserSessions,
-                new { UserId = userId, RevokedAtUtc = now },
+                IdentitySqlParameters.Create(("UserId", userId), ("RevokedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -116,7 +114,7 @@ internal sealed class HostUserRolesService(
         CancellationToken cancellationToken) =>
         await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -125,7 +123,7 @@ internal sealed class HostUserRolesService(
         CancellationToken cancellationToken) =>
         (await queryExecutor.QueryAsync<Guid>(
                 IdentitySql.GetUserAssignableRoleIds,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false)).ToArray();
 

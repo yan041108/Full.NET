@@ -28,7 +28,7 @@ internal sealed class Handler(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
                 IdentitySql.FindRefreshSessionByHash,
-                new { TokenHash = TokenHash.Compute(command.RefreshToken) },
+                IdentitySqlParameters.Create(("TokenHash", TokenHash.Compute(command.RefreshToken))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -39,7 +39,7 @@ internal sealed class Handler(
         // Logout 必须撤销整个轮换 family；只撤销当前行会在 Refresh 并发获胜时遗留替代会话。
         await commandExecutor.ExecuteAsync(
             IdentitySql.RevokeRefreshFamily,
-            new { record.FamilyId, RevokedAtUtc = clock.UtcNow },
+            IdentitySqlParameters.Create(("FamilyId", record.FamilyId), ("RevokedAtUtc", clock.UtcNow)),
             cancellationToken).ConfigureAwait(false);
 
         var audit = new AuthAuditEvent(

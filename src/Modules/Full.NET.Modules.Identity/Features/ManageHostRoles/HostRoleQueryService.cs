@@ -33,7 +33,7 @@ internal sealed class HostRoleQueryService(
         };
         var rows = (await queryExecutor.QueryAsync<HostRoleListRow>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false)).ToArray();
         var permissionCodesByRole = await LoadPermissionCodesByRoleIdsAsync(
@@ -57,7 +57,7 @@ internal sealed class HostRoleQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -75,7 +75,7 @@ internal sealed class HostRoleQueryService(
         CancellationToken cancellationToken) =>
         (await queryExecutor.QueryAsync<string>(
                 IdentitySql.GetRolePermissionCodes,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false)).ToArray();
 
@@ -90,7 +90,7 @@ internal sealed class HostRoleQueryService(
 
         var rows = await queryExecutor.QueryAsync<IdentityRolePermission>(
                 IdentitySql.ListRolePermissionsByRoleIds,
-                new { RoleIds = roleIds },
+                IdentitySqlParameters.Create(("RoleIds", roleIds)),
                 cancellationToken)
             .ConfigureAwait(false);
         return rows

@@ -22,13 +22,11 @@ internal sealed class HostOnlineSessionQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
-        var filter = new
-        {
-            NowUtc = clock.UtcNow,
-            UsernameContains = NormalizeUsernameFilter(usernameContains),
-            Offset = offset,
-            PageSize = pageSize,
-        };
+        var filter = IdentitySqlParameters.Create(
+            ("NowUtc", clock.UtcNow),
+            ("UsernameContains", NormalizeUsernameFilter(usernameContains)),
+            ("Offset", offset),
+            ("PageSize", pageSize));
         var (countStatement, listStatement) = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => (

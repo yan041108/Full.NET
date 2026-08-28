@@ -1038,6 +1038,84 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void IdentityModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Identity");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Identity 模块不得向 Host.Api SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void IdentityModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Identity");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "IdentityModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "IdentityDapperAotMaterializerContributor.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "IdentityDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "IdentityUserRecord",
+                     "IdentityAuthorizationRow",
+                     "IdentityProfileRecord",
+                     "RefreshSessionRecord",
+                     "HostUserDirectoryRecord",
+                     "HostUserListRow",
+                     "HostUserPreferredLocaleRow",
+                     "HostUserFailedLoginCountRow",
+                     "HostUserLockoutEndUtcRow",
+                     "HostUserProfileRecord",
+                     "HostRoleListRow",
+                     "IdentityRoleRecord",
+                     "IdentityRolePermission",
+                     "IdentityUserRoleDataScopeRow",
+                     "IdentityNavigationRecord",
+                     "HostMenuListRow",
+                     "HostNavigationCatalogSyncService.HostMenuSyncRow",
+                     "HostNavigationCatalogSyncService.HostMenuRouteNameRow",
+                     "OnlineSessionListRow",
+                     "OnlineSessionRevokeRow",
+                     "ApiKeyListRow",
+                     "ApiKeyAuthenticationRow",
+                     "IdentityUserTotpRecord",
+                     "OrganizationUnitProjectionRecord",
+                     "UserFieldProjectionGrantRow",
+                     "SuperAdministratorResponse",
+                     "SuperAdministratorAuditResponse",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();

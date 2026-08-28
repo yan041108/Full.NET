@@ -39,7 +39,7 @@ internal sealed class HostRoleFieldGrantService(
 
         var fieldKeys = await queryExecutor.QueryAsync<string>(
                 IdentitySql.GetHostRoleFieldGrants,
-                new { RoleId = roleId, ResourceKey = resourceKey },
+                IdentitySqlParameters.Create(("RoleId", roleId), ("ResourceKey", resourceKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         var assignable = resource.Fields
@@ -95,12 +95,10 @@ internal sealed class HostRoleFieldGrantService(
         var now = clock.UtcNow;
         var versionRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostRoleVersion,
-                new
-                {
-                    RoleId = roleId,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("RoleId", roleId),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (versionRows != 1)
@@ -110,22 +108,20 @@ internal sealed class HostRoleFieldGrantService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.DeleteHostRoleFieldGrants,
-                new { RoleId = roleId, request.ResourceKey },
+                IdentitySqlParameters.Create(("RoleId", roleId), ("ResourceKey", request.ResourceKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         foreach (var fieldKey in fieldKeys)
         {
             var affectedRows = await commandExecutor.ExecuteAsync(
                     IdentitySql.InsertHostRoleFieldGrant,
-                    new
-                    {
-                        Id = idGenerator.NewId(),
-                        RoleId = roleId,
-                        request.ResourceKey,
-                        FieldKey = fieldKey,
-                        CreatedAtUtc = now,
-                        CreatedById = actorUserId,
-                    },
+                    IdentitySqlParameters.Create(
+                        ("Id", idGenerator.NewId()),
+                        ("RoleId", roleId),
+                        ("ResourceKey", request.ResourceKey),
+                        ("FieldKey", fieldKey),
+                        ("CreatedAtUtc", now),
+                        ("CreatedById", actorUserId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affectedRows != 1)
@@ -173,7 +169,7 @@ internal sealed class HostRoleFieldGrantService(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
             IdentitySql.FindHostRoleById,
-            new { RoleId = roleId },
+            IdentitySqlParameters.Create(("RoleId", roleId)),
             cancellationToken);
 
     private static Error InvalidProjectionError() => new(

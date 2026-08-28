@@ -30,5 +30,11 @@ internal static class AotDataReaderExtensions
 
     public static int ReadInt32(DbDataReader reader, int ordinal) =>
         Convert.ToInt32(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <remarks>
+    /// SQL Server bigint 与 MySQL BIGINT 可能以 Int64 或 Decimal 返回，禁止直接 GetInt64。
+    /// </remarks>
+    public static long ReadInt64(DbDataReader reader, int ordinal) =>
+        Convert.ToInt64(reader.GetValue(ordinal), System.Globalization.CultureInfo.InvariantCulture);
 }
 #endif

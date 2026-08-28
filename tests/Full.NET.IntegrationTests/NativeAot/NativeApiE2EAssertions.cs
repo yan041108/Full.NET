@@ -54,6 +54,12 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyAuthenticatedMeAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
+        await VerifyIdentityHostUserFlowAsync(
+                client,
+                token,
+                host.LogFilePath,
+                cancellationToken)
+            .ConfigureAwait(false);
         await VerifyTenancyReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyTenancyPackageFlowAsync(client, token, cancellationToken)
@@ -136,6 +142,81 @@ internal static class NativeApiE2EAssertions
             await response.Content.ReadAsStringAsync(cancellationToken)
                 .ConfigureAwait(false));
         Assert.AreEqual("admin", payload.RootElement.GetProperty("username").GetString());
+    }
+
+    private static async Task VerifyIdentityHostUserFlowAsync(
+        HttpClient client,
+        string accessToken,
+        string? nativeLogFilePath,
+        CancellationToken cancellationToken)
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var username = "naoti-" + suffix[..12];
+        var create = new CreateHostUserRequest(
+            username,
+            "Native AOT host user",
+            AdminPassword);
+        var user = await PostAndReadAsync<
+                CreateHostUserRequest,
+                HostUserResponse>(
+                client,
+                "/api/v1/identity/users",
+                accessToken,
+                create,
+                HttpStatusCode.Created,
+                cancellationToken,
+                nativeLogFilePath)
+            .ConfigureAwait(false);
+        Assert.AreEqual(username, user.Username);
+
+        using (var duplicateRequest = AuthorizedJson(
+                   HttpMethod.Post,
+                   "/api/v1/identity/users",
+                   accessToken,
+                   create))
+        using (var duplicateResponse = await client
+                   .SendAsync(duplicateRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    duplicateResponse,
+                    HttpStatusCode.Conflict,
+                    "Reject duplicate Native AOT host username",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            using var problem = JsonDocument.Parse(
+                await duplicateResponse.Content.ReadAsStringAsync(cancellationToken)
+                    .ConfigureAwait(false));
+            Assert.AreEqual(
+                IdentityErrorCodes.UsernameExists,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        await AssertPageContainsAsync<HostUserResponse>(
+                client,
+                "/api/v1/identity/users?page=1&pageSize=100",
+                accessToken,
+                item => item.Id == user.Id,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        using var getRequest = Authorized(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{user.Id:D}",
+            accessToken);
+        using var getResponse = await client
+            .SendAsync(getRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                getResponse,
+                HttpStatusCode.OK,
+                "Read Native AOT host user by id",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var found = await getResponse.Content
+            .ReadFromJsonAsync<HostUserResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(user.Id, found?.Id);
     }
 
     private static async Task VerifyTenancyReadAsync(

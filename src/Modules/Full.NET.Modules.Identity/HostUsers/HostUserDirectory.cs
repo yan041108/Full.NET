@@ -24,7 +24,7 @@ internal sealed class HostUserDirectory(IQueryExecutor queryExecutor)
 
         var records = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(
                 IdentitySql.ListHostUsersByIds,
-                new { UserIds = distinctUserIds },
+                IdentitySqlParameters.Create(("UserIds", distinctUserIds)),
                 cancellationToken)
             .ConfigureAwait(false);
         return records.ToDictionary(

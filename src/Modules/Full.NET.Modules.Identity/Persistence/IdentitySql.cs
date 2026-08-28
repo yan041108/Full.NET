@@ -79,6 +79,10 @@ internal static class IdentitySql
         """,
         SqlDataScope.Global);
 
+    /// <remarks>
+    /// 新建行的 <c>LockoutEndUtc</c> 与 <c>UpdatedAtUtc</c> 使用 SQL 字面量 NULL。Native AOT 下未标注 DbType 的空参数
+    /// 在 SQL Server 上会被推断为 nvarchar，无法写入 datetimeoffset。
+    /// </remarks>
     public static readonly SqlStatement InsertUser = new(
         "identity.insert_user",
         """
@@ -89,8 +93,8 @@ internal static class IdentitySql
              PreferredLocale, ProfileVersion, AccountType)
         VALUES
             (@Id, @TenantId, @ScopeKey, @Username, @NormalizedUsername, @DisplayName,
-             @PasswordHash, @IsActive, @FailedLoginCount, @LockoutEndUtc,
-             @SecurityStamp, @CreatedAtUtc, @UpdatedAtUtc, @Version,
+             @PasswordHash, @IsActive, @FailedLoginCount, NULL,
+             @SecurityStamp, @CreatedAtUtc, NULL, @Version,
              @PreferredLocale, @ProfileVersion, @AccountType)
         """,
         SqlDataScope.HostOnly);
@@ -377,7 +381,7 @@ internal static class IdentitySql
         VALUES
             (@Id, @TenantId, @ScopeKey, @ParentId, @RouteName, @Path, @ComponentKey,
              @Title, @Caption, @Icon, @DisplayOrder, @RequiredPermission,
-             @IsSystem, @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version,
+             @IsSystem, @IsActive, @CreatedAtUtc, NULL, @Version,
              @MenuType, @Redirect, @LinkUrl, @IsHidden, @IsKeepAlive, @IsAffix, @IsEmbedded, @Remark)
         """,
         SqlDataScope.HostOnly);
@@ -600,7 +604,7 @@ internal static class IdentitySql
         VALUES
             (@Id, @TenantId, @ScopeKey, @Code, @Name, @IsSystem, @IsActive,
              @IsSuperAdministrator, @DataScopeKind,
-             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @CreatedAtUtc, NULL, @Version)
         """,
         SqlDataScope.HostOnly);
 

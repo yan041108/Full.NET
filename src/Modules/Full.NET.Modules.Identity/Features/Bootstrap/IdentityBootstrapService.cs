@@ -79,7 +79,7 @@ internal sealed class IdentityBootstrapService(
         var normalizedUsername = username.ToUpperInvariant();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindUserByScopeAndUsername,
-                new { ScopeKey = HostScope, NormalizedUsername = normalizedUsername },
+                IdentitySqlParameters.Create(("ScopeKey", HostScope), ("NormalizedUsername", normalizedUsername)),
                 cancellationToken)
             .ConfigureAwait(false);
         var now = clock.UtcNow;
@@ -140,7 +140,7 @@ internal sealed class IdentityBootstrapService(
     {
         var role = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindRoleByScopeAndCode,
-                new { ScopeKey = HostScope, Code = HostAdministratorRoleCode },
+                IdentitySqlParameters.Create(("ScopeKey", HostScope), ("Code", HostAdministratorRoleCode)),
                 cancellationToken)
             .ConfigureAwait(false);
         Guid roleId;

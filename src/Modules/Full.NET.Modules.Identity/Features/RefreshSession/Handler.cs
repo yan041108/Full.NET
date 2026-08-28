@@ -186,7 +186,7 @@ internal sealed class Handler(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
             IdentitySql.FindRefreshSessionByHash,
-            new { TokenHash = tokenHash },
+            IdentitySqlParameters.Create(("TokenHash", tokenHash)),
             cancellationToken);
 
     private bool IsSameActiveSession(
@@ -221,7 +221,7 @@ internal sealed class Handler(
         CancellationToken cancellationToken) =>
         commandExecutor.ExecuteAsync(
             IdentitySql.RevokeRefreshFamily,
-            new { FamilyId = familyId, RevokedAtUtc = clock.UtcNow },
+            IdentitySqlParameters.Create(("FamilyId", familyId), ("RevokedAtUtc", clock.UtcNow)),
             cancellationToken);
 
     private async Task WriteAuditAsync(

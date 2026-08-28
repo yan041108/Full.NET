@@ -36,7 +36,7 @@ internal sealed class HostUserSelectionDirectory(
         };
         var records = await queryExecutor.QueryAsync<HostUserDirectoryRecord>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = records

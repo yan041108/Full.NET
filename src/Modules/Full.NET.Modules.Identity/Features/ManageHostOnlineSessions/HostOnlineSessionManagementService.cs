@@ -27,11 +27,9 @@ internal sealed class HostOnlineSessionManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OnlineSessionRevokeRow>(
                 OnlineSessionSql.FindActiveHostSessionById,
-                new
-                {
-                    SessionId = sessionId,
-                    NowUtc = clock.UtcNow,
-                },
+                IdentitySqlParameters.Create(
+                    ("SessionId", sessionId),
+                    ("NowUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -50,11 +48,9 @@ internal sealed class HostOnlineSessionManagementService(
             record.ExpiresAtUtc);
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.RevokeRefreshFamily,
-                new
-                {
-                    record.FamilyId,
-                    RevokedAtUtc = clock.UtcNow,
-                },
+                IdentitySqlParameters.Create(
+                    ("FamilyId", record.FamilyId),
+                    ("RevokedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows < 1)

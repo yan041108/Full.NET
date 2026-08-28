@@ -319,7 +319,10 @@ internal sealed class HostNavigationCatalogSyncService(
 
             var affectedRows = await commandExecutor.ExecuteAsync(
                     IdentitySql.ReparentHostSystemMenu,
-                    new ReparentHostSystemMenuCommand(row.Id, parentMenuId, now),
+                    IdentitySqlParameters.Create(
+                        ("MenuId", row.Id),
+                        ("ParentId", parentMenuId),
+                        ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (affectedRows == 1)
@@ -401,14 +404,14 @@ internal sealed class HostNavigationCatalogSyncService(
             StringComparer.Ordinal);
     }
 
-    private sealed class HostMenuRouteNameRow
+    internal sealed class HostMenuRouteNameRow
     {
         public Guid Id { get; set; }
 
         public string RouteName { get; set; } = string.Empty;
     }
 
-    private sealed class HostMenuSyncRow
+    internal sealed class HostMenuSyncRow
     {
         public Guid Id { get; set; }
 
@@ -418,9 +421,4 @@ internal sealed class HostNavigationCatalogSyncService(
 
         public string MenuType { get; set; } = string.Empty;
     }
-
-    private sealed record ReparentHostSystemMenuCommand(
-        Guid MenuId,
-        Guid ParentId,
-        DateTimeOffset UpdatedAtUtc);
 }

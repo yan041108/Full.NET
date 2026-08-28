@@ -20,7 +20,7 @@ internal sealed class UserFieldProjectionResolver(
         var resource = catalog.GetRequiredResource(resourceKey);
         var rows = await queryExecutor.QueryAsync<UserFieldProjectionGrantRow>(
                 IdentitySql.GetUserFieldProjectionGrants,
-                new { UserId = userId, ResourceKey = resourceKey },
+                IdentitySqlParameters.Create(("UserId", userId), ("ResourceKey", resourceKey)),
                 cancellationToken)
             .ConfigureAwait(false);
 

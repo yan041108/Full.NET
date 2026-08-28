@@ -47,11 +47,9 @@ internal sealed class SuperAdministratorManagementService(
 
         var target = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindUserByScopeAndUsername,
-                new
-                {
-                    ScopeKey = HostScope,
-                    NormalizedUsername = NormalizeUsername(targetUsername),
-                },
+                IdentitySqlParameters.Create(
+                    ("ScopeKey", HostScope),
+                    ("NormalizedUsername", NormalizeUsername(targetUsername))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (target is not { IsActive: true, TenantId: null }

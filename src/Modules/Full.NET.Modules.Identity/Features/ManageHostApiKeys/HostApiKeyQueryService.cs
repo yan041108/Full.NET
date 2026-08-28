@@ -22,13 +22,11 @@ internal sealed class HostApiKeyQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
-        var filter = new
-        {
-            UserId = userId,
-            DisplayNameContains = NormalizeFilter(displayNameContains),
-            Offset = offset,
-            PageSize = pageSize,
-        };
+        var filter = IdentitySqlParameters.Create(
+            ("UserId", userId),
+            ("DisplayNameContains", NormalizeFilter(displayNameContains)),
+            ("Offset", offset),
+            ("PageSize", pageSize));
         var (countStatement, listStatement) = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => (

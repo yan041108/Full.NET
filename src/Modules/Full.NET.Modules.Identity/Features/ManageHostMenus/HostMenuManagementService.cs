@@ -112,7 +112,7 @@ internal sealed class HostMenuManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuByScopeAndRouteName,
-                new { ScopeKey = HostScope, RouteName = request.RouteName.Trim() },
+                IdentitySqlParameters.Create(("ScopeKey", HostScope), ("RouteName", request.RouteName.Trim())),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -191,7 +191,7 @@ internal sealed class HostMenuManagementService(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuById,
-                new { MenuId = menuId },
+                IdentitySqlParameters.Create(("MenuId", menuId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -239,28 +239,26 @@ internal sealed class HostMenuManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostMenu,
-                new
-                {
-                    MenuId = menuId,
-                    ParentId = parentId,
-                    Path = request.Path.Trim(),
-                    ComponentKey = ResolveComponentKey(menuType, request.ComponentKey),
-                    Title = request.Title.Trim(),
-                    Caption = request.Caption.Trim(),
-                    Icon = request.Icon.Trim(),
-                    DisplayOrder = request.DisplayOrder,
-                    RequiredPermission = request.RequiredPermission.Trim(),
-                    MenuType = menuType,
-                    Redirect = NormalizeOptionalText(request.Redirect),
-                    LinkUrl = NormalizeOptionalText(request.LinkUrl),
-                    request.IsHidden,
-                    request.IsKeepAlive,
-                    request.IsAffix,
-                    request.IsEmbedded,
-                    Remark = NormalizeOptionalText(request.Remark),
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("MenuId", menuId),
+                    ("ParentId", parentId),
+                    ("Path", request.Path.Trim()),
+                    ("ComponentKey", ResolveComponentKey(menuType, request.ComponentKey)),
+                    ("Title", request.Title.Trim()),
+                    ("Caption", request.Caption.Trim()),
+                    ("Icon", request.Icon.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("RequiredPermission", request.RequiredPermission.Trim()),
+                    ("MenuType", menuType),
+                    ("Redirect", NormalizeOptionalText(request.Redirect)),
+                    ("LinkUrl", NormalizeOptionalText(request.LinkUrl)),
+                    ("IsHidden", request.IsHidden),
+                    ("IsKeepAlive", request.IsKeepAlive),
+                    ("IsAffix", request.IsAffix),
+                    ("IsEmbedded", request.IsEmbedded),
+                    ("Remark", NormalizeOptionalText(request.Remark)),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -278,7 +276,7 @@ internal sealed class HostMenuManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuById,
-                new { MenuId = menuId },
+                IdentitySqlParameters.Create(("MenuId", menuId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -289,7 +287,7 @@ internal sealed class HostMenuManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.DisableHostMenu,
-                new { MenuId = menuId, UpdatedAtUtc = now },
+                IdentitySqlParameters.Create(("MenuId", menuId), ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -306,7 +304,7 @@ internal sealed class HostMenuManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuById,
-                new { MenuId = menuId },
+                IdentitySqlParameters.Create(("MenuId", menuId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || record.IsActive)
@@ -317,7 +315,7 @@ internal sealed class HostMenuManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.EnableHostMenu,
-                new { MenuId = menuId, UpdatedAtUtc = now },
+                IdentitySqlParameters.Create(("MenuId", menuId), ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -384,25 +382,23 @@ internal sealed class HostMenuManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateHostSystemMenu,
-                new
-                {
-                    MenuId = record.Id,
-                    ParentId = parentId,
-                    Title = request.Title.Trim(),
-                    Caption = request.Caption.Trim(),
-                    Icon = request.Icon.Trim(),
-                    DisplayOrder = request.DisplayOrder,
-                    MenuType = menuType,
-                    Redirect = NormalizeOptionalText(request.Redirect),
-                    LinkUrl = NormalizeOptionalText(request.LinkUrl),
-                    request.IsHidden,
-                    request.IsKeepAlive,
-                    request.IsAffix,
-                    request.IsEmbedded,
-                    Remark = NormalizeOptionalText(request.Remark),
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("MenuId", record.Id),
+                    ("ParentId", parentId),
+                    ("Title", request.Title.Trim()),
+                    ("Caption", request.Caption.Trim()),
+                    ("Icon", request.Icon.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("MenuType", menuType),
+                    ("Redirect", NormalizeOptionalText(request.Redirect)),
+                    ("LinkUrl", NormalizeOptionalText(request.LinkUrl)),
+                    ("IsHidden", request.IsHidden),
+                    ("IsKeepAlive", request.IsKeepAlive),
+                    ("IsAffix", request.IsAffix),
+                    ("IsEmbedded", request.IsEmbedded),
+                    ("Remark", NormalizeOptionalText(request.Remark)),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -430,7 +426,7 @@ internal sealed class HostMenuManagementService(
 
             var parent = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                     IdentitySql.FindHostMenuById,
-                    new { MenuId = candidateParentId },
+                    IdentitySqlParameters.Create(("MenuId", candidateParentId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (parent is null || !parent.IsActive)
@@ -450,7 +446,7 @@ internal sealed class HostMenuManagementService(
     {
         var parent = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuById,
-                new { MenuId = parentId },
+                IdentitySqlParameters.Create(("MenuId", parentId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (parent is null || !parent.IsActive)
@@ -467,7 +463,7 @@ internal sealed class HostMenuManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityNavigationRecord>(
                 IdentitySql.FindHostMenuById,
-                new { MenuId = menuId },
+                IdentitySqlParameters.Create(("MenuId", menuId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

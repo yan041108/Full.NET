@@ -49,16 +49,14 @@ internal sealed class Handler(
         var preferredLocale = localeNormalizer.Normalize(command.Locale);
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateLocalePreference,
-                new
-                {
-                    UserId = userId,
-                    SessionId = sessionId,
-                    ScopeKey = scopeKey,
-                    SecurityStamp = session!.SecurityStamp,
-                    NowUtc = clock.UtcNow,
-                    PreferredLocale = preferredLocale,
-                    command.ProfileVersion,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("SessionId", sessionId),
+                    ("ScopeKey", scopeKey),
+                    ("SecurityStamp", session!.SecurityStamp),
+                    ("NowUtc", clock.UtcNow),
+                    ("PreferredLocale", preferredLocale),
+                    ("ProfileVersion", command.ProfileVersion)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -107,7 +105,7 @@ internal sealed class Handler(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
             IdentitySql.FindRefreshSessionById,
-            new { SessionId = sessionId },
+            IdentitySqlParameters.Create(("SessionId", sessionId)),
             cancellationToken);
 
     private bool IsOwnedActiveSession(

@@ -31,7 +31,7 @@ internal sealed class SuperAdministratorQueryService(
         };
         return queryExecutor.QueryAsync<SuperAdministratorAuditResponse>(
             statement,
-            new { Limit = Math.Clamp(limit, 1, 200) },
+            IdentitySqlParameters.Create(("Limit", Math.Clamp(limit, 1, 200))),
             cancellationToken);
     }
 }

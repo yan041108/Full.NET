@@ -35,7 +35,7 @@ internal sealed class HostUserQueryService(
         };
         var rows = await queryExecutor.QueryAsync<HostUserListRow>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var projection = await projectionResolver.ResolveAsync(
@@ -105,7 +105,7 @@ internal sealed class HostUserQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<HostUserListRow>(
                 IdentitySql.FindHostUserProjectionBaseById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -169,7 +169,7 @@ internal sealed class HostUserQueryService(
         var statement = IdentitySql.BuildProjectedHostUserProfilesByIds(columnMap.Values.ToArray());
         var records = await queryExecutor.QueryAsync<HostUserProfileRecord>(
                 statement,
-                new { UserIds = userIds },
+                IdentitySqlParameters.Create(("UserIds", userIds)),
                 cancellationToken)
             .ConfigureAwait(false);
         var profileMap = records.ToDictionary(
@@ -235,7 +235,7 @@ internal sealed class HostUserQueryService(
 
         var rows = await queryExecutor.QueryAsync<TRow>(
                 statement,
-                new { UserIds = userIds },
+                IdentitySqlParameters.Create(("UserIds", userIds)),
                 cancellationToken)
             .ConfigureAwait(false);
         return rows.ToDictionary(idSelector, valueSelector);
@@ -261,7 +261,7 @@ internal sealed class HostUserQueryService(
         };
         return await queryExecutor.QueryAsync<HostUserListRow>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                IdentitySqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 
@@ -14,7 +15,7 @@ internal sealed class OrganizationUnitProjectionDirectory(IQueryExecutor queryEx
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitProjectionRecord>(
                 OrganizationUnitProjectionSql.FindActiveByTenantAndUnit,
-                new { TenantId = tenantId, UnitId = unitId },
+                IdentitySqlParameters.Create(("TenantId", tenantId), ("UnitId", unitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null

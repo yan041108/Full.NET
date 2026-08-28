@@ -31,7 +31,7 @@ internal sealed class HostDashboardQueryService(
                 .ConfigureAwait(false);
         var onlineSessionCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 HostDashboardSql.CountActiveHostSessions,
-                new { NowUtc = now },
+                IdentitySqlParameters.Create(("NowUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         var auditMetrics = auditMetricsReader is null

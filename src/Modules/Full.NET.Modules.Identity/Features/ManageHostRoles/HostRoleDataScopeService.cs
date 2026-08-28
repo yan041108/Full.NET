@@ -21,7 +21,7 @@ internal sealed class HostRoleDataScopeService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -104,7 +104,7 @@ internal sealed class HostRoleDataScopeService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                 IdentitySql.FindHostRoleById,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -125,13 +125,11 @@ internal sealed class HostRoleDataScopeService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.UpdateRoleDataScopeKind,
-                new
-                {
-                    RoleId = roleId,
-                    DataScopeKind = kind,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("RoleId", roleId),
+                    ("DataScopeKind", kind),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)
@@ -141,14 +139,14 @@ internal sealed class HostRoleDataScopeService(
 
         await commandExecutor.ExecuteAsync(
                 IdentitySql.DeleteRoleDataScopeUnits,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false);
         foreach (var unitId in unitIds)
         {
             await commandExecutor.ExecuteAsync(
                     IdentitySql.InsertRoleDataScopeUnit,
-                    new { RoleId = roleId, UnitId = unitId },
+                    IdentitySqlParameters.Create(("RoleId", roleId), ("UnitId", unitId)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -161,7 +159,7 @@ internal sealed class HostRoleDataScopeService(
         CancellationToken cancellationToken) =>
         (await queryExecutor.QueryAsync<Guid>(
                 IdentitySql.GetRoleDataScopeUnitIds,
-                new { RoleId = roleId },
+                IdentitySqlParameters.Create(("RoleId", roleId)),
                 cancellationToken)
             .ConfigureAwait(false)).ToArray();
 

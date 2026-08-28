@@ -35,7 +35,7 @@ internal sealed class UserDataScopeResolver(IQueryExecutor queryExecutor) : IUse
 
         var rows = await queryExecutor.QueryAsync<IdentityUserRoleDataScopeRow>(
                 IdentitySql.GetUserActiveRoleDataScopes,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (rows.Any(row => row.IsSuperAdministrator))

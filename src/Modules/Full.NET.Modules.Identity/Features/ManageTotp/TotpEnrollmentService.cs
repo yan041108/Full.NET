@@ -33,7 +33,7 @@ internal sealed class TotpEnrollmentService(
 
         var totp = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
                 IdentitySql.FindUserTotpByUserId,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<TotpEnrollmentStatusResponse>.Success(
@@ -53,7 +53,7 @@ internal sealed class TotpEnrollmentService(
 
         var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (user is not { IsActive: true })
@@ -65,16 +65,14 @@ internal sealed class TotpEnrollmentService(
         var now = clock.UtcNow;
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
                 IdentitySql.FindUserTotpByUserId,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var parameters = new
-        {
-            UserId = userId,
-            SecretProtected = secretProtector.Protect(sharedSecret),
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now,
-        };
+        var parameters = IdentitySqlParameters.Create(
+            ("UserId", userId),
+            ("SecretProtected", secretProtector.Protect(sharedSecret)),
+            ("CreatedAtUtc", now),
+            ("UpdatedAtUtc", now));
         if (existing is null)
         {
             await commandExecutor.ExecuteAsync(
@@ -121,7 +119,7 @@ internal sealed class TotpEnrollmentService(
 
         var pending = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
                 IdentitySql.FindUserTotpByUserId,
-                new { UserId = userId },
+                IdentitySqlParameters.Create(("UserId", userId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (pending is null || string.IsNullOrEmpty(pending.SecretProtected))
@@ -175,13 +173,11 @@ internal sealed class TotpEnrollmentService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 IdentitySql.ConfirmUserTotp,
-                new
-                {
-                    UserId = userId,
-                    ConfirmedAtUtc = now,
-                    UpdatedAtUtc = now,
-                    Version = pending.Version,
-                },
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("ConfirmedAtUtc", now),
+                    ("UpdatedAtUtc", now),
+                    ("Version", pending.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)

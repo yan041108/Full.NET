@@ -25,7 +25,7 @@ internal sealed class ApiKeyAuthenticationService(
         var keyHash = TokenHash.Compute(secret);
         var row = await queryExecutor.QuerySingleOrDefaultAsync<ApiKeyAuthenticationRow>(
                 ApiKeySql.FindForAuthentication,
-                new { KeyHash = keyHash },
+                IdentitySqlParameters.Create(("KeyHash", keyHash)),
                 cancellationToken)
             .ConfigureAwait(false);
         var now = clock.UtcNow;
@@ -45,12 +45,10 @@ internal sealed class ApiKeyAuthenticationService(
         {
             await commandExecutor.ExecuteAsync(
                     ApiKeySql.TouchLastUsed,
-                    new
-                    {
-                        ApiKeyId = row.ApiKeyId,
-                        LastUsedAtUtc = now,
-                        LastUsedBeforeUtc = lastUsedBeforeUtc,
-                    },
+                    IdentitySqlParameters.Create(
+                        ("ApiKeyId", row.ApiKeyId),
+                        ("LastUsedAtUtc", now),
+                        ("LastUsedBeforeUtc", lastUsedBeforeUtc)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }

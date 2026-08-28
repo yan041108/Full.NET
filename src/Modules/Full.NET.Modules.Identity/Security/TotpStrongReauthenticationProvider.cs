@@ -40,7 +40,7 @@ internal sealed class TotpStrongReauthenticationProvider(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
-                new { UserId = operatorUserId },
+                IdentitySqlParameters.Create(("UserId", operatorUserId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is not { IsActive: true })
@@ -60,7 +60,7 @@ internal sealed class TotpStrongReauthenticationProvider(
 
         var totp = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserTotpRecord>(
                 IdentitySql.FindUserTotpByUserId,
-                new { UserId = operatorUserId },
+                IdentitySqlParameters.Create(("UserId", operatorUserId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (totp is not { IsEnabled: true }
