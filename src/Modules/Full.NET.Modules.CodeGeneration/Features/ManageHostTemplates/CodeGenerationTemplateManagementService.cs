@@ -104,17 +104,15 @@ internal sealed class CodeGenerationTemplateManagementService(
         var now = clock.UtcNow;
         await commandExecutor.ExecuteAsync(
                 CodeGenerationTemplateSql.Insert,
-                new
-                {
-                    Id = id,
-                    input.Name,
-                    input.Description,
-                    SchemaJson = input.Schema.CanonicalJson,
-                    SchemaSha256 = input.Schema.SchemaSha256,
-                    CreatedAtUtc = now,
-                    CreatedByUserId = actorUserId,
-                    Version = 1L,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", id),
+                    ("Name", input.Name),
+                    ("Description", input.Description),
+                    ("SchemaJson", input.Schema.CanonicalJson),
+                    ("SchemaSha256", input.Schema.SchemaSha256),
+                    ("CreatedAtUtc", now),
+                    ("CreatedByUserId", actorUserId),
+                    ("Version", 1L)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -149,17 +147,15 @@ internal sealed class CodeGenerationTemplateManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 CodeGenerationTemplateSql.Update,
-                new
-                {
-                    Id = templateId,
-                    input.Name,
-                    input.Description,
-                    SchemaJson = input.Schema.CanonicalJson,
-                    SchemaSha256 = input.Schema.SchemaSha256,
-                    UpdatedAtUtc = now,
-                    UpdatedByUserId = actorUserId,
-                    Version = version,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", templateId),
+                    ("Name", input.Name),
+                    ("Description", input.Description),
+                    ("SchemaJson", input.Schema.CanonicalJson),
+                    ("SchemaSha256", input.Schema.SchemaSha256),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected != 1)
@@ -195,13 +191,11 @@ internal sealed class CodeGenerationTemplateManagementService(
 
         var affected = await commandExecutor.ExecuteAsync(
                 CodeGenerationTemplateSql.SoftDelete,
-                new
-                {
-                    Id = templateId,
-                    DeletedAtUtc = clock.UtcNow,
-                    DeletedByUserId = actorUserId,
-                    Version = version,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", templateId),
+                    ("DeletedAtUtc", clock.UtcNow),
+                    ("DeletedByUserId", actorUserId),
+                    ("Version", version)),
                 cancellationToken)
             .ConfigureAwait(false);
         return affected == 1
@@ -214,7 +208,7 @@ internal sealed class CodeGenerationTemplateManagementService(
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(
             CodeGenerationTemplateSql.FindById,
-            new { Id = templateId },
+            CodeGenerationSqlParameters.Create(("Id", templateId)),
             cancellationToken);
 
     private Result<NormalizedTemplateInput> NormalizeInput(

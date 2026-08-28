@@ -110,25 +110,22 @@ internal sealed class CodeGenerationRunService(
         var artifacts = preview.Value!.Artifacts;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.Insert,
-                new
-                {
-                    Id = runId,
-                    request.TemplateId,
-                    request.TemplateVersion,
-                    SourceApplyRunId = (Guid?)null,
-                    OperationKind = CodeGenerationRunOperationKinds.Preview,
-                    Status = CodeGenerationRunStatuses.Succeeded,
-                    normalized.Value.Schema.ModuleKey,
-                    normalized.Value.Schema.EntityKey,
-                    normalized.Value.SchemaSha256,
-                    ArtifactCount = artifacts.Count,
-                    ManifestSha256 = CodeGenerationRunSummary
-                        .ComputeManifestSha256(artifacts),
-                    ErrorCode = (string?)null,
-                    RequestedByUserId = actorUserId,
-                    StartedAtUtc = startedAtUtc,
-                    FinishedAtUtc = clock.UtcNow,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", runId),
+                    ("TemplateId", request.TemplateId),
+                    ("TemplateVersion", request.TemplateVersion),
+                    ("SourceApplyRunId", (Guid?)null),
+                    ("OperationKind", CodeGenerationRunOperationKinds.Preview),
+                    ("Status", CodeGenerationRunStatuses.Succeeded),
+                    ("ModuleKey", normalized.Value.Schema.ModuleKey),
+                    ("EntityKey", normalized.Value.Schema.EntityKey),
+                    ("SchemaSha256", normalized.Value.SchemaSha256),
+                    ("ArtifactCount", artifacts.Count),
+                    ("ManifestSha256", CodeGenerationRunSummary.ComputeManifestSha256(artifacts)),
+                    ("ErrorCode", (string?)null),
+                    ("RequestedByUserId", actorUserId),
+                    ("StartedAtUtc", startedAtUtc),
+                    ("FinishedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureInserted(affectedRows);
@@ -192,28 +189,22 @@ internal sealed class CodeGenerationRunService(
             templateId.HasValue && templateVersion is > 0;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.Insert,
-                new
-                {
-                    Id = idGenerator.NewId(),
-                    TemplateId = hasCompleteTemplateReference
-                        ? templateId
-                        : null,
-                    TemplateVersion = hasCompleteTemplateReference
-                        ? templateVersion
-                        : null,
-                    SourceApplyRunId = (Guid?)null,
-                    OperationKind = CodeGenerationRunOperationKinds.Preview,
-                    Status = CodeGenerationRunStatuses.Failed,
-                    ModuleKey = (string?)null,
-                    EntityKey = (string?)null,
-                    SchemaSha256 = (string?)null,
-                    ArtifactCount = 0,
-                    ManifestSha256 = (string?)null,
-                    ErrorCode = error.Code,
-                    RequestedByUserId = actorUserId,
-                    StartedAtUtc = startedAtUtc,
-                    FinishedAtUtc = clock.UtcNow,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", idGenerator.NewId()),
+                    ("TemplateId", hasCompleteTemplateReference ? templateId : null),
+                    ("TemplateVersion", hasCompleteTemplateReference ? templateVersion : null),
+                    ("SourceApplyRunId", (Guid?)null),
+                    ("OperationKind", CodeGenerationRunOperationKinds.Preview),
+                    ("Status", CodeGenerationRunStatuses.Failed),
+                    ("ModuleKey", (string?)null),
+                    ("EntityKey", (string?)null),
+                    ("SchemaSha256", (string?)null),
+                    ("ArtifactCount", 0),
+                    ("ManifestSha256", (string?)null),
+                    ("ErrorCode", error.Code),
+                    ("RequestedByUserId", actorUserId),
+                    ("StartedAtUtc", startedAtUtc),
+                    ("FinishedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureInserted(affectedRows);

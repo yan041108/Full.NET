@@ -53,7 +53,7 @@ internal sealed class CodeGenerationApplyService(
         var preview = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindById,
-                new { Id = request.PreviewRunId },
+                CodeGenerationSqlParameters.Create(("Id", request.PreviewRunId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (preview is null
@@ -141,24 +141,22 @@ internal sealed class CodeGenerationApplyService(
             var startedAtUtc = clock.UtcNow;
             var insertedRows = await commandExecutor.ExecuteAsync(
                     CodeGenerationRunSql.Insert,
-                    new
-                    {
-                        Id = runId,
-                        preview.TemplateId,
-                        preview.TemplateVersion,
-                        SourceApplyRunId = (Guid?)null,
-                        OperationKind = CodeGenerationRunOperationKinds.Apply,
-                        Status = CodeGenerationRunStatuses.Running,
-                        normalized.Value.Schema.ModuleKey,
-                        normalized.Value.Schema.EntityKey,
-                        normalized.Value.SchemaSha256,
-                        ArtifactCount = artifacts.Count,
-                        ManifestSha256 = manifestSha256,
-                        ErrorCode = (string?)null,
-                        RequestedByUserId = actorUserId,
-                        StartedAtUtc = startedAtUtc,
-                        FinishedAtUtc = startedAtUtc,
-                    },
+                    CodeGenerationSqlParameters.Create(
+                        ("Id", runId),
+                        ("TemplateId", preview.TemplateId),
+                        ("TemplateVersion", preview.TemplateVersion),
+                        ("SourceApplyRunId", (Guid?)null),
+                        ("OperationKind", CodeGenerationRunOperationKinds.Apply),
+                        ("Status", CodeGenerationRunStatuses.Running),
+                        ("ModuleKey", normalized.Value.Schema.ModuleKey),
+                        ("EntityKey", normalized.Value.Schema.EntityKey),
+                        ("SchemaSha256", normalized.Value.SchemaSha256),
+                        ("ArtifactCount", artifacts.Count),
+                        ("ManifestSha256", manifestSha256),
+                        ("ErrorCode", (string?)null),
+                        ("RequestedByUserId", actorUserId),
+                        ("StartedAtUtc", startedAtUtc),
+                        ("FinishedAtUtc", startedAtUtc)),
                     cancellationToken)
                 .ConfigureAwait(false);
             EnsureAffectedOne(insertedRows, "insert");
@@ -297,11 +295,9 @@ internal sealed class CodeGenerationApplyService(
 
             var completedRows = await commandExecutor.ExecuteAsync(
                     CodeGenerationRunSql.CompleteApply,
-                    new
-                    {
-                        Id = runId,
-                        FinishedAtUtc = clock.UtcNow,
-                    },
+                    CodeGenerationSqlParameters.Create(
+                        ("Id", runId),
+                        ("FinishedAtUtc", clock.UtcNow)),
                     CancellationToken.None)
                 .ConfigureAwait(false);
             EnsureAffectedOne(completedRows, "completion");
@@ -335,12 +331,10 @@ internal sealed class CodeGenerationApplyService(
     {
         var affectedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.FailApply,
-                new
-                {
-                    Id = runId,
-                    ErrorCode = errorCode,
-                    FinishedAtUtc = clock.UtcNow,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", runId),
+                    ("ErrorCode", errorCode),
+                    ("FinishedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureAffectedOne(affectedRows, "failure completion");

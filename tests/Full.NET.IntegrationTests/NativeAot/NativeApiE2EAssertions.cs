@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Auditing.Contracts;
+using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
@@ -214,19 +215,143 @@ internal static class NativeApiE2EAssertions
         string accessToken,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            "/api/v1/code-generation/catalog/tables");
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            accessToken);
+        using (var request = Authorized(
+                   HttpMethod.Get,
+                   "/api/v1/code-generation/catalog/tables",
+                   accessToken))
+        using (var response = await client.SendAsync(request, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    response,
+                    HttpStatusCode.OK,
+                    "Read Native AOT code generation catalog tables",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var tables = await response.Content
+                .ReadFromJsonAsync<IReadOnlyList<CodeGenerationCatalogTableResponse>>(
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(tables);
+            Assert.IsNotEmpty(tables);
+
+            using var columnsRequest = Authorized(
+                HttpMethod.Get,
+                "/api/v1/code-generation/catalog/tables/"
+                    + Uri.EscapeDataString(tables[0].TableName)
+                    + "/columns",
+                accessToken);
+            using var columnsResponse = await client
+                .SendAsync(columnsRequest, cancellationToken)
+                .ConfigureAwait(false);
+            await AssertStatusAsync(
+                    columnsResponse,
+                    HttpStatusCode.OK,
+                    "Read Native AOT code generation catalog columns",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var columns = await columnsResponse.Content
+                .ReadFromJsonAsync<CodeGenerationCatalogColumnListResponse>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(columns);
+            Assert.IsNotEmpty(columns.Columns);
+        }
+
+        var suffix = Guid.NewGuid().ToString("N");
+        var schema = new CodeGenerationPreviewRequest(
+            "acme",
+            "catalog",
+            "product",
+            "acme_catalog_product",
+            "Acme.Modules.Catalog",
+            "Product",
+            "products",
+            "products",
+            "TenantRequired",
+            true,
+            [
+                new("Id", "Id", "id", "Uuid", false, null, null, null),
+                new("TenantId", "TenantId", "tenantId", "Uuid", false, null, null, null),
+                new("Name", "Name", "displayName", "String", false, 200, null, null),
+                new("IsActive", "IsActive", "isActive", "Boolean", false, null, null, null),
+                new("Version", "Version", "version", "Int64", false, null, null, null),
+            ]);
+        using var createTemplateRequest = AuthorizedJson(
+            HttpMethod.Post,
+            "/api/v1/code-generation/templates",
+            accessToken,
+            new CreateCodeGenerationTemplateRequest(
+                "Native AOT " + suffix,
+                "Native AOT materializer verification",
+                schema));
+        using var createTemplateResponse = await client
+            .SendAsync(createTemplateRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                createTemplateResponse,
+                HttpStatusCode.Created,
+                "Create Native AOT code generation template",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var template = await createTemplateResponse.Content
+            .ReadFromJsonAsync<CodeGenerationTemplateResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(template);
+
+        using var previewRequest = AuthorizedJson(
+            HttpMethod.Post,
+            "/api/v1/code-generation/runs/preview",
+            accessToken,
+            new CodeGenerationRunPreviewRequest(template.Id, template.Version, null));
+        using var previewResponse = await client.SendAsync(previewRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                previewResponse,
+                HttpStatusCode.OK,
+                "Create Native AOT code generation preview run",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var run = await previewResponse.Content
+            .ReadFromJsonAsync<CodeGenerationRunPreviewResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(run);
+
+        await AssertPageContainsAsync<CodeGenerationTemplateResponse>(
+                client,
+                "/api/v1/code-generation/templates?page=1&pageSize=20",
+                accessToken,
+                item => item.Id == template.Id,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await AssertPageContainsAsync<CodeGenerationRunResponse>(
+                client,
+                "/api/v1/code-generation/runs?page=1&pageSize=20",
+                accessToken,
+                item => item.Id == run.RunId,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task AssertPageContainsAsync<T>(
+        HttpClient client,
+        string path,
+        string accessToken,
+        Func<T, bool> predicate,
+        CancellationToken cancellationToken)
+    {
+        using var request = Authorized(HttpMethod.Get, path, accessToken);
         using var response = await client.SendAsync(request, cancellationToken)
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        using var payload = JsonDocument.Parse(
-            await response.Content.ReadAsStringAsync(cancellationToken)
-                .ConfigureAwait(false));
-        Assert.IsTrue(payload.RootElement.ValueKind == JsonValueKind.Array);
+        await AssertStatusAsync(
+                response,
+                HttpStatusCode.OK,
+                "Read Native AOT page " + path,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var page = await response.Content.ReadFromJsonAsync<PagedResult<T>>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(page);
+        Assert.IsTrue(page.Items.Any(predicate), "Expected Native AOT page row was not materialized.");
     }
 
     private static async Task VerifySerialNumbersFlowAsync(

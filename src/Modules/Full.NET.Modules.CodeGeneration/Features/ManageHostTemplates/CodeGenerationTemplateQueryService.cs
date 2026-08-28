@@ -42,13 +42,11 @@ internal sealed class CodeGenerationTemplateQueryService(
         };
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 statement,
-                new
-                {
-                    Offset = offset,
-                    PageSize = pageSize,
-                    NameContains = NormalizeContains(name),
-                    TableNameContains = NormalizeContains(tableName),
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize),
+                    ("NameContains", NormalizeContains(name)),
+                    ("TableNameContains", NormalizeContains(tableName))),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -79,7 +77,7 @@ internal sealed class CodeGenerationTemplateQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationTemplateRecord>(
                 CodeGenerationTemplateSql.FindById,
-                new { Id = templateId },
+                CodeGenerationSqlParameters.Create(("Id", templateId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null

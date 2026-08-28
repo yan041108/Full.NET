@@ -27,7 +27,7 @@ internal sealed class CodeGenerationArtifactDownloadService(
         var run = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindById,
-                new { Id = runId },
+                CodeGenerationSqlParameters.Create(("Id", runId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (run is null)

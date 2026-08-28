@@ -193,7 +193,7 @@ internal sealed class CodeGenerationCatalogQueryService(
         var rows = await queryExecutor
             .QueryAsync<CodeGenerationCatalogColumnRow>(
                 statement,
-                new { TableName = tableName },
+                CodeGenerationSqlParameters.Create(("TableName", tableName)),
                 cancellationToken)
             .ConfigureAwait(false);
         var columns = new List<CodeGenerationPreviewColumnRequest>();

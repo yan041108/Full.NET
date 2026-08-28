@@ -52,7 +52,7 @@ internal sealed class CodeGenerationRollbackService(
         var apply = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindById,
-                new { Id = request.ApplyRunId },
+                CodeGenerationSqlParameters.Create(("Id", request.ApplyRunId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (apply is null
@@ -71,7 +71,7 @@ internal sealed class CodeGenerationRollbackService(
         var runningRollback = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
-                new { SourceApplyRunId = request.ApplyRunId },
+                CodeGenerationSqlParameters.Create(("SourceApplyRunId", request.ApplyRunId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (runningRollback is not null)
@@ -85,7 +85,7 @@ internal sealed class CodeGenerationRollbackService(
         var existingRollback = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
-                new { SourceApplyRunId = request.ApplyRunId },
+                CodeGenerationSqlParameters.Create(("SourceApplyRunId", request.ApplyRunId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existingRollback is not null)
@@ -168,7 +168,7 @@ internal sealed class CodeGenerationRollbackService(
             var runningRollback = await queryExecutor
                 .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                     CodeGenerationRunSql.FindRunningRollbackBySourceApplyRunId,
-                    new { SourceApplyRunId = applyRunId },
+                    CodeGenerationSqlParameters.Create(("SourceApplyRunId", applyRunId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (runningRollback is not null)
@@ -209,7 +209,7 @@ internal sealed class CodeGenerationRollbackService(
                 var existingRollback = await queryExecutor
                     .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                         CodeGenerationRunSql.FindSucceededRollbackBySourceApplyRunId,
-                        new { SourceApplyRunId = apply.Id },
+                        CodeGenerationSqlParameters.Create(("SourceApplyRunId", apply.Id)),
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (existingRollback is not null)
@@ -281,7 +281,7 @@ internal sealed class CodeGenerationRollbackService(
             var apply = await queryExecutor
                 .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                     CodeGenerationRunSql.FindById,
-                    new { Id = applyRunId },
+                    CodeGenerationSqlParameters.Create(("Id", applyRunId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (apply is null
@@ -311,11 +311,9 @@ internal sealed class CodeGenerationRollbackService(
         var pendingApplyRunIds = (await queryExecutor
                 .QueryAsync<Guid>(
                     CodeGenerationRunSql.ListPendingRollbackApplies,
-                    new
-                    {
-                        ModuleKey = moduleKey,
-                        EntityKey = entityKey,
-                    },
+                    CodeGenerationSqlParameters.Create(
+                        ("ModuleKey", moduleKey),
+                        ("EntityKey", entityKey)),
                     cancellationToken)
                 .ConfigureAwait(false))
             .ToList();
@@ -375,24 +373,22 @@ internal sealed class CodeGenerationRollbackService(
         var startedAtUtc = clock.UtcNow;
         var insertedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.Insert,
-                new
-                {
-                    Id = runId,
-                    TemplateId = (Guid?)null,
-                    TemplateVersion = (long?)null,
-                    SourceApplyRunId = applyRunId,
-                    OperationKind = CodeGenerationRunOperationKinds.Rollback,
-                    Status = CodeGenerationRunStatuses.Running,
-                    apply.ModuleKey,
-                    apply.EntityKey,
-                    apply.SchemaSha256,
-                    ArtifactCount = targetManifest.Artifacts.Count,
-                    ManifestSha256 = manifestSha256,
-                    ErrorCode = (string?)null,
-                    RequestedByUserId = actorUserId,
-                    StartedAtUtc = startedAtUtc,
-                    FinishedAtUtc = startedAtUtc,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", runId),
+                    ("TemplateId", (Guid?)null),
+                    ("TemplateVersion", (long?)null),
+                    ("SourceApplyRunId", applyRunId),
+                    ("OperationKind", CodeGenerationRunOperationKinds.Rollback),
+                    ("Status", CodeGenerationRunStatuses.Running),
+                    ("ModuleKey", apply.ModuleKey),
+                    ("EntityKey", apply.EntityKey),
+                    ("SchemaSha256", apply.SchemaSha256),
+                    ("ArtifactCount", targetManifest.Artifacts.Count),
+                    ("ManifestSha256", manifestSha256),
+                    ("ErrorCode", (string?)null),
+                    ("RequestedByUserId", actorUserId),
+                    ("StartedAtUtc", startedAtUtc),
+                    ("FinishedAtUtc", startedAtUtc)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureAffectedOne(insertedRows, "insert");
@@ -460,11 +456,9 @@ internal sealed class CodeGenerationRollbackService(
 
         var completedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.CompleteRollback,
-                new
-                {
-                    Id = runId,
-                    FinishedAtUtc = clock.UtcNow,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", runId),
+                    ("FinishedAtUtc", clock.UtcNow)),
                 CancellationToken.None)
             .ConfigureAwait(false);
         EnsureAffectedOne(completedRows, "completion");
@@ -606,12 +600,10 @@ internal sealed class CodeGenerationRollbackService(
     {
         var affectedRows = await commandExecutor.ExecuteAsync(
                 CodeGenerationRunSql.FailRollback,
-                new
-                {
-                    Id = runId,
-                    ErrorCode = errorCode,
-                    FinishedAtUtc = clock.UtcNow,
-                },
+                CodeGenerationSqlParameters.Create(
+                    ("Id", runId),
+                    ("ErrorCode", errorCode),
+                    ("FinishedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureAffectedOne(affectedRows, "failure completion");

@@ -117,18 +117,16 @@ internal sealed class CodeGenerationCheckpointRetentionRunner(
             statement = isMySql
                 ? CodeGenerationRunSql.ListCapacityOverflowCheckpointCleanupMySql
                 : CodeGenerationRunSql.ListCapacityOverflowCheckpointCleanupSqlServer;
-            parameters = new { Take = take };
+            parameters = CodeGenerationSqlParameters.Create(("Take", take));
         }
         else
         {
             statement = isMySql
                 ? CodeGenerationRunSql.ListEligibleCheckpointCleanupMySql
                 : CodeGenerationRunSql.ListEligibleCheckpointCleanupSqlServer;
-            parameters = new
-            {
-                CutoffUtc = cutoffUtc!.Value,
-                Take = take,
-            };
+            parameters = CodeGenerationSqlParameters.Create(
+                ("CutoffUtc", cutoffUtc!.Value),
+                ("Take", take));
         }
 
         return await queryExecutor

@@ -40,7 +40,10 @@ internal sealed class CodeGenerationRunQueryService(
         var offset = ((long)page - 1) * pageSize;
         var pageResult = await multiResultQueryExecutor.QueryMultipleAsync(
                 ResolvePageStatement(),
-                new { Offset = offset, PageSize = pageSize, Status = status },
+                CodeGenerationSqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize),
+                    ("Status", status)),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -71,7 +74,7 @@ internal sealed class CodeGenerationRunQueryService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<CodeGenerationRunRecord>(
                 CodeGenerationRunSql.FindById,
-                new { Id = runId },
+                CodeGenerationSqlParameters.Create(("Id", runId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null

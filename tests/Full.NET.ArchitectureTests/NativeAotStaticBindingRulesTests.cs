@@ -827,6 +827,60 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void CodeGenerationModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.CodeGeneration");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT CodeGeneration 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void CodeGenerationModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.CodeGeneration");
+        var contributorPath = Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "CodeGenerationDapperAotMaterializerContributor.cs");
+        var contributorSource = File.ReadAllText(contributorPath);
+
+        foreach (var recordType in new[]
+                 {
+                     "CodeGenerationCatalogTableRow",
+                     "CodeGenerationCatalogColumnRow",
+                     "CodeGenerationTemplateRecord",
+                     "CodeGenerationRunRecord",
+                     "CodeGenerationCheckpointCleanupCandidate",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();
