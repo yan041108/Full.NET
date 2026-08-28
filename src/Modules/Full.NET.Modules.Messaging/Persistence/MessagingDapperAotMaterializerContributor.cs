@@ -18,15 +18,20 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
         registrar.Register<OutboxEnvelopeRecord>(ReadOutboxEnvelopeRecord);
     }
 
+    /// <remarks>
+    /// SQL Server 上 CurrentOwner、PreviousOwner、RollbackState 为 tinyint，
+    /// <see cref="DbDataReader.GetInt32"/> 会抛出 InvalidCastException；
+    /// SchemaVersion 虽为 int，仍统一走 Convert 以免双库驱动返回类型漂移。
+    /// </remarks>
     private static EventStreamOwnershipPersistenceRow ReadEventStreamOwnershipPersistenceRow(
         DbDataReader reader) =>
         new()
         {
             MessageType = reader.GetString(0),
-            SchemaVersion = reader.GetInt32(1),
+            SchemaVersion = AotDataReaderExtensions.ReadInt32(reader, 1),
             TopicCode = reader.GetString(2),
-            CurrentOwner = reader.GetInt32(3),
-            PreviousOwner = reader.GetInt32(4),
+            CurrentOwner = AotDataReaderExtensions.ReadInt32(reader, 3),
+            PreviousOwner = AotDataReaderExtensions.ReadInt32(reader, 4),
             CutoffEventId = reader.GetGuid(5),
             CutoffOccurredAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
             CdcSourcePositionJson = AotDataReaderExtensions.ReadNullableString(reader, 7),
@@ -34,7 +39,7 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
             Reason = reader.GetString(9),
             RollbackBoundaryEventId = AotDataReaderExtensions.ReadNullableGuid(reader, 10),
             RollbackOccurredAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
-            RollbackState = reader.GetInt32(12),
+            RollbackState = AotDataReaderExtensions.ReadInt32(reader, 12),
             RollbackGeneration = AotDataReaderExtensions.ReadNullableGuid(reader, 13),
             RollbackPreparedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
             CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
@@ -44,7 +49,7 @@ internal sealed class MessagingDapperAotMaterializerContributor : IDapperAotMate
     private static RollbackPreparationRecord ReadRollbackPreparationRecord(DbDataReader reader) =>
         new()
         {
-            RollbackState = reader.GetInt32(0),
+            RollbackState = AotDataReaderExtensions.ReadInt32(reader, 0),
             RollbackGeneration = AotDataReaderExtensions.ReadNullableGuid(reader, 1),
             RollbackPreparedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 2),
         };

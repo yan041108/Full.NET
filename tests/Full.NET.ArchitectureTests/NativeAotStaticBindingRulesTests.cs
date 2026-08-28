@@ -962,6 +962,82 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void OrganizationModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Organization");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Organization 模块不得向 Host.Api SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void OrganizationModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Organization");
+        var moduleSource = File.ReadAllText(Path.Combine(moduleDirectory, "OrganizationModule.cs"));
+        var contributorSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "OrganizationDapperAotMaterializerContributor.cs"));
+
+        StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
+        StringAssert.Contains(moduleSource, "OrganizationDapperAotMaterializerContributor");
+        foreach (var recordType in new[]
+                 {
+                     "OrganizationUnitRecord",
+                     "OrganizationUnitListRow",
+                     "OrganizationUnitParentLink",
+                     "OrganizationUnitSnapshotRow",
+                     "OrganizationUserUnitRecord",
+                     "OrganizationUserUnitListRow",
+                     "OrganizationUserPositionRecord",
+                     "OrganizationUserPositionListRow",
+                     "OrganizationPositionRecord",
+                     "OrganizationPositionListRow",
+                     "OrganizationPositionLevelRecord",
+                 })
+        {
+            StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
+        }
+
+        foreach (var parameterType in new[]
+                 {
+                     "InsertOrganizationUnit",
+                     "InsertOrganizationPosition",
+                     "InsertOrganizationPositionLevel",
+                     "InsertOrganizationUserUnit",
+                     "InsertOrganizationUserPosition",
+                 })
+        {
+            StringAssert.Contains(
+                contributorSource,
+                $"DapperAotParameterRegistry.Register<{parameterType}>");
+        }
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();

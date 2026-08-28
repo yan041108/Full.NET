@@ -79,7 +79,7 @@ internal sealed class TenantUnitManagementService(
         var code = request.Code.Trim();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitByTenantAndCode,
-                new { Code = code },
+                OrganizationSqlParameters.Create(("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -91,16 +91,15 @@ internal sealed class TenantUnitManagementService(
         var unitId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.InsertUnit,
-                new InsertOrganizationUnit(
-                    unitId,
-                    parentId,
-                    code,
-                    request.Name.Trim(),
-                    request.DisplayOrder,
-                    true,
-                    now,
-                    null,
-                    1),
+                OrganizationSqlParameters.Create(
+                    ("Id", unitId),
+                    ("ParentId", parentId),
+                    ("Code", code),
+                    ("Name", request.Name.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -137,7 +136,7 @@ internal sealed class TenantUnitManagementService(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitById,
-                new { UnitId = unitId },
+                OrganizationSqlParameters.Create(("UnitId", unitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -176,15 +175,13 @@ internal sealed class TenantUnitManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.UpdateUnit,
-                new
-                {
-                    UnitId = unitId,
-                    ParentId = parentId,
-                    Name = request.Name.Trim(),
-                    DisplayOrder = request.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                OrganizationSqlParameters.Create(
+                    ("UnitId", unitId),
+                    ("ParentId", parentId),
+                    ("Name", request.Name.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -214,7 +211,7 @@ internal sealed class TenantUnitManagementService(
         EnsureTenantContext();
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitById,
-                new { UnitId = unitId },
+                OrganizationSqlParameters.Create(("UnitId", unitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -225,7 +222,7 @@ internal sealed class TenantUnitManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.DisableUnit,
-                new { UnitId = unitId, UpdatedAtUtc = now },
+                OrganizationSqlParameters.Create(("UnitId", unitId), ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -274,7 +271,7 @@ internal sealed class TenantUnitManagementService(
     {
         var parent = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitById,
-                new { UnitId = parentId },
+                OrganizationSqlParameters.Create(("UnitId", parentId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (parent is null || !parent.IsActive)
@@ -327,7 +324,7 @@ internal sealed class TenantUnitManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitById,
-                new { UnitId = unitId },
+                OrganizationSqlParameters.Create(("UnitId", unitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

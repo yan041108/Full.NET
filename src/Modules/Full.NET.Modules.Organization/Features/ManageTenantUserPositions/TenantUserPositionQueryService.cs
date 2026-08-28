@@ -25,7 +25,9 @@ internal sealed class TenantUserPositionQueryService(
         var offset = (page - 1) * pageSize;
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 OrganizationSql.CountUserPositions,
-                new { UserId = userId, PositionId = positionId },
+                OrganizationSqlParameters.Create(
+                    ("UserId", userId),
+                    ("PositionId", positionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         var listStatement = databaseOptions.Value.Provider switch
@@ -37,13 +39,11 @@ internal sealed class TenantUserPositionQueryService(
         };
         var rows = await queryExecutor.QueryAsync<OrganizationUserPositionListRow>(
                 listStatement,
-                new
-                {
-                    UserId = userId,
-                    PositionId = positionId,
-                    Offset = offset,
-                    PageSize = pageSize,
-                },
+                OrganizationSqlParameters.Create(
+                    ("UserId", userId),
+                    ("PositionId", positionId),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var users = await hostUserDirectory.FindHostUsersAsync(
@@ -64,7 +64,7 @@ internal sealed class TenantUserPositionQueryService(
     {
         var row = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUserPositionListRow>(
                 OrganizationSql.FindUserPositionById,
-                new { AssignmentId = assignmentId },
+                OrganizationSqlParameters.Create(("AssignmentId", assignmentId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (row is null)

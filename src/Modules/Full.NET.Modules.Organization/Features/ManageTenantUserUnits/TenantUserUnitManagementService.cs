@@ -80,7 +80,9 @@ internal sealed class TenantUserUnitManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUserUnitRecord>(
                 OrganizationSql.FindUserUnitByTenantUserAndUnit,
-                new { UserId = request.UserId, UnitId = request.UnitId },
+                OrganizationSqlParameters.Create(
+                    ("UserId", request.UserId),
+                    ("UnitId", request.UnitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -100,27 +102,24 @@ internal sealed class TenantUserUnitManagementService(
         {
             await commandExecutor.ExecuteAsync(
                     OrganizationSql.ClearPrimaryUserUnits,
-                    new
-                    {
-                        UserId = request.UserId,
-                        AssignmentId = assignmentId,
-                        UpdatedAtUtc = now,
-                    },
+                    OrganizationSqlParameters.Create(
+                        ("UserId", request.UserId),
+                        ("AssignmentId", assignmentId),
+                        ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.InsertUserUnit,
-                new InsertOrganizationUserUnit(
-                    assignmentId,
-                    request.UserId,
-                    request.UnitId,
-                    request.IsPrimary,
-                    true,
-                    now,
-                    null,
-                    1),
+                OrganizationSqlParameters.Create(
+                    ("Id", assignmentId),
+                    ("UserId", request.UserId),
+                    ("UnitId", request.UnitId),
+                    ("IsPrimary", request.IsPrimary),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -141,12 +140,10 @@ internal sealed class TenantUserUnitManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.ReactivateUserUnit,
-                new
-                {
-                    AssignmentId = existing.Id,
-                    IsPrimary = isPrimary,
-                    UpdatedAtUtc = now,
-                },
+                OrganizationSqlParameters.Create(
+                    ("AssignmentId", existing.Id),
+                    ("IsPrimary", isPrimary),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows is < 0 or > 1)
@@ -165,12 +162,10 @@ internal sealed class TenantUserUnitManagementService(
         {
             await commandExecutor.ExecuteAsync(
                     OrganizationSql.ClearPrimaryUserUnits,
-                    new
-                    {
-                        UserId = existing.UserId,
-                        AssignmentId = existing.Id,
-                        UpdatedAtUtc = now,
-                    },
+                    OrganizationSqlParameters.Create(
+                        ("UserId", existing.UserId),
+                        ("AssignmentId", existing.Id),
+                        ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -197,25 +192,21 @@ internal sealed class TenantUserUnitManagementService(
         {
             await commandExecutor.ExecuteAsync(
                     OrganizationSql.ClearPrimaryUserUnits,
-                    new
-                    {
-                        UserId = current.Value!.UserId,
-                        AssignmentId = assignmentId,
-                        UpdatedAtUtc = now,
-                    },
+                    OrganizationSqlParameters.Create(
+                        ("UserId", current.Value!.UserId),
+                        ("AssignmentId", assignmentId),
+                        ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.UpdateUserUnitPrimary,
-                new
-                {
-                    AssignmentId = assignmentId,
-                    request.IsPrimary,
-                    request.Version,
-                    UpdatedAtUtc = now,
-                },
+                OrganizationSqlParameters.Create(
+                    ("AssignmentId", assignmentId),
+                    ("IsPrimary", request.IsPrimary),
+                    ("Version", request.Version),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)
@@ -235,7 +226,9 @@ internal sealed class TenantUserUnitManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.DisableUserUnit,
-                new { AssignmentId = assignmentId, UpdatedAtUtc = now },
+                OrganizationSqlParameters.Create(
+                    ("AssignmentId", assignmentId),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)

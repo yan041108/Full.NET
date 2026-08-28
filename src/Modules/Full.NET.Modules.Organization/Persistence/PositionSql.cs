@@ -129,7 +129,7 @@ internal static class PositionSql
              IsActive, CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @Code, @Name, @DisplayOrder,
-             @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @IsActive, @CreatedAtUtc, NULL, @Version)
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

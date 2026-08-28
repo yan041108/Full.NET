@@ -93,6 +93,10 @@ internal static class OrganizationSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    /// <remarks>
+    /// 新建行的 <c>UpdatedAtUtc</c> 使用 SQL 字面量 NULL。Native AOT 下未标注 DbType 的空参数
+    /// 在 SQL Server 上会被推断为 nvarchar，无法写入 datetimeoffset。
+    /// </remarks>
     public static readonly SqlStatement InsertUnit = new(
         "organization.insert_unit",
         """
@@ -101,7 +105,7 @@ internal static class OrganizationSql
              IsActive, CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @ParentId, @Code, @Name, @DisplayOrder,
-             @IsActive, @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @IsActive, @CreatedAtUtc, NULL, @Version)
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
@@ -300,7 +304,7 @@ internal static class OrganizationSql
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @UserId, @UnitId, @IsPrimary, @IsActive,
-             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @CreatedAtUtc, NULL, @Version)
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
@@ -460,7 +464,7 @@ internal static class OrganizationSql
              CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @UserId, @PositionId, @IsPrimary, @IsActive,
-             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @CreatedAtUtc, NULL, @Version)
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);

@@ -31,13 +31,11 @@ internal sealed class OrganizationUnitProjectionCatalog(
         };
         var rows = await queryExecutor.QueryAsync<OrganizationUnitSnapshotRow>(
                 listStatement,
-                new
-                {
-                    TenantId = tenantId,
-                    HasAfterUnitId = afterUnitId.HasValue ? 1 : 0,
-                    AfterUnitId = afterUnitId ?? UnusedAfterUnitId,
-                    PageSize = fetchSize,
-                },
+                OrganizationSqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("HasAfterUnitId", afterUnitId.HasValue ? 1 : 0),
+                    ("AfterUnitId", afterUnitId ?? UnusedAfterUnitId),
+                    ("PageSize", fetchSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var hasMore = rows.Count > pageSize;

@@ -33,7 +33,7 @@ internal sealed class TenantPositionLevelQueryService(
         };
         var rows = await queryExecutor.QueryAsync<OrganizationPositionLevelRecord>(
                 listStatement,
-                new { Offset = offset, PageSize = pageSize },
+                OrganizationSqlParameters.Create(("Offset", offset), ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -51,7 +51,7 @@ internal sealed class TenantPositionLevelQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
                 PositionLevelSql.FindById,
-                new { PositionLevelId = positionLevelId },
+                OrganizationSqlParameters.Create(("PositionLevelId", positionLevelId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

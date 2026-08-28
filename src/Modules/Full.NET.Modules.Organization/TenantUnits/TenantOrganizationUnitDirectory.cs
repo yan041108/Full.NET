@@ -45,7 +45,9 @@ internal sealed class TenantOrganizationUnitDirectory(IQueryExecutor queryExecut
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindActiveUnitByTenantAndId,
-                new { UnitId = unitId, TenantId = tenantId },
+                OrganizationSqlParameters.Create(
+                    ("UnitId", unitId),
+                    ("TenantId", tenantId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null || !record.IsActive ? null : record;

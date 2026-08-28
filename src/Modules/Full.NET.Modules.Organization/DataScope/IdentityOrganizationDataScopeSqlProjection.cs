@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Organization.Persistence;
 
 namespace Full.NET.Modules.Organization.DataScope;
 
@@ -32,7 +33,7 @@ internal sealed class IdentityOrganizationDataScopeSqlProjection
 
         return new DataScopeSqlFilter(
             sql,
-            new { DataScopeUserId = currentUserId });
+            OrganizationSqlParameters.Create(("DataScopeUserId", currentUserId)));
     }
 
     private static string BuildSelfSql(string unitIdColumn) =>

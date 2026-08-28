@@ -62,7 +62,7 @@ internal sealed class TenantPositionLevelManagementService(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
                 PositionLevelSql.FindByTenantAndCode,
-                new { Code = code },
+                OrganizationSqlParameters.Create(("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -74,15 +74,14 @@ internal sealed class TenantPositionLevelManagementService(
         var positionLevelId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionLevelSql.Insert,
-                new InsertOrganizationPositionLevel(
-                    positionLevelId,
-                    code,
-                    request.Name.Trim(),
-                    request.DisplayOrder,
-                    true,
-                    now,
-                    null,
-                    1),
+                OrganizationSqlParameters.Create(
+                    ("Id", positionLevelId),
+                    ("Code", code),
+                    ("Name", request.Name.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -112,7 +111,7 @@ internal sealed class TenantPositionLevelManagementService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
                 PositionLevelSql.FindById,
-                new { PositionLevelId = positionLevelId },
+                OrganizationSqlParameters.Create(("PositionLevelId", positionLevelId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -122,14 +121,12 @@ internal sealed class TenantPositionLevelManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionLevelSql.Update,
-                new
-                {
-                    PositionLevelId = positionLevelId,
-                    Name = request.Name.Trim(),
-                    request.DisplayOrder,
-                    UpdatedAtUtc = clock.UtcNow,
-                    request.Version,
-                },
+                OrganizationSqlParameters.Create(
+                    ("PositionLevelId", positionLevelId),
+                    ("Name", request.Name.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", clock.UtcNow),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -152,7 +149,7 @@ internal sealed class TenantPositionLevelManagementService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
                 PositionLevelSql.FindById,
-                new { PositionLevelId = positionLevelId },
+                OrganizationSqlParameters.Create(("PositionLevelId", positionLevelId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -162,11 +159,9 @@ internal sealed class TenantPositionLevelManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionLevelSql.Disable,
-                new
-                {
-                    PositionLevelId = positionLevelId,
-                    UpdatedAtUtc = clock.UtcNow,
-                },
+                OrganizationSqlParameters.Create(
+                    ("PositionLevelId", positionLevelId),
+                    ("UpdatedAtUtc", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -187,7 +182,7 @@ internal sealed class TenantPositionLevelManagementService(
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
                 PositionLevelSql.FindById,
-                new { PositionLevelId = positionLevelId },
+                OrganizationSqlParameters.Create(("PositionLevelId", positionLevelId)),
                 cancellationToken)
             .ConfigureAwait(false);
         return record is null ? NotFound() : VersionConflict();

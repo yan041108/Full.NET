@@ -108,7 +108,7 @@ internal sealed class TenantUnitQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                 OrganizationSql.FindUnitById,
-                new { UnitId = unitId },
+                OrganizationSqlParameters.Create(("UnitId", unitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

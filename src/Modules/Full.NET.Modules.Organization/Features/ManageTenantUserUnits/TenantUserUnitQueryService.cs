@@ -93,7 +93,7 @@ internal sealed class TenantUserUnitQueryService(
     {
         var row = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUserUnitListRow>(
                 OrganizationSql.FindUserUnitById,
-                new { AssignmentId = assignmentId },
+                OrganizationSqlParameters.Create(("AssignmentId", assignmentId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (row is null)

@@ -77,7 +77,7 @@ internal sealed class TenantPositionManagementService(
         var code = request.Code.Trim();
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
                 PositionSql.FindByTenantAndCode,
-                new { Code = code },
+                OrganizationSqlParameters.Create(("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -89,15 +89,14 @@ internal sealed class TenantPositionManagementService(
         var positionId = idGenerator.NewId();
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionSql.Insert,
-                new InsertOrganizationPosition(
-                    positionId,
-                    code,
-                    request.Name.Trim(),
-                    request.DisplayOrder,
-                    true,
-                    now,
-                    null,
-                    1),
+                OrganizationSqlParameters.Create(
+                    ("Id", positionId),
+                    ("Code", code),
+                    ("Name", request.Name.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -124,7 +123,7 @@ internal sealed class TenantPositionManagementService(
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
                 PositionSql.FindById,
-                new { PositionId = positionId },
+                OrganizationSqlParameters.Create(("PositionId", positionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -135,14 +134,12 @@ internal sealed class TenantPositionManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionSql.Update,
-                new
-                {
-                    PositionId = positionId,
-                    Name = request.Name.Trim(),
-                    DisplayOrder = request.DisplayOrder,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                OrganizationSqlParameters.Create(
+                    ("PositionId", positionId),
+                    ("Name", request.Name.Trim()),
+                    ("DisplayOrder", request.DisplayOrder),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -162,7 +159,7 @@ internal sealed class TenantPositionManagementService(
         EnsureTenantContext();
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
                 PositionSql.FindById,
-                new { PositionId = positionId },
+                OrganizationSqlParameters.Create(("PositionId", positionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null || !record.IsActive)
@@ -173,7 +170,7 @@ internal sealed class TenantPositionManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionSql.Disable,
-                new { PositionId = positionId, UpdatedAtUtc = now },
+                OrganizationSqlParameters.Create(("PositionId", positionId), ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -193,7 +190,7 @@ internal sealed class TenantPositionManagementService(
         EnsureTenantContext();
         var position = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
                 PositionSql.FindById,
-                new { PositionId = positionId },
+                OrganizationSqlParameters.Create(("PositionId", positionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (position is null || !position.IsActive)
@@ -205,7 +202,7 @@ internal sealed class TenantPositionManagementService(
         {
             var unit = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
                     OrganizationSql.FindUnitById,
-                    new { UnitId = unitId },
+                    OrganizationSqlParameters.Create(("UnitId", unitId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (unit is null || !unit.IsActive)
@@ -216,13 +213,11 @@ internal sealed class TenantPositionManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionSql.AssignUnit,
-                new
-                {
-                    PositionId = positionId,
-                    request.UnitId,
-                    UpdatedAtUtc = clock.UtcNow,
-                    request.Version,
-                },
+                OrganizationSqlParameters.Create(
+                    ("PositionId", positionId),
+                    ("UnitId", request.UnitId),
+                    ("UpdatedAtUtc", clock.UtcNow),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -241,7 +236,7 @@ internal sealed class TenantPositionManagementService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
                 PositionSql.FindById,
-                new { PositionId = positionId },
+                OrganizationSqlParameters.Create(("PositionId", positionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -260,7 +255,7 @@ internal sealed class TenantPositionManagementService(
         EnsureTenantContext();
         var position = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionRecord>(
                 PositionSql.FindById,
-                new { PositionId = positionId },
+                OrganizationSqlParameters.Create(("PositionId", positionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (position is null || !position.IsActive)
@@ -273,7 +268,7 @@ internal sealed class TenantPositionManagementService(
             var positionLevel =
                 await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
                         PositionLevelSql.FindById,
-                        new { PositionLevelId = positionLevelId },
+                        OrganizationSqlParameters.Create(("PositionLevelId", positionLevelId)),
                         cancellationToken)
                     .ConfigureAwait(false);
             if (positionLevel is null || !positionLevel.IsActive)
@@ -284,13 +279,11 @@ internal sealed class TenantPositionManagementService(
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 PositionSql.AssignPositionLevel,
-                new
-                {
-                    PositionId = positionId,
-                    request.PositionLevelId,
-                    UpdatedAtUtc = clock.UtcNow,
-                    request.Version,
-                },
+                OrganizationSqlParameters.Create(
+                    ("PositionId", positionId),
+                    ("PositionLevelId", request.PositionLevelId),
+                    ("UpdatedAtUtc", clock.UtcNow),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

@@ -82,7 +82,9 @@ internal sealed class TenantUserPositionManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUserPositionRecord>(
                 OrganizationSql.FindUserPositionByTenantUserAndPosition,
-                new { UserId = request.UserId, PositionId = request.PositionId },
+                OrganizationSqlParameters.Create(
+                    ("UserId", request.UserId),
+                    ("PositionId", request.PositionId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -96,27 +98,24 @@ internal sealed class TenantUserPositionManagementService(
         {
             await commandExecutor.ExecuteAsync(
                     OrganizationSql.ClearPrimaryUserPositions,
-                    new
-                    {
-                        UserId = request.UserId,
-                        AssignmentId = assignmentId,
-                        UpdatedAtUtc = now,
-                    },
+                    OrganizationSqlParameters.Create(
+                        ("UserId", request.UserId),
+                        ("AssignmentId", assignmentId),
+                        ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.InsertUserPosition,
-                new InsertOrganizationUserPosition(
-                    assignmentId,
-                    request.UserId,
-                    request.PositionId,
-                    request.IsPrimary,
-                    true,
-                    now,
-                    null,
-                    1),
+                OrganizationSqlParameters.Create(
+                    ("Id", assignmentId),
+                    ("UserId", request.UserId),
+                    ("PositionId", request.PositionId),
+                    ("IsPrimary", request.IsPrimary),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
@@ -147,25 +146,21 @@ internal sealed class TenantUserPositionManagementService(
         {
             await commandExecutor.ExecuteAsync(
                     OrganizationSql.ClearPrimaryUserPositions,
-                    new
-                    {
-                        UserId = current.Value!.UserId,
-                        AssignmentId = assignmentId,
-                        UpdatedAtUtc = now,
-                    },
+                    OrganizationSqlParameters.Create(
+                        ("UserId", current.Value!.UserId),
+                        ("AssignmentId", assignmentId),
+                        ("UpdatedAtUtc", now)),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.UpdateUserPositionPrimary,
-                new
-                {
-                    AssignmentId = assignmentId,
-                    request.IsPrimary,
-                    request.Version,
-                    UpdatedAtUtc = now,
-                },
+                OrganizationSqlParameters.Create(
+                    ("AssignmentId", assignmentId),
+                    ("IsPrimary", request.IsPrimary),
+                    ("Version", request.Version),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)
@@ -185,7 +180,9 @@ internal sealed class TenantUserPositionManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OrganizationSql.DisableUserPosition,
-                new { AssignmentId = assignmentId, UpdatedAtUtc = now },
+                OrganizationSqlParameters.Create(
+                    ("AssignmentId", assignmentId),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)

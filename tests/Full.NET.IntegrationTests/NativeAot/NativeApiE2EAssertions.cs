@@ -13,6 +13,7 @@ using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Messaging.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Data.SqlClient;
@@ -74,7 +75,11 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
-        await VerifyOrganizationReadAsync(client, tenantToken, cancellationToken)
+        await VerifyOrganizationFlowAsync(
+                client,
+                tenantToken,
+                host.LogFilePath,
+                cancellationToken)
             .ConfigureAwait(false);
         await VerifyReadinessAsync(client, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
@@ -224,20 +229,160 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(created.Id, found?.Id);
     }
 
-    private static async Task VerifyOrganizationReadAsync(
+    private static async Task VerifyOrganizationFlowAsync(
         HttpClient client,
         string accessToken,
+        string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            "/api/v1/organization/units?page=1&pageSize=1");
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            accessToken);
-        using var response = await client.SendAsync(request, cancellationToken)
+        var suffix = Guid.NewGuid().ToString("N");
+        var unitCode = "naotu-" + suffix[..12];
+        var unitCreate = new CreateOrganizationUnitRequest(
+            null,
+            unitCode,
+            "Native AOT organization unit",
+            1);
+        var unit = await PostAndReadAsync<
+                CreateOrganizationUnitRequest,
+                OrganizationUnitResponse>(
+                client,
+                "/api/v1/organization/units",
+                accessToken,
+                unitCreate,
+                HttpStatusCode.Created,
+                cancellationToken,
+                nativeLogFilePath)
             .ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual(unitCode, unit.Code);
+
+        using (var duplicateRequest = AuthorizedJson(
+                   HttpMethod.Post,
+                   "/api/v1/organization/units",
+                   accessToken,
+                   unitCreate))
+        using (var duplicateResponse = await client
+                   .SendAsync(duplicateRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    duplicateResponse,
+                    HttpStatusCode.Conflict,
+                    "Reject duplicate Native AOT organization unit code",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            using var problem = JsonDocument.Parse(
+                await duplicateResponse.Content.ReadAsStringAsync(cancellationToken)
+                    .ConfigureAwait(false));
+            Assert.AreEqual(
+                OrganizationErrorCodes.UnitCodeExists,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        await AssertPageContainsAsync<OrganizationUnitResponse>(
+                client,
+                "/api/v1/organization/units?page=1&pageSize=100",
+                accessToken,
+                item => item.Id == unit.Id,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        using (var getUnitRequest = Authorized(
+                   HttpMethod.Get,
+                   $"/api/v1/organization/units/{unit.Id:D}",
+                   accessToken))
+        using (var getUnitResponse = await client
+                   .SendAsync(getUnitRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    getUnitResponse,
+                    HttpStatusCode.OK,
+                    "Read Native AOT organization unit by id",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var foundUnit = await getUnitResponse.Content
+                .ReadFromJsonAsync<OrganizationUnitResponse>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(unit.Id, foundUnit?.Id);
+        }
+
+        var positionLevelCode = "naotl-" + suffix[..12];
+        var positionLevel = await PostAndReadAsync<
+                CreateOrganizationPositionLevelRequest,
+                OrganizationPositionLevelResponse>(
+                client,
+                "/api/v1/organization/position-levels",
+                accessToken,
+                new CreateOrganizationPositionLevelRequest(
+                    positionLevelCode,
+                    "Native AOT position level",
+                    1),
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(positionLevelCode, positionLevel.Code);
+
+        using (var getLevelRequest = Authorized(
+                   HttpMethod.Get,
+                   $"/api/v1/organization/position-levels/{positionLevel.Id:D}",
+                   accessToken))
+        using (var getLevelResponse = await client
+                   .SendAsync(getLevelRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    getLevelResponse,
+                    HttpStatusCode.OK,
+                    "Read Native AOT organization position level by id",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var foundLevel = await getLevelResponse.Content
+                .ReadFromJsonAsync<OrganizationPositionLevelResponse>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(positionLevel.Id, foundLevel?.Id);
+        }
+
+        var positionCode = "naotp-" + suffix[..12];
+        var position = await PostAndReadAsync<
+                CreateOrganizationPositionRequest,
+                OrganizationPositionResponse>(
+                client,
+                "/api/v1/organization/positions",
+                accessToken,
+                new CreateOrganizationPositionRequest(
+                    positionCode,
+                    "Native AOT organization position",
+                    1),
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(positionCode, position.Code);
+
+        await AssertPageContainsAsync<OrganizationPositionResponse>(
+                client,
+                "/api/v1/organization/positions?page=1&pageSize=100",
+                accessToken,
+                item => item.Id == position.Id,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        using var getPositionRequest = Authorized(
+            HttpMethod.Get,
+            $"/api/v1/organization/positions/{position.Id:D}",
+            accessToken);
+        using var getPositionResponse = await client
+            .SendAsync(getPositionRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                getPositionResponse,
+                HttpStatusCode.OK,
+                "Read Native AOT organization position by id",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var foundPosition = await getPositionResponse.Content
+            .ReadFromJsonAsync<OrganizationPositionResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(position.Id, foundPosition?.Id);
     }
 
     public static Task<string> EnterLocalTenantAsync(
@@ -848,7 +993,8 @@ internal static class NativeApiE2EAssertions
         string accessToken,
         TRequest body,
         HttpStatusCode expectedStatusCode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? nativeLogFilePath = null)
     {
         using var request = AuthorizedJson(HttpMethod.Post, path, accessToken, body);
         using var response = await client.SendAsync(request, cancellationToken)
@@ -857,7 +1003,8 @@ internal static class NativeApiE2EAssertions
                 response,
                 expectedStatusCode,
                 "POST " + path,
-                cancellationToken)
+                cancellationToken,
+                nativeLogFilePath)
             .ConfigureAwait(false);
         var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken)
             .ConfigureAwait(false);
@@ -1048,7 +1195,8 @@ internal static class NativeApiE2EAssertions
         HttpResponseMessage response,
         HttpStatusCode expectedStatusCode,
         string operation,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? nativeLogFilePath = null)
     {
         if (response.StatusCode == expectedStatusCode)
         {
@@ -1057,8 +1205,12 @@ internal static class NativeApiE2EAssertions
 
         var body = await response.Content.ReadAsStringAsync(cancellationToken)
             .ConfigureAwait(false);
+        var logTail = ReadNativeLogTail(nativeLogFilePath);
         Assert.Fail(
             $"{operation} failed. Expected {expectedStatusCode}, actual {response.StatusCode}. "
-            + $"Response body: {body}");
+            + $"Response body: {body}"
+            + (string.IsNullOrEmpty(logTail)
+                ? string.Empty
+                : $"\nNative log tail:\n{logTail}"));
     }
 }

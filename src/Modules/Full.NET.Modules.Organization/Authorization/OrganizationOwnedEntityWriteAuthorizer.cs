@@ -32,12 +32,10 @@ internal sealed class OrganizationOwnedEntityWriteAuthorizer(
         var assignment = await queryExecutor
             .QuerySingleOrDefaultAsync<OrganizationUserUnitRecord>(
                 OrganizationSql.FindUserUnitByTenantUserAndUnit,
-                new
-                {
-                    TenantId = tenantId,
-                    UserId = actorUserId,
-                    UnitId = organizationUnitId,
-                },
+                OrganizationSqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("UserId", actorUserId),
+                    ("UnitId", organizationUnitId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (assignment is null || !assignment.IsActive)
