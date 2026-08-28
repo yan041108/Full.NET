@@ -42,6 +42,17 @@ internal sealed class DapperDatabaseSessionLock(
         }
     }
 
+    /// <summary>
+    /// 会话锁必须钉在同一连接上，不能走 <see cref="IQueryExecutor"/>；
+    /// 使用 <see cref="DynamicParameters"/> 避免匿名类型进入 Native AOT 执行路径。
+    /// </summary>
+    private static DynamicParameters CreateResourceParameters(string resource)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Resource", resource);
+        return parameters;
+    }
+
     private static async Task<bool> TryAcquireProviderLockAsync(
         DbConnection connection,
         DatabaseProvider provider,
@@ -62,7 +73,7 @@ internal sealed class DapperDatabaseSessionLock(
                 """;
             var result = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
                 sql,
-                new { Resource = resource },
+                CreateResourceParameters(resource),
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
             return result >= 0;
         }
@@ -70,7 +81,7 @@ internal sealed class DapperDatabaseSessionLock(
         const string mySql = "SELECT GET_LOCK(@Resource, 0);";
         var acquired = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             mySql,
-            new { Resource = resource },
+            CreateResourceParameters(resource),
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return acquired == 1;
     }
@@ -96,7 +107,7 @@ internal sealed class DapperDatabaseSessionLock(
                     : "SELECT RELEASE_LOCK(@Resource);";
                 await connection.ExecuteAsync(new CommandDefinition(
                     releaseSql,
-                    new { Resource = resource },
+                    CreateResourceParameters(resource),
                     cancellationToken: CancellationToken.None)).ConfigureAwait(false);
             }
             catch

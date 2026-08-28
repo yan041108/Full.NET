@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Microsoft.Extensions.Options;
+using DapperSqlParameters = Full.NET.Data.Dapper.DapperSqlParameters;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
@@ -78,13 +79,9 @@ internal sealed class DapperOutboxStore(
         }
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
-        var parameters = new
-        {
-            MessageTypes = messageTypes
-                .Distinct(StringComparer.Ordinal)
-                .ToArray(),
-            SchemaVersion = schemaVersion
-        };
+        var parameters = DapperSqlParameters.Create(
+            ("MessageTypes", messageTypes.Distinct(StringComparer.Ordinal).ToArray()),
+            ("SchemaVersion", schemaVersion));
         return _databaseOptions.Provider switch
         {
             DatabaseProvider.SqlServer =>
@@ -114,12 +111,10 @@ internal sealed class DapperOutboxStore(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
-        var parameters = new
-        {
-            MessageType = eventType,
-            SchemaVersion = schemaVersion,
-            Now = clock.UtcNow,
-        };
+        var parameters = DapperSqlParameters.Create(
+            ("MessageType", eventType),
+            ("SchemaVersion", schemaVersion),
+            ("Now", clock.UtcNow));
         return _databaseOptions.Provider switch
         {
             DatabaseProvider.SqlServer => ReadSqlServerStreamBacklogAsync(
@@ -156,7 +151,9 @@ internal sealed class DapperOutboxStore(
         };
         return queryExecutor.QuerySingleOrDefaultAsync<OutboxStreamCutoffSnapshot>(
             statement,
-            new { MessageType = eventType, SchemaVersion = schemaVersion },
+            DapperSqlParameters.Create(
+                ("MessageType", eventType),
+                ("SchemaVersion", schemaVersion)),
             cancellationToken);
     }
 
@@ -273,12 +270,10 @@ internal sealed class DapperOutboxStore(
         var affectedRows = await commandExecutor
             .ExecuteAsync(
                 OutboxSql.RenewLease,
-                new
-                {
-                    Ids = distinctMessageIds,
-                    LockId = lockId,
-                    LockedUntil = clock.UtcNow.Add(lease),
-                },
+                DapperSqlParameters.Create(
+                    ("Ids", distinctMessageIds),
+                    ("LockId", lockId),
+                    ("LockedUntil", clock.UtcNow.Add(lease))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows == 0)
@@ -302,7 +297,10 @@ internal sealed class DapperOutboxStore(
         var affectedRows = await commandExecutor
             .ExecuteAsync(
                 OutboxSql.MarkProcessed,
-                new { Id = id, LockId = lockId, Now = clock.UtcNow },
+                DapperSqlParameters.Create(
+                    ("Id", id),
+                    ("LockId", lockId),
+                    ("Now", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureSingleRow(affectedRows, id, lockId);
@@ -331,13 +329,11 @@ internal sealed class DapperOutboxStore(
         var affectedRows = await commandExecutor
             .ExecuteAsync(
                 OutboxSql.MarkFailed,
-                new
-                {
-                    Id = id,
-                    LockId = lockId,
-                    Error = storedError,
-                    NextAttemptAt = nextAttemptAt
-                },
+                DapperSqlParameters.Create(
+                    ("Id", id),
+                    ("LockId", lockId),
+                    ("Error", storedError),
+                    ("NextAttemptAt", nextAttemptAt)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureSingleRow(affectedRows, id, lockId);
@@ -369,14 +365,12 @@ internal sealed class DapperOutboxStore(
         var affectedRows = await commandExecutor
             .ExecuteAsync(
                 OutboxSql.MarkDeadLetter,
-                new
-                {
-                    Id = id,
-                    LockId = lockId,
-                    Error = storedError,
-                    DeadLetterReasonCode = deadLetterReasonCode,
-                    DeadLetteredAt = deadLetteredAt
-                },
+                DapperSqlParameters.Create(
+                    ("Id", id),
+                    ("LockId", lockId),
+                    ("Error", storedError),
+                    ("DeadLetterReasonCode", deadLetterReasonCode),
+                    ("DeadLetteredAt", deadLetteredAt)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureSingleRow(affectedRows, id, lockId);
@@ -401,7 +395,7 @@ internal sealed class DapperOutboxStore(
         var row = await queryExecutor
             .QuerySingleOrDefaultAsync<SqlServerBacklogRow>(
                 OutboxSql.ReadBacklogSqlServer,
-                new { Now = clock.UtcNow },
+                DapperSqlParameters.Create(("Now", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         return new OutboxBacklogSnapshot(
@@ -421,7 +415,7 @@ internal sealed class DapperOutboxStore(
         var row = await queryExecutor
             .QuerySingleOrDefaultAsync<MySqlBacklogRow>(
                 OutboxSql.ReadBacklogMySql,
-                new { Now = clock.UtcNow },
+                DapperSqlParameters.Create(("Now", clock.UtcNow)),
                 cancellationToken)
             .ConfigureAwait(false);
         DateTimeOffset? oldestOccurredAtUtc = row?.OldestOccurredAtUtc is { } value
@@ -555,12 +549,10 @@ internal sealed class DapperOutboxStore(
                 await commandExecutor
                     .ExecuteAsync(
                         OutboxSql.ClaimByIdsMySql,
-                        new
-                        {
-                            Ids = ids.ToArray(),
-                            parameters.LockId,
-                            parameters.LockedUntil,
-                        },
+                        DapperSqlParameters.Create(
+                            ("Ids", ids.ToArray()),
+                            ("LockId", parameters.LockId),
+                            ("LockedUntil", parameters.LockedUntil)),
                         token)
                     .ConfigureAwait(false);
                 var rows = await queryExecutor
@@ -580,7 +572,9 @@ internal sealed class DapperOutboxStore(
     {
         var affectedRows = await commandExecutor.ExecuteAsync(
                 OutboxSql.DeleteProcessedSqlServer,
-                new { CutoffUtc = cutoffUtc, BatchSize = batchSize },
+                DapperSqlParameters.Create(
+                    ("CutoffUtc", cutoffUtc),
+                    ("BatchSize", batchSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureAffectedRowsWithinBatch(affectedRows, batchSize);
@@ -596,7 +590,9 @@ internal sealed class DapperOutboxStore(
             {
                 var ids = await queryExecutor.QueryAsync<Guid>(
                         OutboxSql.SelectProcessedIdsMySql,
-                        new { CutoffUtc = cutoffUtc, BatchSize = batchSize },
+                        DapperSqlParameters.Create(
+                            ("CutoffUtc", cutoffUtc),
+                            ("BatchSize", batchSize)),
                         transactionToken)
                     .ConfigureAwait(false);
                 if (ids.Count == 0)
@@ -607,7 +603,9 @@ internal sealed class DapperOutboxStore(
                 var claimedIds = ids.ToArray();
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         OutboxSql.DeleteProcessedIdsMySql,
-                        new { Ids = claimedIds, CutoffUtc = cutoffUtc },
+                        DapperSqlParameters.Create(
+                            ("Ids", claimedIds),
+                            ("CutoffUtc", cutoffUtc)),
                         transactionToken)
                     .ConfigureAwait(false);
                 if (affectedRows != claimedIds.Length)
@@ -620,7 +618,8 @@ internal sealed class DapperOutboxStore(
             },
             cancellationToken);
 
-    private sealed record OutboxAcquireParameters(
+    /// <summary>领取命令参数；internal 以便 Native AOT 绑定器在基础设施注册中可见。</summary>
+    internal sealed record OutboxAcquireParameters(
         int BatchSize,
         Guid LockId,
         DateTimeOffset Now,
@@ -669,7 +668,8 @@ internal sealed class DapperOutboxStore(
         }
     }
 
-    private sealed class OutboxRow
+    /// <summary>SQL Server 领取结果行；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class OutboxRow
     {
         public Guid Id { get; init; }
         public Guid LockId { get; init; }
@@ -683,7 +683,8 @@ internal sealed class DapperOutboxStore(
         public DateTimeOffset OccurredAtUtc { get; init; }
     }
 
-    private sealed class SqlServerBacklogRow
+    /// <summary>SQL Server 积压聚合行；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class SqlServerBacklogRow
     {
         public long PendingCount { get; init; }
         public DateTimeOffset? OldestOccurredAtUtc { get; init; }
@@ -693,7 +694,8 @@ internal sealed class DapperOutboxStore(
         public DateTimeOffset? OldestDeadLetteredAtUtc { get; init; }
     }
 
-    private sealed class MySqlBacklogRow
+    /// <summary>MySQL 积压聚合行；时间列以 DATETIME 返回，internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class MySqlBacklogRow
     {
         public long PendingCount { get; init; }
         public DateTime? OldestOccurredAtUtc { get; init; }
@@ -703,21 +705,24 @@ internal sealed class DapperOutboxStore(
         public DateTime? OldestDeadLetteredAtUtc { get; init; }
     }
 
-    private sealed class SqlServerVersionRetirementRow
+    /// <summary>SQL Server 版本退役聚合行；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class SqlServerVersionRetirementRow
     {
         public long PendingCount { get; init; }
         public long DeadLetterCount { get; init; }
         public DateTimeOffset? OldestUnprocessedOccurredAtUtc { get; init; }
     }
 
-    private sealed class MySqlVersionRetirementRow
+    /// <summary>MySQL 版本退役聚合行；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class MySqlVersionRetirementRow
     {
         public long PendingCount { get; init; }
         public long DeadLetterCount { get; init; }
         public DateTime? OldestUnprocessedOccurredAtUtc { get; init; }
     }
 
-    private sealed class MySqlOutboxRow
+    /// <summary>MySQL 领取结果行；OccurredAtUtc 为 DATETIME，internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class MySqlOutboxRow
     {
         public Guid Id { get; init; }
         public Guid LockId { get; init; }

@@ -1,6 +1,7 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Microsoft.Extensions.Options;
+using DapperSqlParameters = Full.NET.Data.Dapper.DapperSqlParameters;
 
 namespace Full.NET.Data.Dapper.Outbox;
 
@@ -23,12 +24,10 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
         var preparation = await queryExecutor
             .QuerySingleOrDefaultAsync<RollbackPreparationRow>(
                 ProducerFenceSql.FindActivePreparation,
-                new
-                {
-                    MessageType = eventType,
-                    SchemaVersion = schemaVersion,
-                    RollbackGeneration = rollbackGeneration,
-                },
+                DapperSqlParameters.Create(
+                    ("MessageType", eventType),
+                    ("SchemaVersion", schemaVersion),
+                    ("RollbackGeneration", rollbackGeneration)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (preparation is null)
@@ -45,7 +44,9 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
                     _ => throw new NotSupportedException(
                         $"Database provider '{databaseOptions.Value.Provider}' is not supported."),
                 },
-                new { MessageType = eventType, SchemaVersion = schemaVersion },
+                DapperSqlParameters.Create(
+                    ("MessageType", eventType),
+                    ("SchemaVersion", schemaVersion)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -112,28 +113,32 @@ internal sealed class DapperEventDeliveryProducerFencePositionReader(
         return CdcDeliveryPosition.ForSqlServerBytes(lastEventId, lsn.MaxLsn);
     }
 
-    private sealed class RollbackPreparationRow
+    /// <summary>回退准备行；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class RollbackPreparationRow
     {
         public int RollbackState { get; init; }
 
         public Guid? RollbackGeneration { get; init; }
     }
 
-    private sealed class LastOutboxEventRow
+    /// <summary>流上最后一条 Outbox 事件；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class LastOutboxEventRow
     {
         public Guid CutoffEventId { get; init; }
 
         public DateTimeOffset CutoffOccurredAtUtc { get; init; }
     }
 
-    private sealed class MySqlMasterStatusRow
+    /// <summary>MySQL MASTER STATUS 位点；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class MySqlMasterStatusRow
     {
         public string? File { get; init; }
 
         public long? Position { get; init; }
     }
 
-    private sealed class SqlServerMaxLsnRow
+    /// <summary>SQL Server CDC max LSN；internal 以便 Native AOT 物化器注册可见。</summary>
+    internal sealed class SqlServerMaxLsnRow
     {
         public byte[]? MaxLsn { get; init; }
     }

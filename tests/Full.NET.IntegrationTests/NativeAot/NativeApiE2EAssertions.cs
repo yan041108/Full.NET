@@ -79,6 +79,8 @@ internal static class NativeApiE2EAssertions
                 token,
                 cancellationToken)
             .ConfigureAwait(false);
+        await VerifyMessagingDeliveryStatusAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
         var tenantToken = await EnterDevelopmentTenantAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifyOrganizationFlowAsync(
@@ -1151,6 +1153,41 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(
             MessagingErrorCodes.SubscriptionRouteNotFound,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyMessagingDeliveryStatusAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = Authorized(
+            HttpMethod.Get,
+            "/api/v1/messaging/delivery-status",
+            accessToken);
+        using var response = await client.SendAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                response,
+                HttpStatusCode.OK,
+                "GET /api/v1/messaging/delivery-status",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var status = await response.Content
+            .ReadFromJsonAsync<DeliveryStatusResponse>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.IsNotNull(status);
+        Assert.IsNotNull(status.Backlog);
+        Assert.IsGreaterThanOrEqualTo(0, status.Backlog.PendingCount);
+        Assert.IsGreaterThanOrEqualTo(0, status.Backlog.DueRetryCount);
+        Assert.IsGreaterThanOrEqualTo(0, status.Backlog.ActiveLeaseCount);
+        Assert.IsGreaterThanOrEqualTo(0, status.Backlog.DeadLetterCount);
+        Assert.IsFalse(
+            status.Streams is null || status.Streams.Count == 0,
+            "Native AOT delivery-status 必须返回已注册事件流，不能用空列表冒充积压物化。");
+        Assert.IsFalse(
+            string.IsNullOrWhiteSpace(status.Streams[0].EventType),
+            "Native AOT delivery-status 事件流必须包含 EventType。");
     }
 
     private static async Task SeedFailedDeadLetterAsync(

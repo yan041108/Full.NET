@@ -1398,6 +1398,72 @@ public sealed class NativeAotStaticBindingRulesTests
             "ReferenceEquals(expandedParameters, parameters)");
     }
 
+    [TestMethod]
+    public void DapperInfrastructure_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var dapperDirectory = Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.Dapper");
+        var offenders = new[]
+            {
+                Path.Combine(dapperDirectory, "Outbox", "DapperOutboxStore.cs"),
+                Path.Combine(dapperDirectory, "DapperDatabaseSessionLock.cs"),
+                Path.Combine(
+                    dapperDirectory,
+                    "Outbox",
+                    "DapperEventDeliveryProducerFencePositionReader.cs"),
+            }
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Dapper 基础设施不得向 Host.Api SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void DapperInfrastructure_RegistersHostApiRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var registrationSource = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "BuildingBlocks",
+            "Full.NET.Data.Dapper",
+            "DapperAotInfrastructureRegistration.cs"));
+
+        foreach (var recordType in new[]
+                 {
+                     "OutboxStreamCutoffSnapshot",
+                     "DapperOutboxStore.OutboxRow",
+                     "DapperOutboxStore.SqlServerBacklogRow",
+                     "DapperOutboxStore.MySqlBacklogRow",
+                     "DapperOutboxStore.SqlServerVersionRetirementRow",
+                     "DapperOutboxStore.MySqlVersionRetirementRow",
+                     "DapperOutboxStore.MySqlOutboxRow",
+                     "DapperEventDeliveryProducerFencePositionReader.RollbackPreparationRow",
+                     "DapperEventDeliveryProducerFencePositionReader.LastOutboxEventRow",
+                     "DapperEventDeliveryProducerFencePositionReader.MySqlMasterStatusRow",
+                     "DapperEventDeliveryProducerFencePositionReader.SqlServerMaxLsnRow",
+                 })
+        {
+            StringAssert.Contains(
+                registrationSource,
+                $"Register<{recordType}>");
+        }
+
+        StringAssert.Contains(
+            registrationSource,
+            "Register<DapperOutboxStore.OutboxAcquireParameters>");
+    }
+
     private static bool ContainsAnonymousSqlParameterObject(string source) =>
         source.Contains("new {", StringComparison.Ordinal)
         || Regex.IsMatch(source, @"new\s*\{", RegexOptions.CultureInvariant);
