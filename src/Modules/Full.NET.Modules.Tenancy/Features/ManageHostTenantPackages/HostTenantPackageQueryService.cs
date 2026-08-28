@@ -32,7 +32,9 @@ internal sealed class HostTenantPackageQueryService(
         };
         var rows = await queryExecutor.QueryAsync<TenantPackageRecord>(
                 statement,
-                new { Offset = offset, PageSize = pageSize },
+                TenancySqlParameters.Create(
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
         var items = rows.Select(Map).ToArray();
@@ -53,7 +55,7 @@ internal sealed class HostTenantPackageQueryService(
         };
         var record = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageRecord>(
                 statement,
-                new { PackageId = packageId },
+                TenancySqlParameters.Create(("PackageId", packageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

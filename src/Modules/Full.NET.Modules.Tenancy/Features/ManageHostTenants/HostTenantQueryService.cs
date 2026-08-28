@@ -60,7 +60,7 @@ internal sealed class HostTenantQueryService(
     {
         var record = await queryExecutor.QuerySingleOrDefaultAsync<HostTenantRecord>(
                 TenantSql.FindHostTenantById,
-                new { TenantId = tenantId },
+                TenancySqlParameters.Create(("TenantId", tenantId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)

@@ -65,7 +65,7 @@ internal sealed partial class HostTenantPackageManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(
                 TenantPackageSql.FindByCode,
-                new { Code = code },
+                TenancySqlParameters.Create(("Code", code)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)
@@ -77,16 +77,14 @@ internal sealed partial class HostTenantPackageManagementService(
         var packageId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
                 TenantPackageSql.Insert,
-                new
-                {
-                    Id = packageId,
-                    Code = code,
-                    Name = name,
-                    Description = description,
-                    IsActive = true,
-                    CreatedAtUtc = now,
-                    Version = 1,
-                },
+                TenancySqlParameters.Create(
+                    ("Id", packageId),
+                    ("Code", code),
+                    ("Name", name),
+                    ("Description", description),
+                    ("IsActive", true),
+                    ("CreatedAtUtc", now),
+                    ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -113,7 +111,7 @@ internal sealed partial class HostTenantPackageManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(
                 TenantPackageSql.FindPackageById,
-                new { PackageId = packageId },
+                TenancySqlParameters.Create(("PackageId", packageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -124,21 +122,19 @@ internal sealed partial class HostTenantPackageManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantPackageSql.UpdateHostPackage,
-                new
-                {
-                    PackageId = packageId,
-                    Name = name,
-                    Description = description,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                TenancySqlParameters.Create(
+                    ("PackageId", packageId),
+                    ("Name", name),
+                    ("Description", description),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
             var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(
                     TenantPackageSql.FindPackageById,
-                    new { PackageId = packageId },
+                    TenancySqlParameters.Create(("PackageId", packageId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (stillExists is null)
@@ -159,7 +155,7 @@ internal sealed partial class HostTenantPackageManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(
                 TenantPackageSql.FindPackageById,
-                new { PackageId = packageId },
+                TenancySqlParameters.Create(("PackageId", packageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -175,7 +171,7 @@ internal sealed partial class HostTenantPackageManagementService(
 
         var assignedTenantCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 TenantPackageSql.CountAssignedTenants,
-                new { PackageId = packageId },
+                TenancySqlParameters.Create(("PackageId", packageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (assignedTenantCount > 0)
@@ -186,11 +182,9 @@ internal sealed partial class HostTenantPackageManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantPackageSql.DisableHostPackage,
-                new
-                {
-                    PackageId = packageId,
-                    UpdatedAtUtc = now,
-                },
+                TenancySqlParameters.Create(
+                    ("PackageId", packageId),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

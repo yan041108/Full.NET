@@ -31,7 +31,7 @@ internal sealed class LocalTenantSeedContributor(
         var existing = await queryExecutor
             .QuerySingleOrDefaultAsync<LocalTenantSeedSummary>(
                 TenantSql.FindSummaryByIdentifier,
-                new { Identifier },
+                TenancySqlParameters.Create(("Identifier", Identifier)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is not null)

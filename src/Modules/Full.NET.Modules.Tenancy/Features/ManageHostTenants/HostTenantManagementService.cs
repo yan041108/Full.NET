@@ -97,7 +97,7 @@ internal sealed class HostTenantManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
-                new { TenantId = tenantId },
+                TenancySqlParameters.Create(("TenantId", tenantId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -109,7 +109,7 @@ internal sealed class HostTenantManagementService(
         {
             var package = await queryExecutor.QuerySingleOrDefaultAsync<Features.ManageHostTenantPackages.TenantPackageIdentityRecord>(
                     TenantPackageSql.FindPackageById,
-                    new { PackageId = packageId },
+                    TenancySqlParameters.Create(("PackageId", packageId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (package is null)
@@ -126,20 +126,18 @@ internal sealed class HostTenantManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantSql.AssignHostTenantPackage,
-                new
-                {
-                    TenantId = tenantId,
-                    request.TenantPackageId,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                TenancySqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("TenantPackageId", request.TenantPackageId),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
             var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                     TenantSql.FindById,
-                    new { TenantId = tenantId },
+                    TenancySqlParameters.Create(("TenantId", tenantId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (stillExists is null)
@@ -170,7 +168,7 @@ internal sealed class HostTenantManagementService(
 
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
-                new { TenantId = tenantId },
+                TenancySqlParameters.Create(("TenantId", tenantId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -181,20 +179,18 @@ internal sealed class HostTenantManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantSql.UpdateHostTenantName,
-                new
-                {
-                    TenantId = tenantId,
-                    Name = name,
-                    UpdatedAtUtc = now,
-                    request.Version,
-                },
+                TenancySqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("Name", name),
+                    ("UpdatedAtUtc", now),
+                    ("Version", request.Version)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)
         {
             var stillExists = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                     TenantSql.FindById,
-                    new { TenantId = tenantId },
+                    TenancySqlParameters.Create(("TenantId", tenantId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (stillExists is null)
@@ -215,7 +211,7 @@ internal sealed class HostTenantManagementService(
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
                 TenantSql.FindById,
-                new { TenantId = tenantId },
+                TenancySqlParameters.Create(("TenantId", tenantId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -244,11 +240,9 @@ internal sealed class HostTenantManagementService(
         var now = clock.UtcNow;
         var affectedRows = await commandExecutor.ExecuteAsync(
                 TenantSql.DisableHostTenant,
-                new
-                {
-                    TenantId = tenantId,
-                    UpdatedAtUtc = now,
-                },
+                TenancySqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

@@ -29,7 +29,7 @@ internal sealed class Handler(
         var identifierMatchCount = await queryExecutor
             .QuerySingleOrDefaultAsync<long>(
                 TenantSql.FindByIdentifier,
-                new { Identifier = identifier },
+                TenancySqlParameters.Create(("Identifier", identifier)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (identifierMatchCount > 0)
@@ -42,7 +42,7 @@ internal sealed class Handler(
         var domainMatchCount = await queryExecutor
             .QuerySingleOrDefaultAsync<long>(
                 TenantSql.CountByDomain,
-                new { Domain = domain },
+                TenancySqlParameters.Create(("Domain", domain)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (domainMatchCount > 0)
@@ -58,7 +58,7 @@ internal sealed class Handler(
         {
             var package = await queryExecutor.QuerySingleOrDefaultAsync<TenantPackageIdentityRecord>(
                     TenantPackageSql.FindPackageById,
-                    new { PackageId = packageId },
+                    TenancySqlParameters.Create(("PackageId", packageId)),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (package is null)
@@ -87,18 +87,16 @@ internal sealed class Handler(
         var affectedRows = await commandExecutor
             .ExecuteAsync(
                 TenantSql.Insert,
-                new
-                {
-                    tenant.Id,
-                    tenant.Identifier,
-                    tenant.Name,
-                    tenant.Domain,
-                    tenant.IsActive,
-                    tenant.CreatedAtUtc,
-                    tenant.Version,
-                    tenant.DefaultLocale,
-                    TenantPackageId = command.TenantPackageId,
-                },
+                TenancySqlParameters.Create(
+                    ("Id", tenant.Id),
+                    ("Identifier", tenant.Identifier),
+                    ("Name", tenant.Name),
+                    ("Domain", tenant.Domain),
+                    ("IsActive", tenant.IsActive),
+                    ("CreatedAtUtc", tenant.CreatedAtUtc),
+                    ("Version", tenant.Version),
+                    ("DefaultLocale", tenant.DefaultLocale),
+                    ("TenantPackageId", command.TenantPackageId)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affectedRows != 1)

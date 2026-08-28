@@ -920,6 +920,48 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
+    public void TenancyModule_UsesAotSafeSqlParameters()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var moduleDirectory = Path.Combine(root, "src", "Modules", "Full.NET.Modules.Tenancy");
+        var offenders = Directory
+            .EnumerateFiles(moduleDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains(
+                $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal))
+            .Where(path => ContainsAnonymousSqlParameterObject(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Tenancy 模块不得向 Host.Api SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void TenancyModule_RegistersAllNativeAotRowMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var contributorPath = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Tenancy",
+            "Persistence",
+            "TenancyDapperAotMaterializerContributor.cs");
+        var contributorSource = File.ReadAllText(contributorPath);
+
+        StringAssert.Contains(contributorSource, "registrar.Register<HostTenantRecord>");
+        StringAssert.Contains(contributorSource, "registrar.Register<TenantResolutionRecord>");
+        StringAssert.Contains(contributorSource, "registrar.Register<TenantPackageRecord>");
+        StringAssert.Contains(contributorSource, "registrar.Register<TenantPackageIdentityRecord>");
+        StringAssert.Contains(contributorSource, "registrar.Register<LocalTenantSeedSummary>");
+    }
+
+    [TestMethod]
     public void SettingsModule_RegistersAllNativeAotRowMaterializers()
     {
         var root = ArchitectureRepositoryRoot.Find();

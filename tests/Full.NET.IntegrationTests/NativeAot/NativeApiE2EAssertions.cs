@@ -55,6 +55,8 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifyTenancyReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
+        await VerifyTenancyPackageFlowAsync(client, token, cancellationToken)
+            .ConfigureAwait(false);
         await VerifyCodeGenerationCatalogReadAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
@@ -148,6 +150,78 @@ internal static class NativeApiE2EAssertions
         Assert.AreEqual(
             "application/json",
             response.Content.Headers.ContentType?.MediaType);
+    }
+
+    private static async Task VerifyTenancyPackageFlowAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var packageCode = "native-aot-" + suffix;
+        var create = new CreateHostTenantPackageRequest(
+            packageCode,
+            "Native AOT tenant package",
+            "Native AOT materializer verification");
+        var created = await PostAndReadAsync<
+                CreateHostTenantPackageRequest,
+                TenantPackageSummary>(
+                client,
+                "/api/v1/tenancy/tenant-packages",
+                accessToken,
+                create,
+                HttpStatusCode.Created,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(packageCode, created.Code);
+
+        using (var duplicateRequest = AuthorizedJson(
+                   HttpMethod.Post,
+                   "/api/v1/tenancy/tenant-packages",
+                   accessToken,
+                   create))
+        using (var duplicateResponse = await client
+                   .SendAsync(duplicateRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    duplicateResponse,
+                    HttpStatusCode.Conflict,
+                    "Read Native AOT tenant package identity",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            using var problem = JsonDocument.Parse(
+                await duplicateResponse.Content.ReadAsStringAsync(cancellationToken)
+                    .ConfigureAwait(false));
+            Assert.AreEqual(
+                TenancyErrorCodes.PackageCodeExists,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        await AssertPageContainsAsync<TenantPackageSummary>(
+                client,
+                "/api/v1/tenancy/tenant-packages?page=1&pageSize=100",
+                accessToken,
+                item => item.Id == created.Id,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        using var getRequest = Authorized(
+            HttpMethod.Get,
+            $"/api/v1/tenancy/tenant-packages/{created.Id:D}",
+            accessToken);
+        using var getResponse = await client.SendAsync(getRequest, cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                getResponse,
+                HttpStatusCode.OK,
+                "Read Native AOT tenant package by id",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var found = await getResponse.Content
+            .ReadFromJsonAsync<TenantPackageSummary>(cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(created.Id, found?.Id);
     }
 
     private static async Task VerifyOrganizationReadAsync(
