@@ -1179,6 +1179,21 @@ export interface LocalePreferenceResponse {
   readonly profileVersion: number;
 }
 
+export interface LogFileSummary {
+  readonly fileName: string;
+  readonly id: string;
+  readonly lastModifiedUtc: string;
+  readonly sizeBytes: number;
+}
+
+export interface LogFileTail {
+  readonly bytesRead: number;
+  readonly content: string;
+  readonly fileName: string;
+  readonly id: string;
+  readonly isTruncated: boolean;
+}
+
 export interface LoginRequest {
   readonly password: string;
   readonly username: string;

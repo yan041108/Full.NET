@@ -205,6 +205,11 @@ export function createAppRouter(
         component: () => import('../views/SerialNumberRulesView.vue')
       },
       {
+        name: 'observability-log-files',
+        path: '/observability/log-files',
+        component: () => import('../views/ObservabilityLogFilesView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

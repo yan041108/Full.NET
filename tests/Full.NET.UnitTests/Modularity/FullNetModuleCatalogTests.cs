@@ -17,6 +17,7 @@ using Full.NET.Modules.Organization;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
+using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Messaging.Abstractions;
@@ -92,6 +93,7 @@ public sealed class FullNetModuleCatalogTests
                 typeof(JobsModule),
                 typeof(MessagingModule),
                 typeof(NotificationsModule),
+                typeof(ObservabilityAdminModule),
                 typeof(TenancyModule),
                 typeof(OrganizationModule),
                 typeof(SerialNumbersModule),
@@ -102,7 +104,7 @@ public sealed class FullNetModuleCatalogTests
                 modules.Select(module => module.FullName)));
 
         var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
-        Assert.HasCount(12, catalog.List());
+        Assert.HasCount(13, catalog.List());
         Assert.IsNotNull(catalog.FindByKey("Identity"));
         Assert.AreEqual(
             FullNetModuleSourceClassification.Official,

@@ -144,6 +144,8 @@ import type {
   InboxMessageResponse,
   InboxUnreadCountResponse,
   LocalePreferenceResponse,
+  LogFileSummary,
+  LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
   OperationLogResponse,
@@ -1799,6 +1801,28 @@ function isLocalePreferenceResponse(value: unknown): value is LocalePreferenceRe
   return isRecord(value) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"]));
 }
 
+export function readLogFileSummary(value: unknown): LogFileSummary {
+  if (!(isLogFileSummary(value))) {
+    throw new Error('client.invalid_log_file_summary');
+  }
+  return value;
+}
+
+function isLogFileSummary(value: unknown): value is LogFileSummary {
+  return isRecord(value) && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string') && (typeof value["lastModifiedUtc"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"]));
+}
+
+export function readLogFileTail(value: unknown): LogFileTail {
+  if (!(isLogFileTail(value))) {
+    throw new Error('client.invalid_log_file_tail');
+  }
+  return value;
+}
+
+function isLogFileTail(value: unknown): value is LogFileTail {
+  return isRecord(value) && (typeof value["bytesRead"] === 'number' && Number.isInteger(value["bytesRead"])) && (typeof value["content"] === 'string') && (typeof value["fileName"] === 'string') && (typeof value["id"] === 'string') && (typeof value["isTruncated"] === 'boolean');
+}
+
 export function readLoginRequest(value: unknown): LoginRequest {
   if (!(isLoginRequest(value))) {
     throw new Error('client.invalid_login_request');
@@ -2938,6 +2962,13 @@ export function readJobsListHostJobScheduleDefinitionOptionsResponse(value: unkn
     throw new Error('client.invalid_jobs_list_host_job_schedule_definition_options_response');
   }
   return value as Array<HostJobScheduleDefinitionOptionResponse>;
+}
+
+export function readObservabilityListLogFilesResponse(value: unknown): Array<LogFileSummary> {
+  if (!(Array.isArray(value) && value.every(item5 => isLogFileSummary(item5)))) {
+    throw new Error('client.invalid_observability_list_log_files_response');
+  }
+  return value as Array<LogFileSummary>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {

@@ -9,6 +9,7 @@ using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Document;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.ObservabilityAdmin;
 using NetArchTest.Rules;
 
 namespace Full.NET.ArchitectureTests;
@@ -68,6 +69,7 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Modules.Files.Contracts.FilesErrorCodes).Assembly,
         typeof(DocumentModule).Assembly,
         typeof(SerialNumbersModule).Assembly,
+        typeof(ObservabilityAdminModule).Assembly,
     ];
 
     [TestMethod]

@@ -576,6 +576,23 @@ internal static class IdentityUserManagementAssertions
             "/api/v1/identity/users/export",
             null,
             cancellationToken);
+        using (var workbookExportRequest = new HttpRequestMessage(
+                   HttpMethod.Get,
+                   "/api/v1/identity/users/export-file"))
+        {
+            workbookExportRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", exportToken);
+            using var workbookExportResponse = await client.SendAsync(
+                workbookExportRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, workbookExportResponse.StatusCode);
+            Assert.AreEqual(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                workbookExportResponse.Content.Headers.ContentType?.MediaType);
+            var bytes = await workbookExportResponse.Content.ReadAsByteArrayAsync(
+                cancellationToken);
+            CollectionAssert.AreEqual(new byte[] { 0x50, 0x4B }, bytes.Take(2).ToArray());
+        }
         await AssertPermissionDeniedAsync(
             client,
             exportToken,
@@ -593,6 +610,44 @@ internal static class IdentityUserManagementAssertions
                 IdentityUserManagementPermissions.Import,
             ],
             cancellationToken);
+        byte[] importTemplate;
+        using (var templateRequest = new HttpRequestMessage(
+                   HttpMethod.Get,
+                   "/api/v1/identity/users/import-template"))
+        {
+            templateRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", importToken);
+            using var templateResponse = await client.SendAsync(
+                templateRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, templateResponse.StatusCode);
+            importTemplate = await templateResponse.Content.ReadAsByteArrayAsync(
+                cancellationToken);
+        }
+
+        using (var multipart = new MultipartFormDataContent())
+        {
+            var workbook = new ByteArrayContent(importTemplate);
+            workbook.Headers.ContentType = new MediaTypeHeaderValue(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            multipart.Add(workbook, "file", "host-users-template.xlsx");
+            using var importFileRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/v1/identity/users/import-file")
+            {
+                Content = multipart,
+            };
+            importFileRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", importToken);
+            using var importFileResponse = await client.SendAsync(
+                importFileRequest,
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, importFileResponse.StatusCode);
+            var fileResult = await importFileResponse.Content
+                .ReadFromJsonAsync<ImportHostUsersResponse>(cancellationToken);
+            Assert.IsNotNull(fileResult);
+            Assert.AreEqual(0, fileResult.SucceededCount);
+        }
         await AssertOkAsync(
             client,
             importToken,

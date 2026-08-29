@@ -20,6 +20,7 @@ import type {
   HostRole,
   HostUser,
   HostUserProfileWrite,
+  ImportHostUserRowResult,
   OrganizationPosition,
   OrganizationUnit,
   OrganizationUserPosition,
@@ -58,10 +59,11 @@ import {
   batchEnableHostUsers,
   createHostUser,
   disableHostUser,
+  downloadHostUserImportTemplate,
   enableHostUser,
-  exportHostUsers,
+  exportHostUsersWorkbook,
   getHostUserRoles,
-  importHostUsers,
+  importHostUsersWorkbook,
   listHostUsers,
   replaceHostUserRoles,
   resetHostUserPassword,
@@ -75,6 +77,8 @@ import {
 
 type EditorTab = 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding';
 type EditorMode = 'create' | 'edit';
+
+const maximumImportWorkbookBytes = 1024 * 1024;
 
 interface AppliedFilters {
   username: string;
@@ -153,6 +157,7 @@ const loading = ref(false);
 const changing = ref(false);
 const selectedUsers = ref<HostUser[]>([]);
 const problem = ref<FullNetProblemDetails>();
+const importResults = ref<ImportHostUserRowResult[]>([]);
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({
   username: '',
@@ -1539,6 +1544,15 @@ async function enable(user: HostUser): Promise<void> {
   }
 }
 
+function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 async function exportUsers(): Promise<void> {
   if (changing.value) {
     return;
@@ -1547,14 +1561,7 @@ async function exportUsers(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    const rows = await exportHostUsers();
-    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'host-users.json';
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(await exportHostUsersWorkbook(), 'host-users.xlsx');
   } catch (error: unknown) {
     problem.value = toProblem(error, 'users.operationFailed');
   } finally {
@@ -1562,46 +1569,60 @@ async function exportUsers(): Promise<void> {
   }
 }
 
-async function importUsers(): Promise<void> {
+const importFileInput = ref<HTMLInputElement>();
+
+function importUsers(): void {
   if (changing.value) {
     return;
   }
 
+  importFileInput.value?.click();
+}
+
+async function downloadImportTemplate(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
   try {
-    const { value } = await ElMessageBox.prompt(
-      t('users.importPrompt'),
-      t('users.import'),
-      {
-        confirmButtonText: t('users.import'),
-        cancelButtonText: t('hostDocumentItems.cancel'),
-        inputType: 'textarea'
-      }
+    downloadBlob(
+      await downloadHostUserImportTemplate(),
+      'host-users-import-template.xlsx'
     );
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) {
-      throw new Error('client.invalid_host_user_import');
-    }
-    changing.value = true;
-    problem.value = undefined;
-    const result = await importHostUsers(
-      parsed.map(row => {
-        const record = row as Record<string, unknown>;
-        return {
-          username: String(record.username ?? ''),
-          displayName: String(record.displayName ?? ''),
-          password: String(record.password ?? ''),
-          accountType: typeof record.accountType === 'string'
-            ? record.accountType
-            : null
-        };
-      })
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function onImportFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) {
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith('.xlsx') || file.size > maximumImportWorkbookBytes) {
+    problem.value = toProblem(
+      new Error('client.invalid_host_user_import_workbook'),
+      'users.importWorkbookInvalid'
     );
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  importResults.value = [];
+  try {
+    const result = await importHostUsersWorkbook(file);
+    importResults.value = result.results.slice(0, 1_000);
     ElMessage.success(t('users.importSuccess', { count: result.succeededCount }));
     await load();
   } catch (error: unknown) {
-    if (error === 'cancel' || error === 'close') {
-      return;
-    }
     problem.value = toProblem(error, 'users.operationFailed');
   } finally {
     changing.value = false;
@@ -1731,7 +1752,10 @@ function userSubtitle(user: HostUser): string {
 
 function toProblem(
   error: unknown,
-  fallbackKey: 'users.loadFailed' | 'users.operationFailed'
+  fallbackKey:
+    | 'users.loadFailed'
+    | 'users.operationFailed'
+    | 'users.importWorkbookInvalid'
 ): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -1809,6 +1833,27 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       </div>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <el-card
+      v-if="importResults.length > 0"
+      class="art-table-card"
+      shadow="never"
+      data-testid="users-import-results"
+    >
+      <template #header>{{ t('users.importResults') }}</template>
+      <el-table :data="importResults" size="small">
+        <el-table-column prop="line" :label="t('users.importResultLine')" width="88" />
+        <el-table-column :label="t('users.importResultStatus')" width="120">
+          <template #default="{ row }">
+            <el-tag :type="row.succeeded ? 'success' : 'danger'">
+              {{ t(row.succeeded ? 'users.importResultSucceeded' : 'users.importResultFailed') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorCode" :label="t('users.importResultCode')" min-width="200" />
+        <el-table-column prop="message" :label="t('users.importResultMessage')" min-width="280" />
+      </el-table>
+    </el-card>
 
     <ArtSearchBar
       v-model="searchForm"
@@ -1898,6 +1943,14 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
               </PermissionGate>
               <PermissionGate code="identity.users.import">
                 <el-button
+                  data-testid="users-action-import-template"
+                  plain
+                  :disabled="changing"
+                  @click="downloadImportTemplate"
+                >
+                  {{ t('users.importTemplate') }}
+                </el-button>
+                <el-button
                   data-testid="users-action-import"
                   plain
                   :disabled="changing"
@@ -1905,6 +1958,14 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 >
                   {{ t('users.import') }}
                 </el-button>
+                <input
+                  ref="importFileInput"
+                  class="users-import-file-input"
+                  data-testid="users-import-file-input"
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  @change="onImportFileChange"
+                >
               </PermissionGate>
               <PermissionGate code="identity.users.disable">
                 <el-button
@@ -2259,6 +2320,10 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+}
+
+.users-import-file-input {
+  display: none;
 }
 
 .art-sr-heading {

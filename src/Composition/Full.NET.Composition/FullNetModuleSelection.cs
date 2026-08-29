@@ -26,6 +26,7 @@ public static class FullNetModuleSelection
         "Settings",
         "CodeGeneration",
         "SerialNumbers",
+        "ObservabilityAdmin",
     ];
 
     /// <summary>
@@ -53,6 +54,7 @@ public static class FullNetModuleSelection
         "Notifications",
         "Jobs",
         "Messaging",
+        "ObservabilityAdmin",
     ];
 
     /// <summary>
@@ -70,6 +72,7 @@ public static class FullNetModuleSelection
         "Messaging",
         "Files",
         "Document",
+        "ObservabilityAdmin",
     ];
 
     /// <summary>

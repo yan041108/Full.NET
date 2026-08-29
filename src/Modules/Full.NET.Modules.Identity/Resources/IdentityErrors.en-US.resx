@@ -71,4 +71,5 @@
   <data name="identity.organization_unit_projection.invalid_tenant" xml:space="preserve"><value>The organization unit projection reconciliation tenant is invalid.</value></data>
   <data name="identity.organization_unit_projection.invalid_mode" xml:space="preserve"><value>The organization unit projection reconciliation mode is invalid.</value></data>
   <data name="identity.organization_unit_projection.invalid_page_size" xml:space="preserve"><value>The organization unit projection reconciliation page size is out of range.</value></data>
+  <data name="identity.user_import.workbook_invalid" xml:space="preserve"><value>The user import workbook format, size, or content is invalid.</value></data>
 </root>

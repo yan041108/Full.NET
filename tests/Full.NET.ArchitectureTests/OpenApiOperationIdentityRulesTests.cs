@@ -64,6 +64,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string CodeGenerationTemplatesTag = "CodeGenerationTemplates";
     private const string CodeGenerationCatalogTag = "CodeGenerationCatalog";
     private const string SerialNumbersHostRulesTag = "SerialNumbersHostRules";
+    private const string ObservabilityLogFilesTag = "ObservabilityLogFiles";
     private const string DocumentHostCategoriesTag = "DocumentHostCategories";
     private const string DocumentHostItemsTag = "DocumentHostItems";
     private const string DocumentHostTagsTag = "DocumentHostTags";
@@ -182,7 +183,10 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     [
         new("GET", "/api/v1/identity/users", "identityListHostUsers", IdentityHostUsersTag),
         new("GET", "/api/v1/identity/users/export", "identityExportHostUsers", IdentityHostUsersTag),
+        new("GET", "/api/v1/identity/users/export-file", "identityExportHostUsersWorkbook", IdentityHostUsersTag),
+        new("GET", "/api/v1/identity/users/import-template", "identityDownloadHostUserImportTemplate", IdentityHostUsersTag),
         new("POST", "/api/v1/identity/users/import", "identityImportHostUsers", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/import-file", "identityImportHostUsersWorkbook", IdentityHostUsersTag),
         new("POST", "/api/v1/identity/users/batch-disable", "identityBatchDisableHostUsers", IdentityHostUsersTag),
         new("POST", "/api/v1/identity/users/batch-enable", "identityBatchEnableHostUsers", IdentityHostUsersTag),
         new("GET", "/api/v1/identity/users/{userId}", "identityGetHostUser", IdentityHostUsersTag),
@@ -381,6 +385,9 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/serial-numbers/rules/{ruleId}/enable", "serialNumbersEnableRule", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/{ruleId}/disable", "serialNumbersDisableRule", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/preview", "serialNumbersPreviewSerialNumber", SerialNumbersHostRulesTag),
+        new("GET", "/api/v1/observability/log-files", "observabilityListLogFiles", ObservabilityLogFilesTag),
+        new("GET", "/api/v1/observability/log-files/{id}/tail", "observabilityTailLogFile", ObservabilityLogFilesTag),
+        new("GET", "/api/v1/observability/log-files/{id}/download", "observabilityDownloadLogFile", ObservabilityLogFilesTag),
         new("GET", "/api/v1/document/host/categories", "documentHostListCategories", DocumentHostCategoriesTag),
         new("POST", "/api/v1/document/host/categories", "documentHostCreateCategory", DocumentHostCategoriesTag),
         new("PUT", "/api/v1/document/host/categories/{categoryId}", "documentHostUpdateCategory", DocumentHostCategoriesTag),

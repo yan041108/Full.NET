@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.FieldProjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -12,6 +13,9 @@ namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
 
 internal static class Endpoint
 {
+    private const string WorkbookContentType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/identity/users")
@@ -70,6 +74,48 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Export);
 
+        group.MapGet("/export-file", async (
+            HostUserQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await queries.ExportAsync(
+                    actorUserId,
+                    includeProfile: true,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.File(
+                HostUserWorkbookCodec.Export(result.Value!),
+                WorkbookContentType,
+                "host-users.xlsx");
+        })
+        .WithName("identityExportHostUsersWorkbook")
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireOpenAccessAuthentication(IdentityUserManagementPermissions.Export);
+
+        group.MapGet("/import-template", () => Results.File(
+                HostUserWorkbookCodec.CreateImportTemplate(),
+                WorkbookContentType,
+                "host-users-import-template.xlsx"))
+            .WithName("identityDownloadHostUserImportTemplate")
+            .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .RequireFullNetPermission(IdentityUserManagementPermissions.Import);
+
         group.MapPost("/import", async (
             ImportHostUsersRequest request,
             HostUserManagementService service,
@@ -85,6 +131,46 @@ internal static class Endpoint
         .Produces<ImportHostUsersResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Import);
+
+        group.MapPost("/import-file", async (
+            [FromForm] IFormFile file,
+            HostUserManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!string.Equals(Path.GetExtension(file.FileName), ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return InvalidWorkbook(mapper, httpContext);
+            }
+
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var users = await HostUserWorkbookCodec.ParseImportAsync(
+                        stream,
+                        file.Length,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                var result = await service.ImportAsync(
+                        new ImportHostUsersRequest(users),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return mapper.Map(result, httpContext);
+            }
+            catch (InvalidDataException)
+            {
+                return InvalidWorkbook(mapper, httpContext);
+            }
+        })
+        .WithName("identityImportHostUsersWorkbook")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<ImportHostUsersResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .DisableAntiforgery()
         .RequireFullNetPermission(IdentityUserManagementPermissions.Import);
 
         group.MapPost("/batch-disable", async (
@@ -325,6 +411,16 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.AssignRoles);
     }
+
+    private static IResult InvalidWorkbook(
+        IApiResultMapper mapper,
+        HttpContext httpContext) =>
+        mapper.Map(
+            Result<object?>.Failure(new Error(
+                IdentityErrorCodes.UserImportWorkbookInvalid,
+                "The user import workbook is invalid.",
+                ErrorType.Validation)),
+            httpContext);
 
     private static bool TryGetSubject(
         System.Security.Claims.ClaimsPrincipal principal,

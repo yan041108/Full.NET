@@ -90,7 +90,7 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 | C2.2 | 租户、套餐、机构、职位、职级、用户隶属 | **Build-verified** | W2 粗粒度写权限已拆分；持续补 Vue 单操作真实栈 E2E |
 | C2.3 | 配置、字典、枚举、Grid 偏好、审计 | Build-verified slices | 完成 Vue 体验与精确操作权限，不再建设 Layui |
 | C2.4 | Files、Notifications、Jobs、CodeGeneration | **Verified**（Vue） | W4 迁移 071–076 已收口；见[W4–W5 验证](../verification/vue-action-authorization-w4-w5-closeout-2026-08-03.md) |
-| C2.5 | Document 及后续 Admin.NET 吸收模块 | **Verified**（Document Host 切片） | W5 迁移 077–080 已收口；租户文档等后续切片独立规划 |
+| C2.5 | Document 及后续 Admin.NET 吸收模块 | **Build-verified**（Document Host 切片） | 核心功能与 W5 迁移 077–080 已收口；Document WCAG 与双库 admin-real-stack 需 fresh 全绿后升 `Verified`，租户文档等后续切片独立规划 |
 
 **退出条件：** Full.NET 1.0 范围内后台能力的服务端、双库、Vue 和真实栈验收完成；权限授权页面可以独立选择每个页面和业务操作。
 

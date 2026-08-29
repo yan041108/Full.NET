@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-08-29。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-08-30。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 ## 状态定义
 
@@ -33,6 +33,7 @@
 | 结构化日志、OpenTelemetry 与低基数指标 | Build-verified | 指标、Trace、日志职责分离；生产采集、告警和保留策略仍需部署环境验收。 |
 | 可信代理与转发头边界 | Build-verified | 由主机配置、边界测试与运维基线共同约束。 |
 | Identity 会话、刷新令牌、MFA 与 TOTP | Build-verified | 单元、集成及生产配置真实栈 TOTP 浏览器链路已有验证记录；不等于生产环境认证。 |
+| Identity 用户管理与档案 | Build-verified | Host 用户列表、创建、编辑、启停、重置密码、JSON 兼容接口、固定结构 Excel 模板/导入/导出和批量启停已落地；工作簿限制为 1 MiB/1,000 行并拒绝公式、外部关系和未知表头，导入继续复用既有逐行结果服务。手机号、邮箱与证件号码仍缺服务端权威格式和作用域唯一性闭环，生产真实栈未认证，完成前不升 `Verified`。见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
 | Tenancy 生命周期与配额 | Build-verified | 租户创建、状态、解析与缓存失效已完成纵向切片；跨模块读取继续通过 Contracts 或投影演进。 |
 | RBAC、菜单、页面与按钮级权限 | Build-verified | Vue 按稳定权限码不创建无权入口，后端 Endpoint 精确权限失败关闭，授权页按模块/页面/操作分层。 |
 | Host / Tenant 字典 | Build-verified | 模块内查询、事务、双库和 Vue 管理页已形成完整切片。Host.Api Native AOT 双库 Settings HTTP/JSON 证据见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)。 |
@@ -43,10 +44,12 @@
 | 审计归档与保留 | Build-verified | 归档、导出、完整性与恢复边界已有验证；生产保留周期由运维配置。 |
 | Organization 单位、职位与成员关系 | Build-verified | 模块内关联使用本模块 SQL 与事务；Identity 侧本地投影与 Host 对账端点（keyset、dry-run、apply）已落地，见 [`cursor-post-review-follow-up`](../superpowers/plans/2026-08-08-cursor-post-review-follow-up.md) Task 2–3。 |
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
-| Document | Build-verified | 2026-08-16：核心 Verified 切片（限流、版本历史、MVP 预览、统计修复、OpenAPI/权限清单、Integration 双库）已落地；admin-parity WCAG 全绿与 admin-real-stack 双库 E2E 复验仍待 fresh 输出后升档。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
+| Document | Build-verified | 2026-08-16：核心功能切片（限流、版本历史、MVP 预览、统计修复、OpenAPI/权限清单、Integration 双库）已落地；admin-parity WCAG 与 admin-real-stack 双库 E2E 仍待 fresh 全绿后升 `Verified`。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
 | Notifications | Build-verified | 现有 Host 公告、站内信、未读/已读、SignalR 与 Host.Api 双库 Native AOT 范围保持 Build-verified。Tenant Inbox、模板版本、逻辑 Intent、多 Provider Profile、显式 Binding、Delivery/Attempt/Receipt 与偏好已在[扩展 Spec](../superpowers/specs/2026-08-30-notifications-platform-extension-design.md)获批并进入[独立计划](../superpowers/plans/2026-08-30-notifications-platform-extension.md)，仍为 Planned；邮件/短信/企微/公众号/钉钉均未因设计批准变为已实现。见 [`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md)。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。Host.Api Native AOT 已在 SQL Server/MySQL 上通过定义、手动触发 ping、执行/计划/健康 HTTP JSON 外部进程验证，见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)；不外推 Worker 托管轮询或容量。 |
+| SerialNumbers | Build-verified | Host/租户规则、纯预览、UTC 周期重置、幂等原子分配、分页筛选、稳定排序、Vue 表单边界与精确权限已落地；双库 Integration 与 admin-real-stack 仍需 fresh 全绿后才能升 `Verified`。见 [`serial-numbers-verified-20260820.md`](../verification/serial-numbers-verified-20260820.md)。 |
+| Observability Admin 控制面 | Build-verified | 独立官方模块已交付固定日志根目录、顶层 `.log` 清单、稳定 SHA-256 文件 ID、有界尾读和流式下载；读/下载使用独立 Host 权限，Vue 不创建未授权下载入口，活动文件使用共享读取且客户端不能提交路径。实例/运行时硬件信息仍为 `Mapped`，Linux 原生进程 E2E 尚待 CI；见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
 | 在线会话治理 | Build-verified | 会话状态、撤销与多实例协调已有基础能力。 |
 | 受保护超级管理员 | Build-verified | 动态投影授权目录权限，仍受租户、会话、Endpoint、审计和最后一名保护约束。 |
 | Vue 管理端主交付线 | Build-verified | `ui/admin` 是唯一持续交付的后台产品线；新增功能必须完成页面、按钮权限与真实后端联调。 |
@@ -64,8 +67,9 @@
 | Host.Api Native AOT Kafka Replay | Build-verified | **`Native-provider-verified: kafka-replay`**：Linux Native Host.Api + 真实 Kafka 范围重放在 SQL Server/MySQL 下已通过。仅覆盖 API Replay；不覆盖 Worker Producer/Consumer、CDC Relay、DLQ 或 Lag Observer。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |
 | AI 能力 | Planned | 必须先确定数据边界、审计、模型供应、成本与降级策略。 |
+| MCP Server 与 Agent Tools | Planned | 路线图已登记 M5+，生产代码尚无 MCP 工具暴露。实施前必须建立静态 Tool 目录、源生成参数/结果、逐工具权限、租户隔离、人审高影响操作、限流与审计；禁止本机 HTTP 回环转发调用方身份。见[刷新后审计](../verification/2026-08-30-adminnet-refresh-incremental-audit.md)。 |
 | Workflow | Designing | [Spec](../superpowers/specs/2026-08-20-workflow-module-design.md) 已于 2026-08-30 批准，固化自有审批内核、树形 Draft→统一 IR、不可变定义/表单版本、终态拒绝、Todo/Notifications 分离、Workflow-Vue3、VForm3 Web Adapter 和 uni-app 轻量渲染边界；[核心首切片](../superpowers/plans/2026-08-20-workflow-first-vertical-slice.md)与[设计器/跨端计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)已可按门禁执行。尚无运行时代码，不得标为 Implemented。 |
-| Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。 |
+| Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；2026-08-30 将 Admin.NET.Pro `v2.1` 基线更新至 `09d38bd8`，自 `3879b035` 累计审计 59 个提交。Identity Excel 文件导入体验与 Observability Admin 日志控制面已按 Full.NET 安全边界交付；当前明确缺口仍包括 Identity 用户资料权威校验、Notifications 强类型扩展元数据和 MCP 安全/AOT 设计。后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
 | k6 与生产容量认证 | Implemented | [`eng/load`](../../eng/load/README.md) 已提供工具、阈值和报告能力；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
 
 ## 2026-08-08 后续优先级

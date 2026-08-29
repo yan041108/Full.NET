@@ -223,6 +223,10 @@ public static class IdentityErrorCodes
     public const string OrganizationUnitProjectionInvalidPageSize =
         "identity.organization_unit_projection.invalid_page_size";
 
+    /// <summary>用户导入工作簿格式、大小或内容无效。</summary>
+    public const string UserImportWorkbookInvalid =
+        "identity.user_import.workbook_invalid";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -294,5 +298,6 @@ public static class IdentityErrorCodes
         OrganizationUnitProjectionInvalidTenant,
         OrganizationUnitProjectionInvalidMode,
         OrganizationUnitProjectionInvalidPageSize,
+        UserImportWorkbookInvalid,
     ]);
 }

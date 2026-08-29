@@ -2,8 +2,9 @@
 
 - 基线仓库：`G:\wwwroot\github_fork\Admin.NET.Pro`
 - 基线分支：`v2.1`
-- 基线提交：`3879b035791b4603e734c15e7c316e0aeca32f1b`（2026-07-13）
+- 基线提交：`09d38bd82603ca23b2e39644376906bd1023a42f`（2026-08-28）
 - 建立日期：2026-07-17
+- 最近复核：2026-08-30（[`3879b035..3c65392d` 第一阶段审计](../verification/2026-08-30-adminnet-incremental-parity-audit.md)、[`3c65392d..09d38bd8` 刷新后审计](../verification/2026-08-30-adminnet-refresh-incremental-audit.md)）
 - 目标：Admin.NET.Pro 的适用功能原则上在 Full.NET 中全量对标
 - 当前能力总览：[`capability-status.md`](capability-status.md)
 - 源码设计复核：[`adminnet-source-design-absorption-review-2026-07-30.md`](../verification/adminnet-source-design-absorption-review-2026-07-30.md)
@@ -44,15 +45,19 @@
 
 当前优先顺序：吸收计划 Task 1–10（代码生成、Grid 偏好、流水号、Jobs 调度、Files Provider、字段投影、请求签名、出站审计、只读模块目录）已合入 `main`；其后进入下方「大型插件独立执行队列」。该顺序只表达实施依赖，不改变下表任何能力状态，也不把 `Mapped` 行合计为已交付能力。
 
+2026-08-30 增量复核确认：Admin.NET.Pro 新增的登录失败锁定与健康检查已被 Full.NET 覆盖；缓存和机构权限变化由 Full.NET 自有边界承接。新识别缺口为 Identity 用户资料服务端权威校验、Observability Admin 受控日志文件查看，以及 Notifications 有真实消费者后采用的强类型扩展元数据。依赖升级、Furion/EF Core/SqlSugar 修复和第二套前端维护不改变功能状态。
+
+同日刷新参考仓库至 `09d38bd8` 后又审计 31 个提交：新增明确缺口为 Identity 用户 Excel 模板/文件导入体验和 MCP 安全/AOT 设计；Workflow 的业务完成通知、草稿与已发布版本差异已纳入 2026-08-30 批准的自有内核、不可变版本和 Outbox/Inbox 设计，状态进入 Designing 但尚无实现。日志流式读取进一步确认 Observability Admin 缺口，但参考实现的路径拼接与本机 HTTP 回环均不得直接吸收。
+
 ## 2. README 内置功能基线
 
 | Admin.NET.Pro 功能 | Full.NET 归属 | 形态 | 计划 | 状态 |
 |---|---|---|---|---|
-| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` + `ui/admin-layui` | Core + Client | M2 | Implemented |
-| 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + 双管理端 | Core + Client | M2 | Implemented |
+| 管理端登录、刷新会话、退出与当前用户 | Identity + `ui/admin` | Core + Client | M2 | **Build-verified**（会话、刷新、退出、当前用户、Cookie/CORS/CSRF 与登录锁定已有代码和测试证据；生产等价认证前不升 `Verified`） |
+| 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + `ui/admin` | Core + Client | M2 | **Build-verified**（精确 Endpoint 权限、可信租户上下文、动态导航白名单与角色授权树已落地；B2 双库 real-stack/WCAG fresh 收口前不升 `Verified`） |
 | 默认超级管理员、未来权限自动获得与最后一名保护 | Identity + `ui/admin` | Core + Client | M2 | **Build-verified**（API 并发保护已交付；Vue 真实栈规格已覆盖撤销最后一名；本波未跑 `test:e2e:real`，不得标 `Verified`；见[验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)） |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | **Build-verified**（Host 工作台汇总 API + 双端 Overview 真实指标；[验证记录](../verification/platform-host-dashboard-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-platform-host-dashboard-vertical-slice.md)） |
-| 用户管理 | Identity | Core | M2 | **Build-verified**（Host 列表/创建/编辑/禁用/启用/重置密码/导入/批量停用启用已交付；[验证记录](../verification/identity-user-management-2026-07-21.md)、[B1 对标验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)；真实栈浏览器未在本波执行，不得标 `Verified`） |
+| 用户管理 | Identity | Core | M2 | **Build-verified**（Host 列表/创建/编辑/禁用/启用/重置密码、JSON 兼容接口、固定结构 Excel 模板/文件导入导出与批量停用启用已交付；Excel 边界限制 1 MiB/1,000 行，拒绝公式、外部关系和未知表头并复用逐行结果服务；手机号、邮箱与证件号码仍缺服务端权威格式/作用域唯一性闭环，真实栈浏览器未在本波执行，不得标 `Verified`；见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)） |
 | 租户管理 | Tenancy | Core | M2 | **Build-verified**（Host 列表/开通/更新/禁用；[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)） |
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
 | 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD、机构与职级绑定/解绑、职级目录 CRUD、双库 Integration、双端 parity 及双库双端真实栈写入；完整 `main` CI 与发布前人工验收待补） |
@@ -62,10 +67,10 @@
 | 字典管理 | Settings | Core | M3 | **Build-verified**（字典类型 + 字典项 Host CRUD 与双端 UI；见[验证记录](../verification/settings-dictionary-2026-07-25.md)、[类型切片](../superpowers/plans/2026-07-25-settings-dictionary-vertical-slice.md)、[项 UI 切片](../superpowers/plans/2026-07-25-settings-dict-items-ui-vertical-slice.md)） |
 | 访问日志 | Auditing | Core | M3 | Build-verified |
 | 操作与异常日志 | Auditing | Core | M3 | Build-verified |
-| 服务监控 | Observability Admin | Official Module | M5+ | Mapped |
+| 服务监控 | Observability Admin | Official Module | M5+ | **Build-verified**（live/ready/startup 与依赖探针由 Hosting 覆盖；固定根目录、稳定文件 ID、顶层日志清单、有界尾读、流式下载、精确权限和 Vue 管理页已交付，禁止客户端路径直拼；实例/运行时硬件信息仍为 `Mapped`，Linux 原生进程 E2E 待 CI；见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)） |
 | 在线用户与强制下线 | Identity + Notifications | Core | M2 | **Build-verified**（Host 在线会话列表与强制下线；[验证记录](../verification/identity-host-online-sessions-2026-07-26.md)） |
 | 公告与 SignalR 通知 | Realtime + Notifications | Core | M2/M3 | **Build-verified**（Host 公告草稿/发布 + `IRealtimePublisher` 广播；[验证记录](../verification/notifications-host-announcement-2026-07-26.md)） |
-| 文件与对象存储 | Files + Storage Providers | Core + Provider | M3/M5+ | **Build-verified**（Host 文件元数据上传/列表/下载/删除；稳定 `ProviderKey` 持久化与注册表；下载、补偿及墓碑清理按记录路由；当前仅本地 Provider；[验证记录](../verification/files-storage-provider-boundary-2026-08-01.md)） |
+| 文件与对象存储 | Files + Storage Providers | Core + Provider | M3/M5+ | **Build-verified**（Host 文件元数据上传/列表/下载/删除；稳定 `ProviderKey` 持久化与注册表；下载、补偿及墓碑清理按记录路由；本地与 S3/MinIO Provider 已落地，AWS workload identity、instance role 与 web identity 尚未验证；见[存储边界验证](../verification/files-storage-provider-boundary-2026-08-01.md)和[Native Provider 验证](../verification/api-native-aot-phase3-providers-2026-08-24.md)） |
 | 任务调度 | Jobs | Core | M3 | **Build-verified**（Host 任务定义 CRUD、**可配置 HTTP 任务（HandlerKind/ArgsJson、Settings secretHeaders、SSRF）**、手动/一次性/Cron 触发、IANA/Windows 时区规范化、`skip`/`fire_once`、暂停恢复、执行历史关联与 Worker 原子物化；**按任务集群串行**（`AllowConcurrentExecutions` 默认 false）、**独立执行历史页**、**Cron 宏/下 N 次预览**、**只读集群健康**；见 [HTTP Handler 验证](../verification/jobs-configurable-http-handler-2026-08-20.md)、[wave2 验证](../verification/jobs-adminnet-parity-wave2-2026-08-17.md)、[计划调度验证](../verification/jobs-schedules-2026-07-31.md)、[基础验证](../verification/jobs-host-definitions-2026-07-26.md)） |
 | 系统配置 | Settings | Core | M3 | **Build-verified**（Host 配置项 CRUD 与双端 UI；见[验证记录](../verification/settings-system-config-2026-07-25.md)、[实施计划](../superpowers/plans/2026-07-25-settings-system-config-vertical-slice.md)） |
 | 邮件与短信 | Notifications Providers | Provider | M5+ | Mapped（统一 Profile/Binding/Delivery 平台 Spec 已批准；首个真实 Provider 尚未选择，需厂商独立纵向计划） |
@@ -73,7 +78,7 @@
 | 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | **Build-verified**（统一 `FullNetCrudSchema`、显式 Tenant/Host/Global 作用域、Product 确定性跨栈产物、后端 CRUD 骨架、Vue/Layui 页面模型、成对双库迁移草案、最小双 Provider 集成测试草案及安全预览/应用 CLI 已完成；Decimal precision/scale 已从严格 JSON 与双库元数据贯通到报告和迁移草案；双库基础表目录已可只读扫描并排除视图；严格逐表语义映射、单连接多表导入、合并工作区批量预览和独立显式批量 Apply 已完成双库验证；整批写盘复用同一 Manifest 所有权、冲突零写入、原子提交与 committed tombstone；模块接入已提供严格显式目标驱动的只读影响计划，缺失项目、入口、Composition、路由或客户端适配文件会保守阻塞；后端产物可通过系统临时投影执行真实 Release 编译，也可由独立 `apply-module-integration` 在编译通过后按实体目录原子写盘、保留同模块其他实体所有权并幂等重入；模块级聚合注册桥会按全部受管实体确定性重建；`apply-module-entry-integration`、`apply-composition-integration` 与可选 `apply-client-route-integration` 均保持显式目标、先编译后提交和幂等重入；Host-only 管理模块现已提供严格预览、模板持久化、可信审计、乐观并发与软删除 API，`044_CodeGenerationTemplate` 已完成双库恢复验证；受跟踪预览现以独立 read/execute 权限写入不可变无源码摘要，`045_CodeGenerationRun` 已完成双库恢复，运行目录使用单往返分页；Host 受控 Apply 以独立权限、默认禁用的运维工作区和 `046_CodeGenerationApply` 双库状态机完成 Vue/Layui 真实栈验证，并在工作区修改前持久化不可覆盖、可校验的本地回滚证据，内部 GenerationRollbackWorkspace 可对已验证检查点执行 fail-closed 逆向写盘，见[Host Apply 验证](../verification/codegeneration-host-apply-2026-07-31.md)与[回滚检查点验证](../verification/codegeneration-apply-rollback-checkpoint-2026-08-01.md)、[产品 Rollback 验证](../verification/codegeneration-product-rollback-2026-08-02.md)；产品 Rollback（`codegen.runs.rollback`、051、共享 Apply Gate、Vue/Layui 真实栈 Apply→Rollback 4/4）已交付且保持 `Build-verified`；检查点保留清理、Worker/多实例调度、远程仓库写入及生产默认启用仍开放；2026-08-16 Admin.NET 核心代码生成对标已交付可视化工作台、Vue SFC、Host Apply 模块/Composition/Vue 接线、鉴权 zip 下载与同模块 Tree/关系可执行生成，默认预览不再发出 Layui，DatabaseTools/ReZero 仍拒绝；见[对标验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)；2026-08-20 工作台 UX 对齐（模板筛选/复制、Tabs 列元数据与实体能力、预览深链、`integrationTarget` 表单、runs Action 目录）见[UX 验证](../verification/codegeneration-workbench-ux-parity-20260820.md)；真实栈浏览器完整双库矩阵未关闭前不得标 `Verified`） |
 | 在线表单构建器 | Workflow Forms；第二个独立消费者后再评估 FormBuilder | Official Module / Client | M5+ | Planned（VForm3 后台设计 + `WorkflowFormSchema` + Vue/uni-app 运行时已纳入 Workflow 批准计划；当前不创建独立 Forms 模块） |
 | 微信小程序与微信支付 | WeChat + Payments | Official Module + Provider | M5+ | Mapped |
-| Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Mapped |
+| Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Implementing（Identity 固定结构 Excel 模板、受限文件解析、逐行结果与公式注入防护小切片已 `Build-verified`；通用工作表配置、其他模块导入导出及 HTML/PDF Reporting 仍为 `Mapped`） |
 | 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limit.exceeded` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
 | Elasticsearch 日志 | Elasticsearch Observability | Provider | M5+ | Mapped |
 | OAuth 2.0 外部登录 | Identity OAuth Providers | Provider | M5+ | Mapped |
@@ -99,8 +104,8 @@
 | 插件管理 | Modularity Admin | Official Module | M5+ | Implementing（只读官方模块清单 API 与双端 UI；Architecture 禁止 Roslyn/ApplicationPart；2026-08-02 双库 Integration **2/2**；见[验收记录](../verification/adminnet-tasks-8-10-realstack-2026-08-02.md)） |
 | 打印 | Printing | Official Module + Client | M5+ | Mapped |
 | 行政区域 | Regions | Official Module | M5+ | Mapped |
-| 报表配置 | Reporting | Official Module | M5+ | Mapped |
-| 流水号规则 | SerialNumbers | Official Module | M5+ | **Build-verified**（Host 规则 API、纯预览、Host/租户计数器、UTC 日/月/年重置、幂等分配、SQL Server/MySQL 039 与恢复测试、Vue 页面及精确操作权限已交付；分页筛选、规则表单体验和独立真实栈 E2E 仍待后续切片；见[验证记录](../verification/serial-numbers-2026-07-30.md)） |
+| 报表配置 | Reporting | Official Module | M5+ | Mapped（未来 Spec 必须定义数据源授权、只读 SQL/存储过程边界、命令超时、取消、行数/大小上限和失败即停语义） |
+| 流水号规则 | SerialNumbers | Official Module | M5+ | **Build-verified**（Host 规则 API、纯预览、Host/租户计数器、UTC 日/月/年重置、幂等分配、分页筛选、稳定排序、Vue 表单边界提示及精确操作权限已交付；双库 Integration 与真实栈 E2E 尚无 fresh 全绿，不升 `Verified`；见[基础验证](../verification/serial-numbers-2026-07-30.md)与[升档清单](../verification/serial-numbers-verified-20260820.md)） |
 | 系统升级 | Upgrade Management | Official Module | M5+ | Mapped |
 | 支付宝 | Payments.Alipay | Provider | M5+ | Mapped |
 | 微信生态 | WeChat | Official Module + Provider | M5+ | Mapped |
@@ -109,11 +114,11 @@
 | 数据导入导出工具 | ImportExport | Official Module | M5+ | Mapped |
 | 服务器硬件与运行时信息 | Observability Admin | Official Module | M5+ | Mapped |
 | System.Text.Json 源生成与序列化基准 | Serialization | Core | M0-M1 | **Build-verified**（Architecture 门禁从生产 Endpoint 元数据枚举请求、响应、分页项与 ProblemDetails 类型并验证模块源生成上下文覆盖；生成式客户端 SDK 属于独立演进项） |
-| MemoryPack 可靠事件载荷 | Messaging + Outbox | Core | M1 | Implemented |
+| MemoryPack 可靠事件载荷 | Messaging + Outbox | Core | M1 | **Build-verified**（具体 MemoryPack Integration Event、版本路由、Outbox/Inbox 与 Native AOT 静态契约已有构建和测试门禁；首个真实非加法版本升级演练仍待真实事件触发） |
 | gRPC/Protobuf 跨进程同步通信 | ServiceCommunication.Grpc | Provider/Template | 首次服务拆分时 | Mapped |
 | SignalR、JSON Hub 和 Redis Backplane | Realtime | Core + Provider | M2 | **Build-verified**（`IRealtimePublisher` + Hub + JWT 分组；[验证记录](../verification/realtime-signalr-foundation-2026-07-26.md)） |
 | 模型供应商中立 AI 抽象 | AI.Abstractions | Official Module | M5+ | Mapped |
-| Agent、MCP 与 Agentic Web | Agents + AgenticWeb | Official Module + Protocol Adapter | M5+ | Mapped |
+| Agent、MCP 与 Agentic Web | Agents + AgenticWeb | Official Module + Protocol Adapter | M5+ | Mapped（需独立安全/AOT Spec：静态 Tool 目录、源生成参数/结果、逐工具权限、租户隔离、人审高影响操作与审计；禁止本机 HTTP 回环转发调用方身份） |
 
 ## 4. 插件能力基线
 
@@ -122,7 +127,7 @@
 | `Admin.NET.Plugin.Ai` | AI 模型配置、对话、Agent、工具调用、MCP 与 Agentic Web | AI + Agents + AgenticWeb | Official Module + Provider + Protocol Adapter | Mapped |
 | `Admin.NET.Plugin.DataApproval` | 数据变更审批 | DataApproval | Official Module | Mapped |
 | `Admin.NET.Plugin.DingTalk` | 钉钉组织、消息和接口 | DingTalk | Provider | Mapped |
-| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Build-verified**（Host 全矩阵 + 版本历史 + MVP 预览已落地；admin-parity WCAG 全量零违规与 admin-real-stack 双库 E2E 复验待 fresh 输出后升 **Verified**；Office 转 PDF 为有意差异） |
+| `Admin.NET.Plugin.Document` | 文档、分类、标签、权限、分享、预览、版本、回收站和统计 | Document | Official Module | **Build-verified**（Host 全矩阵 + 版本历史 + MVP 预览已落地；admin-parity WCAG 与 admin-real-stack 双库 E2E 待 fresh 全绿后升 **Verified**；Office 转 PDF 为有意差异） |
 | `Admin.NET.Plugin.GoView` | 可视化大屏 | GoView | Official Module + Client | Mapped |
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |
@@ -148,13 +153,13 @@
 
 吸收计划 Task 11 仅冻结本队列与门禁，不创建任何大型模块规格或代码骨架。见[执行队列记录](../verification/adminnet-large-module-execution-queue-2026-08-01.md)。
 
-### 4.2 Document Verified 后的 Admin.NET 广度波次（2026-08-16）
+### 4.2 Document 队列关闭后的 Admin.NET 广度波次（2026-08-16）
 
-Document 队列 #1 已于 2026-08-16 关闭（**Verified**）。后续按依赖链与 `Implementing` 收口排期：
+Document 队列 #1 已于 2026-08-16 完成功能实现并关闭，当前保持 **Build-verified**；WCAG 与双库 admin-real-stack 需要 fresh 全绿后才能升 `Verified`。后续按依赖链与 `Implementing` 收口排期：
 
 | 波次 | 优先级 | 能力 | 下一切片 |
 | --- | --- | --- | --- |
-| **B1** | 高 | Identity 用户管理 + 超级管理员 | **Build-verified**（导入/批量/编辑已交付；最后一名 E2E 规格已写，未跑 real-stack；[验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)） |
+| **B1** | 高 | Identity 用户管理 + 超级管理员 | **Build-verified**（JSON 兼容接口、Excel 模板/文件导入导出、批量和编辑已交付；资料权威校验仍待补，最后一名 E2E 规格已写但本波未跑 real-stack；[验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)） |
 | **B1** | 高 | CodeGeneration | **Build-verified**（可视化工作台、Vue SFC、Host Apply 接线、鉴权下载、Tree/关系；2026-08-20 工作台 UX 对齐见[验证](../verification/codegeneration-workbench-ux-parity-20260820.md)；能力基线见[对标验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)） |
 | **B1** | 中 | Localization / Modularity Admin / uni-app | 全栈 i18n 回归、插件启用策略、H5/小程序纵向切片 |
 | **B2** | 中 | RBAC / SerialNumbers / Organization / Tenancy / Files | Build-verified → Verified 晋升（real-stack E2E + WCAG） |

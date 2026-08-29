@@ -145,6 +145,8 @@ import type {
   InboxMessageResponse,
   InboxUnreadCountResponse,
   LocalePreferenceResponse,
+  LogFileSummary,
+  LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
   OperationLogResponse,
@@ -304,7 +306,9 @@ import {
   readJobsListHostJobGroupsResponse,
   readJobsListHostJobScheduleDefinitionOptionsResponse,
   readLocalePreferenceResponse,
+  readLogFileTail,
   readModuleCatalogEntryResponse,
+  readObservabilityListLogFilesResponse,
   readOrganizationPositionLevelResponse,
   readOrganizationPositionResponse,
   readOrganizationUnitResponse,
@@ -1911,6 +1915,26 @@ export async function identityDisableHostUser(
   return readHostUserResponse(value);
 }
 
+export interface IdentityDownloadHostUserImportTemplateParameters {
+
+}
+
+export async function identityDownloadHostUserImportTemplate(
+  http: HttpClient,
+  parameters: IdentityDownloadHostUserImportTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/identity/users/import-template`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface IdentityEnableHostMenuParameters {
   readonly menuId: string;
 }
@@ -1963,6 +1987,26 @@ export async function identityExportHostUsers(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readIdentityExportHostUsersResponse(value);
+}
+
+export interface IdentityExportHostUsersWorkbookParameters {
+
+}
+
+export async function identityExportHostUsersWorkbook(
+  http: HttpClient,
+  parameters: IdentityExportHostUsersWorkbookParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/identity/users/export-file`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
 }
 
 export interface IdentityGetAuthorizationTreeParameters {
@@ -2186,6 +2230,26 @@ export async function identityImportHostUsers(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(parameters.body)
   };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportHostUsersResponse(value);
+}
+
+export interface IdentityImportHostUsersWorkbookParameters {
+  readonly file: IFormFile;
+}
+
+export async function identityImportHostUsersWorkbook(
+  http: HttpClient,
+  parameters: IdentityImportHostUsersWorkbookParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportHostUsersResponse> {
+  const path = `/api/v1/identity/users/import-file`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  const init: RequestInit = { method: 'POST', body };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
@@ -3440,6 +3504,71 @@ export async function notificationsUpdateHostAnnouncement(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostAnnouncementResponse(value);
+}
+
+export interface ObservabilityDownloadLogFileParameters {
+  readonly id: string;
+}
+
+export async function observabilityDownloadLogFile(
+  http: HttpClient,
+  parameters: ObservabilityDownloadLogFileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/observability/log-files/${encodeURIComponent(String(parameters.id))}/download`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface ObservabilityListLogFilesParameters {
+
+}
+
+export async function observabilityListLogFiles(
+  http: HttpClient,
+  parameters: ObservabilityListLogFilesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<LogFileSummary>> {
+  const path = `/api/v1/observability/log-files`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readObservabilityListLogFilesResponse(value);
+}
+
+export interface ObservabilityTailLogFileParameters {
+  readonly id: string;
+  readonly maximumLines?: number;
+  readonly maximumBytes?: number;
+}
+
+export async function observabilityTailLogFile(
+  http: HttpClient,
+  parameters: ObservabilityTailLogFileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<LogFileTail> {
+  const query = new URLSearchParams();
+  if (parameters.maximumLines !== undefined) {
+    query.set('maximumLines', String(parameters.maximumLines));
+  }
+  if (parameters.maximumBytes !== undefined) {
+    query.set('maximumBytes', String(parameters.maximumBytes));
+  }
+  const path = query.size === 0 ? `/api/v1/observability/log-files/${encodeURIComponent(String(parameters.id))}/tail` : `/api/v1/observability/log-files/${encodeURIComponent(String(parameters.id))}/tail?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readLogFileTail(value);
 }
 
 export interface OrganizationAssignTenantPositionLevelParameters {

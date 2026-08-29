@@ -8,6 +8,24 @@
   ],
   "entries": [
     {
+      "operationId": "observabilityListLogFiles",
+      "apiModule": "ui/admin/src/api/observability-log-files.ts",
+      "generatedGroup": "observability-log-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "observabilityTailLogFile",
+      "apiModule": "ui/admin/src/api/observability-log-files.ts",
+      "generatedGroup": "observability-log-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "observabilityDownloadLogFile",
+      "apiModule": "ui/admin/src/api/observability-log-files.ts",
+      "generatedGroup": "observability-log-files",
+      "status": "generated"
+    },
+    {
       "operationId": "identityListHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
@@ -20,7 +38,25 @@
       "status": "generated"
     },
     {
+      "operationId": "identityExportHostUsersWorkbook",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityDownloadHostUserImportTemplate",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "generated"
+    },
+    {
       "operationId": "identityImportHostUsers",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityImportHostUsersWorkbook",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
       "status": "generated"

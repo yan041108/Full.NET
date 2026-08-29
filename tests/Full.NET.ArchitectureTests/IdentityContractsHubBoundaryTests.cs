@@ -31,6 +31,7 @@ public sealed class IdentityContractsHubBoundaryTests
         "Auditing",
         "SerialNumbers",
         "CodeGeneration",
+        "Observability",
     ];
 
     private static readonly string[] AllowedOwnerDomainPrefixExceptions =

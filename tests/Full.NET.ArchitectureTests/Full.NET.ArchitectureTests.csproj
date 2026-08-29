@@ -42,6 +42,7 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Notifications\Full.NET.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.ObservabilityAdmin\Full.NET.Modules.ObservabilityAdmin.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />

@@ -6,7 +6,10 @@ import UsersView from './UsersView.vue';
 import { useSessionStore } from '../auth/session';
 import {
   createHostUser,
+  downloadHostUserImportTemplate,
+  exportHostUsersWorkbook,
   getHostUserRoles,
+  importHostUsersWorkbook,
   listHostUsers,
   replaceHostUserRoles,
   updateHostUser
@@ -33,7 +36,10 @@ vi.mock('../api/users', () => ({
   disableHostUser: vi.fn(),
   enableHostUser: vi.fn(),
   exportHostUsers: vi.fn(),
+  exportHostUsersWorkbook: vi.fn(),
+  downloadHostUserImportTemplate: vi.fn(),
   importHostUsers: vi.fn(),
+  importHostUsersWorkbook: vi.fn(),
   batchDisableHostUsers: vi.fn(),
   batchEnableHostUsers: vi.fn(),
   getHostUserRoles: vi.fn(),
@@ -59,6 +65,9 @@ vi.mock('../api/roles', () => ({
 
 const listUsersMock = vi.mocked(listHostUsers);
 const createUserMock = vi.mocked(createHostUser);
+const downloadTemplateMock = vi.mocked(downloadHostUserImportTemplate);
+const exportWorkbookMock = vi.mocked(exportHostUsersWorkbook);
+const importWorkbookMock = vi.mocked(importHostUsersWorkbook);
 const updateUserMock = vi.mocked(updateHostUser);
 const replaceRolesMock = vi.mocked(replaceHostUserRoles);
 const listRolesMock = vi.mocked(listHostRoles);
@@ -160,6 +169,27 @@ function mountUsers(permissions: string[]) {
 describe('Vue 用户管理页', () => {
   beforeEach(() => {
     createUserMock.mockReset();
+    downloadTemplateMock.mockReset().mockResolvedValue(new Blob(['template']));
+    exportWorkbookMock.mockReset().mockResolvedValue(new Blob(['export']));
+    importWorkbookMock.mockReset().mockResolvedValue({
+      succeededCount: 1,
+      results: [
+        {
+          line: 2,
+          succeeded: true,
+          userId,
+          errorCode: null,
+          message: null
+        },
+        {
+          line: 3,
+          succeeded: false,
+          userId: null,
+          errorCode: 'identity.user.username_conflict',
+          message: '用户名已存在。'
+        }
+      ]
+    });
     updateUserMock.mockReset().mockResolvedValue({ ...activeUser, version: 2 });
     createUserUnitMock.mockReset().mockResolvedValue({
       ...orgUnitAssignment,
@@ -407,6 +437,40 @@ describe('Vue 用户管理页', () => {
     // Host 目录持有 identity.users.read 且已选租户时，机构入口始终可见。
     expect(wrapper.find('[data-testid="users-action-org-units"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="users-action-org-positions"]').exists()).toBe(true);
+  });
+
+  it('导出、模板下载与工作簿导入均走受控文件端点', async () => {
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:users');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const wrapper = mountUsers([
+      'identity.users.read',
+      'identity.users.export',
+      'identity.users.import'
+    ]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="users-action-export"]').trigger('click');
+    await flushPromises();
+    expect(exportWorkbookMock).toHaveBeenCalledTimes(1);
+
+    await wrapper.get('[data-testid="users-action-import-template"]').trigger('click');
+    await flushPromises();
+    expect(downloadTemplateMock).toHaveBeenCalledTimes(1);
+
+    const input = wrapper.get('[data-testid="users-import-file-input"]');
+    const file = new File(['workbook'], 'users.xlsx', { type: 'application/octet-stream' });
+    Object.defineProperty(input.element, 'files', { configurable: true, value: [file] });
+    await input.trigger('change');
+    await flushPromises();
+    expect(importWorkbookMock).toHaveBeenCalledWith(file);
+    expect(wrapper.get('[data-testid="users-import-results"]').text())
+      .toContain('identity.user.username_conflict');
+    expect(wrapper.get('[data-testid="users-import-results"]').text())
+      .toContain('用户名已存在。');
+
+    createObjectUrl.mockRestore();
+    revokeObjectUrl.mockRestore();
+    wrapper.unmount();
   });
 
   it('仅授予启用权限时只对禁用用户显示启用按钮', async () => {

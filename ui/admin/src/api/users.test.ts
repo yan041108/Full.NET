@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http } from './http';
-import { createHostUser, disableHostUser, enableHostUser, getHostUserRoles, listHostUsers, replaceHostUserRoles, resetHostUserPassword, updateHostUser } from './users';
+import {
+  createHostUser,
+  disableHostUser,
+  downloadHostUserImportTemplate,
+  enableHostUser,
+  exportHostUsersWorkbook,
+  getHostUserRoles,
+  importHostUsersWorkbook,
+  listHostUsers,
+  replaceHostUserRoles,
+  resetHostUserPassword,
+  updateHostUser
+} from './users';
 
 vi.mock('./http', () => ({
   http: {
@@ -9,6 +21,7 @@ vi.mock('./http', () => ({
   }
 }));
 const requestMock = vi.mocked(http.request);
+const requestBlobMock = vi.mocked(http.requestBlob);
 
 const userId = '01912345-6789-7abc-8def-0123456789ab';
 const roleAId = '01912345-6789-7abc-8def-0123456789ac';
@@ -26,7 +39,53 @@ const sampleUser = {
 };
 
 describe('Vue Host 用户 API', () => {
-  beforeEach(() => requestMock.mockReset());
+  beforeEach(() => {
+    requestMock.mockReset();
+    requestBlobMock.mockReset();
+  });
+
+  it('下载导入模板与 Excel 导出使用认证 Blob 客户端', async () => {
+    const template = new Blob(['template']);
+    const exported = new Blob(['export']);
+    requestBlobMock
+      .mockResolvedValueOnce(template)
+      .mockResolvedValueOnce(exported);
+
+    await expect(downloadHostUserImportTemplate()).resolves.toBe(template);
+    await expect(exportHostUsersWorkbook()).resolves.toBe(exported);
+
+    expect(requestBlobMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/identity/users/import-template',
+      { method: 'GET', headers: { accept: 'application/octet-stream' } },
+      undefined
+    );
+    expect(requestBlobMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/identity/users/export-file',
+      { method: 'GET', headers: { accept: 'application/octet-stream' } },
+      undefined
+    );
+  });
+
+  it('通过 multipart 上传用户工作簿并返回逐行结果', async () => {
+    requestMock.mockResolvedValueOnce({
+      succeededCount: 1,
+      results: [{ line: 1, succeeded: true, userId, errorCode: null, message: null }]
+    });
+    const file = new File(['xlsx'], 'host-users.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    const result = await importHostUsersWorkbook(file);
+
+    expect(result.succeededCount).toBe(1);
+    const [path, init] = requestMock.mock.calls[0] ?? [];
+    expect(path).toBe('/api/v1/identity/users/import-file');
+    expect(init?.method).toBe('POST');
+    expect(init?.body).toBeInstanceOf(FormData);
+    expect((init?.body as FormData).get('file')).toBe(file);
+  });
 
   it('校验分页列表响应', async () => {
     requestMock.mockResolvedValueOnce({

@@ -40,6 +40,7 @@ const focusedModules = new Set([
   'Files',
   'Jobs',
   'Notifications',
+  'ObservabilityAdmin',
   'Organization',
   'SerialNumbers',
   'Settings'

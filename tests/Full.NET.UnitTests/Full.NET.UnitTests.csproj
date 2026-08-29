@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.ObservabilityAdmin\Full.NET.Modules.ObservabilityAdmin.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Files\Full.NET.Modules.Files.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Notifications\Full.NET.Modules.Notifications.csproj" />

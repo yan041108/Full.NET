@@ -3,10 +3,13 @@ import {
   identityBatchEnableHostUsers,
   identityCreateHostUser,
   identityDisableHostUser,
+  identityDownloadHostUserImportTemplate,
   identityEnableHostUser,
   identityExportHostUsers,
+  identityExportHostUsersWorkbook,
   identityGetHostUserRoles,
   identityImportHostUsers,
+  identityImportHostUsersWorkbook,
   identityListHostUsers,
   identityReplaceHostUserRoles,
   identityResetHostUserPassword,
@@ -15,7 +18,8 @@ import {
   type HostUserPage,
   type HostUserProfileWrite,
   type HostUserProfileWriteRequest,
-  type HostUserRoles
+  type HostUserRoles,
+  type ImportHostUsersResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
@@ -29,6 +33,25 @@ export async function listHostUsers(
 
 export async function exportHostUsers(signal?: AbortSignal): Promise<HostUser[]> {
   return identityExportHostUsers(http, {}, signal);
+}
+
+export async function downloadHostUserImportTemplate(
+  signal?: AbortSignal
+): Promise<Blob> {
+  return identityDownloadHostUserImportTemplate(http, {}, signal);
+}
+
+export async function exportHostUsersWorkbook(
+  signal?: AbortSignal
+): Promise<Blob> {
+  return identityExportHostUsersWorkbook(http, {}, signal);
+}
+
+export async function importHostUsersWorkbook(
+  file: File,
+  signal?: AbortSignal
+): Promise<ImportHostUsersResponse> {
+  return identityImportHostUsersWorkbook(http, { file }, signal);
 }
 
 export async function importHostUsers(
