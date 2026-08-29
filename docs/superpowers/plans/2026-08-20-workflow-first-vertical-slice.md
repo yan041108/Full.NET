@@ -18,7 +18,7 @@
 - 首版拒绝为终态；首批节点仅 `start`、`human.approval`、`notify.cc`、`gateway.exclusive`、`end`。
 - 表单只允许批准的基础字段；客户端不得提交 FormJson、NodeType 能力或字段权限。
 - 只修改 `ui/admin`；`ui/admin-layui` 保持零 diff。
-- 开工第一步运行 `pnpm test:task:start -- workflow-first-vertical-slice-20260830`；迁移 `101_WorkflowFirstVerticalSlice.sql` 只有在开工时仍为空闲才可使用，否则先修订本计划中的两个精确文件名。
+- 开工第一步运行 `pnpm test:task:start -- workflow-first-vertical-slice-20260830`；开工检查确认 101 已由 Identity 占用，Workflow 使用两库共同空闲的 `102_WorkflowFirstVerticalSlice.sql`。
 
 ---
 
@@ -56,8 +56,8 @@
 
 ### 迁移、注册、测试与客户端
 
-- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/101_WorkflowFirstVerticalSlice.sql`
-- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/101_WorkflowFirstVerticalSlice.sql`
+- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/102_WorkflowFirstVerticalSlice.sql`
+- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/102_WorkflowFirstVerticalSlice.sql`
 - `Full.NET.slnx`
 - `src/Composition/Full.NET.Composition/Full.NET.Composition.csproj`
 - `src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs`
@@ -139,13 +139,13 @@ HTTP Request、内部 Command 和持久化 Record 必须是不同类型。上述
 
 **Produces:** `WorkflowDefinitionCompiler.Compile`、`WorkflowFormCompiler.Compile`、`WorkflowStateMachine.Start/Approve/Reject` 的闭合输入输出。
 
-- [ ] 编写失败测试：同一 Draft 重排无语义对象键后得到相同规范 JSON 与 SHA-256 Hash。
-- [ ] 编写失败测试：未知 NodeType、重复 NodeKey、悬空引用、不可达节点、无终点和非法回边均返回稳定错误码。
-- [ ] 编写失败测试：表单未知组件、重复 FieldKey、脚本/CSS/HTML/远程数据源、非法金额 Scale 和危险 VForm 扩展均发布失败。
-- [ ] 编写失败测试：Approve 只能处理本人 Active Todo；Reject 进入终态；重复 IdempotencyKey 返回同一结果；旧 Revision 冲突。
-- [ ] 运行 `dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~Workflow"`，确认因实现缺失失败且测试被发现。
-- [ ] 实现最小纯函数编译器与状态机，不访问数据库、HTTP、当前时间或随机数。
-- [ ] 重跑同一命令并确认全部 Workflow Unit 通过。
+- [x] 编写失败测试：同一 Draft 重排无语义对象键后得到相同规范 JSON 与 SHA-256 Hash。
+- [x] 编写失败测试：未知 NodeType、重复 NodeKey、悬空引用、不可达节点、无终点和非法回边均返回稳定错误码。
+- [x] 编写失败测试：表单未知组件、重复 FieldKey、脚本/CSS/HTML/远程数据源、非法金额 Scale 和危险 VForm 扩展均发布失败。
+- [x] 编写失败测试：Approve 只能处理本人 Active Todo；Reject 进入终态；重复 IdempotencyKey 返回同一结果；旧 Revision 冲突。
+- [x] 运行 `dotnet test tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj -c Release --filter "FullyQualifiedName~Workflow"`，确认因实现缺失失败且测试被发现。
+- [x] 实现最小纯函数编译器与状态机，不访问数据库、HTTP、当前时间或随机数。
+- [x] 重跑同一命令并确认全部 Workflow Unit 通过。
 
 ### Task 2: 创建模块骨架、权限与静态闭包
 
@@ -161,7 +161,7 @@ HTTP Request、内部 Command 和持久化 Record 必须是不同类型。上述
 
 ### Task 3: 成对迁移与 Dapper 持久化
 
-**Files:** 两个 `101_WorkflowFirstVerticalSlice.sql`、Persistence 文件和 Migration/Integration 测试。
+**Files:** 两个 `102_WorkflowFirstVerticalSlice.sql`、Persistence 文件和 Migration/Integration 测试。
 
 **Produces:** Spec §7 的十三张表、双库等价约束、稳定 StatementName 和 AOT 物化器。
 

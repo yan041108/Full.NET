@@ -1,0 +1,83 @@
+using System.Text.Json;
+using Full.NET.Modules.Workflow.Contracts;
+
+namespace Full.NET.Modules.Workflow.Domain;
+
+internal static class WorkflowFormCompiler
+{
+    private static readonly HashSet<string> SupportedFieldTypes =
+        new(StringComparer.Ordinal)
+        {
+            "text", "textarea", "integer", "decimal", "money", "date",
+            "time", "datetime", "radio", "multiselect", "select", "switch",
+        };
+
+    private static readonly HashSet<string> ForbiddenExtensionKeys =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "script", "scripts", "function", "functions", "css", "cssCode",
+            "html", "iframe", "remoteUrl", "headers", "body", "lifecycle",
+            "events", "onCreated", "onMounted", "onBeforeMount", "onUpdated",
+        };
+
+    public static WorkflowCompilationResult Compile(WorkflowFormSchema schema)
+    {
+        if (schema.SchemaVersion != 1 || schema.AdapterVersion != 1)
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormSchemaUnsupported);
+        }
+
+        var fields = schema.Sections.SelectMany(section => section.Fields).ToArray();
+        if (fields.Any(field => !SupportedFieldTypes.Contains(field.FieldTypeKey)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldTypeUnknown);
+        }
+
+        if (fields.GroupBy(field => field.FieldKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldKeyDuplicate);
+        }
+
+        if (fields.Any(field => field.Constraints.Any(pair => ContainsForbiddenExtension(pair.Key, pair.Value))))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormExtensionForbidden);
+        }
+
+        if (fields.Where(field => field.FieldTypeKey == "money").Any(HasInvalidMoneyScale))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormMoneyScaleInvalid);
+        }
+
+        return WorkflowCompilationResult.Success(
+            WorkflowJsonCanonicalizer.Compile(JsonSerializer.SerializeToElement(schema)));
+    }
+
+    private static bool HasInvalidMoneyScale(WorkflowFormField field)
+    {
+        if (!field.Constraints.TryGetValue("scale", out var scale) ||
+            scale.ValueKind != JsonValueKind.Number ||
+            !scale.TryGetInt32(out var value))
+        {
+            return true;
+        }
+
+        return value is < 0 or > 4;
+    }
+
+    private static bool ContainsForbiddenExtension(string key, JsonElement value)
+    {
+        if (ForbiddenExtensionKeys.Contains(key) || key.StartsWith("on", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Object => value.EnumerateObject()
+                .Any(property => ContainsForbiddenExtension(property.Name, property.Value)),
+            JsonValueKind.Array => value.EnumerateArray()
+                .Any(item => ContainsForbiddenExtension(string.Empty, item)),
+            _ => false,
+        };
+    }
+}
