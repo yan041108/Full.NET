@@ -28,6 +28,7 @@ internal sealed record WorkflowDefinitionDraftRecord(
 internal sealed record WorkflowDefinitionVersionRecord(
     Guid Id,
     Guid DefinitionId,
+    Guid FormVersionId,
     int VersionNumber,
     int SchemaVersion,
     string CanonicalJson,

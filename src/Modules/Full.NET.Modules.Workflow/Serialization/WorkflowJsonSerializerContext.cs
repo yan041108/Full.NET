@@ -21,4 +21,8 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(CreateWorkflowDefinitionRequest))]
 [JsonSerializable(typeof(UpdateWorkflowDefinitionDraftRequest))]
 [JsonSerializable(typeof(PublishWorkflowDefinitionRequest))]
+[JsonSerializable(typeof(WorkflowDefinitionResponse))]
+[JsonSerializable(typeof(WorkflowDefinitionResponse[]))]
+[JsonSerializable(typeof(WorkflowDefinitionVersionResponse))]
+[JsonSerializable(typeof(WorkflowDefinitionVersionResponse[]))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

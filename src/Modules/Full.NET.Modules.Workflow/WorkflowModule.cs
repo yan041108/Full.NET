@@ -3,7 +3,10 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Workflow.Resources;
 using Full.NET.Modules.Workflow.Serialization;
+using FormEndpoint = Full.NET.Modules.Workflow.Features.ManageForms.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageForms;
+using DefinitionEndpoint = Full.NET.Modules.Workflow.Features.ManageDefinitions.Endpoint;
+using Full.NET.Modules.Workflow.Features.ManageDefinitions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +34,7 @@ public sealed class WorkflowModule : IFullNetModule
                 0,
                 WorkflowJsonSerializerContext.Default));
         services.AddScoped<WorkflowFormManagementService>();
+        services.AddScoped<WorkflowDefinitionManagementService>();
 #if FULLNET_AOT_COMPILE
         new Persistence.WorkflowDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -40,7 +44,9 @@ public sealed class WorkflowModule : IFullNetModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        Endpoint.Map(endpoints);
-        Endpoint.MapVersion(endpoints);
+        FormEndpoint.Map(endpoints);
+        FormEndpoint.MapVersion(endpoints);
+        DefinitionEndpoint.Map(endpoints);
+        DefinitionEndpoint.MapVersion(endpoints);
     }
 }

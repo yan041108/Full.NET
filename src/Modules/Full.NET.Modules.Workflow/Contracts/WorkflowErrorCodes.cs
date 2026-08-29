@@ -14,6 +14,8 @@ public static class WorkflowErrorCodes
     public const string DefinitionBackEdgeIllegal = Prefix + "definition.back_edge_illegal";
     public const string DefinitionStartInvalid = Prefix + "definition.start_invalid";
     public const string DefinitionSchemaUnsupported = Prefix + "definition.schema_unsupported";
+    public const string DefinitionNotFound = Prefix + "definition.not_found";
+    public const string DefinitionKeyExists = Prefix + "definition.key_exists";
     public const string FormFieldTypeUnknown = Prefix + "form.field_type_unknown";
     public const string FormFieldKeyDuplicate = Prefix + "form.field_key_duplicate";
     public const string FormExtensionForbidden = Prefix + "form.extension_forbidden";
@@ -43,6 +45,8 @@ public static class WorkflowErrorCodes
         DefinitionBackEdgeIllegal,
         DefinitionStartInvalid,
         DefinitionSchemaUnsupported,
+        DefinitionNotFound,
+        DefinitionKeyExists,
         FormFieldTypeUnknown,
         FormFieldKeyDuplicate,
         FormExtensionForbidden,

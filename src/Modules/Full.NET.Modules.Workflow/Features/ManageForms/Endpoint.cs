@@ -20,6 +20,8 @@ internal static class Endpoint
             mapper.Map(await service.ListAsync(token).ConfigureAwait(false), context))
             .WithName("workflowListForms")
             .Produces<IReadOnlyList<WorkflowFormResponse>>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
 
         group.MapGet("/{formId:guid}", async (Guid formId, WorkflowFormManagementService service,
@@ -27,6 +29,8 @@ internal static class Endpoint
             mapper.Map(await service.GetAsync(formId, token).ConfigureAwait(false), context))
             .WithName("workflowGetForm")
             .Produces<WorkflowFormResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
 
@@ -47,6 +51,8 @@ internal static class Endpoint
         .WithName("workflowCreateForm")
         .Produces<WorkflowFormResponse>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsCreate));
 
@@ -56,6 +62,8 @@ internal static class Endpoint
             mapper.Map(await service.UpdateDraftAsync(formId, request, token).ConfigureAwait(false), context))
             .WithName("workflowUpdateFormDraft")
             .Produces<WorkflowFormResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsUpdate));
@@ -76,6 +84,8 @@ internal static class Endpoint
         .WithName("workflowPublishForm")
         .Produces<WorkflowFormVersionResponse>()
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsPublish));
@@ -90,6 +100,8 @@ internal static class Endpoint
             .WithName("workflowGetFormVersion")
             .WithTags("WorkflowForms")
             .Produces<WorkflowFormVersionResponse>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
     }

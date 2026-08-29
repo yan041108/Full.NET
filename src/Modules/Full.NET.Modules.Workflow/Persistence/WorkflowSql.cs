@@ -5,6 +5,157 @@ namespace Full.NET.Modules.Workflow.Persistence;
 /// <summary>Workflow 模块参数化 SQL 语句集；跨 Host/Tenant 查询必须显式携带 TenantScopeKey。</summary>
 internal static class WorkflowSql
 {
+    public static readonly SqlStatement InsertDomainAudit = new(
+        "workflow.domain_audit.insert",
+        """
+        INSERT INTO fn_workflow_domain_audit
+            (Id, TenantId, ScopeKey, InstanceId, OperationKey, ActorUserId,
+             ResourceTypeKey, ResourceId, OutcomeKey, DetailJson, CreatedAtUtc)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @InstanceId, @OperationKey, @ActorUserId,
+             @ResourceTypeKey, @ResourceId, @OutcomeKey, @DetailJson, @CreatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListDefinitions = new(
+        "workflow.definition.list",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
+               LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_workflow_definition
+        WHERE TenantScopeKey = @TenantScopeKey
+        ORDER BY DefinitionKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindDefinitionById = new(
+        "workflow.definition.find_by_id",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
+               LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_workflow_definition
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListDefinitionDrafts = new(
+        "workflow.definition_draft.list",
+        """
+        SELECT draft.Id, draft.DefinitionId, draft.DraftJson, draft.DraftRevision,
+               draft.ContentHash, draft.UpdatedById, draft.UpdatedAtUtc
+        FROM fn_workflow_definition_draft AS draft
+        INNER JOIN fn_workflow_definition AS definition ON definition.Id = draft.DefinitionId
+        WHERE definition.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertDefinition = new(
+        "workflow.definition.insert",
+        """
+        INSERT INTO fn_workflow_definition
+            (Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
+             LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @DefinitionKey, @DraftId,
+             NULL, @CreatedById, @CreatedAtUtc, NULL, 1)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertDefinitionDraft = new(
+        "workflow.definition_draft.insert",
+        """
+        INSERT INTO fn_workflow_definition_draft
+            (Id, DefinitionId, DraftJson, DraftRevision, ContentHash, UpdatedById, UpdatedAtUtc)
+        VALUES
+            (@Id, @DefinitionId, @DraftJson, 1, @ContentHash, @UpdatedById, @UpdatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateDefinitionDraft = new(
+        "workflow.definition_draft.update",
+        """
+        UPDATE fn_workflow_definition_draft
+        SET DraftJson = @DraftJson,
+            DraftRevision = DraftRevision + 1,
+            ContentHash = @ContentHash,
+            UpdatedById = @UpdatedById,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE DefinitionId = @DefinitionId
+          AND DraftRevision = @ExpectedRevision
+          AND EXISTS (
+              SELECT 1 FROM fn_workflow_definition AS definition
+              WHERE definition.Id = fn_workflow_definition_draft.DefinitionId
+                AND definition.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>先占用草稿修订号，串行化同一草稿的并发发布。</summary>
+    public static readonly SqlStatement ClaimDefinitionDraftForPublish = new(
+        "workflow.definition_draft.claim_publish",
+        """
+        UPDATE fn_workflow_definition_draft
+        SET DraftRevision = DraftRevision + 1,
+            UpdatedById = @UpdatedById,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE DefinitionId = @DefinitionId
+          AND DraftRevision = @ExpectedRevision
+          AND EXISTS (
+              SELECT 1 FROM fn_workflow_definition AS definition
+              WHERE definition.Id = fn_workflow_definition_draft.DefinitionId
+                AND definition.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindNextDefinitionVersionNumber = new(
+        "workflow.definition_version.find_next_number",
+        """
+        SELECT COALESCE(MAX(version.VersionNumber), 0) + 1
+        FROM fn_workflow_definition_version AS version
+        INNER JOIN fn_workflow_definition AS definition ON definition.Id = version.DefinitionId
+        WHERE version.DefinitionId = @DefinitionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertDefinitionVersion = new(
+        "workflow.definition_version.insert",
+        """
+        INSERT INTO fn_workflow_definition_version
+            (Id, DefinitionId, FormVersionId, VersionNumber, SchemaVersion,
+             CanonicalJson, ContentHash, PublishedById, PublishedAtUtc)
+        VALUES
+            (@Id, @DefinitionId, @FormVersionId, @VersionNumber, @SchemaVersion,
+             @CanonicalJson, @ContentHash, @PublishedById, @PublishedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement SetLatestDefinitionVersion = new(
+        "workflow.definition.set_latest_version",
+        """
+        UPDATE fn_workflow_definition
+        SET LatestPublishedVersionId = @VersionId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListDefinitionVersions = new(
+        "workflow.definition_version.list",
+        """
+        SELECT version.Id, version.DefinitionId, version.FormVersionId, version.VersionNumber,
+               version.SchemaVersion, version.CanonicalJson, version.ContentHash,
+               version.PublishedById, version.PublishedAtUtc
+        FROM fn_workflow_definition_version AS version
+        INNER JOIN fn_workflow_definition AS definition ON definition.Id = version.DefinitionId
+        WHERE version.DefinitionId = @DefinitionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+        ORDER BY version.VersionNumber DESC
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement ListFormDefinitions = new(
         "workflow.form_definition.list",
         """
@@ -121,7 +272,7 @@ internal static class WorkflowSql
     public static readonly SqlStatement FindDefinitionVersionById = new(
         "workflow.definition_version.find_by_id",
         """
-        SELECT version.Id, version.DefinitionId, version.VersionNumber,
+        SELECT version.Id, version.DefinitionId, version.FormVersionId, version.VersionNumber,
                version.SchemaVersion, version.CanonicalJson, version.ContentHash,
                version.PublishedById, version.PublishedAtUtc
         FROM fn_workflow_definition_version AS version

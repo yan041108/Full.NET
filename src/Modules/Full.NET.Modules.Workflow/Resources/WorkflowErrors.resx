@@ -12,6 +12,8 @@
   <data name="workflow.definition.back_edge_illegal" xml:space="preserve"><value>工作流包含非法回边。</value></data>
   <data name="workflow.definition.start_invalid" xml:space="preserve"><value>工作流必须包含唯一开始节点。</value></data>
   <data name="workflow.definition.schema_unsupported" xml:space="preserve"><value>工作流定义版本不受支持。</value></data>
+  <data name="workflow.definition.not_found" xml:space="preserve"><value>工作流定义不存在。</value></data>
+  <data name="workflow.definition.key_exists" xml:space="preserve"><value>当前作用域已存在相同流程定义键。</value></data>
   <data name="workflow.form.field_type_unknown" xml:space="preserve"><value>表单包含未知字段类型。</value></data>
   <data name="workflow.form.field_key_duplicate" xml:space="preserve"><value>表单字段标识重复。</value></data>
   <data name="workflow.form.extension_forbidden" xml:space="preserve"><value>表单包含禁止的动态扩展。</value></data>

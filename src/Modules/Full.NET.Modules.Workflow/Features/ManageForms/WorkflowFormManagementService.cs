@@ -222,6 +222,19 @@ internal sealed class WorkflowFormManagementService(
             return RevisionConflict<WorkflowFormVersionResponse>();
         }
 
+        await commandExecutor.ExecuteAsync(
+                WorkflowSql.InsertDomainAudit,
+                Parameters(
+                    ("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                    ("ScopeKey", scope.ScopeKey), ("InstanceId", null),
+                    ("OperationKey", "form.publish"), ("ActorUserId", actorUserId),
+                    ("ResourceTypeKey", "form-definition"), ("ResourceId", id),
+                    ("OutcomeKey", "succeeded"),
+                    ("DetailJson", $"{{\"versionId\":\"{versionId:D}\"}}"),
+                    ("CreatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return Result<WorkflowFormVersionResponse>.Success(new(
             versionId, id, versionNumber, schema.SchemaVersion, schema.AdapterVersion,
             ComponentCatalogVersion, artifact.CanonicalJson, artifact.CanonicalJson,

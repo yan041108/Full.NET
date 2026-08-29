@@ -47,12 +47,13 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         new(
             reader.GetGuid(0),
             reader.GetGuid(1),
-            reader.GetInt32(2),
+            reader.GetGuid(2),
             reader.GetInt32(3),
-            reader.GetString(4),
+            reader.GetInt32(4),
             reader.GetString(5),
-            reader.GetGuid(6),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7));
+            reader.GetString(6),
+            reader.GetGuid(7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8));
 
     private static WorkflowFormDefinitionRecord ReadFormDefinition(DbDataReader reader) =>
         new(

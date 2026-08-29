@@ -26,6 +26,11 @@ public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
         Assert.AreEqual(WorkflowTableCount, await CountSqlServerWorkflowTablesAsync(connection));
         var seed = await SeedSqlServerWorkflowAsync(connection);
         Assert.AreEqual(
+            seed.FormVersionId,
+            await connection.ExecuteScalarAsync<Guid>(
+                "SELECT FormVersionId FROM dbo.fn_workflow_definition_version WHERE Id = @DefinitionVersionId",
+                seed));
+        Assert.AreEqual(
             1,
             await connection.ExecuteAsync(
                 "UPDATE dbo.fn_workflow_todo SET Revision = Revision + 1 WHERE Id = @TodoId AND Revision = 1",
@@ -79,6 +84,11 @@ public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
         Assert.AreEqual(WorkflowTableCount, await CountMySqlWorkflowTablesAsync(connection));
         var seed = await SeedMySqlWorkflowAsync(connection);
         Assert.AreEqual(
+            seed.FormVersionId,
+            await connection.ExecuteScalarAsync<Guid>(
+                "SELECT FormVersionId FROM fn_workflow_definition_version WHERE Id = @DefinitionVersionId",
+                seed));
+        Assert.AreEqual(
             1,
             await connection.ExecuteAsync(
                 "UPDATE fn_workflow_todo SET Revision = Revision + 1 WHERE Id = @TodoId AND Revision = 1",
@@ -129,11 +139,26 @@ public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
                 (@DefinitionId, NULL, 'host', 'host', @DefinitionKey, NULL,
                  NULL, @ActorUserId, @Now, NULL, 1);
 
-            INSERT INTO dbo.fn_workflow_definition_version
-                (Id, DefinitionId, VersionNumber, SchemaVersion, CanonicalJson,
+            INSERT INTO dbo.fn_workflow_form_definition
+                (Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
+                 DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc)
+            VALUES
+                (@FormDefinitionId, NULL, 'host', 'host', @DefinitionKey, N'{}',
+                 1, @FormVersionId, @ActorUserId, @Now, NULL);
+
+            INSERT INTO dbo.fn_workflow_form_version
+                (Id, FormDefinitionId, VersionNumber, SchemaVersion, AdapterVersion,
+                 ComponentCatalogVersion, FormSchemaJson, WebRenderSchemaJson,
                  ContentHash, PublishedById, PublishedAtUtc)
             VALUES
-                (@DefinitionVersionId, @DefinitionId, 1, 1, N'{}',
+                (@FormVersionId, @FormDefinitionId, 1, 1, 1, 1, N'{}', N'{}',
+                 @ContentHash, @ActorUserId, @Now);
+
+            INSERT INTO dbo.fn_workflow_definition_version
+                (Id, DefinitionId, FormVersionId, VersionNumber, SchemaVersion, CanonicalJson,
+                 ContentHash, PublishedById, PublishedAtUtc)
+            VALUES
+                (@DefinitionVersionId, @DefinitionId, @FormVersionId, 1, 1, N'{}',
                  @ContentHash, @ActorUserId, @Now);
 
             INSERT INTO dbo.fn_workflow_instance
@@ -175,11 +200,26 @@ public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
                 (@DefinitionId, NULL, 'host', 'host', @DefinitionKey, NULL,
                  NULL, @ActorUserId, @Now, NULL, 1);
 
-            INSERT INTO fn_workflow_definition_version
-                (Id, DefinitionId, VersionNumber, SchemaVersion, CanonicalJson,
+            INSERT INTO fn_workflow_form_definition
+                (Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
+                 DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc)
+            VALUES
+                (@FormDefinitionId, NULL, 'host', 'host', @DefinitionKey, '{}',
+                 1, @FormVersionId, @ActorUserId, @Now, NULL);
+
+            INSERT INTO fn_workflow_form_version
+                (Id, FormDefinitionId, VersionNumber, SchemaVersion, AdapterVersion,
+                 ComponentCatalogVersion, FormSchemaJson, WebRenderSchemaJson,
                  ContentHash, PublishedById, PublishedAtUtc)
             VALUES
-                (@DefinitionVersionId, @DefinitionId, 1, 1, '{}',
+                (@FormVersionId, @FormDefinitionId, 1, 1, 1, 1, '{}', '{}',
+                 @ContentHash, @ActorUserId, @Now);
+
+            INSERT INTO fn_workflow_definition_version
+                (Id, DefinitionId, FormVersionId, VersionNumber, SchemaVersion, CanonicalJson,
+                 ContentHash, PublishedById, PublishedAtUtc)
+            VALUES
+                (@DefinitionVersionId, @DefinitionId, @FormVersionId, 1, 1, '{}',
                  @ContentHash, @ActorUserId, @Now);
 
             INSERT INTO fn_workflow_instance
@@ -267,6 +307,8 @@ public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
     private sealed record WorkflowSeed(
         Guid DefinitionId,
         Guid DefinitionVersionId,
+        Guid FormDefinitionId,
+        Guid FormVersionId,
         Guid InstanceId,
         Guid NextInstanceId,
         Guid StepId,
@@ -282,6 +324,8 @@ public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
         {
             var nonce = Guid.CreateVersion7().ToString("N");
             return new WorkflowSeed(
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
                 Guid.CreateVersion7(),
                 Guid.CreateVersion7(),
                 Guid.CreateVersion7(),

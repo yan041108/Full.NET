@@ -17,6 +17,20 @@
       "removalMilestone": "M1.0"
     },
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/103_WorkflowDefinitionFormVersionBinding.sql",
+      "reason": "103 仅用固定动态批次跨越 SQL Server 新增列的批次编译边界；表、列和外键名均为常量，并由双库恢复测试验证不可空与外键。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/103_WorkflowDefinitionFormVersionBinding.sql",
+      "reason": "103 使用固定存储过程与 INFORMATION_SCHEMA 幂等补齐表单版本绑定；对象名均为常量，并由双库恢复测试验证不可空与外键。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/043_AuditingOutboundCall.sql",

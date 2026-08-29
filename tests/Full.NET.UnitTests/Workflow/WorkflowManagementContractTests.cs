@@ -44,4 +44,21 @@ public sealed class WorkflowManagementContractTests
         Assert.IsNotNull(requestType, $"Missing management contract: {typeName}");
         Assert.IsNotNull(requestType.GetProperty("ExpectedRevision"));
     }
+
+    [TestMethod]
+    public void Published_definition_version_persists_the_bound_form_version()
+    {
+        var recordType = WorkflowAssembly.GetType(
+            "Full.NET.Modules.Workflow.Persistence.WorkflowDefinitionVersionRecord",
+            throwOnError: true)!;
+
+        var formVersionId = recordType.GetProperty(
+            "FormVersionId",
+            BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.IsNotNull(
+            formVersionId,
+            "A published definition must retain its immutable FormVersionId binding.");
+        Assert.AreEqual(typeof(Guid), formVersionId.PropertyType);
+    }
 }

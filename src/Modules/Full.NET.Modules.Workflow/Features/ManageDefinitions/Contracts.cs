@@ -13,3 +13,24 @@ internal sealed record UpdateWorkflowDefinitionDraftRequest(
 internal sealed record PublishWorkflowDefinitionRequest(
     long ExpectedRevision,
     Guid FormVersionId);
+
+internal sealed record WorkflowDefinitionResponse(
+    Guid Id,
+    string DefinitionKey,
+    WorkflowDefinitionDraft Draft,
+    long DraftRevision,
+    Guid? LatestPublishedVersionId,
+    long Version,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc);
+
+internal sealed record WorkflowDefinitionVersionResponse(
+    Guid Id,
+    Guid DefinitionId,
+    Guid FormVersionId,
+    int VersionNumber,
+    int SchemaVersion,
+    string CanonicalJson,
+    string ContentHash,
+    Guid PublishedById,
+    DateTimeOffset PublishedAtUtc);

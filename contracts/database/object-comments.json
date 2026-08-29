@@ -1039,6 +1039,7 @@
         "CanonicalJson": "规范化流程定义(JSON)",
         "ContentHash": "内容哈希",
         "DefinitionId": "流程定义标识",
+        "FormVersionId": "Form Version标识",
         "Id": "逻辑主键",
         "PublishedAtUtc": "发布时间(UTC)",
         "PublishedById": "发布人标识",
