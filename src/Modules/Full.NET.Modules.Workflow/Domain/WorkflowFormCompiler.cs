@@ -49,7 +49,46 @@ internal static class WorkflowFormCompiler
         }
 
         return WorkflowCompilationResult.Success(
-            WorkflowJsonCanonicalizer.Compile(JsonSerializer.SerializeToElement(schema)));
+            WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, schema)));
+    }
+
+    private static void WriteCanonical(Utf8JsonWriter writer, WorkflowFormSchema schema)
+    {
+        writer.WriteStartObject();
+        writer.WriteNumber("schemaVersion", schema.SchemaVersion);
+        writer.WriteNumber("adapterVersion", schema.AdapterVersion);
+        writer.WritePropertyName("sections");
+        writer.WriteStartArray();
+        foreach (var section in schema.Sections)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("sectionKey", section.SectionKey);
+            writer.WritePropertyName("fields");
+            writer.WriteStartArray();
+            foreach (var field in section.Fields)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("fieldKey", field.FieldKey);
+                writer.WriteString("fieldTypeKey", field.FieldTypeKey);
+                writer.WriteBoolean("required", field.Required);
+                writer.WritePropertyName("constraints");
+                writer.WriteStartObject();
+                foreach (var constraint in field.Constraints.OrderBy(item => item.Key, StringComparer.Ordinal))
+                {
+                    writer.WritePropertyName(constraint.Key);
+                    WorkflowJsonCanonicalizer.WriteElement(writer, constraint.Value);
+                }
+
+                writer.WriteEndObject();
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+        writer.WriteEndObject();
     }
 
     private static bool HasInvalidMoneyScale(WorkflowFormField field)

@@ -13,6 +13,7 @@ using Full.NET.Modules.Messaging;
 using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.ObservabilityAdmin;
+using Full.NET.Modules.Workflow;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -145,6 +146,7 @@ public static class FullNetModuleCatalog
         new CodeGenerationModule(),
         new SerialNumbersModule(),
         new ObservabilityAdminModule(),
+        new WorkflowModule(),
     ];
 
     private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>

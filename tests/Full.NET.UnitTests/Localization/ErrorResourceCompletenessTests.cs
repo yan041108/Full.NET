@@ -8,6 +8,8 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Workflow;
+using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.UnitTests.Localization;
 
@@ -63,6 +65,16 @@ public sealed class ErrorResourceCompletenessTests
             typeof(AuditingModule).Assembly);
 
         AssertResources(manager, AuditingErrorCodes.All);
+    }
+
+    [TestMethod]
+    public void Workflow_error_codes_have_all_required_resources()
+    {
+        var manager = new ResourceManager(
+            "Full.NET.Modules.Workflow.Resources.WorkflowErrors",
+            typeof(WorkflowModule).Assembly);
+
+        AssertResources(manager, WorkflowErrorCodes.All);
     }
 
     private static void AssertResources(

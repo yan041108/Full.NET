@@ -10,6 +10,7 @@ using Full.NET.Modules.Files;
 using Full.NET.Modules.Document;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.ObservabilityAdmin;
+using Full.NET.Modules.Workflow;
 using NetArchTest.Rules;
 
 namespace Full.NET.ArchitectureTests;
@@ -70,6 +71,7 @@ public sealed class DependencyRulesTests
         typeof(DocumentModule).Assembly,
         typeof(SerialNumbersModule).Assembly,
         typeof(ObservabilityAdminModule).Assembly,
+        typeof(WorkflowModule).Assembly,
     ];
 
     [TestMethod]
@@ -1007,6 +1009,16 @@ public sealed class DependencyRulesTests
     public void SerialNumbers_declares_identity_as_an_explicit_module_dependency()
     {
         var module = new SerialNumbersModule();
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Identity" },
+            module.Dependencies.ToArray());
+    }
+
+    [TestMethod]
+    public void Workflow_declares_identity_as_an_explicit_module_dependency()
+    {
+        var module = new WorkflowModule();
 
         CollectionAssert.AreEquivalent(
             new[] { "Identity" },

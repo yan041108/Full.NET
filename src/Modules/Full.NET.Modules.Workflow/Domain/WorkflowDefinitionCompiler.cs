@@ -65,21 +65,29 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionEndMissing);
         }
 
-        var normalized = new
-        {
-            draft.SchemaVersion,
-            Nodes = draft.Nodes
-                .OrderBy(node => node.NodeKey, StringComparer.Ordinal)
-                .Select(node => new
-                {
-                    node.NodeKey,
-                    node.NodeTypeKey,
-                    node.NodeSchemaVersion,
-                    node.Config,
-                }),
-        };
         return WorkflowCompilationResult.Success(
-            WorkflowJsonCanonicalizer.Compile(JsonSerializer.SerializeToElement(normalized)));
+            WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, draft)));
+    }
+
+    private static void WriteCanonical(Utf8JsonWriter writer, WorkflowDefinitionDraft draft)
+    {
+        writer.WriteStartObject();
+        writer.WriteNumber("schemaVersion", draft.SchemaVersion);
+        writer.WritePropertyName("nodes");
+        writer.WriteStartArray();
+        foreach (var node in draft.Nodes.OrderBy(item => item.NodeKey, StringComparer.Ordinal))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("nodeKey", node.NodeKey);
+            writer.WriteString("nodeTypeKey", node.NodeTypeKey);
+            writer.WriteNumber("nodeSchemaVersion", node.NodeSchemaVersion);
+            writer.WritePropertyName("config");
+            WorkflowJsonCanonicalizer.WriteElement(writer, node.Config);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+        writer.WriteEndObject();
     }
 
     private static string[] ReadNextNodeKeys(WorkflowNodeDraft node)

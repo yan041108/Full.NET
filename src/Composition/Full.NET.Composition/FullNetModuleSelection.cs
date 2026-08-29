@@ -27,6 +27,7 @@ public static class FullNetModuleSelection
         "CodeGeneration",
         "SerialNumbers",
         "ObservabilityAdmin",
+        "Workflow",
     ];
 
     /// <summary>

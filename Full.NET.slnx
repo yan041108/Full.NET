@@ -61,6 +61,7 @@
     <Project Path="src/Modules/Full.NET.Modules.CodeGeneration/Full.NET.Modules.CodeGeneration.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.ObservabilityAdmin/Full.NET.Modules.ObservabilityAdmin.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.SerialNumbers/Full.NET.Modules.SerialNumbers.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Workflow/Full.NET.Modules.Workflow.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />

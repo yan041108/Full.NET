@@ -8,11 +8,14 @@ namespace Full.NET.Modules.Workflow.Domain;
 internal static class WorkflowJsonCanonicalizer
 {
     public static WorkflowCompiledArtifact Compile(JsonElement value)
+        => Compile(writer => WriteElement(writer, value));
+
+    public static WorkflowCompiledArtifact Compile(Action<Utf8JsonWriter> write)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = false }))
         {
-            WriteElement(writer, value);
+            write(writer);
         }
 
         var canonicalJson = Encoding.UTF8.GetString(buffer.WrittenSpan);
@@ -20,7 +23,7 @@ internal static class WorkflowJsonCanonicalizer
         return new WorkflowCompiledArtifact(canonicalJson, contentHash);
     }
 
-    private static void WriteElement(Utf8JsonWriter writer, JsonElement value)
+    public static void WriteElement(Utf8JsonWriter writer, JsonElement value)
     {
         switch (value.ValueKind)
         {

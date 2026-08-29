@@ -153,11 +153,11 @@ HTTP Request、内部 Command 和持久化 Record 必须是不同类型。上述
 
 **Produces:** `WorkflowModule`、稳定权限/错误码目录、源生成 JSON Context 和主机注册。
 
-- [ ] 先写 Architecture/Unit RED：Workflow 只能引用批准的 BuildingBlocks；不得引用其他业务模块、具体 SQL Driver、反射多态或动态代码；权限目录必须包含 Spec §10 的每个页面/操作码。
-- [ ] 创建单主项目并加入 `Full.NET.slnx` 与 Composition；Api/Migrator 使用完整模块入口，Worker 仅在后续有真实恢复消费者时增加最小入口。
-- [ ] 创建中文/英文错误资源；错误码覆盖 schema invalid、version conflict、not published、active instance exists、todo forbidden、revision conflict 和 invalid transition。
-- [ ] 将 HTTP DTO、ProblemDetails 扩展与所有 JSON 闭合类型登记到 `WorkflowJsonSerializerContext`；AOT 编译不得回退反射。
-- [ ] 运行 Workflow Architecture、Authorization Unit 与 `dotnet build ... -p:FullNetAotAnalysis=true`，确认零新增 AOT/裁剪警告。
+- [x] 先写 Architecture/Unit RED：Workflow 只能引用批准的 BuildingBlocks；不得引用其他业务模块、具体 SQL Driver、反射多态或动态代码；权限目录必须包含 Spec §10 的每个页面/操作码。
+- [x] 创建单主项目并加入 `Full.NET.slnx` 与 Composition；Api/Migrator 使用完整模块入口，Worker 仅在后续有真实恢复消费者时增加最小入口。
+- [x] 创建中文/英文错误资源；错误码覆盖 schema invalid、version conflict、not published、active instance exists、todo forbidden、revision conflict 和 invalid transition。
+- [x] 将当前切片的所有 JSON 闭合类型登记到 `WorkflowJsonSerializerContext`；HTTP DTO 与 ProblemDetails 扩展随首次 Endpoint 在对应任务登记，AOT 编译不得回退反射。
+- [x] 运行 Workflow Architecture、Authorization Unit 与 `dotnet build ... -p:FullNetAotAnalysis=true`，确认零新增 AOT/裁剪警告。
 
 ### Task 3: 成对迁移与 Dapper 持久化
 

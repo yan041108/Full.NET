@@ -23,4 +23,39 @@ public static class WorkflowErrorCodes
     public const string TodoNotActive = Prefix + "todo.not_active";
     public const string InstanceTerminal = Prefix + "instance.terminal";
     public const string InstanceVersionConflict = Prefix + "instance.version_conflict";
+    public const string SchemaInvalid = Prefix + "schema.invalid";
+    public const string VersionConflict = Prefix + "version.conflict";
+    public const string VersionNotPublished = Prefix + "version.not_published";
+    public const string ActiveInstanceExists = Prefix + "instance.active_exists";
+    public const string TodoForbidden = Prefix + "todo.forbidden";
+    public const string RevisionConflict = Prefix + "revision.conflict";
+    public const string InvalidTransition = Prefix + "transition.invalid";
+
+    public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
+    [
+        DefinitionNodeTypeUnknown,
+        DefinitionNodeKeyDuplicate,
+        DefinitionReferenceDangling,
+        DefinitionNodeUnreachable,
+        DefinitionEndMissing,
+        DefinitionBackEdgeIllegal,
+        DefinitionStartInvalid,
+        DefinitionSchemaUnsupported,
+        FormFieldTypeUnknown,
+        FormFieldKeyDuplicate,
+        FormExtensionForbidden,
+        FormMoneyScaleInvalid,
+        FormSchemaUnsupported,
+        TodoAssigneeMismatch,
+        TodoNotActive,
+        InstanceTerminal,
+        InstanceVersionConflict,
+        SchemaInvalid,
+        VersionConflict,
+        VersionNotPublished,
+        ActiveInstanceExists,
+        TodoForbidden,
+        RevisionConflict,
+        InvalidTransition,
+    ]);
 }
