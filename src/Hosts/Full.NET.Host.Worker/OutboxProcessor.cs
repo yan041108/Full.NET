@@ -62,7 +62,7 @@ internal sealed class OutboxProcessor(
         {
             var services = scope.ServiceProvider;
             var currentTenant =
-                services.GetRequiredService<CurrentTenantAccessor>();
+                services.GetRequiredService<ICurrentTenantContextWriter>();
             currentTenant.SetHost();
             try
             {
@@ -489,11 +489,11 @@ internal sealed class OutboxProcessor(
                 .ConfigureAwait(false);
             await using var scope = scopeFactory.CreateAsyncScope();
             var services = scope.ServiceProvider;
-            CurrentTenantAccessor? currentTenant = null;
+            ICurrentTenantContextWriter? currentTenant = null;
             try
             {
                 currentTenant =
-                    services.GetRequiredService<CurrentTenantAccessor>();
+                    services.GetRequiredService<ICurrentTenantContextWriter>();
                 currentTenant.SetHost();
                 var store = services.GetRequiredService<IOutboxStore>();
                 var databasePriority = services
@@ -529,7 +529,7 @@ internal sealed class OutboxProcessor(
         await using var scope = scopeFactory.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var currentTenant =
-            services.GetRequiredService<CurrentTenantAccessor>();
+            services.GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

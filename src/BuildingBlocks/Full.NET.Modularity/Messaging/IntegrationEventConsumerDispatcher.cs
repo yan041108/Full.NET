@@ -14,7 +14,7 @@ public sealed class IntegrationEventConsumerDispatcher(
     IntegrationEventSubscriptionCatalog catalog,
     IEventStreamOwnershipGate ownershipGate,
     IEffectiveEventDeliveryOwnerResolver ownerResolver,
-    CurrentTenantAccessor currentTenant,
+    ICurrentTenantContextWriter currentTenant,
     IEnumerable<IIntegrationEventHandlerRegistry>? handlerRegistries = null)
 {
     /// <summary>

@@ -1,6 +1,6 @@
 namespace Full.NET.Abstractions.Tenancy;
 
-public sealed class CurrentTenantAccessor : ICurrentTenant
+public sealed class CurrentTenantAccessor : ICurrentTenant, ICurrentTenantContextWriter
 {
     private TenantContext? _tenant;
 
@@ -14,21 +14,27 @@ public sealed class CurrentTenantAccessor : ICurrentTenant
 
     public string? Name => _tenant?.Name;
 
-    public void SetTenant(TenantContext tenant)
+    internal void SetTenant(TenantContext tenant)
     {
         _tenant = tenant;
         IsHost = false;
     }
 
-    public void SetHost()
+    internal void SetHost()
     {
         _tenant = null;
         IsHost = true;
     }
 
-    public void Clear()
+    internal void Clear()
     {
         _tenant = null;
         IsHost = false;
     }
+
+    void ICurrentTenantContextWriter.SetTenant(TenantContext tenant) => SetTenant(tenant);
+
+    void ICurrentTenantContextWriter.SetHost() => SetHost();
+
+    void ICurrentTenantContextWriter.Clear() => Clear();
 }

@@ -39,7 +39,7 @@ try
         .GetRequiredService<IHostApplicationLifetime>()
         .ApplicationStopping;
     await using var scope = host.Services.CreateAsyncScope();
-    scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+    scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
     var result = await scope.ServiceProvider
         .GetRequiredService<MigratorWorkflow>()
         .RunAsync(args, applicationStopping);

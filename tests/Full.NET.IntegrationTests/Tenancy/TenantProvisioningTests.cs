@@ -146,6 +146,8 @@ public sealed class TenantProvisioningTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         // 该夹具只验证非 HTTP 事务切片；显式替身用于满足完整模块的授权结果映射依赖。

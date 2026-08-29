@@ -57,7 +57,7 @@ internal sealed class CodeGenerationCheckpointRetentionHostedProcessor(
 
         await using var scope = scopeFactory.CreateAsyncScope();
         var currentTenant = scope.ServiceProvider
-            .GetRequiredService<CurrentTenantAccessor>();
+                .GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

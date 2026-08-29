@@ -56,7 +56,7 @@ internal sealed class AuditingRetentionHostedProcessor(
         {
             await using var scope = scopeFactory.CreateAsyncScope();
             var currentTenant = scope.ServiceProvider
-                .GetRequiredService<CurrentTenantAccessor>();
+                .GetRequiredService<ICurrentTenantContextWriter>();
             currentTenant.SetHost();
             try
             {

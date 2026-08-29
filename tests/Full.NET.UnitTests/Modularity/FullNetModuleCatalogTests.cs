@@ -174,6 +174,15 @@ public sealed class FullNetModuleCatalogTests
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(CurrentTenantAccessor)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ICurrentTenantContextWriter)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        Assert.AreSame(
+            scope.ServiceProvider.GetRequiredService<ICurrentTenant>(),
+            scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>());
     }
 
     [TestMethod]

@@ -198,7 +198,7 @@ internal sealed class JobExecutionRunner(
     {
         await using var scope = executionScopeFactory!.CreateAsyncScope();
         var services = scope.ServiceProvider;
-        var currentTenant = services.GetRequiredService<CurrentTenantAccessor>();
+        var currentTenant = services.GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

@@ -160,6 +160,8 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddScoped<CurrentTenantAccessor>();
         services.TryAddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
+        services.TryAddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
     }
 
     /// <summary>

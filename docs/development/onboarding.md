@@ -84,7 +84,7 @@ AI 代理仍以 `AGENTS.md` 和 `rules/` 为权威源；本节描述意图，不
 所有上层项目都依赖它，因此它必须保持零依赖——一旦引入框架包，所有模块都会被迫跟随升级。
 关键类型：
 - `Result<T>` — Railway-Oriented 错误处理，业务流程不用异常驱动，失败路径有类型保证
-- `ICurrentTenant` — 租户上下文抽象，具体注入在 Hosting 层，模块不感知宿主
+- `ICurrentTenant` — 普通业务使用的只读租户上下文；只有经过架构门禁登记的请求解析、Worker、Migrator 与跨租户编排边界可以注入 `ICurrentTenantContextWriter`
 - `UuidV7` — 应用端生成 UUID v7 主键，不依赖数据库自增，分布式友好且有序
 
 #### 第二层：领域抽象（依赖 Abstractions）
@@ -206,7 +206,9 @@ Identity/
 多租户管理模块，负责租户创建、配置和隔离边界。
 无独立 Contracts 项目，因为租户上下文抽象已在 `Abstractions` 层定义。
 其他模块通过 `ICurrentTenant`（来自 `Abstractions`）获取当前租户，
-不直接依赖此模块，避免隐式循环依赖。
+不直接依赖此模块，避免隐式循环依赖。租户上下文写能力通过
+`ICurrentTenantContextWriter` 单独暴露，并由 Architecture Tests 对生产使用点做精确登记；
+普通 Endpoint、Handler 和领域服务不得根据请求输入直接切换租户上下文。
 
 **`Full.NET.Modules.Organization` + `Organization.Contracts`**
 机构 / 部门树管理。Contracts 项目供其他需要"机构"概念的模块引用，

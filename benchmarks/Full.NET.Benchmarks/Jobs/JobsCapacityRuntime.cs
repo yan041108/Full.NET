@@ -162,6 +162,8 @@ public static class JobsCapacityRuntime
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(serviceProvider =>
             serviceProvider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(serviceProvider =>
+            serviceProvider.GetRequiredService<CurrentTenantAccessor>());
         services.AddFullNetDapper(configuration, "Benchmark");
         services.AddFullNetMemoryPack();
         services.AddScoped<ISettingsSecretValueResolver, UnavailableSecretValueResolver>();
@@ -227,7 +229,7 @@ public static class JobsCapacityRuntime
     {
         await using var scope = services.CreateAsyncScope();
         var currentTenant = scope.ServiceProvider
-            .GetRequiredService<CurrentTenantAccessor>();
+            .GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

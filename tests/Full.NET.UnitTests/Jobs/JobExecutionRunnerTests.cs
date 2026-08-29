@@ -52,6 +52,8 @@ public sealed class JobExecutionRunnerTests
             new FixedClock(
                 new DateTimeOffset(2026, 7, 29, 0, 0, 0, TimeSpan.Zero)));
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddScoped<ExecutionScopeIdentity>();
         services.AddScoped<ICommandExecutor, ScopedRecordingCommandExecutor>();
         services.AddScoped<IJobHandlerExecutor>(
@@ -1077,13 +1079,23 @@ public sealed class JobExecutionRunnerTests
             return Task.FromResult(affectedRows);
         }
 
-        public T ReadParameter<T>(SqlStatement statement, string name) =>
-            (T?)_parameters[statement]?
-                .GetType()
-                .GetProperty(name)?
-                .GetValue(_parameters[statement])
-            ?? throw new InvalidOperationException(
-                $"Command parameter '{name}' was not provided.");
+        public T ReadParameter<T>(SqlStatement statement, string name)
+        {
+            var parameters = _parameters[statement];
+            if (parameters is IReadOnlyDictionary<string, object?> dictionary
+                && dictionary.TryGetValue(name, out var dictionaryValue)
+                && dictionaryValue is T typedValue)
+            {
+                return typedValue;
+            }
+
+            return (T?)parameters?
+                    .GetType()
+                    .GetProperty(name)?
+                    .GetValue(parameters)
+                ?? throw new InvalidOperationException(
+                    $"Command parameter '{name}' was not provided.");
+        }
     }
 
     private sealed class ScopedRecordingCommandExecutor(
@@ -1144,13 +1156,22 @@ public sealed class JobExecutionRunnerTests
             return Task.FromResult(1);
         }
 
-        private static T ReadParameter<T>(object? parameters, string name) =>
-            (T?)parameters?
-                .GetType()
-                .GetProperty(name)?
-                .GetValue(parameters)
-            ?? throw new InvalidOperationException(
-                $"Command parameter '{name}' was not provided.");
+        private static T ReadParameter<T>(object? parameters, string name)
+        {
+            if (parameters is IReadOnlyDictionary<string, object?> dictionary
+                && dictionary.TryGetValue(name, out var dictionaryValue)
+                && dictionaryValue is T typedValue)
+            {
+                return typedValue;
+            }
+
+            return (T?)parameters?
+                    .GetType()
+                    .GetProperty(name)?
+                    .GetValue(parameters)
+                ?? throw new InvalidOperationException(
+                    $"Command parameter '{name}' was not provided.");
+        }
     }
 
     private sealed class LostLeaseCommandExecutor : ICommandExecutor

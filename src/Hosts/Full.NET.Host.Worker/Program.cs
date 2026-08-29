@@ -183,7 +183,7 @@ try
 {
     await using var scope = app.Services.CreateAsyncScope();
     scope.ServiceProvider
-        .GetRequiredService<CurrentTenantAccessor>()
+        .GetRequiredService<ICurrentTenantContextWriter>()
         .SetHost();
     var scanner = new OutboxVersionRetirementScanner(
         scope.ServiceProvider.GetRequiredService<IOutboxBacklogReader>(),

@@ -978,6 +978,8 @@ public sealed partial class OutboxRecoveryTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock>(clock);
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddFullNetDapper(configuration, "Testing");

@@ -143,6 +143,8 @@ public sealed class DatabaseCapacityConcurrencyTests
         serviceCollection.AddScoped<CurrentTenantAccessor>();
         serviceCollection.AddScoped<ICurrentTenant>(serviceProvider =>
             serviceProvider.GetRequiredService<CurrentTenantAccessor>());
+        serviceCollection.AddScoped<ICurrentTenantContextWriter>(serviceProvider =>
+            serviceProvider.GetRequiredService<CurrentTenantAccessor>());
         serviceCollection.AddFullNetDapper(
             configuration,
             Environments.Development);

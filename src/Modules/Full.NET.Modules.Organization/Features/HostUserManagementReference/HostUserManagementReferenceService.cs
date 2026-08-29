@@ -14,7 +14,7 @@ namespace Full.NET.Modules.Organization.Features.HostUserManagementReference;
 /// <summary>Host 用户管理页按租户读取机构树与隶属参考数据。</summary>
 internal sealed class HostUserManagementReferenceService(
     IQueryExecutor queryExecutor,
-    CurrentTenantAccessor currentTenant,
+    ICurrentTenantContextWriter currentTenant,
     IActiveTenantContextResolver tenantResolver,
     IHostUserDisplayDirectory hostUserDirectory,
     TenantPositionQueryService positionQueries,

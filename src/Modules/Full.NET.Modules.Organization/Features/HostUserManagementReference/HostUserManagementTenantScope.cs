@@ -6,7 +6,7 @@ namespace Full.NET.Modules.Organization.Features.HostUserManagementReference;
 internal static class HostUserManagementTenantScope
 {
     internal static async Task<T> RunAsync<T>(
-        CurrentTenantAccessor currentTenant,
+        ICurrentTenantContextWriter currentTenant,
         Guid tenantId,
         string identifier,
         string name,

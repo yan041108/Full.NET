@@ -52,7 +52,7 @@ internal sealed class JobExecutionHostedProcessor(
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var currentTenant = scope.ServiceProvider
-            .GetRequiredService<CurrentTenantAccessor>();
+            .GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

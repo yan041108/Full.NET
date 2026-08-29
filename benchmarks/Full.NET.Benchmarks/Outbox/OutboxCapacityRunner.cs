@@ -378,7 +378,7 @@ public static class OutboxCapacityRunner
         await using (var abandonedScope = services.CreateAsyncScope())
         {
             var accessor = abandonedScope.ServiceProvider
-                .GetRequiredService<CurrentTenantAccessor>();
+                .GetRequiredService<ICurrentTenantContextWriter>();
             accessor.SetHost();
             var store = abandonedScope.ServiceProvider
                 .GetRequiredService<IOutboxStore>();
@@ -665,6 +665,8 @@ public static class OutboxCapacityServiceRegistration
         services.AddLogging();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();

@@ -73,6 +73,8 @@ public static class KafkaCapacityServiceFactory
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
 
         var values = new Dictionary<string, string?>
         {

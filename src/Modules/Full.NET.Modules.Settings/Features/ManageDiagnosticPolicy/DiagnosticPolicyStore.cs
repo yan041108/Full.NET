@@ -135,7 +135,7 @@ internal sealed class DiagnosticPolicyStore(
         // 后台/跨作用域回源必须显式进入 Host 上下文：FindByKey 是 HostOnly，
         // 新建 scope 不会继承请求态租户，否则会被 catch 成安全默认并掩盖已持久化策略。
         await using var scope = scopeFactory.CreateAsyncScope();
-        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

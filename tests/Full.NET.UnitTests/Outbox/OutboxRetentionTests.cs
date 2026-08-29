@@ -134,6 +134,8 @@ public sealed class OutboxRetentionTests
     {
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton(store);
         return services.BuildServiceProvider();
     }

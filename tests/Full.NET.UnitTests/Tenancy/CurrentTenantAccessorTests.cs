@@ -8,6 +8,19 @@ namespace Full.NET.UnitTests.Tenancy;
 public sealed class CurrentTenantAccessorTests
 {
     [TestMethod]
+    public void Accessor_does_not_expose_public_context_mutation_methods()
+    {
+        var publicMutationMethods = typeof(CurrentTenantAccessor)
+            .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Where(method => method.Name is "SetTenant" or "SetHost" or "Clear")
+            .Select(method => method.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, publicMutationMethods, string.Join(", ", publicMutationMethods));
+    }
+
+    [TestMethod]
     public void Accessor_transitions_between_unavailable_tenant_host_and_clear()
     {
         var accessor = new CurrentTenantAccessor();
@@ -29,6 +42,29 @@ public sealed class CurrentTenantAccessorTests
         accessor.Clear();
         Assert.IsFalse(accessor.IsAvailable);
         Assert.IsFalse(accessor.IsHost);
+    }
+
+    [TestMethod]
+    public void Writer_capability_updates_the_same_read_only_tenant_state()
+    {
+        var accessor = new CurrentTenantAccessor();
+        ICurrentTenant currentTenant = accessor;
+        ICurrentTenantContextWriter writer = accessor;
+        var tenantId = Guid.CreateVersion7();
+
+        writer.SetTenant(new TenantContext(tenantId, "acme", "Acme"));
+
+        Assert.AreEqual(tenantId, currentTenant.Id);
+        Assert.IsFalse(currentTenant.IsHost);
+
+        writer.SetHost();
+
+        Assert.IsTrue(currentTenant.IsHost);
+        Assert.IsNull(currentTenant.Id);
+
+        writer.Clear();
+
+        Assert.IsFalse(currentTenant.IsAvailable);
     }
 
     [TestMethod]

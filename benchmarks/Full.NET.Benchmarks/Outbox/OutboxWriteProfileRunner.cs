@@ -214,7 +214,7 @@ public static class OutboxWriteProfileRunner
         CancellationToken cancellationToken)
     {
         await using var scope = services.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
         var outboxWriter = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
         var transaction = scope.ServiceProvider.GetRequiredService<ICommandTransaction>();
         var payload = new byte[payloadSizeBytes];
@@ -344,6 +344,8 @@ public static class OutboxWriteProfileRunner
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();

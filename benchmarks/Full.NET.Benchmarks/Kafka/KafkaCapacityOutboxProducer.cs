@@ -25,7 +25,7 @@ public sealed class KafkaCapacityOutboxProducer
         CancellationToken cancellationToken)
     {
         var partition = checked((int)(globalSequence % context.TopicIdentity.Partitions));
-        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
         var payload = KafkaCapacityEnvelopeCodec.Encode(
             context.Sample.PayloadSizeBytes,
             context.RunHash,

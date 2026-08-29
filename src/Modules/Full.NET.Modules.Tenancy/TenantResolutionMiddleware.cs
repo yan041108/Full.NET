@@ -27,7 +27,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
     public async Task InvokeAsync(
         HttpContext httpContext,
         ITenantResolver resolver,
-        CurrentTenantAccessor currentTenant,
+        ICurrentTenantContextWriter currentTenant,
         IOptions<TenancyOptions> options,
         IApiResultMapper resultMapper)
     {
@@ -109,7 +109,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
     private async Task ResolveAuthenticatedTenantAsync(
         HttpContext httpContext,
         ITenantResolver resolver,
-        CurrentTenantAccessor currentTenant,
+        ICurrentTenantContextWriter currentTenant,
         IApiResultMapper resultMapper,
         string host,
         bool isHostDomain,
@@ -172,7 +172,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
 
     private async Task InvokeInHostScopeAsync(
         HttpContext httpContext,
-        CurrentTenantAccessor currentTenant)
+        ICurrentTenantContextWriter currentTenant)
     {
         currentTenant.SetHost();
         try
@@ -187,7 +187,7 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
 
     private async Task InvokeInTenantScopeAsync(
         HttpContext httpContext,
-        CurrentTenantAccessor currentTenant,
+        ICurrentTenantContextWriter currentTenant,
         TenantSummary tenant)
     {
         httpContext.Items[TenantItemKey] = tenant.Id;

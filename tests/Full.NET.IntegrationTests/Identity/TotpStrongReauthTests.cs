@@ -167,6 +167,8 @@ public sealed class TotpStrongReauthTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
             provider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddSingleton<IApiResultMapper, NonHttpApiResultMapper>();

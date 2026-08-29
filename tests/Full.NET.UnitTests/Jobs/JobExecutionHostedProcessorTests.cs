@@ -47,6 +47,8 @@ public sealed class JobExecutionHostedProcessorTests
         services.AddScoped(_ => currentTenantResolutionCount++ == 0
             ? currentTenant
             : new CurrentTenantAccessor());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddScoped<ICommandExecutor>(_ => new HeartbeatCommandExecutor());
         services.AddScoped(_ =>
             new JobsBacklogReader(queryExecutor, databaseOptions));
@@ -167,6 +169,8 @@ public sealed class JobExecutionHostedProcessorTests
         services.AddScoped(_ => currentTenantResolutionCount++ == 0
             ? currentTenant
             : new CurrentTenantAccessor());
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddScoped<ICommandExecutor>(_ => new HeartbeatCommandExecutor());
         services.AddScoped(_ =>
             new JobsBacklogReader(queryExecutor, databaseOptions));
@@ -254,12 +258,12 @@ public sealed class JobExecutionHostedProcessorTests
                     $"Unexpected list statement '{statement.Name}'.");
             }
 
-            var property = parameters?
-                .GetType()
-                .GetProperty(nameof(JobsWorkerOptions.BatchSize));
-            ObservedBatchSize = property?.GetValue(parameters) as int?
-                ?? throw new InvalidOperationException(
-                    "Jobs acquisition did not expose BatchSize.");
+            ObservedBatchSize = parameters is IReadOnlyDictionary<string, object?> dictionary
+                && dictionary.TryGetValue(nameof(JobsWorkerOptions.BatchSize), out var value)
+                && value is int batchSize
+                    ? batchSize
+                    : throw new InvalidOperationException(
+                        "Jobs acquisition did not expose BatchSize.");
             ObservedHostContext = currentTenant?.IsHost ?? false;
             AcquisitionCount++;
             QueryOrder.Add("executions");

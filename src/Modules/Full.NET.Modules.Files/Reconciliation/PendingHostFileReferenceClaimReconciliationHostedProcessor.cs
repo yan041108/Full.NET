@@ -54,7 +54,7 @@ internal sealed class PendingHostFileReferenceClaimReconciliationHostedProcessor
         }
 
         await using var scope = scopeFactory.CreateAsyncScope();
-        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>();
         currentTenant.SetHost();
         try
         {

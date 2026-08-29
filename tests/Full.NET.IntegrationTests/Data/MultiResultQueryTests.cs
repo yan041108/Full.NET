@@ -95,6 +95,8 @@ public sealed class MultiResultQueryTests
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(serviceProvider =>
             serviceProvider.GetRequiredService<CurrentTenantAccessor>());
+        services.AddScoped<ICurrentTenantContextWriter>(serviceProvider =>
+            serviceProvider.GetRequiredService<CurrentTenantAccessor>());
         services.AddFullNetDapper(configuration, "Testing");
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

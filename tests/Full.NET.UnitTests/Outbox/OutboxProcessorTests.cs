@@ -933,6 +933,8 @@ public sealed class OutboxProcessorTests
     {
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton(store);
         services.AddSingleton(BacklogReader(store));
         foreach (var handler in handlers)
@@ -950,6 +952,8 @@ public sealed class OutboxProcessorTests
     {
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton(store);
         services.AddSingleton(BacklogReader(store));
         services.AddSingleton(resolver);
@@ -968,6 +972,8 @@ public sealed class OutboxProcessorTests
     {
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddSingleton(store);
         services.AddSingleton(BacklogReader(store));
         services.AddSingleton(priority);
@@ -986,6 +992,8 @@ public sealed class OutboxProcessorTests
     {
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddScoped<StoreScopeIdentity>();
         services.AddScoped<IOutboxStore>(
             serviceProvider =>
@@ -1014,6 +1022,8 @@ public sealed class OutboxProcessorTests
     {
         var services = new ServiceCollection();
         services.AddScoped<CurrentTenantAccessor>();
+        services.AddScoped<ICurrentTenantContextWriter>(provider =>
+            provider.GetRequiredService<CurrentTenantAccessor>());
         services.AddScoped(_ => scopeDisposal);
         services.AddScoped<IOutboxStore>(
             serviceProvider =>

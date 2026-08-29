@@ -351,7 +351,7 @@ public static class MixedLoadRunner
             {
                 await using var scope = services.CreateAsyncScope();
                 scope.ServiceProvider
-                    .GetRequiredService<CurrentTenantAccessor>()
+                    .GetRequiredService<ICurrentTenantContextWriter>()
                     .SetHost();
                 var store = scope.ServiceProvider
                     .GetRequiredService<IOutboxStore>();
@@ -422,7 +422,7 @@ public static class MixedLoadRunner
             {
                 await using var scope = services.CreateAsyncScope();
                 scope.ServiceProvider
-                    .GetRequiredService<CurrentTenantAccessor>()
+                    .GetRequiredService<ICurrentTenantContextWriter>()
                     .SetHost();
                 deleted = await scope.ServiceProvider
                     .GetRequiredService<IOutboxRetentionStore>()
@@ -769,7 +769,7 @@ public static class MixedLoadRunner
             using var bootstrapClient = CreateBenchmarkClient();
             await using var scope = Services.CreateAsyncScope();
             var currentTenant = scope.ServiceProvider
-                .GetRequiredService<CurrentTenantAccessor>();
+                .GetRequiredService<ICurrentTenantContextWriter>();
             currentTenant.SetHost();
             try
             {
