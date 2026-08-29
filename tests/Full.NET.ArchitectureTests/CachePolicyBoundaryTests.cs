@@ -93,21 +93,20 @@ public sealed class CachePolicyBoundaryTests
     public void Module_cache_invalidators_must_not_depend_on_fusion_sdk_types()
     {
         var root = FindRepositoryRoot();
-        string[] invalidatorPaths =
-        [
-            "src/Modules/Full.NET.Modules.Tenancy/TenantCacheInvalidator.cs",
-            "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyCacheInvalidator.cs",
-        ];
-        var offenders = invalidatorPaths
-            .Where(relativePath =>
+        var modulesRoot = Path.Combine(root, "src", "Modules");
+        var offenders = Directory
+            .EnumerateFiles(
+                modulesRoot,
+                "*CacheInvalidator.cs",
+                SearchOption.AllDirectories)
+            .Where(path =>
             {
-                var source = File.ReadAllText(Path.Combine(
-                    root,
-                    relativePath.Replace('/', Path.DirectorySeparatorChar)));
+                var source = File.ReadAllText(path);
                 return source.Contains("IFusionCache", StringComparison.Ordinal)
                     || source.Contains("FusionCacheEntryOptions", StringComparison.Ordinal)
                     || source.Contains("using ZiggyCreatures.Caching.Fusion", StringComparison.Ordinal);
             })
+            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
             .ToArray();
 
         Assert.HasCount(

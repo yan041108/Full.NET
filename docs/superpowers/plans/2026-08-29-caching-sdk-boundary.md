@@ -124,11 +124,11 @@ Commit: `refactor: move module invalidation behind cache contract`
 - Produces only on Go: stateful generic `GetOrCreateAsync<TState,T>` plus policy-driven `SetAsync`/`RemoveAsync`, without SDK types.
 - Go gate: median overhead below 2%, allocations do not increase, and existing S1/S2 failure semantics remain unchanged.
 
-- [ ] **Step 1: Add the direct-vs-adapter benchmark with identical policy, key, tags and payload.**
-- [ ] **Step 2: Run Release BenchmarkDotNet with warmup and preserve raw artifacts.**
-- [ ] **Step 3: Record Go/No-Go; on No-Go stop without changing production Get/Set.**
-- [ ] **Step 4: On Go only, add failing behavior/architecture tests and implement the minimal adapter.**
-- [ ] **Step 5: Commit evidence separately from any production migration.**
+- [x] **Step 1: Add the direct-vs-adapter benchmark with identical policy, key, tags and payload.**
+- [x] **Step 2: Run Release BenchmarkDotNet with warmup and preserve raw artifacts.**
+- [x] **Step 3: Record Go/No-Go; on No-Go stop without changing production Get/Set.**
+- [x] **Step 4: On Go only, add failing behavior/architecture tests and implement the minimal adapter.** No-Go，本步骤不改生产代码。
+- [x] **Step 5: Commit evidence separately from any production migration.**
 
 ### Task 4: Native AOT and integration closure
 
@@ -140,11 +140,11 @@ Commit: `refactor: move module invalidation behind cache contract`
 - Consumes: completed Task 1–3 contracts.
 - Produces: permanent module SDK-reference guard and fresh verification record.
 
-- [ ] **Step 1: Assert module source and project files do not reference FusionCache SDK types after migration.**
-- [ ] **Step 2: Run affected cache Unit/Integration selection using snapshot `caching-sdk-boundary`.**
-- [ ] **Step 3: Run `pnpm test:aot:analyzers` and API Native AOT Architecture selection.**
-- [ ] **Step 4: Run `pnpm test:governance`, `git diff --check`, and inspect exact staged files.**
-- [ ] **Step 5: Commit the final guard and verification record.**
+- [x] **Step 1: Assert module cache invalidators do not reference FusionCache SDK types after migration; Get/Set remains an evidence-backed exception.**
+- [x] **Step 2: Run affected cache Unit/Integration selection using snapshot `caching-sdk-boundary`.**
+- [x] **Step 3: Run `pnpm test:aot:analyzers` and API Native AOT Architecture selection.**
+- [x] **Step 4: Run `pnpm test:governance`, `git diff --check`, and inspect exact staged files.**
+- [x] **Step 5: Commit the final guard and verification record.**
 
 ## Self-review
 

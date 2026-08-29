@@ -1,6 +1,7 @@
 using BenchmarkDotNet.Running;
 using Full.NET.Benchmarks;
 using Full.NET.Benchmarks.Auditing;
+using Full.NET.Benchmarks.Caching;
 using Full.NET.Benchmarks.Data;
 using Full.NET.Benchmarks.Jobs;
 using Full.NET.Benchmarks.Kafka;
@@ -123,6 +124,7 @@ else
     BenchmarkSwitcher
         .FromTypes([
             typeof(SerializationBenchmarks),
+            typeof(CacheAccessBoundaryBenchmarks),
             typeof(DapperAotCommandReuseBenchmarks),
         ])
         .Run(args);
