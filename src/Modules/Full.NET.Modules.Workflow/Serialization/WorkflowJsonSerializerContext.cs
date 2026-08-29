@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Features.ManageDefinitions;
+using Full.NET.Modules.Workflow.Features.ManageForms;
 
 namespace Full.NET.Modules.Workflow.Serialization;
 
@@ -10,4 +12,13 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowFormSchema))]
 [JsonSerializable(typeof(StartWorkflowCommand))]
 [JsonSerializable(typeof(ActOnWorkflowTodoCommand))]
+[JsonSerializable(typeof(CreateWorkflowFormRequest))]
+[JsonSerializable(typeof(UpdateWorkflowFormDraftRequest))]
+[JsonSerializable(typeof(PublishWorkflowFormRequest))]
+[JsonSerializable(typeof(WorkflowFormResponse))]
+[JsonSerializable(typeof(WorkflowFormResponse[]))]
+[JsonSerializable(typeof(WorkflowFormVersionResponse))]
+[JsonSerializable(typeof(CreateWorkflowDefinitionRequest))]
+[JsonSerializable(typeof(UpdateWorkflowDefinitionDraftRequest))]
+[JsonSerializable(typeof(PublishWorkflowDefinitionRequest))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

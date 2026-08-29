@@ -3,6 +3,7 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Workflow.Resources;
 using Full.NET.Modules.Workflow.Serialization;
+using Full.NET.Modules.Workflow.Features.ManageForms;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,7 @@ public sealed class WorkflowModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 WorkflowJsonSerializerContext.Default));
+        services.AddScoped<WorkflowFormManagementService>();
 #if FULLNET_AOT_COMPILE
         new Persistence.WorkflowDapperAotMaterializerContributor()
             .RegisterMaterializers(
@@ -38,6 +40,7 @@ public sealed class WorkflowModule : IFullNetModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // 首个领域切片尚未发布 HTTP 端点，入口保留显式空实现以维持模块静态闭包。
+        Endpoint.Map(endpoints);
+        Endpoint.MapVersion(endpoints);
     }
 }

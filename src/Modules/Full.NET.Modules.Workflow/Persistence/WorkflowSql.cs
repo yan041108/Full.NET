@@ -5,6 +5,95 @@ namespace Full.NET.Modules.Workflow.Persistence;
 /// <summary>Workflow 模块参数化 SQL 语句集；跨 Host/Tenant 查询必须显式携带 TenantScopeKey。</summary>
 internal static class WorkflowSql
 {
+    public static readonly SqlStatement ListFormDefinitions = new(
+        "workflow.form_definition.list",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
+               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc,
+               UpdatedAtUtc
+        FROM fn_workflow_form_definition
+        WHERE TenantScopeKey = @TenantScopeKey
+        ORDER BY FormKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindFormDefinitionById = new(
+        "workflow.form_definition.find_by_id",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
+               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc,
+               UpdatedAtUtc
+        FROM fn_workflow_form_definition
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertFormDefinition = new(
+        "workflow.form_definition.insert",
+        """
+        INSERT INTO fn_workflow_form_definition
+            (Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
+             DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @FormKey, @DraftSchemaJson,
+             1, NULL, @CreatedById, @CreatedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateFormDraft = new(
+        "workflow.form_definition.update_draft",
+        """
+        UPDATE fn_workflow_form_definition
+        SET DraftSchemaJson = @DraftSchemaJson,
+            DraftRevision = DraftRevision + 1,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND DraftRevision = @ExpectedRevision
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindNextFormVersionNumber = new(
+        "workflow.form_version.find_next_number",
+        """
+        SELECT COALESCE(MAX(version.VersionNumber), 0) + 1
+        FROM fn_workflow_form_version AS version
+        INNER JOIN fn_workflow_form_definition AS definition
+            ON definition.Id = version.FormDefinitionId
+        WHERE version.FormDefinitionId = @FormDefinitionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertFormVersion = new(
+        "workflow.form_version.insert",
+        """
+        INSERT INTO fn_workflow_form_version
+            (Id, FormDefinitionId, VersionNumber, SchemaVersion, AdapterVersion,
+             ComponentCatalogVersion, FormSchemaJson, WebRenderSchemaJson,
+             ContentHash, PublishedById, PublishedAtUtc)
+        VALUES
+            (@Id, @FormDefinitionId, @VersionNumber, @SchemaVersion, @AdapterVersion,
+             @ComponentCatalogVersion, @FormSchemaJson, @WebRenderSchemaJson,
+             @ContentHash, @PublishedById, @PublishedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>发布时推进草稿修订号，使同一 ExpectedRevision 只能成功一次。</summary>
+    public static readonly SqlStatement PublishFormVersion = new(
+        "workflow.form_definition.publish",
+        """
+        UPDATE fn_workflow_form_definition
+        SET LatestPublishedVersionId = @VersionId,
+            DraftRevision = DraftRevision + 1,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND DraftRevision = @ExpectedRevision
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindDefinitionByKey = new(
         "workflow.definition.find_by_key",
         """

@@ -19,6 +19,8 @@ public static class WorkflowErrorCodes
     public const string FormExtensionForbidden = Prefix + "form.extension_forbidden";
     public const string FormMoneyScaleInvalid = Prefix + "form.money_scale_invalid";
     public const string FormSchemaUnsupported = Prefix + "form.schema_unsupported";
+    public const string FormNotFound = Prefix + "form.not_found";
+    public const string FormKeyExists = Prefix + "form.key_exists";
     public const string TodoAssigneeMismatch = Prefix + "todo.assignee_mismatch";
     public const string TodoNotActive = Prefix + "todo.not_active";
     public const string InstanceTerminal = Prefix + "instance.terminal";
@@ -46,6 +48,8 @@ public static class WorkflowErrorCodes
         FormExtensionForbidden,
         FormMoneyScaleInvalid,
         FormSchemaUnsupported,
+        FormNotFound,
+        FormKeyExists,
         TodoAssigneeMismatch,
         TodoNotActive,
         InstanceTerminal,
