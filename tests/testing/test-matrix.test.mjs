@@ -49,7 +49,7 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
   assert.ok(matrix.integration.shards.full.minimum > 0);
   assert.ok(matrix.integration.mainPartitions.length > 1);
   assert.deepEqual(
-    Object.keys(matrix.integration.migrationSelections),
+    Object.keys(matrix.integration.migrationSelections).sort(),
     ['008', '009', '010', '011', ...recoveryMigrationNumbers]
   );
   for (const selection of Object.values(

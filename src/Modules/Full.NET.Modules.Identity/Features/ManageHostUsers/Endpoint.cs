@@ -119,11 +119,26 @@ internal static class Endpoint
         group.MapPost("/import", async (
             ImportHostUsersRequest request,
             HostUserManagementService service,
+            IUserFieldProjectionResolver projectionResolver,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.ImportAsync(request, cancellationToken)
+            var allowedProfileFieldKeys = await ResolveImportProfileFieldKeysAsync(
+                    request.Rows,
+                    projectionResolver,
+                    httpContext,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (allowedProfileFieldKeys is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.ImportAsync(
+                    request,
+                    allowedProfileFieldKeys,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -155,6 +170,7 @@ internal static class Endpoint
                     .ConfigureAwait(false);
                 var result = await service.ImportAsync(
                         new ImportHostUsersRequest(users),
+                        [],
                         cancellationToken)
                     .ConfigureAwait(false);
                 return mapper.Map(result, httpContext);
@@ -277,6 +293,8 @@ internal static class Endpoint
         })
         .WithName("identityCreateHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Create);
@@ -320,6 +338,8 @@ internal static class Endpoint
         })
         .WithName("identityUpdateHostUser")
         .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Update);
@@ -458,5 +478,30 @@ internal static class Endpoint
         return allowed.Count == requestedFieldKeys.Count
             ? allowed.ToArray()
             : [];
+    }
+
+    private static async Task<string[]?> ResolveImportProfileFieldKeysAsync(
+        IReadOnlyList<CreateHostUserRequest>? rows,
+        IUserFieldProjectionResolver projectionResolver,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (rows is null || !rows.Any(row => row?.Profile is not null))
+        {
+            return [];
+        }
+
+        if (!TryGetSubject(httpContext.User, out var actorUserId))
+        {
+            return null;
+        }
+
+        var projection = await projectionResolver.ResolveAsync(
+                actorUserId,
+                tenantId: null,
+                FieldProjectionResourceKeys.HostUsers,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return HostUserProfileMapper.GetWritableFieldKeys(projection.FieldKeys).ToArray();
     }
 }

@@ -154,10 +154,36 @@ internal static class NativeApiE2EAssertions
     {
         var suffix = Guid.NewGuid().ToString("N");
         var username = "naoti-" + suffix[..12];
+        var phoneNumber = $"139{Random.Shared.NextInt64(10_000_000, 99_999_999)}";
+        var profile = new HostUserProfileWriteRequest(
+            FieldKeys: ["phone_number", "email", "employee_number", "id_card_type", "id_card_number"],
+            Nickname: null,
+            PhoneNumber: phoneNumber,
+            Email: $" {username}@Example.COM ",
+            EmployeeNumber: $" emp-{suffix[..8]} ",
+            Gender: null,
+            JoinDateUtc: null,
+            SortOrder: null,
+            IdCardType: "passport",
+            IdCardNumber: $" p{suffix[..10]} ",
+            BirthDate: null,
+            Ethnicity: null,
+            Address: null,
+            GraduatedSchool: null,
+            EducationLevel: null,
+            PoliticalStatus: null,
+            OfficePhone: null,
+            EmergencyContact: null,
+            EmergencyContactRelation: null,
+            EmergencyContactPhone: null,
+            EmergencyContactAddress: null,
+            Remark: null,
+            Version: null);
         var create = new CreateHostUserRequest(
             username,
             "Native AOT host user",
-            AdminPassword);
+            AdminPassword,
+            Profile: profile);
         var user = await PostAndReadAsync<
                 CreateHostUserRequest,
                 HostUserResponse>(
@@ -170,6 +196,8 @@ internal static class NativeApiE2EAssertions
                 nativeLogFilePath)
             .ConfigureAwait(false);
         Assert.AreEqual(username, user.Username);
+        Assert.AreEqual(phoneNumber, user.Profile?.PhoneNumber);
+        Assert.AreEqual($"{username}@example.com", user.Profile?.Email);
 
         using (var duplicateRequest = AuthorizedJson(
                    HttpMethod.Post,
@@ -191,6 +219,29 @@ internal static class NativeApiE2EAssertions
                     .ConfigureAwait(false));
             Assert.AreEqual(
                 IdentityErrorCodes.UsernameExists,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        using (var duplicateProfileRequest = AuthorizedJson(
+                   HttpMethod.Post,
+                   "/api/v1/identity/users",
+                   accessToken,
+                   create with { Username = $"naoti-profile-{suffix[..8]}" }))
+        using (var duplicateProfileResponse = await client
+                   .SendAsync(duplicateProfileRequest, cancellationToken)
+                   .ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    duplicateProfileResponse,
+                    HttpStatusCode.Conflict,
+                    "Reject duplicate Native AOT host profile",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            using var problem = JsonDocument.Parse(
+                await duplicateProfileResponse.Content.ReadAsStringAsync(cancellationToken)
+                    .ConfigureAwait(false));
+            Assert.AreEqual(
+                IdentityErrorCodes.UserPhoneNumberExists,
                 problem.RootElement.GetProperty("code").GetString());
         }
 

@@ -33,7 +33,7 @@
 | 结构化日志、OpenTelemetry 与低基数指标 | Build-verified | 指标、Trace、日志职责分离；生产采集、告警和保留策略仍需部署环境验收。 |
 | 可信代理与转发头边界 | Build-verified | 由主机配置、边界测试与运维基线共同约束。 |
 | Identity 会话、刷新令牌、MFA 与 TOTP | Build-verified | 单元、集成及生产配置真实栈 TOTP 浏览器链路已有验证记录；不等于生产环境认证。 |
-| Identity 用户管理与档案 | Build-verified | Host 用户列表、创建、编辑、启停、重置密码、JSON 兼容接口、固定结构 Excel 模板/导入/导出和批量启停已落地；工作簿限制为 1 MiB/1,000 行并拒绝公式、外部关系和未知表头，导入继续复用既有逐行结果服务。手机号、邮箱与证件号码仍缺服务端权威格式和作用域唯一性闭环，生产真实栈未认证，完成前不升 `Verified`。见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
+| Identity 用户管理与档案 | Build-verified | Host 用户列表、创建、编辑、启停、重置密码、JSON 兼容接口、固定结构 Excel 模板/导入/导出和批量启停已落地；工作簿限制为 1 MiB/1,000 行并拒绝公式、外部关系和未知表头。手机号、邮箱、工号及证件组合现由服务端规范化/校验，并以 Host 目录全局唯一索引关闭双库并发竞态；失败资料写入会回滚整个用户事务。生产真实栈浏览器与 Linux 原生进程尚未认证，完成前不升 `Verified`。见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)与[Excel/日志切片](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
 | Tenancy 生命周期与配额 | Build-verified | 租户创建、状态、解析与缓存失效已完成纵向切片；跨模块读取继续通过 Contracts 或投影演进。 |
 | RBAC、菜单、页面与按钮级权限 | Build-verified | Vue 按稳定权限码不创建无权入口，后端 Endpoint 精确权限失败关闭，授权页按模块/页面/操作分层。 |
 | Host / Tenant 字典 | Build-verified | 模块内查询、事务、双库和 Vue 管理页已形成完整切片。Host.Api Native AOT 双库 Settings HTTP/JSON 证据见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)。 |
@@ -69,7 +69,7 @@
 | AI 能力 | Planned | 必须先确定数据边界、审计、模型供应、成本与降级策略。 |
 | MCP Server 与 Agent Tools | Planned | 路线图已登记 M5+，生产代码尚无 MCP 工具暴露。实施前必须建立静态 Tool 目录、源生成参数/结果、逐工具权限、租户隔离、人审高影响操作、限流与审计；禁止本机 HTTP 回环转发调用方身份。见[刷新后审计](../verification/2026-08-30-adminnet-refresh-incremental-audit.md)。 |
 | Workflow | Designing | [Spec](../superpowers/specs/2026-08-20-workflow-module-design.md) 已于 2026-08-30 批准，固化自有审批内核、树形 Draft→统一 IR、不可变定义/表单版本、终态拒绝、Todo/Notifications 分离、Workflow-Vue3、VForm3 Web Adapter 和 uni-app 轻量渲染边界；[核心首切片](../superpowers/plans/2026-08-20-workflow-first-vertical-slice.md)与[设计器/跨端计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)已可按门禁执行。尚无运行时代码，不得标为 Implemented。 |
-| Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；2026-08-30 将 Admin.NET.Pro `v2.1` 基线更新至 `09d38bd8`，自 `3879b035` 累计审计 59 个提交。Identity Excel 文件导入体验与 Observability Admin 日志控制面已按 Full.NET 安全边界交付；当前明确缺口仍包括 Identity 用户资料权威校验、Notifications 强类型扩展元数据和 MCP 安全/AOT 设计。后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)。 |
+| Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；2026-08-30 将 Admin.NET.Pro `v2.1` 基线更新至 `09d38bd8`，自 `3879b035` 累计审计 59 个提交。Identity Excel、Host 用户资料权威校验与 Observability Admin 日志控制面已按 Full.NET 安全边界交付；当前明确缺口包括 Notifications 强类型扩展元数据和 MCP 安全/AOT 设计。后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)。 |
 | k6 与生产容量认证 | Implemented | [`eng/load`](../../eng/load/README.md) 已提供工具、阈值和报告能力；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
 
 ## 2026-08-08 后续优先级

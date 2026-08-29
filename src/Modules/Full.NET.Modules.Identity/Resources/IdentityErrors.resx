@@ -72,4 +72,9 @@
   <data name="identity.organization_unit_projection.invalid_mode" xml:space="preserve"><value>机构投影对账模式无效。</value></data>
   <data name="identity.organization_unit_projection.invalid_page_size" xml:space="preserve"><value>机构投影对账分页大小超出允许范围。</value></data>
   <data name="identity.user_import.workbook_invalid" xml:space="preserve"><value>用户导入工作簿格式、大小或内容无效。</value></data>
+  <data name="identity.users.profile_invalid" xml:space="preserve"><value>Host 用户权威资料格式或字段组合无效。</value></data>
+  <data name="identity.users.phone_number_exists" xml:space="preserve"><value>该手机号已被其他 Host 用户占用。</value></data>
+  <data name="identity.users.email_exists" xml:space="preserve"><value>该邮箱已被其他 Host 用户占用。</value></data>
+  <data name="identity.users.employee_number_exists" xml:space="preserve"><value>该工号已被其他 Host 用户占用。</value></data>
+  <data name="identity.users.id_card_exists" xml:space="preserve"><value>该证件已被其他 Host 用户占用。</value></data>
 </root>

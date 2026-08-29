@@ -57,7 +57,7 @@
 | 最小 RBAC、可信租户上下文与动态权限导航 | Identity + Tenancy + `ui/admin` | Core + Client | M2 | **Build-verified**（精确 Endpoint 权限、可信租户上下文、动态导航白名单与角色授权树已落地；B2 双库 real-stack/WCAG fresh 收口前不升 `Verified`） |
 | 默认超级管理员、未来权限自动获得与最后一名保护 | Identity + `ui/admin` | Core + Client | M2 | **Build-verified**（API 并发保护已交付；Vue 真实栈规格已覆盖撤销最后一名；本波未跑 `test:e2e:real`，不得标 `Verified`；见[验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)） |
 | 主控面板、工作台、分析和统计 | `ui/admin` + `ui/admin-layui` + Dashboard Contracts | Client | M3 | **Build-verified**（Host 工作台汇总 API + 双端 Overview 真实指标；[验证记录](../verification/platform-host-dashboard-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-platform-host-dashboard-vertical-slice.md)） |
-| 用户管理 | Identity | Core | M2 | **Build-verified**（Host 列表/创建/编辑/禁用/启用/重置密码、JSON 兼容接口、固定结构 Excel 模板/文件导入导出与批量停用启用已交付；Excel 边界限制 1 MiB/1,000 行，拒绝公式、外部关系和未知表头并复用逐行结果服务；手机号、邮箱与证件号码仍缺服务端权威格式/作用域唯一性闭环，真实栈浏览器未在本波执行，不得标 `Verified`；见[本切片验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)） |
+| 用户管理 | Identity | Core | M2 | **Build-verified**（Host 列表/创建/编辑/禁用/启用/重置密码、JSON 兼容接口、固定结构 Excel 模板/文件导入导出与批量停用启用已交付；手机号、邮箱、工号及证件组合具备服务端规范化/校验、Host 目录全局唯一索引、并发冲突码与事务回滚。真实栈浏览器和 Linux 原生进程尚未认证，不得标 `Verified`；见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)与[Excel/日志切片](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)） |
 | 租户管理 | Tenancy | Core | M2 | **Build-verified**（Host 列表/开通/更新/禁用；[验证记录](../verification/tenancy-host-tenant-management-2026-07-23.md)） |
 | 机构管理 | Organization | Core | M2 | **Build-verified**（租户机构树 CRUD；见[验证记录](../verification/organization-unit-management-2026-07-21.md)） |
 | 职位管理 | Organization | Core | M2 | **Build-verified**（租户职位 CRUD、机构与职级绑定/解绑、职级目录 CRUD、双库 Integration、双端 parity 及双库双端真实栈写入；完整 `main` CI 与发布前人工验收待补） |
@@ -159,7 +159,7 @@ Document 队列 #1 已于 2026-08-16 完成功能实现并关闭，当前保持 
 
 | 波次 | 优先级 | 能力 | 下一切片 |
 | --- | --- | --- | --- |
-| **B1** | 高 | Identity 用户管理 + 超级管理员 | **Build-verified**（JSON 兼容接口、Excel 模板/文件导入导出、批量和编辑已交付；资料权威校验仍待补，最后一名 E2E 规格已写但本波未跑 real-stack；[验证](../verification/2026-08-30-identity-excel-observability-log-control-plane.md)） |
+| **B1** | 高 | Identity 用户管理 + 超级管理员 | **Build-verified**（JSON 兼容接口、Excel 模板/文件导入导出、批量、编辑和资料权威校验已交付；最后一名保护与 Excel 仍待 fresh real-stack 浏览器收口；[验证](../verification/2026-08-30-identity-authoritative-profile-validation.md)） |
 | **B1** | 高 | CodeGeneration | **Build-verified**（可视化工作台、Vue SFC、Host Apply 接线、鉴权下载、Tree/关系；2026-08-20 工作台 UX 对齐见[验证](../verification/codegeneration-workbench-ux-parity-20260820.md)；能力基线见[对标验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)） |
 | **B1** | 中 | Localization / Modularity Admin / uni-app | 全栈 i18n 回归、插件启用策略、H5/小程序纵向切片 |
 | **B2** | 中 | RBAC / SerialNumbers / Organization / Tenancy / Files | Build-verified → Verified 晋升（real-stack E2E + WCAG） |

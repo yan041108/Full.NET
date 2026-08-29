@@ -28,6 +28,9 @@ internal static class IdentityUserManagementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyAuthoritativeProfileValidationAndUniquenessAsync(
+            client,
+            cancellationToken);
         await VerifyDisabledUserCannotLoginAsync(
             factory,
             client,
@@ -51,6 +54,298 @@ internal static class IdentityUserManagementAssertions
         await OpenApiHostUsersContractAssertions.VerifyAsync(
             client,
             cancellationToken);
+    }
+
+    private static async Task VerifyAuthoritativeProfileValidationAndUniquenessAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var rejectedUsername = $"profile-invalid-{Guid.NewGuid():N}";
+        using (var invalidRequest = CreateBearerJsonRequest(
+                   HttpMethod.Post,
+                   "/api/v1/identity/users",
+                   adminToken,
+                   new CreateHostUserRequest(
+                       rejectedUsername,
+                       "资料格式无效",
+                       Api.FullNetApiFactory.TestPassword,
+                       Profile: CreateProfile(phoneNumber: "+138-0000-0000"))))
+        using (var invalidResponse = await client.SendAsync(invalidRequest, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
+            using var problem = JsonDocument.Parse(
+                await invalidResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                IdentityErrorCodes.UserProfileInvalid,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        var phoneNumber = $"139{Random.Shared.NextInt64(10_000_000, 99_999_999)}";
+        using var firstRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                $"profile-owner-{Guid.NewGuid():N}",
+                "资料所有者",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: CreateProfile(phoneNumber: phoneNumber)));
+        using var firstResponse = await client.SendAsync(firstRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, firstResponse.StatusCode);
+
+        using var duplicateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                rejectedUsername,
+                "重复资料用户",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: CreateProfile(phoneNumber: phoneNumber)));
+        using var duplicateResponse = await client.SendAsync(
+            duplicateRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
+        using (var problem = JsonDocument.Parse(
+                   await duplicateResponse.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual(
+                IdentityErrorCodes.UserPhoneNumberExists,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        using var recoveredRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                rejectedUsername,
+                "失败事务已回滚",
+                Api.FullNetApiFactory.TestPassword));
+        using var recoveredResponse = await client.SendAsync(recoveredRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, recoveredResponse.StatusCode);
+
+        var uniqueSuffix = Guid.NewGuid().ToString("N");
+        var authoritativeOwner = await CreateHostUserWithProfileAsync(
+            client,
+            adminToken,
+            $"authority-owner-{uniqueSuffix}",
+            "权威资料字段所有者",
+            CreateProfile(
+                email: $"owner-{uniqueSuffix}@example.com",
+                employeeNumber: $"EMP-{uniqueSuffix[..12]}",
+                idCardType: "passport",
+                idCardNumber: $"P-{uniqueSuffix[..12]}"),
+            cancellationToken);
+        await AssertProfileConflictAsync(
+            client,
+            adminToken,
+            CreateProfile(email: authoritativeOwner.Profile!.Email),
+            IdentityErrorCodes.UserEmailExists,
+            cancellationToken);
+        await AssertProfileConflictAsync(
+            client,
+            adminToken,
+            CreateProfile(employeeNumber: authoritativeOwner.Profile.EmployeeNumber),
+            IdentityErrorCodes.UserEmployeeNumberExists,
+            cancellationToken);
+        await AssertProfileConflictAsync(
+            client,
+            adminToken,
+            CreateProfile(
+                idCardType: authoritativeOwner.Profile.IdCardType,
+                idCardNumber: authoritativeOwner.Profile.IdCardNumber),
+            IdentityErrorCodes.UserIdCardExists,
+            cancellationToken);
+
+        var racedPhone = $"137{Random.Shared.NextInt64(10_000_000, 99_999_999)}";
+        using var racedRequestA = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                $"profile-race-a-{Guid.NewGuid():N}",
+                "并发资料 A",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: CreateProfile(phoneNumber: racedPhone)));
+        using var racedRequestB = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(
+                $"profile-race-b-{Guid.NewGuid():N}",
+                "并发资料 B",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: CreateProfile(phoneNumber: racedPhone)));
+        var racedResponses = await Task.WhenAll(
+            client.SendAsync(racedRequestA, cancellationToken),
+            client.SendAsync(racedRequestB, cancellationToken));
+        using (racedResponses[0])
+        using (racedResponses[1])
+        {
+            CollectionAssert.AreEquivalent(
+                new[] { HttpStatusCode.Created, HttpStatusCode.Conflict },
+                racedResponses.Select(response => response.StatusCode).ToArray());
+            var conflictResponse = racedResponses.Single(
+                response => response.StatusCode == HttpStatusCode.Conflict);
+            using var problem = JsonDocument.Parse(
+                await conflictResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                IdentityErrorCodes.UserPhoneNumberExists,
+                problem.RootElement.GetProperty("code").GetString());
+        }
+
+        var updateOwnerA = await CreateHostUserWithProfileAsync(
+            client,
+            adminToken,
+            $"profile-update-a-{Guid.NewGuid():N}",
+            "更新竞态原值 A",
+            CreateProfile(email: $"update-a-{Guid.NewGuid():N}@example.com"),
+            cancellationToken);
+        var updateOwnerB = await CreateHostUserWithProfileAsync(
+            client,
+            adminToken,
+            $"profile-update-b-{Guid.NewGuid():N}",
+            "更新竞态原值 B",
+            CreateProfile(email: $"update-b-{Guid.NewGuid():N}@example.com"),
+            cancellationToken);
+        var updateOwners = new[] { updateOwnerA, updateOwnerB };
+        var racedEmail = $"update-race-{Guid.NewGuid():N}@example.com";
+        using var updateRequestA = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{updateOwnerA.Id:D}",
+            adminToken,
+            new UpdateHostUserRequest(
+                "更新竞态新值 A",
+                updateOwnerA.Version,
+                Profile: CreateProfile(email: racedEmail) with
+                {
+                    Version = updateOwnerA.Profile!.Version,
+                }));
+        using var updateRequestB = CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/identity/users/{updateOwnerB.Id:D}",
+            adminToken,
+            new UpdateHostUserRequest(
+                "更新竞态新值 B",
+                updateOwnerB.Version,
+                Profile: CreateProfile(email: racedEmail) with
+                {
+                    Version = updateOwnerB.Profile!.Version,
+                }));
+        var updateResponses = await Task.WhenAll(
+            client.SendAsync(updateRequestA, cancellationToken),
+            client.SendAsync(updateRequestB, cancellationToken));
+        var losingIndex = Array.FindIndex(
+            updateResponses,
+            response => response.StatusCode == HttpStatusCode.Conflict);
+        using (updateResponses[0])
+        using (updateResponses[1])
+        {
+            CollectionAssert.AreEquivalent(
+                new[] { HttpStatusCode.OK, HttpStatusCode.Conflict },
+                updateResponses.Select(response => response.StatusCode).ToArray());
+            Assert.IsTrue(losingIndex >= 0);
+        }
+
+        var loser = updateOwners[losingIndex];
+        using var loserRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/users/{loser.Id:D}");
+        loserRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var loserResponse = await client.SendAsync(loserRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loserResponse.StatusCode);
+        var loserAfterRace = await loserResponse.Content
+            .ReadFromJsonAsync<HostUserResponse>(cancellationToken);
+        Assert.IsNotNull(loserAfterRace);
+        Assert.AreEqual(loser.DisplayName, loserAfterRace.DisplayName);
+        Assert.AreEqual(loser.Version, loserAfterRace.Version);
+        Assert.AreEqual(loser.Profile!.Email, loserAfterRace.Profile!.Email);
+        Assert.AreEqual(loser.Profile.Version, loserAfterRace.Profile.Version);
+    }
+
+    private static HostUserProfileWriteRequest CreateProfile(
+        string? phoneNumber = null,
+        string? email = null,
+        string? employeeNumber = null,
+        string? idCardType = null,
+        string? idCardNumber = null) =>
+        new(
+            FieldKeys: new[]
+            {
+                phoneNumber is null ? null : "phone_number",
+                email is null ? null : "email",
+                employeeNumber is null ? null : "employee_number",
+                idCardType is null ? null : "id_card_type",
+                idCardNumber is null ? null : "id_card_number",
+            }.Where(fieldKey => fieldKey is not null).Cast<string>().ToArray(),
+            Nickname: null,
+            PhoneNumber: phoneNumber,
+            Email: email,
+            EmployeeNumber: employeeNumber,
+            Gender: null,
+            JoinDateUtc: null,
+            SortOrder: null,
+            IdCardType: idCardType,
+            IdCardNumber: idCardNumber,
+            BirthDate: null,
+            Ethnicity: null,
+            Address: null,
+            GraduatedSchool: null,
+            EducationLevel: null,
+            PoliticalStatus: null,
+            OfficePhone: null,
+            EmergencyContact: null,
+            EmergencyContactRelation: null,
+            EmergencyContactPhone: null,
+            EmergencyContactAddress: null,
+            Remark: null,
+            Version: null);
+
+    private static async Task<HostUserResponse> CreateHostUserWithProfileAsync(
+        HttpClient client,
+        string accessToken,
+        string username,
+        string displayName,
+        HostUserProfileWriteRequest profile,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            accessToken,
+            new CreateHostUserRequest(
+                username,
+                displayName,
+                Api.FullNetApiFactory.TestPassword,
+                Profile: profile));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<HostUserResponse>(cancellationToken))!;
+    }
+
+    private static async Task AssertProfileConflictAsync(
+        HttpClient client,
+        string accessToken,
+        HostUserProfileWriteRequest profile,
+        string expectedCode,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            accessToken,
+            new CreateHostUserRequest(
+                $"profile-conflict-{Guid.NewGuid():N}",
+                "资料冲突",
+                Api.FullNetApiFactory.TestPassword,
+                Profile: profile));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode);
+        using var problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(expectedCode, problem.RootElement.GetProperty("code").GetString());
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
@@ -661,6 +956,31 @@ internal static class IdentityUserManagementAssertions
                     password),
             ]),
             cancellationToken);
+        using (var profileImportRequest = CreateBearerJsonRequest(
+                   HttpMethod.Post,
+                   "/api/v1/identity/users/import",
+                   importToken,
+                   new ImportHostUsersRequest(
+                   [
+                       new CreateHostUserRequest(
+                           $"profile-import-denied-{Guid.NewGuid():N}",
+                           "拒绝越权资料导入",
+                           password,
+                           Profile: CreateProfile(phoneNumber: "+8613800000000")),
+                   ])))
+        using (var profileImportResponse = await client.SendAsync(
+                   profileImportRequest,
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, profileImportResponse.StatusCode);
+            var profileImport = await profileImportResponse.Content
+                .ReadFromJsonAsync<ImportHostUsersResponse>(cancellationToken);
+            Assert.IsNotNull(profileImport);
+            Assert.AreEqual(0, profileImport.SucceededCount);
+            Assert.AreEqual(
+                CommonErrorCodes.PermissionDenied,
+                profileImport.Results.Single().ErrorCode);
+        }
         using var rejectedImport = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/identity/users/import",

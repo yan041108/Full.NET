@@ -227,6 +227,21 @@ public static class IdentityErrorCodes
     public const string UserImportWorkbookInvalid =
         "identity.user_import.workbook_invalid";
 
+    /// <summary>Host 用户权威资料格式或字段组合无效。</summary>
+    public const string UserProfileInvalid = "identity.users.profile_invalid";
+
+    /// <summary>Host 用户手机号已被目录内其他用户占用。</summary>
+    public const string UserPhoneNumberExists = "identity.users.phone_number_exists";
+
+    /// <summary>Host 用户邮箱已被目录内其他用户占用。</summary>
+    public const string UserEmailExists = "identity.users.email_exists";
+
+    /// <summary>Host 用户工号已被目录内其他用户占用。</summary>
+    public const string UserEmployeeNumberExists = "identity.users.employee_number_exists";
+
+    /// <summary>Host 用户证件类型与号码组合已被目录内其他用户占用。</summary>
+    public const string UserIdCardExists = "identity.users.id_card_exists";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -299,5 +314,10 @@ public static class IdentityErrorCodes
         OrganizationUnitProjectionInvalidMode,
         OrganizationUnitProjectionInvalidPageSize,
         UserImportWorkbookInvalid,
+        UserProfileInvalid,
+        UserPhoneNumberExists,
+        UserEmailExists,
+        UserEmployeeNumberExists,
+        UserIdCardExists,
     ]);
 }

@@ -1114,6 +1114,34 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/098_JobsDefinitionHandlerKindAndArgs.sql",
       "reason": "098 使用固定存储过程与 INFORMATION_SCHEMA 幂等补充执行器类型和参数列；对象名和 DDL 均为常量，并由双库迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/101_IdentityHostUserProfileAuthority.sql",
+      "reason": "101 使用固定存储过程与 INFORMATION_SCHEMA 幂等重建四组 Host 用户资料唯一索引；过程、表、列和索引名均为静态常量，并由双库迁移恢复测试覆盖规范化、索引恢复与重复阻止。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/101_IdentityHostUserProfileAuthority.sql",
+      "reason": "101 的条件 DROP INDEX 与过滤唯一索引尚不能由静态扫描器完整解析；全部对象名为脚本常量，并由双库迁移恢复测试覆盖规范化、索引恢复与重复阻止。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/100_MessagingDomainAuditRequestedOutcome.sql",
+      "reason": "100 使用固定存储过程幂等重建 Messaging 审计 Outcome CHECK；过程、表、列和约束名均为静态常量，并由既有双库迁移与 Kafka 重放审计测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/100_MessagingDomainAuditRequestedOutcome.sql",
+      "reason": "100 的条件 DROP/ADD CHECK 尚不能由静态扫描器完整解析；表、列和约束名均为静态常量，并由既有双库迁移与 Kafka 重放审计测试覆盖。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

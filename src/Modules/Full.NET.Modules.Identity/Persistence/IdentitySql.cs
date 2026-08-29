@@ -1010,6 +1010,28 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindHostUserProfileConflictKind = new(
+        "identity.find_host_user_profile_conflict_kind",
+        """
+        SELECT CASE
+            WHEN @PhoneNumber IS NOT NULL AND EXISTS (
+                SELECT 1 FROM fn_identity_user_profile
+                WHERE UserId <> @UserId AND PhoneNumber = @PhoneNumber) THEN 'phone_number'
+            WHEN @Email IS NOT NULL AND EXISTS (
+                SELECT 1 FROM fn_identity_user_profile
+                WHERE UserId <> @UserId AND Email = @Email) THEN 'email'
+            WHEN @EmployeeNumber IS NOT NULL AND EXISTS (
+                SELECT 1 FROM fn_identity_user_profile
+                WHERE UserId <> @UserId AND EmployeeNumber = @EmployeeNumber) THEN 'employee_number'
+            WHEN @IdCardType IS NOT NULL AND @IdCardNumber IS NOT NULL AND EXISTS (
+                SELECT 1 FROM fn_identity_user_profile
+                WHERE UserId <> @UserId
+                  AND IdCardType = @IdCardType AND IdCardNumber = @IdCardNumber) THEN 'id_card'
+            ELSE NULL
+        END
+        """,
+        SqlDataScope.HostOnly);
+
     public static SqlStatement BuildProjectedHostUserProfilesByIds(
         IReadOnlyCollection<string> projectedColumns)
     {

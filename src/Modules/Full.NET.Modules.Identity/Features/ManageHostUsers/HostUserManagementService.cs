@@ -26,7 +26,7 @@ internal sealed class HostUserManagementService(
         CreateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys = null,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => CreateCoreAsync(request, allowedProfileFieldKeys, token),
             cancellationToken);
 
@@ -49,7 +49,7 @@ internal sealed class HostUserManagementService(
         UpdateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
+        transaction.ExecuteResultAsync(
             token => UpdateCoreAsync(userId, request, allowedProfileFieldKeys, token),
             cancellationToken);
 
@@ -64,6 +64,7 @@ internal sealed class HostUserManagementService(
     /// <summary>逐行导入；超级管理员账号类型直接拒绝且不创建。</summary>
     public async Task<Result<ImportHostUsersResponse>> ImportAsync(
         ImportHostUsersRequest request,
+        IReadOnlyCollection<string> allowedProfileFieldKeys,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -99,7 +100,27 @@ internal sealed class HostUserManagementService(
                 continue;
             }
 
-            var created = await CreateAsync(row, null, cancellationToken)
+            if (row.Profile is not null)
+            {
+                var requestedFieldKeys = HostUserProfileMapper.NormalizeFieldKeys(
+                    row.Profile.FieldKeys);
+                var allowedRequestedFieldKeys = HostUserProfileMapper.NormalizeFieldKeys(
+                    row.Profile.FieldKeys,
+                    allowedProfileFieldKeys);
+                if (requestedFieldKeys.Count == 0
+                    || requestedFieldKeys.Count != allowedRequestedFieldKeys.Count)
+                {
+                    results.Add(new ImportHostUserRowResult(
+                        line,
+                        false,
+                        null,
+                        CommonErrorCodes.PermissionDenied,
+                        "Importing the requested profile fields is not allowed."));
+                    continue;
+                }
+            }
+
+            var created = await CreateAsync(row, allowedProfileFieldKeys, cancellationToken)
                 .ConfigureAwait(false);
             if (created.IsSuccess)
             {
@@ -571,34 +592,68 @@ internal sealed class HostUserManagementService(
             existing,
             profile,
             allowedProfileFieldKeys);
-
-        if (existing is null)
+        var normalizedResult = HostUserProfilePolicy.NormalizeAndValidate(mergedProfile);
+        if (!normalizedResult.IsSuccess)
         {
-            var inserted = await commandExecutor.ExecuteAsync(
-                    IdentitySql.InsertHostUserProfile,
-                    HostUserProfileMapper.ToParameters(userId, mergedProfile),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (inserted != 1)
+            return Result<HostUserProfileResponse?>.Failure(normalizedResult.Error!);
+        }
+
+        var normalizedProfile = normalizedResult.Value!;
+        var existingConflict = await FindProfileConflictAsync(
+                userId,
+                normalizedProfile,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existingConflict is not null)
+        {
+            return Result<HostUserProfileResponse?>.Failure(existingConflict);
+        }
+
+        try
+        {
+            if (existing is null)
             {
-                throw new InvalidOperationException(
-                    $"Host user profile insert affected {inserted} rows instead of one.");
+                var inserted = await commandExecutor.ExecuteAsync(
+                        IdentitySql.InsertHostUserProfile,
+                        HostUserProfileMapper.ToParameters(userId, normalizedProfile),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (inserted != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Host user profile insert affected {inserted} rows instead of one.");
+                }
+            }
+            else
+            {
+                var affected = await commandExecutor.ExecuteAsync(
+                        IdentitySql.UpdateHostUserProfile,
+                        HostUserProfileMapper.ToParameters(userId, normalizedProfile),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (affected != 1)
+                {
+                    return Result<HostUserProfileResponse?>.Failure(new Error(
+                        IdentityErrorCodes.ProfileVersionConflict,
+                        "The host user profile was updated concurrently.",
+                        ErrorType.Conflict));
+                }
             }
         }
-        else
+        catch (DataCommandException exception)
+            when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
-            var affected = await commandExecutor.ExecuteAsync(
-                    IdentitySql.UpdateHostUserProfile,
-                    HostUserProfileMapper.ToParameters(userId, mergedProfile),
+            var racedConflict = await FindProfileConflictAsync(
+                    userId,
+                    normalizedProfile,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (affected != 1)
+            if (racedConflict is not null)
             {
-                return Result<HostUserProfileResponse?>.Failure(new Error(
-                    IdentityErrorCodes.ProfileVersionConflict,
-                    "The host user profile was updated concurrently.",
-                    ErrorType.Conflict));
+                return Result<HostUserProfileResponse?>.Failure(racedConflict);
             }
+
+            throw;
         }
 
         return Result<HostUserProfileResponse?>.Success(
@@ -608,6 +663,52 @@ internal sealed class HostUserManagementService(
                     cancellationToken)
                 .ConfigureAwait(false));
     }
+
+    private async Task<Error?> FindProfileConflictAsync(
+        Guid userId,
+        HostUserProfileWriteRequest profile,
+        CancellationToken cancellationToken)
+    {
+        if (profile.PhoneNumber is null
+            && profile.Email is null
+            && profile.EmployeeNumber is null
+            && profile.IdCardNumber is null)
+        {
+            return null;
+        }
+
+        var conflictKind = await queryExecutor.QuerySingleOrDefaultAsync<string>(
+                IdentitySql.FindHostUserProfileConflictKind,
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("PhoneNumber", profile.PhoneNumber),
+                    ("Email", profile.Email),
+                    ("EmployeeNumber", profile.EmployeeNumber),
+                    ("IdCardType", profile.IdCardType),
+                    ("IdCardNumber", profile.IdCardNumber)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return conflictKind switch
+        {
+            "phone_number" => ProfileConflict(
+                IdentityErrorCodes.UserPhoneNumberExists,
+                "Phone number is already assigned to another host user."),
+            "email" => ProfileConflict(
+                IdentityErrorCodes.UserEmailExists,
+                "Email is already assigned to another host user."),
+            "employee_number" => ProfileConflict(
+                IdentityErrorCodes.UserEmployeeNumberExists,
+                "Employee number is already assigned to another host user."),
+            "id_card" => ProfileConflict(
+                IdentityErrorCodes.UserIdCardExists,
+                "Identity document is already assigned to another host user."),
+            _ => null,
+        };
+    }
+
+    private static Error ProfileConflict(string code, string message) =>
+        new(code, message, ErrorType.Conflict);
 
     private async Task<HostUserProfileResponse?> LoadProfileResponseAsync(
         Guid userId,
