@@ -22,8 +22,7 @@ internal sealed class NotificationRealtimeDelivery(
     public Task PublishAnnouncementAsync(
         AnnouncementPublishedIntegrationEvent integrationEvent,
         CancellationToken cancellationToken) =>
-        realtimePublisher.PublishToGroupAsync(
-            RealtimeGroups.HostBroadcast,
+        realtimePublisher.PublishToHostBroadcastAsync(
             new RealtimeMessage(
                 RealtimeMessageCodes.AnnouncementPublished,
                 new Dictionary<string, object?>

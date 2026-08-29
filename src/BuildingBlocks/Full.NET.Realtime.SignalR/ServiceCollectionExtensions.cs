@@ -153,7 +153,8 @@ public static class ServiceCollectionExtensions
                     tags: ["ready"]));
         }
 
-        services.AddSingleton<IRealtimePublisher, SignalRRealtimePublisher>();
+        // Publisher 读取当前租户上下文，生命周期必须与该 Scoped 上下文一致。
+        services.AddScoped<IRealtimePublisher, SignalRRealtimePublisher>();
         return true;
     }
 

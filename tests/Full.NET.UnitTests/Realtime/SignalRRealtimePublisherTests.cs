@@ -1,5 +1,6 @@
 using System.Diagnostics.Metrics;
 using System.Text.Json;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Realtime;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Realtime.SignalR.Health;
@@ -13,6 +14,15 @@ namespace Full.NET.UnitTests.Realtime;
 [DoNotParallelize]
 public sealed class SignalRRealtimePublisherTests
 {
+    [TestMethod]
+    public void Publisher_contract_does_not_expose_arbitrary_group_names()
+    {
+        var rawGroupMethod = typeof(IRealtimePublisher)
+            .GetMethod("PublishToGroupAsync");
+
+        Assert.IsNull(rawGroupMethod);
+    }
+
     [TestMethod]
     public void Realtime_json_context_serializes_supported_payload_values()
     {
@@ -71,7 +81,88 @@ public sealed class SignalRRealtimePublisherTests
     }
 
     [TestMethod]
-    public async Task Successful_group_publish_records_bounded_metrics()
+    public async Task Publish_to_tenant_requires_matching_active_tenant()
+    {
+        var tenantId = Guid.CreateVersion7();
+        var clientProxy = Substitute.For<IClientProxy>();
+        clientProxy
+            .SendCoreAsync(
+                Arg.Any<string>(),
+                Arg.Any<object?[]>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var publisher = CreatePublisher(
+            clientProxy,
+            out var hubClients,
+            writer => writer.SetTenant(new TenantContext(
+                tenantId,
+                "acme",
+                "Acme")));
+
+        await publisher.PublishToTenantAsync(
+            tenantId,
+            CreateMessage());
+
+        _ = hubClients.Received(1).Group(
+            RealtimeGroups.Tenant(tenantId));
+    }
+
+    [TestMethod]
+    public async Task Publish_to_tenant_rejects_cross_tenant_target_before_signalr()
+    {
+        var activeTenantId = Guid.CreateVersion7();
+        var clientProxy = Substitute.For<IClientProxy>();
+        var publisher = CreatePublisher(
+            clientProxy,
+            out var hubClients,
+            writer => writer.SetTenant(new TenantContext(
+                activeTenantId,
+                "acme",
+                "Acme")));
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            publisher.PublishToTenantAsync(
+                Guid.CreateVersion7(),
+                CreateMessage()));
+
+        _ = hubClients.DidNotReceive().Group(Arg.Any<string>());
+    }
+
+    [TestMethod]
+    public async Task Host_broadcast_rejects_tenant_context_before_signalr()
+    {
+        var clientProxy = Substitute.For<IClientProxy>();
+        var publisher = CreatePublisher(
+            clientProxy,
+            out var hubClients,
+            writer => writer.SetTenant(new TenantContext(
+                Guid.CreateVersion7(),
+                "acme",
+                "Acme")));
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            publisher.PublishToHostBroadcastAsync(CreateMessage()));
+
+        _ = hubClients.DidNotReceive().Group(Arg.Any<string>());
+    }
+
+    [TestMethod]
+    public async Task Host_broadcast_rejects_missing_context_before_signalr()
+    {
+        var clientProxy = Substitute.For<IClientProxy>();
+        var publisher = CreatePublisher(
+            clientProxy,
+            out var hubClients,
+            configureTenant: _ => { });
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            publisher.PublishToHostBroadcastAsync(CreateMessage()));
+
+        _ = hubClients.DidNotReceive().Group(Arg.Any<string>());
+    }
+
+    [TestMethod]
+    public async Task Successful_host_publish_records_bounded_metrics()
     {
         using var capture = new MetricCapture();
         var clientProxy = Substitute.For<IClientProxy>();
@@ -83,13 +174,11 @@ public sealed class SignalRRealtimePublisherTests
             .Returns(Task.CompletedTask);
         var publisher = CreatePublisher(clientProxy, out _);
 
-        await publisher.PublishToGroupAsync(
-            RealtimeGroups.HostBroadcast,
-            CreateMessage());
+        await publisher.PublishToHostBroadcastAsync(CreateMessage());
 
         AssertOutcome(
             capture,
-            target: "group",
+            target: "host",
             outcome: "success");
     }
 
@@ -137,14 +226,12 @@ public sealed class SignalRRealtimePublisherTests
         var publisher = CreatePublisher(clientProxy, out _);
 
         var actual = await Assert.ThrowsExactlyAsync<TimeoutException>(
-            () => publisher.PublishToGroupAsync(
-                RealtimeGroups.HostBroadcast,
-                CreateMessage()));
+            () => publisher.PublishToHostBroadcastAsync(CreateMessage()));
 
         Assert.AreSame(expected, actual);
         AssertOutcome(
             capture,
-            target: "group",
+            target: "host",
             outcome: "timeout");
         Assert.IsFalse(capture.LongMeasurements.Any(item =>
             HasTag(item.Tags, "outcome", "failure")));
@@ -166,14 +253,13 @@ public sealed class SignalRRealtimePublisherTests
         var publisher = CreatePublisher(clientProxy, out _);
 
         _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
-            () => publisher.PublishToGroupAsync(
-                RealtimeGroups.HostBroadcast,
+            () => publisher.PublishToHostBroadcastAsync(
                 CreateMessage(),
                 cancellation.Token));
 
         AssertOutcome(
             capture,
-            target: "group",
+            target: "host",
             outcome: "canceled");
         Assert.IsFalse(capture.LongMeasurements.Any(item =>
             HasTag(item.Tags, "outcome", "failure")));
@@ -211,14 +297,13 @@ public sealed class SignalRRealtimePublisherTests
             .Returns(Task.CompletedTask);
         var publisher = CreatePublisher(clientProxy, out _);
 
-        await publisher.PublishToGroupAsync(
-            RealtimeGroups.HostBroadcast,
-            CreateMessage());
+        await publisher.PublishToHostBroadcastAsync(CreateMessage());
     }
 
     private static SignalRRealtimePublisher CreatePublisher(
         IClientProxy clientProxy,
-        out IHubClients hubClients)
+        out IHubClients hubClients,
+        Action<ICurrentTenantContextWriter>? configureTenant = null)
     {
         hubClients = Substitute.For<IHubClients>();
         hubClients
@@ -227,7 +312,18 @@ public sealed class SignalRRealtimePublisherTests
         var hubContext =
             Substitute.For<IHubContext<FullNetNotificationHub>>();
         hubContext.Clients.Returns(hubClients);
-        return new SignalRRealtimePublisher(hubContext);
+        var currentTenant = new CurrentTenantAccessor();
+        var tenantWriter = (ICurrentTenantContextWriter)currentTenant;
+        if (configureTenant is null)
+        {
+            tenantWriter.SetHost();
+        }
+        else
+        {
+            configureTenant(tenantWriter);
+        }
+
+        return new SignalRRealtimePublisher(hubContext, currentTenant);
     }
 
     private static RealtimeMessage CreateMessage() =>

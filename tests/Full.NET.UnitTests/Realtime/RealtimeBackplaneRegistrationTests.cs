@@ -1,3 +1,4 @@
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Realtime;
 using Full.NET.Realtime.SignalR;
 using Full.NET.Realtime.SignalR.Health;
@@ -127,6 +128,7 @@ public sealed class RealtimeBackplaneRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddScoped<ICurrentTenant, CurrentTenantAccessor>();
         services.AddFullNetRealtimePublisher(
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
@@ -137,9 +139,20 @@ public sealed class RealtimeBackplaneRegistrationTests
                 .Build(),
             "Testing");
 
-        using var provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateScopes = true,
+            });
+        using var scope = provider.CreateScope();
 
-        Assert.IsNotNull(provider.GetRequiredService<IRealtimePublisher>());
+        Assert.IsNotNull(
+            scope.ServiceProvider.GetRequiredService<IRealtimePublisher>());
+        Assert.AreEqual(
+            ServiceLifetime.Scoped,
+            services.Single(descriptor =>
+                descriptor.ServiceType == typeof(IRealtimePublisher))
+                .Lifetime);
         Assert.IsEmpty(
             provider.GetServices<IPostConfigureOptions<JwtBearerOptions>>());
         var registrations = provider

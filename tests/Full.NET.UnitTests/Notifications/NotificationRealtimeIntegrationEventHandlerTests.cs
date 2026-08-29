@@ -17,11 +17,10 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
         var publisher = Substitute.For<IRealtimePublisher>();
         var publishedMessages = new List<RealtimeMessage>();
         publisher
-            .When(instance => instance.PublishToGroupAsync(
-                Arg.Any<string>(),
+            .When(instance => instance.PublishToHostBroadcastAsync(
                 Arg.Any<RealtimeMessage>(),
                 Arg.Any<CancellationToken>()))
-            .Do(call => publishedMessages.Add(call.ArgAt<RealtimeMessage>(1)));
+            .Do(call => publishedMessages.Add(call.ArgAt<RealtimeMessage>(0)));
         var serializer = new MemoryPackIntegrationEventSerializer();
         var handler = new AnnouncementPublishedRealtimeHandler(
             serializer,
@@ -34,8 +33,7 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
                 "维护通知")),
             CancellationToken.None);
 
-        await publisher.Received(1).PublishToGroupAsync(
-            RealtimeGroups.HostBroadcast,
+        await publisher.Received(1).PublishToHostBroadcastAsync(
             Arg.Any<RealtimeMessage>(),
             CancellationToken.None);
         Assert.HasCount(1, publishedMessages);
@@ -137,8 +135,7 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
     {
         var expected = new InvalidOperationException("模拟 Redis 发布失败。");
         var publisher = Substitute.For<IRealtimePublisher>();
-        publisher.PublishToGroupAsync(
-                Arg.Any<string>(),
+        publisher.PublishToHostBroadcastAsync(
                 Arg.Any<RealtimeMessage>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromException(expected));

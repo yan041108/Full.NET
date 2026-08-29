@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\Full.NET.Realtime.Abstractions\Full.NET.Realtime.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>

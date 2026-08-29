@@ -52,8 +52,7 @@ public sealed class HostAnnouncementManagementServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(1);
         clock.UtcNow.Returns(now);
-        publisher.PublishToGroupAsync(
-                Arg.Any<string>(),
+        publisher.PublishToHostBroadcastAsync(
                 Arg.Any<RealtimeMessage>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
@@ -104,8 +103,7 @@ public sealed class HostAnnouncementManagementServiceTests
                 && integrationEvent.AnnouncementId == announcementId
                 && integrationEvent.Title == published.Title),
             Arg.Any<CancellationToken>());
-        await publisher.Received(1).PublishToGroupAsync(
-            RealtimeGroups.HostBroadcast,
+        await publisher.Received(1).PublishToHostBroadcastAsync(
             Arg.Any<RealtimeMessage>(),
             CancellationToken.None);
     }

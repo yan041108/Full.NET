@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Full.NET.Abstractions.Tenancy;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Full.NET.Realtime.SignalR;
@@ -14,7 +15,8 @@ namespace Full.NET.Realtime.SignalR;
 /// 超时与底层异常按原异常抛出，是否重试由调用方决定，本实现不进行任何重试或补偿。</para>
 /// </remarks>
 internal sealed class SignalRRealtimePublisher(
-    IHubContext<FullNetNotificationHub> hubContext)
+    IHubContext<FullNetNotificationHub> hubContext,
+    ICurrentTenant currentTenant)
     : IRealtimePublisher
 {
     /// <summary>
@@ -34,20 +36,52 @@ internal sealed class SignalRRealtimePublisher(
             cancellationToken);
 
     /// <summary>
-    /// 向已规范化并通过授权的命名组推送消息。
+    /// 向当前租户对应的广播组推送消息。
     /// </summary>
-    /// <param name="groupName">目标组名，须由 <see cref="RealtimeGroups"/> 生成或经授权校验。</param>
+    /// <param name="tenantId">目标租户标识，必须与当前租户上下文一致。</param>
     /// <param name="message">包含稳定机器码与可选结构化数据的消息。</param>
     /// <param name="cancellationToken">用于取消 SignalR 发送任务的令牌。</param>
-    public Task PublishToGroupAsync(
-        string groupName,
+    public Task PublishToTenantAsync(
+        Guid tenantId,
         RealtimeMessage message,
-        CancellationToken cancellationToken = default) =>
-        PublishAsync(
-            "group",
-            groupName,
+        CancellationToken cancellationToken = default)
+    {
+        if (!currentTenant.IsAvailable
+            || currentTenant.IsHost
+            || currentTenant.Id != tenantId)
+        {
+            throw new InvalidOperationException(
+                "Realtime tenant target must match the active tenant context.");
+        }
+
+        return PublishAsync(
+            "tenant",
+            RealtimeGroups.Tenant(tenantId),
             message,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// 向 Host 广播组推送消息，仅允许明确的 Host 上下文调用。
+    /// </summary>
+    /// <param name="message">包含稳定机器码与可选结构化数据的消息。</param>
+    /// <param name="cancellationToken">用于取消 SignalR 发送任务的令牌。</param>
+    public Task PublishToHostBroadcastAsync(
+        RealtimeMessage message,
+        CancellationToken cancellationToken = default)
+    {
+        if (!currentTenant.IsHost)
+        {
+            throw new InvalidOperationException(
+                "Realtime host broadcast requires an active host context.");
+        }
+
+        return PublishAsync(
+            "host",
+            RealtimeGroups.HostBroadcast,
+            message,
+            cancellationToken);
+    }
 
     private async Task PublishAsync(
         string target,
