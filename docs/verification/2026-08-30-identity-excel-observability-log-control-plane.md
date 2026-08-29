@@ -23,6 +23,8 @@
 | Observability Admin SQL Server/MySQL API 合同 | 双 Provider 各 1/1；覆盖匿名 401、读 200、越权下载 403、下载 200 |
 | Vue 定向测试 | 34/34 通过 |
 | Vue typecheck + production build | 通过；新增日志页独立异步 chunk |
+| `host-observability-log-files.spec.mjs` SQL Server 真实栈 | 3/3 通过；覆盖管理员尾读/下载、只读角色无下载入口且 API 403、无读取权限时导航隐藏/直达 403 |
+| Headless 导航目录回归 | 3/3 通过；`observability-log-files` 的 componentKey、routeName、path 已纳入客户端严格白名单 |
 | OpenAPI 生成器 `--check` | 零漂移 |
 | 精确 Architecture 检查 | 2/2 通过 |
 | `pnpm test:aot:analyzers` | 0 警告、0 错误 |
@@ -35,5 +37,5 @@
 ## 未验证边界
 
 - 当前 Windows 主机运行 `pnpm test:aot:native:e2e` 时发现 19 项，但全部按设计标记 Inconclusive；Linux 原生进程启动与 HTTP E2E 仍由 Linux CI 关闭。
-- 本波没有执行 Vue 生产真实栈浏览器 E2E，也没有进行生产日志轮换器、超大活动日志或多副本共享卷容量认证。
+- 已执行 Vue + SQL Server 真实栈浏览器 E2E；尚未进行 MySQL 浏览器真实栈、生产日志轮换器、超大活动日志或多副本共享卷容量认证。
 - Observability Admin 的实例/运行时硬件信息未包含在本切片；通用 ImportExport/Reporting 也未因 Identity 小切片自动完成。

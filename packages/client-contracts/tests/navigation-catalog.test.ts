@@ -61,6 +61,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'document-categories',
       path: '/document/categories'
     });
+    expect(catalog.localNavigationFor('observability-log-files')).toEqual({
+      componentKey: 'observability-log-files',
+      routeName: 'observability-log-files',
+      path: '/observability/log-files'
+    });
   });
 
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {

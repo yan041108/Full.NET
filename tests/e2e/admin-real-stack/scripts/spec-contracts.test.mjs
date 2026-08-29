@@ -172,3 +172,17 @@ test('代码生成真实栈必须使用临时工作区并验证双端确认 Appl
   assert.match(spec, /readAppliedWorkspaceArtifact/u);
   assert.match(spec, /IOrganizationOwnedEntityWriteAuthorizer/u);
 });
+
+test('运行日志真实栈必须使用隔离目录并在退出时清理', async () => {
+  const bootstrapPath = path.resolve(
+    import.meta.dirname,
+    './bootstrap-stack.mjs'
+  );
+  const bootstrap = await readFile(bootstrapPath, 'utf8');
+
+  assert.match(bootstrap, /fullnet-observability-e2e-/u);
+  assert.match(bootstrap, /FullNet__ObservabilityAdmin__LogRootPath/u);
+  assert.match(bootstrap, /e2e-observability\.log/u);
+  assert.match(bootstrap, /fullnet-observability-real-stack-marker/u);
+  assert.match(bootstrap, /rmSync\(activeStack\.observabilityLogRoot/u);
+});

@@ -128,6 +128,14 @@ export async function bootstrapStack() {
     tmpdir(),
     'fullnet-codegeneration-e2e-'
   ));
+  const observabilityLogRoot = mkdtempSync(path.join(
+    tmpdir(),
+    'fullnet-observability-e2e-'
+  ));
+  writeFileSync(
+    path.join(observabilityLogRoot, 'e2e-observability.log'),
+    'fullnet-observability-real-stack-start\nfullnet-observability-real-stack-marker\n'
+  );
 
   const isProductionTotp = stackProfile === 'production-totp';
   const sharedEnv = {
@@ -163,6 +171,7 @@ export async function bootstrapStack() {
     OutboxWorker__PollMilliseconds: '100',
     CodeGeneration__Apply__Enabled: 'true',
     CodeGeneration__Apply__WorkspaceRoot: codeGenerationWorkspaceRoot,
+    FullNet__ObservabilityAdmin__LogRootPath: observabilityLogRoot,
     DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
     ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
     ...(isProductionTotp
@@ -249,7 +258,8 @@ export async function bootstrapStack() {
     databaseProvider,
     stackProfile,
     redisConnectionString,
-    codeGenerationWorkspaceRoot
+    codeGenerationWorkspaceRoot,
+    observabilityLogRoot
   };
   writeFileSync(statePath, JSON.stringify({
     apiUrl,
@@ -261,7 +271,8 @@ export async function bootstrapStack() {
     databaseProvider,
     stackProfile,
     redisConnectionString,
-    codeGenerationWorkspaceRoot
+    codeGenerationWorkspaceRoot,
+    observabilityLogRoot
   }, null, 2));
 
   return activeStack;
@@ -293,6 +304,12 @@ export async function teardownStack() {
   }
   if (activeStack.codeGenerationWorkspaceRoot) {
     rmSync(activeStack.codeGenerationWorkspaceRoot, {
+      recursive: true,
+      force: true
+    });
+  }
+  if (activeStack.observabilityLogRoot) {
+    rmSync(activeStack.observabilityLogRoot, {
       recursive: true,
       force: true
     });

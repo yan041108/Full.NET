@@ -300,6 +300,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/observability-log-files.ts",
+      "routePrefixes": [
+        "/api/v1/observability/log-files"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/tenant-org-position-levels.ts"
       ],
       "openApiFixture": "contracts/openapi/organization-tenant-position-levels-v1.json",
@@ -496,6 +506,7 @@
     { "apiModule": "ui/admin/src/api/menus.ts", "consumers": ["ui/admin/src/views/MenusView.vue"] },
     { "apiModule": "ui/admin/src/api/module-catalog.ts", "consumers": ["ui/admin/src/views/ModuleCatalogView.vue"] },
     { "apiModule": "ui/admin/src/api/online-sessions.ts", "consumers": ["ui/admin/src/views/OnlineSessionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/observability-log-files.ts", "consumers": ["ui/admin/src/views/ObservabilityLogFilesView.vue"] },
     { "apiModule": "ui/admin/src/api/operation-logs.ts", "consumers": ["ui/admin/src/views/OperationLogsView.vue"] },
     { "apiModule": "ui/admin/src/api/org-position-levels.ts", "consumers": ["ui/admin/src/views/OrgPositionLevelsView.vue", "ui/admin/src/views/OrgPositionsView.vue"] },
     { "apiModule": "ui/admin/src/api/org-positions.ts", "consumers": ["ui/admin/src/views/OrgPositionsView.vue", "ui/admin/src/views/OrgUserPositionsView.vue"] },

@@ -210,6 +210,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/auditing/access-logs'
   },
   {
+    componentKey: 'observability-log-files',
+    routeName: 'observability-log-files',
+    path: '/observability/log-files'
+  },
+  {
     componentKey: 'operation-logs',
     routeName: 'operation-logs',
     path: '/auditing/operation-logs'

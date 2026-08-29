@@ -179,7 +179,7 @@ test('manifest 引用缺失 Operation 时失败关闭', () => {
   );
 });
 
-test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 check', async () => {
+test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 check', async () => {
   const manifest = JSON.parse(await readFile(path.join(
     repositoryRoot,
     'contracts',
@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 230);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 230);
+  assert.equal(manifest.entries.length, 236);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 236);
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
@@ -240,6 +240,7 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
       'jobs-host-jobs',
       'notifications-host-announcements',
       'notifications-inbox-messages',
+      'observability-log-files',
       'organization-host-user-management',
       'organization-tenant-position-levels',
       'organization-tenant-positions',
@@ -263,7 +264,7 @@ test('manifest 与规范快照精确登记三个试点且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    230
+    236
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

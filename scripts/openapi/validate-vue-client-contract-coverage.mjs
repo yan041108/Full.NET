@@ -104,10 +104,13 @@ function collectClientContractExportViolations(indexSource, clientContractModule
   const violations = [];
   for (const modulePath of clientContractModules) {
     const posixPath = normalizePosix(modulePath);
-    const fileName = path.posix.basename(posixPath, '.ts');
-  const exportMarkers = [
-      `from './${fileName}.js'`,
-      `from "./${fileName}.js"`
+    const sourcePrefix = 'packages/client-contracts/src/';
+    const moduleName = posixPath.startsWith(sourcePrefix)
+      ? posixPath.slice(sourcePrefix.length).replace(/\.ts$/u, '.js')
+      : `${path.posix.basename(posixPath, '.ts')}.js`;
+    const exportMarkers = [
+      `from './${moduleName}'`,
+      `from "./${moduleName}"`
     ];
     if (!exportMarkers.some((marker) => indexSource.includes(marker))) {
       violations.push(`${modulePath} is not exported from ${clientContractsIndexRelativePath}`);

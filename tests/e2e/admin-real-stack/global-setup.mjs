@@ -63,11 +63,14 @@ export default async function globalSetup() {
   const profileMatches = existingState?.stackProfile === expectedProfile;
   const workspaceMatches = typeof existingState?.codeGenerationWorkspaceRoot === 'string'
     && existsSync(existingState.codeGenerationWorkspaceRoot);
+  const observabilityLogRootMatches = typeof existingState?.observabilityLogRoot === 'string'
+    && existsSync(existingState.observabilityLogRoot);
   let stateIsReusable = Boolean(
     existingState
     && providerMatches
     && profileMatches
     && workspaceMatches
+    && observabilityLogRootMatches
   );
 
   if (stateIsReusable) {
