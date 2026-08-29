@@ -32,11 +32,9 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
         var serializer = new MemoryPackIntegrationEventSerializer();
         var handler = new TenantChangedCacheInvalidationHandler(
             serializer,
-            new TenantCacheInvalidator(
+            TenantCacheInvalidatorTestFactory.Create(
                 cache,
-                new TestHostEnvironment("Testing"),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
+                new TestHostEnvironment("Testing")));
         var payload = serializer.Serialize(new TenantChangedIntegrationEvent(
             Guid.CreateVersion7(),
             "acme.localhost"));
@@ -57,11 +55,9 @@ public sealed class TenantChangedCacheInvalidationHandlerTests
         distributedCache.SetupDistributedCache(new ThrowingDistributedCache());
         var distributedHandler = new TenantChangedCacheInvalidationHandler(
             serializer,
-            new TenantCacheInvalidator(
+            TenantCacheInvalidatorTestFactory.Create(
                 distributedCache,
-                new TestHostEnvironment("Testing"),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
+                new TestHostEnvironment("Testing")));
 
         await Assert.ThrowsExactlyAsync<FusionCacheDistributedCacheException>(
             () => distributedHandler.HandleAsync(

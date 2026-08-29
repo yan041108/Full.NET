@@ -1,8 +1,8 @@
 using System.Diagnostics;
+using Full.NET.Caching.Abstractions;
 using Full.NET.Caching.Fusion;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.Modules.Tenancy;
 
@@ -13,7 +13,7 @@ namespace Full.NET.Modules.Tenancy;
 /// 缓存键由 EnvironmentName 前缀隔离，所以失效同样按环境范围，不跨环境串扰。
 /// </summary>
 internal sealed class TenantCacheInvalidator(
-    IFusionCache cache,
+    ICacheInvalidator cache,
     IHostEnvironment environment,
     ICachePolicyRegistry policies,
     ILogger<TenantCacheInvalidator> logger)
@@ -38,7 +38,7 @@ internal sealed class TenantCacheInvalidator(
             await InvalidateAsync(
                     tenantId,
                     domain,
-                    CreateLocalOptions(),
+                    CacheInvalidationScope.CurrentNodeOnly,
                     distributed: false,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -58,7 +58,7 @@ internal sealed class TenantCacheInvalidator(
             await InvalidateAsync(
                     tenantId,
                     domain,
-                    CreateAfterCommitDistributedOptions(),
+                    CacheInvalidationScope.AllLayersSynchronous,
                     distributed: true,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -85,14 +85,14 @@ internal sealed class TenantCacheInvalidator(
         InvalidateAsync(
             tenantId,
             domain,
-            CreateAfterCommitDistributedOptions(),
+            CacheInvalidationScope.AllLayersSynchronous,
             distributed: true,
             cancellationToken);
 
     private async Task InvalidateAsync(
         Guid tenantId,
         string domain,
-        FusionCacheEntryOptions options,
+        CacheInvalidationScope scope,
         bool distributed,
         CancellationToken cancellationToken)
     {
@@ -101,28 +101,32 @@ internal sealed class TenantCacheInvalidator(
         try
         {
             await cache.RemoveAsync(
+                    CacheEntryNames.TenantResolution,
                     CacheKeyBuilder.TenantResolutionById(
                         environment.EnvironmentName,
                         tenantId),
-                    options,
-                    token: cancellationToken)
+                    scope,
+                    cancellationToken)
                 .ConfigureAwait(false);
             await cache.RemoveAsync(
+                    CacheEntryNames.TenantResolution,
                     CacheKeyBuilder.TenantResolutionByDomain(
                         environment.EnvironmentName,
                         domain),
-                    options,
-                    token: cancellationToken)
+                    scope,
+                    cancellationToken)
                 .ConfigureAwait(false);
             await cache.RemoveByTagAsync(
+                    CacheEntryNames.TenantResolution,
                     CacheKeyBuilder.TenantTag(tenantId),
-                    options,
-                    token: cancellationToken)
+                    scope,
+                    cancellationToken)
                 .ConfigureAwait(false);
             await cache.RemoveByTagAsync(
+                    CacheEntryNames.TenantResolution,
                     CacheKeyBuilder.DomainTag(domain),
-                    options,
-                    token: cancellationToken)
+                    scope,
+                    cancellationToken)
                 .ConfigureAwait(false);
             RecordInvalidation(
                 policy,
@@ -165,24 +169,5 @@ internal sealed class TenantCacheInvalidator(
             policy.ConsistencyClassTag,
             distributed ? "invalidate_after_commit" : "invalidate_local",
             succeeded ? "success" : "failure");
-    }
-
-    private FusionCacheEntryOptions CreateLocalOptions()
-    {
-        var options = policies.CreateEntryOptions(CacheEntryNames.TenantResolution);
-        // 仅修复当前实例内存缓存，不依赖 Redis 可用性。
-        options.SetSkipDistributedCache(skip: true, skipBackplaneNotifications: true);
-        return options;
-    }
-
-    private FusionCacheEntryOptions CreateAfterCommitDistributedOptions()
-    {
-        var options = policies.CreateEntryOptions(CacheEntryNames.TenantResolution);
-        // 提交后路径与兼容 Handler 都必须同步等待 L2 删除与 Backplane 广播。
-        options.AllowBackgroundDistributedCacheOperations = false;
-        options.ReThrowDistributedCacheExceptions = true;
-        options.AllowBackgroundBackplaneOperations = false;
-        options.ReThrowBackplaneExceptions = true;
-        return options;
     }
 }

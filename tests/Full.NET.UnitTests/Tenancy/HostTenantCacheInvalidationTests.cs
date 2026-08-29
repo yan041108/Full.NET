@@ -104,11 +104,9 @@ public sealed class HostTenantCacheInvalidationTests
                     Provider = DatabaseProvider.SqlServer,
                 })),
             Substitute.For<IClock>(),
-            new TenantCacheInvalidator(
+            TenantCacheInvalidatorTestFactory.Create(
                 fusionCache,
-                new TestHostEnvironment(environmentName),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance),
+                new TestHostEnvironment(environmentName)),
             // UpdateAsync 不触碰 B0 域内审计写入器；此处只需满足构造函数依赖。
             Substitute.For<ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>>());
 

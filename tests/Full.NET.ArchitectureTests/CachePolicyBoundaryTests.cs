@@ -89,6 +89,34 @@ public sealed class CachePolicyBoundaryTests
         StringAssert.Contains(source, "new FusionCacheEntryOptions");
     }
 
+    [TestMethod]
+    public void Module_cache_invalidators_must_not_depend_on_fusion_sdk_types()
+    {
+        var root = FindRepositoryRoot();
+        string[] invalidatorPaths =
+        [
+            "src/Modules/Full.NET.Modules.Tenancy/TenantCacheInvalidator.cs",
+            "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyCacheInvalidator.cs",
+        ];
+        var offenders = invalidatorPaths
+            .Where(relativePath =>
+            {
+                var source = File.ReadAllText(Path.Combine(
+                    root,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar)));
+                return source.Contains("IFusionCache", StringComparison.Ordinal)
+                    || source.Contains("FusionCacheEntryOptions", StringComparison.Ordinal)
+                    || source.Contains("using ZiggyCreatures.Caching.Fusion", StringComparison.Ordinal);
+            })
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "模块缓存失效器必须通过 ICacheInvalidator 声明传播语义，不得依赖 FusionCache SDK。违规: "
+            + string.Join("; ", offenders));
+    }
+
     private static IReadOnlyList<string> DetectHandBuiltCacheOptions(string source)
     {
         var kinds = new List<string>();

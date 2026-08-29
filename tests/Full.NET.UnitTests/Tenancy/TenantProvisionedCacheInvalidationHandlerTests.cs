@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Caching.Abstractions;
 using Full.NET.Caching.Fusion;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Tenancy;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.UnitTests.Tenancy;
@@ -28,6 +30,7 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         services.AddFusionCache().AsHybridCache();
         services.AddSingleton<ICachePolicyRegistry>(
             CachePolicyRegistry.Create(new CacheOptions()));
+        services.AddSingleton(Substitute.For<ICacheInvalidator>());
         services.AddSingleton<IHostEnvironment>(
             new TestHostEnvironment("Testing"));
         services.AddSingleton<IIntegrationEventSerializer,
@@ -91,11 +94,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
             tags: [CacheKeyBuilder.DomainTag(domain)]);
         var handler = new TenantProvisionedCacheInvalidationHandler(
             serializer,
-            new TenantCacheInvalidator(
+            TenantCacheInvalidatorTestFactory.Create(
                 fusionCache,
-                new TestHostEnvironment(environmentName),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
+                new TestHostEnvironment(environmentName)));
         var payload = serializer.Serialize(new TenantProvisionedIntegrationEvent(
             tenantId,
             "acme",
@@ -141,11 +142,9 @@ public sealed class TenantProvisionedCacheInvalidationHandlerTests
         await hybridCache.SetAsync(domainKey, "stale-domain");
         var service = new TenantProvisioningService(
             new CancellingCommandDispatcher(requestCancellation, tenant),
-            new TenantCacheInvalidator(
+            TenantCacheInvalidatorTestFactory.Create(
                 fusionCache,
-                new TestHostEnvironment(environmentName),
-                CachePolicyRegistry.Create(new CacheOptions()),
-                NullLogger<TenantCacheInvalidator>.Instance));
+                new TestHostEnvironment(environmentName)));
 
         var result = await service.ProvisionAsync(
             new ProvisionTenantRequest(

@@ -1,7 +1,7 @@
+using Full.NET.Caching.Abstractions;
 using Full.NET.Caching.Fusion;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ZiggyCreatures.Caching.Fusion;
 
 namespace Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 
@@ -9,9 +9,8 @@ namespace Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 /// 诊断策略缓存提交后失效：先清本机 L1，再尽力清 L2/Backplane；失败只告警，不写 Outbox。
 /// </summary>
 internal sealed class DiagnosticPolicyCacheInvalidator(
-    IFusionCache cache,
+    ICacheInvalidator cache,
     IHostEnvironment environment,
-    ICachePolicyRegistry policies,
     ILogger<DiagnosticPolicyCacheInvalidator> logger)
 {
     public static string BuildCacheKey(string environmentName) =>
@@ -24,16 +23,15 @@ internal sealed class DiagnosticPolicyCacheInvalidator(
 
     public async Task InvalidateAfterCommitAsync(CancellationToken cancellationToken)
     {
-        _ = policies.GetRequired(CacheEntryNames.DiagnosticPolicy);
         var key = BuildCacheKey(environment.EnvironmentName);
         try
         {
-            var local = policies
-                .CreateEntryOptions(CacheEntryNames.DiagnosticPolicy)
-                .SetSkipDistributedCache(
-                skip: true,
-                skipBackplaneNotifications: true);
-            await cache.RemoveAsync(key, local, token: cancellationToken).ConfigureAwait(false);
+            await cache.RemoveAsync(
+                    CacheEntryNames.DiagnosticPolicy,
+                    key,
+                    CacheInvalidationScope.CurrentNodeOnly,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -43,12 +41,12 @@ internal sealed class DiagnosticPolicyCacheInvalidator(
 
         try
         {
-            var distributed = policies.CreateEntryOptions(CacheEntryNames.DiagnosticPolicy);
-            distributed.AllowBackgroundDistributedCacheOperations = false;
-            distributed.ReThrowDistributedCacheExceptions = true;
-            distributed.AllowBackgroundBackplaneOperations = false;
-            distributed.ReThrowBackplaneExceptions = true;
-            await cache.RemoveAsync(key, distributed, token: cancellationToken).ConfigureAwait(false);
+            await cache.RemoveAsync(
+                    CacheEntryNames.DiagnosticPolicy,
+                    key,
+                    CacheInvalidationScope.AllLayersSynchronous,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception)
         {

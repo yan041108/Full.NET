@@ -35,11 +35,9 @@ public sealed class TenantCacheInvalidatorTests
         await hybridCache.SetAsync(tenantKey, "stale-tenant");
         await hybridCache.SetAsync(domainKey, "stale-domain");
 
-        var invalidator = new TenantCacheInvalidator(
+        var invalidator = TenantCacheInvalidatorTestFactory.Create(
             fusionCache,
-            new TestHostEnvironment(environmentName),
-            CachePolicyRegistry.Create(new CacheOptions()),
-            NullLogger<TenantCacheInvalidator>.Instance);
+            new TestHostEnvironment(environmentName));
 
         await invalidator.InvalidateAfterCommitAsync(
             tenantId,
@@ -87,11 +85,9 @@ public sealed class TenantCacheInvalidatorTests
         var domainKey = CacheKeyBuilder.TenantResolutionByDomain(environmentName, domain);
         await hybridCache.SetAsync(tenantKey, "stale-tenant");
         await hybridCache.SetAsync(domainKey, "stale-domain");
-        var invalidator = new TenantCacheInvalidator(
+        var invalidator = TenantCacheInvalidatorTestFactory.Create(
             cache,
-            new TestHostEnvironment(environmentName),
-            CachePolicyRegistry.Create(new CacheOptions()),
-            NullLogger<TenantCacheInvalidator>.Instance);
+            new TestHostEnvironment(environmentName));
 
         await invalidator.InvalidateAfterCommitAsync(
             tenantId,
@@ -131,11 +127,9 @@ public sealed class TenantCacheInvalidatorTests
         await using var provider = services.BuildServiceProvider();
         var cache = provider.GetRequiredService<IFusionCache>();
         cache.SetupBackplane(new ThrowingBackplane());
-        var invalidator = new TenantCacheInvalidator(
+        var invalidator = TenantCacheInvalidatorTestFactory.Create(
             cache,
-            new TestHostEnvironment("Testing"),
-            CachePolicyRegistry.Create(new CacheOptions()),
-            NullLogger<TenantCacheInvalidator>.Instance);
+            new TestHostEnvironment("Testing"));
 
         await Assert.ThrowsExactlyAsync<FusionCacheBackplaneException>(
             () => invalidator.InvalidateDistributedAsync(

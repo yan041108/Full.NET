@@ -90,25 +90,25 @@ Commit: `refactor: encapsulate fusion cache invalidation`
 - Consumes: Task 1 `ICacheInvalidator` and `CacheInvalidationScope`.
 - Produces: module invalidators with unchanged public/internal behavior and telemetry outcomes.
 
-- [ ] **Step 1: Write the failing architecture test**
+- [x] **Step 1: Write the failing architecture test**
 
 Add a source boundary assertion that the two invalidator files contain neither `IFusionCache` nor `FusionCacheEntryOptions`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj -c Release --filter FullyQualifiedName~CachePolicyBoundaryTests --no-restore`
 
 Expected: FAIL and list both current module invalidators.
 
-- [ ] **Step 3: Write minimal migration**
+- [x] **Step 3: Write minimal migration**
 
 Inject `ICacheInvalidator`; use `CurrentNodeOnly` for the first pass and `AllLayersSynchronous` after commit. Preserve logging, metrics, cancellation and compatibility-handler exception propagation.
 
-- [ ] **Step 4: Run behavior and architecture tests**
+- [x] **Step 4: Run behavior and architecture tests**
 
 Run focused Tenancy and Settings tests, then the Task 2 architecture filter. Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Commit: `refactor: move module invalidation behind cache contract`
 
