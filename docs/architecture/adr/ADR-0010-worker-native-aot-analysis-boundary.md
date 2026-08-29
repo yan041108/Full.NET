@@ -1,6 +1,6 @@
 # ADR-0010：Worker Native AOT 分析边界
 
-- 状态：Phase 0 已实施；Phase 1/2/3/4 publish 与外部进程门禁已批准实施，等待 Linux CI 证据
+- 状态：Phase 0 已实施；Phase 1/2/3/4/5 publish 与外部进程门禁已批准实施，等待 Linux CI 证据
 - 决策日期：2026-08-29
 - 适用范围：`Full.NET.Host.Worker` 的 Native AOT 静态分析闭包
 - 关联决策：[`ADR-0006`](ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)、[`ADR-0008`](ADR-0008-api-native-aot-runtime-boundary.md)、[`ADR-0009`](ADR-0009-host-api-native-aot-provider-runtime-boundary.md)
@@ -73,6 +73,8 @@ Phase 2 在同一双库门禁中启动正常 `LegacyPolling` 常驻进程，通�
 Phase 3 在隔离双库中写入一条合法 Notifications MemoryPack 事件和一条同路由损坏载荷，要求原生 `LegacyPolling` Worker 对合法消息首次领取即写入成功终态，对损坏消息首次领取即写入 `outbox.invalid_payload` 死信，并释放两条租约。该门禁证明 Legacy Outbox 的领取、AOT 反序列化、Handler 调度与两类确定终态，不证明租约续期、瞬时重试、崩溃恢复、多 Worker 竞争、Realtime 网络投递或容量。
 
 Phase 4 在隔离双库中写入一个 Host 级启用的内置 Ping Job 定义和一条 Pending 手动执行记录，要求原生 Worker 自动领取并在首次尝试写入 `Succeeded`，同时形成开始/结束时间并清空错误、租约和重试字段。该门禁证明 Jobs 的 AOT 领取、定义物化、HandlerKind 解析、执行与成功终态，不证明失败重试、租约续期、崩溃恢复、多 Worker 竞争、计划调度或容量。
+
+Phase 5 在隔离双库中写入两条陈旧 Host 级 Pending 文件记录，并只为其中一条在测试拥有的本地 Files root 创建 Blob。原生 Worker 必须把存在 Blob 的记录提升为 `ready` 并保留对象，同时删除缺失 Blob 的 Pending 元数据。该门禁证明 Files Upload Reconciliation 的 AOT 物化、Provider 解析、本地文件探测与两类确定终态，不证明 `publishing` 保留、软删除 Blob Cleanup、Reference Claim 对账、S3 或容量。
 
 ## 6. 回退
 

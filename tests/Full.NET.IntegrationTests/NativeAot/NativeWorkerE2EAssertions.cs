@@ -242,6 +242,66 @@ internal static class NativeWorkerE2EAssertions
         host.AssertNoFatalMarkersInLogs();
     }
 
+    public static async Task VerifyFilesUploadReconciliationAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out var artifact, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeApiDatabaseBootstrap.BootstrapAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var scenario = await NativeWorkerFilesProbe.PrepareAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            await using var host = await NativeWorkerProcessHost.StartAsync(
+                    artifact,
+                    provider,
+                    connectionString,
+                    TimeSpan.FromMinutes(2),
+                    cancellationToken,
+                    scenario.StorageRoot)
+                .ConfigureAwait(false);
+            var states = await NativeWorkerFilesProbe.WaitForTerminalStatesAsync(
+                    provider,
+                    connectionString,
+                    scenario,
+                    TimeSpan.FromSeconds(30),
+                    host.LogFilePath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(1, states.IsExistingReady);
+            Assert.AreEqual(0, states.IsMissingPresent);
+            Assert.IsTrue(
+                File.Exists(scenario.ExistingBlobPath),
+                "Files 对账提升元数据时不得删除已经存在的本地 Blob。");
+
+            await host.StopGracefullyAsync(
+                    TimeSpan.FromSeconds(30),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(
+                0,
+                host.ExitCode,
+                $"Native Worker 未正常响应 SIGTERM。日志：{host.LogFilePath}");
+            host.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            NativeWorkerFilesProbe.DeleteOwnedStorageRoot(scenario.StorageRoot);
+        }
+    }
+
     private static async Task WaitForJobsHeartbeatAsync(
         DatabaseProvider provider,
         string connectionString,

@@ -65,7 +65,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         DatabaseProvider provider,
         string connectionString,
         TimeSpan startupTimeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? filesRootPath = null)
     {
         var port = GetFreeTcpPort();
         var baseAddress = new Uri($"http://127.0.0.1:{port}/");
@@ -94,7 +95,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             artifact.RepositoryRoot,
             provider,
             connectionString,
-            baseAddress))
+            baseAddress,
+            filesRootPath))
         {
             startInfo.Environment[pair.Key] = pair.Value;
         }
@@ -236,8 +238,10 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         string repositoryRoot,
         DatabaseProvider provider,
         string connectionString,
-        Uri baseAddress) =>
-        new(StringComparer.Ordinal)
+        Uri baseAddress,
+        string? filesRootPath)
+    {
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["DOTNET_ENVIRONMENT"] = "Testing",
             ["ASPNETCORE_ENVIRONMENT"] = "Testing",
@@ -257,7 +261,7 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             ["Jobs__Worker__PollMilliseconds"] = "100",
             ["Jobs__Worker__BacklogSampleSeconds"] = "5",
             ["Realtime__Enabled"] = "false",
-            ["Files__Local__RootPath"] = Path.Combine(
+            ["Files__Local__RootPath"] = filesRootPath ?? Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-worker-native-aot",
                 Guid.NewGuid().ToString("N")),
@@ -266,6 +270,17 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
                 "fullnet-worker-native-aot-keys",
                 Guid.NewGuid().ToString("N")),
         };
+        if (filesRootPath is not null)
+        {
+            environment["Files__UploadReconciliation__Enabled"] = "true";
+            environment["Files__UploadReconciliation__MinimumAgeSeconds"] = "30";
+            environment["Files__UploadReconciliation__PollSeconds"] = "5";
+            environment["Files__UploadReconciliation__BatchSize"] = "10";
+            environment["Files__UploadReconciliation__MaxBatchesPerRun"] = "1";
+        }
+
+        return environment;
+    }
 
     private static async Task PumpStreamAsync(
         string source,
