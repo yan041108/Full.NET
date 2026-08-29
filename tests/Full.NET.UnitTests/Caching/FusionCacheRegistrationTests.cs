@@ -1,10 +1,10 @@
 using Full.NET.Caching.Fusion;
 using Full.NET.Caching.Fusion.Serialization;
-using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.Settings.Serialization;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Persistence;
 using Full.NET.Modules.Tenancy.Serialization;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
@@ -86,6 +86,26 @@ public sealed class FusionCacheRegistrationTests
             serializer.Serialize(new UnregisteredCachePayload("value")));
 
         StringAssert.Contains(exception.Message, typeof(UnregisteredCachePayload).FullName!);
+    }
+
+    [TestMethod]
+    public void Tenancy_owned_cache_payload_reads_existing_l2_json_contract()
+    {
+        var serializer = new FullNetFusionCacheJsonSerializer(
+        [
+            new TenancyCacheJsonTypeInfoContributor(),
+        ]);
+        var existingPayload = System.Text.Encoding.UTF8.GetBytes(
+            """
+            {"tenant":{"id":"0199382f-f88d-7000-8000-000000000001","identifier":"northwind","name":"Northwind","domain":"northwind.example.test","isActive":true,"version":7,"defaultLocale":"zh-CN","tenantPackageId":null,"tenantPackageCode":null,"tenantPackageName":null}}
+            """);
+
+        var entry = serializer.Deserialize<TenantResolutionCacheEntry>(existingPayload);
+
+        Assert.IsNotNull(entry?.Tenant);
+        Assert.AreEqual("northwind", entry.Tenant.Identifier);
+        Assert.AreEqual(7, entry.Tenant.Version);
+        Assert.AreEqual("zh-CN", entry.Tenant.DefaultLocale);
     }
 
     [TestMethod]

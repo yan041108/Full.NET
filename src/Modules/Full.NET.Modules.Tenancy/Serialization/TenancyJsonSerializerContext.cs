@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
-using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Tenancy.Persistence;
 
 namespace Full.NET.Modules.Tenancy.Serialization;
 

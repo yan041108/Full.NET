@@ -1,4 +1,3 @@
-using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 
 namespace Full.NET.Modules.Tenancy.Persistence;
