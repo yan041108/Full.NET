@@ -1,5 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
+  <PropertyGroup>
+    <FullNetPublishMode>Jit</FullNetPublishMode>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- 第三方程序集级告警由精确 warning gate 审核，自有代码仍由 Worker analyzer 失败关闭。 -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(FullNetPublishMode)' == 'NativeAot'">
+    <RuntimeHostConfigurationOption
+      Include="Microsoft.AspNetCore.SignalR.Hub.IsCustomAwaitableSupported"
+      Value="false"
+      Trim="true" />
+    <RuntimeHostConfigurationOption
+      Include="Microsoft.Data.SqlClient.EnableReflectionBasedAuthenticationProviderDiscovery"
+      Value="false"
+      Trim="true" />
+    <TrimmerRootAssembly Include="MemoryPack.Core" />
+    <RdXmlFile Include="NativeAotRoots.xml" />
+  </ItemGroup>
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\Composition\Full.NET.Composition\Full.NET.Composition.csproj" />

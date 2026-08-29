@@ -63,6 +63,19 @@ public sealed class NativeAotMsBuildCompileRulesTests
     }
 
     [TestMethod]
+    public void WorkerProject_NativeAotPublishMode_EnablesPublishAot()
+    {
+        var publishAot = EvaluateMsBuildProperty(
+            "src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj",
+            "PublishAot",
+            [("-p:FullNetPublishMode=NativeAot", null)]);
+
+        Assert.IsTrue(
+            IsTruthyMsBuildValue(publishAot),
+            "Worker 的 NativeAot publish 模式必须生成原生二进制，不能退化为托管 apphost。");
+    }
+
+    [TestMethod]
     public void ModuleProject_FullNetAotAnalysis_EnablesRequestDelegateGenerator()
     {
         var enabled = EvaluateMsBuildProperty(

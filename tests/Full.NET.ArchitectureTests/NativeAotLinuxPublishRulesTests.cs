@@ -212,4 +212,43 @@ public sealed class NativeAotLinuxPublishRulesTests
             mySqlTests,
             "MySql_native_worker_reconciles_pending_file_reference_claims");
     }
+
+    [TestMethod]
+    public void WorkerNativeAot_ProjectConfiguresKnownRuntimeBoundaries()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var project = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Hosts",
+            "Full.NET.Host.Worker",
+            "Full.NET.Host.Worker.csproj"));
+        var rootsPath = Path.Combine(
+            root,
+            "src",
+            "Hosts",
+            "Full.NET.Host.Worker",
+            "NativeAotRoots.xml");
+
+        Assert.Contains(
+            "<IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>",
+            project,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Microsoft.AspNetCore.SignalR.Hub.IsCustomAwaitableSupported",
+            project,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<TrimmerRootAssembly Include=\"MemoryPack.Core\" />",
+            project,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "<RdXmlFile Include=\"NativeAotRoots.xml\" />",
+            project,
+            StringComparison.Ordinal);
+        Assert.IsTrue(File.Exists(rootsPath), "Worker 缺少精确的 Native AOT 第三方绑定 root。");
+        var roots = File.ReadAllText(rootsPath);
+        Assert.Contains("Confluent.Kafka", roots, StringComparison.Ordinal);
+        Assert.Contains("NativeMethods_Alpine", roots, StringComparison.Ordinal);
+    }
 }

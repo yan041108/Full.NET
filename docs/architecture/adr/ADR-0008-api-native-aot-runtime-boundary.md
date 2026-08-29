@@ -13,7 +13,7 @@ Native AOT 与 Trim 分析会暴露反射式配置绑定、匿名 Minimal API �
 
 ## 2. 决策
 
-1. **发布开关**：仅 `Full.NET.Host.Api` 在 `FullNetPublishMode=NativeAot` 时设置 SDK `PublishAot=true`；仓库根目录与其他宿主不得无条件启用。
+1. **发布开关**：`Full.NET.Host.Api` 在 `FullNetPublishMode=NativeAot` 时设置 SDK `PublishAot=true`；仓库根目录与未获批准的宿主不得无条件启用。Worker 的后续独立发布边界由 [`ADR-0010`](ADR-0010-worker-native-aot-analysis-boundary.md) 管理。
 2. **分析开关**：`FullNetAotAnalysis=true` 与 `FullNetPublishMode=NativeAot` 共享同一套 AOT 编译条件，由 `Directory.Build.targets` 统一控制；不得使用 Windows 路径分隔符限定闭包范围。
 3. **闭包范围**：分析/发布必须覆盖 Host.Api 的完整 net10.0 引用闭包，包括 Composition 与全部 Modules；仅排除不适用的 netstandard2.0 Messaging Generator。
 4. **生成器**：API 可达项目在 AOT 编译条件下启用 `EnableAotAnalyzer`、`EnableTrimAnalyzer`、`EnableConfigurationBindingGenerator` 与 `EnableRequestDelegateGenerator`。

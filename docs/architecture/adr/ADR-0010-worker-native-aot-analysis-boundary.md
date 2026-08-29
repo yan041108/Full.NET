@@ -1,6 +1,6 @@
 # ADR-0010：Worker Native AOT 分析边界
 
-- 状态：Phase 0 已实施；Phase 1/2/3/4/5/6/7 publish 与外部进程门禁已批准实施，等待 Linux CI 证据
+- 状态：Phase 0 已实施；Phase 1/2/3/4/5/6/7 publish 与外部进程门禁已批准实施，本地 linux-x64 publish 已闭合，等待 Linux CI 双库原生进程证据
 - 决策日期：2026-08-29
 - 适用范围：`Full.NET.Host.Worker` 的 Native AOT 静态分析闭包
 - 关联决策：[`ADR-0006`](ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)、[`ADR-0008`](ADR-0008-api-native-aot-runtime-boundary.md)、[`ADR-0009`](ADR-0009-host-api-native-aot-provider-runtime-boundary.md)
@@ -65,6 +65,8 @@ Worker 是长生命周期后台进程，Native AOT 的启动或内存收益目�
 | `Worker Aot-published` | 后续独立 Phase 的 Linux 原生 publish、启动和双库外部进程 E2E 全部通过 |
 
 Phase 0 只能产生第一种状态。
+
+后续 Phase 1–7 已批准 Worker 在显式 `FullNetPublishMode=NativeAot` 时设置 `PublishAot=true`；默认构建仍保持 JIT。该批准只开放 Worker 自身的条件发布开关，不允许仓库根目录、Migrator、生成器或其他项目继承 Native AOT 发布。
 
 Phase 1 采用 Worker 既有的一次性 Outbox 版本退役扫描作为最小外部进程闭包：JIT Migrator 负责双库 schema，原生 Worker 负责启动、Dapper AOT backlog 读取、源生成 JSON 和确定性退出。该切片通过后仍不覆盖常驻轮询、Kafka/CDC、Jobs 自动领取、Files 后台任务或容量；只有对应后续 Phase 完成后才能扩大状态声明。
 

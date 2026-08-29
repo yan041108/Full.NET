@@ -4,16 +4,15 @@ using System.Text.RegularExpressions;
 namespace Full.NET.ArchitectureTests;
 
 /// <summary>
-/// 验证 Native AOT 发布边界：仅 API 宿主在 <c>FullNetPublishMode=NativeAot</c> 时设置 SDK <c>PublishAot</c>，
-/// 且静态分析通过自有 <c>FullNetAotAnalysis</c> 属性启用，不污染 netstandard2.0 生成器项目。
+/// 验证 Native AOT 发布边界：仅已批准的 API/Worker 宿主可在显式发布模式下设置 SDK <c>PublishAot</c>，
+/// 且静态分析通过自有 <c>FullNetAotAnalysis</c> 属性启用，不污染 Migrator 与 netstandard2.0 生成器项目。
 /// </summary>
 [TestClass]
 public sealed class NativeAotPublishingRulesTests
 {
-    private static readonly string[] NonApiHostsThatMustNotPublishAot =
+    private static readonly string[] ProjectsThatMustNotPublishAot =
     [
         "src/Generators/Full.NET.Messaging.Generators/Full.NET.Messaging.Generators.csproj",
-        "src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj",
         "src/Hosts/Full.NET.Host.Migrator/Full.NET.Host.Migrator.csproj",
     ];
 
@@ -43,9 +42,9 @@ public sealed class NativeAotPublishingRulesTests
     }
 
     [TestMethod]
-    public void NonApiProjects_DoNotInheritSdkPublishAot_WhenPublishModeIsNativeAot()
+    public void UnapprovedProjects_DoNotInheritSdkPublishAot_WhenPublishModeIsNativeAot()
     {
-        foreach (var relativePath in NonApiHostsThatMustNotPublishAot)
+        foreach (var relativePath in ProjectsThatMustNotPublishAot)
         {
             var publishAot = EvaluateMsBuildProperty(
                 relativePath,
