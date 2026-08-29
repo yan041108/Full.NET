@@ -66,7 +66,9 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         string connectionString,
         TimeSpan startupTimeout,
         CancellationToken cancellationToken = default,
-        string? filesRootPath = null)
+        string? filesRootPath = null,
+        bool enableFilesUploadReconciliation = false,
+        bool enableFilesCleanup = false)
     {
         var port = GetFreeTcpPort();
         var baseAddress = new Uri($"http://127.0.0.1:{port}/");
@@ -96,7 +98,9 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             provider,
             connectionString,
             baseAddress,
-            filesRootPath))
+            filesRootPath,
+            enableFilesUploadReconciliation,
+            enableFilesCleanup))
         {
             startInfo.Environment[pair.Key] = pair.Value;
         }
@@ -239,7 +243,9 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         DatabaseProvider provider,
         string connectionString,
         Uri baseAddress,
-        string? filesRootPath)
+        string? filesRootPath,
+        bool enableFilesUploadReconciliation,
+        bool enableFilesCleanup)
     {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -261,6 +267,9 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             ["Jobs__Worker__PollMilliseconds"] = "100",
             ["Jobs__Worker__BacklogSampleSeconds"] = "5",
             ["Realtime__Enabled"] = "false",
+            ["Files__UploadReconciliation__Enabled"] =
+                enableFilesUploadReconciliation.ToString(),
+            ["Files__Cleanup__Enabled"] = enableFilesCleanup.ToString(),
             ["Files__Local__RootPath"] = filesRootPath ?? Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-worker-native-aot",
@@ -270,13 +279,19 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
                 "fullnet-worker-native-aot-keys",
                 Guid.NewGuid().ToString("N")),
         };
-        if (filesRootPath is not null)
+        if (enableFilesUploadReconciliation)
         {
-            environment["Files__UploadReconciliation__Enabled"] = "true";
             environment["Files__UploadReconciliation__MinimumAgeSeconds"] = "30";
             environment["Files__UploadReconciliation__PollSeconds"] = "5";
             environment["Files__UploadReconciliation__BatchSize"] = "10";
             environment["Files__UploadReconciliation__MaxBatchesPerRun"] = "1";
+        }
+
+        if (enableFilesCleanup)
+        {
+            environment["Files__Cleanup__PollSeconds"] = "5";
+            environment["Files__Cleanup__BatchSize"] = "10";
+            environment["Files__Cleanup__MaxBatchesPerRun"] = "1";
         }
 
         return environment;

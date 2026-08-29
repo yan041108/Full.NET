@@ -70,4 +70,17 @@ public sealed class NativeWorkerSqlServerE2ETests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task SqlServer_native_worker_cleans_deleted_local_files()
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeWorkerE2EAssertions.VerifyFilesDeletedBlobCleanupAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }

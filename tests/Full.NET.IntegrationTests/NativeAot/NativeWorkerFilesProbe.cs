@@ -7,7 +7,7 @@ using MySqlConnector;
 
 namespace Full.NET.IntegrationTests.NativeAot;
 
-/// <summary>为原生 Worker 准备本地文件对账探针，并按文件标识读取双终态。</summary>
+/// <summary>为原生 Worker 准备本地文件对账与清理探针，并按文件标识读取确定终态。</summary>
 internal static class NativeWorkerFilesProbe
 {
     private const string InsertSql =
@@ -37,6 +37,35 @@ internal static class NativeWorkerFilesProbe
                 WHERE Id = @MissingId
                   AND TenantId IS NULL
             ) THEN 1 ELSE 0 END AS IsMissingPresent
+        """;
+
+    private const string InsertDeletedSql =
+        """
+        INSERT INTO fn_files_file
+            (Id, TenantId, OriginalFileName, ContentType, SizeBytes,
+             ProviderKey, StorageKey, ContentHash, StorageState,
+             CreatedAtUtc, CreatedByUserId, DeletedAtUtc)
+        VALUES
+            (@Id, NULL, @OriginalFileName, @ContentType, @SizeBytes,
+             @ProviderKey, @StorageKey, NULL, 'ready',
+             @CreatedAtUtc, @CreatedByUserId, @DeletedAtUtc)
+        """;
+
+    private const string SelectCleanupStatesSql =
+        """
+        SELECT
+            CASE WHEN EXISTS (
+                SELECT 1 FROM fn_files_file
+                WHERE Id = @LocalId
+                  AND TenantId IS NULL
+            ) THEN 1 ELSE 0 END AS IsLocalPresent,
+            CASE WHEN EXISTS (
+                SELECT 1 FROM fn_files_file
+                WHERE Id = @UnavailableProviderId
+                  AND TenantId IS NULL
+                  AND ProviderKey = 'native-aot-unavailable'
+                  AND DeletedAtUtc IS NOT NULL
+            ) THEN 1 ELSE 0 END AS IsUnavailableProviderPresent
         """;
 
     public static async Task<NativeWorkerFilesScenario> PrepareAsync(
@@ -149,6 +178,128 @@ internal static class NativeWorkerFilesProbe
             + $"IsMissingPresent={lastStates?.IsMissingPresent}。日志：{logFilePath}");
     }
 
+    public static async Task<NativeWorkerFilesCleanupScenario> PrepareCleanupAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        var localId = Guid.CreateVersion7();
+        var unavailableProviderId = Guid.CreateVersion7();
+        var createdByUserId = Guid.CreateVersion7();
+        var storageRoot = Path.Combine(
+            GetOwnedStorageParent(),
+            Guid.NewGuid().ToString("N"));
+        var localStorageKey = $"native-aot/{localId:N}.bin";
+        var localBlobPath = Path.Combine(
+            storageRoot,
+            localStorageKey.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(
+            Path.GetDirectoryName(localBlobPath)
+                ?? throw new InvalidOperationException("Files cleanup probe storage key has no directory."));
+        await File.WriteAllBytesAsync(
+                localBlobPath,
+                [0x46, 0x75, 0x6C, 0x6C, 0x4E, 0x45, 0x54],
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        try
+        {
+            var createdAtUtc = DateTimeOffset.UtcNow.AddMinutes(-3);
+            // 未知 Provider 必须先被扫描，后序本地记录成功才能证明单项失败不会中止批次。
+            var unavailableProviderDeletedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-2);
+            var localDeletedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+            var databaseCreatedAtUtc = ToDatabaseTimestamp(provider, createdAtUtc);
+            var databaseUnavailableProviderDeletedAtUtc = ToDatabaseTimestamp(
+                provider,
+                unavailableProviderDeletedAtUtc);
+            var databaseLocalDeletedAtUtc = ToDatabaseTimestamp(
+                provider,
+                localDeletedAtUtc);
+            await using var connection = CreateConnection(provider, connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await using var transaction = await connection
+                .BeginTransactionAsync(cancellationToken)
+                .ConfigureAwait(false);
+            await InsertDeletedAsync(
+                    connection,
+                    transaction,
+                    localId,
+                    "local",
+                    localStorageKey,
+                    databaseCreatedAtUtc,
+                    databaseLocalDeletedAtUtc,
+                    createdByUserId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await InsertDeletedAsync(
+                    connection,
+                    transaction,
+                    unavailableProviderId,
+                    "native-aot-unavailable",
+                    $"native-aot/{unavailableProviderId:N}.bin",
+                    databaseCreatedAtUtc,
+                    databaseUnavailableProviderDeletedAtUtc,
+                    createdByUserId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return new NativeWorkerFilesCleanupScenario(
+                localId,
+                unavailableProviderId,
+                storageRoot,
+                localBlobPath);
+        }
+        catch
+        {
+            DeleteOwnedStorageRoot(storageRoot);
+            throw;
+        }
+    }
+
+    public static async Task<NativeWorkerFilesCleanupTerminalStates>
+        WaitForCleanupTerminalStatesAsync(
+            DatabaseProvider provider,
+            string connectionString,
+            NativeWorkerFilesCleanupScenario scenario,
+            TimeSpan timeout,
+            string logFilePath,
+            CancellationToken cancellationToken = default)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout);
+        NativeWorkerFilesCleanupTerminalStates? lastStates = null;
+        while (DateTime.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await using var connection = CreateConnection(provider, connectionString);
+            lastStates = await connection
+                .QuerySingleAsync<NativeWorkerFilesCleanupTerminalStates>(
+                    new CommandDefinition(
+                        SelectCleanupStatesSql,
+                        new
+                        {
+                            scenario.LocalId,
+                            scenario.UnavailableProviderId,
+                        },
+                        cancellationToken: cancellationToken))
+                .ConfigureAwait(false);
+            if (lastStates.IsLocalPresent == 0
+                && lastStates.IsUnavailableProviderPresent == 1
+                && !File.Exists(scenario.LocalBlobPath))
+            {
+                return lastStates;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        throw new TimeoutException(
+            $"Native Worker 未在 {timeout} 内写入 Files Cleanup 终态；"
+            + $"IsLocalPresent={lastStates?.IsLocalPresent}, "
+            + $"IsUnavailableProviderPresent={lastStates?.IsUnavailableProviderPresent}, "
+            + $"LocalBlobExists={File.Exists(scenario.LocalBlobPath)}。日志：{logFilePath}");
+    }
+
     public static void DeleteOwnedStorageRoot(string storageRoot)
     {
         var ownedParent = GetOwnedStorageParent();
@@ -199,6 +350,40 @@ internal static class NativeWorkerFilesProbe
                 transaction,
                 cancellationToken: cancellationToken));
 
+    private static Task<int> InsertDeletedAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        Guid id,
+        string providerKey,
+        string storageKey,
+        object createdAtUtc,
+        object deletedAtUtc,
+        Guid createdByUserId,
+        CancellationToken cancellationToken) =>
+        connection.ExecuteAsync(
+            new CommandDefinition(
+                InsertDeletedSql,
+                new
+                {
+                    Id = id,
+                    OriginalFileName = $"{id:N}.bin",
+                    ContentType = "application/octet-stream",
+                    SizeBytes = 7L,
+                    ProviderKey = providerKey,
+                    StorageKey = storageKey,
+                    CreatedAtUtc = createdAtUtc,
+                    CreatedByUserId = createdByUserId,
+                    DeletedAtUtc = deletedAtUtc,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+    private static object ToDatabaseTimestamp(
+        DatabaseProvider provider,
+        DateTimeOffset timestamp) => provider == DatabaseProvider.MySql
+        ? timestamp.UtcDateTime
+        : timestamp;
+
     private static string GetOwnedStorageParent() => Path.Combine(
         Path.GetTempPath(),
         "fullnet-worker-native-aot-files-e2e");
@@ -229,4 +414,17 @@ internal sealed class NativeWorkerFilesTerminalStates
     public int IsExistingReady { get; init; }
 
     public int IsMissingPresent { get; init; }
+}
+
+internal sealed record NativeWorkerFilesCleanupScenario(
+    Guid LocalId,
+    Guid UnavailableProviderId,
+    string StorageRoot,
+    string LocalBlobPath);
+
+internal sealed class NativeWorkerFilesCleanupTerminalStates
+{
+    public int IsLocalPresent { get; init; }
+
+    public int IsUnavailableProviderPresent { get; init; }
 }

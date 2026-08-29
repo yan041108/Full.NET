@@ -270,7 +270,8 @@ internal static class NativeWorkerE2EAssertions
                     connectionString,
                     TimeSpan.FromMinutes(2),
                     cancellationToken,
-                    scenario.StorageRoot)
+                    scenario.StorageRoot,
+                    enableFilesUploadReconciliation: true)
                 .ConfigureAwait(false);
             var states = await NativeWorkerFilesProbe.WaitForTerminalStatesAsync(
                     provider,
@@ -285,6 +286,67 @@ internal static class NativeWorkerE2EAssertions
             Assert.IsTrue(
                 File.Exists(scenario.ExistingBlobPath),
                 "Files 对账提升元数据时不得删除已经存在的本地 Blob。");
+
+            await host.StopGracefullyAsync(
+                    TimeSpan.FromSeconds(30),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(
+                0,
+                host.ExitCode,
+                $"Native Worker 未正常响应 SIGTERM。日志：{host.LogFilePath}");
+            host.AssertNoFatalMarkersInLogs();
+        }
+        finally
+        {
+            NativeWorkerFilesProbe.DeleteOwnedStorageRoot(scenario.StorageRoot);
+        }
+    }
+
+    public static async Task VerifyFilesDeletedBlobCleanupAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out var artifact, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeApiDatabaseBootstrap.BootstrapAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var scenario = await NativeWorkerFilesProbe.PrepareCleanupAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            await using var host = await NativeWorkerProcessHost.StartAsync(
+                    artifact,
+                    provider,
+                    connectionString,
+                    TimeSpan.FromMinutes(2),
+                    cancellationToken,
+                    scenario.StorageRoot,
+                    enableFilesCleanup: true)
+                .ConfigureAwait(false);
+            var states = await NativeWorkerFilesProbe.WaitForCleanupTerminalStatesAsync(
+                    provider,
+                    connectionString,
+                    scenario,
+                    TimeSpan.FromSeconds(30),
+                    host.LogFilePath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Assert.AreEqual(0, states.IsLocalPresent);
+            Assert.AreEqual(1, states.IsUnavailableProviderPresent);
+            Assert.IsFalse(
+                File.Exists(scenario.LocalBlobPath),
+                "Files Cleanup 必须在清除墓碑元数据前删除本地 Blob。");
 
             await host.StopGracefullyAsync(
                     TimeSpan.FromSeconds(30),

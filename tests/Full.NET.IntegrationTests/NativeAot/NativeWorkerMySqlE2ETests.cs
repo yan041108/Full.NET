@@ -70,4 +70,17 @@ public sealed class NativeWorkerMySqlE2ETests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task MySql_native_worker_cleans_deleted_local_files()
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeWorkerE2EAssertions.VerifyFilesDeletedBlobCleanupAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }

@@ -157,7 +157,7 @@ public sealed class NativeAotLinuxPublishRulesTests
             "artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker",
             publishGate.GetProperty("executableRelativePath").GetString());
         var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
-        Assert.AreEqual(10, integrationGate.GetProperty("minimum").GetInt32());
+        Assert.AreEqual(12, integrationGate.GetProperty("minimum").GetInt32());
 
         string[] requiredFiles =
         [
@@ -198,5 +198,11 @@ public sealed class NativeAotLinuxPublishRulesTests
         StringAssert.Contains(
             mySqlTests,
             "MySql_native_worker_reconciles_pending_local_files");
+        StringAssert.Contains(
+            sqlServerTests,
+            "SqlServer_native_worker_cleans_deleted_local_files");
+        StringAssert.Contains(
+            mySqlTests,
+            "MySql_native_worker_cleans_deleted_local_files");
     }
 }
