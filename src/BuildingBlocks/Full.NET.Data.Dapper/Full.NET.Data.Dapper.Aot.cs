@@ -11,4 +11,5 @@
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.SerialNumbers")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Document")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Auditing")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Full.NET.Modules.Workflow")]
 #endif

@@ -302,6 +302,9 @@
       },
       "101": {
         "filter": "FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.MySql_|FullyQualifiedName~Migration101IdentityHostUserProfileAuthorityRecoveryTests.SqlServer_"
+      },
+      "102": {
+        "filter": "FullyQualifiedName~Migration102WorkflowFirstVerticalSliceRecoveryTests.MySql_|FullyQualifiedName~Migration102WorkflowFirstVerticalSliceRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -329,7 +332,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 314,
+        "minimum": 316,
         "timeout": "90m"
       },
         "infrastructure": {
@@ -343,7 +346,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 653,
+        "minimum": 655,
         "timeout": "90m"
       }
     }

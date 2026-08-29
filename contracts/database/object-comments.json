@@ -978,6 +978,202 @@
         "SchemaMode": "Schema 模式",
         "UpdatedAtUtc": "更新时间(UTC)"
       }
+    },
+    "fn_workflow_action_record": {
+      "comment": "工作流动作记录表",
+      "columns": {
+        "ActionKey": "操作键",
+        "ActorUserId": "操作者用户标识",
+        "CommentSummary": "动作意见摘要",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "幂等键",
+        "InstanceId": "流程实例标识",
+        "InstanceRevision": "流程实例修订号",
+        "StepId": "流程步骤标识",
+        "TodoId": "待办标识"
+      }
+    },
+    "fn_workflow_cc": {
+      "comment": "工作流抄送记录表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "流程实例标识",
+        "ReadAtUtc": "已读时间(UTC)",
+        "RecipientUserId": "接收人用户标识",
+        "StepId": "流程步骤标识"
+      }
+    },
+    "fn_workflow_definition": {
+      "comment": "工作流定义表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "DefinitionKey": "流程定义稳定键",
+        "DraftId": "当前草稿标识",
+        "Id": "逻辑主键",
+        "LatestPublishedVersionId": "最新已发布版本标识",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_workflow_definition_draft": {
+      "comment": "工作流定义草稿表",
+      "columns": {
+        "ContentHash": "内容哈希",
+        "DefinitionId": "流程定义标识",
+        "DraftJson": "流程定义草稿(JSON)",
+        "DraftRevision": "草稿修订号",
+        "Id": "逻辑主键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedById": "更新人标识"
+      }
+    },
+    "fn_workflow_definition_version": {
+      "comment": "工作流定义发布版本表",
+      "columns": {
+        "CanonicalJson": "规范化流程定义(JSON)",
+        "ContentHash": "内容哈希",
+        "DefinitionId": "流程定义标识",
+        "Id": "逻辑主键",
+        "PublishedAtUtc": "发布时间(UTC)",
+        "PublishedById": "发布人标识",
+        "SchemaVersion": "定义结构版本",
+        "VersionNumber": "版本号"
+      }
+    },
+    "fn_workflow_domain_audit": {
+      "comment": "工作流领域审计表",
+      "columns": {
+        "ActorUserId": "操作者用户标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DetailJson": "审计详情(JSON)",
+        "Id": "逻辑主键",
+        "InstanceId": "流程实例标识",
+        "OperationKey": "操作键",
+        "OutcomeKey": "操作结果键",
+        "ResourceId": "资源标识",
+        "ResourceTypeKey": "资源类型键",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
+    "fn_workflow_execution_log": {
+      "comment": "工作流执行日志表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "FromStatusKey": "迁移前状态键",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "幂等键",
+        "InstanceId": "流程实例标识",
+        "StepId": "流程步骤标识",
+        "Summary": "执行摘要",
+        "ToStatusKey": "迁移后状态键",
+        "TransitionKey": "状态迁移键"
+      }
+    },
+    "fn_workflow_form_definition": {
+      "comment": "工作流表单定义表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedById": "创建人标识",
+        "DraftRevision": "草稿修订号",
+        "DraftSchemaJson": "表单草稿结构(JSON)",
+        "FormKey": "表单稳定键",
+        "Id": "逻辑主键",
+        "LatestPublishedVersionId": "最新已发布版本标识",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    },
+    "fn_workflow_form_submission": {
+      "comment": "工作流表单提交表",
+      "columns": {
+        "DataClassificationSummary": "数据分级摘要",
+        "FormVersionId": "表单版本标识",
+        "Id": "逻辑主键",
+        "InstanceId": "流程实例标识",
+        "Revision": "提交修订号",
+        "SubmissionJson": "表单提交数据(JSON)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UpdatedById": "更新人标识"
+      }
+    },
+    "fn_workflow_form_version": {
+      "comment": "工作流表单发布版本表",
+      "columns": {
+        "AdapterVersion": "表单适配器版本",
+        "ComponentCatalogVersion": "组件目录版本",
+        "ContentHash": "内容哈希",
+        "FormDefinitionId": "表单定义标识",
+        "FormSchemaJson": "表单结构(JSON)",
+        "Id": "逻辑主键",
+        "PublishedAtUtc": "发布时间(UTC)",
+        "PublishedById": "发布人标识",
+        "SchemaVersion": "表单结构版本",
+        "VersionNumber": "版本号",
+        "WebRenderSchemaJson": "Web 渲染结构(JSON)"
+      }
+    },
+    "fn_workflow_instance": {
+      "comment": "工作流实例表",
+      "columns": {
+        "BusinessId": "业务对象标识",
+        "BusinessType": "业务对象类型",
+        "CancellationReason": "取消原因",
+        "CancelledAtUtc": "取消时间(UTC)",
+        "CancelledById": "取消人标识",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "DefinitionVersionId": "流程定义版本标识",
+        "FormVersionId": "表单版本标识",
+        "Id": "逻辑主键",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseOwnerKey": "执行租约持有者键",
+        "Revision": "实例修订号",
+        "ScopeKey": "作用域键",
+        "StartedAtUtc": "开始时间(UTC)",
+        "StartedById": "发起人标识",
+        "StatusKey": "实例状态键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "ActiveBusinessKey": "活动实例业务唯一键"
+      }
+    },
+    "fn_workflow_step": {
+      "comment": "工作流步骤表",
+      "columns": {
+        "AssignedUserId": "当前处理人标识",
+        "AttemptCount": "尝试次数",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "DueAtUtc": "处理截止时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "流程实例标识",
+        "NodeKey": "流程节点键",
+        "NodeTypeKey": "流程节点类型键",
+        "Revision": "步骤修订号",
+        "StartedAtUtc": "开始时间(UTC)",
+        "StatusKey": "步骤状态键"
+      }
+    },
+    "fn_workflow_todo": {
+      "comment": "工作流待办表",
+      "columns": {
+        "ArrivedAtUtc": "待办到达时间(UTC)",
+        "AssigneeUserId": "待办处理人标识",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "流程实例标识",
+        "ResultActionKey": "处理结果动作键",
+        "Revision": "待办修订号",
+        "StatusKey": "待办状态键",
+        "StepId": "流程步骤标识"
+      }
     }
   }
 }

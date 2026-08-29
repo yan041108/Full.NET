@@ -3,6 +3,20 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/102_WorkflowFirstVerticalSlice.sql",
+      "reason": "102 使用两个固定不可变版本触发器；对象名均为常量，并由 Workflow 双库迁移与不可变更新测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/102_WorkflowFirstVerticalSlice.sql",
+      "reason": "102 使用两个固定不可变版本触发器；对象名均为常量，并由 Workflow 双库迁移与不可变更新测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/043_AuditingOutboundCall.sql",

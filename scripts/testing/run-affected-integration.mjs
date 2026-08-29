@@ -43,7 +43,8 @@ const focusedModules = new Set([
   'ObservabilityAdmin',
   'Organization',
   'SerialNumbers',
-  'Settings'
+  'Settings',
+  'Workflow'
 ]);
 
 const integrationModules = [

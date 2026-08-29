@@ -29,6 +29,11 @@ public sealed class WorkflowModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 WorkflowJsonSerializerContext.Default));
+#if FULLNET_AOT_COMPILE
+        new Persistence.WorkflowDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
