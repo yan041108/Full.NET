@@ -8,12 +8,12 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const mapPath = path.join(repositoryRoot, 'contracts/naming/pre-v1-name-map.json');
 
 const allowedLegacyFiles = new Set([
-  'src/BuildingBlocks/Full.NET.Hosting/Api/PreV1ProtocolCompatibility.cs',
+  'src/Compatibility/Full.NET.Compatibility.AdminNet/PreV1ProtocolCompatibility.cs',
   'contracts/naming/pre-v1-name-map.json',
   'contracts/naming/naming-debt.json',
   'tests/naming/pre-v1-name-map.test.mjs',
   'tests/naming/pre-v1-protocol-source.test.mjs',
-  'tests/Full.NET.UnitTests/Naming/PreV1ProtocolCompatibilityTests.cs',
+  'tests/Full.NET.CompatibilityTests/PreV1ProtocolCompatibilityTests.cs',
   'tests/Full.NET.CompatibilityTests/AdminNetApiResultMapperTests.cs',
   'tests/Full.NET.UnitTests/Results/ErrorCompatibilityTests.cs',
   'packages/client-contracts/src/pre-v1-protocol.ts',

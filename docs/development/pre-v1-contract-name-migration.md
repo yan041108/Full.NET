@@ -23,8 +23,8 @@
 
 ### 服务端
 
-- [`PreV1ProtocolCompatibility`](../../src/BuildingBlocks/Full.NET.Hosting/Api/PreV1ProtocolCompatibility.cs) 集中维护 legacy ↔ canonical 映射。
-- [`ResourceErrorMessageLocalizer`](../../src/BuildingBlocks/Full.NET.Hosting/Api/ResourceErrorMessageLocalizer.cs) 在 canonical 资源键缺失时可回退到 legacy 资源键（迁移期保险）。
+- [`PreV1ProtocolCompatibility`](../../src/Compatibility/Full.NET.Compatibility.AdminNet/PreV1ProtocolCompatibility.cs) 由 Admin.NET 兼容适配层集中维护 legacy ↔ canonical 映射。
+- [`ResourceErrorMessageLocalizer`](../../src/BuildingBlocks/Full.NET.Hosting/Api/ResourceErrorMessageLocalizer.cs) 只读取 canonical 模块资源键，不持有 Identity/Tenancy 的 legacy 协议知识。
 - Admin.NET 兼容层可通过 `IPreV1LegacyErrorCodeProfile.EmitLegacyErrorCodes = true` 在包络 `code` 字段回退 legacy 值；默认关闭。
 
 ### 客户端

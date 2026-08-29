@@ -7,5 +7,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\src\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Compatibility\Full.NET.Compatibility.AdminNet\Full.NET.Compatibility.AdminNet.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
   </ItemGroup>
 </Project>

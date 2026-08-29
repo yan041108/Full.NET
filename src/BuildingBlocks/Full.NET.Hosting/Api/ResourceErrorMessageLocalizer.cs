@@ -74,19 +74,7 @@ public sealed class ResourceErrorMessageLocalizer : IErrorMessageLocalizer
         CultureInfo culture,
         out string template)
     {
-        if (source.TryGetTemplate(code, culture, out template))
-        {
-            return true;
-        }
-
-        if (PreV1ProtocolCompatibility.TryGetLegacyErrorCodeAlias(code, out var legacyCode)
-            && source.TryGetTemplate(legacyCode, culture, out template))
-        {
-            return true;
-        }
-
-        template = string.Empty;
-        return false;
+        return source.TryGetTemplate(code, culture, out template);
     }
 
     private static void RecordFallback(string code, string locale) =>

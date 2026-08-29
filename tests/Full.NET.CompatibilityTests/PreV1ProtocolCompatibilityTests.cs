@@ -1,8 +1,8 @@
-using Full.NET.Hosting.Api;
+using Full.NET.Compatibility.AdminNet;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
 
-namespace Full.NET.UnitTests.Naming;
+namespace Full.NET.CompatibilityTests;
 
 [TestClass]
 public sealed class PreV1ProtocolCompatibilityTests
@@ -29,10 +29,16 @@ public sealed class PreV1ProtocolCompatibilityTests
     [DataRow("tenancy.identifier-exists", "tenancy.identifier_exists")]
     [DataRow("identity.bootstrap.invalid-password", "identity.bootstrap.invalid_password")]
     [DataRow("identity.login-succeeded", "identity.login_succeeded")]
-    public void NormalizeErrorCode_maps_registered_legacy_values(string legacy, string canonical)
+    public void NormalizeErrorCode_maps_registered_legacy_values(
+        string legacy,
+        string canonical)
     {
-        Assert.AreEqual(canonical, PreV1ProtocolCompatibility.NormalizeErrorCode(legacy));
-        Assert.AreEqual(canonical, PreV1ProtocolCompatibility.NormalizeErrorCode(canonical));
+        Assert.AreEqual(
+            canonical,
+            PreV1ProtocolCompatibility.NormalizeErrorCode(legacy));
+        Assert.AreEqual(
+            canonical,
+            PreV1ProtocolCompatibility.NormalizeErrorCode(canonical));
     }
 
     [TestMethod]

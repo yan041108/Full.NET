@@ -1,9 +1,9 @@
 using System.Collections.Frozen;
 
-namespace Full.NET.Hosting.Api;
+namespace Full.NET.Compatibility.AdminNet;
 
 /// <summary>
-/// Pre-v1 协议名称兼容边界：集中维护 <c>PreV1NameMapV1</c> 中需要客户端/资源回退的 error_code 映射。
+/// Admin.NET pre-v1 协议兼容边界：集中维护仍需向旧客户端回退的 error_code 映射。
 /// </summary>
 public static class PreV1ProtocolCompatibility
 {
@@ -48,14 +48,6 @@ public static class PreV1ProtocolCompatibility
         ArgumentException.ThrowIfNullOrWhiteSpace(canonicalCode);
         return CanonicalToLegacy.GetValueOrDefault(canonicalCode, canonicalCode);
     }
-
-    /// <summary>
-    /// 尝试解析 canonical error_code 对应的 legacy 资源/兼容键。
-    /// </summary>
-    public static bool TryGetLegacyErrorCodeAlias(
-        string canonicalCode,
-        out string legacyCode) =>
-        CanonicalToLegacy.TryGetValue(canonicalCode, out legacyCode!);
 
     /// <summary>
     /// 已登记 legacy error_code 的 canonical 目标集合。
