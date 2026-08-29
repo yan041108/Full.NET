@@ -126,7 +126,7 @@
 
 1. 业务数据访问默认使用 Dapper 与显式 SQL。未经明确架构决策，禁止引入 EF Core 作为并行 ORM 或业务数据访问捷径。
 2. SQL 必须参数化；表名、排序字段等不能参数化的片段必须来自封闭白名单，禁止拼接用户输入。
-3. 租户作用域内的 SQL 必须同时声明 `SqlDataScope.TenantRequired` 与 `SqlTenantBinding.CurrentTenantId`，由统一范围守卫校验并由执行器注入受信任的当前租户参数；`Global`/`HostOnly` 必须使用 `SqlTenantBinding.None`。查询和写入条件仍必须真实包含租户过滤，仅声明元数据或设置上下文变量不等于隔离。全模块 Scope/Binding 一致性必须由 Architecture Tests 自动检查。每条生产 `Global` Statement 还必须在 [`contracts/architecture/global-sql-statements.json`](../contracts/architecture/global-sql-statements.json) 以 Statement Name、声明成员和源码文件精确登记安全分类、中文理由与不可变 SQL 片段；禁止通配符、批量豁免、未登记新增项和过期目录项。
+3. 租户作用域内的 SQL 必须同时声明 `SqlDataScope.TenantRequired` 与 `SqlTenantBinding.CurrentTenantId`，由统一范围守卫校验并由执行器注入受信任的当前租户参数；`Global`/`HostOnly` 必须使用 `SqlTenantBinding.None`。查询和写入条件仍必须真实包含租户过滤，仅声明元数据或设置上下文变量不等于隔离。`@TenantId` 仅出现在注释、字符串、投影、无约束 `SET`、其他列比较或更长参数名前缀中，不得作为租户过滤证明；固定 SQL 必须由统一守卫确认其在 `WHERE`/`JOIN ON` 中与租户身份列等值比较，或在 `INSERT VALUES` 中写入租户参数，不属于受支持静态形状时必须失败关闭并重构。全模块 Scope/Binding 与生产静态 Statement 的实际守卫结果必须由 Unit 和 Architecture Tests 自动检查。每条生产 `Global` Statement 还必须在 [`contracts/architecture/global-sql-statements.json`](../contracts/architecture/global-sql-statements.json) 以 Statement Name、声明成员和源码文件精确登记安全分类、中文理由与不可变 SQL 片段；禁止通配符、批量豁免、未登记新增项和过期目录项。
 4. 命令事务必须明确开始、提交、回滚和释放；异常、取消与超时路径不得遗留连接或未完成事务。
 5. 业务数据与 Outbox 必须在同一数据库事务内原子写入。事务内禁止调用不可回滚的外部 HTTP、gRPC 或消息服务。
    - `ICommandTransaction` 以异常而不是 `Result` 值判断回滚。首次写入前可以返回业务失败；发生写入后若整个用例必须失败，必须抛出受控异常或使用明确支持失败回滚语义的事务入口，禁止写入后只返回 `Result.Failure` 并假设已经回滚。

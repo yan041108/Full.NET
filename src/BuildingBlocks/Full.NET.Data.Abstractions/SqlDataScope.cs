@@ -20,13 +20,13 @@ public enum SqlDataScope
     Global,
 
     /// <summary>
-    /// 必须在租户上下文内执行，要求 SQL 文本显式携带 @TenantId 过滤参数。
+    /// 必须在租户上下文内执行，要求 SQL 文本在受支持的租户谓词或插入形状中使用 @TenantId 参数。
     /// </summary>
     /// <remarks>
     /// 这是业务数据表的默认 Scope。SqlScopeGuard 会在执行前验证：
     /// 1) 当前存在有效的租户上下文（非 Host 上下文）；
     /// 2) <see cref="SqlTenantBinding"/> 为 CurrentTenantId；
-    /// 3) SQL 文本包含 @TenantId 参数占位。
+    /// 3) SQL 文本在租户等值谓词或 INSERT VALUES 中使用 @TenantId 参数。
     /// 违反任一不变量均会抛出异常，杜绝跨租户数据泄漏。
     /// </remarks>
     TenantRequired,

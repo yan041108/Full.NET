@@ -12,7 +12,8 @@ namespace Full.NET.Data.Abstractions;
 /// <para>
 /// 不变量约束：
 /// 1) Name 非空且在当前模块内唯一，用于异常定位与性能观测；
-/// 2) Text 为有效 SQL，当 Scope = TenantRequired 时必须显式包含 @TenantId 参数；
+/// 2) Text 为有效 SQL，当 Scope = TenantRequired 时必须在受支持的谓词或 INSERT VALUES
+///    形状中使用 @TenantId 参数；
 /// 3) Scope 与 TenantBinding 的组合必须符合 SqlScopeGuard 合法矩阵。
 /// </para>
 /// </remarks>
@@ -30,8 +31,8 @@ public sealed record SqlStatement(
     /// 原始 SQL 文本（含 Dapper @Param 占位符），由执行器原样传递给数据库 Provider。
     /// </summary>
     /// <remarks>
-    /// 当 <see cref="Scope"/> = TenantRequired 时，必须显式包含 @TenantId 参数占位，
-    /// 否则 SqlScopeGuard 将拒绝执行。请勿通过字符串拼接构造该属性，所有动态条件
+    /// 当 <see cref="Scope"/> = TenantRequired 时，必须在租户等值谓词或 INSERT VALUES
+    /// 中使用 @TenantId 参数，否则 SqlScopeGuard 将拒绝执行。请勿通过字符串拼接构造该属性，所有动态条件
     /// 应通过 parameters 参数传递。
     /// </remarks>
     string Text,

@@ -1,5 +1,7 @@
 using System.Reflection;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.Dapper;
 
 namespace Full.NET.ArchitectureTests;
 
@@ -28,6 +30,47 @@ public sealed class SqlDataScopeRulesTests
             .ToArray();
 
         Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
+    }
+
+    [TestMethod]
+    public void Production_tenant_statements_use_tenant_parameter_in_a_safe_clause()
+    {
+        var currentTenant = new CurrentTenantAccessor();
+        currentTenant.SetTenant(new TenantContext(
+            Guid.Parse("0199382f-f88d-7000-8000-000000000002"),
+            "architecture-test",
+            "Architecture Test"));
+        var offenders = SqlStatementAssemblies
+            .Distinct()
+            .SelectMany(GetLoadableTypes)
+            .SelectMany(ReadSqlStatements)
+            .Where(item => item.Statement.Scope == SqlDataScope.TenantRequired)
+            .Select(item => new
+            {
+                item.Location,
+                Error = ValidateTenantStatement(item.Statement, currentTenant),
+            })
+            .Where(item => item.Error is not null)
+            .Select(item => $"{item.Location}: {item.Error}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(0, offenders, string.Join(Environment.NewLine, offenders));
+    }
+
+    private static string? ValidateTenantStatement(
+        SqlStatement statement,
+        ICurrentTenant currentTenant)
+    {
+        try
+        {
+            SqlScopeGuard.Validate(statement, currentTenant);
+            return null;
+        }
+        catch (TenantScopeViolationException exception)
+        {
+            return exception.Message;
+        }
     }
 
     private static SqlTenantBinding ExpectedBinding(SqlDataScope scope) =>

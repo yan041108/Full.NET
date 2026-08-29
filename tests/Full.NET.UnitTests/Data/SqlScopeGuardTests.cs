@@ -8,6 +8,55 @@ namespace Full.NET.UnitTests.Data;
 public sealed class SqlScopeGuardTests
 {
     [TestMethod]
+    [DataRow("SELECT 1 -- WHERE TenantId = @TenantId")]
+    [DataRow("SELECT 'WHERE TenantId = @TenantId'")]
+    [DataRow("SELECT 1 /* WHERE TenantId = @TenantId */")]
+    [DataRow("SELECT @TenantId AS TenantId")]
+    [DataRow("UPDATE fn_example SET TenantId = @TenantId")]
+    [DataRow("SELECT 1 FROM fn_example WHERE @TenantId IS NOT NULL")]
+    [DataRow("SELECT 1 FROM fn_example WHERE OtherId = @TenantId")]
+    [DataRow("SELECT 1 WHERE TenantId = @TenantIdentifier")]
+    [DataRow("SELECT [@TenantId] FROM fn_example")]
+    [DataRow("SELECT `@TenantId` FROM fn_example")]
+    public void Tenant_statement_rejects_parameter_references_outside_a_safe_clause(
+        string sql)
+    {
+        var accessor = new CurrentTenantAccessor();
+        accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "acme", "Acme"));
+        var statement = new SqlStatement(
+            "tenant.unsafe_reference",
+            sql,
+            SqlDataScope.TenantRequired,
+            SqlTenantBinding.CurrentTenantId);
+
+        Assert.Throws<TenantScopeViolationException>(() =>
+            SqlScopeGuard.Validate(statement, accessor));
+    }
+
+    [TestMethod]
+    [DataRow("SELECT 1 FROM fn_example WHERE TenantId = @TenantId")]
+    [DataRow("SELECT 1 FROM fn_tenancy_tenant WHERE Id = @TenantId")]
+    [DataRow("SELECT 1 FROM fn_example WHERE @TenantId = TenantId")]
+    [DataRow("SELECT 1 FROM fn_example WHERE e.TenantId = @TenantId")]
+    [DataRow("SELECT 1 FROM fn_example WHERE [TenantId] = @TenantId")]
+    [DataRow("SELECT 1 FROM fn_example WHERE `TenantId` = @TenantId")]
+    [DataRow("SELECT 1 FROM fn_example e JOIN fn_child c ON c.TenantId = @TenantId")]
+    [DataRow("INSERT INTO fn_example (TenantId) VALUES (@TenantId)")]
+    [DataRow("SELECT 1 /* @TenantId */ FROM fn_example WHERE TenantId = @TenantId")]
+    public void Tenant_statement_accepts_parameter_in_a_safe_clause(string sql)
+    {
+        var accessor = new CurrentTenantAccessor();
+        accessor.SetTenant(new TenantContext(Guid.CreateVersion7(), "acme", "Acme"));
+        var statement = new SqlStatement(
+            "tenant.safe_reference",
+            sql,
+            SqlDataScope.TenantRequired,
+            SqlTenantBinding.CurrentTenantId);
+
+        SqlScopeGuard.Validate(statement, accessor);
+    }
+
+    [TestMethod]
     public void Tenant_statement_requires_an_available_tenant_and_trusted_binding()
     {
         var missingBinding = new SqlStatement(
