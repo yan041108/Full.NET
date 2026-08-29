@@ -133,6 +133,11 @@ public sealed class TenancyModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.TenancyDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         AddTenantContextAccessor(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,

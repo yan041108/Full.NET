@@ -72,6 +72,11 @@ public sealed class FilesModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.FilesDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         RegisterStorage(services, configuration);
         services.AddOptions<DeletedHostFileBlobCleanupOptions>()
             .Bind(configuration.GetSection(DeletedHostFileBlobCleanupOptions.SectionName))

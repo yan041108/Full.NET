@@ -102,6 +102,11 @@ public sealed class CodeGenerationModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.CodeGenerationDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.AddOptions<CodeGenerationCheckpointRetentionOptions>()
             .Bind(configuration.GetSection(
                 CodeGenerationCheckpointRetentionOptions.SectionName))

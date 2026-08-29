@@ -134,4 +134,62 @@ public sealed class NativeAotLinuxPublishRulesTests
             StringComparison.Ordinal,
             "Native E2E 必须通过 JIT Migrator 显式执行 Development seed。");
     }
+
+    [TestMethod]
+    public void WorkerNativeAot_HasIsolatedPublishAndDualDatabaseE2EGates()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        using var package = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(root, "package.json")));
+        using var matrix = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(root, "eng", "testing", "test-matrix.json")));
+        var scripts = package.RootElement.GetProperty("scripts");
+
+        Assert.AreEqual(
+            "node scripts/testing/run-api-aot-publish-linux.mjs --host worker",
+            scripts.GetProperty("test:aot:worker:publish:linux").GetString());
+        Assert.AreEqual(
+            "node scripts/testing/run-native-aot-worker-e2e.mjs",
+            scripts.GetProperty("test:aot:worker:native:e2e").GetString());
+
+        var publishGate = matrix.RootElement.GetProperty("workerNativeAotPublish");
+        Assert.AreEqual(
+            "artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker",
+            publishGate.GetProperty("executableRelativePath").GetString());
+        var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
+        Assert.AreEqual(8, integrationGate.GetProperty("minimum").GetInt32());
+
+        string[] requiredFiles =
+        [
+            "scripts/testing/run-native-aot-worker-e2e.mjs",
+            ".github/workflows/worker-native-aot-linux.yml",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerArtifactLocator.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerProcessRunner.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerProcessHost.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerOutboxProbe.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerJobsProbe.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerE2EAssertions.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerSqlServerE2ETests.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerMySqlE2ETests.cs",
+        ];
+        foreach (var relativePath in requiredFiles)
+        {
+            Assert.IsTrue(
+                File.Exists(Path.Combine(root, relativePath)),
+                $"Worker Native AOT 发布门禁缺少 {relativePath}。");
+        }
+
+        var sqlServerTests = File.ReadAllText(Path.Combine(
+            root,
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerSqlServerE2ETests.cs"));
+        var mySqlTests = File.ReadAllText(Path.Combine(
+            root,
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerMySqlE2ETests.cs"));
+        StringAssert.Contains(
+            sqlServerTests,
+            "SqlServer_native_worker_processes_pending_ping_job");
+        StringAssert.Contains(
+            mySqlTests,
+            "MySql_native_worker_processes_pending_ping_job");
+    }
 }

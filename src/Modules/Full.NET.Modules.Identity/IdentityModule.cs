@@ -138,6 +138,11 @@ public sealed class IdentityModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.IdentityDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         RegisterOrganizationUnitChangedTopic(services);
         AddOrganizationUnitProjection(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<

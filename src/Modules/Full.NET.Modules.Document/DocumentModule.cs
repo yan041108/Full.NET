@@ -120,6 +120,11 @@ public sealed class DocumentModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.DocumentDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.HostDocumentVersionReferenceProbe>());

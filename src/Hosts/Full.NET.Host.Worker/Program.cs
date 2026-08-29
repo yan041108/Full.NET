@@ -39,6 +39,9 @@ builder.Services.AddFullNetDataProtection(builder.Configuration, builder.Environ
 builder.Services.AddFullNetDapper(
     builder.Configuration,
     builder.Environment.EnvironmentName);
+#if FULLNET_AOT_COMPILE
+WorkerDapperAotRegistration.Register();
+#endif
 builder.Services.AddFullNetDatabaseSchemaModeGuard();
 builder.Services.AddFullNetMemoryPack();
 builder.Services
@@ -193,7 +196,7 @@ try
     await Console.Out.WriteLineAsync(
         JsonSerializer.Serialize(
             report,
-            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            WorkerJsonSerializerContext.Default.OutboxVersionRetirementReport));
     return report.CanRetire ? 0 : 2;
 }
 catch (OutboxVersionRetirementException exception)
@@ -209,8 +212,8 @@ finally
 static Task WriteErrorAsync(string code) =>
     Console.Error.WriteLineAsync(
         JsonSerializer.Serialize(
-            new { code },
-            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            new WorkerErrorResponse(code),
+            WorkerJsonSerializerContext.Default.WorkerErrorResponse));
 
 /// <summary>
 /// Full.NET Worker 宿主入口；只承载后台任务，无 HTTP 管道。

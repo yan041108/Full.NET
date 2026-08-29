@@ -54,12 +54,12 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
         {
             var records = await queryExecutor.QueryAsync<DeletedHostFileBlobRecord>(
                     SelectStatement(),
-                    new
+                    new Dictionary<string, object?>
                     {
-                        HasCursor = hasCursor ? 1 : 0,
-                        AfterDeletedAtUtc = afterDeletedAtUtc,
-                        AfterId = afterId,
-                        options.BatchSize,
+                        ["HasCursor"] = hasCursor ? 1 : 0,
+                        ["AfterDeletedAtUtc"] = afterDeletedAtUtc,
+                        ["AfterId"] = afterId,
+                        ["BatchSize"] = options.BatchSize,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -96,11 +96,11 @@ internal sealed class DeletedHostFileBlobCleanupRunner(
 
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         HostFileSql.PurgeDeletedHostFile,
-                        new
+                        new Dictionary<string, object?>
                         {
-                            FileId = record.Id,
-                            record.ProviderKey,
-                            record.StorageKey,
+                            ["FileId"] = record.Id,
+                            ["ProviderKey"] = record.ProviderKey,
+                            ["StorageKey"] = record.StorageKey,
                         },
                         cancellationToken)
                     .ConfigureAwait(false);

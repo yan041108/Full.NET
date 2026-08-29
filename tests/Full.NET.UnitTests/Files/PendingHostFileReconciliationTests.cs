@@ -261,8 +261,16 @@ public sealed class PendingHostFileReconciliationTests
         };
 
     private static bool HasFileId(object? value, Guid expected) =>
-        value is not null
-        && (Guid?)value.GetType().GetProperty("FileId")?.GetValue(value) == expected;
+        value switch
+        {
+            IReadOnlyDictionary<string, object?> dictionary =>
+                dictionary.TryGetValue("FileId", out var fileId)
+                && fileId is Guid id
+                && id == expected,
+            not null =>
+                (Guid?)value.GetType().GetProperty("FileId")?.GetValue(value) == expected,
+            _ => false,
+        };
 
     private static ServiceProvider CreateProvider(
         IReadOnlyDictionary<string, string?> values)

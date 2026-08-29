@@ -271,11 +271,22 @@ public sealed class NativeAotStaticBindingRulesTests
                 Path.Combine(root, "src", "Modules", "Full.NET.Modules.Files"),
                 "*.cs",
                 SearchOption.AllDirectories)
-            .Select(File.ReadAllText)
+            .Select(path => new
+            {
+                Path = Path.GetRelativePath(root, path),
+                Source = File.ReadAllText(path),
+            })
             .ToArray();
-        Assert.IsFalse(
-            filesSources.Any(source => source.Contains("new {", StringComparison.Ordinal)),
-            "Native AOT Files 模块不得向 SQL 执行器传递匿名参数。");
+        var offenders = filesSources
+            .Where(file => ContainsAnonymousSqlParameterObject(file.Source))
+            .Select(file => file.Path)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Files 模块不得向 SQL 执行器传递匿名参数："
+                + string.Join(", ", offenders));
     }
 
     [TestMethod]
@@ -1464,9 +1475,175 @@ public sealed class NativeAotStaticBindingRulesTests
             "Register<DapperOutboxStore.OutboxAcquireParameters>");
     }
 
+    [TestMethod]
+    public void WorkerNativeAot_UsesStaticSqlAndSourceGeneratedJson()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var workerDirectory = Path.Combine(
+            root,
+            "src",
+            "Hosts",
+            "Full.NET.Host.Worker");
+        var shadowSource = File.ReadAllText(Path.Combine(
+            workerDirectory,
+            "ShadowEventComparisonProcessor.cs"));
+        var programSource = File.ReadAllText(Path.Combine(workerDirectory, "Program.cs"));
+        var jsonContextPath = Path.Combine(
+            workerDirectory,
+            "WorkerJsonSerializerContext.cs");
+        var registrationPath = Path.Combine(
+            workerDirectory,
+            "WorkerDapperAotRegistration.cs");
+
+        Assert.IsFalse(
+            ContainsAnonymousSqlParameterObject(shadowSource),
+            "Native AOT Worker Shadow 比对不得向 SQL 执行器传递匿名参数。");
+        Assert.IsFalse(
+            programSource.Contains("new JsonSerializerOptions", StringComparison.Ordinal),
+            "Native AOT Worker 机器输出不得回退到反射式 JSON options。");
+        Assert.IsTrue(
+            File.Exists(jsonContextPath),
+            "Native AOT Worker 必须提供独立的源生成 JSON context。");
+        StringAssert.Contains(programSource, "WorkerJsonSerializerContext.Default");
+        Assert.IsTrue(
+            File.Exists(registrationPath),
+            "Native AOT Worker 必须提供宿主自身的 Dapper 物化器注册。");
+        var registrationSource = File.ReadAllText(registrationPath);
+        StringAssert.Contains(
+            registrationSource,
+            "DapperAotMaterializerRegistry.Register<");
+        StringAssert.Contains(
+            registrationSource,
+            "ShadowEventComparisonProcessor.OutboxFingerprintRow");
+        var registrationIndex = programSource.IndexOf(
+            "WorkerDapperAotRegistration.Register();",
+            StringComparison.Ordinal);
+        var moduleBuildIndex = programSource.IndexOf(
+            "AddFullNetApplicationModules",
+            StringComparison.Ordinal);
+        Assert.IsTrue(
+            registrationIndex >= 0 && registrationIndex < moduleBuildIndex,
+            "Worker 自身物化器必须在模块装配及任何后台数据库访问前同步注册。");
+        StringAssert.Contains(
+            shadowSource,
+            "SELECT Id, MessageType, SchemaVersion, PartitionKey, Payload, OccurredAtUtc");
+    }
+
+    [TestMethod]
+    public void WorkerNativeAot_BackgroundModulesRegisterDapperMaterializers()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var modulesRoot = Path.Combine(root, "src", "Modules");
+        var contributorPaths = Directory.GetFiles(
+            modulesRoot,
+            "*DapperAotMaterializerContributor.cs",
+            SearchOption.AllDirectories);
+        var offenders = contributorPaths
+            .Select(path => new
+            {
+                ModuleDirectory = Directory.GetParent(
+                    Directory.GetParent(path)!.FullName)!.FullName,
+                ContributorName = Path.GetFileNameWithoutExtension(path),
+            })
+            .Select(item => new
+            {
+                ModuleName = Path.GetFileName(item.ModuleDirectory)
+                    ["Full.NET.Modules.".Length..],
+                item.ContributorName,
+                ModulePath = Path.Combine(
+                    item.ModuleDirectory,
+                    Path.GetFileName(item.ModuleDirectory)
+                        ["Full.NET.Modules.".Length..] + "Module.cs"),
+            })
+            .Where(item => File.Exists(item.ModulePath))
+            .Select(item => new
+            {
+                item.ModuleName,
+                item.ContributorName,
+                MethodBody = ExtractMethodBody(
+                    File.ReadAllText(item.ModulePath),
+                    "AddBackgroundServices"),
+            })
+            .Where(item => !string.IsNullOrEmpty(item.MethodBody))
+            .Where(item => !Regex.IsMatch(
+                item.MethodBody,
+                @"#if\s+FULLNET_AOT_COMPILE[\s\S]*?new\s+(?:Persistence\.)?"
+                    + Regex.Escape(item.ContributorName)
+                    + @"\s*\(\s*\)[\s\S]*?\.RegisterMaterializers\s*\([\s\S]*?#endif",
+                RegexOptions.CultureInvariant))
+            .Select(item => item.ModuleName)
+            .OrderBy(module => module, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            "Native AOT Worker 后台模块必须在 AddBackgroundServices 同步注册 Dapper 物化器："
+                + string.Join(", ", offenders));
+    }
+
+    [TestMethod]
+    public void WorkerNativeAot_HasDedicatedAnalyzerEntryPoint()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var scriptPath = Path.Combine(
+            root,
+            "scripts",
+            "testing",
+            "run-worker-aot-analyzers.mjs");
+        var packageSource = File.ReadAllText(Path.Combine(root, "package.json"));
+
+        Assert.IsTrue(
+            File.Exists(scriptPath),
+            "Worker Native AOT 必须有独立 analyzer 入口，不能借用 Host.Api 构建冒充闭包。");
+        StringAssert.Contains(
+            packageSource,
+            "\"test:aot:worker:analyzers\": \"node scripts/testing/run-worker-aot-analyzers.mjs\"");
+        var scriptSource = File.ReadAllText(scriptPath);
+        StringAssert.Contains(scriptSource, "Full.NET.Host.Worker.csproj");
+        StringAssert.Contains(scriptSource, "-p:FullNetAotAnalysis=true");
+        StringAssert.Contains(
+            scriptSource,
+            "-t:Rebuild",
+            "Worker analyzer 完成后必须强制重建默认 JIT 产物，不能只 restore 后遗留 AOT 条件编译 DLL。");
+    }
+
     private static bool ContainsAnonymousSqlParameterObject(string source) =>
         source.Contains("new {", StringComparison.Ordinal)
         || Regex.IsMatch(source, @"new\s*\{", RegexOptions.CultureInvariant);
+
+    private static string ExtractMethodBody(string source, string methodName)
+    {
+        var declaration = Regex.Match(
+            source,
+            @"\bpublic\s+void\s+" + Regex.Escape(methodName) + @"\s*\(",
+            RegexOptions.CultureInvariant);
+        if (!declaration.Success)
+        {
+            return string.Empty;
+        }
+
+        var braceIndex = source.IndexOf('{', declaration.Index + declaration.Length);
+        if (braceIndex < 0)
+        {
+            return string.Empty;
+        }
+
+        var depth = 0;
+        for (var index = braceIndex; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+            {
+                depth++;
+            }
+            else if (source[index] == '}' && --depth == 0)
+            {
+                return source[braceIndex..(index + 1)];
+            }
+        }
+
+        return string.Empty;
+    }
 
     private static string ExtractSelectProjection(string source, string statementField)
     {

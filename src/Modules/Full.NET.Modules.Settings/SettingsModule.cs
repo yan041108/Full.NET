@@ -113,6 +113,11 @@ public sealed class SettingsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.SettingsDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddScoped<ISettingsSecretValueResolver, Features.ManageHostConfigEntries.SettingsSecretValueResolver>();
     }
 }

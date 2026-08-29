@@ -95,6 +95,11 @@ public sealed class OrganizationModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.OrganizationDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddScoped<TenantUnits.OrganizationUnitProjectionCatalog>();
         services.TryAddScoped<IIdentityOrganizationUnitProjectionSource>(provider =>
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());

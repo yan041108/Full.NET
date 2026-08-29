@@ -77,6 +77,11 @@ public sealed class MessagingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.MessagingDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         RegisterMessagingCore(services);
         MessagingNativeKafkaReplayTestHarness.RegisterIfTesting(services, configuration);
         RegisterSubscriptionCatalog(services);

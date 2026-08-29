@@ -116,6 +116,11 @@ public sealed class AuditingModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.AuditingDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.AddOptions<AuditingRetentionOptions>()
             .Bind(configuration.GetSection(AuditingRetentionOptions.SectionName))
             .ValidateOnStart();

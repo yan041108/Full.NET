@@ -148,7 +148,10 @@ internal sealed class ShadowEventComparisonProcessor : BackgroundService
         var row = await queryExecutor
             .QuerySingleOrDefaultAsync<OutboxFingerprintRow>(
                 OutboxFingerprintSql.SelectById,
-                new { Id = eventId },
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = eventId,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (row is null)
@@ -177,7 +180,7 @@ internal sealed class ShadowEventComparisonProcessor : BackgroundService
             comparison.Observed?.EventId);
     }
 
-    private sealed record OutboxFingerprintRow(
+    internal sealed record OutboxFingerprintRow(
         Guid Id,
         string MessageType,
         int SchemaVersion,

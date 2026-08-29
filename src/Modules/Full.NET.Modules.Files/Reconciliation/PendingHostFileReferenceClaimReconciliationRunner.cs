@@ -66,14 +66,14 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
         {
             var records = await queryExecutor.QueryAsync<HostFileReferenceClaimRecord>(
                     SelectStatement(),
-                    new
+                    new Dictionary<string, object?>
                     {
-                        PendingState = HostFileReferenceClaimStates.Pending,
-                        StaleBeforeUtc = staleBeforeUtc,
-                        HasCursor = hasCursor ? 1 : 0,
-                        AfterUpdatedAtUtc = afterUpdatedAtUtc,
-                        AfterId = afterId,
-                        options.BatchSize,
+                        ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                        ["StaleBeforeUtc"] = staleBeforeUtc,
+                        ["HasCursor"] = hasCursor ? 1 : 0,
+                        ["AfterUpdatedAtUtc"] = afterUpdatedAtUtc,
+                        ["AfterId"] = afterId,
+                        ["BatchSize"] = options.BatchSize,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -116,12 +116,12 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
                 {
                     var affected = await commandExecutor.ExecuteAsync(
                             HostFileReferenceClaimSql.PromoteToActive,
-                            new
+                            new Dictionary<string, object?>
                             {
-                                record.Id,
-                                PendingState = HostFileReferenceClaimStates.Pending,
-                                ActiveState = HostFileReferenceClaimStates.Active,
-                                Now = clock.UtcNow,
+                                ["Id"] = record.Id,
+                                ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                                ["ActiveState"] = HostFileReferenceClaimStates.Active,
+                                ["Now"] = clock.UtcNow,
                             },
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -146,13 +146,13 @@ internal sealed class PendingHostFileReferenceClaimReconciliationRunner(
 
                 var releasedRows = await commandExecutor.ExecuteAsync(
                         HostFileReferenceClaimSql.ReleaseOpen,
-                        new
+                        new Dictionary<string, object?>
                         {
-                            IdempotencyKey = record.IdempotencyKey,
-                            PendingState = HostFileReferenceClaimStates.Pending,
-                            ActiveState = HostFileReferenceClaimStates.Active,
-                            ReleasedState = HostFileReferenceClaimStates.Released,
-                            Now = clock.UtcNow,
+                            ["IdempotencyKey"] = record.IdempotencyKey,
+                            ["PendingState"] = HostFileReferenceClaimStates.Pending,
+                            ["ActiveState"] = HostFileReferenceClaimStates.Active,
+                            ["ReleasedState"] = HostFileReferenceClaimStates.Released,
+                            ["Now"] = clock.UtcNow,
                         },
                         cancellationToken)
                     .ConfigureAwait(false);

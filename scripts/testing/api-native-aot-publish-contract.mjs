@@ -30,6 +30,15 @@ export const apiNativeAotPublishContract = {
   },
 };
 
+export const workerNativeAotPublishContract = {
+  ...apiNativeAotPublishContract,
+  projectRelativePath: 'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj',
+  outputRelativeDir: 'artifacts/native-aot/worker/linux-x64/publish',
+  manifestRelativePath: 'artifacts/native-aot/worker/linux-x64/publish-manifest.json',
+  publishLogRelativePath: 'artifacts/native-aot/worker/linux-x64/publish.log',
+  executableName: 'Full.NET.Host.Worker',
+};
+
 export function resolveRepositoryPath(relativePath) {
   return path.join(apiNativeAotPublishContract.repositoryRoot, relativePath);
 }

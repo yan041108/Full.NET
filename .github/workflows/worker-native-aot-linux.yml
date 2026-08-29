@@ -1,0 +1,71 @@
+name: worker-native-aot-linux
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/testing/**'
+      - 'eng/docker/Dockerfile.api-native-aot-linux-sdk'
+      - 'eng/testing/test-matrix.json'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/worker-native-aot-linux.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/testing/**'
+      - 'eng/docker/Dockerfile.api-native-aot-linux-sdk'
+      - 'eng/testing/test-matrix.json'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/worker-native-aot-linux.yml'
+  workflow_dispatch:
+
+jobs:
+  linux-native-aot-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Full.NET.slnx
+      - name: Verify Worker Native AOT analyzers
+        run: pnpm test:aot:worker:analyzers
+      - name: Build Native AOT publish SDK image
+        run: docker build -t fullnet-native-aot-publish-sdk:10.0 -f eng/docker/Dockerfile.api-native-aot-linux-sdk eng/docker
+      - name: Publish Worker linux-x64 Native AOT artifact
+        run: pnpm test:aot:worker:publish:linux
+      - name: Verify Native AOT architecture gates
+        run: pnpm test:dotnet:architecture --selection api-native-aot
+      - name: Run Worker Native AOT dual-database E2E
+        run: pnpm test:aot:worker:native:e2e
+      - name: Upload Worker Native AOT evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-native-aot-linux-evidence
+          path: |
+            artifacts/native-aot/worker/linux-x64/publish-manifest.json
+            artifacts/native-aot/worker/linux-x64/publish.log
+            artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker
+            artifacts/native-aot/worker/linux-x64/test-results/**
+            artifacts/native-aot/worker/linux-x64/test-logs/**

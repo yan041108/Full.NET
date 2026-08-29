@@ -1,6 +1,6 @@
 # Full.NET 能力状态矩阵
 
-> 更新时间：2026-08-25。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
+> 更新时间：2026-08-29。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
 ## 状态定义
 
@@ -59,6 +59,7 @@
 | Baseline + Overlay 种子体系 | Build-verified | Production 只允许 Baseline，API/Worker 禁止启动播种，Contributor 必须幂等并通过双库验证。 |
 | SignalR 实时通知 | Build-verified | 路径、鉴权、Backplane、连接指标和失败关闭已完成持续硬化；Host.Api Native AOT 已通过 SQL Server/MySQL + Redis 的 JSON Hub 原生进程收发，仍不代表多节点 Native Backplane 投递认证。见 [`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)。 |
 | Host.Api Native AOT | Build-verified | **`Aot-published`**：完整 net10.0 API 闭包已通过 Linux 原生 publish、启动、双库关键 HTTP、双库 SignalR JSON 与架构门禁；Notifications 双库原生证据为 [run 32849677783](https://github.com/yan041108/Full.NET/actions/runs/32849677783)；Settings/Jobs 双库原生证据为 [run 32872774812](https://github.com/yan041108/Full.NET/actions/runs/32872774812)。Worker/Migrator 与生产容量仍未验证。见 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md)、[`api-native-aot-publish-2026-08-23.md`](../verification/api-native-aot-publish-2026-08-23.md)、[`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md) 与 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)。 |
+| Worker Native AOT | Build-verified | **Analysis-only / `Worker Aot-analysis-clean`**：AOT/Trim 与静态 SQL、JSON、物化器门禁通过；Phase 1–4 已建立隔离 publish、双库一次性扫描、常驻空载/Jobs 心跳/SIGTERM、Legacy Outbox 成功/损坏载荷死信，以及 Jobs Ping 自动领取成功终态外部进程 CI，但本机未生成 Linux 产物，CI 成功前不得标记为 `Aot-published`。见 [`ADR-0010`](../architecture/adr/ADR-0010-worker-native-aot-analysis-boundary.md)、[Phase 0](../verification/2026-08-29-worker-native-aot-phase0.md)、[Phase 1](../verification/2026-08-29-worker-native-aot-phase1.md)、[Phase 2](../verification/2026-08-29-worker-native-aot-phase2.md)、[Phase 3](../verification/2026-08-29-worker-native-aot-phase3.md) 与 [Phase 4](../verification/2026-08-29-worker-native-aot-phase4.md) 验证记录。 |
 | Host.Api Native AOT S3 Provider | Build-verified | **`Native-provider-verified: s3`**：Linux Native Host.Api + SQL Server/MySQL 文件元数据 + 真实 MinIO S3 HTTP 上传/下载/删除已通过；AWS Workload Identity、实例角色与 Web Identity 未验证。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | Host.Api Native AOT Kafka Replay | Build-verified | **`Native-provider-verified: kafka-replay`**：Linux Native Host.Api + 真实 Kafka 范围重放在 SQL Server/MySQL 下已通过。仅覆盖 API Replay；不覆盖 Worker Producer/Consumer、CDC Relay、DLQ 或 Lag Observer。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |

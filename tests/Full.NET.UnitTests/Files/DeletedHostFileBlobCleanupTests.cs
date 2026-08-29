@@ -111,11 +111,7 @@ public sealed class DeletedHostFileBlobCleanupTests
         CollectionAssert.AreEqual(
             new[] { expectedSelectStatement, expectedSelectStatement },
             query.Statements.Select(statement => statement.Name).ToArray());
-        Assert.IsNull(
-            query.Parameters[0]
-                .GetType()
-                .GetProperty("AfterId")
-                ?.GetValue(query.Parameters[0]));
+        Assert.IsNull(ReadParameter<Guid?>(query.Parameters[0], "AfterId"));
         CollectionAssert.AreEqual(
             new[]
             {
@@ -329,9 +325,19 @@ public sealed class DeletedHostFileBlobCleanupTests
                 })),
             Options.Create(new DatabaseOptions { Provider = provider }));
 
-    private static T ReadParameter<T>(object parameters, string name) =>
-        (T)(parameters.GetType().GetProperty(name)?.GetValue(parameters)
-            ?? throw new InvalidOperationException($"{name} is missing."));
+    private static T ReadParameter<T>(object parameters, string name)
+    {
+        if (parameters is IReadOnlyDictionary<string, object?> dictionary
+            && dictionary.TryGetValue(name, out var dictionaryValue))
+        {
+            return dictionaryValue is null ? default! : (T)dictionaryValue;
+        }
+
+        var property = parameters.GetType().GetProperty(name)
+            ?? throw new InvalidOperationException($"{name} is missing.");
+        var propertyValue = property.GetValue(parameters);
+        return propertyValue is null ? default! : (T)propertyValue;
+    }
 
     private sealed class RecordingQueryExecutor(
         Queue<IReadOnlyList<DeletedHostFileBlobRecord>> pages)

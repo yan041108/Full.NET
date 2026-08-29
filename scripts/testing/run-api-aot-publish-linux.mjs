@@ -18,10 +18,19 @@ import process from 'node:process';
 import {
   apiNativeAotPublishContract,
   resolveRepositoryPath,
+  workerNativeAotPublishContract,
 } from './api-native-aot-publish-contract.mjs';
 import { validatePublishWarnings } from './api-native-aot-publish-warnings.mjs';
 
-const contract = apiNativeAotPublishContract;
+const hostIndex = process.argv.indexOf('--host');
+const requestedHost = hostIndex >= 0 ? process.argv[hostIndex + 1] : 'api';
+if (requestedHost !== 'api' && requestedHost !== 'worker') {
+  console.error("--host 只接受 'api' 或 'worker'。");
+  process.exit(1);
+}
+const contract = requestedHost === 'worker'
+  ? workerNativeAotPublishContract
+  : apiNativeAotPublishContract;
 const outputDir = resolveRepositoryPath(contract.outputRelativeDir);
 const manifestPath = resolveRepositoryPath(contract.manifestRelativePath);
 const publishLogPath = resolveRepositoryPath(contract.publishLogRelativePath);

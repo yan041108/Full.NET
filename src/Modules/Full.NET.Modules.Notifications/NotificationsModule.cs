@@ -63,6 +63,11 @@ public sealed class NotificationsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.NotificationsDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         services.TryAddScoped<NotificationRealtimeDelivery>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,

@@ -56,13 +56,13 @@ internal sealed class PendingHostFileReconciliationRunner(
         {
             var records = await queryExecutor.QueryAsync<PendingHostFileRecord>(
                     SelectStatement(),
-                    new
+                    new Dictionary<string, object?>
                     {
-                        CreatedBeforeUtc = createdBeforeUtc,
-                        HasCursor = hasCursor ? 1 : 0,
-                        AfterCreatedAtUtc = afterCreatedAtUtc,
-                        AfterId = afterId,
-                        options.BatchSize,
+                        ["CreatedBeforeUtc"] = createdBeforeUtc,
+                        ["HasCursor"] = hasCursor ? 1 : 0,
+                        ["AfterCreatedAtUtc"] = afterCreatedAtUtc,
+                        ["AfterId"] = afterId,
+                        ["BatchSize"] = options.BatchSize,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -117,11 +117,11 @@ internal sealed class PendingHostFileReconciliationRunner(
 
                 var affectedRows = await commandExecutor.ExecuteAsync(
                         exists ? HostFileSql.ReconcileReady : HostFileSql.PurgePending,
-                        new
+                        new Dictionary<string, object?>
                         {
-                            FileId = record.Id,
-                            record.ProviderKey,
-                            record.StorageKey,
+                            ["FileId"] = record.Id,
+                            ["ProviderKey"] = record.ProviderKey,
+                            ["StorageKey"] = record.StorageKey,
                         },
                         cancellationToken)
                     .ConfigureAwait(false);

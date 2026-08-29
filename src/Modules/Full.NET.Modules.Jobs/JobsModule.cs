@@ -72,6 +72,11 @@ public sealed class JobsModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.JobsDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
         RegisterExecutionCore(services, configuration);
         services.AddOptions<JobsWorkerOptions>()
             .Bind(configuration.GetSection(JobsWorkerOptions.SectionName))
