@@ -41,6 +41,8 @@ public sealed class DependencyRulesTests
         typeof(Full.NET.Hosting.Api.IApiResultMapper).Assembly,
         typeof(Full.NET.Localization.ILocaleNormalizer).Assembly,
         typeof(Full.NET.Migrations.DbUp.IDatabaseMigrationRunner).Assembly,
+        typeof(Full.NET.Messaging.Abstractions.MessagingNames).Assembly,
+        typeof(Full.NET.Messaging.Kafka.KafkaMessagingOptions).Assembly,
         typeof(Full.NET.Modularity.Modules.IFullNetModule).Assembly,
         typeof(Full.NET.Realtime.IRealtimePublisher).Assembly,
         typeof(Full.NET.Realtime.SignalR.RealtimeOptions).Assembly,
@@ -79,6 +81,39 @@ public sealed class DependencyRulesTests
         Assert.IsTrue(
             result.IsSuccessful,
             $"BuildingBlocks depending on Modules: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
+
+    [TestMethod]
+    public void BuildingBlock_projects_do_not_reference_business_modules()
+    {
+        var root = FindRepositoryRoot();
+        var buildingBlocksRoot = Path.Combine(root, "src", "BuildingBlocks");
+        var modulesRoot = Path.Combine(root, "src", "Modules")
+            + Path.DirectorySeparatorChar;
+        var offenders = Directory
+            .EnumerateFiles(buildingBlocksRoot, "*.csproj", SearchOption.AllDirectories)
+            .SelectMany(projectPath => XDocument
+                .Load(projectPath)
+                .Descendants("ProjectReference")
+                .Select(reference => new
+                {
+                    Project = Path.GetRelativePath(root, projectPath).Replace('\\', '/'),
+                    Target = Path.GetFullPath(
+                        reference.Attribute("Include")?.Value ?? string.Empty,
+                        Path.GetDirectoryName(projectPath)!),
+                }))
+            .Where(reference => reference.Target.StartsWith(
+                modulesRoot,
+                StringComparison.OrdinalIgnoreCase))
+            .Select(reference => $"{reference.Project} -> "
+                + Path.GetRelativePath(root, reference.Target).Replace('\\', '/'))
+            .OrderBy(reference => reference, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            offenders,
+            $"BuildingBlock projects referencing business modules: {string.Join(", ", offenders)}");
     }
 
     [TestMethod]

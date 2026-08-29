@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Auditing;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
+using Full.NET.Caching.Fusion.Serialization;
 using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
@@ -51,6 +52,9 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             SettingsErrorResourceSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            ICacheJsonTypeInfoContributor,
+            SettingsCacheJsonTypeInfoContributor>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<Catalogs.EnumCatalogRegistry>();

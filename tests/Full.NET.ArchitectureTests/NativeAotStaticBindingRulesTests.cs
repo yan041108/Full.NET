@@ -126,13 +126,20 @@ public sealed class NativeAotStaticBindingRulesTests
             "Full.NET.Caching.Fusion",
             "Serialization",
             "FullNetFusionCacheJsonSerializer.cs");
-        var contextPath = Path.Combine(
+        var settingsContextPath = Path.Combine(
             root,
             "src",
-            "BuildingBlocks",
-            "Full.NET.Caching.Fusion",
+            "Modules",
+            "Full.NET.Modules.Settings",
             "Serialization",
-            "FusionCacheJsonSerializerContext.cs");
+            "SettingsJsonSerializerContext.cs");
+        var tenancyContextPath = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Full.NET.Modules.Tenancy",
+            "Serialization",
+            "TenancyJsonSerializerContext.cs");
         var extensionsPath = Path.Combine(
             root,
             "src",
@@ -141,16 +148,17 @@ public sealed class NativeAotStaticBindingRulesTests
             "ServiceCollectionExtensions.cs");
 
         var serializerSource = File.ReadAllText(serializerPath);
-        var contextSource = File.ReadAllText(contextPath);
+        var settingsContextSource = File.ReadAllText(settingsContextPath);
+        var tenancyContextSource = File.ReadAllText(tenancyContextPath);
         var extensionsSource = File.ReadAllText(extensionsPath);
 
-        StringAssert.Contains(serializerSource, "FusionCacheJsonSerializerContext.Default");
-        StringAssert.Contains(contextSource, "TenantResolutionCacheEntry");
-        StringAssert.Contains(contextSource, "GridPreferenceResponse");
-        StringAssert.Contains(contextSource, "DiagnosticPolicyDocument");
+        StringAssert.Contains(serializerSource, "ICacheJsonTypeInfoContributor");
+        StringAssert.Contains(tenancyContextSource, "TenantResolutionCacheEntry");
+        StringAssert.Contains(settingsContextSource, "GridPreferenceResponse");
+        StringAssert.Contains(settingsContextSource, "DiagnosticPolicyDocument");
         StringAssert.Contains(
             extensionsSource,
-            "WithSerializer(new FullNetFusionCacheJsonSerializer())");
+            "WithSerializer(serviceProvider =>");
         Assert.IsFalse(
             extensionsSource.Contains(
                 "#if FULLNET_AOT_COMPILE",

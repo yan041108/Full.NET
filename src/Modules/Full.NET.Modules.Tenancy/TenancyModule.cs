@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
+using Full.NET.Caching.Fusion.Serialization;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
@@ -52,6 +53,9 @@ public sealed class TenancyModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IErrorResourceSource,
             TenancyErrorResourceSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            ICacheJsonTypeInfoContributor,
+            TenancyCacheJsonTypeInfoContributor>());
         AddBackgroundServices(services, configuration);
         services.AddScoped<
             IQueryHandler<GetCurrentTenantQuery, TenantSummary>,

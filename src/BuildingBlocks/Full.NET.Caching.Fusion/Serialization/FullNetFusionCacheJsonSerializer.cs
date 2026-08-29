@@ -5,11 +5,15 @@ using ZiggyCreatures.Caching.Fusion.Serialization;
 namespace Full.NET.Caching.Fusion.Serialization;
 
 /// <summary>
-/// FusionCache L2 的 AOT 安全 JSON 序列化器；仅支持
-/// <see cref="FusionCacheJsonSerializerContext"/> 显式登记的类型。
+/// FusionCache L2 的 AOT 安全 JSON 序列化器；仅支持载荷所有者通过
+/// <see cref="ICacheJsonTypeInfoContributor"/> 显式登记的类型。
 /// </summary>
-internal sealed class FullNetFusionCacheJsonSerializer : IFusionCacheSerializer
+internal sealed class FullNetFusionCacheJsonSerializer(
+    IEnumerable<ICacheJsonTypeInfoContributor> contributors) : IFusionCacheSerializer
 {
+    private readonly ICacheJsonTypeInfoContributor[] _contributors =
+        contributors?.ToArray() ?? throw new ArgumentNullException(nameof(contributors));
+
     public byte[] Serialize<T>(T? data) => SerializeCore(data);
 
     public ValueTask<byte[]> SerializeAsync<T>(
@@ -24,7 +28,7 @@ internal sealed class FullNetFusionCacheJsonSerializer : IFusionCacheSerializer
         CancellationToken token = default) =>
         new(DeserializeCore<T>(data));
 
-    private static byte[] SerializeCore<T>(T? data)
+    private byte[] SerializeCore<T>(T? data)
     {
         if (data is null)
         {
@@ -35,7 +39,7 @@ internal sealed class FullNetFusionCacheJsonSerializer : IFusionCacheSerializer
         return JsonSerializer.SerializeToUtf8Bytes(data, typeInfo);
     }
 
-    private static T? DeserializeCore<T>(byte[] data)
+    private T? DeserializeCore<T>(byte[] data)
     {
         if (data.Length == 0)
         {
@@ -46,16 +50,18 @@ internal sealed class FullNetFusionCacheJsonSerializer : IFusionCacheSerializer
         return JsonSerializer.Deserialize(data, typeInfo) is T typed ? typed : default;
     }
 
-    private static JsonTypeInfo ResolveTypeInfo(Type type)
+    private JsonTypeInfo ResolveTypeInfo(Type type)
     {
-        var typeInfo = FusionCacheJsonSerializerContext.Default.GetTypeInfo(type);
-        if (typeInfo is null)
+        foreach (var contributor in _contributors)
         {
-            throw new NotSupportedException(
-                $"FusionCache L2 类型 {type.FullName} 未登记在 FusionCacheJsonSerializerContext；"
-                + "新增 HybridCache/IFusionCache 载荷时必须扩展源生成上下文。");
+            if (contributor.GetTypeInfo(type) is { } typeInfo)
+            {
+                return typeInfo;
+            }
         }
 
-        return typeInfo;
+        throw new NotSupportedException(
+            $"FusionCache L2 类型 {type.FullName} 未由 ICacheJsonTypeInfoContributor 登记；"
+            + "新增 HybridCache/IFusionCache 载荷时必须由载荷所有者贡献源生成 JSON 元数据。");
     }
 }

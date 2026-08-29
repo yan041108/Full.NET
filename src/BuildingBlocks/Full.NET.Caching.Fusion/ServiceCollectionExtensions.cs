@@ -85,7 +85,9 @@ public static class ServiceCollectionExtensions
             });
 
 #if FULLNET_AOT_COMPILE
-        fusionBuilder = fusionBuilder.WithSerializer(new FullNetFusionCacheJsonSerializer());
+        fusionBuilder = fusionBuilder.WithSerializer(serviceProvider =>
+            new FullNetFusionCacheJsonSerializer(
+                serviceProvider.GetServices<ICacheJsonTypeInfoContributor>()));
 #else
         fusionBuilder = fusionBuilder.WithSystemTextJsonSerializer();
 #endif

@@ -1,4 +1,11 @@
 using Full.NET.Caching.Fusion;
+using Full.NET.Caching.Fusion.Serialization;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Modules.Settings.Contracts;
+using Full.NET.Modules.Settings;
+using Full.NET.Modules.Settings.Serialization;
+using Full.NET.Modules.Tenancy;
+using Full.NET.Modules.Tenancy.Serialization;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +18,76 @@ namespace Full.NET.UnitTests.Caching;
 [TestClass]
 public sealed class FusionCacheRegistrationTests
 {
+    [TestMethod]
+    public void Cache_payload_owners_register_their_aot_json_contributors()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+
+        new SettingsModule().AddServices(services, configuration);
+        new TenancyModule().AddServices(services, configuration);
+
+        var implementationTypes = services
+            .Where(descriptor => descriptor.ServiceType == typeof(ICacheJsonTypeInfoContributor))
+            .Select(descriptor => descriptor.ImplementationType)
+            .ToArray();
+        CollectionAssert.Contains(
+            implementationTypes,
+            typeof(SettingsCacheJsonTypeInfoContributor));
+        CollectionAssert.Contains(
+            implementationTypes,
+            typeof(TenancyCacheJsonTypeInfoContributor));
+    }
+
+    [TestMethod]
+    public void Aot_serializer_resolves_module_owned_cache_payloads()
+    {
+        var serializer = new FullNetFusionCacheJsonSerializer(
+        [
+            new SettingsCacheJsonTypeInfoContributor(),
+            new TenancyCacheJsonTypeInfoContributor(),
+        ]);
+        var grid = new GridPreferenceResponse(
+            "identity.users",
+            1,
+            [new GridColumnPreference("displayName", 0, 240, true, null)],
+            3);
+        var tenant = new TenantResolutionCacheEntry(new TenantCachePayload(
+            Guid.Parse("0199382f-f88d-7000-8000-000000000001"),
+            "northwind",
+            "Northwind",
+            "northwind.example.test",
+            true,
+            7,
+            "zh-CN",
+            null,
+            null,
+            null));
+
+        var gridRoundTrip = serializer.Deserialize<GridPreferenceResponse>(
+            serializer.Serialize(grid));
+        var tenantRoundTrip = serializer.Deserialize<TenantResolutionCacheEntry>(
+            serializer.Serialize(tenant));
+
+        Assert.IsNotNull(gridRoundTrip);
+        Assert.AreEqual(grid.GridKey, gridRoundTrip.GridKey);
+        Assert.AreEqual(grid.SchemaVersion, gridRoundTrip.SchemaVersion);
+        Assert.AreEqual(grid.Version, gridRoundTrip.Version);
+        CollectionAssert.AreEqual(grid.Columns.ToArray(), gridRoundTrip.Columns.ToArray());
+        Assert.AreEqual(tenant, tenantRoundTrip);
+    }
+
+    [TestMethod]
+    public void Aot_serializer_rejects_unregistered_cache_payload()
+    {
+        var serializer = new FullNetFusionCacheJsonSerializer([]);
+
+        var exception = Assert.ThrowsExactly<NotSupportedException>(() =>
+            serializer.Serialize(new UnregisteredCachePayload("value")));
+
+        StringAssert.Contains(exception.Message, typeof(UnregisteredCachePayload).FullName!);
+    }
+
     [TestMethod]
     public async Task AddFullNetCaching_ExposesOneFusionCacheThroughBothAbstractions()
     {
@@ -85,4 +162,6 @@ public sealed class FusionCacheRegistrationTests
         Assert.IsNull(
             provider.GetRequiredService<IOptions<CacheOptions>>().Value.RedisConnectionString);
     }
+
+    private sealed record UnregisteredCachePayload(string Value);
 }
