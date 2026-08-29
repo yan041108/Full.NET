@@ -364,6 +364,56 @@ internal static class NativeWorkerE2EAssertions
         }
     }
 
+    public static async Task VerifyFilesReferenceClaimReconciliationAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out var artifact, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeApiDatabaseBootstrap.BootstrapAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var scenario = await NativeWorkerFilesReferenceClaimProbe.PrepareAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await using var host = await NativeWorkerProcessHost.StartAsync(
+                artifact,
+                provider,
+                connectionString,
+                TimeSpan.FromMinutes(2),
+                cancellationToken,
+                enableFilesReferenceClaimReconciliation: true)
+            .ConfigureAwait(false);
+        var states = await NativeWorkerFilesReferenceClaimProbe.WaitForTerminalStatesAsync(
+                provider,
+                connectionString,
+                scenario,
+                TimeSpan.FromSeconds(30),
+                host.LogFilePath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(1, states.IsReferencedActive);
+        Assert.AreEqual(1, states.IsOrphanReleased);
+
+        await host.StopGracefullyAsync(
+                TimeSpan.FromSeconds(30),
+                cancellationToken)
+            .ConfigureAwait(false);
+        Assert.AreEqual(
+            0,
+            host.ExitCode,
+            $"Native Worker 未正常响应 SIGTERM。日志：{host.LogFilePath}");
+        host.AssertNoFatalMarkersInLogs();
+    }
+
     private static async Task WaitForJobsHeartbeatAsync(
         DatabaseProvider provider,
         string connectionString,

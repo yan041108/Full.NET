@@ -83,4 +83,17 @@ public sealed class NativeWorkerSqlServerE2ETests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task SqlServer_native_worker_reconciles_pending_file_reference_claims()
+    {
+        if (!NativeWorkerArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native Worker artifact unavailable.");
+        }
+
+        await NativeWorkerE2EAssertions.VerifyFilesReferenceClaimReconciliationAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }

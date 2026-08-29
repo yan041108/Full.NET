@@ -1,6 +1,6 @@
 # ADR-0010：Worker Native AOT 分析边界
 
-- 状态：Phase 0 已实施；Phase 1/2/3/4/5/6 publish 与外部进程门禁已批准实施，等待 Linux CI 证据
+- 状态：Phase 0 已实施；Phase 1/2/3/4/5/6/7 publish 与外部进程门禁已批准实施，等待 Linux CI 证据
 - 决策日期：2026-08-29
 - 适用范围：`Full.NET.Host.Worker` 的 Native AOT 静态分析闭包
 - 关联决策：[`ADR-0006`](ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)、[`ADR-0008`](ADR-0008-api-native-aot-runtime-boundary.md)、[`ADR-0009`](ADR-0009-host-api-native-aot-provider-runtime-boundary.md)
@@ -77,6 +77,8 @@ Phase 4 在隔离双库中写入一个 Host 级启用的内置 Ping Job 定义�
 Phase 5 在隔离双库中写入两条陈旧 Host 级 Pending 文件记录，并只为其中一条在测试拥有的本地 Files root 创建 Blob。原生 Worker 必须把存在 Blob 的记录提升为 `ready` 并保留对象，同时删除缺失 Blob 的 Pending 元数据。该门禁证明 Files Upload Reconciliation 的 AOT 物化、Provider 解析、本地文件探测与两类确定终态，不证明 `publishing` 保留、软删除 Blob Cleanup、Reference Claim 对账、S3 或容量。
 
 Phase 6 在隔离双库中写入两条 Host 级已删除文件墓碑，其中本地 Provider 记录拥有测试独占 Blob，未知 Provider 记录用于验证失败隔离。原生 Worker 必须删除本地 Blob 与对应元数据，同时保留无法解析 Provider 的墓碑等待重试。该门禁证明 Files Cleanup 的 AOT 物化、Provider 选择、对象删除、墓碑清理与单项失败隔离，不证明未释放 Reference Claim、S3、并发软删除或容量。
+
+Phase 7 在隔离双库中写入两条超龄 Pending 文件引用 Claim：一条具有 `(VersionId, FileId)` 精确匹配的 Document 版本，另一条没有消费方引用且已超过释放宽限期。原生 Worker 必须把真实引用晋升为 `active` 并写入确认时间，把孤儿 Claim 推进为 `released` 并写入释放时间；外部进程环境显式关闭 Upload Reconciliation 与 Cleanup，只启用 Reference Claim Reconciliation。该门禁证明 Files Claim 对账的 AOT 分页物化、跨模块 Probe 调度和两类确定终态，不证明 Probe 异常隔离、并发 Claim/Delete、其他消费模块、S3 或容量。
 
 ## 6. 回退
 

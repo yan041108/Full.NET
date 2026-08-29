@@ -68,7 +68,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         CancellationToken cancellationToken = default,
         string? filesRootPath = null,
         bool enableFilesUploadReconciliation = false,
-        bool enableFilesCleanup = false)
+        bool enableFilesCleanup = false,
+        bool enableFilesReferenceClaimReconciliation = false)
     {
         var port = GetFreeTcpPort();
         var baseAddress = new Uri($"http://127.0.0.1:{port}/");
@@ -100,7 +101,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             baseAddress,
             filesRootPath,
             enableFilesUploadReconciliation,
-            enableFilesCleanup))
+            enableFilesCleanup,
+            enableFilesReferenceClaimReconciliation))
         {
             startInfo.Environment[pair.Key] = pair.Value;
         }
@@ -245,7 +247,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
         Uri baseAddress,
         string? filesRootPath,
         bool enableFilesUploadReconciliation,
-        bool enableFilesCleanup)
+        bool enableFilesCleanup,
+        bool enableFilesReferenceClaimReconciliation)
     {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -270,6 +273,8 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             ["Files__UploadReconciliation__Enabled"] =
                 enableFilesUploadReconciliation.ToString(),
             ["Files__Cleanup__Enabled"] = enableFilesCleanup.ToString(),
+            ["Files__ReferenceClaimReconciliation__Enabled"] =
+                enableFilesReferenceClaimReconciliation.ToString(),
             ["Files__Local__RootPath"] = filesRootPath ?? Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-worker-native-aot",
@@ -292,6 +297,15 @@ internal sealed class NativeWorkerProcessHost : IAsyncDisposable
             environment["Files__Cleanup__PollSeconds"] = "5";
             environment["Files__Cleanup__BatchSize"] = "10";
             environment["Files__Cleanup__MaxBatchesPerRun"] = "1";
+        }
+
+        if (enableFilesReferenceClaimReconciliation)
+        {
+            environment["Files__ReferenceClaimReconciliation__PollSeconds"] = "5";
+            environment["Files__ReferenceClaimReconciliation__BatchSize"] = "10";
+            environment["Files__ReferenceClaimReconciliation__MaxBatchesPerRun"] = "1";
+            environment["Files__ReferenceClaimReconciliation__MinimumAgeSeconds"] = "30";
+            environment["Files__ReferenceClaimReconciliation__ReleaseGraceSeconds"] = "60";
         }
 
         return environment;

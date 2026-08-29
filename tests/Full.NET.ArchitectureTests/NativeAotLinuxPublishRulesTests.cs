@@ -157,7 +157,7 @@ public sealed class NativeAotLinuxPublishRulesTests
             "artifacts/native-aot/worker/linux-x64/publish/Full.NET.Host.Worker",
             publishGate.GetProperty("executableRelativePath").GetString());
         var integrationGate = matrix.RootElement.GetProperty("workerNativeAotIntegration");
-        Assert.AreEqual(12, integrationGate.GetProperty("minimum").GetInt32());
+        Assert.AreEqual(14, integrationGate.GetProperty("minimum").GetInt32());
 
         string[] requiredFiles =
         [
@@ -169,6 +169,7 @@ public sealed class NativeAotLinuxPublishRulesTests
             "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerOutboxProbe.cs",
             "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerJobsProbe.cs",
             "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerFilesProbe.cs",
+            "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerFilesReferenceClaimProbe.cs",
             "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerE2EAssertions.cs",
             "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerSqlServerE2ETests.cs",
             "tests/Full.NET.IntegrationTests/NativeAot/NativeWorkerMySqlE2ETests.cs",
@@ -204,5 +205,11 @@ public sealed class NativeAotLinuxPublishRulesTests
         StringAssert.Contains(
             mySqlTests,
             "MySql_native_worker_cleans_deleted_local_files");
+        StringAssert.Contains(
+            sqlServerTests,
+            "SqlServer_native_worker_reconciles_pending_file_reference_claims");
+        StringAssert.Contains(
+            mySqlTests,
+            "MySql_native_worker_reconciles_pending_file_reference_claims");
     }
 }
