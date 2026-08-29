@@ -162,7 +162,8 @@ Full.NET/
 │   │   ├── Full.NET.Modules.Files
 │   │   ├── Full.NET.Modules.Notifications
 │   │   ├── Full.NET.Modules.Jobs
-│   │   └── Full.NET.Modules.CodeGeneration
+│   │   ├── Full.NET.Modules.CodeGeneration
+│   │   └── Full.NET.Modules.Workflow（批准设计，尚未创建）
 │   ├── Compatibility/
 │   │   └── Full.NET.Compatibility.AdminNet
 │   └── Hosts/
@@ -351,7 +352,7 @@ MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，�
 
 ### 6.7 Notifications
 
-提供站内通知、未读消息、通知模板、SignalR 推送、渠道抽象、发送记录和失败重试。邮件、短信和公众号作为 Provider。
+现有模块提供公告、站内通知、权威未读/已读和 SignalR 刷新提示。批准的扩展采用 `Intent → Recipient → Inbox/Delivery → Attempt`，提供不可变模板版本、多套 Provider Profile、Producer/Scene 显式 Binding、回执、偏好、死信与对账；邮件、短信、企业微信、公众号和钉钉作为可选 Provider。Profile Enabled 不代表自动发送，多个 Profile 只有在 `Single/FanOut/Failover/Match` Binding 中显式选择后才参与路由；Secret 只保存部署引用。完整边界见 [`Notifications 扩展 Spec`](2026-08-30-notifications-platform-extension-design.md)。
 
 ### 6.8 Jobs
 
@@ -360,6 +361,10 @@ MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，�
 ### 6.9 CodeGeneration
 
 提供数据库元数据读取、模型定义、后端、SQL、Vue 管理页面、多平台 API 客户端和测试生成，是快速交付的核心能力。`Full.NET.Data.CodeGeneration` 是不依赖 Web 的生成引擎和 CLI 基础；当前已实现嵌入 Naming Profile 的表名、索引/约束确定性摘要和稳定协议校验纯函数，元数据读取、模板渲染、CLI 与 Vue 纵向样例继续推进；既有 Layui 生成产物冻结，不再扩展。`Full.NET.Modules.CodeGeneration` 负责权限、任务记录、模板管理和后台页面 API，不重复实现模板引擎。
+
+### 6.10 Workflow（批准设计，尚未实现）
+
+采用 Full.NET 自有审批领域内核，拥有不可变定义/表单版本、实例、步骤、Todo、抄送、表单提交、执行日志和恢复控制面。Workflow-Vue3 与 VForm3 只承担受控设计/Web 适配，服务端把 Draft 编译为单一 Workflow IR 与 `WorkflowFormSchema`；uni-app 使用自研静态轻量渲染器。Workflow Todo 与 Notifications Inbox 分离，业务模块通过最小 Port 或有真实消费者的版本化事件协作。完整边界见 [`Workflow Spec`](2026-08-20-workflow-module-design.md)。
 
 ## 7. Dapper-first 数据层
 
@@ -942,7 +947,7 @@ Full.NET 不默认引入 eShop 的每模块微服务、每服务独立数据库�
 3. 按 Tenancy、Identity、Organization、Permissions 顺序形成第一条完整垂直链路；
 4. 管理端逐页面接入新 API；
 5. Settings、Auditing、Files、Notifications、Jobs 和 CodeGeneration 后续迁移；
-6. 按 `docs/roadmap/adminnet-feature-parity.md` 继续实现支付、微信、MQTT、OCR、工作流、文档、AI 等官方扩展；
+6. 按 `docs/roadmap/adminnet-feature-parity.md` 继续实现 Workflow、DataApproval、支付、微信、MQTT、OCR、AI 等官方扩展；Workflow 已有批准 Spec，仍须按独立首切片计划交付；
 7. 每项对标功能必须记录归属、状态、测试、差异和来源；
 8. 新框架达到对应阶段验收基线后再冻结旧系统中的同类功能。
 
@@ -987,7 +992,7 @@ Settings、Auditing、Files、Notifications、Jobs、代码生成、应用模板
 
 ### M5+：Admin.NET 全量功能对标
 
-按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括 Flutter 原生移动/桌面客户端、按需 MAUI 模板、在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、Agent、MCP、Agentic Web、审批、钉钉、文档、GoView、K3Cloud、OCR、ReZero、工作流和企业微信等。每个子模块独立完成设计、计划、实现和验收，不阻塞核心 1.0 发布。
+按功能矩阵持续交付官方扩展、Provider、Sample 和 Client，包括已批准但尚未实现的 Workflow 与 Notifications 平台扩展，以及 Flutter 原生移动/桌面客户端、按需 MAUI 模板、在线构建、导入导出、报表、微信、支付、OAuth、APIJSON、数据库视图、ES 日志、MQTT、AI、Agent、MCP、Agentic Web、审批、钉钉、GoView、K3Cloud、OCR、ReZero 和企业微信等。每个子模块独立完成计划、实现和验收，不阻塞核心 1.0 发布。
 
 每个里程碑都必须保持可构建、可测试、可演示，不允许长期维护一个无法运行的大分支。
 

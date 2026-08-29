@@ -45,7 +45,7 @@
 | Files 本地存储、Provider 与上传状态机 | Build-verified | ProviderKey、Pending→Publishing→Ready、补偿与对账、双库迁移均已有验证。 |
 | Document | Build-verified | 2026-08-16：核心 Verified 切片（限流、版本历史、MVP 预览、统计修复、OpenAPI/权限清单、Integration 双库）已落地；admin-parity WCAG 全绿与 admin-real-stack 双库 E2E 复验仍待 fresh 输出后升档。仍非 Production-verified。见 [`document-parity-2026-08-09.md`](../verification/document-parity-2026-08-09.md)。 |
 | API Key、签名请求与模块目录 | Build-verified | 凭据、签名、模块发现和精确授权均有契约与安全测试。 |
-| Notifications | Build-verified | Inbox 与 SignalR 分层；发送路径在事务外调用 `IHostUserDirectory` 校验收件人，事务内仅写入 Notifications 表，Architecture 本地事务扫描无登记债务。Host.Api Native AOT 已在 SQL Server/MySQL 上通过公告、站内信、HTTP JSON 与 SignalR JSON 外部进程验证，见 [`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md)。 |
+| Notifications | Build-verified | 现有 Host 公告、站内信、未读/已读、SignalR 与 Host.Api 双库 Native AOT 范围保持 Build-verified。Tenant Inbox、模板版本、逻辑 Intent、多 Provider Profile、显式 Binding、Delivery/Attempt/Receipt 与偏好已在[扩展 Spec](../superpowers/specs/2026-08-30-notifications-platform-extension-design.md)获批并进入[独立计划](../superpowers/plans/2026-08-30-notifications-platform-extension.md)，仍为 Planned；邮件/短信/企微/公众号/钉钉均未因设计批准变为已实现。见 [`api-native-aot-notifications-2026-08-25.md`](../verification/api-native-aot-notifications-2026-08-25.md)。 |
 | Jobs | Build-verified | 调度、重试、容量证据与 Worker 运行边界持续硬化；完整 1/2/4/8 容量矩阵只在专用环境执行。Host.Api Native AOT 已在 SQL Server/MySQL 上通过定义、手动触发 ping、执行/计划/健康 HTTP JSON 外部进程验证，见 [`api-native-aot-settings-jobs-2026-08-25.md`](../verification/api-native-aot-settings-jobs-2026-08-25.md)；不外推 Worker 托管轮询或容量。 |
 | 在线会话治理 | Build-verified | 会话状态、撤销与多实例协调已有基础能力。 |
 | 受保护超级管理员 | Build-verified | 动态投影授权目录权限，仍受租户、会话、Endpoint、审计和最后一名保护约束。 |
@@ -64,6 +64,7 @@
 | Host.Api Native AOT Kafka Replay | Build-verified | **`Native-provider-verified: kafka-replay`**：Linux Native Host.Api + 真实 Kafka 范围重放在 SQL Server/MySQL 下已通过。仅覆盖 API Replay；不覆盖 Worker Producer/Consumer、CDC Relay、DLQ 或 Lag Observer。见 [`ADR-0009`](../architecture/adr/ADR-0009-host-api-native-aot-provider-runtime-boundary.md) 与 [Phase 3 记录](../verification/api-native-aot-phase3-providers-2026-08-24.md)。 |
 | gRPC 服务契约 | Planned | 只有明确的进程间高吞吐或流式需求才进入实现。 |
 | AI 能力 | Planned | 必须先确定数据边界、审计、模型供应、成本与降级策略。 |
+| Workflow | Designing | [Spec](../superpowers/specs/2026-08-20-workflow-module-design.md) 已于 2026-08-30 批准，固化自有审批内核、树形 Draft→统一 IR、不可变定义/表单版本、终态拒绝、Todo/Notifications 分离、Workflow-Vue3、VForm3 Web Adapter 和 uni-app 轻量渲染边界；[核心首切片](../superpowers/plans/2026-08-20-workflow-first-vertical-slice.md)与[设计器/跨端计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)已可按门禁执行。尚无运行时代码，不得标为 Implemented。 |
 | Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。 |
 | k6 与生产容量认证 | Implemented | [`eng/load`](../../eng/load/README.md) 已提供工具、阈值和报告能力；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
 

@@ -25,7 +25,7 @@ Vue 管理端必须优先形成完整、可访问、可真实验收的业务闭�
 | C1 Vue 壳层 | Build-verified | Art Design Pro 壳层、路由、主题、导航、会话、国际化与现有模块页面 | 富文本、人工辅助技术验收、进一步视觉收敛 |
 | C1-Legacy Layui | Frozen | 历史壳层、页面、测试和真实栈证据保留 | 不再补齐功能；另行制定退役计划 |
 | C2 后台业务 | Implementing | Identity、Tenancy、Organization、Settings、Auditing、Files、Notifications、CodeGeneration 等已有 Vue 切片 | 逐页面/逐操作授权；未完成模块继续只做 Vue |
-| C3 uni-app | Build-verified foundation | 三目标工程与基础契约已建立 | 真实业务纵向样例和发布验证 |
+| C3 uni-app | Build-verified foundation | 三目标工程与基础契约已建立 | 按[批准计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)交付首个 Workflow 表单纵向样例；当前仍未实现 |
 | C4 Flutter | Designing | 框架、组件与设计令牌边界已确定 | 工程基线和首个真实业务样例 |
 
 测试发现数量只维护在 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json)，本路线图不复制门槛数字。
@@ -107,6 +107,8 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 
 继续使用 uni-app Vue 3 + uni-ui，分别验证 H5、微信小程序和支付宝小程序构建。优先选择能复用现有 OpenAPI/权限/租户契约的真实业务样例，不复制后台管理功能。
 
+首个批准业务样例是 Workflow 表单发起/办理：后台 VForm3 Draft 由服务端编译为 `WorkflowFormSchema`，uni-app 自研静态 `FullNetFormRenderer`，不引入 VForm3/Element Plus，也不直接解释原始 VForm JSON。页面进入 `subPackages`，同一 FormVersion 在 H5/微信/支付宝保持字段语义一致；包体、30/100 字段渲染和三目标构建按[设计器/跨端计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)验证。
+
 ### C5：Flutter 原生移动与桌面
 
 采用 Flutter Material 3 + Cupertino + Full.NET 设计令牌，为手机、平板和桌面提供自适应业务客户端。Flutter 不重复承担 H5，功能按真实客户端需求选择，不追求后台全量对等。
@@ -131,7 +133,7 @@ OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-opena
 | M0/M1 | 公共协议、会话、ProblemDetails、Vue 最小壳层 |
 | M2 | Identity/Tenancy/Organization、RBAC、页面/操作授权、Vue 核心流程 |
 | M3 | Settings/Auditing/Files/Notifications/Jobs/CodeGeneration Vue 页面；uni-app 基础客户端 |
-| M4 | Vue 后台 1.0 全部验证、Layui 退役治理、uni-app 三目标、客户端安全/许可/E2E 加固 |
+| M4 | Vue 后台 1.0 全部验证、Layui 退役治理、Workflow 表单 uni-app 三目标纵向样例、客户端安全/许可/E2E 加固 |
 | M5+ | 后续 Admin.NET 模块 Vue 对标、Flutter、AI/Agentic Web、按需 MAUI |
 
 ## 7. CI 与质量门禁
@@ -171,7 +173,8 @@ OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-opena
 4. 调整客户端 CI/脚本，把 Layui 从新增功能聚合门禁移到冻结/退役检查；
 5. 为 Layui 制定独立退役计划，决定归档、只读发布、迁移说明和最终移除条件；
 6. 在 Vue 主线继续推进 Tiptap、ECharts 业务图表、可访问性和统一视觉体验；
-7. 按真实业务需求推进 uni-app，再启动 Flutter 首个纵向样例。
-8. [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md) 单模块迁移已收官：`document-statistics.ts` 已完成（现 230 条 `generated`）；`vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest。
+7. Workflow 核心首切片达到 Build-verified 后，执行[设计器与跨端表单计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)，作为 uni-app 首个真实业务纵向样例；
+8. 完成该样例的三目标与包体门禁后，再启动 Flutter 首个纵向样例；
+9. [OpenAPI 驱动客户端生成计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md) 单模块迁移已收官：`document-statistics.ts` 已完成（现 230 条 `generated`）；`vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest。
 
 每个计划结束时只更新真实受影响的状态与验证记录，不以计划存在、历史 Layui 证据或局部构建替代 Vue 真实验收。

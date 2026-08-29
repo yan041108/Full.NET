@@ -31,8 +31,8 @@ Full.NET 继续采用“轻量核心 + 官方模块 + 可选 Provider”的结�
 | Microsoft.Extensions.Http.Resilience | 保持现有实现 | Hosting，M1 已实现 |
 | StackExchange.Redis | 只通过缓存/Redis Provider 使用 | FusionCache/Provider，M1 已实现 |
 | Swashbuckle | 不引入文档生成器 | Microsoft OpenAPI + Scalar |
-| Elsa Workflows | 身份、组织、权限稳定后独立集成 | M5+ Workflow Module |
-| Workflow Core/Durable Task | 特定场景备选 | 非默认依赖 |
+| Full.NET Workflow 内核 | 已批准为首版默认；显式状态机、不可变版本、Dapper 双库与租约恢复 | M5+ Workflow Module，见 [`Workflow Spec`](2026-08-20-workflow-module-design.md) |
+| Elsa / Workflow Core / Durable Task | 只有 BPMN 交换、复杂网关、子流程或跨系统编排形成真实需求后独立 PoC/ADR | 非默认依赖，不进入首版 |
 
 ## 3. 验证架构
 
@@ -108,7 +108,7 @@ Handler 保留以下业务规则：
 - 无 Validator 的消息只产生一次空集合枚举和管道委托调用；
 - Validator 串行执行，避免带 Scoped 依赖的 Validator 并发访问同一数据库会话；
 - 新行为必须有单元测试，真实租户链路必须继续通过 SQL Server/MySQL 集成测试；
-- Host.Api Native AOT Phase 1 以 [`ADR-0008`](../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 为边界：`FullNetAotAnalysis` 与 `FullNetPublishMode=NativeAot` 共享编译条件，完整 API 闭包分析零告警为 `Aot-analysis-clean`；Linux 原生 publish 属于后续 Phase。
+- Host.Api Native AOT Phase 1 以 [`ADR-0008`](../../architecture/adr/ADR-0008-api-native-aot-runtime-boundary.md) 为边界：`FullNetAotAnalysis` 与 `FullNetPublishMode=NativeAot` 共享编译条件，完整 API 闭包分析零告警为 `Aot-analysis-clean`；Linux 原生 publish 属于后续 Phase。
 
 ## 8. 验收标准
 
@@ -131,7 +131,7 @@ Handler 保留以下业务规则：
 2. M3 Jobs 抽象、Quartz Provider 和任务管理页面；
 3. M3 Mapperly 与 Full.NET 代码生成器；
 4. M4 YARP Gateway Provider（仅在服务拆分门禁通过后）；
-5. M5+ Elsa Workflow Module；
+5. M5+ Full.NET Workflow 首切片与 Workflow-Vue3/VForm3/uni-app 设计运行时；第三方引擎只保留条件 PoC；
 6. M5+ Envoy/Linkerd Kubernetes 部署模板；
 7. 事件交付演进已提前批准：按 [`ADR-0006`](../../architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)和[专门实施计划](../plans/2026-08-08-transactional-outbox-cdc-kafka.md)依次建立契约/追加式 Outbox、Inbox、Kafka Provider、双库 CDC Shadow、单流试点和回退演练。
 
