@@ -8,6 +8,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using StackExchange.Redis;
 using ZiggyCreatures.Caching.Fusion;
+using Full.NET.Caching.Abstractions;
 using Full.NET.Caching.Fusion.Health;
 using Full.NET.Caching.Fusion.Serialization;
 #if !FULLNET_AOT_COMPILE
@@ -65,6 +66,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(Options.Create(cacheOptions));
         services.AddSingleton<ICachePolicyRegistry>(policyRegistry);
+        services.TryAddSingleton<ICacheInvalidator, FusionCacheInvalidator>();
 
         RegisterRedisDistributedCacheIfConfigured(
             services,
