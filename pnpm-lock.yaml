@@ -43,6 +43,9 @@ importers:
       '@dcloudio/uni-ui':
         specifier: 1.5.12
         version: 1.5.12
+      '@fullnet/client-contracts':
+        specifier: workspace:0.1.0
+        version: link:../../packages/client-contracts
       vue:
         specifier: 3.4.21
         version: 3.4.21(typescript@5.9.3)
