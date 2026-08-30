@@ -86,5 +86,10 @@ describe('Vue 本地导航目录', () => {
       titleKey: 'navigation.workflowDefinitions.title',
       captionKey: 'navigation.workflowDefinitions.caption'
     });
+    expect(localNavigationFor('workflow-instances')).toMatchObject({
+      path: '/workflow/instances',
+      titleKey: 'navigation.workflowInstances.title',
+      captionKey: 'navigation.workflowInstances.caption'
+    });
   });
 });

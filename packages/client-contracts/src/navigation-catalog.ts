@@ -240,6 +240,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/workflow/definitions'
   },
   {
+    componentKey: 'workflow-instances',
+    routeName: 'workflow-instances',
+    path: '/workflow/instances'
+  },
+  {
     componentKey: 'layout',
     routeName: 'layout',
     path: '/'

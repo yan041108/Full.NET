@@ -243,6 +243,7 @@ import type {
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
+  WorkflowExecutionLogResponse,
   WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
@@ -2901,6 +2902,17 @@ function isWorkflowDefinitionVersionResponse(value: unknown): value is WorkflowD
   return isRecord(value) && (typeof value["canonicalJson"] === 'string') && (typeof value["contentHash"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"])) && (typeof value["versionNumber"] === 'number' && Number.isInteger(value["versionNumber"]));
 }
 
+export function readWorkflowExecutionLogResponse(value: unknown): WorkflowExecutionLogResponse {
+  if (!(isWorkflowExecutionLogResponse(value))) {
+    throw new Error('client.invalid_workflow_execution_log_response');
+  }
+  return value;
+}
+
+function isWorkflowExecutionLogResponse(value: unknown): value is WorkflowExecutionLogResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["fromStatusKey"] === null) || (typeof value["fromStatusKey"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["toStatusKey"] === 'string') && (typeof value["transitionKey"] === 'string');
+}
+
 export function readWorkflowFormVersionResponse(value: unknown): WorkflowFormVersionResponse {
   if (!(isWorkflowFormVersionResponse(value))) {
     throw new Error('client.invalid_workflow_form_version_response');
@@ -3171,6 +3183,13 @@ export function readWorkflowListDefinitionVersionsResponse(value: unknown): Arra
     throw new Error('client.invalid_workflow_list_definition_versions_response');
   }
   return value as Array<WorkflowDefinitionVersionResponse>;
+}
+
+export function readWorkflowListInstanceExecutionLogsResponse(value: unknown): Array<WorkflowExecutionLogResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowExecutionLogResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_instance_execution_logs_response');
+  }
+  return value as Array<WorkflowExecutionLogResponse>;
 }
 
 export function readWorkflowListMyTodosResponse(value: unknown): Array<WorkflowTodoResponse> {

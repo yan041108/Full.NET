@@ -1932,6 +1932,16 @@ export interface WorkflowDefinitionVersionResponse {
   readonly versionNumber: number;
 }
 
+export interface WorkflowExecutionLogResponse {
+  readonly createdAtUtc: string;
+  readonly fromStatusKey: null | string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly stepId: null | string;
+  readonly toStatusKey: string;
+  readonly transitionKey: string;
+}
+
 export interface WorkflowFormVersionResponse {
   readonly adapterVersion: number;
   readonly componentCatalogVersion: number;

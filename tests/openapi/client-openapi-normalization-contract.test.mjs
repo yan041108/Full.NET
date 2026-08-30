@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 244);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 244);
+  assert.equal(manifest.entries.length, 246);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 246);
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
@@ -268,7 +268,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    244
+    246
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

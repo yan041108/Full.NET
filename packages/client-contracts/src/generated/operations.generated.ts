@@ -244,6 +244,7 @@ import type {
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
+  WorkflowExecutionLogResponse,
   WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
@@ -375,6 +376,7 @@ import {
   readWorkflowInstanceResponse,
   readWorkflowListDefinitionsResponse,
   readWorkflowListDefinitionVersionsResponse,
+  readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyTodosResponse,
   readWorkflowTodoDetailResponse
 } from './guards.generated.js';
@@ -5712,6 +5714,24 @@ export async function workflowGetFormVersion(
   return readWorkflowFormVersionResponse(value);
 }
 
+export interface WorkflowGetInstanceParameters {
+  readonly instanceId: string;
+}
+
+export async function workflowGetInstance(
+  http: HttpClient,
+  parameters: WorkflowGetInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowGetTodoParameters {
   readonly todoId: string;
 }
@@ -5764,6 +5784,24 @@ export async function workflowListDefinitionVersions(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowListDefinitionVersionsResponse(value);
+}
+
+export interface WorkflowListInstanceExecutionLogsParameters {
+  readonly instanceId: string;
+}
+
+export async function workflowListInstanceExecutionLogs(
+  http: HttpClient,
+  parameters: WorkflowListInstanceExecutionLogsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowExecutionLogResponse>> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/execution-logs`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListInstanceExecutionLogsResponse(value);
 }
 
 export interface WorkflowListMyTodosParameters {
