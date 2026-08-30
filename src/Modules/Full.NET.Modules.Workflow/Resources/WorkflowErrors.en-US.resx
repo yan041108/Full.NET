@@ -24,6 +24,7 @@
   <data name="workflow.todo.assignee_mismatch" xml:space="preserve"><value>The todo is not assigned to the current user.</value></data>
   <data name="workflow.todo.not_active" xml:space="preserve"><value>The todo is no longer active.</value></data>
   <data name="workflow.instance.terminal" xml:space="preserve"><value>The workflow instance is already terminal.</value></data>
+  <data name="workflow.instance.forbidden" xml:space="preserve"><value>You cannot read this workflow instance.</value></data>
   <data name="workflow.instance.version_conflict" xml:space="preserve"><value>The workflow instance version conflicts with the request.</value></data>
   <data name="workflow.schema.invalid" xml:space="preserve"><value>The workflow schema is invalid.</value></data>
   <data name="workflow.version.conflict" xml:space="preserve"><value>The workflow version conflicts with the request.</value></data>

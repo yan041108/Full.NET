@@ -31,6 +31,7 @@ public static class WorkflowErrorCodes
     public const string VersionConflict = Prefix + "version.conflict";
     public const string VersionNotPublished = Prefix + "version.not_published";
     public const string ActiveInstanceExists = Prefix + "instance.active_exists";
+    public const string InstanceForbidden = Prefix + "instance.forbidden";
     public const string TodoForbidden = Prefix + "todo.forbidden";
     public const string RevisionConflict = Prefix + "revision.conflict";
     public const string InvalidTransition = Prefix + "transition.invalid";
@@ -62,6 +63,7 @@ public static class WorkflowErrorCodes
         VersionConflict,
         VersionNotPublished,
         ActiveInstanceExists,
+        InstanceForbidden,
         TodoForbidden,
         RevisionConflict,
         InvalidTransition,

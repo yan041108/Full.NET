@@ -324,6 +324,215 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement FindActiveInstanceByBusinessKey = new(
+        "workflow.instance.find_active_by_business_key",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionVersionId,
+               FormVersionId, BusinessType, BusinessId, StatusKey, Revision,
+               StartedById, StartedAtUtc, CompletedAtUtc, CancelledById,
+               CancelledAtUtc, CancellationReason, LeaseOwnerKey, LeaseExpiresAtUtc
+        FROM fn_workflow_instance
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND BusinessType = @BusinessType
+          AND BusinessId = @BusinessId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindRuntimeAsset = new(
+        "workflow.runtime_asset.find",
+        """
+        SELECT version.Id AS DefinitionVersionId, version.FormVersionId,
+               version.CanonicalJson, formVersion.FormSchemaJson
+        FROM fn_workflow_definition_version AS version
+        INNER JOIN fn_workflow_definition AS definition
+            ON definition.Id = version.DefinitionId
+        INNER JOIN fn_workflow_form_version AS formVersion
+            ON formVersion.Id = version.FormVersionId
+        INNER JOIN fn_workflow_form_definition AS formDefinition
+            ON formDefinition.Id = formVersion.FormDefinitionId
+        WHERE version.Id = @DefinitionVersionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+          AND formDefinition.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertInstance = new(
+        "workflow.instance.insert",
+        """
+        INSERT INTO fn_workflow_instance
+            (Id, TenantId, ScopeKey, TenantScopeKey, DefinitionVersionId, FormVersionId,
+             BusinessType, BusinessId, StatusKey, Revision, StartedById, StartedAtUtc,
+             CompletedAtUtc, CancelledById, CancelledAtUtc, CancellationReason,
+             LeaseOwnerKey, LeaseExpiresAtUtc)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @DefinitionVersionId, @FormVersionId,
+             @BusinessType, @BusinessId, 'active', 1, @StartedById, @StartedAtUtc,
+             NULL, NULL, NULL, NULL, NULL, NULL)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertStep = new(
+        "workflow.step.insert",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+             NULL, 0, 1, @StartedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertTodo = new(
+        "workflow.todo.insert",
+        """
+        INSERT INTO fn_workflow_todo
+            (Id, InstanceId, StepId, AssigneeUserId, StatusKey, Revision,
+             ArrivedAtUtc, CompletedAtUtc, ResultActionKey)
+        VALUES
+            (@Id, @InstanceId, @StepId, @AssigneeUserId, 'active', 1,
+             @ArrivedAtUtc, NULL, NULL)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertFormSubmission = new(
+        "workflow.form_submission.insert",
+        """
+        INSERT INTO fn_workflow_form_submission
+            (Id, InstanceId, FormVersionId, SubmissionJson, DataClassificationSummary,
+             Revision, UpdatedById, UpdatedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @FormVersionId, @SubmissionJson, 'none',
+             1, @UpdatedById, @UpdatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindFormSubmissionByInstance = new(
+        "workflow.form_submission.find_by_instance",
+        """
+        SELECT submission.Id, submission.InstanceId, submission.FormVersionId,
+               submission.SubmissionJson, submission.DataClassificationSummary,
+               submission.Revision, submission.UpdatedById, submission.UpdatedAtUtc
+        FROM fn_workflow_form_submission AS submission
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = submission.InstanceId
+        WHERE submission.InstanceId = @InstanceId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateFormSubmissionWithRevision = new(
+        "workflow.form_submission.update_with_revision",
+        """
+        UPDATE fn_workflow_form_submission
+        SET SubmissionJson = @SubmissionJson,
+            Revision = Revision + 1,
+            UpdatedById = @UpdatedById,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE InstanceId = @InstanceId
+          AND FormVersionId = @FormVersionId
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertActionRecord = new(
+        "workflow.action_record.insert",
+        """
+        INSERT INTO fn_workflow_action_record
+            (Id, InstanceId, StepId, TodoId, ActionKey, ActorUserId,
+             InstanceRevision, IdempotencyKey, CommentSummary, CreatedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @TodoId, @ActionKey, @ActorUserId,
+             @InstanceRevision, @IdempotencyKey, @CommentSummary, @CreatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertExecutionLog = new(
+        "workflow.execution_log.insert",
+        """
+        INSERT INTO fn_workflow_execution_log
+            (Id, InstanceId, StepId, TransitionKey, FromStatusKey, ToStatusKey,
+             IdempotencyKey, Summary, CreatedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @TransitionKey, @FromStatusKey, @ToStatusKey,
+             @IdempotencyKey, @Summary, @CreatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindActionReceipt = new(
+        "workflow.action_record.find_receipt",
+        """
+        SELECT action.ActionKey, action.ActorUserId, action.InstanceRevision,
+               action.IdempotencyKey, log.Summary AS RequestHash
+        FROM fn_workflow_action_record AS action
+        LEFT JOIN fn_workflow_execution_log AS log
+          ON log.InstanceId = action.InstanceId
+         AND log.IdempotencyKey = action.IdempotencyKey
+        WHERE action.InstanceId = @InstanceId
+          AND action.IdempotencyKey = @IdempotencyKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListExecutionLogsSqlServer = new(
+        "workflow.execution_log.list.sqlserver",
+        """
+        SELECT TOP (@Take) log.Id, log.InstanceId, log.StepId, log.TransitionKey,
+               log.FromStatusKey, log.ToStatusKey, log.IdempotencyKey,
+               log.Summary, log.CreatedAtUtc
+        FROM fn_workflow_execution_log AS log
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = log.InstanceId
+        WHERE log.InstanceId = @InstanceId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        ORDER BY log.CreatedAtUtc, log.Id
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListExecutionLogsMySql = new(
+        "workflow.execution_log.list.mysql",
+        """
+        SELECT log.Id, log.InstanceId, log.StepId, log.TransitionKey,
+               log.FromStatusKey, log.ToStatusKey, log.IdempotencyKey,
+               log.Summary, log.CreatedAtUtc
+        FROM fn_workflow_execution_log AS log
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = log.InstanceId
+        WHERE log.InstanceId = @InstanceId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        ORDER BY log.CreatedAtUtc, log.Id
+        LIMIT @Take
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListMineSqlServer = new(
+        "workflow.todo.list_mine.sqlserver",
+        """
+        SELECT TOP (@Take) todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
+               todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
+               todo.ResultActionKey, todo.Revision
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        WHERE instance.TenantScopeKey = @TenantScopeKey
+          AND todo.AssigneeUserId = @AssigneeUserId
+          AND todo.StatusKey = 'active'
+        ORDER BY todo.ArrivedAtUtc DESC, todo.Id DESC
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListMineMySql = new(
+        "workflow.todo.list_mine.mysql",
+        """
+        SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
+               todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
+               todo.ResultActionKey, todo.Revision
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        WHERE instance.TenantScopeKey = @TenantScopeKey
+          AND todo.AssigneeUserId = @AssigneeUserId
+          AND todo.StatusKey = 'active'
+        ORDER BY todo.ArrivedAtUtc DESC, todo.Id DESC
+        LIMIT @Take
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindTodoById = new(
         "workflow.todo.find_by_id",
         """
@@ -338,6 +547,34 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement FindActiveTodoByInstance = new(
+        "workflow.todo.find_active_by_instance",
+        """
+        SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
+               todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
+               todo.ResultActionKey, todo.Revision
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        WHERE todo.InstanceId = @InstanceId
+          AND todo.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement IsInstanceParticipant = new(
+        "workflow.instance.is_participant",
+        """
+        SELECT CASE WHEN EXISTS (
+            SELECT 1
+            FROM fn_workflow_todo AS todo
+            INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+            WHERE todo.InstanceId = @InstanceId
+              AND todo.AssigneeUserId = @ActorUserId
+              AND instance.TenantScopeKey = @TenantScopeKey
+        ) THEN 1 ELSE 0 END
+        """,
+        SqlDataScope.Global);
+
     /// <summary>以待办修订号和处理人共同保护完成动作；受影响行为零表示冲突或越权。</summary>
     public static readonly SqlStatement CompleteTodoWithRevision = new(
         "workflow.todo.complete_with_revision",
@@ -349,13 +586,41 @@ internal static class WorkflowSql
             Revision = Revision + 1
         WHERE Id = @Id
           AND AssigneeUserId = @AssigneeUserId
-          AND StatusKey = 'pending'
+          AND StatusKey = 'active'
           AND Revision = @Revision
           AND EXISTS (
               SELECT 1
               FROM fn_workflow_instance AS instance
               WHERE instance.Id = fn_workflow_todo.InstanceId
                 AND instance.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CompleteStepWithRevision = new(
+        "workflow.step.complete_with_revision",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = @StatusKey,
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CompleteInstanceWithRevision = new(
+        "workflow.instance.complete_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET StatusKey = @StatusKey,
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey = 'active'
+          AND Revision = @Revision
         """,
         SqlDataScope.Global);
 }

@@ -96,3 +96,41 @@ internal sealed record WorkflowTodoRecord(
     DateTimeOffset? CompletedAtUtc,
     string? ResultActionKey,
     long Revision);
+
+/// <summary>启动实例所需的同作用域不可变定义和表单版本。</summary>
+internal sealed record WorkflowRuntimeAssetRecord(
+    Guid DefinitionVersionId,
+    Guid FormVersionId,
+    string CanonicalJson,
+    string FormSchemaJson);
+
+/// <summary>实例表单当前提交快照。</summary>
+internal sealed record WorkflowFormSubmissionRecord(
+    Guid Id,
+    Guid InstanceId,
+    Guid FormVersionId,
+    string SubmissionJson,
+    string DataClassificationSummary,
+    long Revision,
+    Guid UpdatedById,
+    DateTimeOffset UpdatedAtUtc);
+
+/// <summary>用于确定性重放的已提交动作摘要。</summary>
+internal sealed record WorkflowActionReceiptRecord(
+    string ActionKey,
+    Guid ActorUserId,
+    long InstanceRevision,
+    string IdempotencyKey,
+    string? RequestHash);
+
+/// <summary>实例执行轨迹的追加式投影。</summary>
+internal sealed record WorkflowExecutionLogRecord(
+    Guid Id,
+    Guid InstanceId,
+    Guid? StepId,
+    string TransitionKey,
+    string? FromStatusKey,
+    string ToStatusKey,
+    string? IdempotencyKey,
+    string? Summary,
+    DateTimeOffset CreatedAtUtc);

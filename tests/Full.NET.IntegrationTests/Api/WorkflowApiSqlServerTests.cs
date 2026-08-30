@@ -14,4 +14,13 @@ public sealed class WorkflowApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
         await WorkflowApiAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Start_creates_self_assigned_todo_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await WorkflowRuntimeApiAssertions.VerifyStartAsync(factory);
+    }
 }

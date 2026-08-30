@@ -14,4 +14,13 @@ public sealed class WorkflowApiMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
         await WorkflowApiAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Start_creates_self_assigned_todo_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await WorkflowRuntimeApiAssertions.VerifyStartAsync(factory);
+    }
 }

@@ -17,6 +17,10 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowFormVersionRecord>(ReadFormVersion);
         registrar.Register<WorkflowInstanceRecord>(ReadInstance);
         registrar.Register<WorkflowTodoRecord>(ReadTodo);
+        registrar.Register<WorkflowRuntimeAssetRecord>(ReadRuntimeAsset);
+        registrar.Register<WorkflowFormSubmissionRecord>(ReadFormSubmission);
+        registrar.Register<WorkflowActionReceiptRecord>(ReadActionReceipt);
+        registrar.Register<WorkflowExecutionLogRecord>(ReadExecutionLog);
     }
 
     private static WorkflowDefinitionRecord ReadDefinition(DbDataReader reader) =>
@@ -115,5 +119,43 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
             AotDataReaderExtensions.ReadNullableString(reader, 7),
             reader.GetInt64(8));
+
+    private static WorkflowRuntimeAssetRecord ReadRuntimeAsset(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetString(3));
+
+    private static WorkflowFormSubmissionRecord ReadFormSubmission(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetGuid(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetInt64(5),
+            reader.GetGuid(6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7));
+
+    private static WorkflowActionReceiptRecord ReadActionReceipt(DbDataReader reader) =>
+        new(
+            reader.GetString(0),
+            reader.GetGuid(1),
+            reader.GetInt64(2),
+            reader.GetString(3),
+            AotDataReaderExtensions.ReadNullableString(reader, 4));
+
+    private static WorkflowExecutionLogRecord ReadExecutionLog(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 2),
+            reader.GetString(3),
+            AotDataReaderExtensions.ReadNullableString(reader, 4),
+            reader.GetString(5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6),
+            AotDataReaderExtensions.ReadNullableString(reader, 7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8));
 }
 #endif

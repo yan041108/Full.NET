@@ -1,0 +1,311 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Persistence;
+using Full.NET.Modules.Workflow.Serialization;
+using Microsoft.Extensions.Options;
+
+namespace Full.NET.Modules.Workflow.Features.ManageInstances;
+
+/// <summary>在可信作用域内固定发布版本，并原子创建实例、首步骤和本人待办。</summary>
+internal sealed class WorkflowInstanceManagementService(
+    IQueryExecutor queryExecutor,
+    ICommandExecutor commandExecutor,
+    ICommandTransaction transaction,
+    ICurrentTenant currentTenant,
+    IClock clock,
+    IIdGenerator idGenerator,
+    IOptions<DatabaseOptions> databaseOptions)
+{
+    public async Task<Result<WorkflowInstanceResponse>> StartAsync(
+        Guid actorUserId,
+        StartWorkflowInstanceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsValid(request))
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var asset = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(
+            WorkflowSql.FindRuntimeAsset,
+            Parameters(("DefinitionVersionId", request.DefinitionVersionId),
+                ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        if (asset is null)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.Validation);
+        }
+
+        var approvalNodeKey = FindFirstApprovalNode(asset.CanonicalJson);
+        var formSchema = JsonSerializer.Deserialize(
+            asset.FormSchemaJson,
+            WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
+        if (approvalNodeKey is null || formSchema is null ||
+            !WorkflowFormValueValidator.Validate(formSchema, request.InitialValues))
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var instanceId = idGenerator.NewId();
+        var stepId = idGenerator.NewId();
+        var todoId = idGenerator.NewId();
+        var now = clock.UtcNow;
+        var requestHash = HashStartRequest(request);
+        try
+        {
+            return await transaction.ExecuteResultAsync(async token =>
+            {
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertInstance,
+                    Parameters(("Id", instanceId), ("TenantId", scope.TenantId),
+                        ("ScopeKey", scope.ScopeKey), ("TenantScopeKey", scope.TenantScopeKey),
+                        ("DefinitionVersionId", asset.DefinitionVersionId),
+                        ("FormVersionId", asset.FormVersionId),
+                        ("BusinessType", request.BusinessType.Trim()),
+                        ("BusinessId", request.BusinessId.Trim()),
+                        ("StartedById", actorUserId), ("StartedAtUtc", now)), token).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
+                    Parameters(("Id", stepId), ("InstanceId", instanceId),
+                        ("NodeKey", approvalNodeKey), ("AssignedUserId", actorUserId),
+                        ("StartedAtUtc", now)), token).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
+                    Parameters(("Id", todoId), ("InstanceId", instanceId), ("StepId", stepId),
+                        ("AssigneeUserId", actorUserId), ("ArrivedAtUtc", now)), token).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertFormSubmission,
+                    Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                        ("FormVersionId", asset.FormVersionId),
+                        ("SubmissionJson", request.InitialValues.GetRawText()),
+                        ("UpdatedById", actorUserId), ("UpdatedAtUtc", now)), token).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+                    Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                        ("StepId", stepId), ("TodoId", todoId), ("ActionKey", "start"),
+                        ("ActorUserId", actorUserId), ("InstanceRevision", 1L),
+                        ("IdempotencyKey", request.IdempotencyKey.Trim()),
+                        ("CommentSummary", null), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
+                    Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                        ("StepId", stepId), ("TransitionKey", "instance.start"),
+                        ("FromStatusKey", null), ("ToStatusKey", "active"),
+                        ("IdempotencyKey", request.IdempotencyKey.Trim()),
+                        ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+                await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
+                    Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                        ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
+                        ("OperationKey", "instance.start"), ("ActorUserId", actorUserId),
+                        ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
+                        ("OutcomeKey", "succeeded"),
+                        ("DetailJson", $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}"),
+                        ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+                return Result<WorkflowInstanceResponse>.Success(new(
+                    instanceId, asset.DefinitionVersionId, asset.FormVersionId,
+                    request.BusinessType.Trim(), request.BusinessId.Trim(), "active", 1,
+                    todoId, now));
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return await ResolveStartConflictAsync(
+                actorUserId, request, scope, requestHash, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<Result<WorkflowInstanceResponse>> GetAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        if (!await CanReadAsync(instance, actorUserId, scope, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+        }
+
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+            WorkflowSql.FindActiveTodoByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        return Result<WorkflowInstanceResponse>.Success(new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.Revision, todo?.Id, instance.StartedAtUtc));
+    }
+
+    public async Task<Result<IReadOnlyList<WorkflowExecutionLogResponse>>> ListExecutionLogsAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (instance is null)
+        {
+            return Result<IReadOnlyList<WorkflowExecutionLogResponse>>.Failure(
+                new Error(WorkflowErrorCodes.VersionNotPublished,
+                    "The workflow instance was not found.", ErrorType.NotFound));
+        }
+
+        if (!await CanReadAsync(instance, actorUserId, scope, cancellationToken).ConfigureAwait(false))
+        {
+            return Result<IReadOnlyList<WorkflowExecutionLogResponse>>.Failure(
+                new Error(WorkflowErrorCodes.InstanceForbidden,
+                    "The workflow instance cannot be read by the current user.", ErrorType.Forbidden));
+        }
+
+        var statement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => WorkflowSql.ListExecutionLogsSqlServer,
+            DatabaseProvider.MySql => WorkflowSql.ListExecutionLogsMySql,
+            _ => throw new InvalidOperationException(
+                $"Unsupported database provider '{databaseOptions.Value.Provider}'."),
+        };
+        var rows = await queryExecutor.QueryAsync<WorkflowExecutionLogRecord>(
+            statement,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                ("Take", 200)), cancellationToken).ConfigureAwait(false);
+        return Result<IReadOnlyList<WorkflowExecutionLogResponse>>.Success(rows.Select(row => new WorkflowExecutionLogResponse(
+            row.Id, row.InstanceId, row.StepId, row.TransitionKey,
+            row.FromStatusKey, row.ToStatusKey, row.CreatedAtUtc)).ToArray());
+    }
+
+    private static bool IsValid(StartWorkflowInstanceRequest request) =>
+        request.DefinitionVersionId != Guid.Empty &&
+        request.InitialValues.ValueKind == JsonValueKind.Object &&
+        request.BusinessType.Trim() is { Length: >= 1 and <= 64 } &&
+        request.BusinessId.Trim() is { Length: >= 1 and <= 128 } &&
+        request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 };
+
+    private static string? FindFirstApprovalNode(string canonicalJson)
+    {
+        var draft = JsonSerializer.Deserialize(
+            canonicalJson,
+            WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
+        if (draft is null)
+        {
+            return null;
+        }
+
+        var byKey = draft.Nodes.ToDictionary(node => node.NodeKey, StringComparer.Ordinal);
+        var start = draft.Nodes.SingleOrDefault(node => node.NodeTypeKey == "start");
+        if (start is null)
+        {
+            return null;
+        }
+
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var current = ReadSingleNext(start.Config);
+        while (current is not null && visited.Add(current) && byKey.TryGetValue(current, out var node))
+        {
+            if (node.NodeTypeKey == "human.approval")
+            {
+                return node.NodeKey;
+            }
+
+            current = ReadSingleNext(node.Config);
+        }
+
+        return null;
+    }
+
+    private static string? ReadSingleNext(JsonElement config)
+    {
+        if (config.ValueKind != JsonValueKind.Object ||
+            !config.TryGetProperty("nextNodeKeys", out var keys) ||
+            keys.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var values = keys.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).ToArray();
+        return values.Length == 1 ? values[0].GetString() : null;
+    }
+
+    private async Task<Result<WorkflowInstanceResponse>> ResolveStartConflictAsync(
+        Guid actorUserId,
+        StartWorkflowInstanceRequest request,
+        WorkflowManagementScope scope,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindActiveInstanceByBusinessKey,
+            Parameters(("TenantScopeKey", scope.TenantScopeKey),
+                ("BusinessType", request.BusinessType.Trim()),
+                ("BusinessId", request.BusinessId.Trim())), cancellationToken).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict);
+        }
+
+        var receipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+            WorkflowSql.FindActionReceipt,
+            Parameters(("InstanceId", instance.Id),
+                ("IdempotencyKey", request.IdempotencyKey.Trim())), cancellationToken).ConfigureAwait(false);
+        if (receipt is null || receipt.ActionKey != "start" || receipt.ActorUserId != actorUserId ||
+            receipt.RequestHash != requestHash)
+        {
+            return Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict);
+        }
+
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+            WorkflowSql.FindActiveTodoByInstance,
+            Parameters(("InstanceId", instance.Id), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        return todo is null
+            ? Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict)
+            : Result<WorkflowInstanceResponse>.Success(new(
+                instance.Id, instance.DefinitionVersionId, formVersionId,
+                instance.BusinessType, instance.BusinessId, instance.StatusKey,
+                instance.Revision, todo.Id, instance.StartedAtUtc));
+    }
+
+    private static string HashStartRequest(StartWorkflowInstanceRequest request)
+    {
+        var value = $"{request.DefinitionVersionId:D}\n{request.BusinessType.Trim()}\n{request.BusinessId.Trim()}\n{request.InitialValues.GetRawText()}";
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    }
+
+    private async Task<bool> CanReadAsync(
+        WorkflowInstanceRecord instance,
+        Guid actorUserId,
+        WorkflowManagementScope scope,
+        CancellationToken cancellationToken)
+    {
+        if (instance.StartedById == actorUserId)
+        {
+            return true;
+        }
+
+        var participant = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+            WorkflowSql.IsInstanceParticipant,
+            Parameters(("InstanceId", instance.Id), ("ActorUserId", actorUserId),
+                ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        return participant == 1;
+    }
+
+    private static Dictionary<string, object?> Parameters(params (string Name, object? Value)[] pairs) =>
+        WorkflowSqlParameters.Create(pairs);
+
+    private static Result<WorkflowInstanceResponse> Failure(string code, ErrorType type) =>
+        Result<WorkflowInstanceResponse>.Failure(new Error(code, "The workflow instance operation failed.", type));
+}

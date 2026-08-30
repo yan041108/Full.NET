@@ -325,12 +325,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 64,
+        "minimum": 65,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 64,
+        "minimum": 65,
         "timeout": "60m"
       },
       "migrations": {
@@ -349,7 +349,7 @@
         "timeout": "60m"
       },
       "full": {
-        "minimum": 659,
+        "minimum": 661,
         "timeout": "90m"
       }
     }

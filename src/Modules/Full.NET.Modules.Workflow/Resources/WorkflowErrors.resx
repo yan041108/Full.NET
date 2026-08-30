@@ -24,6 +24,7 @@
   <data name="workflow.todo.assignee_mismatch" xml:space="preserve"><value>待办不属于当前用户。</value></data>
   <data name="workflow.todo.not_active" xml:space="preserve"><value>待办已不处于可处理状态。</value></data>
   <data name="workflow.instance.terminal" xml:space="preserve"><value>工作流实例已进入终态。</value></data>
+  <data name="workflow.instance.forbidden" xml:space="preserve"><value>无权读取该工作流实例。</value></data>
   <data name="workflow.instance.version_conflict" xml:space="preserve"><value>工作流实例版本冲突。</value></data>
   <data name="workflow.schema.invalid" xml:space="preserve"><value>工作流结构无效。</value></data>
   <data name="workflow.version.conflict" xml:space="preserve"><value>工作流版本冲突。</value></data>
