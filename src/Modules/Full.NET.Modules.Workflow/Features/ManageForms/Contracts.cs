@@ -12,6 +12,19 @@ internal sealed record UpdateWorkflowFormDraftRequest(
 
 internal sealed record PublishWorkflowFormRequest(long ExpectedRevision);
 
+internal sealed record WorkflowFormComponentCatalogResponse(
+    int CatalogVersion,
+    int SchemaVersion,
+    int AdapterVersion,
+    IReadOnlyList<WorkflowFormComponentResponse> Components);
+
+internal sealed record WorkflowFormComponentResponse(
+    string FieldTypeKey,
+    bool Designable,
+    bool Publishable,
+    bool Executable,
+    IReadOnlyList<string> ConstraintKeys);
+
 internal sealed record WorkflowFormResponse(
     Guid Id,
     string FormKey,

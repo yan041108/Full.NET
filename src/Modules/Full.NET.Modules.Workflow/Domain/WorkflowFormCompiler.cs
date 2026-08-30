@@ -13,13 +13,6 @@ internal static class WorkflowFormCompiler
     private static readonly HashSet<string> ForbiddenStableKeys =
         new(StringComparer.OrdinalIgnoreCase) { "__proto__", "prototype", "constructor" };
 
-    private static readonly HashSet<string> SupportedFieldTypes =
-        new(StringComparer.Ordinal)
-        {
-            "text", "textarea", "integer", "decimal", "money", "date",
-            "time", "datetime", "radio", "checkbox", "select", "switch",
-        };
-
     private static readonly HashSet<string> ForbiddenExtensionKeys =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -30,23 +23,6 @@ internal static class WorkflowFormCompiler
 
     private static readonly HashSet<string> ChoiceFieldTypes =
         new(StringComparer.Ordinal) { "radio", "checkbox", "select" };
-
-    private static readonly IReadOnlyDictionary<string, HashSet<string>> SupportedConstraintKeys =
-        new Dictionary<string, HashSet<string>>(StringComparer.Ordinal)
-        {
-            ["text"] = new(StringComparer.Ordinal) { "minLength", "maxLength" },
-            ["textarea"] = new(StringComparer.Ordinal) { "minLength", "maxLength" },
-            ["integer"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
-            ["decimal"] = new(StringComparer.Ordinal) { "scale", "minimum", "maximum" },
-            ["money"] = new(StringComparer.Ordinal) { "scale", "minimum", "maximum" },
-            ["date"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
-            ["time"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
-            ["datetime"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
-            ["radio"] = new(StringComparer.Ordinal) { "options" },
-            ["checkbox"] = new(StringComparer.Ordinal) { "options" },
-            ["select"] = new(StringComparer.Ordinal) { "options" },
-            ["switch"] = new(StringComparer.Ordinal),
-        };
 
     public static WorkflowCompilationResult Compile(WorkflowFormSchema schema)
     {
@@ -62,7 +38,10 @@ internal static class WorkflowFormCompiler
         }
 
         var fields = schema.Sections.SelectMany(section => section.Fields).ToArray();
-        if (fields.Any(field => !SupportedFieldTypes.Contains(field.FieldTypeKey)))
+        if (fields.Any(field =>
+                !WorkflowFormComponentCatalog.TryGet(field.FieldTypeKey, out var component) ||
+                !component!.Publishable ||
+                !component.Executable))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldTypeUnknown);
         }
@@ -77,8 +56,9 @@ internal static class WorkflowFormCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormExtensionForbidden);
         }
 
-        if (fields.Any(field => field.Constraints.Keys.Any(
-                key => !SupportedConstraintKeys[field.FieldTypeKey].Contains(key))))
+        if (fields.Any(field =>
+                !WorkflowFormComponentCatalog.TryGet(field.FieldTypeKey, out var component) ||
+                field.Constraints.Keys.Any(key => !component!.SupportsConstraint(key))))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldConstraintsInvalid);
         }

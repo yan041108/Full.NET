@@ -15,6 +15,8 @@ internal static class Endpoint
         var group = endpoints.MapGroup("/api/v1/workflow/forms")
             .WithTags("WorkflowForms");
 
+        FormComponentCatalogEndpoint.Map(group);
+
         group.MapGet("/", async (WorkflowFormManagementService service, IApiResultMapper mapper,
             HttpContext context, CancellationToken token) =>
             mapper.Map(await service.ListAsync(token).ConfigureAwait(false), context))

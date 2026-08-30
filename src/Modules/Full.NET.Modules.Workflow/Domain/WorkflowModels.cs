@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
@@ -12,15 +13,18 @@ internal sealed record WorkflowNodeDraft(
     int NodeSchemaVersion,
     JsonElement Config);
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowFormSchema(
     int SchemaVersion,
     int AdapterVersion,
     IReadOnlyList<WorkflowFormSection> Sections);
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowFormSection(
     string SectionKey,
     IReadOnlyList<WorkflowFormField> Fields);
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowFormField(
     string FieldKey,
     string FieldTypeKey,
