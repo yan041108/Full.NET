@@ -63,9 +63,7 @@ internal static class WorkflowFormValueValidator
     {
         "text" or "textarea" => IsTextValid(field, value),
         "money" or "decimal" => IsDecimalValid(field, value),
-        "date" or "time" or "datetime" =>
-            value.ValueKind == JsonValueKind.String &&
-            !string.IsNullOrWhiteSpace(value.GetString()),
+        "date" or "time" or "datetime" => IsTemporalValid(field, value),
         "radio" or "select" => IsDeclaredOption(field, value),
         "integer" => IsIntegerValid(field, value),
         "checkbox" => AreDeclaredOptions(field, value),
@@ -119,6 +117,21 @@ internal static class WorkflowFormValueValidator
         }
 
         return number >= minimum && number <= maximum;
+    }
+
+    private static bool IsTemporalValid(WorkflowFormField field, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.String ||
+            !WorkflowFormFieldConstraints.TryReadTemporalRange(field, out var minimum, out var maximum) ||
+            !WorkflowFormFieldConstraints.TryParseCanonicalTemporal(
+                field.FieldTypeKey,
+                value.GetString()!,
+                out var temporalValue))
+        {
+            return false;
+        }
+
+        return temporalValue >= minimum && temporalValue <= maximum;
     }
 
     private static bool IsDeclaredOption(WorkflowFormField field, JsonElement value)

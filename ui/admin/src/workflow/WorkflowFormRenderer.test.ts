@@ -77,4 +77,47 @@ describe('WorkflowFormRenderer', () => {
       max: '100'
     });
   });
+
+  it('在 datetime-local 与带时区的权威日期时间之间转换', async () => {
+    const dateTimeSchema = {
+      schemaVersion: 1,
+      adapterVersion: 1,
+      sections: [{
+        sectionKey: 'request',
+        fields: [{
+          fieldKey: 'deadline',
+          fieldTypeKey: 'datetime',
+          required: true,
+          constraints: {}
+        }]
+      }]
+    } satisfies WorkflowFormSchema;
+    const authoritativeValue = '2026-08-30T02:30:15Z';
+    const wrapper = mount(WorkflowFormRenderer, {
+      props: {
+        schema: dateTimeSchema,
+        submission: { deadline: authoritativeValue },
+        fieldPolicies: {}
+      }
+    });
+    const input = wrapper.get('[data-field-key="deadline"] input');
+
+    expect((input.element as HTMLInputElement).value.slice(0, 19))
+      .toBe(toLocalDateTime(authoritativeValue));
+    expect(input.attributes('step')).toBe('1');
+
+    const localValue = '2026-08-30T10:45:30';
+    await input.setValue(localValue);
+    const emitted = wrapper.emitted('update:patch')?.at(-1)?.[0] as Record<string, unknown>;
+
+    expect(emitted.deadline).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    expect(Date.parse(String(emitted.deadline))).toBe(new Date(localValue).getTime());
+  });
 });
+
+function toLocalDateTime(value: string): string {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}

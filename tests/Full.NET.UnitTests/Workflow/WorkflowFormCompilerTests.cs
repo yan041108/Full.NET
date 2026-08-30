@@ -47,6 +47,10 @@ public sealed class WorkflowFormCompilerTests
     [DataRow("decimal-scale-too-large", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("decimal-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("money-bound-exceeds-scale", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("date-bound-invalid", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("time-bound-invalid", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("datetime-offset-missing", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("temporal-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     public void Compile_rejects_unsafe_or_invalid_forms(string scenario, string expectedCode)
     {
         var schema = scenario switch
@@ -72,6 +76,10 @@ public sealed class WorkflowFormCompilerTests
             "decimal-scale-too-large" => Schema(Field("ratio", "decimal", "{\"scale\":29}")),
             "decimal-range-reversed" => Schema(Field("ratio", "decimal", "{\"scale\":3,\"minimum\":\"2.000\",\"maximum\":\"1.000\"}")),
             "money-bound-exceeds-scale" => Schema(Field("amount", "money", "{\"scale\":2,\"minimum\":\"0.001\"}")),
+            "date-bound-invalid" => Schema(Field("dueDate", "date", "{\"minimum\":\"2026-02-30\"}")),
+            "time-bound-invalid" => Schema(Field("cutoff", "time", "{\"maximum\":\"24:00\"}")),
+            "datetime-offset-missing" => Schema(Field("deadline", "datetime", "{\"minimum\":\"2026-08-30T10:00:00\"}")),
+            "temporal-range-reversed" => Schema(Field("dueDate", "date", "{\"minimum\":\"2026-09-01\",\"maximum\":\"2026-08-31\"}")),
             _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
         };
 

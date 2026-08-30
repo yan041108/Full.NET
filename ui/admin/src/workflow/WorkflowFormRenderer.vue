@@ -76,6 +76,22 @@ function integerRangeConstraint(
   return Number.isSafeInteger(value) ? Number(value) : undefined;
 }
 
+function inputValue(field: WorkflowFormField): unknown {
+  const value = values[field.fieldKey] ?? '';
+  if (field.fieldTypeKey !== 'datetime' || typeof value !== 'string' || value.length === 0) {
+    return value;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function updateValue(field: WorkflowFormField, rawValue: unknown): void {
   if (isReadOnly(field) || policyFor(field) === 'hidden') {
     return;
@@ -83,7 +99,9 @@ function updateValue(field: WorkflowFormField, rawValue: unknown): void {
 
   const value = field.fieldTypeKey === 'integer'
     ? parseInteger(rawValue)
-    : rawValue;
+    : field.fieldTypeKey === 'datetime'
+      ? parseDateTime(rawValue)
+      : rawValue;
   values[field.fieldKey] = value;
   patch[field.fieldKey] = value;
   emit('update:patch', { ...patch });
@@ -109,6 +127,18 @@ function stringArrayValue(fieldKey: string): string[] {
 function parseInteger(value: unknown): number | null {
   const parsed = Number.parseInt(String(value), 10);
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function parseDateTime(value: unknown): string | null {
+  const text = String(value);
+  if (text.length === 0) {
+    return null;
+  }
+
+  const date = new Date(text);
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toISOString().replace('.000Z', 'Z');
 }
 
 function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmission): void {
@@ -202,13 +232,14 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
             v-else
             :type="field.fieldTypeKey === 'integer' ? 'number' : field.fieldTypeKey === 'date' ? 'date' : field.fieldTypeKey === 'time' ? 'time' : field.fieldTypeKey === 'datetime' ? 'datetime-local' : 'text'"
             :inputmode="field.fieldTypeKey === 'money' || field.fieldTypeKey === 'decimal' ? 'decimal' : undefined"
-            :value="values[field.fieldKey] ?? ''"
+            :value="inputValue(field)"
             :readonly="isReadOnly(field)"
             :required="isRequired(field)"
             :minlength="textLengthConstraint(field, 'minLength')"
             :maxlength="textLengthConstraint(field, 'maxLength')"
             :min="integerRangeConstraint(field, 'minimum')"
             :max="integerRangeConstraint(field, 'maximum')"
+            :step="field.fieldTypeKey === 'datetime' ? 1 : undefined"
             @input="updateValue(field, ($event.target as HTMLInputElement).value)"
           />
         </label>

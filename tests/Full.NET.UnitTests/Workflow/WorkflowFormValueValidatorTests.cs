@@ -89,6 +89,37 @@ public sealed class WorkflowFormValueValidatorTests
         Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, values));
     }
 
+    [TestMethod]
+    public void Validate_accepts_canonical_temporal_values_at_published_boundaries()
+    {
+        var schema = Schema(
+            Field("dueDate", "date", true, "{\"minimum\":\"2026-08-30\",\"maximum\":\"2026-09-01\"}"),
+            Field("cutoff", "time", true, "{\"minimum\":\"08:30\",\"maximum\":\"18:00\"}"),
+            Field("deadline", "datetime", true, "{\"minimum\":\"2026-08-30T00:00:00Z\",\"maximum\":\"2026-08-31T00:00:00+08:00\"}"));
+        var values = ParseElement("{\"dueDate\":\"2026-08-31\",\"cutoff\":\"18:00\",\"deadline\":\"2026-08-30T10:30:00+08:00\"}");
+
+        Assert.IsTrue(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
+    [TestMethod]
+    [DataRow("date", "{}", "\"2026-02-30\"")]
+    [DataRow("date", "{}", "\"2026/08/30\"")]
+    [DataRow("time", "{}", "\"24:00\"")]
+    [DataRow("time", "{}", "\"10:30:00\"")]
+    [DataRow("datetime", "{}", "\"2026-08-30T10:30:00\"")]
+    [DataRow("datetime", "{}", "\"2026-08-30T10:30:00.000Z\"")]
+    [DataRow("datetime", "{\"maximum\":\"2026-08-30T02:00:00Z\"}", "\"2026-08-30T10:30:00+08:00\"")]
+    public void Validate_rejects_noncanonical_or_out_of_range_temporal_values(
+        string fieldTypeKey,
+        string constraintsJson,
+        string valueJson)
+    {
+        var schema = Schema(Field("value", fieldTypeKey, true, constraintsJson));
+        var values = ParseElement($"{{\"value\":{valueJson}}}");
+
+        Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
     private static WorkflowFormSchema Schema(params WorkflowFormField[] fields) =>
         new(1, 1, [new WorkflowFormSection("main", fields)]);
 

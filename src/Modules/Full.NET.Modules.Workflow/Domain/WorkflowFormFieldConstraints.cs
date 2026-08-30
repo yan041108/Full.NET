@@ -111,6 +111,50 @@ internal static class WorkflowFormFieldConstraints
         return value != decimal.Zero || text[0] != '-';
     }
 
+    public static bool TryReadTemporalRange(
+        WorkflowFormField field,
+        out long minimum,
+        out long maximum)
+    {
+        minimum = long.MinValue;
+        maximum = long.MaxValue;
+
+        return TryReadOptionalTemporal(field, "minimum", ref minimum) &&
+               TryReadOptionalTemporal(field, "maximum", ref maximum) &&
+               maximum >= minimum;
+    }
+
+    public static bool TryParseCanonicalTemporal(
+        string fieldTypeKey,
+        string text,
+        out long sortableValue)
+    {
+        sortableValue = default;
+        switch (fieldTypeKey)
+        {
+            case "date" when DateOnly.TryParseExact(
+                text,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date):
+                sortableValue = date.DayNumber;
+                return true;
+            case "time" when TimeOnly.TryParseExact(
+                text,
+                "HH:mm",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var time):
+                sortableValue = time.Ticks;
+                return true;
+            case "datetime":
+                return TryParseCanonicalDateTime(text, out sortableValue);
+            default:
+                return false;
+        }
+    }
+
     private static bool TryReadOptionalInt32(
         WorkflowFormField field,
         string constraintKey,
@@ -156,6 +200,50 @@ internal static class WorkflowFormFieldConstraints
         };
 
         return text is not null && TryParseCanonicalDecimal(text, scale, out value);
+    }
+
+    private static bool TryReadOptionalTemporal(
+        WorkflowFormField field,
+        string constraintKey,
+        ref long value)
+    {
+        if (!field.Constraints.TryGetValue(constraintKey, out var configured))
+        {
+            return true;
+        }
+
+        return configured.ValueKind == JsonValueKind.String &&
+               TryParseCanonicalTemporal(field.FieldTypeKey, configured.GetString()!, out value);
+    }
+
+    private static bool TryParseCanonicalDateTime(string text, out long utcTicks)
+    {
+        utcTicks = default;
+        DateTimeOffset parsed;
+        if (text.EndsWith('Z'))
+        {
+            if (!DateTimeOffset.TryParseExact(
+                    text,
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out parsed))
+            {
+                return false;
+            }
+        }
+        else if (!DateTimeOffset.TryParseExact(
+                     text,
+                     "yyyy-MM-dd'T'HH:mm:sszzz",
+                     CultureInfo.InvariantCulture,
+                     DateTimeStyles.None,
+                     out parsed))
+        {
+            return false;
+        }
+
+        utcTicks = parsed.UtcDateTime.Ticks;
+        return true;
     }
 
     private static bool ContainsOnlyDigits(ReadOnlySpan<char> value)

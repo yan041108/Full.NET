@@ -67,6 +67,11 @@ internal static class WorkflowFormCompiler
                     field.FieldTypeKey == "money" ? 4 : 28,
                     out _,
                     out _,
+                    out _)) ||
+            fields.Where(field => field.FieldTypeKey is "date" or "time" or "datetime")
+                .Any(field => !WorkflowFormFieldConstraints.TryReadTemporalRange(
+                    field,
+                    out _,
                     out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldConstraintsInvalid);
