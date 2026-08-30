@@ -49,7 +49,7 @@ internal static class WorkflowFormValueValidator
                 continue;
             }
 
-            if (!IsTypeValid(field.FieldTypeKey, value))
+            if (!IsValueValid(field, value))
             {
                 return false;
             }
@@ -58,14 +58,66 @@ internal static class WorkflowFormValueValidator
         return true;
     }
 
-    private static bool IsTypeValid(string fieldTypeKey, JsonElement value) => fieldTypeKey switch
+    private static bool IsValueValid(WorkflowFormField field, JsonElement value) =>
+        field.FieldTypeKey switch
     {
-        "text" or "textarea" or "money" or "decimal" or "date" or "time" or "datetime" or
-            "radio" or "select" => value.ValueKind == JsonValueKind.String &&
-                                   !string.IsNullOrWhiteSpace(value.GetString()),
+        "text" or "textarea" or "money" or "decimal" or "date" or "time" or "datetime" =>
+            value.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(value.GetString()),
+        "radio" or "select" => IsDeclaredOption(field, value),
         "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
-        "checkbox" => value.ValueKind == JsonValueKind.Array,
+        "checkbox" => AreDeclaredOptions(field, value),
         "switch" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
         _ => false,
     };
+
+    private static bool IsDeclaredOption(WorkflowFormField field, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.String || !TryGetOptions(field, out var options))
+        {
+            return false;
+        }
+
+        return options.Contains(value.GetString()!, StringComparer.Ordinal);
+    }
+
+    private static bool AreDeclaredOptions(WorkflowFormField field, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array || !TryGetOptions(field, out var options))
+        {
+            return false;
+        }
+
+        var selected = value.EnumerateArray().ToArray();
+        if ((field.Required && selected.Length == 0) ||
+            selected.Any(item => item.ValueKind != JsonValueKind.String))
+        {
+            return false;
+        }
+
+        var selectedKeys = selected.Select(item => item.GetString()!).ToArray();
+        return selectedKeys.Distinct(StringComparer.Ordinal).Count() == selectedKeys.Length &&
+               selectedKeys.All(key => options.Contains(key, StringComparer.Ordinal));
+    }
+
+    private static bool TryGetOptions(WorkflowFormField field, out string[] options)
+    {
+        options = [];
+        if (!field.Constraints.TryGetValue("options", out var configured) ||
+            configured.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var items = configured.EnumerateArray().ToArray();
+        if (items.Length == 0 || items.Any(item =>
+                item.ValueKind != JsonValueKind.String ||
+                string.IsNullOrWhiteSpace(item.GetString())))
+        {
+            return false;
+        }
+
+        options = items.Select(item => item.GetString()!).ToArray();
+        return options.Distinct(StringComparer.Ordinal).Count() == options.Length;
+    }
 }
