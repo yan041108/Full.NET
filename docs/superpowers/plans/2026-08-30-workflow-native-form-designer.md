@@ -75,17 +75,17 @@ git commit -m "feat: expose workflow form management clients"
 - Consumes: `WorkflowFormSchema`、`WorkflowFormComponentCatalogResponse`。
 - Produces: `createWorkflowFormDraft()`、`addWorkflowFormSection()`、`addWorkflowFormField()`、`updateWorkflowFormField()`、`removeWorkflowFormField()`；所有函数返回新对象，不修改输入。
 
-- [ ] **Step 1: 写 Draft RED**
+- [x] **Step 1: 写 Draft RED**
 
 测试必须证明：默认 Draft 含一个 `main` Section 和一个 `summary:text` 字段；只能添加目录中三态均为 true 的字段；重复/危险稳定键失败；choice 默认生成非空 `options`，money/decimal 默认生成合法 `scale`；更新约束会剔除目录未声明键；删除最后字段被拒绝；输入对象保持不变。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Run: `pnpm --filter @fullnet/client-contracts test -- workflow-form-draft.test.ts`
 
 Expected: 因模块和导出不存在而失败。
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 ```ts
 export function createWorkflowFormDraft(): WorkflowFormSchema;
@@ -108,13 +108,13 @@ export function removeWorkflowFormField(schema: WorkflowFormSchema, fieldKey: st
 
 无效操作统一抛出稳定客户端错误：`client.invalid_workflow_form_draft`。
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 Run: `pnpm --filter @fullnet/client-contracts test -- workflow-form-draft.test.ts`
 
 Run: `pnpm --filter @fullnet/client-contracts build`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add packages/client-contracts

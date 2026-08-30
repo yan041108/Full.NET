@@ -44,6 +44,16 @@ export type {
 export { readWorkflowFormVersionSchema } from './workflow-runtime.js';
 
 export {
+  addWorkflowFormField,
+  addWorkflowFormSection,
+  createWorkflowFormDraft,
+  removeWorkflowFormField,
+  updateWorkflowFormField
+} from './workflow-form-draft.js';
+
+export type { WorkflowFormFieldPatch } from './workflow-form-draft.js';
+
+export {
   createSessionRefreshCoordinator
 } from './session-refresh-coordinator.js';
 
