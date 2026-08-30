@@ -7,6 +7,7 @@ public static class WorkflowErrorCodes
 {
     public const string Prefix = "workflow.";
     public const string DefinitionNodeTypeUnknown = Prefix + "definition.node_type_unknown";
+    public const string DefinitionNodeTypeUnavailable = Prefix + "definition.node_type_unavailable";
     public const string DefinitionNodeKeyDuplicate = Prefix + "definition.node_key_duplicate";
     public const string DefinitionReferenceDangling = Prefix + "definition.reference_dangling";
     public const string DefinitionNodeUnreachable = Prefix + "definition.node_unreachable";
@@ -15,6 +16,7 @@ public static class WorkflowErrorCodes
     public const string DefinitionStartInvalid = Prefix + "definition.start_invalid";
     public const string DefinitionSchemaUnsupported = Prefix + "definition.schema_unsupported";
     public const string DefinitionFieldPolicyInvalid = Prefix + "definition.field_policy_invalid";
+    public const string DefinitionTopologyUnsupported = Prefix + "definition.topology_unsupported";
     public const string DefinitionNotFound = Prefix + "definition.not_found";
     public const string DefinitionKeyExists = Prefix + "definition.key_exists";
     public const string FormFieldTypeUnknown = Prefix + "form.field_type_unknown";
@@ -44,6 +46,7 @@ public static class WorkflowErrorCodes
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         DefinitionNodeTypeUnknown,
+        DefinitionNodeTypeUnavailable,
         DefinitionNodeKeyDuplicate,
         DefinitionReferenceDangling,
         DefinitionNodeUnreachable,
@@ -52,6 +55,7 @@ public static class WorkflowErrorCodes
         DefinitionStartInvalid,
         DefinitionSchemaUnsupported,
         DefinitionFieldPolicyInvalid,
+        DefinitionTopologyUnsupported,
         DefinitionNotFound,
         DefinitionKeyExists,
         FormFieldTypeUnknown,

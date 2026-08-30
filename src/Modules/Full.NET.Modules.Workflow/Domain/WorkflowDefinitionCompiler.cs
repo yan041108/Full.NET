@@ -16,11 +16,16 @@ internal static class WorkflowDefinitionCompiler
         }
 
         if (draft.Nodes.Any(node =>
-                !WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var definition) ||
-                !definition!.Publishable ||
-                !definition.Executable))
+                !WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnknown);
+        }
+
+        if (draft.Nodes.Any(node =>
+                WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var definition) &&
+                (!definition!.Publishable || !definition.Executable)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnavailable);
         }
 
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
@@ -59,6 +64,11 @@ internal static class WorkflowDefinitionCompiler
         if (!reachable.Any(key => nodeByKey[key].NodeTypeKey == "end"))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionEndMissing);
+        }
+
+        if (!IsRuntimeTopologySupported(starts[0], nodeByKey, edges))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
         }
 
         return WorkflowCompilationResult.Success(
@@ -251,6 +261,27 @@ internal static class WorkflowDefinitionCompiler
         }
 
         return visited;
+    }
+
+    /// <summary>
+    /// 当前执行器只闭合“开始→单人审批→结束”；目录扩展必须与运行时推进能力同批交付。
+    /// </summary>
+    private static bool IsRuntimeTopologySupported(
+        WorkflowNodeDraft start,
+        IReadOnlyDictionary<string, WorkflowNodeDraft> nodeByKey,
+        IReadOnlyDictionary<string, string[]> edges)
+    {
+        if (nodeByKey.Count != 3 || edges[start.NodeKey] is not [var approvalKey] ||
+            !nodeByKey.TryGetValue(approvalKey, out var approval) ||
+            approval.NodeTypeKey != "human.approval" ||
+            edges[approvalKey] is not [var endKey] ||
+            !nodeByKey.TryGetValue(endKey, out var end) ||
+            end.NodeTypeKey != "end" || edges[endKey].Length != 0)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static bool ContainsCycle(

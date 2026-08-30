@@ -57,6 +57,7 @@ const definitionKey = ref('');
 const editingDefinition = ref<WorkflowDefinitionResponse>();
 const workflowTree = ref<WorkflowVue3Node>();
 const definitionDesigner = ref<WorkflowVue3DesignerInstance>();
+const enabledNodeTypes = ref<readonly string[]>([]);
 const publishedForms = ref<WorkflowFormResponse[]>([]);
 const publishFormVersionId = ref('');
 const canLoadPublishForms = computed(() =>
@@ -113,6 +114,9 @@ async function openEditor(definition: WorkflowDefinitionResponse): Promise<void>
   );
   if (result === undefined) return;
   const [authoritative, catalog, forms] = result;
+  enabledNodeTypes.value = catalog.nodeTypes
+    .filter(item => item.designable && item.publishable && item.executable)
+    .map(item => item.nodeTypeKey);
   const unsupported = authoritative.draft.nodes.find(node =>
     !catalog.nodeTypes.some(item => item.nodeTypeKey === node.nodeTypeKey
       && item.designable && item.publishable && item.executable));
@@ -176,6 +180,7 @@ async function publishDefinition(): Promise<void> {
 function closeEditor(): void {
   editingDefinition.value = undefined;
   workflowTree.value = undefined;
+  enabledNodeTypes.value = [];
   publishedForms.value = [];
   publishFormVersionId.value = '';
 }
@@ -406,6 +411,7 @@ function toProblem(
         ref="definitionDesigner"
         v-model="workflowTree"
         :disabled="acting"
+        :enabled-node-types="enabledNodeTypes"
         @validation-error="showDesignerError"
       />
       <div v-if="canLoadPublishForms" class="workflow-definitions__publish-row">

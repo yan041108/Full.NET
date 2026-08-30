@@ -33,6 +33,7 @@ const todo = {
 const detail: WorkflowTodoDetail = {
   ...todo,
   formVersionId: '01912345-6789-7abc-8def-0123456789af',
+  formSchemaHash: 'a'.repeat(64),
   formSchema: {
     schemaVersion: 1,
     adapterVersion: 1,

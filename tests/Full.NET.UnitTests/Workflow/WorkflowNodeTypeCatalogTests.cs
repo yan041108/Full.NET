@@ -17,7 +17,7 @@ namespace Full.NET.UnitTests.Workflow;
 public sealed class WorkflowNodeTypeCatalogTests
 {
     [TestMethod]
-    public void Current_catalog_is_closed_and_marks_field_policy_capability()
+    public void Current_catalog_only_marks_nodes_with_real_runtime_support_as_publishable()
     {
         var catalog = WorkflowNodeTypeCatalog.Current;
 
@@ -26,8 +26,14 @@ public sealed class WorkflowNodeTypeCatalogTests
         CollectionAssert.AreEquivalent(
             new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "end" },
             catalog.NodeTypes.Select(item => item.NodeTypeKey).ToArray());
-        Assert.IsTrue(catalog.NodeTypes.All(item =>
-            item.Designable && item.Publishable && item.Executable && item.NodeSchemaVersion == 1));
+        Assert.IsTrue(catalog.NodeTypes.All(item => item.Designable && item.NodeSchemaVersion == 1));
+        CollectionAssert.AreEquivalent(
+            new[] { "start", "human.approval", "end" },
+            catalog.NodeTypes.Where(item => item.Publishable && item.Executable)
+                .Select(item => item.NodeTypeKey).ToArray());
+        Assert.IsTrue(catalog.NodeTypes.Where(item =>
+                item.NodeTypeKey is "notify.cc" or "gateway.exclusive")
+            .All(item => !item.Publishable && !item.Executable));
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "human.approval")
             .SupportsFieldPolicies);
         Assert.IsTrue(catalog.NodeTypes.Where(item => item.NodeTypeKey != "human.approval")

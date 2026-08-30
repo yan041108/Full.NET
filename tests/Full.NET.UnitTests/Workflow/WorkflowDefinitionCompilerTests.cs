@@ -66,6 +66,34 @@ public sealed class WorkflowDefinitionCompilerTests
     }
 
     [TestMethod]
+    [DataRow("notify.cc")]
+    [DataRow("gateway.exclusive")]
+    public void Compile_rejects_known_nodes_without_runtime_execution_support(string nodeTypeKey)
+    {
+        var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"unsupported\"]}"),
+            Node("unsupported", nodeTypeKey, "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionNodeTypeUnavailable, result.ErrorCode);
+    }
+
+    [TestMethod]
+    [DataRow("no-approval")]
+    [DataRow("multiple-approvals")]
+    [DataRow("branch")]
+    public void Compile_rejects_graph_shapes_that_the_current_runtime_cannot_execute(string scenario)
+    {
+        var result = WorkflowDefinitionCompiler.Compile(CreateUnsupportedTopology(scenario));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionTopologyUnsupported, result.ErrorCode);
+    }
+
+    [TestMethod]
     [DataRow("{\"nextNodeKeys\":[\"end\"],\"fieldPolicies\":{\"missing\":\"editable\"}}")]
     [DataRow("{\"nextNodeKeys\":[\"end\"],\"fieldPolicies\":{\"reason\":\"ownerOnly\"}}")]
     [DataRow("{\"nextNodeKeys\":[\"end\"],\"fieldPolicies\":[]}")]
@@ -113,7 +141,7 @@ public sealed class WorkflowDefinitionCompilerTests
         "unreachable" => new(1,
         [
             Node("start", "start", "{\"nextNodeKeys\":[\"end\"]}"),
-            Node("orphan", "notify.cc", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("orphan", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
             Node("end", "end", "{}"),
         ]),
         "no-end" => new(1,
@@ -135,6 +163,30 @@ public sealed class WorkflowDefinitionCompilerTests
         "node-schema" => new(1,
         [
             Node("start", "start", "{\"nextNodeKeys\":[\"end\"]}") with { NodeSchemaVersion = 2 },
+            Node("end", "end", "{}"),
+        ]),
+        _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
+    };
+
+    private static WorkflowDefinitionDraft CreateUnsupportedTopology(string scenario) => scenario switch
+    {
+        "no-approval" => new(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]),
+        "multiple-approvals" => new(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"first\"]}"),
+            Node("first", "human.approval", "{\"nextNodeKeys\":[\"second\"]}"),
+            Node("second", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]),
+        "branch" => new(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"first\",\"second\"]}"),
+            Node("first", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("second", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
             Node("end", "end", "{}"),
         ]),
         _ => throw new ArgumentOutOfRangeException(nameof(scenario)),

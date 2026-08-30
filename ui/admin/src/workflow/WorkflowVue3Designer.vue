@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, provide, ref, watch } from 'vue';
 import type { WorkflowDefinitionDraft } from '@fullnet/client-contracts';
 import NodeWrap from './vendor/workflow-vue3/src/components/nodeWrap.vue';
 import { useStore } from './vendor/workflow-vue3/src/stores/index.js';
@@ -9,16 +9,24 @@ import './vendor/workflow-vue3/src/css/workflow.css';
 import './vendor/workflow-vue3/src/css/override-element-ui.css';
 import './vendor/workflow-vue3/src/css/dialog.css';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: WorkflowVue3Node;
   disabled: boolean;
-}>();
+  enabledNodeTypes?: readonly string[];
+}>(), {
+  enabledNodeTypes: () => ['start', 'human.approval', 'end']
+});
 const emit = defineEmits<{
   'update:modelValue': [value: WorkflowVue3Node];
   'update:draft': [draft: WorkflowDefinitionDraft];
   'validation-error': [code: string];
 }>();
 const store = useStore();
+// 复制设计器只能暴露服务端同时声明为可发布、可执行的节点类型。
+provide(
+  'fullnetWorkflowEnabledNodeTypes',
+  computed(() => new Set(props.enabledNodeTypes))
+);
 const nodeConfig = ref<WorkflowVue3Node>(cloneWorkflowTree(props.modelValue));
 
 watch(() => props.modelValue, value => {

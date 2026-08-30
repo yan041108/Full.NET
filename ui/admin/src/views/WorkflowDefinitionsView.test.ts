@@ -142,8 +142,8 @@ describe('WorkflowDefinitionsView', () => {
         nodeTypeKey,
         nodeSchemaVersion: 1,
         designable: true,
-        publishable: true,
-        executable: true,
+        publishable: !['notify.cc', 'gateway.exclusive'].includes(nodeTypeKey),
+        executable: !['notify.cc', 'gateway.exclusive'].includes(nodeTypeKey),
         supportsFieldPolicies: nodeTypeKey === 'human.approval'
       }))
     });

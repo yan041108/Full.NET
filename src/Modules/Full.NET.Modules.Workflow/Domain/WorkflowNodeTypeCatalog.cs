@@ -20,8 +20,8 @@ internal static class WorkflowNodeTypeCatalog
     [
         Node("start"),
         Node("human.approval", supportsFieldPolicies: true),
-        Node("notify.cc"),
-        Node("gateway.exclusive"),
+        Node("notify.cc", publishable: false, executable: false),
+        Node("gateway.exclusive", publishable: false, executable: false),
         Node("end"),
     ];
 
@@ -39,6 +39,8 @@ internal static class WorkflowNodeTypeCatalog
 
     private static WorkflowNodeTypeDefinition Node(
         string nodeTypeKey,
+        bool publishable = true,
+        bool executable = true,
         bool supportsFieldPolicies = false) =>
-        new(nodeTypeKey, 1, true, true, true, supportsFieldPolicies);
+        new(nodeTypeKey, 1, true, publishable, executable, supportsFieldPolicies);
 }

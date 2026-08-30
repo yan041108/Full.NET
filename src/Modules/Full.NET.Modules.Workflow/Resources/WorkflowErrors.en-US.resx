@@ -5,6 +5,7 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="workflow.definition.node_type_unknown" xml:space="preserve"><value>The workflow contains an unknown node type.</value></data>
+  <data name="workflow.definition.node_type_unavailable" xml:space="preserve"><value>The workflow contains a node type that this deployment cannot execute.</value></data>
   <data name="workflow.definition.node_key_duplicate" xml:space="preserve"><value>The workflow contains a duplicate node key.</value></data>
   <data name="workflow.definition.reference_dangling" xml:space="preserve"><value>The workflow contains a dangling node reference.</value></data>
   <data name="workflow.definition.node_unreachable" xml:space="preserve"><value>The workflow contains an unreachable node.</value></data>
@@ -13,6 +14,7 @@
   <data name="workflow.definition.start_invalid" xml:space="preserve"><value>The workflow must contain exactly one start node.</value></data>
   <data name="workflow.definition.schema_unsupported" xml:space="preserve"><value>The workflow definition version is unsupported.</value></data>
   <data name="workflow.definition.field_policy_invalid" xml:space="preserve"><value>The workflow node field policy is invalid.</value></data>
+  <data name="workflow.definition.topology_unsupported" xml:space="preserve"><value>This workflow topology is not supported by the current deployment.</value></data>
   <data name="workflow.definition.not_found" xml:space="preserve"><value>The workflow definition was not found.</value></data>
   <data name="workflow.definition.key_exists" xml:space="preserve"><value>The definition key already exists in the current scope.</value></data>
   <data name="workflow.form.field_type_unknown" xml:space="preserve"><value>The form contains an unknown field type.</value></data>

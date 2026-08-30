@@ -3,11 +3,11 @@
     <div class="add-node-btn">
       <el-popover v-model:visible="visible" placement="right-start" width="auto">
         <div class="add-node-popover-body">
-          <button type="button" class="add-node-popover-item approver" @click="addType(NodeType.Approver)">
+          <button v-if="enabledNodeTypes.has('human.approval')" type="button" class="add-node-popover-item approver" @click="addType(NodeType.Approver)">
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Approver).icon }}</span></span>
             <span>审批人</span>
           </button>
-          <button type="button" class="add-node-popover-item notifier" @click="addType(NodeType.Copyer)">
+          <button v-if="enabledNodeTypes.has('notify.cc')" type="button" class="add-node-popover-item notifier" @click="addType(NodeType.Copyer)">
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Copyer).icon }}</span></span>
             <span>抄送人</span>
           </button>
@@ -23,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { ElPopover } from 'element-plus'
 import { NodeType, getNodeTypeMeta } from '../utils/const.js'
 
@@ -35,6 +35,10 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:childNodeP'])
 const visible = ref(false)
+const enabledNodeTypes = inject(
+  'fullnetWorkflowEnabledNodeTypes',
+  computed(() => new Set(['human.approval']))
+)
 let fallbackSequence = 0
 
 /** 生成可持久化的稳定节点键，避免随机短标识发生碰撞。 */
