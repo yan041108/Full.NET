@@ -8,6 +8,8 @@
 
 **Tech Stack:** Workflow-Vue3、VForm3、Vue 3、TypeScript、Vite、Element Plus、uni-app Vue 3、uni-ui、System.Text.Json、Vitest、Playwright。
 
+**执行状态（2026-08-30）：** `Stopped at Task 1`。`vform3-builds@3.0.10` 虽可在当前前端栈完成 typecheck、build 和基础挂载，但发布包包含 `eval`/`new Function`、动态脚本/CSS 与远程资源路径，命中本文 CSP 停止条件；Workflow-Vue3 授权凭据位置/摘要也尚未归档。产品依赖、锁文件与 Notices 均未修改。重新开放条件与原始证据见 [Workflow 设计器第三方依赖 PoC](../../verification/2026-08-30-workflow-designer-dependency-poc.md)；Task 2/3 中与第三方无关的权威 Schema/目录能力已经由后续切片部分交付，但 Task 4/5 不得按本计划继续，必须先形成新的 CSP-safe 设计器决策。
+
 ## Global Constraints
 
 - 依赖 [`2026-08-20-workflow-module-design.md`](../specs/2026-08-20-workflow-module-design.md) Approved，且 [`2026-08-20-workflow-first-vertical-slice.md`](2026-08-20-workflow-first-vertical-slice.md) 已达到 Build-verified。
