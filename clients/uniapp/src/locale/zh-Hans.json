@@ -1,5 +1,8 @@
 {
   "app.name": "Full.NET",
+  "identity.login.title": "登录",
+  "workflow.todos.title": "我的待办",
+  "workflow.todo.title": "待办详情",
   "settings.title": "语言设置",
   "ui.smoke.title": "uni-ui 组件验证"
 }

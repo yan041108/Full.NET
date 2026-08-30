@@ -8,6 +8,24 @@
   },
   "pages": [
     {
+      "path": "pages/identity/login",
+      "style": {
+        "navigationBarTitleText": "%identity.login.title%"
+      }
+    },
+    {
+      "path": "pages/workflow/todos",
+      "style": {
+        "navigationBarTitleText": "%workflow.todos.title%"
+      }
+    },
+    {
+      "path": "pages/workflow/todo-detail",
+      "style": {
+        "navigationBarTitleText": "%workflow.todo.title%"
+      }
+    },
+    {
       "path": "pages/settings/locale",
       "style": {
         "navigationBarTitleText": "%settings.title%"

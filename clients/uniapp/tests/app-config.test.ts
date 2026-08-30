@@ -20,7 +20,7 @@ function collectKeys(value: unknown, path = ''): string[] {
 }
 
 describe('uni-app application configuration', () => {
-  it('keeps locale settings as the startup page and excludes native tab navigation', async () => {
+  it('starts at the identity boundary and registers the workflow mobile slice without native tabs', async () => {
     const pages = await readJson('../src/pages.json');
     const pageDefinitions = pages.pages as readonly {
       readonly path: string;
@@ -29,17 +29,18 @@ describe('uni-app application configuration', () => {
 
     expect(pages.locale).toBe('zh-Hans');
     expect(pageDefinitions[0]).toEqual({
-      path: 'pages/settings/locale',
+      path: 'pages/identity/login',
       style: {
-        navigationBarTitleText: '%settings.title%'
+        navigationBarTitleText: '%identity.login.title%'
       }
     });
-    expect(pageDefinitions.slice(1)).toEqual([{
-      path: 'pages/ui/component-smoke',
-      style: {
-        navigationBarTitleText: '%ui.smoke.title%'
-      }
-    }]);
+    expect(pageDefinitions.map(page => page.path)).toEqual([
+      'pages/identity/login',
+      'pages/workflow/todos',
+      'pages/workflow/todo-detail',
+      'pages/settings/locale',
+      'pages/ui/component-smoke'
+    ]);
     expect(pages).not.toHaveProperty('tabBar');
   });
 
@@ -56,7 +57,7 @@ describe('uni-app application configuration', () => {
       'application',
       '../src/locale/zh-Hans.json',
       '../src/locale/en.json',
-      ['app.name', 'settings.title', 'ui.smoke.title']
+      ['app.name', 'identity.login.title', 'workflow.todos.title', 'workflow.todo.title', 'settings.title', 'ui.smoke.title']
     ],
     [
       'platform',

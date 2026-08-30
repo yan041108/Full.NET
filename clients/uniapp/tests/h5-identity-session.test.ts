@@ -103,6 +103,28 @@ describe('H5 identity session', () => {
     expect(session.snapshot().state).toBe('authenticated');
   });
 
+  it('shares one restore operation across competing application lifecycle hooks', async () => {
+    let releaseToken: ((value: unknown) => void) | undefined;
+    const token = new Promise<unknown>(resolve => {
+      releaseToken = resolve;
+    });
+    const harness = createHttp([token, currentUserResponse]);
+    const originalRequest = harness.http.request.bind(harness.http);
+    harness.http.request = async <T>(options: HttpRequestOptions): Promise<T> => {
+      const value = await originalRequest<unknown>(options);
+      return await Promise.resolve(value) as T;
+    };
+    const session = createH5IdentitySession({ http: harness.http, readCsrfHeaders: () => ({}) });
+
+    const first = session.restore();
+    const second = session.restore();
+    releaseToken?.(tokenResponse);
+
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(harness.calls.filter(call => call.path === '/api/v1/auth/refresh')).toHaveLength(1);
+    expect(harness.calls.filter(call => call.path === '/api/v1/me')).toHaveLength(1);
+  });
+
   it('uses the same refresh operation for the HTTP authentication bridge', async () => {
     const refreshedToken = { ...tokenResponse, accessToken: 'access-two' };
     const harness = createHttp([refreshedToken]);

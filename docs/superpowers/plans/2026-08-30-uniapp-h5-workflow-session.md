@@ -8,6 +8,8 @@
 
 **Tech Stack:** uni-app Vue 3、TypeScript、`uni.request`、`@fullnet/client-contracts` 契约守卫、Vitest。
 
+**执行状态（2026-08-30）：** Task 1-3 已完成代码、单元测试、类型检查和 H5/微信/支付宝构建验证；微信/支付宝仍按设计失败关闭。真实 API 的 H5 登录、Cookie 恢复、待办读取与审批浏览器 E2E 尚未执行，因此当前状态为 `Build-verified`，不能标记为运行环境 `Verified`。
+
 ## Global Constraints
 
 - Access Token、Refresh Token、权限快照不得写入 `uni.setStorageSync` 或其他持久化存储。

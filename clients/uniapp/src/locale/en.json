@@ -1,5 +1,8 @@
 {
   "app.name": "Full.NET",
+  "identity.login.title": "Sign in",
+  "workflow.todos.title": "My tasks",
+  "workflow.todo.title": "Task details",
   "settings.title": "Language settings",
   "ui.smoke.title": "uni-ui component check"
 }

@@ -2,6 +2,41 @@
   "app": {
     "name": "Full.NET"
   },
+  "identity": {
+    "login": {
+      "title": "登录 Full.NET",
+      "description": "访问你的工作流待办与审批任务。",
+      "username": "用户名",
+      "password": "密码",
+      "submit": "登录",
+      "submitting": "正在登录…",
+      "failed": "登录失败，请检查账号或稍后重试。",
+      "platformUnavailable": "当前小程序尚未配置平台登录，请使用 H5 版本。"
+    }
+  },
+  "workflow": {
+    "todos": {
+      "title": "我的待办",
+      "refresh": "刷新",
+      "empty": "当前没有待办任务。",
+      "loading": "正在加载待办…",
+      "denied": "当前账号没有查看待办的权限。",
+      "failed": "待办加载失败，请稍后重试。",
+      "arrivedAt": "到达时间"
+    },
+    "todo": {
+      "title": "待办详情",
+      "loading": "正在加载详情…",
+      "failed": "待办详情加载失败。",
+      "comment": "处理意见",
+      "approve": "同意",
+      "reject": "驳回",
+      "submitting": "正在提交…",
+      "validationFailed": "请完成必填字段。",
+      "idempotencyUnavailable": "当前环境无法安全生成请求标识。",
+      "completed": "处理成功。"
+    }
+  },
   "settings": {
     "title": "语言设置",
     "language": "语言",

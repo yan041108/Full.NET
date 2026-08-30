@@ -41,6 +41,7 @@ export function createH5IdentitySession(
   let token: TokenResponse | undefined;
   let currentUser: CurrentUserResponse | undefined;
   let generation = 0;
+  let restoreInFlight: Promise<boolean> | undefined;
   const listeners = new Set<(snapshot: H5IdentitySessionSnapshot) => void>();
 
   http.configureAuthentication({
@@ -81,7 +82,21 @@ export function createH5IdentitySession(
     }
   }
 
-  async function restore(): Promise<boolean> {
+  function restore(): Promise<boolean> {
+    if (restoreInFlight !== undefined) {
+      return restoreInFlight;
+    }
+
+    const pending = performRestore().finally(() => {
+      if (restoreInFlight === pending) {
+        restoreInFlight = undefined;
+      }
+    });
+    restoreInFlight = pending;
+    return pending;
+  }
+
+  async function performRestore(): Promise<boolean> {
     const operationGeneration = generation;
     state = 'initializing';
     notify();
@@ -186,6 +201,7 @@ export function createH5IdentitySession(
 
   function dispose(): void {
     generation += 1;
+    restoreInFlight = undefined;
     clearLocal();
     listeners.clear();
     http.configureAuthentication();

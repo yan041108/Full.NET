@@ -2,6 +2,41 @@
   "app": {
     "name": "Full.NET"
   },
+  "identity": {
+    "login": {
+      "title": "Sign in to Full.NET",
+      "description": "Access your workflow tasks and approvals.",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "failed": "Sign-in failed. Check your account or try again later.",
+      "platformUnavailable": "Platform sign-in is not configured for this mini program. Use the H5 client."
+    }
+  },
+  "workflow": {
+    "todos": {
+      "title": "My tasks",
+      "refresh": "Refresh",
+      "empty": "There are no pending tasks.",
+      "loading": "Loading tasks…",
+      "denied": "This account cannot read workflow tasks.",
+      "failed": "Tasks could not be loaded. Try again later.",
+      "arrivedAt": "Arrived"
+    },
+    "todo": {
+      "title": "Task details",
+      "loading": "Loading task details…",
+      "failed": "Task details could not be loaded.",
+      "comment": "Comment",
+      "approve": "Approve",
+      "reject": "Reject",
+      "submitting": "Submitting…",
+      "validationFailed": "Complete the required fields.",
+      "idempotencyUnavailable": "This environment cannot create a secure request identifier.",
+      "completed": "Task completed."
+    }
+  },
   "settings": {
     "title": "Language settings",
     "language": "Language",
