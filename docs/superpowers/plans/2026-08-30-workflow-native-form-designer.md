@@ -174,21 +174,21 @@ git commit -m "feat: add native workflow form designer"
 - Consumes: 六个生成 Operation、Task 2 Draft API、Task 3 Designer。
 - Produces: `/workflow/forms` 页面；列表、创建、编辑 Draft、保存和发布闭环。
 
-- [ ] **Step 1: 写页面 RED**
+- [x] **Step 1: 写页面 RED**
 
 测试必须证明：`workflow.forms.read` 页面可加载；没有 create/update/publish 权限时对应按钮不进入 DOM；创建使用安全默认 Draft；编辑先加载目录和权威 Draft；保存发送 `expectedRevision + draft`；发布发送当前 revision；409 展示稳定 ProblemDetails 且不覆盖本地 Draft；成功后刷新权威对象。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Run: `pnpm --filter @fullnet/admin test -- WorkflowFormsView.test.ts`
 
 Expected: 因 API、页面和路由不存在而失败。
 
-- [ ] **Step 3: 写最小页面实现**
+- [x] **Step 3: 写最小页面实现**
 
 所有 HTTP 只经 `ui/admin/src/api/workflow-forms.ts` 调用生成客户端。页面把服务端目录作为可编辑能力源；保存/发布失败保留 Drawer 和 Draft；成功后使用返回对象替换 revision。
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 Run: `pnpm --filter @fullnet/admin test -- WorkflowFormsView.test.ts WorkflowFormDesigner.test.ts`
 
@@ -196,7 +196,7 @@ Run: `pnpm --filter @fullnet/admin typecheck`
 
 Run: `pnpm --filter @fullnet/admin build`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add ui/admin packages/admin-i18n

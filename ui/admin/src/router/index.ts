@@ -240,6 +240,11 @@ export function createAppRouter(
         component: () => import('../views/WorkflowDefinitionsView.vue')
       },
       {
+        name: 'workflow-forms',
+        path: '/workflow/forms',
+        component: () => import('../views/WorkflowFormsView.vue')
+      },
+      {
         name: 'workflow-instances',
         path: '/workflow/instances',
         component: () => import('../views/WorkflowInstancesView.vue')
