@@ -34,6 +34,9 @@
       "submitting": "正在提交…",
       "validationFailed": "请完成必填字段。",
       "idempotencyUnavailable": "当前环境无法安全生成请求标识。",
+      "denied": "当前账号没有执行此审批操作的权限。",
+      "retryable": "网络或服务暂时不可用，可安全重试本次操作。",
+      "revisionConflict": "待办已被更新，已刷新为最新内容，请重新确认。",
       "completed": "处理成功。"
     }
   },

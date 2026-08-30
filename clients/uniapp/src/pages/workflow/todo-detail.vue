@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkflowSubmission, WorkflowTodoDetail } from '@fullnet/client-contracts';
+import type { ActWorkflowTodoRequest, WorkflowSubmission, WorkflowTodoDetail } from '@fullnet/client-contracts';
 import { onLoad } from '@dcloudio/uni-app';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -7,6 +7,7 @@ import FullNetFormRenderer from '../../features/workflow/FullNetFormRenderer.vue
 
 // #ifdef H5
 import { h5HttpClient, h5IdentitySession, restoreH5IdentitySession } from '../../features/identity/h5-application-session';
+import { classifyWorkflowTodoActionFailure } from '../../features/workflow/workflow-todo-action-failure';
 import { createWorkflowTodoClient } from '../../features/workflow/workflow-todo-client';
 import { createUniWorkflowSchemaCache } from '../../features/workflow/workflow-schema-cache';
 const todoClient = createWorkflowTodoClient(h5HttpClient, createUniWorkflowSchemaCache());
@@ -23,7 +24,8 @@ const feedback = ref('');
 const renderer = ref<{ validate(): Readonly<Record<string, 'required'>> }>();
 const canApprove = computed(() => {
   // #ifdef H5
-  return h5IdentitySession.can('workflow.todos.approve');
+  return detail.value?.statusKey === 'active'
+    && h5IdentitySession.can('workflow.todos.approve');
   // #endif
   // #ifndef H5
   return false;
@@ -31,13 +33,17 @@ const canApprove = computed(() => {
 });
 const canReject = computed(() => {
   // #ifdef H5
-  return h5IdentitySession.can('workflow.todos.reject');
+  return detail.value?.statusKey === 'active'
+    && h5IdentitySession.can('workflow.todos.reject');
   // #endif
   // #ifndef H5
   return false;
   // #endif
 });
-let pendingAction: { action: 'approve' | 'reject'; key: string } | undefined;
+let pendingAction: {
+  action: 'approve' | 'reject';
+  request: ActWorkflowTodoRequest;
+} | undefined;
 
 onLoad(query => {
   todoId.value = typeof query?.id === 'string' ? query.id : '';
@@ -55,7 +61,7 @@ async function load(): Promise<void> {
       return;
     }
     if (!h5IdentitySession.can('workflow.todos.read')) throw new Error('permission-denied');
-    detail.value = await todoClient.get(todoId.value);
+    await refreshTodo();
     // #endif
     // #ifndef H5
     feedback.value = t('identity.login.platformUnavailable');
@@ -67,6 +73,14 @@ async function load(): Promise<void> {
   }
 }
 
+async function refreshTodo(): Promise<void> {
+  // #ifdef H5
+  detail.value = await todoClient.get(todoId.value);
+  patch.value = {};
+  comment.value = '';
+  // #endif
+}
+
 async function act(action: 'approve' | 'reject'): Promise<void> {
   if (!detail.value || submitting.value) return;
   if (Object.keys(renderer.value?.validate() ?? {}).length > 0) {
@@ -76,7 +90,15 @@ async function act(action: 'approve' | 'reject'): Promise<void> {
   try {
     pendingAction = pendingAction?.action === action
       ? pendingAction
-      : { action, key: crypto.randomUUID() };
+      : {
+          action,
+          request: {
+            expectedRevision: detail.value.revision,
+            fieldPatch: patch.value,
+            comment: comment.value.trim() || null,
+            idempotencyKey: crypto.randomUUID()
+          }
+        };
   } catch {
     feedback.value = t('workflow.todo.idempotencyUnavailable');
     return;
@@ -85,18 +107,30 @@ async function act(action: 'approve' | 'reject'): Promise<void> {
   feedback.value = '';
   try {
     // #ifdef H5
-    await todoClient[action](todoId.value, {
-      expectedRevision: detail.value.revision,
-      fieldPatch: patch.value,
-      comment: comment.value.trim() || null,
-      idempotencyKey: pendingAction.key
-    });
+    await todoClient[action](todoId.value, pendingAction.request);
     pendingAction = undefined;
     feedback.value = t('workflow.todo.completed');
     await uni.navigateBack();
     // #endif
-  } catch {
+  } catch (error: unknown) {
+    // #ifdef H5
+    const failure = classifyWorkflowTodoActionFailure(error);
+    if (!failure.retainIdempotencyKey) {
+      pendingAction = undefined;
+    }
+    if (failure.refreshTodo) {
+      try {
+        await refreshTodo();
+      } catch {
+        feedback.value = t('workflow.todo.failed');
+        return;
+      }
+    }
+    feedback.value = t(failure.feedbackKey);
+    // #endif
+    // #ifndef H5
     feedback.value = t('workflow.todo.failed');
+    // #endif
   } finally {
     submitting.value = false;
   }

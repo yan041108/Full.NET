@@ -30,5 +30,15 @@ describe('workflow mobile page contract', () => {
     expect(source).toMatch(/v-if="canApprove"/);
     expect(source).toMatch(/v-if="canReject"/);
     expect(source).toContain('crypto.randomUUID()');
+    expect(source).toContain("detail.value?.statusKey === 'active'");
+  });
+
+  it('uses stable failure recovery rules for conflict and retryable approval failures', async () => {
+    const source = await readPage('workflow/todo-detail');
+
+    expect(source).toContain('classifyWorkflowTodoActionFailure');
+    expect(source).toContain('failure.retainIdempotencyKey');
+    expect(source).toContain('failure.refreshTodo');
+    expect(source).toContain('await refreshTodo()');
   });
 });

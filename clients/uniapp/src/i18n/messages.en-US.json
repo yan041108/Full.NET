@@ -34,6 +34,9 @@
       "submitting": "Submitting…",
       "validationFailed": "Complete the required fields.",
       "idempotencyUnavailable": "This environment cannot create a secure request identifier.",
+      "denied": "This account cannot perform this approval action.",
+      "retryable": "The network or service is temporarily unavailable. This action can be retried safely.",
+      "revisionConflict": "The task changed and has been refreshed. Review it before trying again.",
       "completed": "Task completed."
     }
   },
