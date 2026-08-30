@@ -34,6 +34,10 @@ public sealed class WorkflowFormCompilerTests
     [DataRow("remote", WorkflowErrorCodes.FormExtensionForbidden)]
     [DataRow("money", WorkflowErrorCodes.FormMoneyScaleInvalid)]
     [DataRow("vform", WorkflowErrorCodes.FormExtensionForbidden)]
+    [DataRow("choice-options-missing", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
+    [DataRow("choice-options-empty", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
+    [DataRow("choice-options-duplicate", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
+    [DataRow("choice-options-not-array", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
     public void Compile_rejects_unsafe_or_invalid_forms(string scenario, string expectedCode)
     {
         var schema = scenario switch
@@ -46,6 +50,10 @@ public sealed class WorkflowFormCompilerTests
             "remote" => Schema(Field("field", "text", "{\"remoteUrl\":\"https://example.test\"}")),
             "money" => Schema(Field("amount", "money", "{\"scale\":8}")),
             "vform" => Schema(Field("field", "text", "{\"onCreated\":\"evil()\"}")),
+            "choice-options-missing" => Schema(Field("choice", "radio", "{}")),
+            "choice-options-empty" => Schema(Field("choice", "select", "{\"options\":[]}")),
+            "choice-options-duplicate" => Schema(Field("choice", "checkbox", "{\"options\":[\"owner\",\"owner\"]}")),
+            "choice-options-not-array" => Schema(Field("choice", "radio", "{\"options\":\"owner\"}")),
             _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
         };
 

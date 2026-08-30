@@ -19,6 +19,7 @@
   <data name="workflow.form.field_key_duplicate" xml:space="preserve"><value>表单字段标识重复。</value></data>
   <data name="workflow.form.extension_forbidden" xml:space="preserve"><value>表单包含禁止的动态扩展。</value></data>
   <data name="workflow.form.money_scale_invalid" xml:space="preserve"><value>金额字段精度无效。</value></data>
+  <data name="workflow.form.choice_options_invalid" xml:space="preserve"><value>表单选择字段的选项目录无效。</value></data>
   <data name="workflow.form.schema_unsupported" xml:space="preserve"><value>表单协议版本不受支持。</value></data>
   <data name="workflow.form.not_found" xml:space="preserve"><value>工作流表单不存在。</value></data>
   <data name="workflow.form.key_exists" xml:space="preserve"><value>当前作用域已存在相同表单键。</value></data>

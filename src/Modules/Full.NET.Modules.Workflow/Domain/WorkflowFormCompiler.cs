@@ -20,6 +20,9 @@ internal static class WorkflowFormCompiler
             "events", "onCreated", "onMounted", "onBeforeMount", "onUpdated",
         };
 
+    private static readonly HashSet<string> ChoiceFieldTypes =
+        new(StringComparer.Ordinal) { "radio", "checkbox", "select" };
+
     public static WorkflowCompilationResult Compile(WorkflowFormSchema schema)
     {
         if (schema.SchemaVersion != 1 || schema.AdapterVersion != 1)
@@ -46,6 +49,12 @@ internal static class WorkflowFormCompiler
         if (fields.Where(field => field.FieldTypeKey == "money").Any(HasInvalidMoneyScale))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormMoneyScaleInvalid);
+        }
+
+        if (fields.Where(field => ChoiceFieldTypes.Contains(field.FieldTypeKey))
+            .Any(field => !WorkflowFormChoiceOptions.TryRead(field, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormChoiceOptionsInvalid);
         }
 
         return WorkflowCompilationResult.Success(
