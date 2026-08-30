@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "pretest": "pnpm --filter @fullnet/uniapp build:h5",
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:real": "playwright test --config playwright.real.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1"

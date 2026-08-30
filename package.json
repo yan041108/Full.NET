@@ -66,6 +66,7 @@
     "test:e2e:real": "pnpm --filter @fullnet/admin-real-stack-e2e test",
     "test:e2e:real:mysql": "pnpm --filter @fullnet/admin-real-stack-e2e test:mysql",
     "test:e2e:uniapp": "pnpm --filter @fullnet/uniapp-h5-e2e test",
+    "test:e2e:uniapp:real": "pnpm --filter @fullnet/uniapp-h5-e2e test:real",
     "audit:clients": "node scripts/audit-client-dependencies.mjs",
     "audit:dotnet": "node scripts/audit-dotnet-dependencies.mjs"
   },

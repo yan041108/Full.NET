@@ -5,7 +5,8 @@ import { createH5IdentitySession } from './h5-identity-session';
 
 export const h5HttpClient = createHttpClient({
   request: uni.request,
-  getLocale: () => localeController.initialize().preferredLocale
+  getLocale: () => localeController.initialize().preferredLocale,
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? ''
 });
 
 export const h5IdentitySession = createH5IdentitySession({

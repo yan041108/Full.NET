@@ -5,6 +5,7 @@ export interface HttpClientDependencies {
   readonly request: Uni['request'];
   readonly getLocale: () => CanonicalLocale;
   readonly getAccessToken?: () => string | undefined;
+  readonly apiBaseUrl?: string;
 }
 
 export interface AuthenticationBridge {
@@ -103,7 +104,7 @@ export function createHttpClient(dependencies: HttpClientDependencies): Configur
             : authentication.getAccessToken()
         );
         dependencies.request({
-          url: options.path,
+          url: resolveRequestUrl(options.path, dependencies.apiBaseUrl),
           method: options.method ?? 'GET',
           data: options.data as UniNamespace.RequestOptions['data'],
           header: headers,
@@ -140,6 +141,19 @@ export function createHttpClient(dependencies: HttpClientDependencies): Configur
     configureAuthentication,
     request
   };
+}
+
+function resolveRequestUrl(path: string, apiBaseUrl: string | undefined): string {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) {
+    return path;
+  }
+
+  const normalizedBaseUrl = apiBaseUrl?.trim().replace(/\/+$/u, '') ?? '';
+  if (!normalizedBaseUrl) {
+    return path;
+  }
+
+  return `${normalizedBaseUrl}/${path.replace(/^\/+/, '')}`;
 }
 
 function mergeHeaders(

@@ -8,7 +8,7 @@
 
 **Tech Stack:** uni-app Vue 3、TypeScript、`uni.request`、`@fullnet/client-contracts` 契约守卫、Vitest。
 
-**执行状态（2026-08-30）：** Task 1-3 已完成代码、单元测试、类型检查和 H5/微信/支付宝构建验证；微信/支付宝仍按设计失败关闭。真实 API 的 H5 登录、Cookie 恢复、待办读取与审批浏览器 E2E 尚未执行，因此当前状态为 `Build-verified`，不能标记为运行环境 `Verified`。
+**执行状态（2026-08-30）：** Task 1-4 已完成。H5 已通过 SQL Server、Redis、API、Worker 真实栈验证登录、精确 CORS、HttpOnly Refresh Cookie、CSRF Cookie、访问令牌不落 Web Storage、刷新后会话恢复与待办读取；微信/支付宝仍按设计失败关闭。真实待办数据的详情渲染与审批提交浏览器 E2E 尚未执行，因此 H5 身份会话与待办读取为运行环境 `Verified`，审批动作仍为 `Build-verified`。
 
 ## Global Constraints
 
@@ -65,3 +65,5 @@
 2. 使用 `pnpm test:inner -- --snapshot workflow-uniapp-auth-runtime-20260830` 验证影响集。
 3. 检查 `git diff --check`、任务影响集与工作区状态，只提交本计划影响的文件。
 4. 在平台 Exchange、账号绑定、密钥配置、审计和双库迁移设计批准前，不把微信/支付宝身份能力标记为完成。
+
+**验证结果（2026-08-30）：** `pnpm test:e2e:uniapp:real` 通过 1/1；`pnpm test:e2e:uniapp` 通过 6/6；uni-app 单元测试通过 131/131，类型检查与 H5/微信/支付宝构建通过；任务快照 inner 影响集通过 53/53。真实审批场景保留为下一切片。

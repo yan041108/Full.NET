@@ -18,7 +18,7 @@ const repoRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.u
 const statePath = path.join(repoRoot, 'tests/e2e/admin-real-stack/.stack-state.json');
 const sqlPassword = 'FullNet_Test!123';
 const mysqlPassword = 'FullNet_Test!123';
-const apiPort = 5149;
+const apiPort = Number.parseInt(process.env.FULLNET_E2E_API_PORT ?? '5149', 10);
 const apiUrl = `http://localhost:${apiPort}`;
 const adminPassword = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const adminUsername = process.env.FULLNET_E2E_USERNAME ?? 'admin';
@@ -163,6 +163,7 @@ export async function bootstrapStack() {
     Identity__AllowedOrigins__3: 'http://localhost:5174',
     Identity__AllowedOrigins__4: 'http://127.0.0.1:5173',
     Identity__AllowedOrigins__5: 'http://127.0.0.1:5174',
+    Identity__AllowedOrigins__6: 'http://localhost:5175',
     Identity__LoginRateLimitPermitLimitPerMinute: '240',
     Identity__SessionMutationRateLimitPermitLimitPerMinute: '240',
     Tenancy__HostDomains__0: 'localhost',
@@ -196,17 +197,30 @@ export async function bootstrapStack() {
     isProductionTotp ? 'baseline' : 'development'
   ], sharedEnv);
 
+  const apiProjectPath = path.join(
+    repoRoot,
+    'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj'
+  );
+  const apiProjectDirectory = path.dirname(apiProjectPath);
+  await runDotnet(['build', apiProjectPath], sharedEnv);
+  const apiAssemblyPath = path.join(
+    repoRoot,
+    'src/Hosts/Full.NET.Host.Api/bin/Debug/net10.0/Full.NET.Host.Api.dll'
+  );
+
+  const apiLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/api.log');
+  mkdirSync(path.dirname(apiLogPath), { recursive: true });
+  writeFileSync(apiLogPath, '');
+  const apiLogStream = createWriteStream(apiLogPath, { flags: 'a' });
   const apiProcess = spawn(
     'dotnet',
     [
-      'run',
-      '--project',
-      'src/Hosts/Full.NET.Host.Api/Full.NET.Host.Api.csproj',
+      apiAssemblyPath,
       '--urls',
       apiUrl
     ],
     {
-      cwd: repoRoot,
+      cwd: apiProjectDirectory,
       env: {
         ...sharedEnv,
         Identity__EnableRemoteSuperAdministratorManagement: 'true'
@@ -214,6 +228,8 @@ export async function bootstrapStack() {
       stdio: 'pipe'
     }
   );
+  apiProcess.stdout?.pipe(apiLogStream, { end: false });
+  apiProcess.stderr?.pipe(apiLogStream, { end: false });
 
   await waitForApi(apiUrl);
 
@@ -228,19 +244,25 @@ export async function bootstrapStack() {
   }
 
   // 真实栈保持 API/Worker 角色分离，确保浏览器场景经过事务 Outbox 和 Redis Backplane。
+  const workerProjectPath = path.join(
+    repoRoot,
+    'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj'
+  );
+  const workerProjectDirectory = path.dirname(workerProjectPath);
+  await runDotnet(['build', workerProjectPath], sharedEnv);
+  const workerAssemblyPath = path.join(
+    repoRoot,
+    'src/Hosts/Full.NET.Host.Worker/bin/Debug/net10.0/Full.NET.Host.Worker.dll'
+  );
   const workerLogPath = path.join(repoRoot, '.tmp/e2e-real-stack/worker.log');
   mkdirSync(path.dirname(workerLogPath), { recursive: true });
   writeFileSync(workerLogPath, '');
   const workerLogStream = createWriteStream(workerLogPath, { flags: 'a' });
   const workerProcess = spawn(
     'dotnet',
-    [
-      'run',
-      '--project',
-      'src/Hosts/Full.NET.Host.Worker/Full.NET.Host.Worker.csproj'
-    ],
+    [workerAssemblyPath],
     {
-      cwd: repoRoot,
+      cwd: workerProjectDirectory,
       env: sharedEnv,
       stdio: 'pipe'
     }
@@ -251,6 +273,7 @@ export async function bootstrapStack() {
   activeStack = {
     apiUrl,
     apiProcess,
+    apiLogStream,
     workerProcess,
     workerLogStream,
     container,
@@ -264,6 +287,7 @@ export async function bootstrapStack() {
   writeFileSync(statePath, JSON.stringify({
     apiUrl,
     apiPid: apiProcess.pid,
+    apiLogPath,
     workerPid: workerProcess.pid,
     workerLogPath,
     containerId: container.getId(),
@@ -297,6 +321,7 @@ export async function teardownStack() {
     activeStack.workerProcess.kill();
   }
   activeStack.workerLogStream?.end();
+  activeStack.apiLogStream?.end();
 
   await activeStack.container.stop();
   if (activeStack.redisContainer) {

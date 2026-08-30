@@ -227,6 +227,26 @@ describe('HTTP client locale and ProblemDetails contract', () => {
     ]);
   });
 
+  it('prefixes relative API paths with the configured base URL without changing absolute URLs', async () => {
+    const transport = createRequest([
+      { statusCode: 200, data: {} },
+      { statusCode: 200, data: {} }
+    ]);
+    const http = createHttpClient({
+      request: transport.request,
+      getLocale: () => 'zh-CN',
+      apiBaseUrl: 'http://localhost:5149/'
+    });
+
+    await http.request({ path: '/api/v1/me' });
+    await http.request({ path: 'https://assets.example.test/public.json' });
+
+    expect(transport.calls.map(call => call.url)).toEqual([
+      'http://localhost:5149/api/v1/me',
+      'https://assets.example.test/public.json'
+    ]);
+  });
+
   it('refreshes once after 401 and retries with the latest access token', async () => {
     const transport = createRequest([
       { statusCode: 401, data: { title: 'Expired.', code: 'identity.access_token_expired' } },

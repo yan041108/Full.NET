@@ -46,7 +46,7 @@ async function collectFiles(directory) {
 }
 
 test('starts in Chinese and keeps an anonymous English selection across refresh', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/pages/settings/locale');
   await expect(page.getByText('选择界面语言', { exact: true })).toBeVisible();
   await expect(page.getByText('当前为匿名模式。语言选择只保存在此设备，不会创建账号或会话。', { exact: true })).toBeVisible();
 
@@ -78,7 +78,7 @@ test('starts in Chinese and keeps an anonymous English selection across refresh'
 });
 
 test('commits an authenticated locale only after the server confirms the PUT', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/pages/settings/locale');
   await waitForBridge(page);
   await hydrateAuthenticated(page, { preferredLocale: 'zh-CN', profileVersion: 5 });
   await expect(page.getByText('账号偏好已连接。保存成功后才会更新当前语言和资料版本。', { exact: true })).toBeVisible();
@@ -103,7 +103,7 @@ test('commits an authenticated locale only after the server confirms the PUT', a
 });
 
 test('keeps authenticated state and shows the localized conflict after a 409', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/pages/settings/locale');
   await waitForBridge(page);
   await hydrateAuthenticated(page, { preferredLocale: 'zh-CN', profileVersion: 5 });
   await page.route('**/api/v1/me/locale', route => route.fulfill({
@@ -127,7 +127,7 @@ test('keeps authenticated state and shows the localized conflict after a 409', a
 });
 
 test('uses a safe server title and trace id for an unknown 409 code', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/#/pages/settings/locale');
   await waitForBridge(page);
   await hydrateAuthenticated(page, { preferredLocale: 'zh-CN', profileVersion: 9 });
   await page.route('**/api/v1/me/locale', route => route.fulfill({
@@ -170,7 +170,7 @@ test('renders the uni-ui smoke page in both locales with accessible narrow-scree
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 
-  await page.goto('/');
+  await page.goto('/#/pages/settings/locale');
   await chooseLocale(page, 'English (US)');
   await submitLocale(page, '应用到此设备');
   await page.goto('/#/pages/ui/component-smoke');
