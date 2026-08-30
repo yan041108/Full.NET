@@ -135,7 +135,7 @@ describe('WorkflowTodosView', () => {
     await flushPromises();
   });
 
-  it.each([403, 409, 422])('服务端返回 %s 时保留详情并展示 ProblemDetails', async status => {
+  it.each([403, 422])('服务端返回 %s 时保留详情并展示 ProblemDetails', async status => {
     vi.mocked(approveWorkflowTodo).mockRejectedValue({
       status,
       code: `workflow.test_${status}`,
@@ -154,5 +154,30 @@ describe('WorkflowTodosView', () => {
 
     expect(wrapper.get('[role="alert"]').text()).toContain(`workflow.test_${status}`);
     expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(true);
+  });
+
+  it('旧修订冲突后刷新权威待办并关闭已经失效的动作', async () => {
+    vi.mocked(approveWorkflowTodo).mockRejectedValue({
+      status: 409,
+      code: 'workflow.todo_revision_conflict',
+      title: '待办已被其他操作处理',
+      traceId: 'trace-conflict'
+    });
+    vi.mocked(listMyWorkflowTodos)
+      .mockResolvedValueOnce([todo])
+      .mockResolvedValueOnce([]);
+    const wrapper = mountWithPermissions([
+      'workflow.todos.read',
+      'workflow.todos.approve'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-todo-approve"]').trigger('click');
+    await flushPromises();
+
+    expect(listMyWorkflowTodos).toHaveBeenCalledTimes(2);
+    expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(false);
+    expect(wrapper.get('[role="alert"]').text()).toContain('workflow.todo_revision_conflict');
   });
 });

@@ -47,7 +47,7 @@
 
 2026-08-30 增量复核确认：Admin.NET.Pro 新增的登录失败锁定与健康检查已被 Full.NET 覆盖；缓存和机构权限变化由 Full.NET 自有边界承接。新识别缺口为 Identity 用户资料服务端权威校验、Observability Admin 受控日志文件查看，以及 Notifications 有真实消费者后采用的强类型扩展元数据。依赖升级、Furion/EF Core/SqlSugar 修复和第二套前端维护不改变功能状态。
 
-同日刷新参考仓库至 `09d38bd8` 后又审计 31 个提交：新增明确缺口为 Identity 用户 Excel 模板/文件导入体验和 MCP 安全/AOT 设计；Workflow 的业务完成通知、草稿与已发布版本差异已纳入 2026-08-30 批准的自有内核、不可变版本和 Outbox/Inbox 设计，状态进入 Designing 但尚无实现。日志流式读取进一步确认 Observability Admin 缺口，但参考实现的路径拼接与本机 HTTP 回环均不得直接吸收。
+同日刷新参考仓库至 `09d38bd8` 后又审计 31 个提交：新增明确缺口为 Identity 用户 Excel 模板/文件导入体验和 MCP 安全/AOT 设计；Workflow 已按批准的自有内核与不可变版本边界交付首批线性审批、双端运行时、原生表单设计器及双库 Native AOT 证据，状态为 `Build-verified`。业务完成通知、可执行抄送/排他网关、Worker 恢复和生产容量仍开放。日志流式读取进一步确认 Observability Admin 缺口，但参考实现的路径拼接与本机 HTTP 回环均不得直接吸收。
 
 ## 2. README 内置功能基线
 
@@ -76,7 +76,7 @@
 | 邮件与短信 | Notifications Providers | Provider | M5+ | Mapped（统一 Profile/Binding/Delivery 平台 Spec 已批准；首个真实 Provider 尚未选择，需厂商独立纵向计划） |
 | Swagger、OpenAPI 和接口文档 | Hosting | Core | M1 | **Build-verified**（OpenAPI 元数据、Bearer JWT、Scalar UI 与双端入口；[验证记录](../verification/platform-openapi-documentation-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-platform-openapi-documentation-vertical-slice.md)） |
 | 前后端代码生成 | CodeGeneration | Core | P0 Naming Profile/命名内核；M3 首个纵向样例 | **Build-verified**（统一 `FullNetCrudSchema`、显式 Tenant/Host/Global 作用域、Product 确定性跨栈产物、后端 CRUD 骨架、Vue/Layui 页面模型、成对双库迁移草案、最小双 Provider 集成测试草案及安全预览/应用 CLI 已完成；Decimal precision/scale 已从严格 JSON 与双库元数据贯通到报告和迁移草案；双库基础表目录已可只读扫描并排除视图；严格逐表语义映射、单连接多表导入、合并工作区批量预览和独立显式批量 Apply 已完成双库验证；整批写盘复用同一 Manifest 所有权、冲突零写入、原子提交与 committed tombstone；模块接入已提供严格显式目标驱动的只读影响计划，缺失项目、入口、Composition、路由或客户端适配文件会保守阻塞；后端产物可通过系统临时投影执行真实 Release 编译，也可由独立 `apply-module-integration` 在编译通过后按实体目录原子写盘、保留同模块其他实体所有权并幂等重入；模块级聚合注册桥会按全部受管实体确定性重建；`apply-module-entry-integration`、`apply-composition-integration` 与可选 `apply-client-route-integration` 均保持显式目标、先编译后提交和幂等重入；Host-only 管理模块现已提供严格预览、模板持久化、可信审计、乐观并发与软删除 API，`044_CodeGenerationTemplate` 已完成双库恢复验证；受跟踪预览现以独立 read/execute 权限写入不可变无源码摘要，`045_CodeGenerationRun` 已完成双库恢复，运行目录使用单往返分页；Host 受控 Apply 以独立权限、默认禁用的运维工作区和 `046_CodeGenerationApply` 双库状态机完成 Vue/Layui 真实栈验证，并在工作区修改前持久化不可覆盖、可校验的本地回滚证据，内部 GenerationRollbackWorkspace 可对已验证检查点执行 fail-closed 逆向写盘，见[Host Apply 验证](../verification/codegeneration-host-apply-2026-07-31.md)与[回滚检查点验证](../verification/codegeneration-apply-rollback-checkpoint-2026-08-01.md)、[产品 Rollback 验证](../verification/codegeneration-product-rollback-2026-08-02.md)；产品 Rollback（`codegen.runs.rollback`、051、共享 Apply Gate、Vue/Layui 真实栈 Apply→Rollback 4/4）已交付且保持 `Build-verified`；检查点保留清理、Worker/多实例调度、远程仓库写入及生产默认启用仍开放；2026-08-16 Admin.NET 核心代码生成对标已交付可视化工作台、Vue SFC、Host Apply 模块/Composition/Vue 接线、鉴权 zip 下载与同模块 Tree/关系可执行生成，默认预览不再发出 Layui，DatabaseTools/ReZero 仍拒绝；见[对标验证](../verification/codegeneration-adminnet-parity-2026-08-16.md)；2026-08-20 工作台 UX 对齐（模板筛选/复制、Tabs 列元数据与实体能力、预览深链、`integrationTarget` 表单、runs Action 目录）见[UX 验证](../verification/codegeneration-workbench-ux-parity-20260820.md)；真实栈浏览器完整双库矩阵未关闭前不得标 `Verified`） |
-| 在线表单构建器 | Workflow Forms；第二个独立消费者后再评估 FormBuilder | Official Module / Client | M5+ | Planned（VForm3 后台设计 + `WorkflowFormSchema` + Vue/uni-app 运行时已纳入 Workflow 批准计划；当前不创建独立 Forms 模块） |
+| 在线表单构建器 | Workflow Forms；第二个独立消费者后再评估 FormBuilder | Official Module / Client | M5+ | **Build-verified**（Workflow 内已交付 CSP-safe 原生静态设计器、`WorkflowFormSchema`、Vue/uni-app 轻量运行时和双库真实栈；VForm3 候选因动态执行边界未进入产品，当前不创建独立 Forms 模块；见[验证](../verification/2026-08-30-workflow-native-form-designer.md)） |
 | 微信小程序与微信支付 | WeChat + Payments | Official Module + Provider | M5+ | Mapped |
 | Excel 导入导出、HTML/PDF 报告 | ImportExport + Reporting | Official Module + Provider | M5+ | Implementing（Identity 固定结构 Excel 模板、受限文件解析、逐行结果与公式注入防护小切片已 `Build-verified`；通用工作表配置、其他模块导入导出及 HTML/PDF Reporting 仍为 `Mapped`） |
 | 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limit.exceeded` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
@@ -132,7 +132,7 @@
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |
 | `Admin.NET.Plugin.ReZero` | 线上建表、动态接口、授权和超级 API | DynamicApi | Compatibility + Official Module | Mapped |
-| `Admin.NET.Plugin.WorkFlow` | 流程设计、发布、实例、审批、待办、抄送和业务联动 | Workflow | Official Module | Designing（[Spec](../superpowers/specs/2026-08-20-workflow-module-design.md) 已于 2026-08-30 批准；[核心首切片](../superpowers/plans/2026-08-20-workflow-first-vertical-slice.md)与[Workflow-Vue3/VForm3/uni-app 计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)已分离；尚无运行时代码，不得标为 Implemented） |
+| `Admin.NET.Plugin.WorkFlow` | 流程设计、发布、实例、审批、待办、抄送和业务联动 | Workflow | Official Module | **Build-verified**（已交付定义/表单 Draft→Publish、不可变版本、原生表单设计器、Workflow-Vue3 适配、Vue 与 uni-app/H5 运行时、多级线性审批/驳回，以及 SQL Server/MySQL Host 管理端和 Native AOT 外部进程证据；`notify.cc`、`gateway.exclusive`、Tenant/422、Worker 恢复与完整业务联动仍未关闭，见[核心计划](../superpowers/plans/2026-08-20-workflow-first-vertical-slice.md)、[管理端验证](../verification/2026-08-30-workflow-admin-approval-real-stack.md)与[AOT 验证](../verification/2026-08-30-workflow-native-aot.md)） |
 | `Admin.NET.Plugin.WorkWeixin` | 企业微信接口集成 | WorkWeixin | Provider | Mapped |
 
 插件的详细功能必须在各自实施前建立独立设计规格。核心模块不得为了插件反向增加业务耦合。

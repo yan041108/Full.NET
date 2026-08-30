@@ -216,12 +216,12 @@ HTTP Request、内部 Command 和持久化 Record 必须是不同类型。上述
 
 **Produces:** 双库发布→启动→办理闭环的可重复证据。
 
-- [ ] E2E 测试通过 API 建立批准的 Definition/Form 版本，再在 Vue 完成启动与审批；不依赖尚未实现的可视化设计器。
+- [x] E2E 测试通过 API 建立批准的 Definition/Form 版本，再在 Vue 完成启动与审批；不依赖可视化设计器建立测试前置数据。见 [`2026-08-30-workflow-admin-approval-real-stack.md`](../../verification/2026-08-30-workflow-admin-approval-real-stack.md)。
 - [ ] SQL Server/MySQL 各覆盖 Host 和 Tenant：approve、reject、无权限按钮缺失、直接 API 403、旧 Revision 409、危险 Patch 422 和刷新后权威状态。
-- [ ] Linux 原生 Host.Api 外部进程覆盖 Workflow HTTP/JSON/Dapper 双库路径；Worker 恢复未实现时明确保持未验证，不借 API AOT 证据升格。
+- [x] Linux 原生 Host.Api 外部进程覆盖 Workflow HTTP/JSON/Dapper 双库路径；Worker 恢复未实现时明确保持未验证，不借 API AOT 证据升格。见 [`2026-08-30-workflow-native-aot.md`](../../verification/2026-08-30-workflow-native-aot.md)。
 - [ ] 使用任务快照先运行 `pnpm test:integration:affected:plan -- --snapshot workflow-first-vertical-slice-20260830 --phase slice`，审查后运行 `pnpm test:slice -- --snapshot workflow-first-vertical-slice-20260830`；禁止本地全量替代受影响集。
-- [ ] 新建 dated Verification，记录基线、环境、命令、非零发现数、原始结果、容量未验证项和许可证状态。
-- [ ] 只有新鲜证据满足 Spec 后，才把 Workflow 从 Planned/Designing 更新到最高真实状态；不得因本计划批准标记为 Implemented。
+- [x] 新建 dated Verification，记录基线、环境、命令、非零发现数、原始结果、容量未验证项和许可证状态。当前已关闭 Native AOT 与 Host Vue 管理端子门禁，不代表 Task 7 全部完成。
+- [x] 依据新鲜实现和验证证据将 Workflow 更新为最高真实状态 `Build-verified`；Tenant/422、Worker、网关/抄送和容量门禁开放期间不得提升为 `Verified`。
 
 ---
 

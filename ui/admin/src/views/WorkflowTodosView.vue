@@ -98,7 +98,17 @@ async function act(action: 'approve' | 'reject'): Promise<void> {
     closeDetail();
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'workflowTodos.operationFailed');
+    const actionProblem = toProblem(error, 'workflowTodos.operationFailed');
+    problem.value = actionProblem;
+    if (actionProblem.status === 409) {
+      closeDetail();
+      try {
+        todos.value = await listMyWorkflowTodos();
+      } catch {
+        // 冲突后必须先关闭过期动作；刷新失败时保留原始 409，避免用次生错误掩盖并发事实。
+      }
+      problem.value = actionProblem;
+    }
   } finally {
     acting.value = false;
   }

@@ -1,7 +1,7 @@
 import {
   isWorkflowTodoDetail,
   workflowApproveTodo,
-  workflowGetTodo,
+  workflowGetTodoRuntime,
   workflowListMyTodos,
   workflowRejectTodo,
   type WorkflowInstanceResponse,
@@ -21,7 +21,7 @@ export async function getWorkflowTodo(
   todoId: string,
   signal?: AbortSignal
 ): Promise<WorkflowTodoDetail> {
-  const value = await workflowGetTodo(http, { todoId }, signal);
+  const value = await workflowGetTodoRuntime(http, { todoId }, signal);
   if (!isWorkflowTodoDetail(value)) {
     throw new Error('client.invalid_workflow_todo_detail');
   }
