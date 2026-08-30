@@ -26,6 +26,22 @@ public sealed class WorkflowFormCompilerTests
     }
 
     [TestMethod]
+    public void Compile_accepts_schema_at_the_section_and_total_field_limits()
+    {
+        var sections = Enumerable.Range(0, 32)
+            .Select(sectionIndex => new WorkflowFormSection(
+                $"section{sectionIndex}",
+                Enumerable.Range(0, 8)
+                    .Select(fieldIndex => Field($"field{sectionIndex}_{fieldIndex}", "text", "{}"))
+                    .ToArray()))
+            .ToArray();
+
+        var result = WorkflowFormCompiler.Compile(new WorkflowFormSchema(1, 1, sections));
+
+        Assert.IsTrue(result.IsSuccess);
+    }
+
+    [TestMethod]
     [DataRow("unknown", WorkflowErrorCodes.FormFieldTypeUnknown)]
     [DataRow("duplicate", WorkflowErrorCodes.FormFieldKeyDuplicate)]
     [DataRow("script", WorkflowErrorCodes.FormExtensionForbidden)]
@@ -51,6 +67,15 @@ public sealed class WorkflowFormCompilerTests
     [DataRow("time-bound-invalid", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("datetime-offset-missing", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("temporal-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("empty-schema", WorkflowErrorCodes.FormStructureInvalid)]
+    [DataRow("empty-section", WorkflowErrorCodes.FormStructureInvalid)]
+    [DataRow("duplicate-section", WorkflowErrorCodes.FormStructureInvalid)]
+    [DataRow("invalid-section-key", WorkflowErrorCodes.FormStructureInvalid)]
+    [DataRow("prototype-field-key", WorkflowErrorCodes.FormStructureInvalid)]
+    [DataRow("long-field-key", WorkflowErrorCodes.FormStructureInvalid)]
+    [DataRow("too-many-sections", WorkflowErrorCodes.FormSizeLimitExceeded)]
+    [DataRow("too-many-section-fields", WorkflowErrorCodes.FormSizeLimitExceeded)]
+    [DataRow("too-many-total-fields", WorkflowErrorCodes.FormSizeLimitExceeded)]
     public void Compile_rejects_unsafe_or_invalid_forms(string scenario, string expectedCode)
     {
         var schema = scenario switch
@@ -80,6 +105,30 @@ public sealed class WorkflowFormCompilerTests
             "time-bound-invalid" => Schema(Field("cutoff", "time", "{\"maximum\":\"24:00\"}")),
             "datetime-offset-missing" => Schema(Field("deadline", "datetime", "{\"minimum\":\"2026-08-30T10:00:00\"}")),
             "temporal-range-reversed" => Schema(Field("dueDate", "date", "{\"minimum\":\"2026-09-01\",\"maximum\":\"2026-08-31\"}")),
+            "empty-schema" => new WorkflowFormSchema(1, 1, []),
+            "empty-section" => new WorkflowFormSchema(1, 1, [new WorkflowFormSection("main", [])]),
+            "duplicate-section" => new WorkflowFormSchema(1, 1,
+            [
+                new WorkflowFormSection("main", [Field("first", "text", "{}")]),
+                new WorkflowFormSection("main", [Field("second", "text", "{}")]),
+            ]),
+            "invalid-section-key" => new WorkflowFormSchema(1, 1,
+                [new WorkflowFormSection("bad key", [Field("field", "text", "{}")])]),
+            "prototype-field-key" => Schema(Field("__proto__", "text", "{}")),
+            "long-field-key" => Schema(Field(new string('a', 65), "text", "{}")),
+            "too-many-sections" => new WorkflowFormSchema(1, 1, Enumerable.Range(0, 33)
+                .Select(index => new WorkflowFormSection($"section{index}", [Field($"field{index}", "text", "{}")]))
+                .ToArray()),
+            "too-many-section-fields" => Schema(Enumerable.Range(0, 65)
+                .Select(index => Field($"field{index}", "text", "{}"))
+                .ToArray()),
+            "too-many-total-fields" => new WorkflowFormSchema(1, 1, Enumerable.Range(0, 5)
+                .Select(sectionIndex => new WorkflowFormSection(
+                    $"section{sectionIndex}",
+                    Enumerable.Range(0, sectionIndex == 4 ? 1 : 64)
+                        .Select(fieldIndex => Field($"field{sectionIndex}_{fieldIndex}", "text", "{}"))
+                        .ToArray()))
+                .ToArray()),
             _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
         };
 

@@ -5,6 +5,14 @@ namespace Full.NET.Modules.Workflow.Domain;
 
 internal static class WorkflowFormCompiler
 {
+    private const int MaxSections = 32;
+    private const int MaxFieldsPerSection = 64;
+    private const int MaxTotalFields = 256;
+    private const int MaxStableKeyLength = 64;
+
+    private static readonly HashSet<string> ForbiddenStableKeys =
+        new(StringComparer.OrdinalIgnoreCase) { "__proto__", "prototype", "constructor" };
+
     private static readonly HashSet<string> SupportedFieldTypes =
         new(StringComparer.Ordinal)
         {
@@ -28,6 +36,12 @@ internal static class WorkflowFormCompiler
         if (schema.SchemaVersion != 1 || schema.AdapterVersion != 1)
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormSchemaUnsupported);
+        }
+
+        var structureError = ValidateStructure(schema);
+        if (structureError is not null)
+        {
+            return WorkflowCompilationResult.Failure(structureError);
         }
 
         var fields = schema.Sections.SelectMany(section => section.Fields).ToArray();
@@ -80,6 +94,67 @@ internal static class WorkflowFormCompiler
         return WorkflowCompilationResult.Success(
             WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, schema)));
     }
+
+    private static string? ValidateStructure(WorkflowFormSchema schema)
+    {
+        if (schema.Sections is not { Count: > 0 })
+        {
+            return WorkflowErrorCodes.FormStructureInvalid;
+        }
+
+        if (schema.Sections.Count > MaxSections)
+        {
+            return WorkflowErrorCodes.FormSizeLimitExceeded;
+        }
+
+        var sectionKeys = new HashSet<string>(StringComparer.Ordinal);
+        var totalFields = 0;
+        foreach (var section in schema.Sections)
+        {
+            if (section is null || !IsStableKey(section.SectionKey) || !sectionKeys.Add(section.SectionKey) ||
+                section.Fields is not { Count: > 0 })
+            {
+                return WorkflowErrorCodes.FormStructureInvalid;
+            }
+
+            // 该上限覆盖现有百字段基准，并限制发布编译、客户端渲染与提交校验的最坏成本。
+            if (section.Fields.Count > MaxFieldsPerSection ||
+                totalFields > MaxTotalFields - section.Fields.Count)
+            {
+                return WorkflowErrorCodes.FormSizeLimitExceeded;
+            }
+
+            totalFields += section.Fields.Count;
+            if (section.Fields.Any(field => field is null || !IsStableKey(field.FieldKey)))
+            {
+                return WorkflowErrorCodes.FormStructureInvalid;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsStableKey(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > MaxStableKeyLength || ForbiddenStableKeys.Contains(value) ||
+            !IsAsciiLetter(value[0]))
+        {
+            return false;
+        }
+
+        foreach (var character in value.AsSpan(1))
+        {
+            if (!IsAsciiLetter(character) && !char.IsAsciiDigit(character) && character is not ('_' or '-' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsAsciiLetter(char value) =>
+        value is >= 'a' and <= 'z' or >= 'A' and <= 'Z';
 
     private static void WriteCanonical(Utf8JsonWriter writer, WorkflowFormSchema schema)
     {

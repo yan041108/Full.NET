@@ -21,6 +21,16 @@ export const WORKFLOW_FIELD_TYPES = [
 export type WorkflowFieldType = typeof WORKFLOW_FIELD_TYPES[number];
 export type WorkflowFieldPolicy = 'hidden' | 'readOnly' | 'editable' | 'required';
 
+const MAX_WORKFLOW_FORM_SECTIONS = 32;
+const MAX_WORKFLOW_FORM_FIELDS_PER_SECTION = 64;
+const MAX_WORKFLOW_FORM_FIELDS = 256;
+const MAX_WORKFLOW_FORM_STABLE_KEY_LENGTH = 64;
+const FORBIDDEN_WORKFLOW_FORM_STABLE_KEYS = new Set([
+  '__proto__',
+  'prototype',
+  'constructor'
+]);
+
 export interface WorkflowFormField {
   readonly fieldKey: string;
   readonly fieldTypeKey: WorkflowFieldType;
@@ -79,19 +89,28 @@ export function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchem
   if (!isRecord(value)
     || value.schemaVersion !== 1
     || value.adapterVersion !== 1
-    || !Array.isArray(value.sections)) {
+    || !Array.isArray(value.sections)
+    || value.sections.length === 0
+    || value.sections.length > MAX_WORKFLOW_FORM_SECTIONS) {
     return false;
   }
 
   const fieldKeys = new Set<string>();
+  const sectionKeys = new Set<string>();
+  let totalFields = 0;
   return value.sections.every(section => {
     if (!isRecord(section)
-      || typeof section.sectionKey !== 'string'
-      || section.sectionKey.length === 0
-      || !Array.isArray(section.fields)) {
+      || !isStableWorkflowFormKey(section.sectionKey)
+      || sectionKeys.has(section.sectionKey)
+      || !Array.isArray(section.fields)
+      || section.fields.length === 0
+      || section.fields.length > MAX_WORKFLOW_FORM_FIELDS_PER_SECTION
+      || totalFields > MAX_WORKFLOW_FORM_FIELDS - section.fields.length) {
       return false;
     }
 
+    sectionKeys.add(section.sectionKey);
+    totalFields += section.fields.length;
     return section.fields.every(field => {
       if (!isWorkflowFormField(field) || fieldKeys.has(field.fieldKey)) {
         return false;
@@ -104,12 +123,40 @@ export function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchem
 
 function isWorkflowFormField(value: unknown): value is WorkflowFormField {
   return isRecord(value)
-    && typeof value.fieldKey === 'string'
-    && value.fieldKey.length > 0
+    && isStableWorkflowFormKey(value.fieldKey)
     && typeof value.fieldTypeKey === 'string'
     && WORKFLOW_FIELD_TYPES.some(type => type === value.fieldTypeKey)
     && typeof value.required === 'boolean'
     && isRecord(value.constraints);
+}
+
+function isStableWorkflowFormKey(value: unknown): value is string {
+  if (typeof value !== 'string'
+    || value.length === 0
+    || value.length > MAX_WORKFLOW_FORM_STABLE_KEY_LENGTH
+    || FORBIDDEN_WORKFLOW_FORM_STABLE_KEYS.has(value.toLowerCase())
+    || !isAsciiLetter(value.charCodeAt(0))) {
+    return false;
+  }
+
+  for (let index = 1; index < value.length; index += 1) {
+    const characterCode = value.charCodeAt(index);
+    const character = value[index];
+    if (!isAsciiLetter(characterCode)
+      && !(characterCode >= 48 && characterCode <= 57)
+      && character !== '_'
+      && character !== '-'
+      && character !== '.') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isAsciiLetter(characterCode: number): boolean {
+  return (characterCode >= 65 && characterCode <= 90)
+    || (characterCode >= 97 && characterCode <= 122);
 }
 
 function isWorkflowFieldPolicies(value: unknown): value is WorkflowFieldPolicies {

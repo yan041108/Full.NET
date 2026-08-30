@@ -21,6 +21,8 @@
   <data name="workflow.form.money_scale_invalid" xml:space="preserve"><value>The money field scale is invalid.</value></data>
   <data name="workflow.form.choice_options_invalid" xml:space="preserve"><value>The form choice field options are invalid.</value></data>
   <data name="workflow.form.field_constraints_invalid" xml:space="preserve"><value>The form field constraints are invalid.</value></data>
+  <data name="workflow.form.structure_invalid" xml:space="preserve"><value>The form structure or stable identifier is invalid.</value></data>
+  <data name="workflow.form.size_limit_exceeded" xml:space="preserve"><value>The form exceeds the allowed size limit.</value></data>
   <data name="workflow.form.schema_unsupported" xml:space="preserve"><value>The form schema version is unsupported.</value></data>
   <data name="workflow.form.not_found" xml:space="preserve"><value>The workflow form was not found.</value></data>
   <data name="workflow.form.key_exists" xml:space="preserve"><value>The form key already exists in the current scope.</value></data>
