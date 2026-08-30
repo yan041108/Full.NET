@@ -1641,6 +1641,14 @@ export interface SetHostDocumentPermissionsRequest {
   readonly permissions: Array<HostDocumentPermissionEntry>;
 }
 
+export interface StartWorkflowInstanceRequest {
+  readonly businessId: string;
+  readonly businessType: string;
+  readonly definitionVersionId: string;
+  readonly idempotencyKey: string;
+  readonly initialValues: JsonElement;
+}
+
 export type Stream = Blob;
 
 export interface SuperAdministratorAuditResponse {
@@ -1896,6 +1904,48 @@ export interface UpdateSerialNumberRuleRequest {
   readonly version: number;
 }
 
+export interface WorkflowDefinitionDraft {
+  readonly nodes: Array<WorkflowNodeDraft>;
+  readonly schemaVersion: number;
+}
+
+export interface WorkflowDefinitionResponse {
+  readonly createdAtUtc: string;
+  readonly definitionKey: string;
+  readonly draft: WorkflowDefinitionDraft;
+  readonly draftRevision: number;
+  readonly id: string;
+  readonly latestPublishedVersionId: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface WorkflowDefinitionVersionResponse {
+  readonly canonicalJson: string;
+  readonly contentHash: string;
+  readonly definitionId: string;
+  readonly formVersionId: string;
+  readonly id: string;
+  readonly publishedAtUtc: string;
+  readonly publishedById: string;
+  readonly schemaVersion: number;
+  readonly versionNumber: number;
+}
+
+export interface WorkflowFormVersionResponse {
+  readonly adapterVersion: number;
+  readonly componentCatalogVersion: number;
+  readonly contentHash: string;
+  readonly formDefinitionId: string;
+  readonly formSchemaJson: string;
+  readonly id: string;
+  readonly publishedAtUtc: string;
+  readonly publishedById: string;
+  readonly schemaVersion: number;
+  readonly versionNumber: number;
+  readonly webRenderSchemaJson: string;
+}
+
 export interface WorkflowInstanceResponse {
   readonly activeTodoId: null | string;
   readonly businessId: string;
@@ -1906,6 +1956,13 @@ export interface WorkflowInstanceResponse {
   readonly revision: number;
   readonly startedAtUtc: string;
   readonly statusKey: string;
+}
+
+export interface WorkflowNodeDraft {
+  readonly config: JsonElement;
+  readonly nodeKey: string;
+  readonly nodeSchemaVersion: number;
+  readonly nodeTypeKey: string;
 }
 
 export interface WorkflowTodoDetailResponse {

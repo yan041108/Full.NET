@@ -235,6 +235,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/workflow/todos'
   },
   {
+    componentKey: 'workflow-definitions',
+    routeName: 'workflow-definitions',
+    path: '/workflow/definitions'
+  },
+  {
     componentKey: 'layout',
     routeName: 'layout',
     path: '/'

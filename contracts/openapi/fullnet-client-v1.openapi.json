@@ -25,6 +25,15 @@
       "name": "JobsHostJobHealth"
     },
     {
+      "name": "WorkflowForms"
+    },
+    {
+      "name": "WorkflowDefinitions"
+    },
+    {
+      "name": "WorkflowInstances"
+    },
+    {
       "name": "WorkflowTodos"
     },
     {
@@ -18015,6 +18024,276 @@
         ]
       }
     },
+    "/api/v1/workflow/definitions": {
+      "get": {
+        "operationId": "workflowListDefinitions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowDefinitionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow/definitions/{definitionId}/versions": {
+      "get": {
+        "operationId": "workflowListDefinitionVersions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "definitionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowDefinitionVersionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow/form-versions/{versionId}": {
+      "get": {
+        "operationId": "workflowGetFormVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowFormVersionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowForms"
+        ]
+      }
+    },
+    "/api/v1/workflow/instances": {
+      "post": {
+        "operationId": "workflowStartInstance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartWorkflowInstanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowInstanceResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowInstances"
+        ]
+      }
+    },
     "/api/v1/workflow/todos/{todoId}": {
       "get": {
         "operationId": "workflowGetTodo",
@@ -26390,6 +26669,34 @@
         ],
         "type": "object"
       },
+      "StartWorkflowInstanceRequest": {
+        "properties": {
+          "businessId": {
+            "type": "string"
+          },
+          "businessType": {
+            "type": "string"
+          },
+          "definitionVersionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "initialValues": {
+            "$ref": "#/components/schemas/JsonElement"
+          }
+        },
+        "required": [
+          "definitionVersionId",
+          "businessType",
+          "businessId",
+          "initialValues",
+          "idempotencyKey"
+        ],
+        "type": "object"
+      },
       "Stream": {
         "format": "binary",
         "type": "string"
@@ -27612,6 +27919,221 @@
         ],
         "type": "object"
       },
+      "WorkflowDefinitionDraft": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowNodeDraft"
+            },
+            "type": "array"
+          },
+          "schemaVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "WorkflowDefinitionResponse": {
+        "properties": {
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/WorkflowDefinitionDraft"
+          },
+          "draftRevision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "latestPublishedVersionId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "definitionKey",
+          "draft",
+          "draftRevision",
+          "latestPublishedVersionId",
+          "version",
+          "createdAtUtc",
+          "updatedAtUtc"
+        ],
+        "type": "object"
+      },
+      "WorkflowDefinitionVersionResponse": {
+        "properties": {
+          "canonicalJson": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string"
+          },
+          "definitionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "formVersionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "publishedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "publishedById": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "versionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "definitionId",
+          "formVersionId",
+          "versionNumber",
+          "schemaVersion",
+          "canonicalJson",
+          "contentHash",
+          "publishedById",
+          "publishedAtUtc"
+        ],
+        "type": "object"
+      },
+      "WorkflowFormVersionResponse": {
+        "properties": {
+          "adapterVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "componentCatalogVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "contentHash": {
+            "type": "string"
+          },
+          "formDefinitionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "formSchemaJson": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "publishedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "publishedById": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "versionNumber": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "webRenderSchemaJson": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "formDefinitionId",
+          "versionNumber",
+          "schemaVersion",
+          "adapterVersion",
+          "componentCatalogVersion",
+          "formSchemaJson",
+          "webRenderSchemaJson",
+          "contentHash",
+          "publishedById",
+          "publishedAtUtc"
+        ],
+        "type": "object"
+      },
       "WorkflowInstanceResponse": {
         "properties": {
           "activeTodoId": {
@@ -27665,6 +28187,34 @@
           "revision",
           "activeTodoId",
           "startedAtUtc"
+        ],
+        "type": "object"
+      },
+      "WorkflowNodeDraft": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "nodeKey": {
+            "type": "string"
+          },
+          "nodeSchemaVersion": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "nodeTypeKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeKey",
+          "nodeTypeKey",
+          "nodeSchemaVersion",
+          "config"
         ],
         "type": "object"
       },

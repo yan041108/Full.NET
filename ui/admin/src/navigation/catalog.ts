@@ -193,6 +193,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['workflow-todos', {
     titleKey: 'navigation.workflowTodos.title',
     captionKey: 'navigation.workflowTodos.caption'
+  }],
+  ['workflow-definitions', {
+    titleKey: 'navigation.workflowDefinitions.title',
+    captionKey: 'navigation.workflowDefinitions.caption'
   }]
 ]);
 

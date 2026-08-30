@@ -41,6 +41,8 @@ export type {
   WorkflowTodoDetail
 } from './workflow-todos.js';
 
+export { readWorkflowFormVersionSchema } from './workflow-runtime.js';
+
 export {
   createSessionRefreshCoordinator
 } from './session-refresh-coordinator.js';

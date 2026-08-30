@@ -71,6 +71,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'workflow-todos',
       path: '/workflow/todos'
     });
+    expect(catalog.localNavigationFor('workflow-definitions')).toEqual({
+      componentKey: 'workflow-definitions',
+      routeName: 'workflow-definitions',
+      path: '/workflow/definitions'
+    });
   });
 
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {

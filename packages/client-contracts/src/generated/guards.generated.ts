@@ -206,6 +206,7 @@ import type {
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
   SetHostDocumentPermissionsRequest,
+  StartWorkflowInstanceRequest,
   Stream,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
@@ -239,7 +240,12 @@ import type {
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
   UpdateSerialNumberRuleRequest,
+  WorkflowDefinitionDraft,
+  WorkflowDefinitionResponse,
+  WorkflowDefinitionVersionResponse,
+  WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
+  WorkflowNodeDraft,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse
 } from './models.generated.js';
@@ -2488,6 +2494,17 @@ function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDo
   return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20)));
 }
 
+export function readStartWorkflowInstanceRequest(value: unknown): StartWorkflowInstanceRequest {
+  if (!(isStartWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_start_workflow_instance_request');
+  }
+  return value;
+}
+
+function isStartWorkflowInstanceRequest(value: unknown): value is StartWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["idempotencyKey"] === 'string') && (isJsonElement(value["initialValues"]));
+}
+
 export function readStream(value: unknown): Stream {
   if (!(isStream(value))) {
     throw new Error('client.invalid_stream');
@@ -2851,6 +2868,50 @@ function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialN
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionDraft {
+  if (!(isWorkflowDefinitionDraft(value))) {
+    throw new Error('client.invalid_workflow_definition_draft');
+  }
+  return value;
+}
+
+function isWorkflowDefinitionDraft(value: unknown): value is WorkflowDefinitionDraft {
+  return isRecord(value) && (Array.isArray(value["nodes"]) && value["nodes"].every(item14 => isWorkflowNodeDraft(item14))) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"]));
+}
+
+export function readWorkflowDefinitionResponse(value: unknown): WorkflowDefinitionResponse {
+  if (!(isWorkflowDefinitionResponse(value))) {
+    throw new Error('client.invalid_workflow_definition_response');
+  }
+  return value;
+}
+
+function isWorkflowDefinitionResponse(value: unknown): value is WorkflowDefinitionResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["definitionKey"] === 'string') && (isWorkflowDefinitionDraft(value["draft"])) && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readWorkflowDefinitionVersionResponse(value: unknown): WorkflowDefinitionVersionResponse {
+  if (!(isWorkflowDefinitionVersionResponse(value))) {
+    throw new Error('client.invalid_workflow_definition_version_response');
+  }
+  return value;
+}
+
+function isWorkflowDefinitionVersionResponse(value: unknown): value is WorkflowDefinitionVersionResponse {
+  return isRecord(value) && (typeof value["canonicalJson"] === 'string') && (typeof value["contentHash"] === 'string') && (typeof value["definitionId"] === 'string' && guidPattern.test(value["definitionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"])) && (typeof value["versionNumber"] === 'number' && Number.isInteger(value["versionNumber"]));
+}
+
+export function readWorkflowFormVersionResponse(value: unknown): WorkflowFormVersionResponse {
+  if (!(isWorkflowFormVersionResponse(value))) {
+    throw new Error('client.invalid_workflow_form_version_response');
+  }
+  return value;
+}
+
+function isWorkflowFormVersionResponse(value: unknown): value is WorkflowFormVersionResponse {
+  return isRecord(value) && (typeof value["adapterVersion"] === 'number' && Number.isInteger(value["adapterVersion"])) && (typeof value["componentCatalogVersion"] === 'number' && Number.isInteger(value["componentCatalogVersion"])) && (typeof value["contentHash"] === 'string') && (typeof value["formDefinitionId"] === 'string' && guidPattern.test(value["formDefinitionId"])) && (typeof value["formSchemaJson"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["publishedAtUtc"] === 'string') && (typeof value["publishedById"] === 'string' && guidPattern.test(value["publishedById"])) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"])) && (typeof value["versionNumber"] === 'number' && Number.isInteger(value["versionNumber"])) && (typeof value["webRenderSchemaJson"] === 'string');
+}
+
 export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceResponse {
   if (!(isWorkflowInstanceResponse(value))) {
     throw new Error('client.invalid_workflow_instance_response');
@@ -2860,6 +2921,17 @@ export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceRe
 
 function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
   return isRecord(value) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
+  if (!(isWorkflowNodeDraft(value))) {
+    throw new Error('client.invalid_workflow_node_draft');
+  }
+  return value;
+}
+
+function isWorkflowNodeDraft(value: unknown): value is WorkflowNodeDraft {
+  return isRecord(value) && (isJsonElement(value["config"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string');
 }
 
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
@@ -3085,6 +3157,20 @@ export function readSettingsListTenantDictItemsByTypeCodeResponse(value: unknown
     throw new Error('client.invalid_settings_list_tenant_dict_items_by_type_code_response');
   }
   return value as Array<DictItemResponse>;
+}
+
+export function readWorkflowListDefinitionsResponse(value: unknown): Array<WorkflowDefinitionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowDefinitionResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_definitions_response');
+  }
+  return value as Array<WorkflowDefinitionResponse>;
+}
+
+export function readWorkflowListDefinitionVersionsResponse(value: unknown): Array<WorkflowDefinitionVersionResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowDefinitionVersionResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_definition_versions_response');
+  }
+  return value as Array<WorkflowDefinitionVersionResponse>;
 }
 
 export function readWorkflowListMyTodosResponse(value: unknown): Array<WorkflowTodoResponse> {

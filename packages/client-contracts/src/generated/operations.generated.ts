@@ -207,6 +207,7 @@ import type {
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
   SetHostDocumentPermissionsRequest,
+  StartWorkflowInstanceRequest,
   Stream,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
@@ -240,7 +241,12 @@ import type {
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
   UpdateSerialNumberRuleRequest,
+  WorkflowDefinitionDraft,
+  WorkflowDefinitionResponse,
+  WorkflowDefinitionVersionResponse,
+  WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
+  WorkflowNodeDraft,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse
 } from './models.generated.js';
@@ -365,7 +371,10 @@ import {
   readTenantSummary,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
+  readWorkflowFormVersionResponse,
   readWorkflowInstanceResponse,
+  readWorkflowListDefinitionsResponse,
+  readWorkflowListDefinitionVersionsResponse,
   readWorkflowListMyTodosResponse,
   readWorkflowTodoDetailResponse
 } from './guards.generated.js';
@@ -5685,6 +5694,24 @@ export async function workflowApproveTodo(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowGetFormVersionParameters {
+  readonly versionId: string;
+}
+
+export async function workflowGetFormVersion(
+  http: HttpClient,
+  parameters: WorkflowGetFormVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormVersionResponse> {
+  const path = `/api/v1/workflow/form-versions/${encodeURIComponent(String(parameters.versionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormVersionResponse(value);
+}
+
 export interface WorkflowGetTodoParameters {
   readonly todoId: string;
 }
@@ -5701,6 +5728,42 @@ export async function workflowGetTodo(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowTodoDetailResponse(value);
+}
+
+export interface WorkflowListDefinitionsParameters {
+
+}
+
+export async function workflowListDefinitions(
+  http: HttpClient,
+  parameters: WorkflowListDefinitionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowDefinitionResponse>> {
+  const path = `/api/v1/workflow/definitions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListDefinitionsResponse(value);
+}
+
+export interface WorkflowListDefinitionVersionsParameters {
+  readonly definitionId: string;
+}
+
+export async function workflowListDefinitionVersions(
+  http: HttpClient,
+  parameters: WorkflowListDefinitionVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowDefinitionVersionResponse>> {
+  const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListDefinitionVersionsResponse(value);
 }
 
 export interface WorkflowListMyTodosParameters {
@@ -5733,6 +5796,28 @@ export async function workflowRejectTodo(
   options?: RequestOptions
 ): Promise<WorkflowInstanceResponse> {
   const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/reject`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowStartInstanceParameters {
+  readonly body: StartWorkflowInstanceRequest;
+}
+
+export async function workflowStartInstance(
+  http: HttpClient,
+  parameters: WorkflowStartInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances`;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

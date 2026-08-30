@@ -481,6 +481,18 @@
       "routePrefixes": [
         "/api/v1/workflow/todos"
       ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/workflow-runtime.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/definitions",
+        "/api/v1/workflow/form-versions",
+        "/api/v1/workflow/instances"
+      ]
     }
   ],
   "infrastructureModules": [
@@ -533,6 +545,7 @@
     { "apiModule": "ui/admin/src/api/tenants.ts", "consumers": ["ui/admin/src/views/TenantsView.vue"] },
     { "apiModule": "ui/admin/src/api/totpEnrollment.ts", "consumers": ["ui/admin/src/views/SuperAdministratorsView.vue"] },
     { "apiModule": "ui/admin/src/api/users.ts", "consumers": ["ui/admin/src/views/UsersView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-todos.ts", "consumers": ["ui/admin/src/views/WorkflowTodosView.vue"] }
+    { "apiModule": "ui/admin/src/api/workflow-todos.ts", "consumers": ["ui/admin/src/views/WorkflowTodosView.vue"] },
+    { "apiModule": "ui/admin/src/api/workflow-runtime.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] }
   ]
 }

@@ -8,6 +8,30 @@
   ],
   "entries": [
     {
+      "operationId": "workflowListDefinitions",
+      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListDefinitionVersions",
+      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetFormVersion",
+      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowStartInstance",
+      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListMyTodos",
       "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",

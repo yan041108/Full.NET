@@ -234,6 +234,11 @@ export function createAppRouter(
         path: '/workflow/todos',
         component: () => import('../views/WorkflowTodosView.vue')
       },
+      {
+        name: 'workflow-definitions',
+        path: '/workflow/definitions',
+        component: () => import('../views/WorkflowDefinitionsView.vue')
+      },
       { path: '/403', component: loadStatusView, props: { code: '403' } },
       { path: '/404', component: loadStatusView, props: { code: '404' } },
       { path: '/500', component: loadStatusView, props: { code: '500' } },
