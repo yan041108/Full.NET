@@ -61,4 +61,21 @@ public sealed class WorkflowManagementContractTests
             "A published definition must retain its immutable FormVersionId binding.");
         Assert.AreEqual(typeof(Guid), formVersionId.PropertyType);
     }
+
+    [TestMethod]
+    public void Todo_detail_exposes_the_visible_form_schema_hash()
+    {
+        var responseType = WorkflowAssembly.GetType(
+            "Full.NET.Modules.Workflow.Features.ManageMyTodos.WorkflowTodoRuntimeResponse",
+            throwOnError: true)!;
+
+        var formSchemaHash = responseType.GetProperty(
+            "FormSchemaHash",
+            BindingFlags.Instance | BindingFlags.Public);
+
+        Assert.IsNotNull(
+            formSchemaHash,
+            "移动端必须获得可见 Schema 摘要，禁止不同字段策略复用同一缓存条目。");
+        Assert.AreEqual(typeof(string), formSchemaHash.PropertyType);
+    }
 }

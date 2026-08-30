@@ -258,7 +258,8 @@ import type {
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
   WorkflowTodoDetailResponse,
-  WorkflowTodoResponse
+  WorkflowTodoResponse,
+  WorkflowTodoRuntimeResponse
 } from './models.generated.js';
 
 export function readAccessHostDocumentShareRequest(value: unknown): AccessHostDocumentShareRequest {
@@ -3086,6 +3087,17 @@ export function readWorkflowTodoResponse(value: unknown): WorkflowTodoResponse {
 
 function isWorkflowTodoResponse(value: unknown): value is WorkflowTodoResponse {
   return isRecord(value) && (typeof value["arrivedAtUtc"] === 'string') && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["resultActionKey"] === null) || (typeof value["resultActionKey"] === 'string')) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+}
+
+export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRuntimeResponse {
+  if (!(isWorkflowTodoRuntimeResponse(value))) {
+    throw new Error('client.invalid_workflow_todo_runtime_response');
+  }
+  return value;
+}
+
+function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRuntimeResponse {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
 }
 
 export function readCodeGenerationListCatalogTablesResponse(value: unknown): Array<CodeGenerationCatalogTableResponse> {

@@ -2063,3 +2063,18 @@ export interface WorkflowTodoResponse {
   readonly statusKey: string;
   readonly stepId: string;
 }
+
+export interface WorkflowTodoRuntimeResponse {
+  readonly assigneeUserId: string;
+  readonly fieldPolicies: Readonly<Record<string, unknown>>;
+  readonly formSchema: JsonElement;
+  readonly formSchemaHash: string;
+  readonly formVersionId: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly stepId: string;
+  readonly submission: JsonElement;
+  readonly submissionRevision: number;
+}

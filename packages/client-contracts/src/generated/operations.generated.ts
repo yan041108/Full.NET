@@ -259,7 +259,8 @@ import type {
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
   WorkflowTodoDetailResponse,
-  WorkflowTodoResponse
+  WorkflowTodoResponse,
+  WorkflowTodoRuntimeResponse
 } from './models.generated.js';
 import {
   readAccessLogCursorPageResponse,
@@ -391,7 +392,8 @@ import {
   readWorkflowListFormsResponse,
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyTodosResponse,
-  readWorkflowTodoDetailResponse
+  readWorkflowTodoDetailResponse,
+  readWorkflowTodoRuntimeResponse
 } from './guards.generated.js';
 
 export type GeneratedJsonOperation<T> = (
@@ -5842,6 +5844,24 @@ export async function workflowGetTodo(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowTodoDetailResponse(value);
+}
+
+export interface WorkflowGetTodoRuntimeParameters {
+  readonly todoId: string;
+}
+
+export async function workflowGetTodoRuntime(
+  http: HttpClient,
+  parameters: WorkflowGetTodoRuntimeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowTodoRuntimeResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/runtime`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowTodoRuntimeResponse(value);
 }
 
 export interface WorkflowListDefinitionsParameters {

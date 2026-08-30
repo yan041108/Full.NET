@@ -55,6 +55,30 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosRead));
 
+        endpoints.MapGet("/api/v1/workflow/todos/{todoId:guid}/runtime", async (
+            Guid todoId,
+            WorkflowTodoManagementService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.GetRuntimeAsync(todoId, actorUserId, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowGetTodoRuntime")
+        .WithTags("WorkflowTodos")
+        .Produces<WorkflowTodoRuntimeResponse>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosRead));
+
         endpoints.MapPost("/api/v1/workflow/todos/{todoId:guid}/approve", async (
             Guid todoId,
             ActWorkflowTodoRequest request,

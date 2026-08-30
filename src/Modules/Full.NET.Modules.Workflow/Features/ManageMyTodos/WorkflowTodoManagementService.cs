@@ -119,6 +119,25 @@ internal sealed class WorkflowTodoManagementService(
             submission.Revision));
     }
 
+    public async Task<Result<WorkflowTodoRuntimeResponse>> GetRuntimeAsync(
+        Guid todoId,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var result = await GetAsync(todoId, actorUserId, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            return Result<WorkflowTodoRuntimeResponse>.Failure(result.Error!);
+        }
+
+        var detail = result.Value!;
+        return Result<WorkflowTodoRuntimeResponse>.Success(new(
+            detail.Id, detail.InstanceId, detail.StepId, detail.AssigneeUserId,
+            detail.StatusKey, detail.Revision, detail.FormVersionId,
+            HashUtf8(detail.FormSchema.GetRawText()), detail.FormSchema,
+            detail.Submission, detail.FieldPolicies, detail.SubmissionRevision));
+    }
+
     public Task<Result<WorkflowInstanceResponse>> RejectAsync(
         Guid todoId,
         Guid actorUserId,
@@ -295,8 +314,11 @@ internal sealed class WorkflowTodoManagementService(
     private static string HashRequest(string actionKey, ActWorkflowTodoRequest request)
     {
         var value = $"{actionKey}\n{request.ExpectedRevision}\n{request.FieldPatch.GetRawText()}\n{request.Comment?.Trim()}";
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+        return HashUtf8(value);
     }
+
+    private static string HashUtf8(string value) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static WorkflowInstanceResponse Map(
         WorkflowInstanceRecord instance,

@@ -31,3 +31,17 @@ internal sealed record WorkflowTodoDetailResponse(
     JsonElement Submission,
     IReadOnlyDictionary<string, string> FieldPolicies,
     long SubmissionRevision);
+
+internal sealed record WorkflowTodoRuntimeResponse(
+    Guid Id,
+    Guid InstanceId,
+    Guid StepId,
+    Guid AssigneeUserId,
+    string StatusKey,
+    long Revision,
+    Guid FormVersionId,
+    string FormSchemaHash,
+    JsonElement FormSchema,
+    JsonElement Submission,
+    IReadOnlyDictionary<string, string> FieldPolicies,
+    long SubmissionRevision);

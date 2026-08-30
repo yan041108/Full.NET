@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Workflow.Contracts;
@@ -101,12 +103,16 @@ internal static class WorkflowRuntimeApiAssertions
         Assert.AreEqual("active", todo.GetProperty("statusKey").GetString());
 
         using var todoDetail = await client.SendAsync(
-            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{todoId:D}", identity.AccessToken),
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{todoId:D}/runtime", identity.AccessToken),
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, todoDetail.StatusCode,
             await todoDetail.Content.ReadAsStringAsync(cancellationToken));
         using var detail = JsonDocument.Parse(await todoDetail.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(versions.FormVersionId, detail.RootElement.GetProperty("formVersionId").GetGuid());
+        var visibleSchemaJson = detail.RootElement.GetProperty("formSchema").GetRawText();
+        var expectedSchemaHash = Convert.ToHexStringLower(
+            SHA256.HashData(Encoding.UTF8.GetBytes(visibleSchemaJson)));
+        Assert.AreEqual(expectedSchemaHash, detail.RootElement.GetProperty("formSchemaHash").GetString());
         Assert.AreEqual("annual leave",
             detail.RootElement.GetProperty("submission").GetProperty("reason").GetString());
         Assert.IsFalse(detail.RootElement.GetProperty("submission").TryGetProperty("secret", out _));

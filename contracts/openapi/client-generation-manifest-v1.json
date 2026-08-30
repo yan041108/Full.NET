@@ -98,6 +98,12 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowGetTodoRuntime",
+      "apiModule": "packages/client-contracts/src/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowApproveTodo",
       "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",

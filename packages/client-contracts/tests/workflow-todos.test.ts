@@ -10,6 +10,7 @@ const validDetail = {
   statusKey: 'pending',
   revision: 3,
   formVersionId: '01912345-6789-7abc-8def-0123456789af',
+  formSchemaHash: 'c067f7ee2860ffd2cc3e3f450af5d6988dc989537e468972d6e3804efddcd4cb',
   formSchema: {
     schemaVersion: 1,
     adapterVersion: 1,
@@ -35,6 +36,12 @@ describe('workflow todo runtime guards', () => {
 
   it('只接受受支持的静态表单协议和字段策略', () => {
     expect(isWorkflowTodoDetail(validDetail)).toBe(true);
+    const { formSchemaHash: _, ...missingSchemaHash } = validDetail;
+    expect(isWorkflowTodoDetail(missingSchemaHash)).toBe(false);
+    expect(isWorkflowTodoDetail({
+      ...validDetail,
+      formSchemaHash: 'not-a-sha256'
+    })).toBe(false);
     expect(isWorkflowTodoDetail({
       ...validDetail,
       fieldPolicies: { summary: 'execute-script' }

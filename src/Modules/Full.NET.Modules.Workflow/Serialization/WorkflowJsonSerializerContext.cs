@@ -37,6 +37,7 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowTodoResponse))]
 [JsonSerializable(typeof(WorkflowTodoResponse[]))]
 [JsonSerializable(typeof(WorkflowTodoDetailResponse))]
+[JsonSerializable(typeof(WorkflowTodoRuntimeResponse))]
 [JsonSerializable(typeof(ActWorkflowTodoRequest))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse[]))]

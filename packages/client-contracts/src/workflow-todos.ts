@@ -1,6 +1,6 @@
 import {
-  readWorkflowTodoDetailResponse,
-  type WorkflowTodoDetailResponse
+  readWorkflowTodoRuntimeResponse,
+  type WorkflowTodoRuntimeResponse
 } from './generated/index.generated.js';
 
 export const WORKFLOW_FIELD_TYPES = [
@@ -67,7 +67,7 @@ export type WorkflowSubmission = Readonly<Record<string, unknown>>;
 export type WorkflowFieldPolicies = Readonly<Record<string, WorkflowFieldPolicy>>;
 
 export type WorkflowTodoDetail = Omit<
-  WorkflowTodoDetailResponse,
+  WorkflowTodoRuntimeResponse,
   'fieldPolicies' | 'formSchema' | 'submission'
 > & {
   readonly fieldPolicies: WorkflowFieldPolicies;
@@ -80,16 +80,17 @@ export type WorkflowTodoDetail = Omit<
  * 未知 adapter、字段控件或策略全部失败关闭。
  */
 export function isWorkflowTodoDetail(value: unknown): value is WorkflowTodoDetail {
-  let response: WorkflowTodoDetailResponse;
+  let response: WorkflowTodoRuntimeResponse;
   try {
-    response = readWorkflowTodoDetailResponse(value);
+    response = readWorkflowTodoRuntimeResponse(value);
   } catch {
     return false;
   }
 
   if (!isWorkflowFormSchema(response.formSchema)
     || !isRecord(response.submission)
-    || !isWorkflowFieldPolicies(response.fieldPolicies)) {
+    || !isWorkflowFieldPolicies(response.fieldPolicies)
+    || !/^[0-9a-f]{64}$/.test(response.formSchemaHash)) {
     return false;
   }
 
