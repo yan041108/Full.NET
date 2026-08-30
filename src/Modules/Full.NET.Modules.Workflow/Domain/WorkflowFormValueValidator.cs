@@ -61,15 +61,44 @@ internal static class WorkflowFormValueValidator
     private static bool IsValueValid(WorkflowFormField field, JsonElement value) =>
         field.FieldTypeKey switch
     {
-        "text" or "textarea" or "money" or "decimal" or "date" or "time" or "datetime" =>
+        "text" or "textarea" => IsTextValid(field, value),
+        "money" or "decimal" or "date" or "time" or "datetime" =>
             value.ValueKind == JsonValueKind.String &&
             !string.IsNullOrWhiteSpace(value.GetString()),
         "radio" or "select" => IsDeclaredOption(field, value),
-        "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
+        "integer" => IsIntegerValid(field, value),
         "checkbox" => AreDeclaredOptions(field, value),
         "switch" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
         _ => false,
     };
+
+    private static bool IsTextValid(WorkflowFormField field, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.String ||
+            string.IsNullOrWhiteSpace(value.GetString()) ||
+            !WorkflowFormFieldConstraints.TryReadTextLength(
+                field,
+                out var minimumLength,
+                out var maximumLength))
+        {
+            return false;
+        }
+
+        var length = value.GetString()!.Length;
+        return length >= minimumLength && length <= maximumLength;
+    }
+
+    private static bool IsIntegerValid(WorkflowFormField field, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetInt64(out var integer) ||
+            !WorkflowFormFieldConstraints.TryReadIntegerRange(field, out var minimum, out var maximum))
+        {
+            return false;
+        }
+
+        return integer >= minimum && integer <= maximum;
+    }
 
     private static bool IsDeclaredOption(WorkflowFormField field, JsonElement value)
     {

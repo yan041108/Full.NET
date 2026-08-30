@@ -57,6 +57,14 @@ internal static class WorkflowFormCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormChoiceOptionsInvalid);
         }
 
+        if (fields.Where(field => field.FieldTypeKey is "text" or "textarea")
+                .Any(field => !WorkflowFormFieldConstraints.TryReadTextLength(field, out _, out _)) ||
+            fields.Where(field => field.FieldTypeKey == "integer")
+                .Any(field => !WorkflowFormFieldConstraints.TryReadIntegerRange(field, out _, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldConstraintsInvalid);
+        }
+
         return WorkflowCompilationResult.Success(
             WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, schema)));
     }

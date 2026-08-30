@@ -50,6 +50,32 @@ function optionsFor(field: WorkflowFormField): readonly string[] {
     : [];
 }
 
+function textLengthConstraint(
+  field: WorkflowFormField,
+  key: 'minLength' | 'maxLength'
+): number | undefined {
+  if (field.fieldTypeKey !== 'text' && field.fieldTypeKey !== 'textarea') {
+    return undefined;
+  }
+
+  const value = field.constraints[key];
+  return Number.isSafeInteger(value) && Number(value) >= 0
+    ? Number(value)
+    : undefined;
+}
+
+function integerRangeConstraint(
+  field: WorkflowFormField,
+  key: 'minimum' | 'maximum'
+): number | undefined {
+  if (field.fieldTypeKey !== 'integer') {
+    return undefined;
+  }
+
+  const value = field.constraints[key];
+  return Number.isSafeInteger(value) ? Number(value) : undefined;
+}
+
 function updateValue(field: WorkflowFormField, rawValue: unknown): void {
   if (isReadOnly(field) || policyFor(field) === 'hidden') {
     return;
@@ -118,6 +144,8 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
             :value="String(values[field.fieldKey] ?? '')"
             :readonly="isReadOnly(field)"
             :required="isRequired(field)"
+            :minlength="textLengthConstraint(field, 'minLength')"
+            :maxlength="textLengthConstraint(field, 'maxLength')"
             rows="4"
             @input="updateValue(field, ($event.target as HTMLTextAreaElement).value)"
           />
@@ -177,6 +205,10 @@ function replaceRecord(target: Record<string, unknown>, source: WorkflowSubmissi
             :value="values[field.fieldKey] ?? ''"
             :readonly="isReadOnly(field)"
             :required="isRequired(field)"
+            :minlength="textLengthConstraint(field, 'minLength')"
+            :maxlength="textLengthConstraint(field, 'maxLength')"
+            :min="integerRangeConstraint(field, 'minimum')"
+            :max="integerRangeConstraint(field, 'maximum')"
             @input="updateValue(field, ($event.target as HTMLInputElement).value)"
           />
         </label>

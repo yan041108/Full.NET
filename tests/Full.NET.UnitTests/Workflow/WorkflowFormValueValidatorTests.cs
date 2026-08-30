@@ -34,6 +34,33 @@ public sealed class WorkflowFormValueValidatorTests
         Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, values));
     }
 
+    [TestMethod]
+    public void Validate_accepts_text_length_and_integer_range_boundaries()
+    {
+        var schema = Schema(
+            Field("summary", "text", true, "{\"minLength\":2,\"maxLength\":4}"),
+            Field("count", "integer", true, "{\"minimum\":10,\"maximum\":20}"));
+        var values = ParseElement("{\"summary\":\"测试\",\"count\":20}");
+
+        Assert.IsTrue(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
+    [TestMethod]
+    [DataRow("text", "{\"minLength\":2,\"maxLength\":4}", "\"a\"")]
+    [DataRow("textarea", "{\"minLength\":2,\"maxLength\":4}", "\"abcde\"")]
+    [DataRow("integer", "{\"minimum\":10,\"maximum\":20}", "9")]
+    [DataRow("integer", "{\"minimum\":10,\"maximum\":20}", "21")]
+    public void Validate_rejects_values_outside_published_text_and_integer_constraints(
+        string fieldTypeKey,
+        string constraintsJson,
+        string valueJson)
+    {
+        var schema = Schema(Field("value", fieldTypeKey, true, constraintsJson));
+        var values = ParseElement($"{{\"value\":{valueJson}}}");
+
+        Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
     private static WorkflowFormSchema Schema(params WorkflowFormField[] fields) =>
         new(1, 1, [new WorkflowFormSection("main", fields)]);
 

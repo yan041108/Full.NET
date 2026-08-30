@@ -22,6 +22,7 @@ public static class WorkflowErrorCodes
     public const string FormExtensionForbidden = Prefix + "form.extension_forbidden";
     public const string FormMoneyScaleInvalid = Prefix + "form.money_scale_invalid";
     public const string FormChoiceOptionsInvalid = Prefix + "form.choice_options_invalid";
+    public const string FormFieldConstraintsInvalid = Prefix + "form.field_constraints_invalid";
     public const string FormSchemaUnsupported = Prefix + "form.schema_unsupported";
     public const string FormNotFound = Prefix + "form.not_found";
     public const string FormKeyExists = Prefix + "form.key_exists";
@@ -56,6 +57,7 @@ public static class WorkflowErrorCodes
         FormExtensionForbidden,
         FormMoneyScaleInvalid,
         FormChoiceOptionsInvalid,
+        FormFieldConstraintsInvalid,
         FormSchemaUnsupported,
         FormNotFound,
         FormKeyExists,

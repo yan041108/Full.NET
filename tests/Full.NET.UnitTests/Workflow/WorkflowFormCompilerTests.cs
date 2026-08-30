@@ -38,6 +38,11 @@ public sealed class WorkflowFormCompilerTests
     [DataRow("choice-options-empty", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
     [DataRow("choice-options-duplicate", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
     [DataRow("choice-options-not-array", WorkflowErrorCodes.FormChoiceOptionsInvalid)]
+    [DataRow("text-length-negative", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("text-length-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("text-length-not-integer", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("integer-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("integer-range-not-integer", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     public void Compile_rejects_unsafe_or_invalid_forms(string scenario, string expectedCode)
     {
         var schema = scenario switch
@@ -54,6 +59,11 @@ public sealed class WorkflowFormCompilerTests
             "choice-options-empty" => Schema(Field("choice", "select", "{\"options\":[]}")),
             "choice-options-duplicate" => Schema(Field("choice", "checkbox", "{\"options\":[\"owner\",\"owner\"]}")),
             "choice-options-not-array" => Schema(Field("choice", "radio", "{\"options\":\"owner\"}")),
+            "text-length-negative" => Schema(Field("summary", "text", "{\"minLength\":-1}")),
+            "text-length-reversed" => Schema(Field("summary", "textarea", "{\"minLength\":5,\"maxLength\":4}")),
+            "text-length-not-integer" => Schema(Field("summary", "text", "{\"maxLength\":2.5}")),
+            "integer-range-reversed" => Schema(Field("count", "integer", "{\"minimum\":5,\"maximum\":4}")),
+            "integer-range-not-integer" => Schema(Field("count", "integer", "{\"minimum\":1.5}")),
             _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
         };
 
