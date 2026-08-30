@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isWorkflowFormSchema, isWorkflowTodoDetail } from '../src/workflow-todos';
+import goldenFixture from '../src/fixtures/workflow-form-schema-v1.json';
 
 const validDetail = {
   id: '01912345-6789-7abc-8def-0123456789ab',
@@ -28,6 +29,10 @@ const validDetail = {
 };
 
 describe('workflow todo runtime guards', () => {
+  it('接受跨端共享的 v1 Golden Fixture', () => {
+    expect(isWorkflowFormSchema(goldenFixture.formSchema)).toBe(true);
+  });
+
   it('只接受受支持的静态表单协议和字段策略', () => {
     expect(isWorkflowTodoDetail(validDetail)).toBe(true);
     expect(isWorkflowTodoDetail({
@@ -97,4 +102,20 @@ describe('workflow todo runtime guards', () => {
   ])('拒绝空结构、重复或危险稳定标识以及超限结构', schema => {
     expect(isWorkflowFormSchema(schema)).toBe(false);
   });
+
+  it.each(['placeholder', 'script', 'css', 'html', 'remoteUrl', '__proto__'])(
+    '拒绝字段类型未声明或危险的设计态约束：%s',
+    constraintKey => {
+      expect(isWorkflowFormSchema({
+        ...validDetail.formSchema,
+        sections: [{
+          ...validDetail.formSchema.sections[0],
+          fields: [{
+            ...validDetail.formSchema.sections[0].fields[0],
+            constraints: { [constraintKey]: 'unsafe design metadata' }
+          }]
+        }]
+      })).toBe(false);
+    }
+  );
 });

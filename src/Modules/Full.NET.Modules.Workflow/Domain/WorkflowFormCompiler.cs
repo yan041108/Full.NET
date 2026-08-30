@@ -31,6 +31,23 @@ internal static class WorkflowFormCompiler
     private static readonly HashSet<string> ChoiceFieldTypes =
         new(StringComparer.Ordinal) { "radio", "checkbox", "select" };
 
+    private static readonly IReadOnlyDictionary<string, HashSet<string>> SupportedConstraintKeys =
+        new Dictionary<string, HashSet<string>>(StringComparer.Ordinal)
+        {
+            ["text"] = new(StringComparer.Ordinal) { "minLength", "maxLength" },
+            ["textarea"] = new(StringComparer.Ordinal) { "minLength", "maxLength" },
+            ["integer"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
+            ["decimal"] = new(StringComparer.Ordinal) { "scale", "minimum", "maximum" },
+            ["money"] = new(StringComparer.Ordinal) { "scale", "minimum", "maximum" },
+            ["date"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
+            ["time"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
+            ["datetime"] = new(StringComparer.Ordinal) { "minimum", "maximum" },
+            ["radio"] = new(StringComparer.Ordinal) { "options" },
+            ["checkbox"] = new(StringComparer.Ordinal) { "options" },
+            ["select"] = new(StringComparer.Ordinal) { "options" },
+            ["switch"] = new(StringComparer.Ordinal),
+        };
+
     public static WorkflowCompilationResult Compile(WorkflowFormSchema schema)
     {
         if (schema.SchemaVersion != 1 || schema.AdapterVersion != 1)
@@ -58,6 +75,12 @@ internal static class WorkflowFormCompiler
         if (fields.Any(field => field.Constraints.Any(pair => ContainsForbiddenExtension(pair.Key, pair.Value))))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormExtensionForbidden);
+        }
+
+        if (fields.Any(field => field.Constraints.Keys.Any(
+                key => !SupportedConstraintKeys[field.FieldTypeKey].Contains(key))))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldConstraintsInvalid);
         }
 
         if (fields.Where(field => field.FieldTypeKey == "money").Any(HasInvalidMoneyScale))
@@ -125,7 +148,8 @@ internal static class WorkflowFormCompiler
             }
 
             totalFields += section.Fields.Count;
-            if (section.Fields.Any(field => field is null || !IsStableKey(field.FieldKey)))
+            if (section.Fields.Any(field =>
+                    field is null || !IsStableKey(field.FieldKey) || field.Constraints is null))
             {
                 return WorkflowErrorCodes.FormStructureInvalid;
             }

@@ -47,5 +47,8 @@
   <ItemGroup>
     <Compile Remove="CodeGeneration\Fixtures\**\*.fragment.cs" />
     <None Include="CodeGeneration\Fixtures\**\*.fragment.cs" />
+    <None Include="..\..\packages\client-contracts\src\fixtures\workflow-form-schema-v1.json"
+          Link="Workflow\Fixtures\workflow-form-schema-v1.json"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

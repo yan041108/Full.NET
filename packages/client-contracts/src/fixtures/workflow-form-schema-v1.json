@@ -1,0 +1,54 @@
+{
+  "contentHash": "c067f7ee2860ffd2cc3e3f450af5d6988dc989537e468972d6e3804efddcd4cb",
+  "formSchema": {
+    "schemaVersion": 1,
+    "adapterVersion": 1,
+    "sections": [
+      {
+        "sectionKey": "request",
+        "fields": [
+          { "fieldKey": "summary", "fieldTypeKey": "text", "required": true, "constraints": { "minLength": 1, "maxLength": 120 } },
+          { "fieldKey": "notes", "fieldTypeKey": "textarea", "required": false, "constraints": { "maxLength": 2000 } },
+          { "fieldKey": "quantity", "fieldTypeKey": "integer", "required": false, "constraints": { "minimum": 0, "maximum": 100 } },
+          { "fieldKey": "rate", "fieldTypeKey": "decimal", "required": false, "constraints": { "scale": 3, "minimum": "0.000", "maximum": "1.000" } },
+          { "fieldKey": "amount", "fieldTypeKey": "money", "required": true, "constraints": { "scale": 2, "minimum": "0.00", "maximum": "999999.99" } },
+          { "fieldKey": "dueDate", "fieldTypeKey": "date", "required": false, "constraints": { "minimum": "2026-01-01", "maximum": "2030-12-31" } },
+          { "fieldKey": "cutoff", "fieldTypeKey": "time", "required": false, "constraints": { "minimum": "08:00", "maximum": "18:00" } },
+          { "fieldKey": "deadline", "fieldTypeKey": "datetime", "required": true, "constraints": { "minimum": "2026-01-01T00:00:00Z", "maximum": "2030-12-31T23:59:59+08:00" } },
+          { "fieldKey": "priority", "fieldTypeKey": "radio", "required": true, "constraints": { "options": ["normal", "urgent"] } },
+          { "fieldKey": "reviewers", "fieldTypeKey": "checkbox", "required": false, "constraints": { "options": ["owner", "finance"] } },
+          { "fieldKey": "category", "fieldTypeKey": "select", "required": false, "constraints": { "options": ["general", "capital"] } },
+          { "fieldKey": "notify", "fieldTypeKey": "switch", "required": false, "constraints": {} }
+        ]
+      }
+    ]
+  },
+  "submission": {
+    "summary": "采购审批",
+    "notes": null,
+    "quantity": 10,
+    "rate": "0.125",
+    "amount": "1288.50",
+    "dueDate": "2026-09-01",
+    "cutoff": "17:30",
+    "deadline": "2026-09-01T09:30:00+08:00",
+    "priority": "urgent",
+    "reviewers": ["owner", "finance"],
+    "category": "capital",
+    "notify": true
+  },
+  "fieldPolicies": {
+    "summary": "required",
+    "notes": "hidden",
+    "quantity": "readOnly",
+    "rate": "editable",
+    "amount": "required",
+    "dueDate": "editable",
+    "cutoff": "editable",
+    "deadline": "required",
+    "priority": "required",
+    "reviewers": "editable",
+    "category": "editable",
+    "notify": "editable"
+  }
+}

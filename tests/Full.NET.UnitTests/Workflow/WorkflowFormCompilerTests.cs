@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Serialization;
 
 namespace Full.NET.UnitTests.Workflow;
 
@@ -42,6 +43,27 @@ public sealed class WorkflowFormCompilerTests
     }
 
     [TestMethod]
+    public void Compile_accepts_the_shared_cross_platform_golden_fixture()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "Workflow",
+            "Fixtures",
+            "workflow-form-schema-v1.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(fixturePath));
+        var schema = JsonSerializer.Deserialize(
+            document.RootElement.GetProperty("formSchema").GetRawText(),
+            WorkflowJsonSerializerContext.Default.WorkflowFormSchema)!;
+
+        var result = WorkflowFormCompiler.Compile(schema);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(
+            document.RootElement.GetProperty("contentHash").GetString(),
+            result.Value!.ContentHash);
+    }
+
+    [TestMethod]
     [DataRow("unknown", WorkflowErrorCodes.FormFieldTypeUnknown)]
     [DataRow("duplicate", WorkflowErrorCodes.FormFieldKeyDuplicate)]
     [DataRow("script", WorkflowErrorCodes.FormExtensionForbidden)]
@@ -67,6 +89,8 @@ public sealed class WorkflowFormCompilerTests
     [DataRow("time-bound-invalid", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("datetime-offset-missing", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("temporal-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("unknown-constraint", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("null-constraints", WorkflowErrorCodes.FormStructureInvalid)]
     [DataRow("empty-schema", WorkflowErrorCodes.FormStructureInvalid)]
     [DataRow("empty-section", WorkflowErrorCodes.FormStructureInvalid)]
     [DataRow("duplicate-section", WorkflowErrorCodes.FormStructureInvalid)]
@@ -105,6 +129,8 @@ public sealed class WorkflowFormCompilerTests
             "time-bound-invalid" => Schema(Field("cutoff", "time", "{\"maximum\":\"24:00\"}")),
             "datetime-offset-missing" => Schema(Field("deadline", "datetime", "{\"minimum\":\"2026-08-30T10:00:00\"}")),
             "temporal-range-reversed" => Schema(Field("dueDate", "date", "{\"minimum\":\"2026-09-01\",\"maximum\":\"2026-08-31\"}")),
+            "unknown-constraint" => Schema(Field("summary", "text", "{\"placeholder\":\"unsafe design metadata\"}")),
+            "null-constraints" => Schema(new WorkflowFormField("summary", "text", true, null!)),
             "empty-schema" => new WorkflowFormSchema(1, 1, []),
             "empty-section" => new WorkflowFormSchema(1, 1, [new WorkflowFormSection("main", [])]),
             "duplicate-section" => new WorkflowFormSchema(1, 1,

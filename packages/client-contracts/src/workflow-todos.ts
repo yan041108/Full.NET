@@ -30,6 +30,20 @@ const FORBIDDEN_WORKFLOW_FORM_STABLE_KEYS = new Set([
   'prototype',
   'constructor'
 ]);
+const WORKFLOW_FORM_CONSTRAINT_KEYS: Readonly<Record<WorkflowFieldType, ReadonlySet<string>>> = {
+  text: new Set(['minLength', 'maxLength']),
+  textarea: new Set(['minLength', 'maxLength']),
+  integer: new Set(['minimum', 'maximum']),
+  decimal: new Set(['scale', 'minimum', 'maximum']),
+  money: new Set(['scale', 'minimum', 'maximum']),
+  date: new Set(['minimum', 'maximum']),
+  time: new Set(['minimum', 'maximum']),
+  datetime: new Set(['minimum', 'maximum']),
+  radio: new Set(['options']),
+  checkbox: new Set(['options']),
+  select: new Set(['options']),
+  switch: new Set()
+};
 
 export interface WorkflowFormField {
   readonly fieldKey: string;
@@ -122,12 +136,20 @@ export function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchem
 }
 
 function isWorkflowFormField(value: unknown): value is WorkflowFormField {
-  return isRecord(value)
-    && isStableWorkflowFormKey(value.fieldKey)
-    && typeof value.fieldTypeKey === 'string'
-    && WORKFLOW_FIELD_TYPES.some(type => type === value.fieldTypeKey)
-    && typeof value.required === 'boolean'
-    && isRecord(value.constraints);
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (!isStableWorkflowFormKey(value.fieldKey)
+    || typeof value.fieldTypeKey !== 'string'
+    || !WORKFLOW_FIELD_TYPES.some(type => type === value.fieldTypeKey)
+    || typeof value.required !== 'boolean'
+    || !isRecord(value.constraints)) {
+    return false;
+  }
+
+  const allowedKeys = WORKFLOW_FORM_CONSTRAINT_KEYS[value.fieldTypeKey as WorkflowFieldType];
+  return Object.keys(value.constraints).every(key => allowedKeys.has(key));
 }
 
 function isStableWorkflowFormKey(value: unknown): value is string {
