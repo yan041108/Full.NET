@@ -118,6 +118,36 @@ internal sealed class WorkflowInstanceManagementService(
         }
     }
 
+    public async Task<Result<WorkflowInstanceResponse>> CancelAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        CancelWorkflowInstanceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (instanceId == Guid.Empty || !IsValid(request))
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var requestHash = HashCancelRequest(request);
+        try
+        {
+            var result = await transaction.ExecuteResultAsync(
+                token => CancelCoreAsync(instanceId, actorUserId, request, scope, requestHash, token),
+                cancellationToken).ConfigureAwait(false);
+            return !result.IsSuccess && result.Error?.Code == WorkflowErrorCodes.RevisionConflict
+                ? await ResolveCancelReplayAsync(
+                    instanceId, actorUserId, request, scope, requestHash, cancellationToken).ConfigureAwait(false)
+                : result;
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return await ResolveCancelReplayAsync(
+                instanceId, actorUserId, request, scope, requestHash, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     public async Task<Result<WorkflowInstanceResponse>> GetAsync(
         Guid instanceId,
         Guid actorUserId,
@@ -194,6 +224,115 @@ internal sealed class WorkflowInstanceManagementService(
         request.BusinessType.Trim() is { Length: >= 1 and <= 64 } &&
         request.BusinessId.Trim() is { Length: >= 1 and <= 128 } &&
         request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 };
+
+    private static bool IsValid(CancelWorkflowInstanceRequest request) =>
+        request.ExpectedRevision >= 1 &&
+        request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 } &&
+        request.Reason?.Trim() is not { Length: > 512 };
+
+    private async Task<Result<WorkflowInstanceResponse>> CancelCoreAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        CancelWorkflowInstanceRequest request,
+        WorkflowManagementScope scope,
+        string requestHash,
+        CancellationToken token)
+    {
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            token).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        if (!await CanReadAsync(instance, actorUserId, scope, token).ConfigureAwait(false))
+        {
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+        }
+
+        var idempotencyKey = request.IdempotencyKey.Trim();
+        var receipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+            WorkflowSql.FindActionReceipt,
+            Parameters(("InstanceId", instanceId), ("IdempotencyKey", idempotencyKey)),
+            token).ConfigureAwait(false);
+        if (receipt is not null)
+        {
+            return receipt.ActionKey == "cancel" && receipt.ActorUserId == actorUserId &&
+                   receipt.RequestHash == requestHash
+                ? Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, null))
+                : Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        if (instance.StatusKey != "active")
+        {
+            return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);
+        }
+
+        if (instance.Revision != request.ExpectedRevision)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var activeWork = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(
+            WorkflowSql.FindActiveWorkByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            token).ConfigureAwait(false);
+        if (activeWork is null)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var now = clock.UtcNow;
+        var todoUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelTodoWithRevision,
+            Parameters(("Id", activeWork.TodoId), ("InstanceId", instanceId),
+                ("TenantScopeKey", scope.TenantScopeKey), ("CompletedAtUtc", now),
+                ("Revision", activeWork.TodoRevision)), token).ConfigureAwait(false);
+        var stepUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelStepWithRevision,
+            Parameters(("Id", activeWork.StepId), ("InstanceId", instanceId),
+                ("CompletedAtUtc", now), ("Revision", activeWork.StepRevision)), token).ConfigureAwait(false);
+        var instanceUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelInstanceWithRevision,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                ("CancelledById", actorUserId), ("CancelledAtUtc", now),
+                ("CancellationReason", NormalizeReason(request.Reason)),
+                ("Revision", request.ExpectedRevision)), token).ConfigureAwait(false);
+        if (todoUpdated != 1 || stepUpdated != 1 || instanceUpdated != 1)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                ("StepId", activeWork.StepId), ("TodoId", activeWork.TodoId),
+                ("ActionKey", "cancel"), ("ActorUserId", actorUserId),
+                ("InstanceRevision", request.ExpectedRevision + 1),
+                ("IdempotencyKey", idempotencyKey),
+                ("CommentSummary", NormalizeReason(request.Reason)), ("CreatedAtUtc", now)),
+            token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
+            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                ("StepId", activeWork.StepId), ("TransitionKey", "instance.cancel"),
+                ("FromStatusKey", "active"), ("ToStatusKey", "cancelled"),
+                ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
+                ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
+            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
+                ("OperationKey", "instance.cancel"), ("ActorUserId", actorUserId),
+                ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
+                ("OutcomeKey", "succeeded"),
+                ("DetailJson", $"{{\"previousRevision\":{request.ExpectedRevision}}}"),
+                ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+        return Result<WorkflowInstanceResponse>.Success(new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, "cancelled",
+            request.ExpectedRevision + 1, null, instance.StartedAtUtc));
+    }
 
     private static string? FindFirstApprovalNode(string canonicalJson)
     {
@@ -284,6 +423,56 @@ internal sealed class WorkflowInstanceManagementService(
         var value = $"{request.DefinitionVersionId:D}\n{request.BusinessType.Trim()}\n{request.BusinessId.Trim()}\n{request.InitialValues.GetRawText()}";
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
+
+    private async Task<Result<WorkflowInstanceResponse>> ResolveCancelReplayAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        CancelWorkflowInstanceRequest request,
+        WorkflowManagementScope scope,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        if (!await CanReadAsync(instance, actorUserId, scope, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+        }
+
+        var receipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+            WorkflowSql.FindActionReceipt,
+            Parameters(("InstanceId", instanceId),
+                ("IdempotencyKey", request.IdempotencyKey.Trim())), cancellationToken).ConfigureAwait(false);
+        return receipt?.ActionKey == "cancel" && receipt.ActorUserId == actorUserId &&
+               receipt.RequestHash == requestHash
+            ? Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, null))
+            : Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+    }
+
+    private static string HashCancelRequest(CancelWorkflowInstanceRequest request)
+    {
+        var value = $"{request.ExpectedRevision}\n{NormalizeReason(request.Reason)}";
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    }
+
+    private static string? NormalizeReason(string? reason) =>
+        string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+
+    private static WorkflowInstanceResponse Map(
+        WorkflowInstanceRecord instance,
+        Guid formVersionId,
+        Guid? activeTodoId) =>
+        new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.Revision, activeTodoId, instance.StartedAtUtc);
 
     private async Task<bool> CanReadAsync(
         WorkflowInstanceRecord instance,

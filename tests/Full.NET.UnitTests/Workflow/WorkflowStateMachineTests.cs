@@ -89,6 +89,42 @@ public sealed class WorkflowStateMachineTests
         Assert.AreEqual(WorkflowTodoStatus.Completed, result.State.TodoStatus);
     }
 
+    [TestMethod]
+    public void Cancel_moves_running_instance_and_active_todo_to_cancelled()
+    {
+        var result = WorkflowStateMachine.Cancel(
+            WorkflowRuntimeState.Active(TodoId, AssigneeId, 7),
+            new CancelWorkflowInstanceCommand(7, "业务申请已撤回", "cancel-001"));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(WorkflowInstanceStatus.Cancelled, result.State!.InstanceStatus);
+        Assert.AreEqual(WorkflowTodoStatus.Cancelled, result.State.TodoStatus);
+        Assert.AreEqual(8, result.State.Revision);
+        Assert.AreEqual("cancel", result.Receipt!.Action);
+    }
+
+    [TestMethod]
+    public void Cancel_replays_same_idempotency_key_and_rejects_stale_or_terminal_instance()
+    {
+        var initial = WorkflowRuntimeState.Active(TodoId, AssigneeId, 3);
+        var command = new CancelWorkflowInstanceCommand(3, "不再需要", "cancel-001");
+        var first = WorkflowStateMachine.Cancel(initial, command);
+        var replay = WorkflowStateMachine.Cancel(first.State!, command);
+        var stale = WorkflowStateMachine.Cancel(
+            initial,
+            command with { ExpectedRevision = 2, IdempotencyKey = "cancel-002" });
+        var terminal = WorkflowStateMachine.Cancel(
+            initial with { InstanceStatus = WorkflowInstanceStatus.Completed },
+            command with { IdempotencyKey = "cancel-003" });
+
+        Assert.IsTrue(first.IsSuccess);
+        Assert.IsTrue(replay.IsSuccess);
+        Assert.IsTrue(replay.IsReplay);
+        Assert.AreEqual(first.Receipt, replay.Receipt);
+        Assert.AreEqual(WorkflowErrorCodes.InstanceVersionConflict, stale.ErrorCode);
+        Assert.AreEqual(WorkflowErrorCodes.InstanceTerminal, terminal.ErrorCode);
+    }
+
     private static ActOnWorkflowTodoCommand Command(long expectedRevision) =>
         new(TodoId, expectedRevision, new Dictionary<string, JsonElement>(), "同意", "action-001");
 }

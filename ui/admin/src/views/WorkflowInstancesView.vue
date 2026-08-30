@@ -1,27 +1,36 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
-import { ElButton, ElCard, ElInput } from 'element-plus';
+import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox } from 'element-plus';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
 import {
+  cancelWorkflowInstance,
   getWorkflowInstance,
   listWorkflowInstanceExecutionLogs,
   type WorkflowExecutionLogResponse,
   type WorkflowInstanceResponse
 } from '../api/workflow-instances';
+import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 
 const { t } = useAdminI18n();
+const session = useSessionStore();
 const instanceId = ref('');
 const loading = ref(false);
+const cancelling = ref(false);
 const instance = ref<WorkflowInstanceResponse>();
 const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
+const canCancel = computed(() =>
+  instance.value?.statusKey === 'active' &&
+  session.can('workflow.instances.cancel') &&
+  !cancelling.value
+);
 
 onBeforeUnmount(() => loadController?.abort());
 
@@ -59,6 +68,40 @@ async function load(): Promise<void> {
   }
 }
 
+async function cancelInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canCancel.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('workflowInstances.cancelConfirm'),
+      t('workflowInstances.cancelTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('workflowInstances.cancel'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    cancelling.value = true;
+    problem.value = undefined;
+    instance.value = await cancelWorkflowInstance(current.id, {
+      expectedRevision: current.revision,
+      reason: null,
+      idempotencyKey: `cancel-${crypto.randomUUID()}`
+    });
+    executionLogs.value = await listWorkflowInstanceExecutionLogs(current.id);
+    ElMessage.success(t('workflowInstances.cancelSuccess'));
+  } catch (error: unknown) {
+    if (error !== 'cancel' && error !== 'close') {
+      problem.value = toProblem(error);
+    }
+  } finally {
+    cancelling.value = false;
+  }
+}
+
 function toProblem(error: unknown): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -78,6 +121,16 @@ function toProblem(error: unknown): FullNetProblemDetails {
         <h1 data-route-heading tabindex="-1">{{ t('workflowInstances.title') }}</h1>
         <p>{{ t('workflowInstances.caption') }}</p>
       </div>
+      <el-button
+        v-if="canCancel"
+        type="danger"
+        plain
+        data-testid="workflow-instance-cancel"
+        :loading="cancelling"
+        @click="cancelInstance"
+      >
+        {{ t('workflowInstances.cancel') }}
+      </el-button>
     </header>
 
     <el-card shadow="never" class="workflow-instances__search-card">
@@ -203,6 +256,13 @@ function toProblem(error: unknown): FullNetProblemDetails {
   color: var(--el-text-color-primary);
   font-size: clamp(1.5rem, 2.5vw, 2.15rem);
   letter-spacing: -0.035em;
+}
+
+.workflow-instances__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .workflow-instances__header p,

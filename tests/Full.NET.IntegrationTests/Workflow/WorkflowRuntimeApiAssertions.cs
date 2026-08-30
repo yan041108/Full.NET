@@ -26,6 +26,7 @@ internal static class WorkflowRuntimeApiAssertions
                 WorkflowPermissions.DefinitionsPublish,
                 WorkflowPermissions.InstancesStart,
                 WorkflowPermissions.InstancesRead,
+                WorkflowPermissions.InstancesCancel,
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.TodosApprove,
                 WorkflowPermissions.TodosReject,
@@ -264,6 +265,112 @@ internal static class WorkflowRuntimeApiAssertions
             executionLogs.RootElement.EnumerateArray()
                 .Select(item => item.GetProperty("transitionKey").GetString()).ToArray());
 
+        var cancelBusinessId = Guid.NewGuid().ToString("N");
+        using var cancelStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = cancelBusinessId,
+                initialValues = new { reason = "cancelled request" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, cancelStart.StatusCode,
+            await cancelStart.Content.ReadAsStringAsync(cancellationToken));
+        using var cancelStarted = JsonDocument.Parse(
+            await cancelStart.Content.ReadAsStringAsync(cancellationToken));
+        var cancelInstanceId = cancelStarted.RootElement.GetProperty("id").GetGuid();
+
+        using var permissionDeniedCancel = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/cancel", other.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "missing action permission",
+                    idempotencyKey = $"cancel-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedCancel.StatusCode);
+
+        var unrelatedCanceller = await factory.CreateHostIdentityAsync(
+            $"workflow-canceller-{Guid.NewGuid():N}",
+            [WorkflowPermissions.InstancesRead, WorkflowPermissions.InstancesCancel],
+            cancellationToken);
+        using var resourceDeniedCancel = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/cancel", unrelatedCanceller.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "not a participant",
+                    idempotencyKey = $"cancel-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, resourceDeniedCancel.StatusCode);
+
+        var cancelIdempotencyKey = $"cancel-{Guid.NewGuid():N}";
+        using var cancel = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/cancel", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "request withdrawn",
+                    idempotencyKey = cancelIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, cancel.StatusCode,
+            await cancel.Content.ReadAsStringAsync(cancellationToken));
+        using var cancelled = JsonDocument.Parse(await cancel.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("cancelled", cancelled.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(2, cancelled.RootElement.GetProperty("revision").GetInt64());
+        Assert.AreEqual(JsonValueKind.Null,
+            cancelled.RootElement.GetProperty("activeTodoId").ValueKind);
+
+        using var cancelReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/cancel", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "request withdrawn",
+                    idempotencyKey = cancelIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, cancelReplay.StatusCode,
+            await cancelReplay.Content.ReadAsStringAsync(cancellationToken));
+
+        using var changedReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/cancel", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "different request",
+                    idempotencyKey = cancelIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, changedReplay.StatusCode);
+
+        using var terminalCancel = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/cancel", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 2,
+                    reason = "cancel twice",
+                    idempotencyKey = $"cancel-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, terminalCancel.StatusCode);
+
+        using var cancelLogs = await client.SendAsync(
+            Authorized(HttpMethod.Get,
+                $"/api/v1/workflow/instances/{cancelInstanceId:D}/execution-logs",
+                identity.AccessToken), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, cancelLogs.StatusCode);
+        using var cancellationLogs = JsonDocument.Parse(
+            await cancelLogs.Content.ReadAsStringAsync(cancellationToken));
+        CollectionAssert.AreEqual(
+            new[] { "instance.start", "instance.cancel" },
+            cancellationLogs.RootElement.EnumerateArray()
+                .Select(item => item.GetProperty("transitionKey").GetString()).ToArray());
+
         var concurrentBusinessId = Guid.NewGuid().ToString("N");
         using var concurrentStart = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
@@ -424,6 +531,9 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/instances", HttpMethod.Post,
             "workflowStartInstance", "WorkflowInstances", 201, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/cancel", HttpMethod.Post,
+            "workflowCancelInstance", "WorkflowInstances", 200, "application/json", "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/todos/{todoId}", HttpMethod.Get,
             "workflowGetTodo", "WorkflowTodos", 200, "application/json");

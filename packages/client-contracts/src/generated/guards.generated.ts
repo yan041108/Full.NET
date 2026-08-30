@@ -19,6 +19,7 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeSerialNumberRuleStatusRequest,
   CodeGenerationCatalogColumnListResponse,
@@ -436,6 +437,17 @@ export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnroll
 
 function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnrollmentResponse {
   return isRecord(value) && (typeof value["otpAuthUri"] === 'string') && (typeof value["sharedSecretBase32"] === 'string');
+}
+
+export function readCancelWorkflowInstanceRequest(value: unknown): CancelWorkflowInstanceRequest {
+  if (!(isCancelWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_cancel_workflow_instance_request');
+  }
+  return value;
+}
+
+function isCancelWorkflowInstanceRequest(value: unknown): value is CancelWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHostJobScheduleStateRequest {

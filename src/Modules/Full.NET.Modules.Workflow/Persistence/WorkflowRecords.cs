@@ -97,6 +97,13 @@ internal sealed record WorkflowTodoRecord(
     string? ResultActionKey,
     long Revision);
 
+/// <summary>取消实例时同时携带活动待办与步骤修订号，保证三类状态在同一乐观锁事务内关闭。</summary>
+internal sealed record WorkflowActiveWorkRecord(
+    Guid TodoId,
+    long TodoRevision,
+    Guid StepId,
+    long StepRevision);
+
 /// <summary>办理单条待办时携带当前步骤节点键，避免字段策略解析额外查询步骤表。</summary>
 internal sealed record WorkflowTodoRuntimeRecord(
     Guid Id,

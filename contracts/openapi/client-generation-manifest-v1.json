@@ -38,6 +38,12 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowCancelInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListInstanceExecutionLogs",
       "apiModule": "ui/admin/src/api/workflow-instances.ts",
       "generatedGroup": "workflow-instances",

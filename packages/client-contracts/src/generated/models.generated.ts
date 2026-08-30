@@ -104,6 +104,12 @@ export interface BeginTotpEnrollmentResponse {
   readonly sharedSecretBase32: string;
 }
 
+export interface CancelWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface ChangeHostJobScheduleStateRequest {
   readonly version: number;
 }

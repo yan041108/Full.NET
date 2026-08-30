@@ -563,6 +563,22 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement FindActiveWorkByInstance = new(
+        "workflow.instance.find_active_work",
+        """
+        SELECT todo.Id AS TodoId, todo.Revision AS TodoRevision,
+               step.Id AS StepId, step.Revision AS StepRevision
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_step AS step ON step.Id = todo.StepId
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        WHERE todo.InstanceId = @InstanceId
+          AND todo.StatusKey = 'active'
+          AND step.StatusKey = 'active'
+          AND instance.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement IsInstanceParticipant = new(
         "workflow.instance.is_participant",
         """
@@ -618,6 +634,58 @@ internal static class WorkflowSql
         UPDATE fn_workflow_instance
         SET StatusKey = @StatusKey,
             CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CancelTodoWithRevision = new(
+        "workflow.todo.cancel_with_revision",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            ResultActionKey = 'cancel',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CancelStepWithRevision = new(
+        "workflow.step.cancel_with_revision",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CancelInstanceWithRevision = new(
+        "workflow.instance.cancel_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET StatusKey = 'cancelled',
+            CancelledById = @CancelledById,
+            CancelledAtUtc = @CancelledAtUtc,
+            CancellationReason = @CancellationReason,
+            LeaseOwnerKey = NULL,
+            LeaseExpiresAtUtc = NULL,
             Revision = Revision + 1
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey

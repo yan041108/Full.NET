@@ -20,6 +20,7 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeSerialNumberRuleStatusRequest,
   CodeGenerationCatalogColumnListResponse,
@@ -5685,6 +5686,29 @@ export async function workflowApproveTodo(
   options?: RequestOptions
 ): Promise<WorkflowInstanceResponse> {
   const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/approve`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowCancelInstanceParameters {
+  readonly instanceId: string;
+  readonly body: CancelWorkflowInstanceRequest;
+}
+
+export async function workflowCancelInstance(
+  http: HttpClient,
+  parameters: WorkflowCancelInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/cancel`;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

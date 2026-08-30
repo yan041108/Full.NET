@@ -17,6 +17,7 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowFormVersionRecord>(ReadFormVersion);
         registrar.Register<WorkflowInstanceRecord>(ReadInstance);
         registrar.Register<WorkflowTodoRecord>(ReadTodo);
+        registrar.Register<WorkflowActiveWorkRecord>(ReadActiveWork);
         registrar.Register<WorkflowTodoRuntimeRecord>(ReadTodoRuntime);
         registrar.Register<WorkflowRuntimeAssetRecord>(ReadRuntimeAsset);
         registrar.Register<WorkflowFormSubmissionRecord>(ReadFormSubmission);
@@ -120,6 +121,13 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
             AotDataReaderExtensions.ReadNullableString(reader, 7),
             reader.GetInt64(8));
+
+    private static WorkflowActiveWorkRecord ReadActiveWork(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetInt64(1),
+            reader.GetGuid(2),
+            reader.GetInt64(3));
 
     private static WorkflowTodoRuntimeRecord ReadTodoRuntime(DbDataReader reader) =>
         new(

@@ -9,6 +9,11 @@ internal sealed record StartWorkflowInstanceRequest(
     JsonElement InitialValues,
     string IdempotencyKey);
 
+internal sealed record CancelWorkflowInstanceRequest(
+    long ExpectedRevision,
+    string? Reason,
+    string IdempotencyKey);
+
 internal sealed record WorkflowInstanceResponse(
     Guid Id,
     Guid DefinitionVersionId,

@@ -51,6 +51,11 @@ internal sealed record ActOnWorkflowTodoCommand(
     string? Comment,
     string IdempotencyKey);
 
+internal sealed record CancelWorkflowInstanceCommand(
+    long ExpectedRevision,
+    string? Reason,
+    string IdempotencyKey);
+
 internal sealed record WorkflowTransitionResult(
     bool IsSuccess,
     WorkflowRuntimeState? State,
@@ -95,6 +100,52 @@ internal static class WorkflowStateMachine
         ActOnWorkflowTodoCommand command,
         Guid actorUserId) =>
         Act(state, command, actorUserId, "reject", WorkflowInstanceStatus.Rejected);
+
+    public static WorkflowTransitionResult Cancel(
+        WorkflowRuntimeState state,
+        CancelWorkflowInstanceCommand command)
+    {
+        if (state.Receipts.TryGetValue(command.IdempotencyKey, out var existing))
+        {
+            return existing.Action == "cancel"
+                ? new WorkflowTransitionResult(true, state, existing, null, true)
+                : WorkflowTransitionResult.Failure(WorkflowErrorCodes.InstanceVersionConflict);
+        }
+
+        if (state.InstanceStatus != WorkflowInstanceStatus.Running)
+        {
+            return WorkflowTransitionResult.Failure(WorkflowErrorCodes.InstanceTerminal);
+        }
+
+        if (state.TodoStatus != WorkflowTodoStatus.Active)
+        {
+            return WorkflowTransitionResult.Failure(WorkflowErrorCodes.TodoNotActive);
+        }
+
+        if (state.Revision != command.ExpectedRevision)
+        {
+            return WorkflowTransitionResult.Failure(WorkflowErrorCodes.InstanceVersionConflict);
+        }
+
+        var nextRevision = state.Revision + 1;
+        var receipt = new WorkflowActionReceipt(command.IdempotencyKey, "cancel", nextRevision);
+        var receipts = new Dictionary<string, WorkflowActionReceipt>(state.Receipts, StringComparer.Ordinal)
+        {
+            [command.IdempotencyKey] = receipt,
+        };
+        return new WorkflowTransitionResult(
+            true,
+            state with
+            {
+                InstanceStatus = WorkflowInstanceStatus.Cancelled,
+                TodoStatus = WorkflowTodoStatus.Cancelled,
+                Revision = nextRevision,
+                Receipts = receipts,
+            },
+            receipt,
+            null,
+            false);
+    }
 
     private static WorkflowTransitionResult Act(
         WorkflowRuntimeState state,

@@ -1,21 +1,24 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { ElMessageBox } from 'element-plus';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionStore } from '../auth/session';
 import {
+  cancelWorkflowInstance,
   getWorkflowInstance,
   listWorkflowInstanceExecutionLogs
 } from '../api/workflow-instances';
 import WorkflowInstancesView from './WorkflowInstancesView.vue';
 
 vi.mock('../api/workflow-instances', () => ({
+  cancelWorkflowInstance: vi.fn(),
   getWorkflowInstance: vi.fn(),
   listWorkflowInstanceExecutionLogs: vi.fn()
 }));
 
 const instanceId = '01912345-6789-7abc-8def-0123456789ab';
 
-function mountView() {
+function mountView(permissions = ['workflow.instances.read']) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
@@ -27,7 +30,7 @@ function mountView() {
     actorScope: 'tenant',
     scope: 'tenant',
     isSuperAdministrator: false,
-    permissions: ['workflow.instances.read'],
+    permissions,
     sessionId: '01912345-6789-7abc-8def-0123456789a2',
     preferredLocale: 'zh-CN',
     profileVersion: 1
@@ -37,13 +40,25 @@ function mountView() {
 
 describe('WorkflowInstancesView', () => {
   beforeEach(() => {
+    vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
+    vi.mocked(cancelWorkflowInstance).mockReset().mockResolvedValue({
+      id: instanceId,
+      definitionVersionId: '01912345-6789-7abc-8def-0123456789ac',
+      formVersionId: '01912345-6789-7abc-8def-0123456789ad',
+      businessType: 'purchase',
+      businessId: 'PO-001',
+      statusKey: 'cancelled',
+      revision: 4,
+      activeTodoId: null,
+      startedAtUtc: '2026-08-30T00:00:00Z'
+    });
     vi.mocked(getWorkflowInstance).mockReset().mockResolvedValue({
       id: instanceId,
       definitionVersionId: '01912345-6789-7abc-8def-0123456789ac',
       formVersionId: '01912345-6789-7abc-8def-0123456789ad',
       businessType: 'purchase',
       businessId: 'PO-001',
-      statusKey: 'running',
+      statusKey: 'active',
       revision: 3,
       activeTodoId: '01912345-6789-7abc-8def-0123456789ae',
       startedAtUtc: '2026-08-30T00:00:00Z'
@@ -70,6 +85,36 @@ describe('WorkflowInstancesView', () => {
     ]);
   });
 
+  it('仅向具有独立取消权限的用户展示并执行活动实例取消', async () => {
+    const reader = mountView();
+    await reader.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await reader.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+    expect(reader.find('[data-testid="workflow-instance-cancel"]').exists()).toBe(false);
+
+    const operator = mountView([
+      'workflow.instances.read',
+      'workflow.instances.cancel'
+    ]);
+    await operator.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await operator.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+    await operator.get('[data-testid="workflow-instance-cancel"]').trigger('click');
+    await flushPromises();
+
+    expect(cancelWorkflowInstance).toHaveBeenCalledWith(
+      instanceId,
+      expect.objectContaining({
+        expectedRevision: 3,
+        reason: null,
+        idempotencyKey: expect.any(String)
+      })
+    );
+    expect(operator.get('[data-testid="workflow-instance-summary"]').text())
+      .toContain('cancelled');
+    expect(operator.find('[data-testid="workflow-instance-cancel"]').exists()).toBe(false);
+  });
+
   it('按实例标识同时加载只读概要与顺序执行轨迹', async () => {
     const wrapper = mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
@@ -82,7 +127,7 @@ describe('WorkflowInstancesView', () => {
       expect.any(AbortSignal)
     );
     expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('PO-001');
-    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('running');
+    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('active');
     expect(wrapper.findAll('[data-testid="workflow-execution-log"]')).toHaveLength(2);
     expect(wrapper.findAll('[data-testid="workflow-execution-log"]')[0]?.text())
       .toContain('instance.started');

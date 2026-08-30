@@ -38,6 +38,33 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesStart));
 
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/cancel", async (
+            Guid instanceId,
+            CancelWorkflowInstanceRequest request,
+            WorkflowInstanceManagementService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.CancelAsync(instanceId, actorUserId, request, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowCancelInstance")
+        .WithTags("WorkflowInstances")
+        .Produces<WorkflowInstanceResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesCancel));
+
         endpoints.MapGet("/api/v1/workflow/instances/{instanceId:guid}", async (
             Guid instanceId,
             WorkflowInstanceManagementService service,
