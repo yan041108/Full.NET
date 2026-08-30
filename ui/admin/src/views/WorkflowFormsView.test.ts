@@ -81,10 +81,7 @@ describe('WorkflowFormsView', () => {
     await wrapper.get('[data-testid="workflow-form-create-submit"]').trigger('click');
     await flushPromises();
 
-    expect(createWorkflowForm).toHaveBeenCalledWith({
-      formKey: 'purchase.request',
-      draft
-    });
+    expect(createWorkflowForm).toHaveBeenCalledWith('purchase.request', draft);
     expect(listWorkflowForms).toHaveBeenCalledTimes(2);
   });
 
@@ -101,14 +98,15 @@ describe('WorkflowFormsView', () => {
 
     expect(getWorkflowForm).toHaveBeenCalledWith('form-1');
     expect(getWorkflowFormComponentCatalog).toHaveBeenCalledOnce();
-    expect(updateWorkflowFormDraft).toHaveBeenCalledWith('form-1', {
-      expectedRevision: 2,
-      draft: expect.objectContaining({
+    expect(updateWorkflowFormDraft).toHaveBeenCalledWith(
+      'form-1',
+      2,
+      expect.objectContaining({
         sections: [expect.objectContaining({
           fields: [expect.objectContaining({ required: false })]
         })]
       })
-    });
+    );
     expect(wrapper.text()).toContain('Revision 3');
   });
 

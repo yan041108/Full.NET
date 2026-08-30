@@ -18,16 +18,6 @@ export type WorkflowFormResponse = Omit<GeneratedWorkflowFormResponse, 'draft'> 
   readonly draft: WorkflowFormSchema;
 };
 
-export interface CreateWorkflowFormRequest {
-  readonly formKey: string;
-  readonly draft: WorkflowFormSchema;
-}
-
-export interface UpdateWorkflowFormDraftRequest {
-  readonly expectedRevision: number;
-  readonly draft: WorkflowFormSchema;
-}
-
 export async function listWorkflowForms(signal?: AbortSignal): Promise<WorkflowFormResponse[]> {
   return (await workflowListForms(http, {}, signal)).map(readSafeForm);
 }
@@ -43,20 +33,24 @@ export async function getWorkflowFormComponentCatalog(
 }
 
 export async function createWorkflowForm(
-  body: CreateWorkflowFormRequest,
+  formKey: string,
+  draft: WorkflowFormSchema,
   signal?: AbortSignal
 ): Promise<WorkflowFormResponse> {
-  return readSafeForm(await workflowCreateForm(http, { body: toGeneratedRequest(body) }, signal));
+  return readSafeForm(await workflowCreateForm(http, {
+    body: { formKey, draft: toGeneratedDraft(draft) }
+  }, signal));
 }
 
 export async function updateWorkflowFormDraft(
   formId: string,
-  body: UpdateWorkflowFormDraftRequest,
+  expectedRevision: number,
+  draft: WorkflowFormSchema,
   signal?: AbortSignal
 ): Promise<WorkflowFormResponse> {
   return readSafeForm(await workflowUpdateFormDraft(http, {
     formId,
-    body: { expectedRevision: body.expectedRevision, draft: toGeneratedDraft(body.draft) }
+    body: { expectedRevision, draft: toGeneratedDraft(draft) }
   }, signal));
 }
 
@@ -79,10 +73,6 @@ function readSafeForm(value: GeneratedWorkflowFormResponse): WorkflowFormRespons
     throw new Error('client.invalid_workflow_form_draft');
   }
   return { ...value, draft: value.draft };
-}
-
-function toGeneratedRequest(body: CreateWorkflowFormRequest) {
-  return { formKey: body.formKey, draft: toGeneratedDraft(body.draft) };
 }
 
 function toGeneratedDraft(draft: WorkflowFormSchema) {

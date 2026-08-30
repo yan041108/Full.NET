@@ -214,11 +214,11 @@ git commit -m "feat: add workflow form management page"
 - Consumes: 完整表单管理页面与现有 SQL Server/MySQL Workflow API。
 - Produces: 创建→编辑→保存→发布→读取冻结版本的真实闭环证据。
 
-- [ ] **Step 1: 写真实栈 RED**
+- [x] **Step 1: 写真实栈 RED**
 
 E2E 使用受控测试身份验证权限 DOM、创建安全表单、增加字段、保存、发布并读取版本；浏览器 console/CSP 不允许 `unsafe-eval`、远程资源、脚本或未知组件错误。
 
-- [ ] **Step 2: 执行聚焦验证**
+- [x] **Step 2: 执行聚焦验证**
 
 Run: `pnpm test:integration:affected:plan -- --snapshot workflow-native-form-designer-20260830 --phase slice`
 
@@ -232,11 +232,11 @@ Run: `pnpm audit:clients`
 
 Run: `git diff --check`
 
-- [ ] **Step 3: 记录验证**
+- [x] **Step 3: 记录验证**
 
 验证文档记录 SQL Server/MySQL、OpenAPI、Vue Unit/typecheck/build、CSP、权限 DOM、包体增量和任何未验证项。没有生产等价容量证据时保留 `Capacity-not-verified`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add tests/e2e/admin-real-stack docs/verification eng/testing/test-matrix.json

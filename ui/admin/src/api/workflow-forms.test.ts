@@ -58,8 +58,8 @@ describe('workflow forms api', () => {
     vi.mocked(workflowUpdateFormDraft).mockResolvedValue(formResponse(3));
     vi.mocked(workflowPublishForm).mockResolvedValue(versionResponse());
 
-    await createWorkflowForm({ formKey: 'purchase.request', draft });
-    await updateWorkflowFormDraft('form-1', { expectedRevision: 2, draft });
+    await createWorkflowForm('purchase.request', draft);
+    await updateWorkflowFormDraft('form-1', 2, draft);
     await publishWorkflowForm('form-1', { expectedRevision: 3 });
 
     expect(workflowCreateForm).toHaveBeenCalledWith(

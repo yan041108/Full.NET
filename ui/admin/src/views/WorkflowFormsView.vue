@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { ElButton, ElCard } from 'element-plus';
 import {
   createWorkflowFormDraft,
   isFullNetProblemDetails,
@@ -51,7 +52,7 @@ async function submitCreate(): Promise<void> {
   const key = formKey.value.trim();
   if (!key || busy.value) return;
   const created = await act(
-    () => createWorkflowForm({ formKey: key, draft: createWorkflowFormDraft() }),
+    () => createWorkflowForm(key, createWorkflowFormDraft()),
     'workflowForms.operationFailed'
   );
   if (created !== undefined) {
@@ -78,10 +79,7 @@ async function saveDraft(): Promise<void> {
   const draft = localDraft.value;
   if (current === undefined || draft === undefined || busy.value) return;
   const saved = await act(
-    () => updateWorkflowFormDraft(current.id, {
-      expectedRevision: current.draftRevision,
-      draft
-    }),
+    () => updateWorkflowFormDraft(current.id, current.draftRevision, draft),
     'workflowForms.operationFailed'
   );
   if (saved !== undefined) {
@@ -211,7 +209,9 @@ async function act<T>(
           <h2 translate="no">{{ selected.formKey }}</h2>
           <span>Revision {{ selected.draftRevision }}</span>
         </div>
-        <el-button :disabled="busy" @click="closeEditor">{{ t('workflowForms.close') }}</el-button>
+        <el-button data-testid="workflow-form-close-editor" :disabled="busy" @click="closeEditor">
+          {{ t('workflowForms.close') }}
+        </el-button>
       </div>
       <WorkflowFormDesigner :schema="localDraft" :catalog="catalog" :disabled="busy" @update:schema="localDraft = $event" />
       <div class="workflow-forms__decision-bar">
@@ -237,7 +237,7 @@ async function act<T>(
 .workflow-forms__actions { display: flex; gap: 0.5rem; }
 .workflow-forms__empty { padding: 2.5rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
 .workflow-forms__panel { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--el-border-color); border-top: 4px solid var(--el-color-primary); background: var(--el-bg-color); box-shadow: var(--el-box-shadow-light); }
-.workflow-forms__panel--designer { position: fixed; z-index: 20; inset: 4vh 3vw; overflow: auto; }
+.workflow-forms__panel--designer { position: fixed; z-index: 2000; inset: 4vh 3vw; overflow: auto; }
 .workflow-forms__panel label { display: grid; gap: 0.4rem; }
 .workflow-forms__panel input { min-height: 38px; padding: 0.5rem 0.7rem; border: 1px solid var(--el-border-color); border-radius: 8px; color: var(--el-text-color-primary); background: var(--el-bg-color); font: inherit; }
 .workflow-forms__editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
