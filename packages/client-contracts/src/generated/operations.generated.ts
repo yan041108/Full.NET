@@ -72,6 +72,7 @@ import type {
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
   CreateSerialNumberRuleRequest,
+  CreateWorkflowFormRequest,
   CurrentUserResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
@@ -195,6 +196,7 @@ import type {
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
+  PublishWorkflowFormRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
@@ -242,10 +244,17 @@ import type {
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
   UpdateSerialNumberRuleRequest,
+  UpdateWorkflowFormDraftRequest,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
   WorkflowExecutionLogResponse,
+  WorkflowFormComponentCatalogResponse,
+  WorkflowFormComponentResponse,
+  WorkflowFormField,
+  WorkflowFormResponse,
+  WorkflowFormSchema,
+  WorkflowFormSection,
   WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
@@ -373,10 +382,13 @@ import {
   readTenantSummary,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
+  readWorkflowFormComponentCatalogResponse,
+  readWorkflowFormResponse,
   readWorkflowFormVersionResponse,
   readWorkflowInstanceResponse,
   readWorkflowListDefinitionsResponse,
   readWorkflowListDefinitionVersionsResponse,
+  readWorkflowListFormsResponse,
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyTodosResponse,
   readWorkflowTodoDetailResponse
@@ -5720,6 +5732,64 @@ export async function workflowCancelInstance(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowCreateFormParameters {
+  readonly body: CreateWorkflowFormRequest;
+}
+
+export async function workflowCreateForm(
+  http: HttpClient,
+  parameters: WorkflowCreateFormParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormResponse> {
+  const path = `/api/v1/workflow/forms`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormResponse(value);
+}
+
+export interface WorkflowGetFormParameters {
+  readonly formId: string;
+}
+
+export async function workflowGetForm(
+  http: HttpClient,
+  parameters: WorkflowGetFormParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormResponse> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormResponse(value);
+}
+
+export interface WorkflowGetFormComponentCatalogParameters {
+
+}
+
+export async function workflowGetFormComponentCatalog(
+  http: HttpClient,
+  parameters: WorkflowGetFormComponentCatalogParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormComponentCatalogResponse> {
+  const path = `/api/v1/workflow/forms/component-catalog`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormComponentCatalogResponse(value);
+}
+
 export interface WorkflowGetFormVersionParameters {
   readonly versionId: string;
 }
@@ -5810,6 +5880,24 @@ export async function workflowListDefinitionVersions(
   return readWorkflowListDefinitionVersionsResponse(value);
 }
 
+export interface WorkflowListFormsParameters {
+
+}
+
+export async function workflowListForms(
+  http: HttpClient,
+  parameters: WorkflowListFormsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowFormResponse>> {
+  const path = `/api/v1/workflow/forms`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListFormsResponse(value);
+}
+
 export interface WorkflowListInstanceExecutionLogsParameters {
   readonly instanceId: string;
 }
@@ -5844,6 +5932,29 @@ export async function workflowListMyTodos(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowListMyTodosResponse(value);
+}
+
+export interface WorkflowPublishFormParameters {
+  readonly formId: string;
+  readonly body: PublishWorkflowFormRequest;
+}
+
+export async function workflowPublishForm(
+  http: HttpClient,
+  parameters: WorkflowPublishFormParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormVersionResponse> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormVersionResponse(value);
 }
 
 export interface WorkflowRejectTodoParameters {
@@ -5889,4 +6000,27 @@ export async function workflowStartInstance(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowUpdateFormDraftParameters {
+  readonly formId: string;
+  readonly body: UpdateWorkflowFormDraftRequest;
+}
+
+export async function workflowUpdateFormDraft(
+  http: HttpClient,
+  parameters: WorkflowUpdateFormDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormResponse> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/draft`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormResponse(value);
 }

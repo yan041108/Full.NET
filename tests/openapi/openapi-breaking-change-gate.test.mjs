@@ -541,6 +541,9 @@ test('标准客户端 OpenAPI 快照允许追加 path/schema/tag，禁止改写�
     type: 'object',
     properties: { id: { type: 'string' } }
   };
+  additive.paths['/api/v1/identity/users'].get.responses['400'] = {
+    description: 'Bad Request'
+  };
 
   const additiveResult = await compareDirectories(
     { 'fullnet-client-v1.openapi.json': baseline },

@@ -71,6 +71,7 @@ import type {
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
   CreateSerialNumberRuleRequest,
+  CreateWorkflowFormRequest,
   CurrentUserResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
@@ -194,6 +195,7 @@ import type {
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
+  PublishWorkflowFormRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
@@ -241,10 +243,17 @@ import type {
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
   UpdateSerialNumberRuleRequest,
+  UpdateWorkflowFormDraftRequest,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
   WorkflowExecutionLogResponse,
+  WorkflowFormComponentCatalogResponse,
+  WorkflowFormComponentResponse,
+  WorkflowFormField,
+  WorkflowFormResponse,
+  WorkflowFormSchema,
+  WorkflowFormSection,
   WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
@@ -1009,6 +1018,17 @@ export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialN
 
 function isCreateSerialNumberRuleRequest(value: unknown): value is CreateSerialNumberRuleRequest {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"]));
+}
+
+export function readCreateWorkflowFormRequest(value: unknown): CreateWorkflowFormRequest {
+  if (!(isCreateWorkflowFormRequest(value))) {
+    throw new Error('client.invalid_create_workflow_form_request');
+  }
+  return value;
+}
+
+function isCreateWorkflowFormRequest(value: unknown): value is CreateWorkflowFormRequest {
+  return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (typeof value["formKey"] === 'string');
 }
 
 export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
@@ -2364,6 +2384,17 @@ function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostA
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowFormRequest {
+  if (!(isPublishWorkflowFormRequest(value))) {
+    throw new Error('client.invalid_publish_workflow_form_request');
+  }
+  return value;
+}
+
+function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowFormRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
+}
+
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
   if (!(isReplaceHostRoleFieldGrantsRequest(value))) {
     throw new Error('client.invalid_replace_host_role_field_grants_request');
@@ -2881,6 +2912,17 @@ function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialN
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readUpdateWorkflowFormDraftRequest(value: unknown): UpdateWorkflowFormDraftRequest {
+  if (!(isUpdateWorkflowFormDraftRequest(value))) {
+    throw new Error('client.invalid_update_workflow_form_draft_request');
+  }
+  return value;
+}
+
+function isUpdateWorkflowFormDraftRequest(value: unknown): value is UpdateWorkflowFormDraftRequest {
+  return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
+}
+
 export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionDraft {
   if (!(isWorkflowDefinitionDraft(value))) {
     throw new Error('client.invalid_workflow_definition_draft');
@@ -2923,6 +2965,72 @@ export function readWorkflowExecutionLogResponse(value: unknown): WorkflowExecut
 
 function isWorkflowExecutionLogResponse(value: unknown): value is WorkflowExecutionLogResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && ((value["fromStatusKey"] === null) || (typeof value["fromStatusKey"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["toStatusKey"] === 'string') && (typeof value["transitionKey"] === 'string');
+}
+
+export function readWorkflowFormComponentCatalogResponse(value: unknown): WorkflowFormComponentCatalogResponse {
+  if (!(isWorkflowFormComponentCatalogResponse(value))) {
+    throw new Error('client.invalid_workflow_form_component_catalog_response');
+  }
+  return value;
+}
+
+function isWorkflowFormComponentCatalogResponse(value: unknown): value is WorkflowFormComponentCatalogResponse {
+  return isRecord(value) && (typeof value["adapterVersion"] === 'number' && Number.isInteger(value["adapterVersion"])) && (typeof value["catalogVersion"] === 'number' && Number.isInteger(value["catalogVersion"])) && (Array.isArray(value["components"]) && value["components"].every(item19 => isWorkflowFormComponentResponse(item19))) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"]));
+}
+
+export function readWorkflowFormComponentResponse(value: unknown): WorkflowFormComponentResponse {
+  if (!(isWorkflowFormComponentResponse(value))) {
+    throw new Error('client.invalid_workflow_form_component_response');
+  }
+  return value;
+}
+
+function isWorkflowFormComponentResponse(value: unknown): value is WorkflowFormComponentResponse {
+  return isRecord(value) && (Array.isArray(value["constraintKeys"]) && value["constraintKeys"].every(item23 => typeof item23 === 'string')) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (typeof value["fieldTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean');
+}
+
+export function readWorkflowFormField(value: unknown): WorkflowFormField {
+  if (!(isWorkflowFormField(value))) {
+    throw new Error('client.invalid_workflow_form_field');
+  }
+  return value;
+}
+
+function isWorkflowFormField(value: unknown): value is WorkflowFormField {
+  return isRecord(value) && (isRecord(value["constraints"])) && (typeof value["fieldKey"] === 'string') && (typeof value["fieldTypeKey"] === 'string') && (typeof value["required"] === 'boolean');
+}
+
+export function readWorkflowFormResponse(value: unknown): WorkflowFormResponse {
+  if (!(isWorkflowFormResponse(value))) {
+    throw new Error('client.invalid_workflow_form_response');
+  }
+  return value;
+}
+
+function isWorkflowFormResponse(value: unknown): value is WorkflowFormResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (isWorkflowFormSchema(value["draft"])) && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["formKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+}
+
+export function readWorkflowFormSchema(value: unknown): WorkflowFormSchema {
+  if (!(isWorkflowFormSchema(value))) {
+    throw new Error('client.invalid_workflow_form_schema');
+  }
+  return value;
+}
+
+function isWorkflowFormSchema(value: unknown): value is WorkflowFormSchema {
+  return isRecord(value) && (typeof value["adapterVersion"] === 'number' && Number.isInteger(value["adapterVersion"])) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"])) && (Array.isArray(value["sections"]) && value["sections"].every(item17 => isWorkflowFormSection(item17)));
+}
+
+export function readWorkflowFormSection(value: unknown): WorkflowFormSection {
+  if (!(isWorkflowFormSection(value))) {
+    throw new Error('client.invalid_workflow_form_section');
+  }
+  return value;
+}
+
+function isWorkflowFormSection(value: unknown): value is WorkflowFormSection {
+  return isRecord(value) && (Array.isArray(value["fields"]) && value["fields"].every(item15 => isWorkflowFormField(item15))) && (typeof value["sectionKey"] === 'string');
 }
 
 export function readWorkflowFormVersionResponse(value: unknown): WorkflowFormVersionResponse {
@@ -3195,6 +3303,13 @@ export function readWorkflowListDefinitionVersionsResponse(value: unknown): Arra
     throw new Error('client.invalid_workflow_list_definition_versions_response');
   }
   return value as Array<WorkflowDefinitionVersionResponse>;
+}
+
+export function readWorkflowListFormsResponse(value: unknown): Array<WorkflowFormResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowFormResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_forms_response');
+  }
+  return value as Array<WorkflowFormResponse>;
 }
 
 export function readWorkflowListInstanceExecutionLogsResponse(value: unknown): Array<WorkflowExecutionLogResponse> {

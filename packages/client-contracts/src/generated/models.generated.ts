@@ -528,6 +528,11 @@ export interface CreateSerialNumberRuleRequest {
   readonly scope: SerialNumberRuleScope;
 }
 
+export interface CreateWorkflowFormRequest {
+  readonly draft: WorkflowFormSchema;
+  readonly formKey: string;
+}
+
 export interface CurrentUserResponse {
   readonly actorScope: string;
   readonly displayName: string;
@@ -1576,6 +1581,10 @@ export interface PublishHostAnnouncementRequest {
   readonly version: number;
 }
 
+export interface PublishWorkflowFormRequest {
+  readonly expectedRevision: number;
+}
+
 export interface ReplaceHostRoleFieldGrantsRequest {
   readonly fieldKeys: Array<string>;
   readonly resourceKey: string;
@@ -1910,6 +1919,11 @@ export interface UpdateSerialNumberRuleRequest {
   readonly version: number;
 }
 
+export interface UpdateWorkflowFormDraftRequest {
+  readonly draft: WorkflowFormSchema;
+  readonly expectedRevision: number;
+}
+
 export interface WorkflowDefinitionDraft {
   readonly nodes: Array<WorkflowNodeDraft>;
   readonly schemaVersion: number;
@@ -1946,6 +1960,49 @@ export interface WorkflowExecutionLogResponse {
   readonly stepId: null | string;
   readonly toStatusKey: string;
   readonly transitionKey: string;
+}
+
+export interface WorkflowFormComponentCatalogResponse {
+  readonly adapterVersion: number;
+  readonly catalogVersion: number;
+  readonly components: Array<WorkflowFormComponentResponse>;
+  readonly schemaVersion: number;
+}
+
+export interface WorkflowFormComponentResponse {
+  readonly constraintKeys: Array<string>;
+  readonly designable: boolean;
+  readonly executable: boolean;
+  readonly fieldTypeKey: string;
+  readonly publishable: boolean;
+}
+
+export interface WorkflowFormField {
+  readonly constraints: Readonly<Record<string, unknown>>;
+  readonly fieldKey: string;
+  readonly fieldTypeKey: string;
+  readonly required: boolean;
+}
+
+export interface WorkflowFormResponse {
+  readonly createdAtUtc: string;
+  readonly draft: WorkflowFormSchema;
+  readonly draftRevision: number;
+  readonly formKey: string;
+  readonly id: string;
+  readonly latestPublishedVersionId: null | string;
+  readonly updatedAtUtc: null | string;
+}
+
+export interface WorkflowFormSchema {
+  readonly adapterVersion: number;
+  readonly schemaVersion: number;
+  readonly sections: Array<WorkflowFormSection>;
+}
+
+export interface WorkflowFormSection {
+  readonly fields: Array<WorkflowFormField>;
+  readonly sectionKey: string;
 }
 
 export interface WorkflowFormVersionResponse {

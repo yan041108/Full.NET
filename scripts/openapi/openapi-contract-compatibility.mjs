@@ -393,13 +393,34 @@ function isAdditiveOpenApiPaths(baselinePaths, currentPaths) {
     }
 
     for (const [method, baselineOperation] of Object.entries(baselinePathItem)) {
-      if (!isDeepStrictEqual(baselineOperation, currentPathItem[method])) {
+      if (!isAdditiveOpenApiOperation(baselineOperation, currentPathItem[method])) {
         return false;
       }
     }
   }
 
   return true;
+}
+
+function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
+  if (!isPlainObject(baselineOperation) || !isPlainObject(currentOperation)) {
+    return false;
+  }
+
+  const baselineFields = Object.keys(baselineOperation).filter(field => field !== 'responses');
+  const currentFields = Object.keys(currentOperation).filter(field => field !== 'responses');
+  if (!isDeepStrictEqual(baselineFields, currentFields)
+    || baselineFields.some(field =>
+      !isDeepStrictEqual(baselineOperation[field], currentOperation[field]))) {
+    return false;
+  }
+
+  const baselineResponses = baselineOperation.responses;
+  const currentResponses = currentOperation.responses;
+  return isPlainObject(baselineResponses)
+    && isPlainObject(currentResponses)
+    && Object.entries(baselineResponses).every(([statusCode, response]) =>
+      isDeepStrictEqual(response, currentResponses[statusCode]));
 }
 
 function isAdditiveOpenApiTags(baselineTags, currentTags) {

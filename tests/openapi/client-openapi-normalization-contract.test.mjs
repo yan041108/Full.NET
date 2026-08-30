@@ -204,8 +204,22 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 247);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 247);
+  assert.equal(manifest.entries.length, 253);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 253);
+  assert.deepEqual(
+    manifest.entries
+      .filter(entry => entry.generatedGroup === 'workflow-forms')
+      .map(entry => entry.operationId),
+    [
+      'workflowListForms',
+      'workflowGetForm',
+      'workflowCreateForm',
+      'workflowUpdateFormDraft',
+      'workflowPublishForm',
+      'workflowGetFormComponentCatalog',
+      'workflowGetFormVersion'
+    ]
+  );
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
@@ -268,7 +282,11 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    247
+    253
+  );
+  assert.equal(
+    snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,
+    'workflowGetFormComponentCatalog'
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

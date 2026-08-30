@@ -8,6 +8,42 @@
   ],
   "entries": [
     {
+      "operationId": "workflowListForms",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetForm",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowCreateForm",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowUpdateFormDraft",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowPublishForm",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetFormComponentCatalog",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListDefinitions",
       "apiModule": "ui/admin/src/api/workflow-runtime.ts",
       "generatedGroup": "workflow-definitions",
