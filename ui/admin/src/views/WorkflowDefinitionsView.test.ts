@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { defineComponent, h, type Component } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionStore } from '../auth/session';
 import {
@@ -8,6 +9,14 @@ import {
   listWorkflowDefinitionVersions,
   startWorkflowInstance
 } from '../api/workflow-runtime';
+import {
+  createWorkflowDefinition,
+  getWorkflowDefinition,
+  getWorkflowNodeTypeCatalog,
+  publishWorkflowDefinition,
+  updateWorkflowDefinitionDraft
+} from '../api/workflow-definitions';
+import { listWorkflowForms } from '../api/workflow-forms';
 import WorkflowDefinitionsView from './WorkflowDefinitionsView.vue';
 
 vi.mock('../api/workflow-runtime', () => ({
@@ -16,11 +25,26 @@ vi.mock('../api/workflow-runtime', () => ({
   listWorkflowDefinitionVersions: vi.fn(),
   startWorkflowInstance: vi.fn()
 }));
+vi.mock('../api/workflow-definitions', () => ({
+  createWorkflowDefinition: vi.fn(),
+  getWorkflowDefinition: vi.fn(),
+  getWorkflowNodeTypeCatalog: vi.fn(),
+  publishWorkflowDefinition: vi.fn(),
+  updateWorkflowDefinitionDraft: vi.fn()
+}));
+vi.mock('../api/workflow-forms', () => ({ listWorkflowForms: vi.fn() }));
 
 const definition = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   definitionKey: 'purchase.approval',
-  draft: { schemaVersion: 1, nodes: [] },
+  draft: {
+    schemaVersion: 1,
+    nodes: [
+      { nodeKey: 'start', nodeTypeKey: 'start', nodeSchemaVersion: 1, config: { nextNodeKeys: ['approval'] } },
+      { nodeKey: 'approval', nodeTypeKey: 'human.approval', nodeSchemaVersion: 1, config: { nextNodeKeys: ['end'] } },
+      { nodeKey: 'end', nodeTypeKey: 'end', nodeSchemaVersion: 1, config: { nextNodeKeys: [] } }
+    ]
+  },
   draftRevision: 2,
   latestPublishedVersionId: '01912345-6789-7abc-8def-0123456789ac',
   version: 2,
@@ -40,7 +64,10 @@ const version = {
   publishedAtUtc: '2026-08-30T00:00:00Z'
 };
 
-function mountWithPermissions(permissions: string[]) {
+function mountWithPermissions(
+  permissions: string[],
+  designerStub: Component = WorkflowVue3DesignerStub
+) {
   const pinia = createPinia();
   setActivePinia(pinia);
   const session = useSessionStore();
@@ -57,8 +84,21 @@ function mountWithPermissions(permissions: string[]) {
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
-  return mount(WorkflowDefinitionsView, { global: { plugins: [pinia] } });
+  return mount(WorkflowDefinitionsView, {
+    global: {
+      plugins: [pinia],
+      stubs: { WorkflowVue3Designer: designerStub }
+    }
+  });
 }
+
+const WorkflowVue3DesignerStub = defineComponent({
+  name: 'WorkflowVue3Designer',
+  setup(_, { expose }) {
+    expose({ readDraft: () => definition.draft });
+    return () => h('div', { 'data-testid': 'workflow-vue3-designer-stub' });
+  }
+});
 
 describe('WorkflowDefinitionsView', () => {
   beforeEach(() => {
@@ -93,6 +133,31 @@ describe('WorkflowDefinitionsView', () => {
       }
     });
     vi.mocked(startWorkflowInstance).mockReset();
+    vi.mocked(createWorkflowDefinition).mockReset();
+    vi.mocked(getWorkflowDefinition).mockReset().mockResolvedValue(definition);
+    vi.mocked(getWorkflowNodeTypeCatalog).mockReset().mockResolvedValue({
+      catalogVersion: 1,
+      definitionSchemaVersion: 1,
+      nodeTypes: ['start', 'human.approval', 'notify.cc', 'gateway.exclusive', 'end'].map(nodeTypeKey => ({
+        nodeTypeKey,
+        nodeSchemaVersion: 1,
+        designable: true,
+        publishable: true,
+        executable: true,
+        supportsFieldPolicies: nodeTypeKey === 'human.approval'
+      }))
+    });
+    vi.mocked(listWorkflowForms).mockReset().mockResolvedValue([{
+      id: '01912345-6789-7abc-8def-0123456789a4',
+      formKey: 'purchase.form',
+      draft: { schemaVersion: 1, adapterVersion: 1, sections: [] },
+      draftRevision: 1,
+      latestPublishedVersionId: version.formVersionId,
+      createdAtUtc: version.publishedAtUtc,
+      updatedAtUtc: null
+    }]);
+    vi.mocked(updateWorkflowDefinitionDraft).mockReset().mockResolvedValue({ ...definition, draftRevision: 3 });
+    vi.mocked(publishWorkflowDefinition).mockReset().mockResolvedValue(version);
   });
 
   it('没有实例发起权限时不创建发起入口', async () => {
@@ -138,5 +203,75 @@ describe('WorkflowDefinitionsView', () => {
       { summary: '采购审批' },
       expect.any(String)
     );
+  });
+
+  it('通过 Workflow-Vue3 保存权威 Draft 并绑定已发布表单版本', async () => {
+    const wrapper = mountWithPermissions([
+      'workflow.definitions.read',
+      'workflow.definitions.update',
+      'workflow.definitions.publish',
+      'workflow.forms.read'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-definition-edit"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="workflow-vue3-designer-stub"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="workflow-definition-save"]').trigger('click');
+    await flushPromises();
+    expect(updateWorkflowDefinitionDraft).toHaveBeenCalledWith(definition.id, 2, definition.draft);
+
+    await wrapper.get('[data-testid="workflow-definition-publish"]').trigger('click');
+    await flushPromises();
+    expect(publishWorkflowDefinition).toHaveBeenCalledWith(definition.id, 3, version.formVersionId);
+  });
+
+  it('设计器实例尚未就绪时失败关闭且不覆盖权威 Draft', async () => {
+    const wrapper = mountWithPermissions(
+      ['workflow.definitions.read', 'workflow.definitions.update'],
+      defineComponent(() => () => h('div', { 'data-testid': 'workflow-designer-not-ready' }))
+    );
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-definition-edit"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-definition-save"]').trigger('click');
+    await flushPromises();
+
+    expect(updateWorkflowDefinitionDraft).not.toHaveBeenCalled();
+    expect(wrapper.get('[role="alert"]').text()).toContain('client.workflow_designer_not_ready');
+  });
+
+  it('仅有定义编辑权限时不读取表单目录且仍可打开设计器', async () => {
+    const wrapper = mountWithPermissions([
+      'workflow.definitions.read',
+      'workflow.definitions.update'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-definition-edit"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="workflow-vue3-designer-stub"]').exists()).toBe(true);
+    expect(listWorkflowForms).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="workflow-definition-publish"]').exists()).toBe(false);
+  });
+
+  it('发布成功后的权威状态刷新失败时转成稳定 ProblemDetails', async () => {
+    vi.mocked(getWorkflowDefinition)
+      .mockResolvedValueOnce(definition)
+      .mockRejectedValueOnce(new Error('client.workflow_definition_refresh_failed'));
+    const wrapper = mountWithPermissions([
+      'workflow.definitions.read',
+      'workflow.definitions.update',
+      'workflow.definitions.publish',
+      'workflow.forms.read'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-definition-edit"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-definition-publish"]').trigger('click');
+    await flushPromises();
+
+    expect(publishWorkflowDefinition).toHaveBeenCalled();
+    expect(wrapper.get('[role="alert"]').text()).toContain('client.workflow_failed');
   });
 });

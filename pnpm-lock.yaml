@@ -84,6 +84,40 @@ importers:
         specifier: 2.2.12
         version: 2.2.12(typescript@5.9.3)
 
+  packages/admin-form-designer:
+    dependencies:
+      element-plus:
+        specifier: 2.14.3
+        version: 2.14.3(vue@3.5.40(typescript@6.0.3))
+      vform3-builds:
+        specifier: 3.0.10
+        version: 3.0.10
+    devDependencies:
+      '@vitejs/plugin-vue':
+        specifier: 6.0.8
+        version: 6.0.8(vite@8.1.5(@types/node@24.10.1)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.49.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))
+      '@vue/test-utils':
+        specifier: 2.4.11
+        version: 2.4.11(@vue/compiler-dom@3.5.40)(@vue/server-renderer@3.5.40)(vue@3.5.40(typescript@6.0.3))
+      jsdom:
+        specifier: 29.1.1
+        version: 29.1.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.1.5
+        version: 8.1.5(@types/node@24.10.1)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.49.0)(yaml@2.9.0)
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.1)(jsdom@29.1.1)(vite@8.1.5(@types/node@24.10.1)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.49.0)(yaml@2.9.0))
+      vue:
+        specifier: 3.5.40
+        version: 3.5.40(typescript@6.0.3)
+      vue-tsc:
+        specifier: 3.3.7
+        version: 3.3.7(typescript@6.0.3)
+
   packages/admin-i18n:
     devDependencies:
       typescript:
@@ -137,6 +171,9 @@ importers:
       '@element-plus/icons-vue':
         specifier: 2.3.2
         version: 2.3.2(vue@3.5.40(typescript@6.0.3))
+      '@fullnet/admin-form-designer':
+        specifier: workspace:*
+        version: link:../../packages/admin-form-designer
       '@fullnet/admin-i18n':
         specifier: workspace:*
         version: link:../../packages/admin-i18n
@@ -4458,6 +4495,9 @@ packages:
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
+
+  vform3-builds@3.0.10:
+    resolution: {integrity: sha512-sULNk72Z6NG94X9MMgpBwinaIOYjtl7Bn5jZbV9iZaglSYr2SHm/wpXPAjl8F8OW6SzOOJgIpRek+NvOvN7wsg==}
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
@@ -9462,6 +9502,8 @@ snapshots:
   varint@6.0.0: {}
 
   vary@1.1.2: {}
+
+  vform3-builds@3.0.10: {}
 
   vite-node@3.2.4(@types/node@24.10.1)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.49.0):
     dependencies:

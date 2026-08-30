@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
+    "@fullnet/admin-form-designer": "workspace:*",
     "@fullnet/admin-i18n": "workspace:*",
     "@fullnet/client-contracts": "workspace:*",
     "@fullnet/design-tokens": "workspace:*",

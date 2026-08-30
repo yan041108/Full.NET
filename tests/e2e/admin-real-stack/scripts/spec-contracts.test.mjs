@@ -41,6 +41,19 @@ test('真实栈 spec 统一通过可见上下文辅助函数断言 Host 上下�
   );
 });
 
+test('Vue 真实栈服务器必须注入不含 unsafe-eval 的严格脚本 CSP', async () => {
+  const configPath = path.resolve(import.meta.dirname, '../playwright.config.mjs');
+  const viteConfigPath = path.resolve(import.meta.dirname, '../../../../ui/admin/vite.config.ts');
+  const [playwrightConfig, viteConfig] = await Promise.all([
+    readFile(configPath, 'utf8'),
+    readFile(viteConfigPath, 'utf8')
+  ]);
+
+  assert.match(playwrightConfig, /VITE_STRICT_CSP:\s*'1'/u);
+  assert.match(viteConfig, /script-src 'self'/u);
+  assert.doesNotMatch(viteConfig, /unsafe-eval/u);
+});
+
 test('代码生成真实栈必须验证受跟踪预览、历史刷新与无源码摘要', async () => {
   const specPath = path.resolve(
     import.meta.dirname,

@@ -8,6 +8,9 @@ export default defineConfig({
   server: {
     host: 'localhost',
     strictPort: true,
+    headers: process.env.VITE_STRICT_CSP === '1'
+      ? { 'Content-Security-Policy': "script-src 'self'; object-src 'none'; base-uri 'self'" }
+      : undefined,
     proxy: {
       '/api': {
         target: apiTarget,

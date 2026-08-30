@@ -22,7 +22,8 @@ export default defineConfig({
     stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
     stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
     env: {
-      VITE_API_BASE_URL: apiBaseUrl
+      VITE_API_BASE_URL: apiBaseUrl,
+      VITE_STRICT_CSP: '1'
     }
   },
   projects: [

@@ -65,6 +65,10 @@ the complete license texts.
   https://github.com/apache/echarts
 - Art Design Pro (selective shell/theme source in ui/admin/src/framework/art-design) — MIT
   https://github.com/Daymychen/art-design-pro @ f3aaf58eec1a0e988f162352c33862327a484f95
+- VForm3 (`vform3-builds@3.0.10`) — Variant Form License Terms 1.0 (custom license)
+  https://github.com/vform666/variant-form3-vite @ c67479e496bab56a93a3dff168a4f529d8293c67
+- Workflow-Vue3 (adapted designer core in ui/admin/src/workflow/vendor/workflow-vue3) — source repository notice retained
+  https://github.com/StavinLi/Workflow-Vue3 @ 8d81e61edc495d07ae5fdc21e3f24aacc7f32991
 - Vite — MIT
   https://github.com/vitejs/vite
 - Vitest — MIT

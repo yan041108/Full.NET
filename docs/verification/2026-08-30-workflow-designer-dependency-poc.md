@@ -1,5 +1,7 @@
 # Workflow 设计器第三方依赖 PoC
 
+> 2026-08-30 后续状态：本记录的技术风险结论仍有效，但 No-Go 裁决已被项目所有者明确要求“VForm3 直接使用、复制 Workflow-Vue3”的后续决策覆盖。当前采用边界与剩余风险见 `docs/development/third-party/vform3.md` 和 `docs/development/third-party/workflow-vue3.md`。
+
 - **结论：** `No-Go`；命中实施计划的 CSP/动态代码停止条件
 - **日期：** 2026-08-30
 - **Full.NET 基线：** `d44672d8bdd2893680b0786c4765cb5fc559a7dd`

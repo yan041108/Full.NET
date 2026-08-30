@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { defineComponent, h, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkflowFormSchema } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -50,8 +51,40 @@ function mountWithPermissions(permissions: string[]) {
     actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false, permissions,
     sessionId: 'session-1', preferredLocale: 'zh-CN', profileVersion: 1
   };
-  return mount(WorkflowFormsView, { global: { plugins: [pinia] } });
+  return mount(WorkflowFormsView, {
+    global: {
+      plugins: [pinia],
+      stubs: { VForm3WorkflowDesigner: VForm3DesignerStub }
+    }
+  });
 }
+
+const VForm3DesignerStub = defineComponent({
+  name: 'VForm3WorkflowDesigner',
+  props: { schema: { type: Object, required: true } },
+  setup(props, { expose }) {
+    const required = ref((props.schema as WorkflowFormSchema).sections[0]?.fields[0]?.required ?? false);
+    expose({
+      readSchema: () => ({
+        ...(props.schema as WorkflowFormSchema),
+        sections: (props.schema as WorkflowFormSchema).sections.map(section => ({
+          ...section,
+          fields: section.fields.map(field => ({ ...field, required: required.value }))
+        }))
+      })
+    });
+    return () => h('article', { 'data-field-key': 'summary' }, [
+      h('input', {
+        type: 'checkbox',
+        'data-field-property': 'required',
+        checked: required.value,
+        onChange: (event: Event) => {
+          required.value = (event.target as HTMLInputElement).checked;
+        }
+      })
+    ]);
+  }
+});
 
 describe('WorkflowFormsView', () => {
   beforeEach(() => {

@@ -20,7 +20,11 @@ import {
 import { useSessionStore } from '../auth/session';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
-import WorkflowFormDesigner from '../workflow/WorkflowFormDesigner.vue';
+import VForm3WorkflowDesigner from '../workflow/VForm3WorkflowDesigner.vue';
+
+interface VForm3WorkflowDesignerInstance {
+  readSchema: () => WorkflowFormSchema;
+}
 
 const { t } = useAdminI18n();
 const session = useSessionStore();
@@ -32,6 +36,7 @@ const formKey = ref('');
 const creating = ref(false);
 const busy = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const designer = ref<VForm3WorkflowDesignerInstance>();
 
 onMounted(loadForms);
 
@@ -76,8 +81,14 @@ async function openEditor(row: WorkflowFormResponse): Promise<void> {
 
 async function saveDraft(): Promise<void> {
   const current = selected.value;
-  const draft = localDraft.value;
-  if (current === undefined || draft === undefined || busy.value) return;
+  if (current === undefined || localDraft.value === undefined || busy.value) return;
+  let draft: WorkflowFormSchema;
+  try {
+    draft = designer.value?.readSchema() ?? localDraft.value;
+  } catch (error: unknown) {
+    showDesignerError(error instanceof Error ? error.message : 'client.invalid_workflow_form_draft');
+    return;
+  }
   const saved = await act(
     () => updateWorkflowFormDraft(current.id, current.draftRevision, draft),
     'workflowForms.operationFailed'
@@ -111,6 +122,14 @@ function closeEditor(): void {
   localDraft.value = undefined;
   catalog.value = undefined;
   problem.value = undefined;
+}
+
+function showDesignerError(code: string): void {
+  problem.value = {
+    status: 400,
+    code,
+    title: t('workflowForms.operationFailed')
+  };
 }
 
 function replaceForm(value: WorkflowFormResponse): void {
@@ -213,7 +232,14 @@ async function act<T>(
           {{ t('workflowForms.close') }}
         </el-button>
       </div>
-      <WorkflowFormDesigner :schema="localDraft" :catalog="catalog" :disabled="busy" @update:schema="localDraft = $event" />
+      <VForm3WorkflowDesigner
+        ref="designer"
+        :schema="localDraft"
+        :catalog="catalog"
+        :disabled="busy"
+        @update:schema="localDraft = $event"
+        @validation-error="showDesignerError"
+      />
       <div class="workflow-forms__decision-bar">
         <PermissionGate code="workflow.forms.update">
           <el-button type="primary" data-testid="workflow-form-save" :loading="busy" @click="saveDraft">

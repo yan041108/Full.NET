@@ -11,8 +11,8 @@
         "followStaticImports": true
       },
       "budget": {
-        "minifiedBytes": 585792,
-        "gzipBytes": 193619,
+        "minifiedBytes": 994028,
+        "gzipBytes": 294317,
         "maxRegressionPercent": 5
       }
     },
@@ -27,6 +27,35 @@
       "budget": {
         "minifiedBytes": 496501,
         "gzipBytes": 166669,
+        "maxRegressionPercent": 5
+      }
+    },
+    {
+      "name": "Vue VForm3 optional designer JavaScript",
+      "dist": "ui/admin/dist",
+      "asset": {
+        "directory": "assets",
+        "assetPrefix": "designer.umd-",
+        "assetSuffix": ".js"
+      },
+      "budget": {
+        "minifiedBytes": 1461821,
+        "gzipBytes": 342013,
+        "maxRegressionPercent": 5
+      }
+    },
+    {
+      "name": "Vue VForm3 Element Plus runtime graph",
+      "dist": "ui/admin/dist",
+      "entry": {
+        "directory": "assets",
+        "entryPrefix": "element-plus-components-",
+        "entrySuffix": ".js",
+        "followStaticImports": true
+      },
+      "budget": {
+        "minifiedBytes": 467256,
+        "gzipBytes": 173109,
         "maxRegressionPercent": 5
       }
     }
