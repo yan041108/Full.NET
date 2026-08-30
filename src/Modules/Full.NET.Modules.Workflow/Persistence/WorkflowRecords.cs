@@ -97,6 +97,19 @@ internal sealed record WorkflowTodoRecord(
     string? ResultActionKey,
     long Revision);
 
+/// <summary>办理单条待办时携带当前步骤节点键，避免字段策略解析额外查询步骤表。</summary>
+internal sealed record WorkflowTodoRuntimeRecord(
+    Guid Id,
+    Guid InstanceId,
+    Guid StepId,
+    Guid AssigneeUserId,
+    string StatusKey,
+    DateTimeOffset ArrivedAtUtc,
+    DateTimeOffset? CompletedAtUtc,
+    string? ResultActionKey,
+    long Revision,
+    string NodeKey);
+
 /// <summary>启动实例所需的同作用域不可变定义和表单版本。</summary>
 internal sealed record WorkflowRuntimeAssetRecord(
     Guid DefinitionVersionId,

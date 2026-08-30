@@ -36,4 +36,5 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowExecutionLogResponse))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse[]))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

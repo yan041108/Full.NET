@@ -538,10 +538,12 @@ internal static class WorkflowSql
         """
         SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
-               todo.ResultActionKey, todo.Revision
+               todo.ResultActionKey, todo.Revision, step.NodeKey
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
+        INNER JOIN fn_workflow_step AS step
+            ON step.Id = todo.StepId
         WHERE todo.Id = @Id
           AND instance.TenantScopeKey = @TenantScopeKey
         """,

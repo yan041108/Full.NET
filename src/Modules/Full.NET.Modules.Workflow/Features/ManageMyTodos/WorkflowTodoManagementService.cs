@@ -60,7 +60,7 @@ internal sealed class WorkflowTodoManagementService(
         CancellationToken cancellationToken = default)
     {
         var scope = WorkflowManagementScope.Resolve(currentTenant);
-        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(
             WorkflowSql.FindTodoById,
             WorkflowSqlParameters.Create(("Id", todoId), ("TenantScopeKey", scope.TenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
@@ -93,12 +93,29 @@ internal sealed class WorkflowTodoManagementService(
             return DetailFailure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
         }
 
-        using var schemaDocument = JsonDocument.Parse(asset.FormSchemaJson);
-        using var submissionDocument = JsonDocument.Parse(submission.SubmissionJson);
+        var schema = JsonSerializer.Deserialize(
+            asset.FormSchemaJson,
+            WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
+        var values = JsonSerializer.Deserialize(
+            submission.SubmissionJson,
+            WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
+        if (schema is null || values is null ||
+            !WorkflowNodeFieldPolicy.TryResolve(asset.CanonicalJson, todo.NodeKey, schema, out var policy))
+        {
+            return DetailFailure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+        }
+
+        var view = policy!.CreateView(schema, values);
+        var visibleSchema = JsonSerializer.SerializeToElement(
+            view.Schema,
+            WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
+        var visibleSubmission = JsonSerializer.SerializeToElement(
+            view.Values,
+            WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
         return Result<WorkflowTodoDetailResponse>.Success(new(
             todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
             todo.StatusKey, todo.Revision, asset.FormVersionId,
-            schemaDocument.RootElement.Clone(), submissionDocument.RootElement.Clone(),
+            visibleSchema, visibleSubmission, view.FieldPolicies,
             submission.Revision));
     }
 
@@ -127,7 +144,7 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
-        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(
             WorkflowSql.FindTodoById,
             WorkflowSqlParameters.Create(("Id", todoId), ("TenantScopeKey", scope.TenantScopeKey)),
             token).ConfigureAwait(false);
@@ -183,7 +200,12 @@ internal sealed class WorkflowTodoManagementService(
                 ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         var patchedSubmission = asset is null || submission is null
             ? null
-            : BuildPatchedSubmission(asset.FormSchemaJson, submission.SubmissionJson, request.FieldPatch);
+            : BuildPatchedSubmission(
+                asset.CanonicalJson,
+                todo.NodeKey,
+                asset.FormSchemaJson,
+                submission.SubmissionJson,
+                request.FieldPatch);
         if (patchedSubmission is null)
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
@@ -241,6 +263,8 @@ internal sealed class WorkflowTodoManagementService(
     }
 
     private static string? BuildPatchedSubmission(
+        string canonicalDefinitionJson,
+        string nodeKey,
         string formSchemaJson,
         string submissionJson,
         JsonElement patch)
@@ -256,25 +280,15 @@ internal sealed class WorkflowTodoManagementService(
             return null;
         }
 
-        var fields = schema.Sections.SelectMany(section => section.Fields)
-            .ToDictionary(field => field.FieldKey, StringComparer.Ordinal);
-        foreach (var property in patch.EnumerateObject())
-        {
-            if (!fields.ContainsKey(property.Name))
-            {
-                return null;
-            }
-
-            values[property.Name] = property.Value.Clone();
-        }
-
-        if (!WorkflowFormValueValidator.Validate(schema, values))
+        if (!WorkflowNodeFieldPolicy.TryResolve(
+                canonicalDefinitionJson, nodeKey, schema, out var policy) ||
+            !policy!.TryApplyPatch(schema, values, patch, out var patched))
         {
             return null;
         }
 
         return JsonSerializer.Serialize(
-            values,
+            patched,
             WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
     }
 

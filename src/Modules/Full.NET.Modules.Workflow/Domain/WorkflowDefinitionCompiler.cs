@@ -69,7 +69,33 @@ internal static class WorkflowDefinitionCompiler
             WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, draft)));
     }
 
+    public static WorkflowCompilationResult Compile(
+        WorkflowDefinitionDraft draft,
+        WorkflowFormSchema formSchema)
+    {
+        var graph = Compile(draft);
+        if (!graph.IsSuccess)
+        {
+            return graph;
+        }
+
+        if (!TryCompileFieldPolicies(draft, formSchema, out var policiesByNode))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+        }
+
+        return WorkflowCompilationResult.Success(
+            WorkflowJsonCanonicalizer.Compile(
+                writer => WriteCanonical(writer, draft, policiesByNode)));
+    }
+
     private static void WriteCanonical(Utf8JsonWriter writer, WorkflowDefinitionDraft draft)
+        => WriteCanonical(writer, draft, null);
+
+    private static void WriteCanonical(
+        Utf8JsonWriter writer,
+        WorkflowDefinitionDraft draft,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? policiesByNode)
     {
         writer.WriteStartObject();
         writer.WriteNumber("schemaVersion", draft.SchemaVersion);
@@ -82,11 +108,110 @@ internal static class WorkflowDefinitionCompiler
             writer.WriteString("nodeTypeKey", node.NodeTypeKey);
             writer.WriteNumber("nodeSchemaVersion", node.NodeSchemaVersion);
             writer.WritePropertyName("config");
-            WorkflowJsonCanonicalizer.WriteElement(writer, node.Config);
+            if (policiesByNode is not null && policiesByNode.TryGetValue(node.NodeKey, out var policies))
+            {
+                WriteConfigWithFieldPolicies(writer, node.Config, policies);
+            }
+            else
+            {
+                WorkflowJsonCanonicalizer.WriteElement(writer, node.Config);
+            }
+
             writer.WriteEndObject();
         }
 
         writer.WriteEndArray();
+        writer.WriteEndObject();
+    }
+
+    private static bool TryCompileFieldPolicies(
+        WorkflowDefinitionDraft draft,
+        WorkflowFormSchema formSchema,
+        out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> policiesByNode)
+    {
+        var fields = formSchema.Sections.SelectMany(section => section.Fields)
+            .ToDictionary(field => field.FieldKey, StringComparer.Ordinal);
+        var result = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        foreach (var node in draft.Nodes)
+        {
+            var configuredPolicies = default(JsonElement);
+            var hasPolicies = node.Config.ValueKind == JsonValueKind.Object &&
+                              node.Config.TryGetProperty("fieldPolicies", out configuredPolicies);
+            if (node.NodeTypeKey != "human.approval")
+            {
+                if (hasPolicies)
+                {
+                    policiesByNode = result;
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (node.Config.ValueKind != JsonValueKind.Object ||
+                hasPolicies && configuredPolicies.ValueKind != JsonValueKind.Object)
+            {
+                policiesByNode = result;
+                return false;
+            }
+
+            var policies = fields.Values.ToDictionary(
+                field => field.FieldKey,
+                field => field.Required ? "required" : "editable",
+                StringComparer.Ordinal);
+            if (hasPolicies)
+            {
+                foreach (var configured in configuredPolicies.EnumerateObject())
+                {
+                    if (!fields.ContainsKey(configured.Name) ||
+                        configured.Value.ValueKind != JsonValueKind.String ||
+                        configured.Value.GetString() is not ("hidden" or "readOnly" or "editable" or "required"))
+                    {
+                        policiesByNode = result;
+                        return false;
+                    }
+
+                    policies[configured.Name] = configured.Value.GetString()!;
+                }
+            }
+
+            result.Add(node.NodeKey, policies);
+        }
+
+        policiesByNode = result;
+        return true;
+    }
+
+    private static void WriteConfigWithFieldPolicies(
+        Utf8JsonWriter writer,
+        JsonElement config,
+        IReadOnlyDictionary<string, string> policies)
+    {
+        writer.WriteStartObject();
+        var properties = config.EnumerateObject()
+            .Where(property => property.Name != "fieldPolicies")
+            .Select(property => property.Name)
+            .Append("fieldPolicies")
+            .OrderBy(name => name, StringComparer.Ordinal);
+        foreach (var propertyName in properties)
+        {
+            writer.WritePropertyName(propertyName);
+            if (propertyName == "fieldPolicies")
+            {
+                writer.WriteStartObject();
+                foreach (var policy in policies.OrderBy(item => item.Key, StringComparer.Ordinal))
+                {
+                    writer.WriteString(policy.Key, policy.Value);
+                }
+
+                writer.WriteEndObject();
+            }
+            else
+            {
+                WorkflowJsonCanonicalizer.WriteElement(writer, config.GetProperty(propertyName));
+            }
+        }
+
         writer.WriteEndObject();
     }
 

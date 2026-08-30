@@ -29,4 +29,5 @@ internal sealed record WorkflowTodoDetailResponse(
     Guid FormVersionId,
     JsonElement FormSchema,
     JsonElement Submission,
+    IReadOnlyDictionary<string, string> FieldPolicies,
     long SubmissionRevision);

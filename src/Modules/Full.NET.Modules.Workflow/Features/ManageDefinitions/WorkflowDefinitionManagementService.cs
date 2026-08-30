@@ -201,7 +201,12 @@ internal sealed class WorkflowDefinitionManagementService(
         }
 
         var model = Deserialize(draft.DraftJson);
-        var compilation = model is null ? null : WorkflowDefinitionCompiler.Compile(model);
+        var formSchema = JsonSerializer.Deserialize(
+            formVersion.FormSchemaJson,
+            WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
+        var compilation = model is null || formSchema is null
+            ? null
+            : WorkflowDefinitionCompiler.Compile(model, formSchema);
         if (compilation is null || !compilation.IsSuccess)
         {
             return Failure<WorkflowDefinitionVersionResponse>(

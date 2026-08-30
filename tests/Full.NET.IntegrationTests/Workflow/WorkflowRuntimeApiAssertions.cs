@@ -52,7 +52,7 @@ internal static class WorkflowRuntimeApiAssertions
                 definitionVersionId = versions.DefinitionVersionId,
                 businessType = "leave.request",
                 businessId,
-                initialValues = new { reason = "annual leave" },
+                initialValues = new { reason = "annual leave", secret = "classified" },
                 idempotencyKey = startIdempotencyKey,
             }),
             cancellationToken);
@@ -70,7 +70,7 @@ internal static class WorkflowRuntimeApiAssertions
                 definitionVersionId = versions.DefinitionVersionId,
                 businessType = "leave.request",
                 businessId,
-                initialValues = new { reason = "annual leave" },
+                initialValues = new { reason = "annual leave", secret = "classified" },
                 idempotencyKey = startIdempotencyKey,
             }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, startReplay.StatusCode,
@@ -108,6 +108,15 @@ internal static class WorkflowRuntimeApiAssertions
         Assert.AreEqual(versions.FormVersionId, detail.RootElement.GetProperty("formVersionId").GetGuid());
         Assert.AreEqual("annual leave",
             detail.RootElement.GetProperty("submission").GetProperty("reason").GetString());
+        Assert.IsFalse(detail.RootElement.GetProperty("submission").TryGetProperty("secret", out _));
+        var detailFields = detail.RootElement.GetProperty("formSchema").GetProperty("sections")[0]
+            .GetProperty("fields").EnumerateArray()
+            .Select(field => field.GetProperty("fieldKey").GetString()).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "reason", "decision" }, detailFields);
+        Assert.AreEqual("readOnly",
+            detail.RootElement.GetProperty("fieldPolicies").GetProperty("reason").GetString());
+        Assert.AreEqual("required",
+            detail.RootElement.GetProperty("fieldPolicies").GetProperty("decision").GetString());
 
         var other = await factory.CreateHostIdentityAsync(
             $"workflow-other-{Guid.NewGuid():N}",
@@ -135,6 +144,28 @@ internal static class WorkflowRuntimeApiAssertions
                 }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalidTypePatch.StatusCode);
 
+        using var hiddenPatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { secret = "exposed" },
+                    comment = "hidden patch",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, hiddenPatch.StatusCode);
+
+        using var missingRequiredPatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new Dictionary<string, object?>(),
+                    comment = "missing required decision",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, missingRequiredPatch.StatusCode);
+
         using var invalidPatch = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
                 new
@@ -152,7 +183,7 @@ internal static class WorkflowRuntimeApiAssertions
                 new
                 {
                     expectedRevision = 1,
-                    fieldPatch = new Dictionary<string, object?>(),
+                    fieldPatch = new { decision = "approved" },
                     comment = "approved",
                     idempotencyKey = approveIdempotencyKey,
                 }), cancellationToken);
@@ -166,7 +197,7 @@ internal static class WorkflowRuntimeApiAssertions
                 new
                 {
                     expectedRevision = 1,
-                    fieldPatch = new Dictionary<string, object?>(),
+                    fieldPatch = new { decision = "approved" },
                     comment = "approved",
                     idempotencyKey = approveIdempotencyKey,
                 }), cancellationToken);
@@ -212,7 +243,7 @@ internal static class WorkflowRuntimeApiAssertions
                 new
                 {
                     expectedRevision = 1,
-                    fieldPatch = new Dictionary<string, object?>(),
+                    fieldPatch = new { decision = "rejected" },
                     comment = "rejected",
                     idempotencyKey = $"reject-{Guid.NewGuid():N}",
                 }), cancellationToken);
@@ -253,7 +284,7 @@ internal static class WorkflowRuntimeApiAssertions
             new
             {
                 expectedRevision = 1,
-                fieldPatch = new Dictionary<string, object?>(),
+                fieldPatch = new { decision = "approved" },
                 comment = "approve race",
                 idempotencyKey = $"approve-{Guid.NewGuid():N}",
             });
@@ -262,7 +293,7 @@ internal static class WorkflowRuntimeApiAssertions
             new
             {
                 expectedRevision = 1,
-                fieldPatch = new Dictionary<string, object?>(),
+                fieldPatch = new { decision = "rejected" },
                 comment = "reject race",
                 idempotencyKey = $"reject-{Guid.NewGuid():N}",
             });
@@ -313,6 +344,20 @@ internal static class WorkflowRuntimeApiAssertions
                                     required = true,
                                     constraints = new Dictionary<string, object?>(),
                                 },
+                                new
+                                {
+                                    fieldKey = "secret",
+                                    fieldTypeKey = "text",
+                                    required = false,
+                                    constraints = new Dictionary<string, object?>(),
+                                },
+                                new
+                                {
+                                    fieldKey = "decision",
+                                    fieldTypeKey = "text",
+                                    required = false,
+                                    constraints = new Dictionary<string, object?>(),
+                                },
                             },
                         },
                     },
@@ -339,7 +384,22 @@ internal static class WorkflowRuntimeApiAssertions
                     nodes = new object[]
                     {
                         new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1, config = new { nextNodeKeys = new[] { "approve" } } },
-                        new { nodeKey = "approve", nodeTypeKey = "human.approval", nodeSchemaVersion = 1, config = new { nextNodeKeys = new[] { "end" } } },
+                        new
+                        {
+                            nodeKey = "approve",
+                            nodeTypeKey = "human.approval",
+                            nodeSchemaVersion = 1,
+                            config = new
+                            {
+                                nextNodeKeys = new[] { "end" },
+                                fieldPolicies = new Dictionary<string, string>
+                                {
+                                    ["reason"] = "readOnly",
+                                    ["secret"] = "hidden",
+                                    ["decision"] = "required",
+                                },
+                            },
+                        },
                         new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1, config = new { nextNodeKeys = Array.Empty<string>() } },
                     },
                 },
