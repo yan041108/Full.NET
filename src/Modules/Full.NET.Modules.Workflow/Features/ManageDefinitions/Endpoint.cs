@@ -14,6 +14,8 @@ internal static class Endpoint
     {
         var group = endpoints.MapGroup("/api/v1/workflow/definitions").WithTags("WorkflowDefinitions");
 
+        NodeTypeCatalogEndpoint.Map(group);
+
         group.MapGet("/", async (WorkflowDefinitionManagementService service, IApiResultMapper mapper,
             HttpContext context, CancellationToken token) => mapper.Map(await service.ListAsync(token).ConfigureAwait(false), context))
             .WithName("workflowListDefinitions")

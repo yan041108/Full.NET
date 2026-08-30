@@ -14,6 +14,19 @@ internal sealed record PublishWorkflowDefinitionRequest(
     long ExpectedRevision,
     Guid FormVersionId);
 
+internal sealed record WorkflowNodeTypeCatalogResponse(
+    int CatalogVersion,
+    int DefinitionSchemaVersion,
+    IReadOnlyList<WorkflowNodeTypeResponse> NodeTypes);
+
+internal sealed record WorkflowNodeTypeResponse(
+    string NodeTypeKey,
+    int NodeSchemaVersion,
+    bool Designable,
+    bool Publishable,
+    bool Executable,
+    bool SupportsFieldPolicies);
+
 internal sealed record WorkflowDefinitionResponse(
     Guid Id,
     string DefinitionKey,

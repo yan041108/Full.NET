@@ -26,6 +26,8 @@ public sealed class WorkflowDefinitionCompilerTests
     [DataRow("unreachable", WorkflowErrorCodes.DefinitionNodeUnreachable)]
     [DataRow("no-end", WorkflowErrorCodes.DefinitionEndMissing)]
     [DataRow("back-edge", WorkflowErrorCodes.DefinitionBackEdgeIllegal)]
+    [DataRow("definition-schema", WorkflowErrorCodes.DefinitionSchemaUnsupported)]
+    [DataRow("node-schema", WorkflowErrorCodes.DefinitionSchemaUnsupported)]
     public void Compile_rejects_invalid_graphs_with_stable_error_codes(
         string scenario,
         string expectedCode)
@@ -123,6 +125,16 @@ public sealed class WorkflowDefinitionCompilerTests
         [
             Node("start", "start", "{\"nextNodeKeys\":[\"approve\"]}"),
             Node("approve", "human.approval", "{\"nextNodeKeys\":[\"start\",\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]),
+        "definition-schema" => new(2,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]),
+        "node-schema" => new(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"end\"]}") with { NodeSchemaVersion = 2 },
             Node("end", "end", "{}"),
         ]),
         _ => throw new ArgumentOutOfRangeException(nameof(scenario)),

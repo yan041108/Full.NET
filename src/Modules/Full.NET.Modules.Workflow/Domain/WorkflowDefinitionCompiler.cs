@@ -5,24 +5,20 @@ namespace Full.NET.Modules.Workflow.Domain;
 
 internal static class WorkflowDefinitionCompiler
 {
-    private static readonly HashSet<string> SupportedNodeTypes =
-        new(StringComparer.Ordinal)
-        {
-            "start",
-            "human.approval",
-            "notify.cc",
-            "gateway.exclusive",
-            "end",
-        };
-
     public static WorkflowCompilationResult Compile(WorkflowDefinitionDraft draft)
     {
-        if (draft.SchemaVersion != 1 || draft.Nodes.Any(node => node.NodeSchemaVersion != 1))
+        if (draft.SchemaVersion != WorkflowNodeTypeCatalog.Current.DefinitionSchemaVersion ||
+            draft.Nodes.Any(node =>
+                WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var definition) &&
+                node.NodeSchemaVersion != definition!.NodeSchemaVersion))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionSchemaUnsupported);
         }
 
-        if (draft.Nodes.Any(node => !SupportedNodeTypes.Contains(node.NodeTypeKey)))
+        if (draft.Nodes.Any(node =>
+                !WorkflowNodeTypeCatalog.TryGet(node.NodeTypeKey, out var definition) ||
+                !definition!.Publishable ||
+                !definition.Executable))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnknown);
         }
@@ -137,7 +133,10 @@ internal static class WorkflowDefinitionCompiler
             var configuredPolicies = default(JsonElement);
             var hasPolicies = node.Config.ValueKind == JsonValueKind.Object &&
                               node.Config.TryGetProperty("fieldPolicies", out configuredPolicies);
-            if (node.NodeTypeKey != "human.approval")
+            var supportsFieldPolicies = WorkflowNodeTypeCatalog.TryGet(
+                node.NodeTypeKey,
+                out var nodeType) && nodeType!.SupportsFieldPolicies;
+            if (!supportsFieldPolicies)
             {
                 if (hasPolicies)
                 {

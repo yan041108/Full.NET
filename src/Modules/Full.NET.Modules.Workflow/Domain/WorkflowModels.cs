@@ -3,10 +3,12 @@ using System.Text.Json.Serialization;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowDefinitionDraft(
     int SchemaVersion,
     IReadOnlyList<WorkflowNodeDraft> Nodes);
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record WorkflowNodeDraft(
     string NodeKey,
     string NodeTypeKey,
