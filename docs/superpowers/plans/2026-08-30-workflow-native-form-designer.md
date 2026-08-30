@@ -131,27 +131,27 @@ git commit -m "feat: add safe workflow form draft state"
 - Consumes props: `schema: WorkflowFormSchema`、`catalog: WorkflowFormComponentCatalogResponse`、`disabled: boolean`。
 - Emits: `'update:schema': [schema: WorkflowFormSchema]`。
 
-- [ ] **Step 1: 写组件 RED**
+- [x] **Step 1: 写组件 RED**
 
 测试必须证明：只渲染目录允许类型；可以新增 Section/Field、修改稳定键/required/受控约束和删除字段；choice 选项使用普通文本列表；无脚本、HTML、CSS、URL 或动态组件入口；disabled 时不创建修改动作；键盘可操作并保持可见 label。
 
-- [ ] **Step 2: 运行 RED**
+- [x] **Step 2: 运行 RED**
 
 Run: `pnpm --filter @fullnet/admin test -- WorkflowFormDesigner.test.ts`
 
 Expected: 因组件不存在而失败。
 
-- [ ] **Step 3: 写最小静态组件**
+- [x] **Step 3: 写最小静态组件**
 
 组件使用显式模板分支和 Task 2 状态函数；字段类型选择来自服务端目录，约束编辑器仅按 `constraintKeys` 显式显示。组件不执行 Schema 内容，不使用 `v-html` 或动态组件。
 
-- [ ] **Step 4: 运行 GREEN**
+- [x] **Step 4: 运行 GREEN**
 
 Run: `pnpm --filter @fullnet/admin test -- WorkflowFormDesigner.test.ts`
 
 Run: `pnpm --filter @fullnet/admin typecheck`
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add ui/admin/src/workflow
