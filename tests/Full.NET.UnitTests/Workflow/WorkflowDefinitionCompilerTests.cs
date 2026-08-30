@@ -83,14 +83,22 @@ public sealed class WorkflowDefinitionCompilerTests
 
     [TestMethod]
     [DataRow("no-approval")]
-    [DataRow("multiple-approvals")]
     [DataRow("branch")]
     public void Compile_rejects_graph_shapes_that_the_current_runtime_cannot_execute(string scenario)
     {
-        var result = WorkflowDefinitionCompiler.Compile(CreateUnsupportedTopology(scenario));
+        var result = WorkflowDefinitionCompiler.Compile(CreateTopology(scenario));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(WorkflowErrorCodes.DefinitionTopologyUnsupported, result.ErrorCode);
+    }
+
+    [TestMethod]
+    public void Compile_accepts_a_linear_multi_approval_topology()
+    {
+        var result = WorkflowDefinitionCompiler.Compile(CreateTopology("multiple-approvals"));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Value?.CanonicalJson);
     }
 
     [TestMethod]
@@ -168,7 +176,7 @@ public sealed class WorkflowDefinitionCompilerTests
         _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
     };
 
-    private static WorkflowDefinitionDraft CreateUnsupportedTopology(string scenario) => scenario switch
+    private static WorkflowDefinitionDraft CreateTopology(string scenario) => scenario switch
     {
         "no-approval" => new(1,
         [

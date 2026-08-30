@@ -642,6 +642,19 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>线性审批进入下一节点时只推进实例修订号，终态时间保持为空。</summary>
+    public static readonly SqlStatement AdvanceInstanceWithRevision = new(
+        "workflow.instance.advance_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CancelTodoWithRevision = new(
         "workflow.todo.cancel_with_revision",
         """

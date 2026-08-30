@@ -66,7 +66,7 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionEndMissing);
         }
 
-        if (!IsRuntimeTopologySupported(starts[0], nodeByKey, edges))
+        if (!WorkflowRuntimePlan.TryCreate(draft, out _))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
         }
@@ -261,27 +261,6 @@ internal static class WorkflowDefinitionCompiler
         }
 
         return visited;
-    }
-
-    /// <summary>
-    /// 当前执行器只闭合“开始→单人审批→结束”；目录扩展必须与运行时推进能力同批交付。
-    /// </summary>
-    private static bool IsRuntimeTopologySupported(
-        WorkflowNodeDraft start,
-        IReadOnlyDictionary<string, WorkflowNodeDraft> nodeByKey,
-        IReadOnlyDictionary<string, string[]> edges)
-    {
-        if (nodeByKey.Count != 3 || edges[start.NodeKey] is not [var approvalKey] ||
-            !nodeByKey.TryGetValue(approvalKey, out var approval) ||
-            approval.NodeTypeKey != "human.approval" ||
-            edges[approvalKey] is not [var endKey] ||
-            !nodeByKey.TryGetValue(endKey, out var end) ||
-            end.NodeTypeKey != "end" || edges[endKey].Length != 0)
-        {
-            return false;
-        }
-
-        return true;
     }
 
     private static bool ContainsCycle(

@@ -232,6 +232,9 @@ internal static class WorkflowRuntimeApiAssertions
         using var remaining = JsonDocument.Parse(await emptyMine.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(0, remaining.RootElement.GetArrayLength());
 
+        await VerifyLinearMultiApprovalAsync(
+            client, identity.AccessToken, versions.FormVersionId, cancellationToken);
+
         using var reopen = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
             {
@@ -428,6 +431,120 @@ internal static class WorkflowRuntimeApiAssertions
         CollectionAssert.Contains(
             new[] { "completed", "rejected" },
             concurrentResult.RootElement.GetProperty("statusKey").GetString());
+    }
+
+    private static async Task VerifyLinearMultiApprovalAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var definitionVersionId = await PublishLinearMultiApprovalDefinitionAsync(
+            client, token, formVersionId, cancellationToken);
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", token, new
+            {
+                definitionVersionId,
+                businessType = "leave.multi-approval",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "multi-stage", secret = "classified" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var firstTodoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+        var firstIdempotencyKey = $"approve-{Guid.NewGuid():N}";
+
+        using var firstApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{firstTodoId:D}/approve", token, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "first-approved" },
+                comment = "first stage",
+                idempotencyKey = firstIdempotencyKey,
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstApprove.StatusCode,
+            await firstApprove.Content.ReadAsStringAsync(cancellationToken));
+        using var advanced = JsonDocument.Parse(await firstApprove.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("active", advanced.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(2, advanced.RootElement.GetProperty("revision").GetInt64());
+        var secondTodoId = advanced.RootElement.GetProperty("activeTodoId").GetGuid();
+        Assert.AreNotEqual(firstTodoId, secondTodoId);
+
+        using var replay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{firstTodoId:D}/approve", token, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "first-approved" },
+                comment = "first stage",
+                idempotencyKey = firstIdempotencyKey,
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, replay.StatusCode,
+            await replay.Content.ReadAsStringAsync(cancellationToken));
+        using var replayed = JsonDocument.Parse(await replay.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(secondTodoId, replayed.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var secondApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{secondTodoId:D}/approve", token, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "final-approved" },
+                comment = "final stage",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondApprove.StatusCode,
+            await secondApprove.Content.ReadAsStringAsync(cancellationToken));
+        using var completed = JsonDocument.Parse(await secondApprove.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("completed", completed.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(3, completed.RootElement.GetProperty("revision").GetInt64());
+        Assert.AreEqual(JsonValueKind.Null, completed.RootElement.GetProperty("activeTodoId").ValueKind);
+    }
+
+    private static async Task<Guid> PublishLinearMultiApprovalDefinitionAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var fieldPolicies = new Dictionary<string, string>
+        {
+            ["reason"] = "readOnly",
+            ["secret"] = "hidden",
+            ["decision"] = "required",
+        };
+        using var create = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
+            {
+                definitionKey = $"runtime.multi.{Guid.NewGuid():N}",
+                draft = new
+                {
+                    schemaVersion = 1,
+                    nodes = new object[]
+                    {
+                        new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "first" } } },
+                        new { nodeKey = "first", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "second" }, fieldPolicies } },
+                        new { nodeKey = "second", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "end" }, fieldPolicies } },
+                        new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = Array.Empty<string>() } },
+                    },
+                },
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, create.StatusCode,
+            await create.Content.ReadAsStringAsync(cancellationToken));
+        using var definition = JsonDocument.Parse(await create.Content.ReadAsStringAsync(cancellationToken));
+
+        using var publish = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/definitions/{definition.RootElement.GetProperty("id").GetGuid():D}/publish",
+                token, new { expectedRevision = 1, formVersionId }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publish.StatusCode,
+            await publish.Content.ReadAsStringAsync(cancellationToken));
+        using var version = JsonDocument.Parse(await publish.Content.ReadAsStringAsync(cancellationToken));
+        return version.RootElement.GetProperty("id").GetGuid();
     }
 
     private static async Task<PublishedRuntimeAssets> PublishRuntimeAssetsAsync(

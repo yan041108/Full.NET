@@ -51,7 +51,7 @@ internal sealed class WorkflowTodoManagementService(
         ActWorkflowTodoRequest request,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteResultAsync(
-            token => ActAsync(todoId, actorUserId, request, "approve", "completed", token),
+            token => ActAsync(todoId, actorUserId, request, "approve", token),
             cancellationToken);
 
     public async Task<Result<WorkflowTodoDetailResponse>> GetAsync(
@@ -144,7 +144,7 @@ internal sealed class WorkflowTodoManagementService(
         ActWorkflowTodoRequest request,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteResultAsync(
-            token => ActAsync(todoId, actorUserId, request, "reject", "rejected", token),
+            token => ActAsync(todoId, actorUserId, request, "reject", token),
             cancellationToken);
 
     private async Task<Result<WorkflowInstanceResponse>> ActAsync(
@@ -152,7 +152,6 @@ internal sealed class WorkflowTodoManagementService(
         Guid actorUserId,
         ActWorkflowTodoRequest request,
         string actionKey,
-        string terminalStatus,
         CancellationToken token)
     {
         if (request.ExpectedRevision < 1 || request.FieldPatch.ValueKind != System.Text.Json.JsonValueKind.Object ||
@@ -193,10 +192,19 @@ internal sealed class WorkflowTodoManagementService(
                 ("IdempotencyKey", request.IdempotencyKey.Trim())), token).ConfigureAwait(false);
         if (receipt is not null)
         {
-            return receipt.ActionKey == actionKey && receipt.ActorUserId == actorUserId &&
-                   receipt.RequestHash == requestHash
-                ? Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, null))
-                : Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            if (receipt.ActionKey != actionKey || receipt.ActorUserId != actorUserId ||
+                receipt.RequestHash != requestHash)
+            {
+                return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
+
+            var replayTodo = instance.StatusKey == "active"
+                ? await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+                    WorkflowSql.FindActiveTodoByInstance,
+                    WorkflowSqlParameters.Create(("InstanceId", instance.Id),
+                        ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false)
+                : null;
+            return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, replayTodo?.Id));
         }
 
         if (todo.StatusKey != "active" || todo.Revision != request.ExpectedRevision)
@@ -217,7 +225,16 @@ internal sealed class WorkflowTodoManagementService(
             WorkflowSql.FindFormSubmissionByInstance,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id),
                 ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
-        var patchedSubmission = asset is null || submission is null
+        var definition = asset is null
+            ? null
+            : JsonSerializer.Deserialize(
+                asset.CanonicalJson,
+                WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
+        WorkflowRuntimePlan? runtimePlan = null;
+        var transition = default(WorkflowApprovalTransition);
+        var hasPlan = definition is not null && WorkflowRuntimePlan.TryCreate(definition, out runtimePlan);
+        var hasTransition = hasPlan && runtimePlan!.TryResolveApproval(todo.NodeKey, out transition);
+        var patchedSubmission = asset is null || submission is null || !hasTransition
             ? null
             : BuildPatchedSubmission(
                 asset.CanonicalJson,
@@ -231,6 +248,13 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         var now = clock.UtcNow;
+        var advancesToNextApproval = actionKey == "approve" && !transition.CompletesInstance;
+        var instanceStatus = actionKey == "reject"
+            ? "rejected"
+            : advancesToNextApproval ? "active" : "completed";
+        var stepStatus = actionKey == "reject" ? "rejected" : "completed";
+        var nextStepId = advancesToNextApproval ? idGenerator.NewId() : (Guid?)null;
+        var nextTodoId = advancesToNextApproval ? idGenerator.NewId() : (Guid?)null;
         var submissionUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
@@ -244,15 +268,34 @@ internal sealed class WorkflowTodoManagementService(
         var stepUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CompleteStepWithRevision,
             WorkflowSqlParameters.Create(("Id", todo.StepId), ("InstanceId", instance.Id),
-                ("StatusKey", terminalStatus), ("CompletedAtUtc", now), ("Revision", 1L)), token).ConfigureAwait(false);
+                ("StatusKey", stepStatus), ("CompletedAtUtc", now), ("Revision", 1L)), token).ConfigureAwait(false);
+        var instanceStatement = advancesToNextApproval
+            ? WorkflowSql.AdvanceInstanceWithRevision
+            : WorkflowSql.CompleteInstanceWithRevision;
+        var instanceParameters = advancesToNextApproval
+            ? WorkflowSqlParameters.Create(("Id", instance.Id),
+                ("TenantScopeKey", scope.TenantScopeKey), ("Revision", instance.Revision))
+            : WorkflowSqlParameters.Create(("Id", instance.Id),
+                ("TenantScopeKey", scope.TenantScopeKey), ("StatusKey", instanceStatus),
+                ("CompletedAtUtc", now), ("Revision", instance.Revision));
         var instanceUpdated = await commandExecutor.ExecuteAsync(
-            WorkflowSql.CompleteInstanceWithRevision,
-            WorkflowSqlParameters.Create(("Id", instance.Id), ("TenantScopeKey", scope.TenantScopeKey),
-                ("StatusKey", terminalStatus), ("CompletedAtUtc", now),
-                ("Revision", instance.Revision)), token).ConfigureAwait(false);
+            instanceStatement, instanceParameters, token).ConfigureAwait(false);
         if (submissionUpdated != 1 || todoUpdated != 1 || stepUpdated != 1 || instanceUpdated != 1)
         {
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        if (advancesToNextApproval)
+        {
+            // 审批人解析器尚未开放前沿用当前办理人，避免从设计器的非权威展示字段推导身份。
+            await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
+                WorkflowSqlParameters.Create(("Id", nextStepId), ("InstanceId", instance.Id),
+                    ("NodeKey", transition.NextApprovalNodeKey), ("AssignedUserId", actorUserId),
+                    ("StartedAtUtc", now)), token).ConfigureAwait(false);
+            await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
+                WorkflowSqlParameters.Create(("Id", nextTodoId), ("InstanceId", instance.Id),
+                    ("StepId", nextStepId), ("AssigneeUserId", actorUserId),
+                    ("ArrivedAtUtc", now)), token).ConfigureAwait(false);
         }
 
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
@@ -264,7 +307,7 @@ internal sealed class WorkflowTodoManagementService(
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
             WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
                 ("StepId", todo.StepId), ("TransitionKey", $"todo.{actionKey}"),
-                ("FromStatusKey", "active"), ("ToStatusKey", terminalStatus),
+                ("FromStatusKey", "active"), ("ToStatusKey", instanceStatus),
                 ("IdempotencyKey", request.IdempotencyKey.Trim()),
                 ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
@@ -277,8 +320,8 @@ internal sealed class WorkflowTodoManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, terminalStatus,
-            instance.Revision + 1, null, instance.StartedAtUtc));
+            instance.BusinessType, instance.BusinessId, instanceStatus,
+            instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
     }
 
     private static string? BuildPatchedSubmission(

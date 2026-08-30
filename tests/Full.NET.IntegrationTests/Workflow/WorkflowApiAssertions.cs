@@ -179,7 +179,8 @@ internal static class WorkflowApiAssertions
         schemaVersion = 1,
         nodes = new object[]
         {
-            new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1, config = new { label, nextNodeKeys = new[] { "end" } } },
+            new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1, config = new { label, nextNodeKeys = new[] { "approve" } } },
+            new { nodeKey = "approve", nodeTypeKey = "human.approval", nodeSchemaVersion = 1, config = new { nextNodeKeys = new[] { "end" } } },
             new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1, config = new { nextNodeKeys = Array.Empty<string>() } },
         },
     };

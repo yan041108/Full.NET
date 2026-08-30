@@ -45,15 +45,21 @@ internal sealed class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.Validation);
         }
 
-        var approvalNodeKey = FindFirstApprovalNode(asset.CanonicalJson);
+        var definition = JsonSerializer.Deserialize(
+            asset.CanonicalJson,
+            WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
         var formSchema = JsonSerializer.Deserialize(
             asset.FormSchemaJson,
             WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
-        if (approvalNodeKey is null || formSchema is null ||
+        if (definition is null ||
+            !WorkflowRuntimePlan.TryCreate(definition, out var runtimePlan) ||
+            formSchema is null ||
             !WorkflowFormValueValidator.Validate(formSchema, request.InitialValues))
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
+
+        var approvalNodeKey = runtimePlan!.FirstApprovalNodeKey;
 
         var instanceId = idGenerator.NewId();
         var stepId = idGenerator.NewId();
@@ -332,51 +338,6 @@ internal sealed class WorkflowInstanceManagementService(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, "cancelled",
             request.ExpectedRevision + 1, null, instance.StartedAtUtc));
-    }
-
-    private static string? FindFirstApprovalNode(string canonicalJson)
-    {
-        var draft = JsonSerializer.Deserialize(
-            canonicalJson,
-            WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
-        if (draft is null)
-        {
-            return null;
-        }
-
-        var byKey = draft.Nodes.ToDictionary(node => node.NodeKey, StringComparer.Ordinal);
-        var start = draft.Nodes.SingleOrDefault(node => node.NodeTypeKey == "start");
-        if (start is null)
-        {
-            return null;
-        }
-
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        var current = ReadSingleNext(start.Config);
-        while (current is not null && visited.Add(current) && byKey.TryGetValue(current, out var node))
-        {
-            if (node.NodeTypeKey == "human.approval")
-            {
-                return node.NodeKey;
-            }
-
-            current = ReadSingleNext(node.Config);
-        }
-
-        return null;
-    }
-
-    private static string? ReadSingleNext(JsonElement config)
-    {
-        if (config.ValueKind != JsonValueKind.Object ||
-            !config.TryGetProperty("nextNodeKeys", out var keys) ||
-            keys.ValueKind != JsonValueKind.Array)
-        {
-            return null;
-        }
-
-        var values = keys.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).ToArray();
-        return values.Length == 1 ? values[0].GetString() : null;
     }
 
     private async Task<Result<WorkflowInstanceResponse>> ResolveStartConflictAsync(
