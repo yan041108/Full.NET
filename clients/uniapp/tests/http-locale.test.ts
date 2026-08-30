@@ -8,6 +8,7 @@ type RequestCall = {
   readonly method?: string;
   readonly data?: unknown;
   readonly header?: Record<string, string>;
+  readonly withCredentials?: boolean;
 };
 
 type PlannedResponse =
@@ -25,7 +26,8 @@ function createRequest(responses: readonly PlannedResponse[]): {
       url: options.url,
       method: options.method,
       data: options.data,
-      header: options.header as Record<string, string> | undefined
+      header: options.header as Record<string, string> | undefined,
+      withCredentials: options.withCredentials
     });
     const response = responses[index++];
     if ('failure' in response) {
@@ -73,13 +75,15 @@ describe('HTTP client locale and ProblemDetails contract', () => {
         url: '/api/v1/one',
         method: 'GET',
         data: undefined,
-        header: { 'X-Request-Id': 'first', 'Accept-Language': 'zh-CN' }
+        header: { 'X-Request-Id': 'first', 'Accept-Language': 'zh-CN' },
+        withCredentials: true
       },
       {
         url: '/api/v1/two',
         method: 'POST',
         data: undefined,
-        header: { 'Accept-Language': 'en-US', Authorization: 'Bearer fresh-access-token' }
+        header: { 'Accept-Language': 'en-US', Authorization: 'Bearer fresh-access-token' },
+        withCredentials: true
       }
     ]);
   });
@@ -221,5 +225,117 @@ describe('HTTP client locale and ProblemDetails contract', () => {
       { 'Accept-Language': 'zh-CN' },
       { 'Accept-Language': 'zh-CN', Authorization: 'Bearer fresh-access-token' }
     ]);
+  });
+
+  it('refreshes once after 401 and retries with the latest access token', async () => {
+    const transport = createRequest([
+      { statusCode: 401, data: { title: 'Expired.', code: 'identity.access_token_expired' } },
+      { statusCode: 200, data: { value: 'retried' } }
+    ]);
+    let token = 'expired-token';
+    let refreshCount = 0;
+    const http = createHttpClient({ request: transport.request, getLocale: () => 'zh-CN' });
+    http.configureAuthentication({
+      getAccessToken: () => token,
+      async refresh() {
+        refreshCount += 1;
+        token = 'fresh-token';
+        return true;
+      }
+    });
+
+    await expect(http.request<{ value: string }>({ path: '/api/v1/protected' }))
+      .resolves.toEqual({ value: 'retried' });
+
+    expect(refreshCount).toBe(1);
+    expect(transport.calls.map(call => call.header?.Authorization)).toEqual([
+      'Bearer expired-token',
+      'Bearer fresh-token'
+    ]);
+  });
+
+  it('shares one refresh across concurrent 401 responses', async () => {
+    const transport = createRequest([
+      { statusCode: 401, data: { code: 'identity.access_token_expired' } },
+      { statusCode: 401, data: { code: 'identity.access_token_expired' } },
+      { statusCode: 200, data: { value: 'one' } },
+      { statusCode: 200, data: { value: 'two' } }
+    ]);
+    let releaseRefresh: ((value: boolean) => void) | undefined;
+    const refreshResult = new Promise<boolean>(resolve => {
+      releaseRefresh = resolve;
+    });
+    let markRefreshStarted: (() => void) | undefined;
+    const refreshStarted = new Promise<void>(resolve => {
+      markRefreshStarted = resolve;
+    });
+    let refreshCount = 0;
+    const http = createHttpClient({ request: transport.request, getLocale: () => 'zh-CN' });
+    http.configureAuthentication({
+      getAccessToken: () => 'token',
+      refresh() {
+        refreshCount += 1;
+        markRefreshStarted?.();
+        return refreshResult;
+      }
+    });
+
+    const requests = [
+      http.request<{ value: string }>({ path: '/api/v1/one' }),
+      http.request<{ value: string }>({ path: '/api/v1/two' })
+    ];
+    await refreshStarted;
+    expect(refreshCount).toBe(1);
+    releaseRefresh?.(true);
+
+    await expect(Promise.all(requests)).resolves.toEqual([{ value: 'one' }, { value: 'two' }]);
+    expect(refreshCount).toBe(1);
+  });
+
+  it('returns the original 401 when refresh fails and does not retry', async () => {
+    const transport = createRequest([{
+      statusCode: 401,
+      data: { title: 'Expired.', code: 'identity.access_token_expired', traceId: 'trace-401' }
+    }]);
+    let refreshCount = 0;
+    const http = createHttpClient({ request: transport.request, getLocale: () => 'zh-CN' });
+    http.configureAuthentication({
+      getAccessToken: () => 'expired-token',
+      async refresh() {
+        refreshCount += 1;
+        return false;
+      }
+    });
+
+    await expect(http.request({ path: '/api/v1/protected' })).rejects.toMatchObject({
+      status: 401,
+      code: 'identity.access_token_expired',
+      traceId: 'trace-401'
+    } satisfies Partial<HttpProblem>);
+    expect(refreshCount).toBe(1);
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it('does not refresh authentication endpoints when unauthorized retry is disabled', async () => {
+    const transport = createRequest([{
+      statusCode: 401,
+      data: { title: 'Invalid credentials.', code: 'identity.invalid_credentials' }
+    }]);
+    let refreshCount = 0;
+    const http = createHttpClient({ request: transport.request, getLocale: () => 'zh-CN' });
+    http.configureAuthentication({
+      getAccessToken: () => undefined,
+      async refresh() {
+        refreshCount += 1;
+        return true;
+      }
+    });
+
+    await expect(http.request({
+      path: '/api/v1/auth/login',
+      method: 'POST',
+      retryUnauthorized: false
+    })).rejects.toMatchObject({ status: 401, code: 'identity.invalid_credentials' });
+    expect(refreshCount).toBe(0);
   });
 });

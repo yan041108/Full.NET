@@ -3,8 +3,15 @@ import { onLaunch } from '@dcloudio/uni-app';
 
 import { initializeLocale } from './i18n';
 
+// #ifdef H5
+import { restoreH5IdentitySession } from './features/identity/h5-application-session';
+// #endif
+
 onLaunch(() => {
   initializeLocale();
+  // #ifdef H5
+  void restoreH5IdentitySession();
+  // #endif
 });
 </script>
 
