@@ -43,6 +43,10 @@ public sealed class WorkflowFormCompilerTests
     [DataRow("text-length-not-integer", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("integer-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     [DataRow("integer-range-not-integer", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("decimal-scale-missing", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("decimal-scale-too-large", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("decimal-range-reversed", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
+    [DataRow("money-bound-exceeds-scale", WorkflowErrorCodes.FormFieldConstraintsInvalid)]
     public void Compile_rejects_unsafe_or_invalid_forms(string scenario, string expectedCode)
     {
         var schema = scenario switch
@@ -64,6 +68,10 @@ public sealed class WorkflowFormCompilerTests
             "text-length-not-integer" => Schema(Field("summary", "text", "{\"maxLength\":2.5}")),
             "integer-range-reversed" => Schema(Field("count", "integer", "{\"minimum\":5,\"maximum\":4}")),
             "integer-range-not-integer" => Schema(Field("count", "integer", "{\"minimum\":1.5}")),
+            "decimal-scale-missing" => Schema(Field("ratio", "decimal", "{}")),
+            "decimal-scale-too-large" => Schema(Field("ratio", "decimal", "{\"scale\":29}")),
+            "decimal-range-reversed" => Schema(Field("ratio", "decimal", "{\"scale\":3,\"minimum\":\"2.000\",\"maximum\":\"1.000\"}")),
+            "money-bound-exceeds-scale" => Schema(Field("amount", "money", "{\"scale\":2,\"minimum\":\"0.001\"}")),
             _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
         };
 

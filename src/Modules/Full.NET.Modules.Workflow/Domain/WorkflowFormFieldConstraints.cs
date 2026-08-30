@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Full.NET.Modules.Workflow.Domain;
@@ -32,6 +33,84 @@ internal static class WorkflowFormFieldConstraints
                maximum >= minimum;
     }
 
+    public static bool TryReadDecimalConstraints(
+        WorkflowFormField field,
+        int maximumAllowedScale,
+        out int scale,
+        out decimal minimum,
+        out decimal maximum)
+    {
+        scale = 0;
+        minimum = decimal.MinValue;
+        maximum = decimal.MaxValue;
+
+        return TryReadDecimalScale(field, maximumAllowedScale, out scale) &&
+               TryReadOptionalDecimal(field, "minimum", scale, ref minimum) &&
+               TryReadOptionalDecimal(field, "maximum", scale, ref maximum) &&
+               maximum >= minimum;
+    }
+
+    public static bool TryReadDecimalScale(
+        WorkflowFormField field,
+        int maximumAllowedScale,
+        out int scale)
+    {
+        scale = 0;
+        return field.Constraints.TryGetValue("scale", out var configured) &&
+               configured.ValueKind == JsonValueKind.Number &&
+               configured.TryGetInt32(out scale) &&
+               scale >= 0 &&
+               scale <= maximumAllowedScale;
+    }
+
+    public static bool TryParseCanonicalDecimal(
+        string text,
+        int maximumScale,
+        out decimal value)
+    {
+        value = default;
+        if (string.IsNullOrEmpty(text) || text[0] == '+' || text.Trim() != text)
+        {
+            return false;
+        }
+
+        var digitStart = text[0] == '-' ? 1 : 0;
+        if (digitStart == text.Length)
+        {
+            return false;
+        }
+
+        var decimalPoint = text.IndexOf('.', digitStart);
+        if (decimalPoint >= 0 && text.IndexOf('.', decimalPoint + 1) >= 0)
+        {
+            return false;
+        }
+
+        var integerEnd = decimalPoint >= 0 ? decimalPoint : text.Length;
+        var integerLength = integerEnd - digitStart;
+        var fractionLength = decimalPoint >= 0 ? text.Length - decimalPoint - 1 : 0;
+        if (integerLength == 0 ||
+            fractionLength > maximumScale ||
+            (decimalPoint >= 0 && fractionLength == 0) ||
+            (integerLength > 1 && text[digitStart] == '0') ||
+            !ContainsOnlyDigits(text.AsSpan(digitStart, integerLength)) ||
+            (fractionLength > 0 && !ContainsOnlyDigits(text.AsSpan(decimalPoint + 1))))
+        {
+            return false;
+        }
+
+        if (!decimal.TryParse(
+                text,
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture,
+                out value))
+        {
+            return false;
+        }
+
+        return value != decimal.Zero || text[0] != '-';
+    }
+
     private static bool TryReadOptionalInt32(
         WorkflowFormField field,
         string constraintKey,
@@ -56,5 +135,39 @@ internal static class WorkflowFormFieldConstraints
         }
 
         return configured.ValueKind == JsonValueKind.Number && configured.TryGetInt64(out value);
+    }
+
+    private static bool TryReadOptionalDecimal(
+        WorkflowFormField field,
+        string constraintKey,
+        int scale,
+        ref decimal value)
+    {
+        if (!field.Constraints.TryGetValue(constraintKey, out var configured))
+        {
+            return true;
+        }
+
+        var text = configured.ValueKind switch
+        {
+            JsonValueKind.Number => configured.GetRawText(),
+            JsonValueKind.String => configured.GetString(),
+            _ => null,
+        };
+
+        return text is not null && TryParseCanonicalDecimal(text, scale, out value);
+    }
+
+    private static bool ContainsOnlyDigits(ReadOnlySpan<char> value)
+    {
+        foreach (var character in value)
+        {
+            if (character is < '0' or > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

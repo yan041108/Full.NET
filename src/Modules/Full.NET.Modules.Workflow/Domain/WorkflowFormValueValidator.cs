@@ -62,7 +62,8 @@ internal static class WorkflowFormValueValidator
         field.FieldTypeKey switch
     {
         "text" or "textarea" => IsTextValid(field, value),
-        "money" or "decimal" or "date" or "time" or "datetime" =>
+        "money" or "decimal" => IsDecimalValid(field, value),
+        "date" or "time" or "datetime" =>
             value.ValueKind == JsonValueKind.String &&
             !string.IsNullOrWhiteSpace(value.GetString()),
         "radio" or "select" => IsDeclaredOption(field, value),
@@ -98,6 +99,26 @@ internal static class WorkflowFormValueValidator
         }
 
         return integer >= minimum && integer <= maximum;
+    }
+
+    private static bool IsDecimalValid(WorkflowFormField field, JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.String ||
+            !WorkflowFormFieldConstraints.TryReadDecimalConstraints(
+                field,
+                field.FieldTypeKey == "money" ? 4 : 28,
+                out var scale,
+                out var minimum,
+                out var maximum) ||
+            !WorkflowFormFieldConstraints.TryParseCanonicalDecimal(
+                value.GetString()!,
+                scale,
+                out var number))
+        {
+            return false;
+        }
+
+        return number >= minimum && number <= maximum;
     }
 
     private static bool IsDeclaredOption(WorkflowFormField field, JsonElement value)

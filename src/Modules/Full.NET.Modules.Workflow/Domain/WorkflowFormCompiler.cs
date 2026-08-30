@@ -60,7 +60,14 @@ internal static class WorkflowFormCompiler
         if (fields.Where(field => field.FieldTypeKey is "text" or "textarea")
                 .Any(field => !WorkflowFormFieldConstraints.TryReadTextLength(field, out _, out _)) ||
             fields.Where(field => field.FieldTypeKey == "integer")
-                .Any(field => !WorkflowFormFieldConstraints.TryReadIntegerRange(field, out _, out _)))
+                .Any(field => !WorkflowFormFieldConstraints.TryReadIntegerRange(field, out _, out _)) ||
+            fields.Where(field => field.FieldTypeKey is "decimal" or "money")
+                .Any(field => !WorkflowFormFieldConstraints.TryReadDecimalConstraints(
+                    field,
+                    field.FieldTypeKey == "money" ? 4 : 28,
+                    out _,
+                    out _,
+                    out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldConstraintsInvalid);
         }
@@ -110,14 +117,7 @@ internal static class WorkflowFormCompiler
 
     private static bool HasInvalidMoneyScale(WorkflowFormField field)
     {
-        if (!field.Constraints.TryGetValue("scale", out var scale) ||
-            scale.ValueKind != JsonValueKind.Number ||
-            !scale.TryGetInt32(out var value))
-        {
-            return true;
-        }
-
-        return value is < 0 or > 4;
+        return !WorkflowFormFieldConstraints.TryReadDecimalScale(field, 4, out _);
     }
 
     private static bool ContainsForbiddenExtension(string key, JsonElement value)

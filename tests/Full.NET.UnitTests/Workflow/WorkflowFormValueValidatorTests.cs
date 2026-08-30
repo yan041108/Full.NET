@@ -61,6 +61,34 @@ public sealed class WorkflowFormValueValidatorTests
         Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, values));
     }
 
+    [TestMethod]
+    public void Validate_accepts_canonical_decimal_strings_at_published_boundaries()
+    {
+        var schema = Schema(
+            Field("amount", "money", true, "{\"scale\":2,\"minimum\":\"10.00\",\"maximum\":\"12.30\"}"),
+            Field("ratio", "decimal", true, "{\"scale\":3,\"minimum\":-2,\"maximum\":0}"));
+        var values = ParseElement("{\"amount\":\"12.30\",\"ratio\":\"-1.25\"}");
+
+        Assert.IsTrue(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
+    [TestMethod]
+    [DataRow("money", "{\"scale\":2}", "12.30")]
+    [DataRow("money", "{\"scale\":2}", "\"12.345\"")]
+    [DataRow("money", "{\"scale\":2}", "\"01.25\"")]
+    [DataRow("decimal", "{\"scale\":3}", "\"1e2\"")]
+    [DataRow("decimal", "{\"scale\":3,\"minimum\":\"-2.000\",\"maximum\":\"2.000\"}", "\"2.001\"")]
+    public void Validate_rejects_noncanonical_or_out_of_range_decimal_values(
+        string fieldTypeKey,
+        string constraintsJson,
+        string valueJson)
+    {
+        var schema = Schema(Field("value", fieldTypeKey, true, constraintsJson));
+        var values = ParseElement($"{{\"value\":{valueJson}}}");
+
+        Assert.IsFalse(WorkflowFormValueValidator.Validate(schema, values));
+    }
+
     private static WorkflowFormSchema Schema(params WorkflowFormField[] fields) =>
         new(1, 1, [new WorkflowFormSection("main", fields)]);
 
