@@ -5,6 +5,7 @@ import type {
   AccessHostDocumentShareRequest,
   AccessLogCursorPageResponse,
   AccessLogResponse,
+  ActWorkflowTodoRequest,
   AddHostDocumentVersionRequest,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
@@ -143,6 +144,7 @@ import type {
   ImportHostUsersResponse,
   InboxMessageResponse,
   InboxUnreadCountResponse,
+  JsonElement,
   LocalePreferenceResponse,
   LogFileSummary,
   LogFileTail,
@@ -236,7 +238,10 @@ import type {
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
-  UpdateSerialNumberRuleRequest
+  UpdateSerialNumberRuleRequest,
+  WorkflowInstanceResponse,
+  WorkflowTodoDetailResponse,
+  WorkflowTodoResponse
 } from './models.generated.js';
 
 export function readAccessHostDocumentShareRequest(value: unknown): AccessHostDocumentShareRequest {
@@ -270,6 +275,17 @@ export function readAccessLogResponse(value: unknown): AccessLogResponse {
 
 function isAccessLogResponse(value: unknown): value is AccessLogResponse {
   return isRecord(value) && ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string')) && (typeof value["durationMs"] === 'number' && Number.isInteger(value["durationMs"])) && (typeof value["httpMethod"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isAuthenticated"] === 'boolean') && (typeof value["occurredAtUtc"] === 'string') && (typeof value["requestPath"] === 'string') && (typeof value["statusCode"] === 'number' && Number.isInteger(value["statusCode"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && ((value["traceId"] === null) || (typeof value["traceId"] === 'string')) && ((value["userId"] === null) || (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])));
+}
+
+export function readActWorkflowTodoRequest(value: unknown): ActWorkflowTodoRequest {
+  if (!(isActWorkflowTodoRequest(value))) {
+    throw new Error('client.invalid_act_workflow_todo_request');
+  }
+  return value;
+}
+
+function isActWorkflowTodoRequest(value: unknown): value is ActWorkflowTodoRequest {
+  return isRecord(value) && ((value["comment"] === null) || (typeof value["comment"] === 'string')) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string');
 }
 
 export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocumentVersionRequest {
@@ -1790,6 +1806,17 @@ function isInboxUnreadCountResponse(value: unknown): value is InboxUnreadCountRe
   return isRecord(value) && (typeof value["unreadCount"] === 'number' && Number.isInteger(value["unreadCount"]));
 }
 
+export function readJsonElement(value: unknown): JsonElement {
+  if (!(isJsonElement(value))) {
+    throw new Error('client.invalid_json_element');
+  }
+  return value;
+}
+
+function isJsonElement(value: unknown): value is JsonElement {
+  return isJsonValue(value);
+}
+
 export function readLocalePreferenceResponse(value: unknown): LocalePreferenceResponse {
   if (!(isLocalePreferenceResponse(value))) {
     throw new Error('client.invalid_locale_preference_response');
@@ -2824,6 +2851,39 @@ function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialN
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceResponse {
+  if (!(isWorkflowInstanceResponse(value))) {
+    throw new Error('client.invalid_workflow_instance_response');
+  }
+  return value;
+}
+
+function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
+  return isRecord(value) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
+export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
+  if (!(isWorkflowTodoDetailResponse(value))) {
+    throw new Error('client.invalid_workflow_todo_detail_response');
+  }
+  return value;
+}
+
+function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDetailResponse {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
+}
+
+export function readWorkflowTodoResponse(value: unknown): WorkflowTodoResponse {
+  if (!(isWorkflowTodoResponse(value))) {
+    throw new Error('client.invalid_workflow_todo_response');
+  }
+  return value;
+}
+
+function isWorkflowTodoResponse(value: unknown): value is WorkflowTodoResponse {
+  return isRecord(value) && (typeof value["arrivedAtUtc"] === 'string') && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["resultActionKey"] === null) || (typeof value["resultActionKey"] === 'string')) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+}
+
 export function readCodeGenerationListCatalogTablesResponse(value: unknown): Array<CodeGenerationCatalogTableResponse> {
   if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogTableResponse(item5)))) {
     throw new Error('client.invalid_code_generation_list_catalog_tables_response');
@@ -3027,8 +3087,28 @@ export function readSettingsListTenantDictItemsByTypeCodeResponse(value: unknown
   return value as Array<DictItemResponse>;
 }
 
+export function readWorkflowListMyTodosResponse(value: unknown): Array<WorkflowTodoResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowTodoResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_my_todos_response');
+  }
+  return value as Array<WorkflowTodoResponse>;
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+    return true;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+  return isRecord(value) && Object.values(value).every(isJsonValue);
 }

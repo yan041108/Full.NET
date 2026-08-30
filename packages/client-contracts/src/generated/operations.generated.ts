@@ -6,6 +6,7 @@ import type {
   AccessHostDocumentShareRequest,
   AccessLogCursorPageResponse,
   AccessLogResponse,
+  ActWorkflowTodoRequest,
   AddHostDocumentVersionRequest,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
@@ -144,6 +145,7 @@ import type {
   ImportHostUsersResponse,
   InboxMessageResponse,
   InboxUnreadCountResponse,
+  JsonElement,
   LocalePreferenceResponse,
   LogFileSummary,
   LogFileTail,
@@ -237,7 +239,10 @@ import type {
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
-  UpdateSerialNumberRuleRequest
+  UpdateSerialNumberRuleRequest,
+  WorkflowInstanceResponse,
+  WorkflowTodoDetailResponse,
+  WorkflowTodoResponse
 } from './models.generated.js';
 import {
   readAccessLogCursorPageResponse,
@@ -359,7 +364,10 @@ import {
   readTenantPackageSummary,
   readTenantSummary,
   readTokenResponse,
-  readTotpEnrollmentStatusResponse
+  readTotpEnrollmentStatusResponse,
+  readWorkflowInstanceResponse,
+  readWorkflowListMyTodosResponse,
+  readWorkflowTodoDetailResponse
 } from './guards.generated.js';
 
 export type GeneratedJsonOperation<T> = (
@@ -5652,4 +5660,86 @@ export async function tenancyUpdateHostTenantPackage(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantPackageSummary(value);
+}
+
+export interface WorkflowApproveTodoParameters {
+  readonly todoId: string;
+  readonly body: ActWorkflowTodoRequest;
+}
+
+export async function workflowApproveTodo(
+  http: HttpClient,
+  parameters: WorkflowApproveTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/approve`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowGetTodoParameters {
+  readonly todoId: string;
+}
+
+export async function workflowGetTodo(
+  http: HttpClient,
+  parameters: WorkflowGetTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowTodoDetailResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowTodoDetailResponse(value);
+}
+
+export interface WorkflowListMyTodosParameters {
+
+}
+
+export async function workflowListMyTodos(
+  http: HttpClient,
+  parameters: WorkflowListMyTodosParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowTodoResponse>> {
+  const path = `/api/v1/workflow/todos/mine`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListMyTodosResponse(value);
+}
+
+export interface WorkflowRejectTodoParameters {
+  readonly todoId: string;
+  readonly body: ActWorkflowTodoRequest;
+}
+
+export async function workflowRejectTodo(
+  http: HttpClient,
+  parameters: WorkflowRejectTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/reject`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
 }

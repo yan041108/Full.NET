@@ -189,6 +189,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['outbound-call-logs', {
     titleKey: 'navigation.outboundCallLogs.title',
     captionKey: 'navigation.outboundCallLogs.caption'
+  }],
+  ['workflow-todos', {
+    titleKey: 'navigation.workflowTodos.title',
+    captionKey: 'navigation.workflowTodos.caption'
   }]
 ]);
 

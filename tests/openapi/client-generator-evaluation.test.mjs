@@ -69,6 +69,28 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
   }
 });
 
+test('生成器把 JsonElement 空 Schema 收紧为 JSON 值守卫', async () => {
+  const { renderGeneratedFiles } = await import(
+    '../../scripts/openapi/generate-fullnet-client.mjs'
+  );
+  const files = renderGeneratedFiles({
+    openapi: '3.1.0',
+    paths: {},
+    components: {
+      schemas: {
+        JsonElement: {}
+      }
+    }
+  });
+
+  assert.match(files['models.generated.ts'], /export type JsonElement = unknown;/u);
+  assert.match(files['guards.generated.ts'], /isJsonValue\(value\)/u);
+  assert.match(
+    files['guards.generated.ts'],
+    /function isJsonValue\(value: unknown\): boolean/u
+  );
+});
+
 test('零漂移检查接受 Git autocrlf 产生的 CRLF 工作树文件', async () => {
   const { generateFullNetClient } = await import(
     '../../scripts/openapi/generate-fullnet-client.mjs'

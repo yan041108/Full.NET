@@ -8,6 +8,30 @@
   ],
   "entries": [
     {
+      "operationId": "workflowListMyTodos",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowApproveTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRejectTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
       "operationId": "observabilityListLogFiles",
       "apiModule": "ui/admin/src/api/observability-log-files.ts",
       "generatedGroup": "observability-log-files",

@@ -137,6 +137,18 @@ function renderGuards(schemas, operations) {
     + "const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\n\n"
     + "function isRecord(value: unknown): value is Record<string, unknown> {\n"
     + "  return typeof value === 'object' && value !== null && !Array.isArray(value);\n"
+    + '}\n\n'
+    + "function isJsonValue(value: unknown): boolean {\n"
+    + "  if (value === null || typeof value === 'string' || typeof value === 'boolean') {\n"
+    + "    return true;\n"
+    + "  }\n"
+    + "  if (typeof value === 'number') {\n"
+    + "    return Number.isFinite(value);\n"
+    + "  }\n"
+    + "  if (Array.isArray(value)) {\n"
+    + "    return value.every(isJsonValue);\n"
+    + "  }\n"
+    + "  return isRecord(value) && Object.values(value).every(isJsonValue);\n"
     + '}\n';
 }
 
@@ -402,6 +414,9 @@ function schemaType(schema) {
   if (isReference(schema)) {
     return referenceName(schema);
   }
+  if (isUnconstrainedJsonSchema(schema)) {
+    return 'unknown';
+  }
   if (Array.isArray(schema.oneOf)) {
     return schema.oneOf.map(item => schemaType(item)).join(' | ');
   }
@@ -444,6 +459,9 @@ function schemaType(schema) {
 function guardExpression(schema, valueExpression) {
   if (isReference(schema)) {
     return `is${referenceName(schema)}(${valueExpression})`;
+  }
+  if (isUnconstrainedJsonSchema(schema)) {
+    return `isJsonValue(${valueExpression})`;
   }
   const combination = schema.oneOf ?? schema.anyOf;
   if (Array.isArray(combination)) {
@@ -517,6 +535,12 @@ function effectiveTypes(schema) {
     return source.filter(type => type !== 'string');
   }
   return source;
+}
+
+function isUnconstrainedJsonSchema(schema) {
+  return schema !== null
+    && typeof schema === 'object'
+    && Object.keys(schema).length === 0;
 }
 
 function isObjectSchema(schema) {

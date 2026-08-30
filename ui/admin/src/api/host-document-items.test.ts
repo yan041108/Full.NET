@@ -84,7 +84,16 @@ describe('host-document-items api', () => {
       '/api/v1/document/host/items',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ title: 'Spec', description: 'integration' })
+        body: JSON.stringify({
+          title: 'Spec',
+          description: 'integration',
+          categoryId: null,
+          documentType: 1,
+          sort: 0,
+          status: 1,
+          tagIds: null,
+          thumbnail: null
+        })
       }),
       undefined
     );

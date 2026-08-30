@@ -229,6 +229,11 @@ export function createAppRouter(
         path: '/auditing/outbound-call-logs',
         component: () => import('../views/OutboundCallLogsView.vue')
       },
+      {
+        name: 'workflow-todos',
+        path: '/workflow/todos',
+        component: () => import('../views/WorkflowTodosView.vue')
+      },
       { path: '/403', component: loadStatusView, props: { code: '403' } },
       { path: '/404', component: loadStatusView, props: { code: '404' } },
       { path: '/500', component: loadStatusView, props: { code: '500' } },

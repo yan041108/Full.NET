@@ -25,6 +25,23 @@ export type {
 export * from './generated/index.generated.js';
 
 export {
+  WORKFLOW_FIELD_TYPES,
+  isWorkflowFormSchema,
+  isWorkflowTodoDetail
+} from './workflow-todos.js';
+
+export type {
+  WorkflowFieldPolicies,
+  WorkflowFieldPolicy,
+  WorkflowFieldType,
+  WorkflowFormField,
+  WorkflowFormSchema,
+  WorkflowFormSection,
+  WorkflowSubmission,
+  WorkflowTodoDetail
+} from './workflow-todos.js';
+
+export {
   createSessionRefreshCoordinator
 } from './session-refresh-coordinator.js';
 

@@ -230,6 +230,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/auditing/outbound-call-logs'
   },
   {
+    componentKey: 'workflow-todos',
+    routeName: 'workflow-todos',
+    path: '/workflow/todos'
+  },
+  {
     componentKey: 'layout',
     routeName: 'layout',
     path: '/'

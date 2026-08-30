@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 236);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 236);
+  assert.equal(manifest.entries.length, 240);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 240);
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
@@ -255,7 +255,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'settings-host-enum-catalogs',
       'settings-tenant-dict-types',
       'tenancy-host-tenant-packages',
-      'tenancy-host-tenants'
+      'tenancy-host-tenants',
+      'workflow-todos'
     ]
   );
   assert.equal(
@@ -264,7 +265,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    236
+    240
   );
   assert.equal(
     packageJson.scripts['openapi:client:snapshot'],

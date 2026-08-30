@@ -25,6 +25,13 @@ export interface AccessLogResponse {
   readonly userId: null | string;
 }
 
+export interface ActWorkflowTodoRequest {
+  readonly comment: null | string;
+  readonly expectedRevision: number;
+  readonly fieldPatch: JsonElement;
+  readonly idempotencyKey: string;
+}
+
 export interface AddHostDocumentVersionRequest {
   readonly changeDescription: null | string;
   readonly fileId: string;
@@ -1174,6 +1181,8 @@ export interface InboxUnreadCountResponse {
   readonly unreadCount: number;
 }
 
+export type JsonElement = unknown;
+
 export interface LocalePreferenceResponse {
   readonly preferredLocale: string;
   readonly profileVersion: number;
@@ -1885,4 +1894,42 @@ export interface UpdateSerialNumberRuleRequest {
   readonly resetInterval: SerialNumberResetInterval;
   readonly scope: SerialNumberRuleScope;
   readonly version: number;
+}
+
+export interface WorkflowInstanceResponse {
+  readonly activeTodoId: null | string;
+  readonly businessId: string;
+  readonly businessType: string;
+  readonly definitionVersionId: string;
+  readonly formVersionId: string;
+  readonly id: string;
+  readonly revision: number;
+  readonly startedAtUtc: string;
+  readonly statusKey: string;
+}
+
+export interface WorkflowTodoDetailResponse {
+  readonly assigneeUserId: string;
+  readonly fieldPolicies: Readonly<Record<string, unknown>>;
+  readonly formSchema: JsonElement;
+  readonly formVersionId: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly stepId: string;
+  readonly submission: JsonElement;
+  readonly submissionRevision: number;
+}
+
+export interface WorkflowTodoResponse {
+  readonly arrivedAtUtc: string;
+  readonly assigneeUserId: string;
+  readonly completedAtUtc: null | string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly resultActionKey: null | string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly stepId: string;
 }
