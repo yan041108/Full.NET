@@ -9,7 +9,7 @@ internal static class WorkflowFormCompiler
         new(StringComparer.Ordinal)
         {
             "text", "textarea", "integer", "decimal", "money", "date",
-            "time", "datetime", "radio", "multiselect", "select", "switch",
+            "time", "datetime", "radio", "checkbox", "select", "switch",
         };
 
     private static readonly HashSet<string> ForbiddenExtensionKeys =

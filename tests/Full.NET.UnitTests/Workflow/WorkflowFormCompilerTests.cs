@@ -18,6 +18,14 @@ public sealed class WorkflowFormCompilerTests
     }
 
     [TestMethod]
+    public void Compile_accepts_checkbox_from_the_published_form_contract()
+    {
+        var result = Compile(Field("reviewers", "checkbox", "{\"options\":[\"owner\",\"finance\"]}"));
+
+        Assert.IsTrue(result.IsSuccess);
+    }
+
+    [TestMethod]
     [DataRow("unknown", WorkflowErrorCodes.FormFieldTypeUnknown)]
     [DataRow("duplicate", WorkflowErrorCodes.FormFieldKeyDuplicate)]
     [DataRow("script", WorkflowErrorCodes.FormExtensionForbidden)]
