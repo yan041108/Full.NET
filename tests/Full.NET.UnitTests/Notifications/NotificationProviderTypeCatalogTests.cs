@@ -32,6 +32,8 @@ public sealed class NotificationProviderTypeCatalogTests
 
     private sealed class StubAdapter : INotificationProviderAdapter
     {
+        public string? RecipientEndpointKindKey => null;
+
         public NotificationProviderTypeDescriptor Descriptor { get; } = new(
             "test.notification",
             "1.0.0",

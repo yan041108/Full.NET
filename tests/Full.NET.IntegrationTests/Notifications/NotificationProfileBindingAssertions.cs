@@ -29,6 +29,9 @@ internal static class NotificationProfileBindingAssertions
         services.TryAddSingleton<TestNotificationProviderHarness>();
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<INotificationProviderAdapter, TestNotificationProvider>());
+        services.TryAddSingleton<TestEndpointNotificationProviderHarness>();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<INotificationProviderAdapter, TestEndpointNotificationProvider>());
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<INotificationReceiptVerifier, TestNotificationReceiptVerifier>());
         services.TryAddEnumerable(
@@ -327,12 +330,35 @@ internal static class NotificationProfileBindingAssertions
         string token,
         string profileKey,
         CancellationToken cancellationToken)
+        => await CreateProfileAsync(
+            client,
+            token,
+            profileKey,
+            TestNotificationProvider.ProviderTypeKeyValue,
+            new { endpointBaseUrl = "https://provider.test" },
+            secretReference: null,
+            cancellationToken);
+
+    internal static async Task<NotificationProviderProfileResponse> CreateProfileAsync(
+        HttpClient client,
+        string token,
+        string profileKey,
+        string providerTypeKey,
+        object nonSecretConfig,
+        string? secretReference,
+        CancellationToken cancellationToken)
     {
         using var request = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/notifications/provider-profiles",
             token,
-            CreateProfileBody(profileKey));
+            new
+            {
+                profileKey,
+                providerTypeKey,
+                nonSecretConfig,
+                secretReference,
+            });
         using var response = await client.SendAsync(request, cancellationToken);
         Assert.AreEqual(
             HttpStatusCode.Created,
@@ -380,12 +406,39 @@ internal static class NotificationProfileBindingAssertions
         string scene,
         string profileKey,
         CancellationToken cancellationToken)
+        => await CreateAndPublishBindingAsync(
+            client,
+            token,
+            bindingKey,
+            producer,
+            scene,
+            profileKey,
+            TestNotificationProvider.ChannelKey,
+            cancellationToken);
+
+    internal static async Task<NotificationBindingResponse> CreateAndPublishBindingAsync(
+        HttpClient client,
+        string token,
+        string bindingKey,
+        string producer,
+        string scene,
+        string profileKey,
+        string channelKey,
+        CancellationToken cancellationToken)
     {
         using var create = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/notifications/bindings",
             token,
-            CreateBindingBody(bindingKey, producer, scene, profileKey));
+            new
+            {
+                bindingKey,
+                dispatchModeKey = "single",
+                producerKey = producer,
+                sceneKey = scene,
+                channelKey,
+                targets = new[] { new { profileKey, order = 1 } },
+            });
         using var createResponse = await client.SendAsync(create, cancellationToken);
         Assert.AreEqual(
             HttpStatusCode.Created,
@@ -413,6 +466,19 @@ internal static class NotificationProfileBindingAssertions
         string token,
         string templateKey,
         CancellationToken cancellationToken)
+        => await CreateAndPublishTestTemplateAsync(
+            client,
+            token,
+            templateKey,
+            TestNotificationProvider.ChannelKey,
+            cancellationToken);
+
+    internal static async Task<NotificationTemplateResponse> CreateAndPublishTestTemplateAsync(
+        HttpClient client,
+        string token,
+        string templateKey,
+        string channelKey,
+        CancellationToken cancellationToken)
     {
         using var create = CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -421,7 +487,7 @@ internal static class NotificationProfileBindingAssertions
             new
             {
                 templateKey,
-                channelKey = TestNotificationProvider.ChannelKey,
+                channelKey,
                 contentCategoryKey = "transactional",
                 draftSubject = "订单 {orderNo}",
                 draftBody = new { text = "正文 {orderNo}" },

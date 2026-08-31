@@ -18,6 +18,8 @@ the complete license texts.
   https://github.com/FluentValidation/FluentValidation
 - FusionCache — MIT
   https://github.com/ZiggyCreatures/FusionCache
+- MailKit and MimeKit 4.17.0 — MIT
+  https://github.com/jstedfast/MailKit
 - MessagePack for C# — MIT
   https://github.com/MessagePack-CSharp/MessagePack-CSharp
 - Serilog, Serilog.AspNetCore and Serilog.Sinks.Async — Apache-2.0

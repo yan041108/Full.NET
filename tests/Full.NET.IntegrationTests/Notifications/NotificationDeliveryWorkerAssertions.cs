@@ -5,10 +5,13 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Notifications.Contracts;
+using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Execution;
+using Full.NET.Modules.Notifications.Features.ManageRecipientEndpoints;
 using Full.NET.Modules.Notifications.Features.ReceiveProviderReceipts;
 using Full.NET.Modules.Notifications.Persistence;
 using Microsoft.Extensions.DependencyInjection;
@@ -314,9 +317,92 @@ internal static class NotificationDeliveryWorkerAssertions
         using var tenantGetResponse = await tenantClient.SendAsync(tenantGet, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, tenantGetResponse.StatusCode);
 
+        await VerifyProtectedRecipientEndpointAsync(
+            factory,
+            client,
+            adminToken,
+            hostUser.Id,
+            cancellationToken);
+
         await OpenApiNotificationsDeliveriesReceiptsContractAssertions.VerifyAsync(
             client,
             cancellationToken);
+    }
+
+    private static async Task VerifyProtectedRecipientEndpointAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        string token,
+        Guid recipientUserId,
+        CancellationToken cancellationToken)
+    {
+        const string secretReference = "vault://test/smtp-password";
+        const string rawEmail = "recipient@example.test";
+        var profile = await NotificationProfileBindingAssertions.CreateProfileAsync(
+            client,
+            token,
+            $"ep-{Guid.NewGuid():N}"[..16],
+            TestEndpointNotificationProvider.ProviderTypeKeyValue,
+            new { endpointBaseUrl = "https://smtp.test" },
+            secretReference,
+            cancellationToken);
+        profile = await NotificationProfileBindingAssertions.PublishAndEnableAsync(
+            client,
+            token,
+            profile,
+            cancellationToken);
+        Assert.IsNotNull(profile.LatestPublishedVersionId);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+            var endpointStore = scope.ServiceProvider.GetRequiredService<RecipientEndpointStore>();
+            var stored = await endpointStore.UpsertAsync(
+                recipientUserId,
+                profile.LatestPublishedVersionId.Value,
+                TestEndpointNotificationProvider.EndpointKindKey,
+                rawEmail,
+                NotificationRecipientEndpointStatuses.Verified,
+                cancellationToken);
+            Assert.IsTrue(stored.IsSuccess);
+        }
+
+        var producer = $"tests.endpoint.{Guid.NewGuid():N}"[..28];
+        const string scene = "order.email";
+        await NotificationProfileBindingAssertions.CreateAndPublishBindingAsync(
+            client,
+            token,
+            $"eb-{Guid.NewGuid():N}"[..16],
+            producer,
+            scene,
+            profile.ProfileKey,
+            TestEndpointNotificationProvider.ChannelKey,
+            cancellationToken);
+        var templateKey = $"et-{Guid.NewGuid():N}"[..16];
+        await NotificationProfileBindingAssertions.CreateAndPublishTestTemplateAsync(
+            client,
+            token,
+            templateKey,
+            TestEndpointNotificationProvider.ChannelKey,
+            cancellationToken);
+
+        var harness = factory.Services.GetRequiredService<TestEndpointNotificationProviderHarness>();
+        harness.Reset();
+        var intent = await CreateIntentAsync(
+            client,
+            token,
+            new RouteFixture(producer, scene, templateKey),
+            recipientUserId,
+            "E-1",
+            cancellationToken);
+        await ProcessPendingAsync(factory, cancellationToken);
+        var delivery = await WaitDeliveryAsync(client, token, intent.Id, cancellationToken);
+        Assert.AreEqual("sent", delivery.StatusKey);
+        var providerRequest = harness.Requests.Single();
+        Assert.AreEqual(rawEmail, providerRequest.RecipientEndpoint);
+        Assert.AreEqual("{\"endpointBaseUrl\":\"https://smtp.test\"}", providerRequest.NonSecretConfigJson);
+        Assert.AreEqual(secretReference, providerRequest.SecretReference);
+        Assert.IsFalse(providerRequest.RecipientEndpoint.Contains(recipientUserId.ToString("N"), StringComparison.Ordinal));
     }
 
     private static async Task<RouteFixture> CreateRouteAsync(

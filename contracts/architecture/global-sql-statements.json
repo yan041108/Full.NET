@@ -1949,6 +1949,19 @@
         "fn_notifications_recipient_endpoint",
         "TenantScopeKey = @TenantScopeKey"
       ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.find_verified_protected_for_delivery",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.FindVerifiedProtectedForDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知投递只能读取当前作用域、用户、ProfileVersion 与已验证端点类型精确匹配的受保护原值。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "ProviderProfileVersionId = @ProviderProfileVersionId",
+        "VerificationStatusKey = 'verified'"
+      ]
     }
   ]
 }

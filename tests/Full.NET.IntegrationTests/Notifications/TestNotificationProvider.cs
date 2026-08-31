@@ -16,6 +16,8 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
     public const string AdapterVersionValue = "1.0.0";
     public const string SecretFieldKey = "apiToken";
 
+    public string? RecipientEndpointKindKey => null;
+
     public NotificationProviderTypeDescriptor Descriptor { get; } = new(
         ProviderTypeKeyValue,
         AdapterVersionValue,
@@ -70,6 +72,56 @@ internal sealed class TestNotificationProvider(TestNotificationProviderHarness h
             NotificationDeliveryRetry.Succeeded,
             $"test-msg-{request.IdempotencyKey}",
             null);
+}
+
+/// <summary>要求使用受保护邮箱端点的测试 Provider，用于验证 Worker 不会回退到用户标识。</summary>
+internal sealed class TestEndpointNotificationProvider(TestEndpointNotificationProviderHarness harness)
+    : INotificationProviderAdapter
+{
+    public const string ProviderTypeKeyValue = "test.endpoint";
+    public const string ChannelKey = "test-email";
+    public const string EndpointKindKey = "email";
+
+    public string? RecipientEndpointKindKey => EndpointKindKey;
+
+    public NotificationProviderTypeDescriptor Descriptor { get; } = new(
+        ProviderTypeKeyValue,
+        "1.0.0",
+        [ChannelKey],
+        [new NotificationProviderConfigField("endpointBaseUrl", "string", true)],
+        ["apiToken"],
+        SupportsNativeAot: true,
+        ReceiptModeKey: "none");
+
+    public ValueTask<NotificationProviderResult> SendAsync(
+        NotificationProviderRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        harness.Record(request);
+        return ValueTask.FromResult(new NotificationProviderResult(
+            true,
+            NotificationDeliveryRetry.Succeeded,
+            $"endpoint-msg-{request.IdempotencyKey}",
+            null));
+    }
+}
+
+/// <summary>记录 Worker 交给端点型 Provider 的完整请求；测试结束后不会持久化原始邮箱。</summary>
+internal sealed class TestEndpointNotificationProviderHarness
+{
+    private readonly ConcurrentQueue<NotificationProviderRequest> _requests = new();
+
+    public IReadOnlyCollection<NotificationProviderRequest> Requests => _requests.ToArray();
+
+    public void Record(NotificationProviderRequest request) => _requests.Enqueue(request);
+
+    public void Reset()
+    {
+        while (_requests.TryDequeue(out _))
+        {
+        }
+    }
 }
 
 internal enum TestNotificationProviderMode

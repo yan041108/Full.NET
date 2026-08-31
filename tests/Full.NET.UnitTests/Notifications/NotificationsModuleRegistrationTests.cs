@@ -1,5 +1,8 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Modules.Notifications;
+using Full.NET.Modules.Notifications.Domain;
+using Full.NET.Modules.Notifications.Providers;
+using Full.NET.Modules.Notifications.Providers.Smtp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,5 +37,40 @@ public sealed class NotificationsModuleRegistrationTests
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(NotificationRealtimeDelivery)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(NotificationRecipientEndpointProtector)
+            && descriptor.Lifetime == ServiceLifetime.Singleton));
+    }
+
+    [TestMethod]
+    public void Smtp_provider_is_registered_only_when_explicitly_enabled()
+    {
+        var disabled = new ServiceCollection();
+        new NotificationsModule().AddBackgroundServices(
+            disabled,
+            new ConfigurationBuilder().Build());
+
+        var enabled = new ServiceCollection();
+        new NotificationsModule().AddBackgroundServices(
+            enabled,
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Notifications:Providers:Smtp:Enabled"] = "true",
+                })
+                .Build());
+
+        Assert.IsFalse(disabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(INotificationProviderAdapter)
+            && descriptor.ImplementationType == typeof(SmtpNotificationProviderAdapter)));
+        Assert.IsTrue(enabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(INotificationProviderAdapter)
+            && descriptor.ImplementationType == typeof(SmtpNotificationProviderAdapter)));
+        Assert.IsTrue(enabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(INotificationSecretResolver)
+            && descriptor.ImplementationType == typeof(EnvironmentNotificationSecretResolver)));
+        Assert.IsTrue(enabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(ISmtpMailTransport)
+            && descriptor.ImplementationType == typeof(MailKitSmtpTransport)));
     }
 }

@@ -13,6 +13,11 @@ internal interface INotificationProviderAdapter
 {
     NotificationProviderTypeDescriptor Descriptor { get; }
 
+    /// <summary>
+    /// 需要从受保护收件端点解析的类型键；为 <see langword="null"/> 时沿用收件人稳定键。
+    /// </summary>
+    string? RecipientEndpointKindKey { get; }
+
     ValueTask<NotificationProviderResult> SendAsync(
         NotificationProviderRequest request,
         CancellationToken cancellationToken);
@@ -23,6 +28,8 @@ internal sealed record NotificationProviderRequest(
     Guid DeliveryId,
     string ChannelKey,
     string RecipientEndpoint,
+    string NonSecretConfigJson,
+    string? SecretReference,
     string Subject,
     string Body,
     string IdempotencyKey);

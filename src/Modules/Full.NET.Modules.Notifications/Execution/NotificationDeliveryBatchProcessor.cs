@@ -23,6 +23,7 @@ internal sealed class NotificationDeliveryBatchProcessor(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     IOptions<NotificationDeliveryWorkerOptions> workerOptions,
+    NotificationRecipientEndpointProtector recipientEndpointProtector,
     ILogger<NotificationDeliveryBatchProcessor> logger)
 {
     private readonly NotificationDeliveryWorkerOptions _options = workerOptions.Value;
@@ -270,6 +271,38 @@ internal sealed class NotificationDeliveryBatchProcessor(
             return null;
         }
 
+        var recipientEndpoint = recipient.RecipientKey;
+        if (adapter.RecipientEndpointKindKey is { } endpointKindKey)
+        {
+            if (recipient.UserId is not { } userId)
+            {
+                return null;
+            }
+
+            var protectedValue = await queryExecutor.QuerySingleOrDefaultAsync<string>(
+                    NotificationRecipientEndpointSql.FindVerifiedProtectedForDelivery,
+                    NotificationPlatformSqlParameters.Create(
+                        ("TenantScopeKey", intent.TenantScopeKey),
+                        ("UserId", userId),
+                        ("ProviderProfileVersionId", profileVersionId),
+                        ("EndpointKindKey", endpointKindKey)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(protectedValue))
+            {
+                return null;
+            }
+
+            try
+            {
+                recipientEndpoint = recipientEndpointProtector.Unprotect(protectedValue);
+            }
+            catch (System.Security.Cryptography.CryptographicException)
+            {
+                return null;
+            }
+        }
+
         var rendered = NotificationTemplateCompiler.Render(
             templateVersion.Subject,
             templateVersion.BodyJson,
@@ -279,7 +312,9 @@ internal sealed class NotificationDeliveryBatchProcessor(
         var request = new NotificationProviderRequest(
             delivery.Id,
             delivery.ChannelKey,
-            recipient.RecipientKey,
+            recipientEndpoint,
+            profileVersion.NonSecretConfigJson,
+            profileVersion.SecretReference,
             subject,
             body,
             $"{intent.Id:N}:{recipient.Id:N}:{profileVersionId:N}");

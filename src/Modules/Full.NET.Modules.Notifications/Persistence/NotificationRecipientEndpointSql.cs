@@ -39,4 +39,17 @@ internal static class NotificationRecipientEndpointSql
           AND TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
+
+    public static readonly SqlStatement FindVerifiedProtectedForDelivery = new(
+        "notifications.recipient_endpoint.find_verified_protected_for_delivery",
+        """
+        SELECT ProtectedValue
+        FROM fn_notifications_recipient_endpoint
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+          AND ProviderProfileVersionId = @ProviderProfileVersionId
+          AND EndpointKindKey = @EndpointKindKey
+          AND VerificationStatusKey = 'verified'
+        """,
+        SqlDataScope.Global);
 }

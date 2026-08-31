@@ -41,7 +41,7 @@ public sealed class NotificationsModule : IFullNetModule
         IConfiguration configuration)
     {
         RegisterRealtimeHandlers(services);
-        RegisterDeliveryCore(services);
+        RegisterDeliveryCore(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IConfigureOptions<RateLimiterOptions>,
             NotificationsRateLimiterPolicyConfigurator>());
@@ -70,7 +70,6 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageDeliveries.NotificationDeliveryService>();
         services.TryAddScoped<Features.ReceiveProviderReceipts.NotificationReceiptProcessor>();
         services.TryAddSingleton<Providers.INotificationProviderTypeCatalog, Providers.NotificationProviderTypeCatalog>();
-        services.TryAddSingleton<Domain.NotificationRecipientEndpointProtector>();
         services.TryAddScoped<Features.ManageRecipientEndpoints.RecipientEndpointStore>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
@@ -95,7 +94,7 @@ public sealed class NotificationsModule : IFullNetModule
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
         RegisterRealtimeHandlers(services);
-        RegisterDeliveryCore(services);
+        RegisterDeliveryCore(services, configuration);
         services.AddOptions<NotificationDeliveryWorkerOptions>()
             .Bind(configuration.GetSection(NotificationDeliveryWorkerOptions.SectionName))
             .ValidateOnStart();
@@ -142,7 +141,9 @@ public sealed class NotificationsModule : IFullNetModule
     /// <summary>
     /// API 与 Worker 共用 BatchProcessor/Options 默认值；HostedService 与配置绑定只在 Worker 入口追加。
     /// </summary>
-    private static void RegisterDeliveryCore(IServiceCollection services)
+    private static void RegisterDeliveryCore(
+        IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddOptions<NotificationDeliveryWorkerOptions>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -153,5 +154,16 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageDeliveries.NotificationDeliveryService>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddSingleton<Domain.NotificationRecipientEndpointProtector>();
+        if (configuration.GetValue<bool>("Notifications:Providers:Smtp:Enabled"))
+        {
+            services.TryAddSingleton<Providers.Smtp.INotificationSecretResolver,
+                Providers.Smtp.EnvironmentNotificationSecretResolver>();
+            services.TryAddSingleton<Providers.Smtp.ISmtpMailTransport,
+                Providers.Smtp.MailKitSmtpTransport>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationProviderAdapter,
+                Providers.Smtp.SmtpNotificationProviderAdapter>());
+        }
     }
 }
