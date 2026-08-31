@@ -570,6 +570,7 @@ public sealed class NativeAotStaticBindingRulesTests
                      "AnnouncementRecord",
                      "InboxMessageRecord",
                      "NotificationTemplateRecord",
+                     "NotificationTemplateListRecord",
                      "NotificationTemplateVersionRecord",
                      "NotificationIntentRecord",
                      "NotificationRecipientRecord",
@@ -632,14 +633,27 @@ public sealed class NativeAotStaticBindingRulesTests
                  {
                      "FindTemplateById",
                      "FindTemplateByKey",
-                     "ListForScopeSqlServer",
-                     "ListForScopeMySql",
                  })
         {
             Assert.AreEqual(
                 templateProjection,
                 ExtractSelectProjection(platformSqlSource, statement),
                 $"Template SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string templateListProjection =
+            "t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.ChannelKey, "
+            + "t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson, "
+            + "t.DraftRevision, t.LatestPublishedVersionId, "
+            + "v.VersionNumber AS LatestPublishedVersionNumber, v.ContentHash AS LatestContentHash, "
+            + "v.ContentClassificationKey AS LatestContentClassificationKey, "
+            + "t.CreatedById, t.CreatedAtUtc, t.UpdatedAtUtc, t.Version";
+        foreach (var statement in new[] { "ListForScopeSqlServer", "ListForScopeMySql" })
+        {
+            Assert.AreEqual(
+                templateListProjection,
+                ExtractSelectProjection(platformSqlSource, statement),
+                $"Template 列表 SQL 投影顺序必须与列表物化器一致：{statement}");
         }
 
         const string templateVersionProjection =

@@ -209,7 +209,7 @@ internal interface INotificationProviderAdapter
 - [x] API Adapter 只调用 OpenAPI 生成 Operation 并守卫 `unknown`；不手写厂商配置 JSON 编辑器，不允许录入 Secret 明文或任意 URL/Header。
 - [x] Profile 编辑器由 Provider Type 的受控非 Secret Schema 渲染；未知字段失败关闭。目录为空时显示“尚未安装 Provider”，不提供虚假可用选项。
 - [x] Delivery 页面区分 Persisted/Accepted/Sent/Delivered/Unknown/Read，不用统一成功颜色掩盖 Unknown。
-- [x] 运行 Vue Unit/typecheck/build、权限 DOM、bundle budgets、客户端审计和 `tests/e2e/admin-real-stack/tests/notification-platform.spec.mjs`。
+- [x] 运行 Vue Unit/typecheck/build、权限 DOM、bundle budgets、客户端审计和 `tests/e2e/admin-real-stack/tests/notification-platform.spec.mjs`。后续以 `notifications-platform-realstack-20260831` 补验 SQL Server/MySQL 各 **1/1**，真实覆盖 inbox 模板创建、发布和列表“已发布 v1”；聚焦 Vue 回归 **4/4**、生产构建通过。
 
 ### Task 8: 平台切片关闭与真实 Provider 后续门禁
 

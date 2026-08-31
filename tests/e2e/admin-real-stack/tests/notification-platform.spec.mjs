@@ -32,6 +32,38 @@ test('Host 管理员可打开通知控制面；空目录、FanOut 明示且不�
   await expect(page.getByTestId('notification-templates-create')).toBeVisible();
   await expect(page.getByTestId('notification-templates-channel')).toContainText('inbox');
 
+  const templateKey = `e2e.browser.${Date.now()}`;
+  await page.getByTestId('notification-templates-key').fill(templateKey);
+  await page.getByTestId('notification-templates-subject').fill('真实栈通知');
+  await page.getByTestId('notification-templates-body').fill('你好，{{recipientName}}');
+  await page.getByTestId('notification-templates-parameter-name').fill('recipientName');
+  await page.getByTestId('notification-templates-parameter-add').click();
+
+  const createResponsePromise = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/v1/notifications/templates'
+  );
+  await page.getByTestId('notification-templates-create').click();
+  const createResponse = await createResponsePromise;
+  expect(createResponse.status()).toBe(201);
+  await expect(page.getByText('模板草稿已创建')).toBeVisible();
+
+  const templateRow = page.getByTestId('notification-templates-load').filter({ hasText: templateKey });
+  await expect(templateRow).toBeVisible();
+  await expect(templateRow.getByTestId('notification-templates-state')).toContainText('草稿');
+
+  const publishResponsePromise = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && /\/api\/v1\/notifications\/templates\/[0-9a-f-]+\/publish$/u.test(
+      new URL(response.url()).pathname
+    )
+  );
+  await page.getByTestId('notification-templates-publish').click();
+  const publishResponse = await publishResponsePromise;
+  expect(publishResponse.status()).toBe(200);
+  await expect(page.getByText('模板版本已发布')).toBeVisible();
+  await expect(templateRow.getByTestId('notification-templates-state')).toContainText('已发布 v1');
+
   await clickMainNavLink(page, /场景绑定/, '通知');
   const bindingsView = page.locator('.notification-bindings-view');
   await expect(bindingsView.getByRole('heading', { name: '场景绑定', exact: true })).toBeVisible();

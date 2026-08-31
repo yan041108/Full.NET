@@ -109,4 +109,32 @@ describe('Vue 通知模板页', () => {
     expect(wrapper.find('[data-testid="notification-templates-save"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="notification-templates-publish"]').exists()).toBe(true);
   });
+
+  it('列表明确显示草稿或最新发布版本', async () => {
+    listMock.mockResolvedValue({
+      items: [
+        template,
+        {
+          ...template,
+          id: '0198f36e-f7a7-7c52-9cbb-774e67411202',
+          templateKey: 'order.delivered',
+          latestPublishedVersionId: '0198f36e-f7a7-7c52-9cbb-774e67411203',
+          latestPublishedVersionNumber: 2,
+          latestContentHash: 'sha256:published',
+          latestContentClassificationKey: 'c1'
+        }
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 2
+    });
+
+    const wrapper = mountWithPermissions(['notifications.templates.read']);
+    await flushPromises();
+
+    const states = wrapper.findAll('[data-testid="notification-templates-state"]');
+    expect(states).toHaveLength(2);
+    expect(states[0].text()).toContain('草稿');
+    expect(states[1].text()).toContain('已发布 v2');
+  });
 });

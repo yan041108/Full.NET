@@ -38,7 +38,7 @@ internal sealed class NotificationTemplateService(
                 NotificationPlatformSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var rows = await queryExecutor.QueryAsync<NotificationTemplateRecord>(
+        var rows = await queryExecutor.QueryAsync<NotificationTemplateListRecord>(
                 ResolveListStatement(),
                 NotificationPlatformSqlParameters.Create(
                     ("TenantScopeKey", scope.TenantScopeKey),
@@ -46,11 +46,7 @@ internal sealed class NotificationTemplateService(
                     ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = new List<NotificationTemplateResponse>(rows.Count);
-        foreach (var row in rows)
-        {
-            items.Add(await MapAsync(row, includeLatestVersion: false, cancellationToken).ConfigureAwait(false));
-        }
+        var items = rows.Select(MapListRecord).ToArray();
 
         return Result<PagedResult<NotificationTemplateResponse>>.Success(
             new PagedResult<NotificationTemplateResponse>(items, page, pageSize, total));
@@ -340,6 +336,24 @@ internal sealed class NotificationTemplateService(
             record.UpdatedAtUtc,
             record.Version);
     }
+
+    private static NotificationTemplateResponse MapListRecord(NotificationTemplateListRecord record) =>
+        new(
+            record.Id,
+            record.TemplateKey,
+            record.ChannelKey,
+            record.ContentCategoryKey,
+            record.DraftSubject,
+            record.DraftBodyJson,
+            record.DraftParameterSchemaJson,
+            record.DraftRevision,
+            record.LatestPublishedVersionId,
+            record.LatestPublishedVersionNumber,
+            record.LatestContentHash,
+            record.LatestContentClassificationKey,
+            record.CreatedAtUtc,
+            record.UpdatedAtUtc,
+            record.Version);
 
     private SqlStatement ResolveListStatement() =>
         databaseOptions.Value.Provider switch

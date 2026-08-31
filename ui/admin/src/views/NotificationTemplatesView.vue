@@ -330,6 +330,14 @@ function toProblem(
             <strong>{{ item.templateKey }}</strong>
             <span class="art-muted">{{ item.channelKey }}</span>
             <ElTag>{{ item.contentCategoryKey }}</ElTag>
+            <ElTag
+              data-testid="notification-templates-state"
+              :type="item.latestPublishedVersionNumber == null ? 'info' : 'success'"
+            >
+              {{ item.latestPublishedVersionNumber == null
+                ? t('notificationTemplates.draftState')
+                : `${t('notificationTemplates.publishedState')} v${item.latestPublishedVersionNumber}` }}
+            </ElTag>
           </button>
         </li>
       </ul>

@@ -45,12 +45,17 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement ListForScopeSqlServer = new(
         "notifications.platform.template.list_for_scope.sql_server",
         """
-        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey,
-               ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson,
-               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_notifications_template
-        WHERE TenantScopeKey = @TenantScopeKey
-        ORDER BY CreatedAtUtc DESC, Id
+        SELECT t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.ChannelKey,
+               t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson,
+               t.DraftRevision, t.LatestPublishedVersionId,
+               v.VersionNumber AS LatestPublishedVersionNumber,
+               v.ContentHash AS LatestContentHash,
+               v.ContentClassificationKey AS LatestContentClassificationKey,
+               t.CreatedById, t.CreatedAtUtc, t.UpdatedAtUtc, t.Version
+        FROM fn_notifications_template t
+        LEFT JOIN fn_notifications_template_version v ON v.Id = t.LatestPublishedVersionId
+        WHERE t.TenantScopeKey = @TenantScopeKey
+        ORDER BY t.CreatedAtUtc DESC, t.Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
         SqlDataScope.Global);
@@ -58,12 +63,17 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement ListForScopeMySql = new(
         "notifications.platform.template.list_for_scope.mysql",
         """
-        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey,
-               ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson,
-               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_notifications_template
-        WHERE TenantScopeKey = @TenantScopeKey
-        ORDER BY CreatedAtUtc DESC, Id
+        SELECT t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.ChannelKey,
+               t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson,
+               t.DraftRevision, t.LatestPublishedVersionId,
+               v.VersionNumber AS LatestPublishedVersionNumber,
+               v.ContentHash AS LatestContentHash,
+               v.ContentClassificationKey AS LatestContentClassificationKey,
+               t.CreatedById, t.CreatedAtUtc, t.UpdatedAtUtc, t.Version
+        FROM fn_notifications_template t
+        LEFT JOIN fn_notifications_template_version v ON v.Id = t.LatestPublishedVersionId
+        WHERE t.TenantScopeKey = @TenantScopeKey
+        ORDER BY t.CreatedAtUtc DESC, t.Id
         LIMIT @PageSize OFFSET @Offset
         """,
         SqlDataScope.Global);

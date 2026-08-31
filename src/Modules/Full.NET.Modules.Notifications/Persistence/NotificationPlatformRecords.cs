@@ -19,6 +19,28 @@ internal sealed record NotificationTemplateRecord(
     DateTimeOffset? UpdatedAtUtc,
     long Version);
 
+/// <summary>通知模板列表投影，一次查询携带最新发布版本摘要，避免逐行补查。</summary>
+internal sealed record NotificationTemplateListRecord(
+    Guid Id,
+    Guid? TenantId,
+    string ScopeKey,
+    string TenantScopeKey,
+    string TemplateKey,
+    string ChannelKey,
+    string ContentCategoryKey,
+    string DraftSubject,
+    string DraftBodyJson,
+    string DraftParameterSchemaJson,
+    long DraftRevision,
+    Guid? LatestPublishedVersionId,
+    int? LatestPublishedVersionNumber,
+    string? LatestContentHash,
+    string? LatestContentClassificationKey,
+    Guid CreatedById,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc,
+    long Version);
+
 /// <summary>不可变通知模板版本持久化投影。</summary>
 internal sealed record NotificationTemplateVersionRecord(
     Guid Id,

@@ -119,6 +119,21 @@ internal static class NotificationTemplateIntentAssertions
         var firstVersionId = published.LatestPublishedVersionId!.Value;
         var firstHash = published.LatestContentHash!;
 
+        using var listPublished = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/templates?page=1&pageSize=100");
+        listPublished.Headers.Authorization = new AuthenticationHeaderValue("Bearer", hostAdminToken);
+        using var listPublishedResponse = await hostClient.SendAsync(listPublished, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listPublishedResponse.StatusCode);
+        var listedTemplates = await listPublishedResponse.Content.ReadFromJsonAsync<
+            PagedResult<NotificationTemplateResponse>>(cancellationToken);
+        Assert.IsNotNull(listedTemplates);
+        var listedPublished = listedTemplates.Items.Single(item => item.Id == created.Id);
+        Assert.AreEqual(firstVersionId, listedPublished.LatestPublishedVersionId);
+        Assert.AreEqual(1, listedPublished.LatestPublishedVersionNumber);
+        Assert.AreEqual(firstHash, listedPublished.LatestContentHash);
+        Assert.AreEqual("c0", listedPublished.LatestContentClassificationKey);
+
         var secondUser = await CreateInboxReaderAsync(hostClient, hostAdminToken, cancellationToken);
         var orderNo = $"A{Guid.NewGuid():N}"[..8];
         var idempotencyKey = $"idem-{Guid.NewGuid():N}";

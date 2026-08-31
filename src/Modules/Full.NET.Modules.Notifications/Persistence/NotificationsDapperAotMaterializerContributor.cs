@@ -14,6 +14,7 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<AnnouncementRecord>(ReadAnnouncementRecord);
         registrar.Register<InboxMessageRecord>(ReadInboxMessageRecord);
         registrar.Register<NotificationTemplateRecord>(ReadTemplate);
+        registrar.Register<NotificationTemplateListRecord>(ReadTemplateList);
         registrar.Register<NotificationTemplateVersionRecord>(ReadTemplateVersion);
         registrar.Register<NotificationIntentRecord>(ReadIntent);
         registrar.Register<NotificationRecipientRecord>(ReadRecipient);
@@ -92,6 +93,28 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 13),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
             AotDataReaderExtensions.ReadInt64(reader, 15));
+
+    private static NotificationTemplateListRecord ReadTemplateList(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            reader.GetString(7),
+            reader.GetString(8),
+            reader.GetString(9),
+            AotDataReaderExtensions.ReadInt64(reader, 10),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 11),
+            reader.IsDBNull(12) ? null : AotDataReaderExtensions.ReadInt32(reader, 12),
+            reader.IsDBNull(13) ? null : reader.GetString(13),
+            reader.IsDBNull(14) ? null : reader.GetString(14),
+            reader.GetGuid(15),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 16),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 17),
+            AotDataReaderExtensions.ReadInt64(reader, 18));
 
     private static NotificationTemplateVersionRecord ReadTemplateVersion(DbDataReader reader) =>
         new(
