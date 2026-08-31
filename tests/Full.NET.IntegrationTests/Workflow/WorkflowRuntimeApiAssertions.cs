@@ -5,11 +5,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.IntegrationTests.Workflow;
 
-/// <summary>验收工作流实例启动时的版本绑定和本人待办资源边界。</summary>
+/// <summary>验收工作流实例启动、表单安全 Patch、Host/Tenant 隔离和本人待办资源边界。</summary>
 internal static class WorkflowRuntimeApiAssertions
 {
     public static async Task VerifyStartAsync(
@@ -140,49 +142,8 @@ internal static class WorkflowRuntimeApiAssertions
                 }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
 
-        using var invalidTypePatch = await client.SendAsync(
-            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
-                new
-                {
-                    expectedRevision = 1,
-                    fieldPatch = new { reason = 42 },
-                    comment = "invalid type",
-                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
-                }), cancellationToken);
-        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalidTypePatch.StatusCode);
-
-        using var hiddenPatch = await client.SendAsync(
-            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
-                new
-                {
-                    expectedRevision = 1,
-                    fieldPatch = new { secret = "exposed" },
-                    comment = "hidden patch",
-                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
-                }), cancellationToken);
-        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, hiddenPatch.StatusCode);
-
-        using var missingRequiredPatch = await client.SendAsync(
-            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
-                new
-                {
-                    expectedRevision = 1,
-                    fieldPatch = new Dictionary<string, object?>(),
-                    comment = "missing required decision",
-                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
-                }), cancellationToken);
-        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, missingRequiredPatch.StatusCode);
-
-        using var invalidPatch = await client.SendAsync(
-            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
-                new
-                {
-                    expectedRevision = 1,
-                    fieldPatch = new { injected = "forbidden" },
-                    comment = "invalid patch",
-                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
-                }), cancellationToken);
-        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalidPatch.StatusCode);
+        await AssertDangerousPatchesRejectedAsync(
+            client, identity.AccessToken, todoId, cancellationToken);
 
         var approveIdempotencyKey = $"approve-{Guid.NewGuid():N}";
         using var approve = await client.SendAsync(
@@ -431,6 +392,354 @@ internal static class WorkflowRuntimeApiAssertions
         CollectionAssert.Contains(
             new[] { "completed", "rejected" },
             concurrentResult.RootElement.GetProperty("statusKey").GetString());
+    }
+
+    /// <summary>
+    /// 在种子租户内复验同意/拒绝、危险 Patch 422、旧修订 409、精确权限 403，以及禁止引用 Host 定义。
+    /// </summary>
+    public static async Task VerifyTenantScopeAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        // Host/Tenant 会话 Cookie 不能共用同一个 HttpClient，否则后一次上下文会覆盖先签发的 Bearer。
+        using var hostClient = factory.CreateClientForHost("localhost");
+        using var tenantClient = factory.CreateClientForHost("localhost");
+        using var limitedClient = factory.CreateClientForHost("localhost");
+        var hostAdminToken = await LoginAsHostAdminAsync(hostClient, cancellationToken);
+        var tenantAdminToken = await EnterAcmeTenantAsync(
+            tenantClient,
+            await LoginAsHostAdminAsync(tenantClient, cancellationToken),
+            cancellationToken);
+
+        var hostVersions = await PublishRuntimeAssetsAsync(hostClient, hostAdminToken, cancellationToken);
+        using var crossScopeStart = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
+            {
+                definitionVersionId = hostVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "must not bind host version" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        var crossScopeBody = await crossScopeStart.Content.ReadAsStringAsync(cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, crossScopeStart.StatusCode, crossScopeBody);
+        using var crossScopeProblem = JsonDocument.Parse(crossScopeBody);
+        Assert.AreEqual(WorkflowErrorCodes.VersionNotPublished,
+            crossScopeProblem.RootElement.GetProperty("code").GetString());
+
+        var tenantVersions = await PublishRuntimeAssetsAsync(tenantClient, tenantAdminToken, cancellationToken);
+        using var start = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
+            {
+                definitionVersionId = tenantVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "tenant approved", secret = "classified" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+
+        using var hostRead = await hostClient.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}", hostAdminToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, hostRead.StatusCode);
+
+        await AssertDangerousPatchesRejectedAsync(tenantClient, tenantAdminToken, todoId, cancellationToken);
+
+        using var approve = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", tenantAdminToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "approved" },
+                    comment = "tenant approved",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, approve.StatusCode,
+            await approve.Content.ReadAsStringAsync(cancellationToken));
+        using var approved = JsonDocument.Parse(await approve.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("completed", approved.RootElement.GetProperty("statusKey").GetString());
+
+        using var rejectStart = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
+            {
+                definitionVersionId = tenantVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "tenant rejected" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, rejectStart.StatusCode,
+            await rejectStart.Content.ReadAsStringAsync(cancellationToken));
+        using var rejectStarted = JsonDocument.Parse(
+            await rejectStart.Content.ReadAsStringAsync(cancellationToken));
+        var rejectTodoId = rejectStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+        using var reject = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{rejectTodoId:D}/reject", tenantAdminToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "rejected" },
+                    comment = "tenant rejected",
+                    idempotencyKey = $"reject-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reject.StatusCode,
+            await reject.Content.ReadAsStringAsync(cancellationToken));
+        using var rejected = JsonDocument.Parse(await reject.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("rejected", rejected.RootElement.GetProperty("statusKey").GetString());
+
+        using var staleStart = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
+            {
+                definitionVersionId = tenantVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "stale revision" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        using var staleStarted = JsonDocument.Parse(
+            await staleStart.Content.ReadAsStringAsync(cancellationToken));
+        var staleTodoId = staleStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+        using var firstApprove = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{staleTodoId:D}/approve", tenantAdminToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "first" },
+                    comment = "authoritative",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstApprove.StatusCode);
+        using var staleApprove = await tenantClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{staleTodoId:D}/approve", tenantAdminToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "stale" },
+                    comment = "stale",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, staleApprove.StatusCode);
+
+        var limitedTenantToken = await EnterAcmeTenantWithRolePermissionsAsync(
+            limitedClient,
+            [
+                WorkflowPermissions.FormsRead,
+                WorkflowPermissions.FormsCreate,
+                WorkflowPermissions.FormsPublish,
+                WorkflowPermissions.DefinitionsRead,
+                WorkflowPermissions.DefinitionsCreate,
+                WorkflowPermissions.DefinitionsPublish,
+                WorkflowPermissions.InstancesRead,
+                WorkflowPermissions.InstancesStart,
+                WorkflowPermissions.TodosRead,
+            ],
+            cancellationToken);
+        var limitedVersions = await PublishRuntimeAssetsAsync(limitedClient, limitedTenantToken, cancellationToken);
+        using var limitedStart = await limitedClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", limitedTenantToken, new
+            {
+                definitionVersionId = limitedVersions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "limited tenant" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, limitedStart.StatusCode,
+            await limitedStart.Content.ReadAsStringAsync(cancellationToken));
+        using var limitedStarted = JsonDocument.Parse(
+            await limitedStart.Content.ReadAsStringAsync(cancellationToken));
+        var limitedTodoId = limitedStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+        using var forbiddenApprove = await limitedClient.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{limitedTodoId:D}/approve", limitedTenantToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "bypass" },
+                    comment = "must be forbidden",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenApprove.StatusCode);
+        using var forbiddenProblem = JsonDocument.Parse(
+            await forbiddenApprove.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("authorization.permission_denied",
+            forbiddenProblem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task AssertDangerousPatchesRejectedAsync(
+        HttpClient client,
+        string token,
+        Guid todoId,
+        CancellationToken cancellationToken)
+    {
+        using var invalidTypePatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", token,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { reason = 42 },
+                    comment = "invalid type",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalidTypePatch.StatusCode);
+
+        using var readOnlyPatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", token,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { reason = "changed" },
+                    comment = "read only",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, readOnlyPatch.StatusCode);
+
+        using var hiddenPatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", token,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { secret = "exposed" },
+                    comment = "hidden patch",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, hiddenPatch.StatusCode);
+
+        using var missingRequiredPatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", token,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new Dictionary<string, object?>(),
+                    comment = "missing required decision",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, missingRequiredPatch.StatusCode);
+
+        using var invalidPatch = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", token,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { injected = "forbidden" },
+                    comment = "invalid patch",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalidPatch.StatusCode);
+        using var problem = JsonDocument.Parse(await invalidPatch.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(WorkflowErrorCodes.SchemaInvalid, problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task<string> LoginAsHostAdminAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest("admin", FullNetApiFactory.TestPassword)),
+        };
+        loginRequest.Headers.Add("Origin", "http://localhost");
+        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
+        var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
+        Assert.IsNotNull(loginToken);
+        return loginToken.AccessToken;
+    }
+
+    private static async Task<string> EnterAcmeTenantWithRolePermissionsAsync(
+        HttpClient client,
+        IReadOnlyCollection<string> workflowPermissions,
+        CancellationToken cancellationToken)
+    {
+        var hostAdminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var roleCode = $"wf-bound-{Guid.NewGuid():N}".ToLowerInvariant();
+        var username = $"wf-bound-{Guid.NewGuid():N}".ToLowerInvariant();
+        var rolePermissions = new[]
+            {
+                "platform.dashboard.read",
+                "tenancy.tenants.read",
+                "tenancy.tenants.switch",
+            }
+            .Concat(workflowPermissions)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        using var createRoleResponse = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/identity/roles", hostAdminToken,
+                new CreateHostRoleRequest(roleCode, "工作流租户动作边界角色")),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createRoleResponse.StatusCode);
+        var createdRole = await createRoleResponse.Content
+            .ReadFromJsonAsync<HostRoleResponse>(cancellationToken);
+        Assert.IsNotNull(createdRole);
+
+        using var updatePermissionsResponse = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Put, $"/api/v1/identity/roles/{createdRole.Id:D}/permissions", hostAdminToken,
+                new ReplaceHostRolePermissionsRequest(rolePermissions, createdRole.Version)),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updatePermissionsResponse.StatusCode);
+
+        using var createUserResponse = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/identity/users", hostAdminToken,
+                new CreateHostUserRequest(username, "工作流租户动作边界用户", FullNetApiFactory.TestPassword)),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createUserResponse.StatusCode);
+        var createdUser = await createUserResponse.Content
+            .ReadFromJsonAsync<HostUserResponse>(cancellationToken);
+        Assert.IsNotNull(createdUser);
+
+        using var getRolesRequest = Authorized(
+            HttpMethod.Get, $"/api/v1/identity/users/{createdUser.Id:D}/roles", hostAdminToken);
+        using var getRolesResponse = await client.SendAsync(getRolesRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, getRolesResponse.StatusCode);
+        var userRoles = await getRolesResponse.Content
+            .ReadFromJsonAsync<HostUserRolesResponse>(cancellationToken);
+        Assert.IsNotNull(userRoles);
+
+        using var assignRoleResponse = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Put, $"/api/v1/identity/users/{createdUser.Id:D}/roles", hostAdminToken,
+                new ReplaceHostUserRolesRequest([createdRole.Id], userRoles.Version)),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
+
+        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new LoginRequest(username, FullNetApiFactory.TestPassword)),
+        };
+        loginRequest.Headers.Add("Origin", "http://localhost");
+        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
+        var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
+        Assert.IsNotNull(loginToken);
+        return await EnterAcmeTenantAsync(client, loginToken.AccessToken, cancellationToken);
+    }
+
+    private static async Task<string> EnterAcmeTenantAsync(
+        HttpClient client,
+        string hostAccessToken,
+        CancellationToken cancellationToken)
+    {
+        using var availableRequest = Authorized(HttpMethod.Get, "/api/v1/tenancy/available", hostAccessToken);
+        using var availableResponse = await client.SendAsync(availableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, availableResponse.StatusCode);
+        var available = await availableResponse.Content
+            .ReadFromJsonAsync<TenantContextSummary[]>(cancellationToken);
+        Assert.IsNotNull(available);
+        var acme = available.Single(tenant => tenant.Identifier == "acme");
+
+        using var enterRequest = AuthorizedJson(
+            HttpMethod.Put, "/api/v1/tenancy/context", hostAccessToken, new ChangeTenantContextRequest(acme.Id));
+        using var enterResponse = await client.SendAsync(enterRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, enterResponse.StatusCode);
+        var entered = await enterResponse.Content
+            .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
+        Assert.IsNotNull(entered);
+        return entered.AccessToken;
     }
 
     private static async Task VerifyLinearMultiApprovalAsync(

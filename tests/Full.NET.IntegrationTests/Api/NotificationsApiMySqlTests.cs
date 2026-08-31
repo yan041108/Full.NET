@@ -11,9 +11,14 @@ public sealed class NotificationsApiMySqlTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.MySql,
-            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            configureTestServices: NotificationProfileBindingAssertions.ConfigureTestServices);
 
         await NotificationsHostAnnouncementAssertions.VerifyAsync(factory);
         await NotificationsInboxMessageAssertions.VerifyAsync(factory);
+        await NotificationTenantInboxAssertions.VerifyAsync(factory);
+        await NotificationTemplateIntentAssertions.VerifyAsync(factory);
+        await NotificationProfileBindingAssertions.VerifyAsync(factory);
+        await NotificationDeliveryWorkerAssertions.VerifyAsync(factory);
     }
 }

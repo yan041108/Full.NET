@@ -12,7 +12,7 @@ public sealed class NotificationsAuthorizationContributorTests
     {
         var catalog = AuthorizationCatalog.Create([new NotificationsAuthorizationContributor()]);
 
-        CollectionAssert.AreEqual(
+        CollectionAssert.AreEquivalent(
             new[]
             {
                 HostAnnouncementPermissions.Create,
@@ -24,7 +24,11 @@ public sealed class NotificationsAuthorizationContributorTests
                 InboxPermissions.Read,
                 InboxPermissions.Send,
             },
-            catalog.Permissions.Select(permission => permission.Code).ToArray());
+            catalog.Permissions
+                .Select(permission => permission.Code)
+                .Where(code => code.StartsWith("notifications.announcements.", StringComparison.Ordinal)
+                    || code.StartsWith("notifications.inbox.", StringComparison.Ordinal))
+                .ToArray());
 
         var hostAnnouncements = catalog.Navigation.Single(item => item.Id == "host-announcements");
         Assert.AreEqual(HostAnnouncementPermissions.Read, hostAnnouncements.RequiredPermission);

@@ -554,10 +554,34 @@ public sealed class NativeAotStaticBindingRulesTests
             moduleDirectory,
             "Persistence",
             "InboxMessageSql.cs"));
+        var platformSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "NotificationPlatformSql.cs"));
+        var endpointSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "NotificationRecipientEndpointSql.cs"));
 
         StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
         StringAssert.Contains(moduleSource, "NotificationsDapperAotMaterializerContributor");
-        foreach (var recordType in new[] { "AnnouncementRecord", "InboxMessageRecord" })
+        foreach (var recordType in new[]
+                 {
+                     "AnnouncementRecord",
+                     "InboxMessageRecord",
+                     "NotificationTemplateRecord",
+                     "NotificationTemplateVersionRecord",
+                     "NotificationIntentRecord",
+                     "NotificationRecipientRecord",
+                     "NotificationDeliveryRecord",
+                     "NotificationDeliveryAttemptRecord",
+                     "NotificationReceiptRecord",
+                     "NotificationRecipientEndpointRecord",
+                     "NotificationProviderProfileRecord",
+                     "NotificationProviderProfileVersionRecord",
+                     "NotificationBindingRecord",
+                     "NotificationBindingVersionRecord",
+                 })
         {
             StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
         }
@@ -580,7 +604,7 @@ public sealed class NativeAotStaticBindingRulesTests
 
         const string inboxProjection =
             "Id, TenantId, RecipientUserId, Title, Content, Status, "
-            + "ReadAtUtc, CreatedAtUtc, CreatedByUserId";
+            + "ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId";
         foreach (var statement in new[]
                  {
                      "ListForRecipientSqlServer",
@@ -593,6 +617,102 @@ public sealed class NativeAotStaticBindingRulesTests
                 ExtractSelectProjection(inboxSqlSource, statement),
                 $"Inbox SQL 投影顺序必须一致：{statement}");
         }
+
+        Assert.AreEqual(
+            "Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, IdempotencyKey, "
+            + "TemplateVersionId, BindingVersionId, PolicyCategoryKey, DispatchModeKey, "
+            + "RouteSnapshotJson, ParameterSnapshotJson, StatusKey, CreatedById, CreatedAtUtc, Revision",
+            ExtractSelectProjection(platformSqlSource, "FindIntentById"),
+            "Intent SQL 投影顺序必须与物化器一致。");
+        const string templateProjection =
+            "Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey, "
+            + "ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson, "
+            + "DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version";
+        foreach (var statement in new[]
+                 {
+                     "FindTemplateById",
+                     "FindTemplateByKey",
+                     "ListForScopeSqlServer",
+                     "ListForScopeMySql",
+                 })
+        {
+            Assert.AreEqual(
+                templateProjection,
+                ExtractSelectProjection(platformSqlSource, statement),
+                $"Template SQL 投影顺序必须一致：{statement}");
+        }
+
+        const string templateVersionProjection =
+            "Id, TemplateId, VersionNumber, SchemaVersion, Subject, BodyJson, "
+            + "ParameterSchemaJson, ContentClassificationKey, ContentHash, PublishedById, PublishedAtUtc";
+        foreach (var statement in new[] { "FindTemplateVersionById", "FindTemplateVersionByHash" })
+        {
+            Assert.AreEqual(
+                templateVersionProjection,
+                ExtractSelectProjection(platformSqlSource, statement),
+                $"TemplateVersion SQL 投影顺序必须一致：{statement}");
+        }
+
+        Assert.AreEqual(
+            "Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, IdempotencyKey, "
+            + "TemplateVersionId, BindingVersionId, PolicyCategoryKey, DispatchModeKey, "
+            + "RouteSnapshotJson, ParameterSnapshotJson, StatusKey, CreatedById, CreatedAtUtc, Revision",
+            ExtractSelectProjection(platformSqlSource, "FindIntentByIdempotency"),
+            "Intent 幂等查询投影必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, IntentId, RecipientTypeKey, RecipientKey, UserId, AddressDigest, "
+            + "ResolutionStatusKey, CreatedAtUtc",
+            ExtractSelectProjection(platformSqlSource, "ListRecipientsByIntent"),
+            "Recipient 列表投影必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, IdempotencyKey, "
+            + "TemplateVersionId, BindingVersionId, PolicyCategoryKey, DispatchModeKey, "
+            + "RouteSnapshotJson, ParameterSnapshotJson, StatusKey, CreatedById, CreatedAtUtc, Revision",
+            ExtractSelectProjection(platformSqlSource, "FindIntentByIdUnscoped"),
+            "Worker 无作用域 Intent 查询投影必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId, "
+            + "StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration, "
+            + "NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc",
+            ExtractSelectProjection(platformSqlSource, "FindDeliveryById"),
+            "Delivery SQL 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, IntentId, RecipientId, ChannelKey, ProviderProfileVersionId, BindingVersionId, "
+            + "StatusKey, Revision, LeaseOwnerKey, LeaseExpiresAtUtc, LeaseGeneration, "
+            + "NextAttemptAtUtc, CreatedAtUtc, UpdatedAtUtc",
+            ExtractSelectProjection(platformSqlSource, "SelectDeliveriesByLease"),
+            "按租约回读 Delivery 投影必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, DeliveryId, AttemptNumber, LeaseOwnerKey, LeaseGeneration, LeaseExpiresAtUtc, "
+            + "ResultCategoryKey, StatusKey, ProviderMessageId, ErrorCode, ReceiptDigest, "
+            + "StartedAtUtc, FinishedAtUtc",
+            ExtractSelectProjection(platformSqlSource, "ListAttemptsByDelivery"),
+            "Attempt 列表投影必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, TenantId, ScopeKey, TenantScopeKey, UserId, ProviderProfileVersionId, "
+            + "EndpointKindKey, MaskedValue, VerificationStatusKey, CreatedAtUtc, UpdatedAtUtc",
+            ExtractSelectProjection(endpointSqlSource, "ListMaskedByScopeUser"),
+            "RecipientEndpoint 列表投影不得包含 ProtectedValue。");
+        Assert.AreEqual(
+            "Id, TenantId, ScopeKey, TenantScopeKey, ProfileKey, ProviderTypeKey, "
+            + "NonSecretConfigJson, SecretReference, IsEnabled, DraftRevision, "
+            + "LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version",
+            ExtractSelectProjection(platformSqlSource, "FindProfileById"),
+            "Profile SQL 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, TenantId, ScopeKey, TenantScopeKey, BindingKey, DraftDispatchModeKey, "
+            + "DraftJson, DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, "
+            + "UpdatedAtUtc, Version",
+            ExtractSelectProjection(platformSqlSource, "FindBindingById"),
+            "Binding SQL 投影顺序必须与物化器一致。");
+        Assert.IsFalse(
+            ExtractSelectProjection(endpointSqlSource, "ListMaskedByScopeUser")
+                .Contains("ProtectedValue", StringComparison.Ordinal),
+            "查询投影禁止回显端点原值。");
+        Assert.IsFalse(
+            ExtractSelectProjection(endpointSqlSource, "FindMaskedById")
+                .Contains("ProtectedValue", StringComparison.Ordinal),
+            "按 Id 查询投影禁止回显端点原值。");
     }
 
     [TestMethod]

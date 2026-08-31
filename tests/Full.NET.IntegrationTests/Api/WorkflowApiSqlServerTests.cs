@@ -23,4 +23,13 @@ public sealed class WorkflowApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
         await WorkflowRuntimeApiAssertions.VerifyStartAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Tenant_scope_approval_matrix_holds_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await WorkflowRuntimeApiAssertions.VerifyTenantScopeAsync(factory);
+    }
 }

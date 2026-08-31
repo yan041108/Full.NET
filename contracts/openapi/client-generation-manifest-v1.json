@@ -50,6 +50,36 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowGetDefinition",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetNodeTypeCatalog",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowCreateDefinition",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowUpdateDefinitionDraft",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowPublishDefinition",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListDefinitionVersions",
       "apiModule": "ui/admin/src/api/workflow-runtime.ts",
       "generatedGroup": "workflow-definitions",
@@ -1229,6 +1259,132 @@
       "operationId": "notificationsSendHostInboxMessage",
       "apiModule": "ui/admin/src/api/inbox-messages.ts",
       "generatedGroup": "notifications-inbox-messages",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListTemplates",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetTemplate",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateTemplate",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateTemplate",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsPublishTemplate",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-templates",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListProviderTypes",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListProviderProfiles",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetProviderProfile",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateProviderProfile",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateProviderProfile",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsPublishProviderProfile",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsEnableProviderProfile",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsDisableProviderProfile",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-provider-profiles",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListBindings",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-bindings",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetBinding",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-bindings",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateBinding",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-bindings",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsUpdateBinding",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-bindings",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsPublishBinding",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-bindings",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListDeliveries",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-deliveries",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetDelivery",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-deliveries",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsRetryDelivery",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-deliveries",
       "status": "generated"
     },
     {

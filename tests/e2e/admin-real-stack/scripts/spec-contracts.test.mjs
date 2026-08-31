@@ -204,3 +204,26 @@ test('运行日志真实栈必须使用隔离目录并在退出时清理', async
   assert.match(bootstrap, /fullnet-observability-real-stack-marker/u);
   assert.match(bootstrap, /rmSync\(activeStack\.observabilityLogRoot/u);
 });
+
+test('工作流真实栈必须覆盖 Host/Tenant 权限、并发与危险 Patch', async () => {
+  const hostSpec = await readFile(
+    path.resolve(import.meta.dirname, '../tests/workflow-approval.spec.mjs'),
+    'utf8'
+  );
+  const tenantSpec = await readFile(
+    path.resolve(import.meta.dirname, '../tests/workflow-approval-tenant.spec.mjs'),
+    'utf8'
+  );
+
+  for (const source of [hostSpec, tenantSpec]) {
+    assert.match(source, /workflow-todo-approve/u);
+    assert.match(source, /workflow-todo-reject/u);
+    assert.match(source, /toHaveCount\(0\)/u);
+    assert.match(source, /authorization\.permission_denied/u);
+    assert.match(source, /toBe\(409\)/u);
+    assert.match(source, /assertDangerousPatchesReturn422/u);
+  }
+
+  assert.match(tenantSpec, /enterDevelopmentTenant/u);
+  assert.match(tenantSpec, /loginTenantAdminAccessToken/u);
+});

@@ -1,0 +1,59 @@
+using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace Full.NET.Modules.Notifications.Features.SendTenantInboxMessages;
+
+internal static class Endpoint
+{
+    /// <summary>
+    /// 注册租户站内信发送路由；TenantId 只能来自受信会话，不能由请求覆盖。
+    /// </summary>
+    public static void Map(IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/v1/notifications/tenant-inbox-messages")
+            .WithTags("NotificationsTenantInboxMessages");
+
+        group.MapPost("/", async (
+            SendTenantInboxMessageRequest request,
+            TenantInboxMessageService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.SendAsync(userId, request, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.Created(
+                $"/api/v1/notifications/my-inbox-messages/{result.Value!.Id:D}",
+                result.Value);
+        })
+        .WithName("notificationsSendTenantInboxMessage")
+        .Produces<InboxMessageResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(InboxPermissions.Send));
+    }
+
+    private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)
+    {
+        userId = default;
+        var subject = httpContext.User.FindFirst("sub")?.Value;
+        return Guid.TryParse(subject, out userId);
+    }
+}

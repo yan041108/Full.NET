@@ -484,6 +484,31 @@ export interface CreateHostUserRequest {
   readonly username: string;
 }
 
+export interface CreateNotificationBindingRequest {
+  readonly bindingKey: string;
+  readonly channelKey: string;
+  readonly dispatchModeKey: string;
+  readonly producerKey: string;
+  readonly sceneKey: string;
+  readonly targets: Array<NotificationBindingTargetInput>;
+}
+
+export interface CreateNotificationProviderProfileRequest {
+  readonly nonSecretConfig: JsonElement;
+  readonly profileKey: string;
+  readonly providerTypeKey: string;
+  readonly secretReference: null | string;
+}
+
+export interface CreateNotificationTemplateRequest {
+  readonly channelKey: string;
+  readonly contentCategoryKey: string;
+  readonly draftBody: NotificationTemplateBody;
+  readonly draftSubject: string;
+  readonly parameterSchema: NotificationTemplateParameterSchema;
+  readonly templateKey: string;
+}
+
 export interface CreateOrganizationPositionLevelRequest {
   readonly code: string;
   readonly displayOrder: number;
@@ -526,6 +551,11 @@ export interface CreateSerialNumberRuleRequest {
   readonly resetInterval: SerialNumberResetInterval;
   readonly ruleKey: string;
   readonly scope: SerialNumberRuleScope;
+}
+
+export interface CreateWorkflowDefinitionRequest {
+  readonly definitionKey: string;
+  readonly draft: WorkflowDefinitionDraft;
 }
 
 export interface CreateWorkflowFormRequest {
@@ -1229,6 +1259,121 @@ export interface ModuleCatalogEntryResponse {
   readonly version: string;
 }
 
+export interface NotificationBindingResponse {
+  readonly bindingKey: string;
+  readonly createdAtUtc: string;
+  readonly draftDispatchModeKey: string;
+  readonly draftJson: string;
+  readonly draftRevision: number;
+  readonly id: string;
+  readonly latestBindingTargetsJson: null | string;
+  readonly latestChannelKey: null | string;
+  readonly latestDispatchModeKey: null | string;
+  readonly latestProducerKey: null | string;
+  readonly latestPublishedVersionId: null | string;
+  readonly latestPublishedVersionNumber: null | number;
+  readonly latestSceneKey: null | string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface NotificationBindingTargetInput {
+  readonly order: number;
+  readonly profileKey: string;
+}
+
+export interface NotificationDeliveryAttemptResponse {
+  readonly attemptNumber: number;
+  readonly errorCode: null | string;
+  readonly finishedAtUtc: null | string;
+  readonly id: string;
+  readonly providerMessageId: null | string;
+  readonly resultCategoryKey: null | string;
+  readonly startedAtUtc: string;
+  readonly statusKey: string;
+}
+
+export interface NotificationDeliveryResponse {
+  readonly attempts: Array<NotificationDeliveryAttemptResponse>;
+  readonly bindingVersionId: null | string;
+  readonly channelKey: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly intentId: string;
+  readonly nextAttemptAtUtc: null | string;
+  readonly providerProfileVersionId: null | string;
+  readonly recipientId: string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly updatedAtUtc: null | string;
+}
+
+export interface NotificationProviderConfigField {
+  readonly name: string;
+  readonly required: boolean;
+  readonly typeKey: string;
+}
+
+export interface NotificationProviderProfileResponse {
+  readonly createdAtUtc: string;
+  readonly draftRevision: number;
+  readonly id: string;
+  readonly isEnabled: boolean;
+  readonly latestAdapterVersion: null | string;
+  readonly latestPublishedVersionId: null | string;
+  readonly latestPublishedVersionNumber: null | number;
+  readonly nonSecretConfigJson: string;
+  readonly profileKey: string;
+  readonly providerTypeKey: string;
+  readonly secretStatus: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
+export interface NotificationProviderTypeDescriptor {
+  readonly adapterVersion: string;
+  readonly nonSecretFields: Array<NotificationProviderConfigField>;
+  readonly providerTypeKey: string;
+  readonly receiptModeKey: string;
+  readonly secretFieldKeys: Array<string>;
+  readonly supportedChannelKeys: Array<string>;
+  readonly supportsNativeAot: boolean;
+}
+
+export interface NotificationTemplateBody {
+  readonly text: string;
+}
+
+export interface NotificationTemplateParameterDefinition {
+  readonly maxLength: null | number;
+  readonly name: string;
+  readonly required: boolean;
+  readonly typeKey: string;
+}
+
+export interface NotificationTemplateParameterSchema {
+  readonly parameters: Array<NotificationTemplateParameterDefinition>;
+  readonly schemaVersion: number;
+}
+
+export interface NotificationTemplateResponse {
+  readonly channelKey: string;
+  readonly contentCategoryKey: string;
+  readonly createdAtUtc: string;
+  readonly draftBodyJson: string;
+  readonly draftParameterSchemaJson: string;
+  readonly draftRevision: number;
+  readonly draftSubject: string;
+  readonly id: string;
+  readonly latestContentClassificationKey: null | string;
+  readonly latestContentHash: null | string;
+  readonly latestPublishedVersionId: null | string;
+  readonly latestPublishedVersionNumber: null | number;
+  readonly templateKey: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
+}
+
 export interface OperationLogResponse {
   readonly actionKey: string;
   readonly clientIpFingerprint: null | string;
@@ -1477,6 +1622,34 @@ export interface PagedResultOfInboxMessageResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfNotificationBindingResponse {
+  readonly items: Array<NotificationBindingResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfNotificationDeliveryResponse {
+  readonly items: Array<NotificationDeliveryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfNotificationProviderProfileResponse {
+  readonly items: Array<NotificationProviderProfileResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfNotificationTemplateResponse {
+  readonly items: Array<NotificationTemplateResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfOperationLogResponse {
   readonly items: Array<OperationLogResponse>;
   readonly page: number;
@@ -1581,6 +1754,24 @@ export interface PublishHostAnnouncementRequest {
   readonly version: number;
 }
 
+export interface PublishNotificationBindingRequest {
+  readonly version: number;
+}
+
+export interface PublishNotificationProviderProfileRequest {
+  readonly version: number;
+}
+
+export interface PublishNotificationTemplateRequest {
+  readonly contentClassificationKey: string;
+  readonly version: number;
+}
+
+export interface PublishWorkflowDefinitionRequest {
+  readonly expectedRevision: number;
+  readonly formVersionId: string;
+}
+
 export interface PublishWorkflowFormRequest {
   readonly expectedRevision: number;
 }
@@ -1611,6 +1802,11 @@ export interface RestoreDiagnosticPolicyRequest {
 
 export interface RestoreHostDocumentItemRequest {
   readonly version: number;
+}
+
+export interface RetryNotificationDeliveryRequest {
+  readonly reason: string;
+  readonly revision: number;
 }
 
 export interface RevokeSuperAdministratorRequest {
@@ -1654,6 +1850,10 @@ export type SerialNumberRuleScope = number;
 export interface SetHostDocumentPermissionsRequest {
   readonly documentId: string;
   readonly permissions: Array<HostDocumentPermissionEntry>;
+}
+
+export interface SetNotificationProviderProfileEnabledRequest {
+  readonly version: number;
 }
 
 export interface StartWorkflowInstanceRequest {
@@ -1877,6 +2077,28 @@ export interface UpdateLocaleRequest {
   readonly profileVersion: number;
 }
 
+export interface UpdateNotificationBindingRequest {
+  readonly channelKey: string;
+  readonly dispatchModeKey: string;
+  readonly producerKey: string;
+  readonly sceneKey: string;
+  readonly targets: Array<NotificationBindingTargetInput>;
+  readonly version: number;
+}
+
+export interface UpdateNotificationProviderProfileRequest {
+  readonly nonSecretConfig: JsonElement;
+  readonly secretReference: null | string;
+  readonly version: number;
+}
+
+export interface UpdateNotificationTemplateRequest {
+  readonly draftBody: NotificationTemplateBody;
+  readonly draftSubject: string;
+  readonly parameterSchema: NotificationTemplateParameterSchema;
+  readonly version: number;
+}
+
 export interface UpdateOrganizationPositionLevelRequest {
   readonly displayOrder: number;
   readonly name: string;
@@ -1917,6 +2139,11 @@ export interface UpdateSerialNumberRuleRequest {
   readonly resetInterval: SerialNumberResetInterval;
   readonly scope: SerialNumberRuleScope;
   readonly version: number;
+}
+
+export interface UpdateWorkflowDefinitionDraftRequest {
+  readonly draft: WorkflowDefinitionDraft;
+  readonly expectedRevision: number;
 }
 
 export interface UpdateWorkflowFormDraftRequest {
@@ -2036,6 +2263,21 @@ export interface WorkflowNodeDraft {
   readonly nodeKey: string;
   readonly nodeSchemaVersion: number;
   readonly nodeTypeKey: string;
+}
+
+export interface WorkflowNodeTypeCatalogResponse {
+  readonly catalogVersion: number;
+  readonly definitionSchemaVersion: number;
+  readonly nodeTypes: Array<WorkflowNodeTypeResponse>;
+}
+
+export interface WorkflowNodeTypeResponse {
+  readonly designable: boolean;
+  readonly executable: boolean;
+  readonly nodeSchemaVersion: number;
+  readonly nodeTypeKey: string;
+  readonly publishable: boolean;
+  readonly supportsFieldPolicies: boolean;
 }
 
 export interface WorkflowTodoDetailResponse {

@@ -21,16 +21,22 @@ const hostEndpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Notifications/Features/SendHostInboxMessages/Endpoint.cs'
 );
+const tenantEndpointSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Notifications/Features/SendTenantInboxMessages/Endpoint.cs'
+);
 
 test('站内信 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = JSON.parse(await readFile(contractPath, 'utf8'));
   const contractsSource = await readFile(contractsSourcePath, 'utf8');
   const myEndpointSource = await readFile(myEndpointSourcePath, 'utf8');
   const hostEndpointSource = await readFile(hostEndpointSourcePath, 'utf8');
+  const tenantEndpointSource = await readFile(tenantEndpointSourcePath, 'utf8');
 
   assert.equal(contract.id, 'notifications-inbox-messages-v1');
   assert.match(contractsSource, /record InboxMessageResponse/u);
   assert.match(contractsSource, /record SendHostInboxMessageRequest/u);
+  assert.match(contractsSource, /record SendTenantInboxMessageRequest/u);
   assert.match(
     myEndpointSource,
     /MapGroup\("\/api\/v1\/notifications\/my-inbox-messages"\)/u
@@ -45,5 +51,11 @@ test('站内信 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   assert.match(myEndpointSource, /\.WithName\("notificationsGetMyInboxUnreadCount"\)/u);
   assert.match(myEndpointSource, /\.WithName\("notificationsMarkMyInboxMessageRead"\)/u);
   assert.match(myEndpointSource, /\.WithName\("notificationsMarkAllMyInboxMessagesRead"\)/u);
+  assert.match(
+    tenantEndpointSource,
+    /MapGroup\("\/api\/v1\/notifications\/tenant-inbox-messages"\)/u
+  );
+  assert.match(tenantEndpointSource, /\.WithTags\("NotificationsTenantInboxMessages"\)/u);
+  assert.match(tenantEndpointSource, /\.WithName\("notificationsSendTenantInboxMessage"\)/u);
   assert.match(hostEndpointSource, /\.WithName\("notificationsSendHostInboxMessage"\)/u);
 });

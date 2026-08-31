@@ -49,7 +49,9 @@ describe('Vue Notifications 实时状态', () => {
 
   it('同步初始未读数并按稳定消息推进页面修订号', async () => {
     const session = createSession();
-    const loadUnreadCount = vi.fn().mockResolvedValue({ unreadCount: 4 });
+    const loadUnreadCount = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 4 })
+      .mockResolvedValueOnce({ unreadCount: 2 });
     let onMessage: ((message: RealtimeMessage) => void) | undefined;
     const disposeRealtime = vi.fn().mockResolvedValue(undefined);
     const state = createVueNotificationsRealtime({
@@ -79,6 +81,7 @@ describe('Vue Notifications 实时状态', () => {
       code: NOTIFICATIONS_REALTIME_CODES.inboxUnreadCountChanged,
       data: { unreadCount: 2 }
     });
+    await state.whenSettled();
     expect(state.unreadCount.value).toBe(2);
     expect(state.inboxRevision.value).toBe(2);
 
@@ -104,6 +107,7 @@ describe('Vue Notifications 实时状态', () => {
       .mockReturnValueOnce(new Promise(resolve => {
         resolveFirst = resolve;
       }))
+      .mockResolvedValueOnce({ unreadCount: 7 })
       .mockResolvedValueOnce({ unreadCount: 7 });
     let onMessage: ((message: RealtimeMessage) => void) | undefined;
     const state = createVueNotificationsRealtime({
@@ -128,6 +132,7 @@ describe('Vue Notifications 实时状态', () => {
       code: NOTIFICATIONS_REALTIME_CODES.inboxUnreadCountChanged,
       data: { unreadCount: -1 }
     });
+    await state.whenSettled();
     expect(state.unreadCount.value).toBe(7);
     await state.dispose();
   });

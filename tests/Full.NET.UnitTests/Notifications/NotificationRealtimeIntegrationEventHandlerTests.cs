@@ -72,7 +72,8 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
             serializer.Serialize(new InboxMessageReceivedIntegrationEvent(
                 recipientUserId,
                 messageId,
-                "新消息")),
+                "新消息",
+                "host")),
             CancellationToken.None);
 
         await publisher.Received(2).PublishToUserAsync(
@@ -116,7 +117,8 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
 
         await handler.HandleAsync(
             serializer.Serialize(new InboxReadStateChangedIntegrationEvent(
-                recipientUserId)),
+                recipientUserId,
+                "host")),
             CancellationToken.None);
 
         await publisher.Received(1).PublishToUserAsync(
@@ -176,13 +178,15 @@ public sealed class NotificationRealtimeIntegrationEventHandlerTests
                     new InboxMessageReceivedIntegrationEvent(
                         Guid.CreateVersion7(),
                         Guid.CreateVersion7(),
-                        "新消息")),
+                        "新消息",
+                        "host")),
                 CancellationToken.None));
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             readState.HandleAsync(
                 serializer.Serialize(
                     new InboxReadStateChangedIntegrationEvent(
-                        Guid.CreateVersion7())),
+                        Guid.CreateVersion7(),
+                        "host")),
                 CancellationToken.None));
     }
 

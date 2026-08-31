@@ -6,7 +6,7 @@
 - 任务快照：`workflow-admin-real-stack-20260830`
 - 验证范围：Host 作用域下通过 API 建立已发布表单/定义版本，在 Vue 管理端发起实例、同意、驳回，验证字段策略、动作权限、并发冲突和权威刷新；同一场景分别运行于 SQL Server 与 MySQL。
 - 结论：本管理端 Host 审批子切片 `Build-verified`；SQL Server/MySQL 真实栈浏览器用例各 3/3 通过。
-- 非结论：Tenant 作用域、危险 Patch 422、Worker 恢复、`notify.cc`、`gateway.exclusive`、生产容量和人工产品验收仍未关闭，因此 Workflow 不提升为 `Verified`。
+- 非结论：本记录当时未关闭 Tenant 作用域与危险 Patch 422；该两项已由 [`2026-08-31-workflow-first-slice-closeout.md`](2026-08-31-workflow-first-slice-closeout.md) 关闭。Worker 恢复、`notify.cc`、`gateway.exclusive`、生产容量和人工产品验收仍未关闭，因此 Workflow 不提升为 `Verified`。
 
 ## 修复的真实栈缺口
 

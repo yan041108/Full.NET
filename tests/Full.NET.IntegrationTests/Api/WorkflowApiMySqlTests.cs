@@ -23,4 +23,13 @@ public sealed class WorkflowApiMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
         await WorkflowRuntimeApiAssertions.VerifyStartAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Tenant_scope_approval_matrix_holds_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+        await WorkflowRuntimeApiAssertions.VerifyTenantScopeAsync(factory);
+    }
 }

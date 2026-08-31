@@ -1,0 +1,127 @@
+{
+  "id": "notifications-profiles-bindings-v1",
+  "version": 1,
+  "description": "通知渠道配置与场景绑定 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/provider-types",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.provider_profiles.read",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/provider-profiles",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.provider_profiles.read",
+          "successStatus": 200
+        },
+        {
+          "method": "POST",
+          "permission": "notifications.provider_profiles.create",
+          "successStatus": 201,
+          "requestSchema": "CreateNotificationProviderProfileRequest",
+          "responseSchema": "NotificationProviderProfileResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/provider-profiles/{profileId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.provider_profiles.read",
+          "successStatus": 200
+        },
+        {
+          "method": "PUT",
+          "permission": "notifications.provider_profiles.update",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/provider-profiles/{profileId}/publish",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.provider_profiles.publish",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/provider-profiles/{profileId}/enable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.provider_profiles.enable",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/provider-profiles/{profileId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.provider_profiles.disable",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/bindings",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.bindings.read",
+          "successStatus": 200
+        },
+        {
+          "method": "POST",
+          "permission": "notifications.bindings.create",
+          "successStatus": 201
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/bindings/{bindingId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.bindings.read",
+          "successStatus": 200
+        },
+        {
+          "method": "PUT",
+          "permission": "notifications.bindings.update",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/bindings/{bindingId}/publish",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.bindings.publish",
+          "successStatus": 200
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateNotificationProviderProfileRequest": {
+      "properties": ["profileKey", "providerTypeKey", "nonSecretConfig", "secretReference"]
+    },
+    "NotificationProviderProfileResponse": {
+      "properties": ["id", "profileKey", "providerTypeKey", "nonSecretConfigJson", "secretStatus", "isEnabled"]
+    }
+  }
+}

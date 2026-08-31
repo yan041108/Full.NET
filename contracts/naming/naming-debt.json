@@ -31,6 +31,34 @@
       "removalMilestone": "M1.0"
     },
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/104_NotificationsPlatformExtension.sql",
+      "reason": "104 使用三个固定不可变版本触发器；对象名均为常量，并由 Notifications 双库迁移与不可变更新测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/104_NotificationsPlatformExtension.sql",
+      "reason": "104 使用三个固定不可变版本触发器；对象名均为常量，并由 Notifications 双库迁移与不可变更新测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/105_NotificationsInboxScopeExtension.sql",
+      "reason": "105 用固定 EXEC 绕过同批新列编译限制并写入列注释；过滤唯一索引表达 Intent 幂等。对象名均为常量，并由双库恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/105_NotificationsInboxScopeExtension.sql",
+      "reason": "105 使用固定存储过程与 INFORMATION_SCHEMA 幂等补齐 Inbox Scope/Intent 列；对象名均为常量，并由双库恢复测试验证唯一约束与回填。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/043_AuditingOutboundCall.sql",

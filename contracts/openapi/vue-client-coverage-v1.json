@@ -260,6 +260,20 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/templates",
+        "/api/v1/notifications/provider-types",
+        "/api/v1/notifications/provider-profiles",
+        "/api/v1/notifications/bindings",
+        "/api/v1/notifications/deliveries"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/host-menus.ts"
       ],
       "openApiFixture": "contracts/openapi/identity-host-menus-v1.json",
@@ -496,6 +510,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/definitions"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/workflow-runtime.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
@@ -548,6 +572,7 @@
     { "apiModule": "ui/admin/src/api/me.ts", "consumers": ["ui/admin/src/views/OverviewView.vue"] },
     { "apiModule": "ui/admin/src/api/menus.ts", "consumers": ["ui/admin/src/views/MenusView.vue"] },
     { "apiModule": "ui/admin/src/api/module-catalog.ts", "consumers": ["ui/admin/src/views/ModuleCatalogView.vue"] },
+    { "apiModule": "ui/admin/src/api/notification-platform.ts", "consumers": ["ui/admin/src/views/NotificationTemplatesView.vue", "ui/admin/src/views/NotificationProviderProfilesView.vue", "ui/admin/src/views/NotificationBindingsView.vue", "ui/admin/src/views/NotificationDeliveriesView.vue"] },
     { "apiModule": "ui/admin/src/api/online-sessions.ts", "consumers": ["ui/admin/src/views/OnlineSessionsView.vue"] },
     { "apiModule": "ui/admin/src/api/observability-log-files.ts", "consumers": ["ui/admin/src/views/ObservabilityLogFilesView.vue"] },
     { "apiModule": "ui/admin/src/api/operation-logs.ts", "consumers": ["ui/admin/src/views/OperationLogsView.vue"] },
@@ -566,6 +591,7 @@
     { "apiModule": "ui/admin/src/api/tenants.ts", "consumers": ["ui/admin/src/views/TenantsView.vue"] },
     { "apiModule": "ui/admin/src/api/totpEnrollment.ts", "consumers": ["ui/admin/src/views/SuperAdministratorsView.vue"] },
     { "apiModule": "ui/admin/src/api/users.ts", "consumers": ["ui/admin/src/views/UsersView.vue"] },
+    { "apiModule": "ui/admin/src/api/workflow-definitions.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-todos.ts", "consumers": ["ui/admin/src/views/WorkflowTodosView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-runtime.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-instances.ts", "consumers": ["ui/admin/src/views/WorkflowInstancesView.vue"] },

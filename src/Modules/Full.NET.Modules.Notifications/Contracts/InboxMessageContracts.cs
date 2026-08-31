@@ -42,3 +42,19 @@ public sealed record SendHostInboxMessageRequest(
     Guid RecipientUserId,
     string Title,
     string Content);
+
+/// <summary>当前租户管理员发送站内信的请求契约；TenantId 只能来自受信会话。</summary>
+public sealed record SendTenantInboxMessageRequest(
+    Guid RecipientUserId,
+    string Title,
+    string Content);
+
+/// <summary>收件端点对外响应，只返回掩码与验证状态。</summary>
+public sealed record RecipientEndpointResponse(
+    Guid Id,
+    Guid UserId,
+    Guid ProviderProfileVersionId,
+    string EndpointKindKey,
+    string MaskedValue,
+    string VerificationStatusKey,
+    DateTimeOffset CreatedAtUtc);

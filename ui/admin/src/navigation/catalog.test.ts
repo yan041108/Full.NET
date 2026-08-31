@@ -96,5 +96,10 @@ describe('Vue 本地导航目录', () => {
       titleKey: 'navigation.workflowInstances.title',
       captionKey: 'navigation.workflowInstances.caption'
     });
+    expect(localNavigationFor('notification-templates')).toMatchObject({
+      path: '/notifications/templates',
+      titleKey: 'navigation.notificationTemplates.title',
+      captionKey: 'navigation.notificationTemplates.caption'
+    });
   });
 });

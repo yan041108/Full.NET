@@ -185,6 +185,7 @@ export function createIdentitySession(
     operationGeneration = sessionGeneration
   ): Promise<boolean> {
     const execute = async (): Promise<boolean> => {
+      const tokenBeforeRefresh = token;
       try {
         const value = await identityRefreshSession(
           http,
@@ -200,14 +201,18 @@ export function createIdentitySession(
         }
 
         if (!isTokenResponse(value)) {
-          clearLocal();
+          if (token === tokenBeforeRefresh) {
+            clearLocal();
+          }
+
           return false;
         }
 
         token = value;
         return true;
       } catch {
-        if (operationGeneration === sessionGeneration) {
+        // 租户切换会轮换刷新 Cookie；在途 401 的 Refresh 失败不得覆盖已经成功签发的新 Access Token。
+        if (operationGeneration === sessionGeneration && token === tokenBeforeRefresh) {
           clearLocal();
         }
 

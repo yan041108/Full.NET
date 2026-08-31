@@ -142,6 +142,26 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.inboxMessages.title',
     captionKey: 'navigation.inboxMessages.caption'
   }],
+  ['notification-templates', {
+    titleKey: 'navigation.notificationTemplates.title',
+    captionKey: 'navigation.notificationTemplates.caption'
+  }],
+  ['notification-provider-profiles', {
+    titleKey: 'navigation.notificationProviderProfiles.title',
+    captionKey: 'navigation.notificationProviderProfiles.caption'
+  }],
+  ['notification-bindings', {
+    titleKey: 'navigation.notificationBindings.title',
+    captionKey: 'navigation.notificationBindings.caption'
+  }],
+  ['notification-deliveries', {
+    titleKey: 'navigation.notificationDeliveries.title',
+    captionKey: 'navigation.notificationDeliveries.caption'
+  }],
+  ['notification-preferences', {
+    titleKey: 'navigation.notificationPreferences.title',
+    captionKey: 'navigation.notificationPreferences.caption'
+  }],
   ['host-jobs', {
     titleKey: 'navigation.hostJobs.title',
     captionKey: 'navigation.hostJobs.caption'

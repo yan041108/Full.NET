@@ -341,6 +341,57 @@ describe('Vue 管理端会话', () => {
     expect(session.availableTenants).toEqual([]);
   });
 
+  it('租户切换成功后，过期请求触发的刷新失败不得清空新令牌', async () => {
+    let resolveRefresh!: (response: Response) => void;
+    const refreshResponse = new Promise<Response>(resolve => {
+      resolveRefresh = resolve;
+    });
+    const fetchMock = createLoginFetch();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        status: 401,
+        code: 'identity.session_not_active',
+        title: '当前会话已失效'
+      }, 401, 'application/problem+json'))
+      .mockReturnValueOnce(refreshResponse)
+      .mockResolvedValueOnce(jsonResponse({
+        ...tokenResponse('tenant-token'),
+        context: {
+          tenantId,
+          identifier: 'acme',
+          name: 'Acme Corporation',
+          scope: `tenant:${tenantId.replaceAll('-', '')}`
+        }
+      }))
+      .mockResolvedValueOnce(jsonResponse(currentUser(tenantId)))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+    await session.login('admin', 'FullNet!2026Secure');
+
+    const staleOutcome = request<void>('/api/v1/stale')
+      .then(() => undefined, error => error);
+    await vi.waitFor(() =>
+      expect(fetchMock.mock.calls.some(call => call[0] === '/api/v1/auth/refresh'))
+        .toBe(true)
+    );
+    await session.switchTenant(tenantId);
+    expect(session.readAccessToken()).toBe('tenant-token');
+    resolveRefresh(jsonResponse({
+      status: 401,
+      code: 'identity.session_not_active',
+      title: '当前会话已失效'
+    }, 401, 'application/problem+json'));
+
+    await expect(staleOutcome).resolves.toMatchObject({
+      code: 'identity.session_not_active'
+    });
+    expect(session.state).toBe('authenticated');
+    expect(session.readAccessToken()).toBe('tenant-token');
+    expect(session.currentUser?.tenantId).toBe(tenantId);
+  });
+
   it('退出后拒绝较晚返回的在途刷新结果', async () => {
     let resolveRefresh!: (response: Response) => void;
     const refreshResponse = new Promise<Response>(resolve => {

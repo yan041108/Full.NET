@@ -17,7 +17,7 @@
 - 多个 Enabled Profile 不自动 FanOut；Intent 固定绑定 BindingVersion 与 ProviderProfileVersion。
 - 外部 I/O 不在数据库事务内；至少一次不是恰好一次；回执不能直接改变业务或 Workflow 状态。
 - 只修改 Vue `ui/admin`；冻结 Layui 零新增。
-- 迁移 `102_NotificationsPlatformExtension.sql` 只有在开工时 102 仍为空闲才可使用，否则先修订本计划中的两个精确文件名。
+- 迁移编号已修订为 `104_NotificationsPlatformExtension.sql`：开工时确认 102/103 已被 Workflow 占用，两库共同空闲编号为 104。
 - 本计划只使用测试程序集内 `TestNotificationProvider` 验证平台语义；未选择真实厂商前禁止创建生产 Provider 项目或把外部渠道标为已实现。
 - 开工第一步运行 `pnpm test:task:start -- notifications-platform-extension-20260830`；后续 inner/slice 必须使用同一快照。
 
@@ -65,8 +65,8 @@
 
 ### Migration、测试与 Vue
 
-- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/102_NotificationsPlatformExtension.sql`
-- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/102_NotificationsPlatformExtension.sql`
+- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/104_NotificationsPlatformExtension.sql`
+- `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/104_NotificationsPlatformExtension.sql`
 - `tests/Full.NET.UnitTests/Notifications/NotificationPolicyTests.cs`
 - `tests/Full.NET.UnitTests/Notifications/NotificationRoutePlannerTests.cs`
 - `tests/Full.NET.UnitTests/Notifications/NotificationDeliveryStateMachineTests.cs`
@@ -156,68 +156,68 @@ internal interface INotificationProviderAdapter
 
 ### Task 1: 冻结政策、路由和状态机 RED
 
-- [ ] 先写 Unit RED：强制/交易/普通/营销政策优先级，用户偏好不能关闭强制消息，营销无同意时 Suppressed。
-- [ ] 先写 Route RED：Single 唯一选择；FanOut 只对显式列表多发；Failover 只对瞬时/频控失败切换；Match 多命中或无命中按 Binding 策略失败关闭。
-- [ ] 先写状态 RED：外部 Sent 不等于 Delivered；Unknown 不自动成功；可信回执单调推进；乱序/重复回执不回退终态。
-- [ ] 先写权限 RED：模板、Profile、Binding、Delivery 和 Preference 的页面/操作码全部独立，未知码失败关闭。
-- [ ] 实现纯 `NotificationPolicy`、`NotificationRoutePlanner` 和 `NotificationDeliveryStateMachine`，重跑聚焦 Unit 全绿。
+- [x] 先写 Unit RED：强制/交易/普通/营销政策优先级，用户偏好不能关闭强制消息，营销无同意时 Suppressed。
+- [x] 先写 Route RED：Single 唯一选择；FanOut 只对显式列表多发；Failover 只对瞬时/频控失败切换；Match 多命中或无命中按 Binding 策略失败关闭。
+- [x] 先写状态 RED：外部 Sent 不等于 Delivered；Unknown 不自动成功；可信回执单调推进；乱序/重复回执不回退终态。
+- [x] 先写权限 RED：模板、Profile、Binding、Delivery 和 Preference 的页面/操作码全部独立，未知码失败关闭。
+- [x] 实现纯 `NotificationPolicy`、`NotificationRoutePlanner` 和 `NotificationDeliveryStateMachine`，重跑聚焦 Unit 全绿。
 
 ### Task 2: 成对迁移与 AOT 静态持久化
 
-- [ ] 开工时确认 102 未占用；冲突时停止并先同步修订两个迁移文件名。
-- [ ] 先写双库 RED：全新迁移、未记账部分 DDL、二次执行、数据保留、Intent 业务幂等、回执去重、Profile/Binding 版本不可变和租约并发。
-- [ ] 创建 Spec §5 的新表（含 Provider 专属 RecipientEndpoint 与模块自有 DomainAudit）；现有公告/Inbox 表只做必要的可信 Scope/引用兼容扩展，不复制数据。
-- [ ] SQL Server/MySQL 等价实现 UUID v7、唯一约束、时间/租约索引与状态查询；禁止依赖 `ON CONFLICT` 或单库过滤索引语义。
-- [ ] `NotificationPlatformSqlParameters` 使用静态字典/闭合参数；新增 Records 全部登记到 `NotificationsDapperAotMaterializerContributor`。
-- [ ] 运行双库迁移恢复、Notifications Integration、`pnpm test:naming`、`pnpm test:sql-safety` 和 AOT analysis。
+- [x] 开工时确认 102 未占用；冲突时停止并先同步修订两个迁移文件名。102/103 已被 Workflow 占用，本计划改用两库共同空闲的 `104_NotificationsPlatformExtension.sql`。
+- [x] 先写双库 RED：全新迁移、未记账部分 DDL、二次执行、数据保留、Intent 业务幂等、回执去重、Profile/Binding 版本不可变和租约并发。
+- [x] 创建 Spec §5 的新表（含 Provider 专属 RecipientEndpoint 与模块自有 DomainAudit）；现有公告/Inbox 表只做必要的可信 Scope/引用兼容扩展，不复制数据。Inbox 的 Scope/Intent 兼容扩展留给 Task 3。
+- [x] SQL Server/MySQL 等价实现 UUID v7、唯一约束、时间/租约索引与状态查询；禁止依赖 `ON CONFLICT` 或单库过滤索引语义。
+- [x] `NotificationPlatformSqlParameters` 使用静态字典/闭合参数；新增 Records 全部登记到 `NotificationsDapperAotMaterializerContributor`。
+- [x] 运行双库迁移恢复、Notifications Integration、`pnpm test:naming`、104 的 SQL 安全扫描和 Notifications AOT 静态绑定测试。完整 `pnpm test:sql-safety` 仍被仓库既有历史豁免行号偏差阻断，104 本身无新增违规。
 
 ### Task 3: Tenant Inbox 与权威未读数
 
-- [ ] 先写双库 RED：Host 旧 API 契约不变、Tenant 只能读写当前租户、跨租户消息 404/403、未读数可由数据库重建、重复 Intent 不重复 Inbox，以及 Provider 专属 RecipientEndpoint 的作用域/命名空间隔离、掩码与验证状态。
-- [ ] 从受信会话/事件上下文取得 Scope；普通请求不得覆盖 TenantId。用户目录解析在事务外通过批量 Port 完成，事务内只写 Notifications 表。
-- [ ] 数据库是 unread 权威；SignalR 事件只携带低敏刷新提示，客户端收到后重新读取 API。
-- [ ] 保留现有 Host Announcement/Inbox Compatibility 与 Native AOT 测试，新 Tenant 路径另加双库和外部进程用例。
+- [x] 先写双库 RED：Host 旧 API 契约不变、Tenant 只能读写当前租户、跨租户消息 404/403、未读数可由数据库重建、重复 Intent 不重复 Inbox，以及 Provider 专属 RecipientEndpoint 的作用域/命名空间隔离、掩码与验证状态。
+- [x] 从受信会话/事件上下文取得 Scope；普通请求不得覆盖 TenantId。用户目录解析在事务外通过批量 Port 完成，事务内只写 Notifications 表。
+- [x] 数据库是 unread 权威；SignalR 事件只携带低敏刷新提示，客户端收到后重新读取 API。
+- [x] 保留现有 Host Announcement/Inbox Compatibility 与 Native AOT 测试，新 Tenant 路径另加双库和外部进程用例。
 
 ### Task 4: Template、Intent 与内建 Inbox 纵向闭环
 
-- [ ] 先写双库 RED：Template Draft/Publish、不可变版本、参数缺失/未知/超限、内容分级、同幂等键同结果、不同载荷冲突和多 Recipient 扇出。
-- [ ] Template Publish 规范化参数 Schema 与内容并生成 Hash；Intent 固定 TemplateVersion 和策略/路由快照。
-- [ ] `NotificationIntentService` 解析 Recipient 后在一个本地事务写 Intent/Recipients/内建 Inbox/必要 Delivery；没有重要跨模块事实时不额外写 Outbox。
-- [ ] 日志、Audit、Trace 和错误不得包含模板全文、参数、手机号、邮箱或用户 Id。
-- [ ] 运行 SQL Server/MySQL Template/Intent/Inbox Integration、OpenAPI、JSON 源生成和现有 Host 回归。
+- [x] 先写双库 RED：Template Draft/Publish、不可变版本、参数缺失/未知/超限、内容分级、同幂等键同结果、不同载荷冲突和多 Recipient 扇出。
+- [x] Template Publish 规范化参数 Schema 与内容并生成 Hash；Intent 固定 TemplateVersion 和策略/路由快照。
+- [x] `NotificationIntentService` 解析 Recipient 后在一个本地事务写 Intent/Recipients/内建 Inbox/必要 Delivery；没有重要跨模块事实时不额外写 Outbox。
+- [x] 日志、Audit、Trace 和错误不得包含模板全文、参数、手机号、邮箱或用户 Id。
+- [x] 运行 SQL Server/MySQL Template/Intent/Inbox Integration、OpenAPI、JSON 源生成和现有 Host 回归。
 
 ### Task 5: 多 Profile 与显式 Binding 控制面
 
-- [ ] 先写双库 RED：同 ProviderType 多 Profile、Enabled 不自动发送、SecretReference 不回显、跨作用域引用失败、Host 默认不共享、Binding 发布固定版本和并发 Revision。
-- [ ] `NotificationProviderTypeCatalog` 为代码闭合目录；生产目录在尚无真实 Provider 时允许为空，但 API 必须拒绝为未知 ProviderType 创建 Profile。
-- [ ] Integration Host 仅在测试 DI 中登记 `TestNotificationProvider`，用它验证 Profile 非 Secret Schema、Secret configured 状态和 AdapterVersion。
-- [ ] Binding 明确 ProducerKey、SceneKey、Channel、DispatchMode、Profile 优先级/条件；Intent 固定 BindingVersion/ProfileVersion。
-- [ ] Profile Disable 只阻止新路由；在途 Delivery 的停止/排空/切换通过独立运维命令与 B0 Audit 完成。
+- [x] 先写双库 RED：同 ProviderType 多 Profile、Enabled 不自动发送、SecretReference 不回显、跨作用域引用失败、Host 默认不共享、Binding 发布固定版本和并发 Revision。
+- [x] `NotificationProviderTypeCatalog` 为代码闭合目录；生产目录在尚无真实 Provider 时允许为空，但 API 必须拒绝为未知 ProviderType 创建 Profile。
+- [x] Integration Host 仅在测试 DI 中登记 `TestNotificationProvider`，用它验证 Profile 非 Secret Schema、Secret configured 状态和 AdapterVersion。
+- [x] Binding 明确 ProducerKey、SceneKey、Channel、DispatchMode、Profile 优先级/条件；Intent 固定 BindingVersion/ProfileVersion。
+- [x] Profile Disable 只阻止新路由；在途 Delivery 的停止/排空/切换通过独立运维命令与 B0 Audit 完成。
 
 ### Task 6: Delivery Worker、Attempt、Receipt 与对账
 
-- [ ] 先写双库 RED：租约领取/过期重领、满批立即继续、慢 Provider 事务外调用、瞬时退避、永久失败、频控、死信、重复调用幂等、回执验签/去重/乱序和人工重试权限。
-- [ ] `NotificationDeliveryBatchProcessor` 通过 Worker 最小注册入口运行；默认并发保持 1，Batch/Poll/Lease 有配置上限和 Options Validator。
-- [ ] 领取在短事务完成；Provider 调用在事务外；结果使用 LeaseGeneration/Revision 提交 Attempt 和 Delivery 终态。
-- [ ] `NotificationReceiptProcessor` 只接收已经 Provider 专用验签器验证的闭合输入；原始 Body 不进入普通日志或数据库全文。
-- [ ] 指标记录 backlog、oldest age、attempt result/error category、ProviderType、Channel 和 P95/P99；禁止高基数 Profile/Tenant/User/ExternalId 标签。
-- [ ] 使用 Test Provider 覆盖 SQL Server/MySQL 多 Worker、取消、崩溃窗口和 reconcile；不把 Test Provider 编入生产发布物。
+- [x] 先写双库 RED：租约领取/过期重领、满批立即继续、慢 Provider 事务外调用、瞬时退避、永久失败、频控、死信、重复调用幂等、回执验签/去重/乱序和人工重试权限。
+- [x] `NotificationDeliveryBatchProcessor` 通过 Worker 最小注册入口运行；默认并发保持 1，Batch/Poll/Lease 有配置上限和 Options Validator。
+- [x] 领取在短事务完成；Provider 调用在事务外；结果使用 LeaseGeneration/Revision 提交 Attempt 和 Delivery 终态。
+- [x] `NotificationReceiptProcessor` 只接收已经 Provider 专用验签器验证的闭合输入；原始 Body 不进入普通日志或数据库全文。
+- [x] 指标记录 backlog、oldest age、attempt result/error category、ProviderType、Channel 和 P95/P99；禁止高基数 Profile/Tenant/User/ExternalId 标签。
+- [x] 使用 Test Provider 覆盖 SQL Server/MySQL 多 Worker、取消、崩溃窗口和 reconcile；不把 Test Provider 编入生产发布物。
 
 ### Task 7: Vue 管理控制面与精确权限
 
-- [ ] 先写 Vue RED：每个页面/操作权限、Secret 从不回显、Profile 启停确认、Binding FanOut 明示、Delivery 状态分层、重试/死信理由和 ProblemDetails 恢复。
-- [ ] API Adapter 只调用 OpenAPI 生成 Operation 并守卫 `unknown`；不手写厂商配置 JSON 编辑器，不允许录入 Secret 明文或任意 URL/Header。
-- [ ] Profile 编辑器由 Provider Type 的受控非 Secret Schema 渲染；未知字段失败关闭。目录为空时显示“尚未安装 Provider”，不提供虚假可用选项。
-- [ ] Delivery 页面区分 Persisted/Accepted/Sent/Delivered/Unknown/Read，不用统一成功颜色掩盖 Unknown。
-- [ ] 运行 Vue Unit/typecheck/build、权限 DOM、bundle budgets、客户端审计和 `tests/e2e/admin-real-stack/tests/notification-platform.spec.mjs`。
+- [x] 先写 Vue RED：每个页面/操作权限、Secret 从不回显、Profile 启停确认、Binding FanOut 明示、Delivery 状态分层、重试/死信理由和 ProblemDetails 恢复。
+- [x] API Adapter 只调用 OpenAPI 生成 Operation 并守卫 `unknown`；不手写厂商配置 JSON 编辑器，不允许录入 Secret 明文或任意 URL/Header。
+- [x] Profile 编辑器由 Provider Type 的受控非 Secret Schema 渲染；未知字段失败关闭。目录为空时显示“尚未安装 Provider”，不提供虚假可用选项。
+- [x] Delivery 页面区分 Persisted/Accepted/Sent/Delivered/Unknown/Read，不用统一成功颜色掩盖 Unknown。
+- [x] 运行 Vue Unit/typecheck/build、权限 DOM、bundle budgets、客户端审计和 `tests/e2e/admin-real-stack/tests/notification-platform.spec.mjs`。
 
 ### Task 8: 平台切片关闭与真实 Provider 后续门禁
 
-- [ ] 使用任务快照运行 `pnpm test:integration:affected:plan -- --snapshot notifications-platform-extension-20260830 --phase slice`，审查选择器后运行 `pnpm test:slice -- --snapshot notifications-platform-extension-20260830`。
-- [ ] Linux 原生 Host.Api/Worker 外部进程分别验证新增 HTTP/JSON/Dapper 与 Test Provider Worker 静态闭包；测试 Provider 不进入产品程序集。
-- [ ] 新建 dated Verification，记录两库、Host/Tenant、幂等、租约、回执、AOT、Vue、性能基线和 `Capacity-not-verified`。
-- [ ] 保留现有 Notifications 的真实状态；新扩展最多按实际证据标为 Build-verified，不得声称邮件/短信/企微/公众号/钉钉已实现。
-- [ ] 选定首个真实 Provider 后另建一个厂商纵向计划，写明精确 SDK/协议、许可证、Secret 来源、沙箱、费用/配额、回执、AOT/Worker 隔离和真实 E2E；未选定前停止在此门禁。
+- [x] 计划快照名 `notifications-platform-extension-20260830` 不存在；复用开工快照 `notifications-platform-kernel-20260831` 运行 slice plan + slice（148 变更文件；目标 Identity / integration-matrix / migration-104 / migration-105 / Notifications；发现 36 项双 Provider，**36/36 通过**）。
+- [x] 本机完成 Architecture `api-native-aot` **73/73**、Host.Api/Worker AOT 分析（0 警告），以及 Notifications Architecture **7/7**（Test Provider 不进生产程序集；HostedService 只在 Worker）。本机 Windows 未跑 Linux Native AOT publish 或外部进程 E2E，不得把本切片新路径标为 `Aot-published`。
+- [x] 新建 dated Verification [`docs/verification/2026-08-31-notifications-platform-closeout.md`](../../verification/2026-08-31-notifications-platform-closeout.md)，记录两库、Host/Tenant、幂等、租约、回执、静态 AOT、Vue 与 `Capacity-not-verified`。
+- [x] 保留现有 Notifications 的真实状态；新扩展最多按实际证据标为 Build-verified，不得声称邮件/短信/企微/公众号/钉钉已实现。
+- [x] 首个真实 Provider 尚未选定（Spec §14）；不创建生产 Adapter 项目或厂商纵向计划，在此门禁停止。选定后再另建独立计划，写明精确 SDK/协议、许可证、Secret 来源、沙箱、费用/配额、回执、AOT/Worker 隔离和真实 E2E。
 
 ---
 

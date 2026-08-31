@@ -3,54 +3,105 @@ using Full.NET.Data.Abstractions;
 namespace Full.NET.Modules.Notifications.Persistence;
 
 /// <summary>
-/// 站内信表的参数化 SQL 语句集合，全部声明为 <see cref="SqlDataScope.HostOnly"/>。
+/// 站内信表的参数化 SQL。Host 写入保持 HostOnly；租户写入走 TenantRequired；
+/// 当前用户读写使用 Global 并显式携带受信 TenantScopeKey，供 Worker 在 Host 上下文重建未读数。
+/// TenantRequired 的 INSERT...SELECT 必须在 WHERE 中比较 <c>TenantId = @TenantId</c>，
+/// 守卫不把 SELECT 列表中的 <c>@TenantId</c> 视为安全子句。
 /// </summary>
-/// <remarks>
-/// 站内信属 Host 作用域，行守卫以 <c>TenantId IS NULL</c> 表达；
-/// 列表查询与未读计数分别提供 SQL Server 的 <c>OFFSET/FETCH</c> 与 MySQL 的 <c>LIMIT/OFFSET</c> 成对实现。
-/// </remarks>
 internal static class InboxMessageSql
 {
-    public static readonly SqlStatement Insert =
+    public static readonly SqlStatement InsertHost =
         new(
-            "notifications.insert_inbox_message",
+            "notifications.insert_inbox_message.host",
             """
             INSERT INTO fn_notifications_inbox_message
                 (Id, TenantId, RecipientUserId, Title, Content, Status,
-                 ReadAtUtc, CreatedAtUtc, CreatedByUserId)
+                 ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId)
             VALUES
                 (@Id, NULL, @RecipientUserId, @Title, @Content, @Status,
-                 NULL, @CreatedAtUtc, @CreatedByUserId)
+                 NULL, @CreatedAtUtc, @CreatedByUserId, 'host', 'host', NULL)
             """,
             SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertTenant =
+        new(
+            "notifications.insert_inbox_message.tenant",
+            """
+            INSERT INTO fn_notifications_inbox_message
+                (Id, TenantId, RecipientUserId, Title, Content, Status,
+                 ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId)
+            VALUES
+                (@Id, @TenantId, @RecipientUserId, @Title, @Content, @Status,
+                 NULL, @CreatedAtUtc, @CreatedByUserId, 'tenant', @TenantScopeKey, NULL)
+            """,
+            SqlDataScope.TenantRequired,
+            SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement InsertHostForIntent =
+        new(
+            "notifications.insert_inbox_message.host_intent",
+            """
+            INSERT INTO fn_notifications_inbox_message
+                (Id, TenantId, RecipientUserId, Title, Content, Status,
+                 ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId)
+            SELECT @Id, NULL, @RecipientUserId, @Title, @Content, @Status,
+                   NULL, @CreatedAtUtc, @CreatedByUserId, 'host', 'host', @IntentId
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM fn_notifications_inbox_message
+                WHERE TenantScopeKey = 'host'
+                  AND IntentId = @IntentId
+                  AND RecipientUserId = @RecipientUserId)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertTenantForIntent =
+        new(
+            "notifications.insert_inbox_message.tenant_intent",
+            """
+            INSERT INTO fn_notifications_inbox_message
+                (Id, TenantId, RecipientUserId, Title, Content, Status,
+                 ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId)
+            SELECT @Id, @TenantId, @RecipientUserId, @Title, @Content, @Status,
+                   NULL, @CreatedAtUtc, @CreatedByUserId, 'tenant', @TenantScopeKey, @IntentId
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM fn_notifications_inbox_message
+                WHERE TenantScopeKey = @TenantScopeKey
+                  AND TenantId = @TenantId
+                  AND IntentId = @IntentId
+                  AND RecipientUserId = @RecipientUserId)
+            """,
+            SqlDataScope.TenantRequired,
+            SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement ListForRecipientSqlServer =
         new(
             "notifications.list_inbox_messages.sql_server",
             """
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
             FROM fn_notifications_inbox_message
             WHERE RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
             ORDER BY CreatedAtUtc DESC, Id
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement ListForRecipientMySql =
         new(
             "notifications.list_inbox_messages.mysql",
             """
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
             FROM fn_notifications_inbox_message
             WHERE RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
             ORDER BY CreatedAtUtc DESC, Id
             LIMIT @PageSize OFFSET @Offset
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement CountForRecipient =
         new(
@@ -59,9 +110,9 @@ internal static class InboxMessageSql
             SELECT COUNT(*)
             FROM fn_notifications_inbox_message
             WHERE RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement CountUnreadForRecipient =
         new(
@@ -70,23 +121,36 @@ internal static class InboxMessageSql
             SELECT COUNT(*)
             FROM fn_notifications_inbox_message
             WHERE RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
               AND Status = @UnreadStatus
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement FindForRecipientById =
         new(
             "notifications.find_inbox_message_for_recipient",
             """
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
-                   ReadAtUtc, CreatedAtUtc, CreatedByUserId
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
             FROM fn_notifications_inbox_message
             WHERE Id = @Id
               AND RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
+
+    public static readonly SqlStatement FindByIntentRecipient =
+        new(
+            "notifications.find_inbox_message_by_intent_recipient",
+            """
+            SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
+                   ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
+            FROM fn_notifications_inbox_message
+            WHERE IntentId = @IntentId
+              AND RecipientUserId = @RecipientUserId
+              AND TenantScopeKey = @TenantScopeKey
+            """,
+            SqlDataScope.Global);
 
     public static readonly SqlStatement MarkRead =
         new(
@@ -97,10 +161,10 @@ internal static class InboxMessageSql
                 ReadAtUtc = @ReadAtUtc
             WHERE Id = @Id
               AND RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
               AND Status = @UnreadStatus
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 
     public static readonly SqlStatement MarkAllRead =
         new(
@@ -110,8 +174,8 @@ internal static class InboxMessageSql
             SET Status = @ReadStatus,
                 ReadAtUtc = @ReadAtUtc
             WHERE RecipientUserId = @RecipientUserId
-              AND TenantId IS NULL
+              AND TenantScopeKey = @TenantScopeKey
               AND Status = @UnreadStatus
             """,
-            SqlDataScope.HostOnly);
+            SqlDataScope.Global);
 }

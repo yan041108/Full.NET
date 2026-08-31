@@ -72,13 +72,9 @@ export function createVueNotificationsRealtime(
     }
 
     if (message.code === NOTIFICATIONS_REALTIME_CODES.inboxUnreadCountChanged) {
-      const value = message.data?.unreadCount;
-      if (typeof value === 'number'
-        && Number.isSafeInteger(value)
-        && value >= 0) {
-        unreadCount.value = value;
-        inboxRevision.value++;
-      }
+      // 徽标必须以当前会话作用域的 HTTP 未读数为准；SignalR 载荷只提示刷新。
+      inboxRevision.value++;
+      void queueUnreadCountLoad(sessionGeneration, false);
       return;
     }
 

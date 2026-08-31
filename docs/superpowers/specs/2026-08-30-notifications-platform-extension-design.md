@@ -150,6 +150,7 @@ Profile 管理遵守以下不变量：
 | `notifications.provider_profiles.read` | Provider Profile 页面 |
 | `notifications.provider_profiles.create` | 新建 Profile |
 | `notifications.provider_profiles.update` | 编辑 Profile 非 Secret 配置/Secret Reference |
+| `notifications.provider_profiles.publish` | 发布 Profile 版本 |
 | `notifications.provider_profiles.enable` | 启用 Profile |
 | `notifications.provider_profiles.disable` | 禁用 Profile |
 | `notifications.bindings.read` | 场景绑定页面 |

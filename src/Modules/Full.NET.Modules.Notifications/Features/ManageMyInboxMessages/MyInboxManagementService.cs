@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications;
@@ -9,12 +10,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 
-/// <summary>当前用户站内信已读状态变更。</summary>
+/// <summary>当前用户站内信已读状态变更；只影响受信会话作用域内的行。</summary>
 internal sealed class MyInboxManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IOutboxWriter outboxWriter,
+    ICurrentTenant currentTenant,
     NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     ILogger<MyInboxManagementService> logger)
@@ -22,23 +24,22 @@ internal sealed class MyInboxManagementService(
     /// <summary>
     /// 将当前用户的一条未读站内信标记为已读，并在事务内追加已读状态变更 Outbox 事件。
     /// </summary>
-    /// <remarks>
-    /// 站内信按收件人隔离，<paramref name="recipientUserId"/> 必须来自可信认证上下文；
-    /// 重复标记已读幂等（已读状态直接返回当前值，不重复写 Outbox）。事务提交后再尝试
-    /// 低延迟刷新未读数，失败仅告警，最终一致性由 Outbox 消费者保证。
-    /// </remarks>
     public async Task<Result<InboxMessageResponse>> MarkReadAsync(
         Guid recipientUserId,
         Guid messageId,
         CancellationToken cancellationToken = default)
     {
+        var scope = NotificationInboxScope.Resolve(currentTenant);
         var result = await transaction.ExecuteAsync(
-                token => MarkReadCoreAsync(recipientUserId, messageId, token),
+                token => MarkReadCoreAsync(scope, recipientUserId, messageId, token),
                 cancellationToken)
             .ConfigureAwait(false);
         if (result.IsSuccess)
         {
-            await TryPublishUnreadCountAsync(recipientUserId, CancellationToken.None)
+            await TryPublishUnreadCountAsync(
+                    recipientUserId,
+                    scope.TenantScopeKey,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 
@@ -46,24 +47,23 @@ internal sealed class MyInboxManagementService(
     }
 
     /// <summary>
-    /// 将当前用户所有未读站内信批量标记为已读，并在事务内追加已读状态变更 Outbox 事件。
+    /// 将当前用户当前作用域内所有未读站内信批量标记为已读。
     /// </summary>
-    /// <remarks>
-    /// 更新以 <c>RecipientUserId AND TenantId IS NULL AND Status = Unread</c> 为行守卫，
-    /// 仅影响未读行；影响行数大于 0 时才写 Outbox，避免空操作产生无意义事件。
-    /// 返回的未读数固定为 0，反映事务提交后的权威状态。
-    /// </remarks>
     public async Task<Result<InboxUnreadCountResponse>> MarkAllReadAsync(
         Guid recipientUserId,
         CancellationToken cancellationToken = default)
     {
+        var scope = NotificationInboxScope.Resolve(currentTenant);
         var result = await transaction.ExecuteAsync(
-                token => MarkAllReadCoreAsync(recipientUserId, token),
+                token => MarkAllReadCoreAsync(scope, recipientUserId, token),
                 cancellationToken)
             .ConfigureAwait(false);
         if (result.IsSuccess)
         {
-            await TryPublishUnreadCountAsync(recipientUserId, CancellationToken.None)
+            await TryPublishUnreadCountAsync(
+                    recipientUserId,
+                    scope.TenantScopeKey,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 
@@ -71,17 +71,17 @@ internal sealed class MyInboxManagementService(
     }
 
     private async Task<Result<InboxMessageResponse>> MarkReadCoreAsync(
+        NotificationInboxScope scope,
         Guid recipientUserId,
         Guid messageId,
         CancellationToken cancellationToken)
     {
         var existing = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
-                new Dictionary<string, object?>
-                {
-                    ["Id"] = messageId,
-                    ["RecipientUserId"] = recipientUserId,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("Id", messageId),
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (existing is null)
@@ -97,56 +97,56 @@ internal sealed class MyInboxManagementService(
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 InboxMessageSql.MarkRead,
-                new Dictionary<string, object?>
-                {
-                    ["Id"] = messageId,
-                    ["RecipientUserId"] = recipientUserId,
-                    ["ReadStatus"] = InboxMessageStatuses.Read,
-                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
-                    ["ReadAtUtc"] = now,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("Id", messageId),
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey),
+                    ("ReadStatus", InboxMessageStatuses.Read),
+                    ("UnreadStatus", InboxMessageStatuses.Unread),
+                    ("ReadAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected > 0)
         {
             await AddReadStateChangedAsync(
                     recipientUserId,
+                    scope.TenantScopeKey,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
-                new Dictionary<string, object?>
-                {
-                    ["Id"] = messageId,
-                    ["RecipientUserId"] = recipientUserId,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("Id", messageId),
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         return Result<InboxMessageResponse>.Success(MyInboxQueryService.Map(updated!));
     }
 
     private async Task<Result<InboxUnreadCountResponse>> MarkAllReadCoreAsync(
+        NotificationInboxScope scope,
         Guid recipientUserId,
         CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
         var affected = await commandExecutor.ExecuteAsync(
                 InboxMessageSql.MarkAllRead,
-                new Dictionary<string, object?>
-                {
-                    ["RecipientUserId"] = recipientUserId,
-                    ["ReadStatus"] = InboxMessageStatuses.Read,
-                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
-                    ["ReadAtUtc"] = now,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey),
+                    ("ReadStatus", InboxMessageStatuses.Read),
+                    ("UnreadStatus", InboxMessageStatuses.Unread),
+                    ("ReadAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (affected > 0)
         {
             await AddReadStateChangedAsync(
                     recipientUserId,
+                    scope.TenantScopeKey,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -156,12 +156,14 @@ internal sealed class MyInboxManagementService(
 
     private async Task TryPublishUnreadCountAsync(
         Guid recipientUserId,
+        string tenantScopeKey,
         CancellationToken cancellationToken)
     {
         try
         {
             await realtimeDelivery.PublishInboxUnreadCountAsync(
                     recipientUserId,
+                    tenantScopeKey,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -176,11 +178,12 @@ internal sealed class MyInboxManagementService(
 
     private Task AddReadStateChangedAsync(
         Guid recipientUserId,
+        string tenantScopeKey,
         CancellationToken cancellationToken) =>
         outboxWriter.AddAsync(
             NotificationRealtimeEventTypes.InboxReadStateChanged,
             1,
-            new InboxReadStateChangedIntegrationEvent(recipientUserId),
+            new InboxReadStateChangedIntegrationEvent(recipientUserId, tenantScopeKey),
             cancellationToken);
 
     private static Result<InboxMessageResponse> NotFound() =>

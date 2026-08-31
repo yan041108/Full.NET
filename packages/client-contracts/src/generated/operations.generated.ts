@@ -66,12 +66,16 @@ import type {
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
+  CreateNotificationBindingRequest,
+  CreateNotificationProviderProfileRequest,
+  CreateNotificationTemplateRequest,
   CreateOrganizationPositionLevelRequest,
   CreateOrganizationPositionRequest,
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
   CreateSerialNumberRuleRequest,
+  CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
   CurrentUserResponse,
   DeleteCodeGenerationTemplateRequest,
@@ -153,6 +157,17 @@ import type {
   LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  NotificationBindingResponse,
+  NotificationBindingTargetInput,
+  NotificationDeliveryAttemptResponse,
+  NotificationDeliveryResponse,
+  NotificationProviderConfigField,
+  NotificationProviderProfileResponse,
+  NotificationProviderTypeDescriptor,
+  NotificationTemplateBody,
+  NotificationTemplateParameterDefinition,
+  NotificationTemplateParameterSchema,
+  NotificationTemplateResponse,
   OperationLogResponse,
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
@@ -181,6 +196,10 @@ import type {
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   PagedResultOfInboxMessageResponse,
+  PagedResultOfNotificationBindingResponse,
+  PagedResultOfNotificationDeliveryResponse,
+  PagedResultOfNotificationProviderProfileResponse,
+  PagedResultOfNotificationTemplateResponse,
   PagedResultOfOperationLogResponse,
   PagedResultOfOrganizationAssignableUserResponse,
   PagedResultOfOrganizationPositionLevelResponse,
@@ -196,6 +215,10 @@ import type {
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
+  PublishNotificationBindingRequest,
+  PublishNotificationProviderProfileRequest,
+  PublishNotificationTemplateRequest,
+  PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
@@ -203,6 +226,7 @@ import type {
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
+  RetryNotificationDeliveryRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SerialNumberPreviewResponse,
@@ -210,6 +234,7 @@ import type {
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
   SetHostDocumentPermissionsRequest,
+  SetNotificationProviderProfileEnabledRequest,
   StartWorkflowInstanceRequest,
   Stream,
   SuperAdministratorAuditResponse,
@@ -238,12 +263,16 @@ import type {
   UpdateHostTenantRequest,
   UpdateHostUserRequest,
   UpdateLocaleRequest,
+  UpdateNotificationBindingRequest,
+  UpdateNotificationProviderProfileRequest,
+  UpdateNotificationTemplateRequest,
   UpdateOrganizationPositionLevelRequest,
   UpdateOrganizationPositionRequest,
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
   UpdateSerialNumberRuleRequest,
+  UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
@@ -258,6 +287,8 @@ import type {
   WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
+  WorkflowNodeTypeCatalogResponse,
+  WorkflowNodeTypeResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
   WorkflowTodoRuntimeResponse
@@ -331,6 +362,11 @@ import {
   readLocalePreferenceResponse,
   readLogFileTail,
   readModuleCatalogEntryResponse,
+  readNotificationBindingResponse,
+  readNotificationDeliveryResponse,
+  readNotificationProviderProfileResponse,
+  readNotificationsListProviderTypesResponse,
+  readNotificationTemplateResponse,
   readObservabilityListLogFilesResponse,
   readOrganizationPositionLevelResponse,
   readOrganizationPositionResponse,
@@ -357,6 +393,10 @@ import {
   readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
   readPagedResultOfInboxMessageResponse,
+  readPagedResultOfNotificationBindingResponse,
+  readPagedResultOfNotificationDeliveryResponse,
+  readPagedResultOfNotificationProviderProfileResponse,
+  readPagedResultOfNotificationTemplateResponse,
   readPagedResultOfOperationLogResponse,
   readPagedResultOfOrganizationAssignableUserResponse,
   readPagedResultOfOrganizationPositionLevelResponse,
@@ -383,6 +423,8 @@ import {
   readTenantSummary,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
+  readWorkflowDefinitionResponse,
+  readWorkflowDefinitionVersionResponse,
   readWorkflowFormComponentCatalogResponse,
   readWorkflowFormResponse,
   readWorkflowFormVersionResponse,
@@ -392,6 +434,7 @@ import {
   readWorkflowListFormsResponse,
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyTodosResponse,
+  readWorkflowNodeTypeCatalogResponse,
   readWorkflowTodoDetailResponse,
   readWorkflowTodoRuntimeResponse
 } from './guards.generated.js';
@@ -3344,6 +3387,28 @@ export async function jobsUpdateHostJobSchedule(
   return readHostJobScheduleResponse(value);
 }
 
+export interface NotificationsCreateBindingParameters {
+  readonly body: CreateNotificationBindingRequest;
+}
+
+export async function notificationsCreateBinding(
+  http: HttpClient,
+  parameters: NotificationsCreateBindingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationBindingResponse> {
+  const path = `/api/v1/notifications/bindings`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationBindingResponse(value);
+}
+
 export interface NotificationsCreateHostAnnouncementParameters {
   readonly body: CreateHostAnnouncementRequest;
 }
@@ -3366,6 +3431,132 @@ export async function notificationsCreateHostAnnouncement(
   return readHostAnnouncementResponse(value);
 }
 
+export interface NotificationsCreateProviderProfileParameters {
+  readonly body: CreateNotificationProviderProfileRequest;
+}
+
+export async function notificationsCreateProviderProfile(
+  http: HttpClient,
+  parameters: NotificationsCreateProviderProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProviderProfileResponse> {
+  const path = `/api/v1/notifications/provider-profiles`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsCreateTemplateParameters {
+  readonly body: CreateNotificationTemplateRequest;
+}
+
+export async function notificationsCreateTemplate(
+  http: HttpClient,
+  parameters: NotificationsCreateTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationTemplateResponse> {
+  const path = `/api/v1/notifications/templates`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationTemplateResponse(value);
+}
+
+export interface NotificationsDisableProviderProfileParameters {
+  readonly profileId: string;
+  readonly body: SetNotificationProviderProfileEnabledRequest;
+}
+
+export async function notificationsDisableProviderProfile(
+  http: HttpClient,
+  parameters: NotificationsDisableProviderProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProviderProfileResponse> {
+  const path = `/api/v1/notifications/provider-profiles/${encodeURIComponent(String(parameters.profileId))}/disable`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsEnableProviderProfileParameters {
+  readonly profileId: string;
+  readonly body: SetNotificationProviderProfileEnabledRequest;
+}
+
+export async function notificationsEnableProviderProfile(
+  http: HttpClient,
+  parameters: NotificationsEnableProviderProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProviderProfileResponse> {
+  const path = `/api/v1/notifications/provider-profiles/${encodeURIComponent(String(parameters.profileId))}/enable`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsGetBindingParameters {
+  readonly bindingId: string;
+}
+
+export async function notificationsGetBinding(
+  http: HttpClient,
+  parameters: NotificationsGetBindingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationBindingResponse> {
+  const path = `/api/v1/notifications/bindings/${encodeURIComponent(String(parameters.bindingId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationBindingResponse(value);
+}
+
+export interface NotificationsGetDeliveryParameters {
+  readonly deliveryId: string;
+}
+
+export async function notificationsGetDelivery(
+  http: HttpClient,
+  parameters: NotificationsGetDeliveryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationDeliveryResponse> {
+  const path = `/api/v1/notifications/deliveries/${encodeURIComponent(String(parameters.deliveryId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationDeliveryResponse(value);
+}
+
 export interface NotificationsGetMyInboxUnreadCountParameters {
 
 }
@@ -3382,6 +3573,94 @@ export async function notificationsGetMyInboxUnreadCount(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readInboxUnreadCountResponse(value);
+}
+
+export interface NotificationsGetProviderProfileParameters {
+  readonly profileId: string;
+}
+
+export async function notificationsGetProviderProfile(
+  http: HttpClient,
+  parameters: NotificationsGetProviderProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProviderProfileResponse> {
+  const path = `/api/v1/notifications/provider-profiles/${encodeURIComponent(String(parameters.profileId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsGetTemplateParameters {
+  readonly templateId: string;
+}
+
+export async function notificationsGetTemplate(
+  http: HttpClient,
+  parameters: NotificationsGetTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationTemplateResponse> {
+  const path = `/api/v1/notifications/templates/${encodeURIComponent(String(parameters.templateId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationTemplateResponse(value);
+}
+
+export interface NotificationsListBindingsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListBindings(
+  http: HttpClient,
+  parameters: NotificationsListBindingsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfNotificationBindingResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/bindings` : `/api/v1/notifications/bindings?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfNotificationBindingResponse(value);
+}
+
+export interface NotificationsListDeliveriesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListDeliveries(
+  http: HttpClient,
+  parameters: NotificationsListDeliveriesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfNotificationDeliveryResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/deliveries` : `/api/v1/notifications/deliveries?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfNotificationDeliveryResponse(value);
 }
 
 export interface NotificationsListHostAnnouncementsParameters {
@@ -3436,6 +3715,76 @@ export async function notificationsListMyInboxMessages(
   return readPagedResultOfInboxMessageResponse(value);
 }
 
+export interface NotificationsListProviderProfilesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListProviderProfiles(
+  http: HttpClient,
+  parameters: NotificationsListProviderProfilesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfNotificationProviderProfileResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/provider-profiles` : `/api/v1/notifications/provider-profiles?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsListProviderTypesParameters {
+
+}
+
+export async function notificationsListProviderTypes(
+  http: HttpClient,
+  parameters: NotificationsListProviderTypesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<NotificationProviderTypeDescriptor>> {
+  const path = `/api/v1/notifications/provider-types`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationsListProviderTypesResponse(value);
+}
+
+export interface NotificationsListTemplatesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListTemplates(
+  http: HttpClient,
+  parameters: NotificationsListTemplatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfNotificationTemplateResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/templates` : `/api/v1/notifications/templates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfNotificationTemplateResponse(value);
+}
+
 export interface NotificationsMarkAllMyInboxMessagesReadParameters {
 
 }
@@ -3472,6 +3821,29 @@ export async function notificationsMarkMyInboxMessageRead(
   return readInboxMessageResponse(value);
 }
 
+export interface NotificationsPublishBindingParameters {
+  readonly bindingId: string;
+  readonly body: PublishNotificationBindingRequest;
+}
+
+export async function notificationsPublishBinding(
+  http: HttpClient,
+  parameters: NotificationsPublishBindingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationBindingResponse> {
+  const path = `/api/v1/notifications/bindings/${encodeURIComponent(String(parameters.bindingId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationBindingResponse(value);
+}
+
 export interface NotificationsPublishHostAnnouncementParameters {
   readonly announcementId: string;
   readonly body: PublishHostAnnouncementRequest;
@@ -3493,6 +3865,75 @@ export async function notificationsPublishHostAnnouncement(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostAnnouncementResponse(value);
+}
+
+export interface NotificationsPublishProviderProfileParameters {
+  readonly profileId: string;
+  readonly body: PublishNotificationProviderProfileRequest;
+}
+
+export async function notificationsPublishProviderProfile(
+  http: HttpClient,
+  parameters: NotificationsPublishProviderProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProviderProfileResponse> {
+  const path = `/api/v1/notifications/provider-profiles/${encodeURIComponent(String(parameters.profileId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsPublishTemplateParameters {
+  readonly templateId: string;
+  readonly body: PublishNotificationTemplateRequest;
+}
+
+export async function notificationsPublishTemplate(
+  http: HttpClient,
+  parameters: NotificationsPublishTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationTemplateResponse> {
+  const path = `/api/v1/notifications/templates/${encodeURIComponent(String(parameters.templateId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationTemplateResponse(value);
+}
+
+export interface NotificationsRetryDeliveryParameters {
+  readonly deliveryId: string;
+  readonly body: RetryNotificationDeliveryRequest;
+}
+
+export async function notificationsRetryDelivery(
+  http: HttpClient,
+  parameters: NotificationsRetryDeliveryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationDeliveryResponse> {
+  const path = `/api/v1/notifications/deliveries/${encodeURIComponent(String(parameters.deliveryId))}/retry`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationDeliveryResponse(value);
 }
 
 export interface NotificationsSendHostInboxMessageParameters {
@@ -3517,6 +3958,29 @@ export async function notificationsSendHostInboxMessage(
   return readInboxMessageResponse(value);
 }
 
+export interface NotificationsUpdateBindingParameters {
+  readonly bindingId: string;
+  readonly body: UpdateNotificationBindingRequest;
+}
+
+export async function notificationsUpdateBinding(
+  http: HttpClient,
+  parameters: NotificationsUpdateBindingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationBindingResponse> {
+  const path = `/api/v1/notifications/bindings/${encodeURIComponent(String(parameters.bindingId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationBindingResponse(value);
+}
+
 export interface NotificationsUpdateHostAnnouncementParameters {
   readonly announcementId: string;
   readonly body: UpdateHostAnnouncementRequest;
@@ -3538,6 +4002,52 @@ export async function notificationsUpdateHostAnnouncement(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostAnnouncementResponse(value);
+}
+
+export interface NotificationsUpdateProviderProfileParameters {
+  readonly profileId: string;
+  readonly body: UpdateNotificationProviderProfileRequest;
+}
+
+export async function notificationsUpdateProviderProfile(
+  http: HttpClient,
+  parameters: NotificationsUpdateProviderProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationProviderProfileResponse> {
+  const path = `/api/v1/notifications/provider-profiles/${encodeURIComponent(String(parameters.profileId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationProviderProfileResponse(value);
+}
+
+export interface NotificationsUpdateTemplateParameters {
+  readonly templateId: string;
+  readonly body: UpdateNotificationTemplateRequest;
+}
+
+export async function notificationsUpdateTemplate(
+  http: HttpClient,
+  parameters: NotificationsUpdateTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<NotificationTemplateResponse> {
+  const path = `/api/v1/notifications/templates/${encodeURIComponent(String(parameters.templateId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationTemplateResponse(value);
 }
 
 export interface ObservabilityDownloadLogFileParameters {
@@ -5734,6 +6244,28 @@ export async function workflowCancelInstance(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowCreateDefinitionParameters {
+  readonly body: CreateWorkflowDefinitionRequest;
+}
+
+export async function workflowCreateDefinition(
+  http: HttpClient,
+  parameters: WorkflowCreateDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDefinitionResponse> {
+  const path = `/api/v1/workflow/definitions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDefinitionResponse(value);
+}
+
 export interface WorkflowCreateFormParameters {
   readonly body: CreateWorkflowFormRequest;
 }
@@ -5754,6 +6286,24 @@ export async function workflowCreateForm(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowFormResponse(value);
+}
+
+export interface WorkflowGetDefinitionParameters {
+  readonly definitionId: string;
+}
+
+export async function workflowGetDefinition(
+  http: HttpClient,
+  parameters: WorkflowGetDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDefinitionResponse> {
+  const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDefinitionResponse(value);
 }
 
 export interface WorkflowGetFormParameters {
@@ -5826,6 +6376,24 @@ export async function workflowGetInstance(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowGetNodeTypeCatalogParameters {
+
+}
+
+export async function workflowGetNodeTypeCatalog(
+  http: HttpClient,
+  parameters: WorkflowGetNodeTypeCatalogParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowNodeTypeCatalogResponse> {
+  const path = `/api/v1/workflow/definitions/node-type-catalog`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowNodeTypeCatalogResponse(value);
 }
 
 export interface WorkflowGetTodoParameters {
@@ -5954,6 +6522,29 @@ export async function workflowListMyTodos(
   return readWorkflowListMyTodosResponse(value);
 }
 
+export interface WorkflowPublishDefinitionParameters {
+  readonly definitionId: string;
+  readonly body: PublishWorkflowDefinitionRequest;
+}
+
+export async function workflowPublishDefinition(
+  http: HttpClient,
+  parameters: WorkflowPublishDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDefinitionVersionResponse> {
+  const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDefinitionVersionResponse(value);
+}
+
 export interface WorkflowPublishFormParameters {
   readonly formId: string;
   readonly body: PublishWorkflowFormRequest;
@@ -6020,6 +6611,29 @@ export async function workflowStartInstance(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowUpdateDefinitionDraftParameters {
+  readonly definitionId: string;
+  readonly body: UpdateWorkflowDefinitionDraftRequest;
+}
+
+export async function workflowUpdateDefinitionDraft(
+  http: HttpClient,
+  parameters: WorkflowUpdateDefinitionDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDefinitionResponse> {
+  const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/draft`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDefinitionResponse(value);
 }
 
 export interface WorkflowUpdateFormDraftParameters {

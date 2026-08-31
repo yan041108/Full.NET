@@ -22,4 +22,10 @@ internal sealed class InboxMessageRecord
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public Guid? CreatedByUserId { get; set; }
+
+    public string ScopeKey { get; set; } = string.Empty;
+
+    public string TenantScopeKey { get; set; } = string.Empty;
+
+    public Guid? IntentId { get; set; }
 }

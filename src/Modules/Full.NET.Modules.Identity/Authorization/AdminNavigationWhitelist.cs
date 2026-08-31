@@ -35,6 +35,13 @@ internal static class AdminNavigationWhitelist
             ["host-files"] = new("host-files", "/files/host-files"),
             ["host-announcements"] = new("host-announcements", "/notifications/host-announcements"),
             ["inbox-messages"] = new("inbox-messages", "/notifications/inbox-messages"),
+            ["notification-templates"] = new("notification-templates", "/notifications/templates"),
+            ["notification-provider-profiles"] = new(
+                "notification-provider-profiles",
+                "/notifications/provider-profiles"),
+            ["notification-bindings"] = new("notification-bindings", "/notifications/bindings"),
+            ["notification-deliveries"] = new("notification-deliveries", "/notifications/deliveries"),
+            ["notification-preferences"] = new("notification-preferences", "/notifications/preferences"),
             ["host-jobs"] = new("host-jobs", "/jobs/host-definitions"),
             ["layout"] = new("layout", "/"),
         };

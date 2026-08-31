@@ -1,0 +1,158 @@
+{
+  "id": "notifications-templates-intents-v1",
+  "version": 1,
+  "description": "通知模板与意图 HTTP 契约冻结夹具；与 Notifications 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/templates",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.templates.read",
+          "successStatus": 200,
+          "responseSchema": "NotificationTemplateResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "notifications.templates.create",
+          "successStatus": 201,
+          "requestSchema": "CreateNotificationTemplateRequest",
+          "responseSchema": "NotificationTemplateResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/templates/{templateId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.templates.read",
+          "successStatus": 200,
+          "responseSchema": "NotificationTemplateResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "notifications.templates.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateNotificationTemplateRequest",
+          "responseSchema": "NotificationTemplateResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/templates/{templateId}/publish",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.templates.publish",
+          "successStatus": 200,
+          "requestSchema": "PublishNotificationTemplateRequest",
+          "responseSchema": "NotificationTemplateResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/intents",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.intents.create",
+          "successStatus": 201,
+          "requestSchema": "CreateNotificationIntentRequest",
+          "responseSchema": "NotificationIntentResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/intents/{intentId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.intents.read",
+          "successStatus": 200,
+          "responseSchema": "NotificationIntentResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateNotificationTemplateRequest": {
+      "properties": [
+        "templateKey",
+        "channelKey",
+        "contentCategoryKey",
+        "draftSubject",
+        "draftBody",
+        "parameterSchema"
+      ]
+    },
+    "UpdateNotificationTemplateRequest": {
+      "properties": [
+        "draftSubject",
+        "draftBody",
+        "parameterSchema",
+        "version"
+      ]
+    },
+    "PublishNotificationTemplateRequest": {
+      "properties": [
+        "version",
+        "contentClassificationKey"
+      ]
+    },
+    "NotificationTemplateResponse": {
+      "properties": [
+        "id",
+        "templateKey",
+        "channelKey",
+        "contentCategoryKey",
+        "draftSubject",
+        "draftBodyJson",
+        "draftParameterSchemaJson",
+        "draftRevision",
+        "latestPublishedVersionId",
+        "latestPublishedVersionNumber",
+        "latestContentHash",
+        "latestContentClassificationKey",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "NotificationTemplateResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateNotificationIntentRequest": {
+      "properties": [
+        "producerKey",
+        "sceneKey",
+        "templateKey",
+        "recipients",
+        "parameters",
+        "idempotencyKey"
+      ]
+    },
+    "NotificationIntentResponse": {
+      "properties": [
+        "id",
+        "producerKey",
+        "sceneKey",
+        "idempotencyKey",
+        "templateVersionId",
+        "policyCategoryKey",
+        "dispatchModeKey",
+        "statusKey",
+        "parameterSnapshotJson",
+        "bindingVersionId",
+        "routeSnapshotJson",
+        "recipients",
+        "createdAtUtc"
+      ]
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "id": "notifications-deliveries-receipts-v1",
+  "version": 1,
+  "description": "通知投递查询、人工重试与 Provider 回执 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/deliveries",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.deliveries.read",
+          "successStatus": 200,
+          "responseSchema": "NotificationDeliveryResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/deliveries/{deliveryId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.deliveries.read",
+          "successStatus": 200,
+          "responseSchema": "NotificationDeliveryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/deliveries/{deliveryId}/retry",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.deliveries.retry",
+          "successStatus": 200,
+          "requestSchema": "RetryNotificationDeliveryRequest",
+          "responseSchema": "NotificationDeliveryResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/provider-receipts/{providerTypeKey}",
+      "operations": [
+        {
+          "method": "POST",
+          "successStatus": 200,
+          "responseSchema": "NotificationReceiptAcceptedResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "RetryNotificationDeliveryRequest": {
+      "properties": ["revision", "reason"]
+    },
+    "NotificationDeliveryResponse": {
+      "properties": [
+        "id",
+        "intentId",
+        "recipientId",
+        "channelKey",
+        "statusKey",
+        "revision",
+        "attempts"
+      ]
+    },
+    "NotificationDeliveryResponsePage": {
+      "properties": ["items", "page", "pageSize", "total"]
+    },
+    "NotificationReceiptAcceptedResponse": {
+      "properties": ["id", "processStatusKey", "mappedStatusKey"]
+    }
+  }
+}

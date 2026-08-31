@@ -113,15 +113,20 @@ public sealed class MemoryPackControlledProtocolRulesTests
             new InboxMessageReceivedIntegrationEvent(
                 Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-444444444444"),
                 Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-555555555555"),
-                "站内信标题"),
+                "站内信标题",
+                "host"),
             (left, right) =>
                 left.RecipientUserId == right.RecipientUserId
                 && left.MessageId == right.MessageId
-                && left.Title == right.Title);
+                && left.Title == right.Title
+                && left.TenantScopeKey == right.TenantScopeKey);
         RoundTrip(
             new InboxReadStateChangedIntegrationEvent(
-                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-666666666666")),
-            (left, right) => left.RecipientUserId == right.RecipientUserId);
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-666666666666"),
+                "host"),
+            (left, right) =>
+                left.RecipientUserId == right.RecipientUserId
+                && left.TenantScopeKey == right.TenantScopeKey);
         RoundTrip(
             new IdentityOrganizationUnitChangedIntegrationEvent(
                 Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-777777777777"),

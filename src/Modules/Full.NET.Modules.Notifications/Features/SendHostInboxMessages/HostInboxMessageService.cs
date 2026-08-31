@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
@@ -12,13 +13,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.SendHostInboxMessages;
 
-/// <summary>Host 管理员向指定用户发送站内信。</summary>
+/// <summary>Host 管理员向指定用户发送站内信；禁止在租户会话中走该路径。</summary>
 internal sealed class HostInboxMessageService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IOutboxWriter outboxWriter,
     IHostUserDirectory hostUserDirectory,
+    ICurrentTenant currentTenant,
     NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     IIdGenerator idGenerator,
@@ -27,16 +29,16 @@ internal sealed class HostInboxMessageService(
     /// <summary>
     /// 向指定 Host 用户投递站内信：校验收件人存在后，在命令事务内写入站内信与实时修复 Outbox 事件。
     /// </summary>
-    /// <remarks>
-    /// 站内信写入与 <see cref="InboxMessageReceivedIntegrationEvent"/> 在同一事务原子提交；
-    /// 事务提交后再尝试低延迟推送，推送失败仅告警，最终一致性由 Outbox 消费者保证。
-    /// 收件人必须为活动 Host 用户，否则返回未找到错误，不写入任何业务状态。
-    /// </remarks>
     public async Task<Result<InboxMessageResponse>> SendAsync(
         Guid actorUserId,
         SendHostInboxMessageRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!currentTenant.IsHost)
+        {
+            return ScopeForbidden();
+        }
+
         var validation = ValidateContent(request.Title, request.Content);
         if (validation is not null)
         {
@@ -76,27 +78,24 @@ internal sealed class HostInboxMessageService(
         var now = clock.UtcNow;
         var messageId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
-                InboxMessageSql.Insert,
-                new Dictionary<string, object?>
-                {
-                    ["Id"] = messageId,
-                    ["RecipientUserId"] = request.RecipientUserId,
-                    ["Title"] = request.Title.Trim(),
-                    ["Content"] = request.Content.Trim(),
-                    ["Status"] = InboxMessageStatuses.Unread,
-                    ["CreatedAtUtc"] = now,
-                    ["CreatedByUserId"] = actorUserId,
-                },
+                InboxMessageSql.InsertHost,
+                NotificationPlatformSqlParameters.Create(
+                    ("Id", messageId),
+                    ("RecipientUserId", request.RecipientUserId),
+                    ("Title", request.Title.Trim()),
+                    ("Content", request.Content.Trim()),
+                    ("Status", InboxMessageStatuses.Unread),
+                    ("CreatedAtUtc", now),
+                    ("CreatedByUserId", actorUserId)),
                 cancellationToken)
             .ConfigureAwait(false);
 
         var record = await queryExecutor.QuerySingleOrDefaultAsync<InboxMessageRecord>(
                 InboxMessageSql.FindForRecipientById,
-                new Dictionary<string, object?>
-                {
-                    ["Id"] = messageId,
-                    ["RecipientUserId"] = request.RecipientUserId,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("Id", messageId),
+                    ("RecipientUserId", request.RecipientUserId),
+                    ("TenantScopeKey", "host")),
                 cancellationToken)
             .ConfigureAwait(false);
         if (record is null)
@@ -110,7 +109,8 @@ internal sealed class HostInboxMessageService(
                 new InboxMessageReceivedIntegrationEvent(
                     request.RecipientUserId,
                     messageId,
-                    record.Title),
+                    record.Title,
+                    "host"),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -128,7 +128,8 @@ internal sealed class HostInboxMessageService(
                     new InboxMessageReceivedIntegrationEvent(
                         recipientUserId,
                         response.Id,
-                        response.Title),
+                        response.Title,
+                        "host"),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -175,4 +176,10 @@ internal sealed class HostInboxMessageService(
             NotificationsErrorCodes.InboxMessageNotFound,
             "The inbox message was not found.",
             ErrorType.NotFound));
+
+    private static Result<InboxMessageResponse> ScopeForbidden() =>
+        Result<InboxMessageResponse>.Failure(new Error(
+            NotificationsErrorCodes.InboxScopeForbidden,
+            "Host inbox send requires the host session.",
+            ErrorType.Forbidden));
 }

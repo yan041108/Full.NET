@@ -26,18 +26,22 @@ public partial record AnnouncementPublishedIntegrationEvent(
     Guid AnnouncementId,
     string Title);
 
-/// <summary>表示一条 Host 站内信已经与业务状态原子提交。</summary>
-/// <param name="RecipientUserId">接收站内信的 Host 用户标识。</param>
+/// <summary>表示一条站内信已经与业务状态原子提交。</summary>
+/// <param name="RecipientUserId">接收站内信的用户标识。</param>
 /// <param name="MessageId">已送达站内信的稳定标识。</param>
 /// <param name="Title">供实时客户端刷新前展示的站内信标题。</param>
+/// <param name="TenantScopeKey">未读数重建必须使用的受信作用域键。</param>
 [MemoryPackable]
 public partial record InboxMessageReceivedIntegrationEvent(
     Guid RecipientUserId,
     Guid MessageId,
-    string Title);
+    string Title,
+    string TenantScopeKey);
 
-/// <summary>表示指定 Host 用户的站内信已读状态已经提交变更。</summary>
-/// <param name="RecipientUserId">需要重新读取未读数的 Host 用户标识。</param>
+/// <summary>表示指定用户在某一作用域的站内信已读状态已经提交变更。</summary>
+/// <param name="RecipientUserId">需要重新读取未读数的用户标识。</param>
+/// <param name="TenantScopeKey">未读数重建必须使用的受信作用域键。</param>
 [MemoryPackable]
 public partial record InboxReadStateChangedIntegrationEvent(
-    Guid RecipientUserId);
+    Guid RecipientUserId,
+    string TenantScopeKey);

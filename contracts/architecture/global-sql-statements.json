@@ -1091,6 +1091,864 @@
         "FROM fn_tenancy_tenant",
         "Identifier = @Identifier"
       ]
+    },
+    {
+      "statementName": "notifications.list_inbox_messages.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.ListForRecipientSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.list_inbox_messages.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.ListForRecipientMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.count_inbox_messages",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.CountForRecipient",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.count_unread_inbox_messages",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.CountUnreadForRecipient",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.find_inbox_message_for_recipient",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.FindForRecipientById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.find_inbox_message_by_intent_recipient",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.FindByIntentRecipient",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.mark_inbox_message_read",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.MarkRead",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.mark_all_inbox_messages_read",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.InboxMessageSql.MarkAllRead",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/InboxMessageSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_inbox_message",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.find_by_key",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateByKey",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListForScopeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListForScopeMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.update_draft",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdateDraft",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template.publish",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.PublishTemplate",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template_version.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateVersionById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template_version",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template_version.find_by_hash",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateVersionByHash",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template_version",
+        "@TemplateId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template_version.max_number",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.MaxTemplateVersionNumber",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template_version",
+        "@TemplateId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.template_version.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertTemplateVersion",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_template_version",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.intent.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindIntentById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_intent",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.intent.find_by_id_unscoped",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindIntentByIdUnscoped",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_intent",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.intent.find_by_idempotency",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindIntentByIdempotency",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_intent",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.recipient.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindRecipientById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.recipient.list_by_intent",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListRecipientsByIntent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient",
+        "IntentId = @IntentId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.recipient.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertRecipient",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindDeliveryById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery_attempt.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindDeliveryAttemptById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery_attempt",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.receipt.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindReceiptById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Provider 回执属于跨租户可靠投递状态输入，只能按已验签 Provider 标识与幂等键关联既有投递。",
+      "requiredSqlFragments": [
+        "fn_notifications_receipt",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.count_by_intent",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountDeliveriesByIntent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "IntentId = @IntentId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery_attempt.count_by_delivery",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountAttemptsByDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery_attempt",
+        "DeliveryId = @DeliveryId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery_attempt.count_by_intent",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountAttemptsByIntent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery_attempt",
+        "IntentId = @IntentId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery_attempt.list_by_delivery",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListAttemptsByDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery_attempt",
+        "DeliveryId = @DeliveryId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.find_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindDeliveryForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListDeliveriesForScopeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListDeliveriesForScopeMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountDeliveriesForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.claim.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ClaimDeliveriesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@BatchSize"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.select_claimable_ids.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.SelectClaimableDeliveryIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@Now"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.claim_by_ids.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ClaimDeliveriesByIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@LeaseOwnerKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.select_by_lease",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.SelectDeliveriesByLease",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@LeaseOwnerKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.expire_lease",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ExpireDeliveryLease",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.complete",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CompleteDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.retry",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.RetryDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery_attempt.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertAttempt",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery_attempt",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.receipt.find_by_idempotency",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindReceiptByIdempotency",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Provider 回执属于跨租户可靠投递状态输入，只能按已验签 Provider 标识与幂等键关联既有投递。",
+      "requiredSqlFragments": [
+        "fn_notifications_receipt",
+        "ProviderTypeKey = @ProviderTypeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.find_by_provider_message_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindDeliveryByProviderMessageId",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "ProviderTypeKey = @ProviderTypeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.receipt.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertReceipt",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "reliable_event_sink",
+      "reason": "Provider 回执属于跨租户可靠投递状态输入，只能按已验签 Provider 标识与幂等键关联既有投递。",
+      "requiredSqlFragments": [
+        "fn_notifications_receipt",
+        "ProviderTypeKey = @ProviderTypeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.apply_status",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ApplyDeliveryStatus",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.count_backlog",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountDeliveryBacklog",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@Now"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.oldest_backlog",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.OldestDeliveryBacklog",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "@Now"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindProfileById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.find_by_key",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindProfileByKey",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountProfilesForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListProfilesSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListProfilesMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.update_draft",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdateProfileDraft",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.set_enabled",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.SetProfileEnabled",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile.publish",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.PublishProfile",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile_version.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindProfileVersionById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile_version",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile_version.find_by_hash",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindProfileVersionByHash",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile_version",
+        "ProfileId = @ProfileId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile_version.count",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountProfileVersions",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile_version",
+        "ProfileId = @ProfileId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.profile_version.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertProfileVersion",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile_version",
+        "ProfileId = @ProfileId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindBindingById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.find_by_key",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindBindingByKey",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountBindingsForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListBindingsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListBindingsMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.update_draft",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.UpdateBindingDraft",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding.publish",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.PublishBinding",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding_version.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindBindingVersionById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding_version",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding_version.find_by_hash",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindBindingVersionByHash",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding_version",
+        "BindingId = @BindingId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding_version.count",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.CountBindingVersions",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding_version",
+        "BindingId = @BindingId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding_version.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertBindingVersion",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding_version",
+        "BindingId = @BindingId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.binding_version.list_published_by_scene",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListPublishedBindingsByScene",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_binding_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "@Id"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.list_masked",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.ListMaskedByScopeUser",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.find_masked",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.FindMaskedById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知平台在 Host 与租户上下文共用该语句；调用方必须先建立受信作用域或使用由作用域内父记录派生的不可猜测标识。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     }
   ]
 }

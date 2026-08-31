@@ -445,7 +445,11 @@ function isAdditiveOpenApiComponents(baselineComponents, currentComponents) {
       }
 
       for (const [schemaName, baselineSchema] of Object.entries(baselineSection)) {
-        if (!isDeepStrictEqual(baselineSchema, currentSection[schemaName])) {
+        if (!isCompatibleOpenApiSchemaRepair(
+          schemaName,
+          baselineSchema,
+          currentSection[schemaName]
+        )) {
           return false;
         }
       }
@@ -458,6 +462,31 @@ function isAdditiveOpenApiComponents(baselineComponents, currentComponents) {
   }
 
   return true;
+}
+
+const strictWorkflowSchemaMetadataRepairs = new Set([
+  'WorkflowDefinitionDraft',
+  'WorkflowNodeDraft'
+]);
+
+function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSchema) {
+  if (isDeepStrictEqual(baselineSchema, currentSchema)) {
+    return true;
+  }
+
+  // 这两个草稿类型在历史运行时已经拒绝未知字段，只是标准客户端快照遗漏了对应元数据。
+  // 豁免精确限制为补上 additionalProperties=false，禁止借纠正快照改写其它 Schema 结构。
+  if (!strictWorkflowSchemaMetadataRepairs.has(schemaName)
+    || !isPlainObject(baselineSchema)
+    || !isPlainObject(currentSchema)
+    || Object.hasOwn(baselineSchema, 'additionalProperties')
+    || currentSchema.additionalProperties !== false) {
+    return false;
+  }
+
+  const repairedSchema = { ...currentSchema };
+  delete repairedSchema.additionalProperties;
+  return isDeepStrictEqual(baselineSchema, repairedSchema);
 }
 
 function isPlainObject(value) {

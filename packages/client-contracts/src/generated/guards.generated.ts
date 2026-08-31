@@ -65,12 +65,16 @@ import type {
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
+  CreateNotificationBindingRequest,
+  CreateNotificationProviderProfileRequest,
+  CreateNotificationTemplateRequest,
   CreateOrganizationPositionLevelRequest,
   CreateOrganizationPositionRequest,
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
   CreateSerialNumberRuleRequest,
+  CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
   CurrentUserResponse,
   DeleteCodeGenerationTemplateRequest,
@@ -152,6 +156,17 @@ import type {
   LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  NotificationBindingResponse,
+  NotificationBindingTargetInput,
+  NotificationDeliveryAttemptResponse,
+  NotificationDeliveryResponse,
+  NotificationProviderConfigField,
+  NotificationProviderProfileResponse,
+  NotificationProviderTypeDescriptor,
+  NotificationTemplateBody,
+  NotificationTemplateParameterDefinition,
+  NotificationTemplateParameterSchema,
+  NotificationTemplateResponse,
   OperationLogResponse,
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
@@ -180,6 +195,10 @@ import type {
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   PagedResultOfInboxMessageResponse,
+  PagedResultOfNotificationBindingResponse,
+  PagedResultOfNotificationDeliveryResponse,
+  PagedResultOfNotificationProviderProfileResponse,
+  PagedResultOfNotificationTemplateResponse,
   PagedResultOfOperationLogResponse,
   PagedResultOfOrganizationAssignableUserResponse,
   PagedResultOfOrganizationPositionLevelResponse,
@@ -195,6 +214,10 @@ import type {
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
+  PublishNotificationBindingRequest,
+  PublishNotificationProviderProfileRequest,
+  PublishNotificationTemplateRequest,
+  PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
@@ -202,6 +225,7 @@ import type {
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
+  RetryNotificationDeliveryRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SerialNumberPreviewResponse,
@@ -209,6 +233,7 @@ import type {
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
   SetHostDocumentPermissionsRequest,
+  SetNotificationProviderProfileEnabledRequest,
   StartWorkflowInstanceRequest,
   Stream,
   SuperAdministratorAuditResponse,
@@ -237,12 +262,16 @@ import type {
   UpdateHostTenantRequest,
   UpdateHostUserRequest,
   UpdateLocaleRequest,
+  UpdateNotificationBindingRequest,
+  UpdateNotificationProviderProfileRequest,
+  UpdateNotificationTemplateRequest,
   UpdateOrganizationPositionLevelRequest,
   UpdateOrganizationPositionRequest,
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
   UpdateSerialNumberRuleRequest,
+  UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
@@ -257,6 +286,8 @@ import type {
   WorkflowFormVersionResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
+  WorkflowNodeTypeCatalogResponse,
+  WorkflowNodeTypeResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
   WorkflowTodoRuntimeResponse
@@ -955,6 +986,39 @@ function isCreateHostUserRequest(value: unknown): value is CreateHostUserRequest
   return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (typeof value["password"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["username"] === 'string');
 }
 
+export function readCreateNotificationBindingRequest(value: unknown): CreateNotificationBindingRequest {
+  if (!(isCreateNotificationBindingRequest(value))) {
+    throw new Error('client.invalid_create_notification_binding_request');
+  }
+  return value;
+}
+
+function isCreateNotificationBindingRequest(value: unknown): value is CreateNotificationBindingRequest {
+  return isRecord(value) && (typeof value["bindingKey"] === 'string') && (typeof value["channelKey"] === 'string') && (typeof value["dispatchModeKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isNotificationBindingTargetInput(item16)));
+}
+
+export function readCreateNotificationProviderProfileRequest(value: unknown): CreateNotificationProviderProfileRequest {
+  if (!(isCreateNotificationProviderProfileRequest(value))) {
+    throw new Error('client.invalid_create_notification_provider_profile_request');
+  }
+  return value;
+}
+
+function isCreateNotificationProviderProfileRequest(value: unknown): value is CreateNotificationProviderProfileRequest {
+  return isRecord(value) && (isJsonElement(value["nonSecretConfig"])) && (typeof value["profileKey"] === 'string') && (typeof value["providerTypeKey"] === 'string') && ((value["secretReference"] === null) || (typeof value["secretReference"] === 'string'));
+}
+
+export function readCreateNotificationTemplateRequest(value: unknown): CreateNotificationTemplateRequest {
+  if (!(isCreateNotificationTemplateRequest(value))) {
+    throw new Error('client.invalid_create_notification_template_request');
+  }
+  return value;
+}
+
+function isCreateNotificationTemplateRequest(value: unknown): value is CreateNotificationTemplateRequest {
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (isNotificationTemplateBody(value["draftBody"])) && (typeof value["draftSubject"] === 'string') && (isNotificationTemplateParameterSchema(value["parameterSchema"])) && (typeof value["templateKey"] === 'string');
+}
+
 export function readCreateOrganizationPositionLevelRequest(value: unknown): CreateOrganizationPositionLevelRequest {
   if (!(isCreateOrganizationPositionLevelRequest(value))) {
     throw new Error('client.invalid_create_organization_position_level_request');
@@ -1019,6 +1083,17 @@ export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialN
 
 function isCreateSerialNumberRuleRequest(value: unknown): value is CreateSerialNumberRuleRequest {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (typeof value["ruleKey"] === 'string') && (isSerialNumberRuleScope(value["scope"]));
+}
+
+export function readCreateWorkflowDefinitionRequest(value: unknown): CreateWorkflowDefinitionRequest {
+  if (!(isCreateWorkflowDefinitionRequest(value))) {
+    throw new Error('client.invalid_create_workflow_definition_request');
+  }
+  return value;
+}
+
+function isCreateWorkflowDefinitionRequest(value: unknown): value is CreateWorkflowDefinitionRequest {
+  return isRecord(value) && (typeof value["definitionKey"] === 'string') && (isWorkflowDefinitionDraft(value["draft"]));
 }
 
 export function readCreateWorkflowFormRequest(value: unknown): CreateWorkflowFormRequest {
@@ -1912,6 +1987,127 @@ function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEnt
   return isRecord(value) && (Array.isArray(value["dependencies"]) && value["dependencies"].every(item21 => typeof item21 === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["healthCapability"] === 'string') && (Array.isArray(value["hostProfiles"]) && value["hostProfiles"].every(item21 => typeof item21 === 'string')) && (typeof value["moduleKey"] === 'string') && (typeof value["sourceClassification"] === 'string') && (typeof value["version"] === 'string');
 }
 
+export function readNotificationBindingResponse(value: unknown): NotificationBindingResponse {
+  if (!(isNotificationBindingResponse(value))) {
+    throw new Error('client.invalid_notification_binding_response');
+  }
+  return value;
+}
+
+function isNotificationBindingResponse(value: unknown): value is NotificationBindingResponse {
+  return isRecord(value) && (typeof value["bindingKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftDispatchModeKey"] === 'string') && (typeof value["draftJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestBindingTargetsJson"] === null) || (typeof value["latestBindingTargetsJson"] === 'string')) && ((value["latestChannelKey"] === null) || (typeof value["latestChannelKey"] === 'string')) && ((value["latestDispatchModeKey"] === null) || (typeof value["latestDispatchModeKey"] === 'string')) && ((value["latestProducerKey"] === null) || (typeof value["latestProducerKey"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isInteger(value["latestPublishedVersionNumber"]))) && ((value["latestSceneKey"] === null) || (typeof value["latestSceneKey"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readNotificationBindingTargetInput(value: unknown): NotificationBindingTargetInput {
+  if (!(isNotificationBindingTargetInput(value))) {
+    throw new Error('client.invalid_notification_binding_target_input');
+  }
+  return value;
+}
+
+function isNotificationBindingTargetInput(value: unknown): value is NotificationBindingTargetInput {
+  return isRecord(value) && (typeof value["order"] === 'number' && Number.isInteger(value["order"])) && (typeof value["profileKey"] === 'string');
+}
+
+export function readNotificationDeliveryAttemptResponse(value: unknown): NotificationDeliveryAttemptResponse {
+  if (!(isNotificationDeliveryAttemptResponse(value))) {
+    throw new Error('client.invalid_notification_delivery_attempt_response');
+  }
+  return value;
+}
+
+function isNotificationDeliveryAttemptResponse(value: unknown): value is NotificationDeliveryAttemptResponse {
+  return isRecord(value) && (typeof value["attemptNumber"] === 'number' && Number.isInteger(value["attemptNumber"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && ((value["resultCategoryKey"] === null) || (typeof value["resultCategoryKey"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+}
+
+export function readNotificationDeliveryResponse(value: unknown): NotificationDeliveryResponse {
+  if (!(isNotificationDeliveryResponse(value))) {
+    throw new Error('client.invalid_notification_delivery_response');
+  }
+  return value;
+}
+
+function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
+  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+}
+
+export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
+  if (!(isNotificationProviderConfigField(value))) {
+    throw new Error('client.invalid_notification_provider_config_field');
+  }
+  return value;
+}
+
+function isNotificationProviderConfigField(value: unknown): value is NotificationProviderConfigField {
+  return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["required"] === 'boolean') && (typeof value["typeKey"] === 'string');
+}
+
+export function readNotificationProviderProfileResponse(value: unknown): NotificationProviderProfileResponse {
+  if (!(isNotificationProviderProfileResponse(value))) {
+    throw new Error('client.invalid_notification_provider_profile_response');
+  }
+  return value;
+}
+
+function isNotificationProviderProfileResponse(value: unknown): value is NotificationProviderProfileResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isEnabled"] === 'boolean') && ((value["latestAdapterVersion"] === null) || (typeof value["latestAdapterVersion"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isInteger(value["latestPublishedVersionNumber"]))) && (typeof value["nonSecretConfigJson"] === 'string') && (typeof value["profileKey"] === 'string') && (typeof value["providerTypeKey"] === 'string') && (typeof value["secretStatus"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readNotificationProviderTypeDescriptor(value: unknown): NotificationProviderTypeDescriptor {
+  if (!(isNotificationProviderTypeDescriptor(value))) {
+    throw new Error('client.invalid_notification_provider_type_descriptor');
+  }
+  return value;
+}
+
+function isNotificationProviderTypeDescriptor(value: unknown): value is NotificationProviderTypeDescriptor {
+  return isRecord(value) && (typeof value["adapterVersion"] === 'string') && (Array.isArray(value["nonSecretFields"]) && value["nonSecretFields"].every(item24 => isNotificationProviderConfigField(item24))) && (typeof value["providerTypeKey"] === 'string') && (typeof value["receiptModeKey"] === 'string') && (Array.isArray(value["secretFieldKeys"]) && value["secretFieldKeys"].every(item24 => typeof item24 === 'string')) && (Array.isArray(value["supportedChannelKeys"]) && value["supportedChannelKeys"].every(item29 => typeof item29 === 'string')) && (typeof value["supportsNativeAot"] === 'boolean');
+}
+
+export function readNotificationTemplateBody(value: unknown): NotificationTemplateBody {
+  if (!(isNotificationTemplateBody(value))) {
+    throw new Error('client.invalid_notification_template_body');
+  }
+  return value;
+}
+
+function isNotificationTemplateBody(value: unknown): value is NotificationTemplateBody {
+  return isRecord(value) && (typeof value["text"] === 'string');
+}
+
+export function readNotificationTemplateParameterDefinition(value: unknown): NotificationTemplateParameterDefinition {
+  if (!(isNotificationTemplateParameterDefinition(value))) {
+    throw new Error('client.invalid_notification_template_parameter_definition');
+  }
+  return value;
+}
+
+function isNotificationTemplateParameterDefinition(value: unknown): value is NotificationTemplateParameterDefinition {
+  return isRecord(value) && ((value["maxLength"] === null) || (typeof value["maxLength"] === 'number' && Number.isInteger(value["maxLength"]))) && (typeof value["name"] === 'string') && (typeof value["required"] === 'boolean') && (typeof value["typeKey"] === 'string');
+}
+
+export function readNotificationTemplateParameterSchema(value: unknown): NotificationTemplateParameterSchema {
+  if (!(isNotificationTemplateParameterSchema(value))) {
+    throw new Error('client.invalid_notification_template_parameter_schema');
+  }
+  return value;
+}
+
+function isNotificationTemplateParameterSchema(value: unknown): value is NotificationTemplateParameterSchema {
+  return isRecord(value) && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isNotificationTemplateParameterDefinition(item19))) && (typeof value["schemaVersion"] === 'number' && Number.isInteger(value["schemaVersion"]));
+}
+
+export function readNotificationTemplateResponse(value: unknown): NotificationTemplateResponse {
+  if (!(isNotificationTemplateResponse(value))) {
+    throw new Error('client.invalid_notification_template_response');
+  }
+  return value;
+}
+
+function isNotificationTemplateResponse(value: unknown): value is NotificationTemplateResponse {
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftBodyJson"] === 'string') && (typeof value["draftParameterSchemaJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["draftSubject"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestContentClassificationKey"] === null) || (typeof value["latestContentClassificationKey"] === 'string')) && ((value["latestContentHash"] === null) || (typeof value["latestContentHash"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isInteger(value["latestPublishedVersionNumber"]))) && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readOperationLogResponse(value: unknown): OperationLogResponse {
   if (!(isOperationLogResponse(value))) {
     throw new Error('client.invalid_operation_log_response');
@@ -2220,6 +2416,50 @@ function isPagedResultOfInboxMessageResponse(value: unknown): value is PagedResu
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isInboxMessageResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfNotificationBindingResponse(value: unknown): PagedResultOfNotificationBindingResponse {
+  if (!(isPagedResultOfNotificationBindingResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_notification_binding_response');
+  }
+  return value;
+}
+
+function isPagedResultOfNotificationBindingResponse(value: unknown): value is PagedResultOfNotificationBindingResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationBindingResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfNotificationDeliveryResponse(value: unknown): PagedResultOfNotificationDeliveryResponse {
+  if (!(isPagedResultOfNotificationDeliveryResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_notification_delivery_response');
+  }
+  return value;
+}
+
+function isPagedResultOfNotificationDeliveryResponse(value: unknown): value is PagedResultOfNotificationDeliveryResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationDeliveryResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfNotificationProviderProfileResponse(value: unknown): PagedResultOfNotificationProviderProfileResponse {
+  if (!(isPagedResultOfNotificationProviderProfileResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_notification_provider_profile_response');
+  }
+  return value;
+}
+
+function isPagedResultOfNotificationProviderProfileResponse(value: unknown): value is PagedResultOfNotificationProviderProfileResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationProviderProfileResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfNotificationTemplateResponse(value: unknown): PagedResultOfNotificationTemplateResponse {
+  if (!(isPagedResultOfNotificationTemplateResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_notification_template_response');
+  }
+  return value;
+}
+
+function isPagedResultOfNotificationTemplateResponse(value: unknown): value is PagedResultOfNotificationTemplateResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isNotificationTemplateResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfOperationLogResponse(value: unknown): PagedResultOfOperationLogResponse {
   if (!(isPagedResultOfOperationLogResponse(value))) {
     throw new Error('client.invalid_paged_result_of_operation_log_response');
@@ -2385,6 +2625,50 @@ function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostA
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readPublishNotificationBindingRequest(value: unknown): PublishNotificationBindingRequest {
+  if (!(isPublishNotificationBindingRequest(value))) {
+    throw new Error('client.invalid_publish_notification_binding_request');
+  }
+  return value;
+}
+
+function isPublishNotificationBindingRequest(value: unknown): value is PublishNotificationBindingRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readPublishNotificationProviderProfileRequest(value: unknown): PublishNotificationProviderProfileRequest {
+  if (!(isPublishNotificationProviderProfileRequest(value))) {
+    throw new Error('client.invalid_publish_notification_provider_profile_request');
+  }
+  return value;
+}
+
+function isPublishNotificationProviderProfileRequest(value: unknown): value is PublishNotificationProviderProfileRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readPublishNotificationTemplateRequest(value: unknown): PublishNotificationTemplateRequest {
+  if (!(isPublishNotificationTemplateRequest(value))) {
+    throw new Error('client.invalid_publish_notification_template_request');
+  }
+  return value;
+}
+
+function isPublishNotificationTemplateRequest(value: unknown): value is PublishNotificationTemplateRequest {
+  return isRecord(value) && (typeof value["contentClassificationKey"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readPublishWorkflowDefinitionRequest(value: unknown): PublishWorkflowDefinitionRequest {
+  if (!(isPublishWorkflowDefinitionRequest(value))) {
+    throw new Error('client.invalid_publish_workflow_definition_request');
+  }
+  return value;
+}
+
+function isPublishWorkflowDefinitionRequest(value: unknown): value is PublishWorkflowDefinitionRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"]));
+}
+
 export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowFormRequest {
   if (!(isPublishWorkflowFormRequest(value))) {
     throw new Error('client.invalid_publish_workflow_form_request');
@@ -2462,6 +2746,17 @@ function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostD
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotificationDeliveryRequest {
+  if (!(isRetryNotificationDeliveryRequest(value))) {
+    throw new Error('client.invalid_retry_notification_delivery_request');
+  }
+  return value;
+}
+
+function isRetryNotificationDeliveryRequest(value: unknown): value is RetryNotificationDeliveryRequest {
+  return isRecord(value) && (typeof value["reason"] === 'string') && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"]));
+}
+
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
   if (!(isRevokeSuperAdministratorRequest(value))) {
     throw new Error('client.invalid_revoke_super_administrator_request');
@@ -2537,6 +2832,17 @@ export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDo
 
 function isSetHostDocumentPermissionsRequest(value: unknown): value is SetHostDocumentPermissionsRequest {
   return isRecord(value) && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => isHostDocumentPermissionEntry(item20)));
+}
+
+export function readSetNotificationProviderProfileEnabledRequest(value: unknown): SetNotificationProviderProfileEnabledRequest {
+  if (!(isSetNotificationProviderProfileEnabledRequest(value))) {
+    throw new Error('client.invalid_set_notification_provider_profile_enabled_request');
+  }
+  return value;
+}
+
+function isSetNotificationProviderProfileEnabledRequest(value: unknown): value is SetNotificationProviderProfileEnabledRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readStartWorkflowInstanceRequest(value: unknown): StartWorkflowInstanceRequest {
@@ -2847,6 +3153,39 @@ function isUpdateLocaleRequest(value: unknown): value is UpdateLocaleRequest {
   return isRecord(value) && (typeof value["locale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"]));
 }
 
+export function readUpdateNotificationBindingRequest(value: unknown): UpdateNotificationBindingRequest {
+  if (!(isUpdateNotificationBindingRequest(value))) {
+    throw new Error('client.invalid_update_notification_binding_request');
+  }
+  return value;
+}
+
+function isUpdateNotificationBindingRequest(value: unknown): value is UpdateNotificationBindingRequest {
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["dispatchModeKey"] === 'string') && (typeof value["producerKey"] === 'string') && (typeof value["sceneKey"] === 'string') && (Array.isArray(value["targets"]) && value["targets"].every(item16 => isNotificationBindingTargetInput(item16))) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateNotificationProviderProfileRequest(value: unknown): UpdateNotificationProviderProfileRequest {
+  if (!(isUpdateNotificationProviderProfileRequest(value))) {
+    throw new Error('client.invalid_update_notification_provider_profile_request');
+  }
+  return value;
+}
+
+function isUpdateNotificationProviderProfileRequest(value: unknown): value is UpdateNotificationProviderProfileRequest {
+  return isRecord(value) && (isJsonElement(value["nonSecretConfig"])) && ((value["secretReference"] === null) || (typeof value["secretReference"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateNotificationTemplateRequest(value: unknown): UpdateNotificationTemplateRequest {
+  if (!(isUpdateNotificationTemplateRequest(value))) {
+    throw new Error('client.invalid_update_notification_template_request');
+  }
+  return value;
+}
+
+function isUpdateNotificationTemplateRequest(value: unknown): value is UpdateNotificationTemplateRequest {
+  return isRecord(value) && (isNotificationTemplateBody(value["draftBody"])) && (typeof value["draftSubject"] === 'string') && (isNotificationTemplateParameterSchema(value["parameterSchema"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
 export function readUpdateOrganizationPositionLevelRequest(value: unknown): UpdateOrganizationPositionLevelRequest {
   if (!(isUpdateOrganizationPositionLevelRequest(value))) {
     throw new Error('client.invalid_update_organization_position_level_request');
@@ -2911,6 +3250,17 @@ export function readUpdateSerialNumberRuleRequest(value: unknown): UpdateSerialN
 
 function isUpdateSerialNumberRuleRequest(value: unknown): value is UpdateSerialNumberRuleRequest {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["isEnabled"] === 'boolean') && (typeof value["maximumValue"] === 'number' && Number.isInteger(value["maximumValue"])) && (typeof value["minimumValue"] === 'number' && Number.isInteger(value["minimumValue"])) && (typeof value["pattern"] === 'string') && (isSerialNumberResetInterval(value["resetInterval"])) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateWorkflowDefinitionDraftRequest(value: unknown): UpdateWorkflowDefinitionDraftRequest {
+  if (!(isUpdateWorkflowDefinitionDraftRequest(value))) {
+    throw new Error('client.invalid_update_workflow_definition_draft_request');
+  }
+  return value;
+}
+
+function isUpdateWorkflowDefinitionDraftRequest(value: unknown): value is UpdateWorkflowDefinitionDraftRequest {
+  return isRecord(value) && (isWorkflowDefinitionDraft(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
 }
 
 export function readUpdateWorkflowFormDraftRequest(value: unknown): UpdateWorkflowFormDraftRequest {
@@ -3065,6 +3415,28 @@ export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
 
 function isWorkflowNodeDraft(value: unknown): value is WorkflowNodeDraft {
   return isRecord(value) && (isJsonElement(value["config"])) && (typeof value["nodeKey"] === 'string') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string');
+}
+
+export function readWorkflowNodeTypeCatalogResponse(value: unknown): WorkflowNodeTypeCatalogResponse {
+  if (!(isWorkflowNodeTypeCatalogResponse(value))) {
+    throw new Error('client.invalid_workflow_node_type_catalog_response');
+  }
+  return value;
+}
+
+function isWorkflowNodeTypeCatalogResponse(value: unknown): value is WorkflowNodeTypeCatalogResponse {
+  return isRecord(value) && (typeof value["catalogVersion"] === 'number' && Number.isInteger(value["catalogVersion"])) && (typeof value["definitionSchemaVersion"] === 'number' && Number.isInteger(value["definitionSchemaVersion"])) && (Array.isArray(value["nodeTypes"]) && value["nodeTypes"].every(item18 => isWorkflowNodeTypeResponse(item18)));
+}
+
+export function readWorkflowNodeTypeResponse(value: unknown): WorkflowNodeTypeResponse {
+  if (!(isWorkflowNodeTypeResponse(value))) {
+    throw new Error('client.invalid_workflow_node_type_response');
+  }
+  return value;
+}
+
+function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeResponse {
+  return isRecord(value) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
 }
 
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
@@ -3238,6 +3610,13 @@ export function readJobsListHostJobScheduleDefinitionOptionsResponse(value: unkn
     throw new Error('client.invalid_jobs_list_host_job_schedule_definition_options_response');
   }
   return value as Array<HostJobScheduleDefinitionOptionResponse>;
+}
+
+export function readNotificationsListProviderTypesResponse(value: unknown): Array<NotificationProviderTypeDescriptor> {
+  if (!(Array.isArray(value) && value.every(item5 => isNotificationProviderTypeDescriptor(item5)))) {
+    throw new Error('client.invalid_notifications_list_provider_types_response');
+  }
+  return value as Array<NotificationProviderTypeDescriptor>;
 }
 
 export function readObservabilityListLogFilesResponse(value: unknown): Array<LogFileSummary> {

@@ -58,6 +58,18 @@
           "responseSchema": "InboxMessageResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/notifications/tenant-inbox-messages",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.inbox.send",
+          "successStatus": 201,
+          "requestSchema": "SendTenantInboxMessageRequest",
+          "responseSchema": "InboxMessageResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -86,6 +98,13 @@
       ]
     },
     "SendHostInboxMessageRequest": {
+      "properties": [
+        "recipientUserId",
+        "title",
+        "content"
+      ]
+    },
+    "SendTenantInboxMessageRequest": {
       "properties": [
         "recipientUserId",
         "title",

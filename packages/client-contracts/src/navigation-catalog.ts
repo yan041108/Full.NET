@@ -170,6 +170,31 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/notifications/inbox-messages'
   },
   {
+    componentKey: 'notification-templates',
+    routeName: 'notification-templates',
+    path: '/notifications/templates'
+  },
+  {
+    componentKey: 'notification-provider-profiles',
+    routeName: 'notification-provider-profiles',
+    path: '/notifications/provider-profiles'
+  },
+  {
+    componentKey: 'notification-bindings',
+    routeName: 'notification-bindings',
+    path: '/notifications/bindings'
+  },
+  {
+    componentKey: 'notification-deliveries',
+    routeName: 'notification-deliveries',
+    path: '/notifications/deliveries'
+  },
+  {
+    componentKey: 'notification-preferences',
+    routeName: 'notification-preferences',
+    path: '/notifications/preferences'
+  },
+  {
     componentKey: 'host-jobs',
     routeName: 'host-jobs',
     path: '/jobs/host-definitions'

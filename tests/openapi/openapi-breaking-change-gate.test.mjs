@@ -564,6 +564,47 @@ test('标准客户端 OpenAPI 快照允许追加 path/schema/tag，禁止改写�
   );
 });
 
+test('标准客户端 OpenAPI 允许纠正既有 Workflow 严格草稿元数据但拒绝借机改写 schema', async () => {
+  const baseline = {
+    openapi: '3.1.0',
+    info: { title: 'Full.NET client', version: '1.0.0' },
+    tags: [],
+    paths: {},
+    components: {
+      schemas: {
+        WorkflowDefinitionDraft: {
+          type: 'object',
+          properties: { schemaVersion: { type: 'integer' } }
+        }
+      },
+      securitySchemes: {}
+    }
+  };
+
+  const repaired = clone(baseline);
+  repaired.components.schemas.WorkflowDefinitionDraft.additionalProperties = false;
+
+  const repairedResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': repaired }
+  );
+  assert.equal(repairedResult.status, 0, repairedResult.stderr);
+
+  const rewritten = clone(repaired);
+  rewritten.components.schemas.WorkflowDefinitionDraft.properties.schemaVersion = {
+    type: 'string'
+  };
+  const rewrittenResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': rewritten }
+  );
+  assert.equal(rewrittenResult.status, 1);
+  assert.match(
+    rewrittenResult.stderr,
+    /stable setting changed: fullnet-client-v1\.openapi\.json components/u
+  );
+});
+
 test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
   const result = spawnSync(
     process.execPath,

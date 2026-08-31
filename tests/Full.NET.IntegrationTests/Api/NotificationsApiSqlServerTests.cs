@@ -11,9 +11,14 @@ public sealed class NotificationsApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            configureTestServices: NotificationProfileBindingAssertions.ConfigureTestServices);
 
         await NotificationsHostAnnouncementAssertions.VerifyAsync(factory);
         await NotificationsInboxMessageAssertions.VerifyAsync(factory);
+        await NotificationTenantInboxAssertions.VerifyAsync(factory);
+        await NotificationTemplateIntentAssertions.VerifyAsync(factory);
+        await NotificationProfileBindingAssertions.VerifyAsync(factory);
+        await NotificationDeliveryWorkerAssertions.VerifyAsync(factory);
     }
 }

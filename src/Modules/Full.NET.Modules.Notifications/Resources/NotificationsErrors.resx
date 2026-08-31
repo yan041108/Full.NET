@@ -11,4 +11,44 @@
   <data name="notifications.inbox_message_not_found" xml:space="preserve"><value>未找到该站内信。</value></data>
   <data name="notifications.inbox_recipient_not_found" xml:space="preserve"><value>未找到收件人用户。</value></data>
   <data name="notifications.inbox_validation_failed" xml:space="preserve"><value>站内信标题或内容无效。</value></data>
+  <data name="notifications.inbox_scope_forbidden" xml:space="preserve"><value>当前会话作用域不允许该站内信操作。</value></data>
+  <data name="notifications.recipient_endpoint_validation_failed" xml:space="preserve"><value>收件端点值或类型无效。</value></data>
+  <data name="notifications.policy.suppressed" xml:space="preserve"><value>当前偏好不允许发送该通知。</value></data>
+  <data name="notifications.policy.marketing_consent_required" xml:space="preserve"><value>营销通知需要明确同意后才能发送。</value></data>
+  <data name="notifications.route.profile_unavailable" xml:space="preserve"><value>没有恰好一个可用的渠道配置。</value></data>
+  <data name="notifications.route.fanout_empty" xml:space="preserve"><value>扇出列表中没有启用的渠道目标。</value></data>
+  <data name="notifications.route.failover_permanent" xml:space="preserve"><value>永久错误不得切换到其他渠道厂商。</value></data>
+  <data name="notifications.route.failover_exhausted" xml:space="preserve"><value>故障切换已没有下一个可用渠道配置。</value></data>
+  <data name="notifications.route.match_none" xml:space="preserve"><value>条件匹配没有命中任何渠道配置。</value></data>
+  <data name="notifications.route.match_ambiguous" xml:space="preserve"><value>条件匹配命中多个渠道配置，已失败关闭。</value></data>
+  <data name="notifications.delivery.transition_illegal" xml:space="preserve"><value>不允许将该投递回退或跳跃到目标状态。</value></data>
+  <data name="notifications.delivery.untrusted_delivered" xml:space="preserve"><value>缺少可信回执，不能将投递标记为已送达。</value></data>
+  <data name="notifications.delivery_not_found" xml:space="preserve"><value>未找到该投递。</value></data>
+  <data name="notifications.delivery_retry_conflict" xml:space="preserve"><value>投递已被其他操作更新，或当前状态不允许重试。</value></data>
+  <data name="notifications.delivery_retry_invalid" xml:space="preserve"><value>重试理由无效。</value></data>
+  <data name="notifications.receipt_invalid" xml:space="preserve"><value>回执验签失败或载荷无效。</value></data>
+  <data name="notifications.receipt_provider_unknown" xml:space="preserve"><value>未登记该回执渠道类型。</value></data>
+  <data name="notifications.receipt_too_large" xml:space="preserve"><value>回执载荷超过允许大小。</value></data>
+  <data name="notifications.template_not_found" xml:space="preserve"><value>未找到该通知模板。</value></data>
+  <data name="notifications.template_not_published" xml:space="preserve"><value>通知模板尚未发布，不能创建意图。</value></data>
+  <data name="notifications.template_validation_failed" xml:space="preserve"><value>通知模板草稿或内容无效。</value></data>
+  <data name="notifications.template_concurrency_conflict" xml:space="preserve"><value>通知模板已被其他操作更新，请刷新后重试。</value></data>
+  <data name="notifications.template_key_conflict" xml:space="preserve"><value>同一作用域下该模板键已存在。</value></data>
+  <data name="notifications.template_parameter_invalid" xml:space="preserve"><value>通知模板参数无效。</value></data>
+  <data name="notifications.intent_not_found" xml:space="preserve"><value>未找到该通知意图。</value></data>
+  <data name="notifications.intent_idempotency_conflict" xml:space="preserve"><value>同一幂等键已绑定不同的通知载荷。</value></data>
+  <data name="notifications.intent_channel_unsupported" xml:space="preserve"><value>当前只支持站内信渠道。</value></data>
+  <data name="notifications.intent_recipient_limit" xml:space="preserve"><value>收件人列表超出允许范围。</value></data>
+  <data name="notifications.provider_type_unknown" xml:space="preserve"><value>未登记该渠道类型。</value></data>
+  <data name="notifications.provider_profile_not_found" xml:space="preserve"><value>未找到该渠道配置。</value></data>
+  <data name="notifications.provider_profile_key_conflict" xml:space="preserve"><value>同一作用域下该渠道配置键已存在。</value></data>
+  <data name="notifications.provider_profile_concurrency_conflict" xml:space="preserve"><value>渠道配置已被其他操作更新，请刷新后重试。</value></data>
+  <data name="notifications.provider_profile_validation_failed" xml:space="preserve"><value>渠道配置或密钥引用无效。</value></data>
+  <data name="notifications.provider_profile_not_published" xml:space="preserve"><value>渠道配置尚未发布，不能绑定。</value></data>
+  <data name="notifications.binding_not_found" xml:space="preserve"><value>未找到该场景绑定。</value></data>
+  <data name="notifications.binding_key_conflict" xml:space="preserve"><value>同一作用域下该绑定键已存在。</value></data>
+  <data name="notifications.binding_concurrency_conflict" xml:space="preserve"><value>场景绑定已被其他操作更新，请刷新后重试。</value></data>
+  <data name="notifications.binding_validation_failed" xml:space="preserve"><value>场景绑定草稿或目标无效。</value></data>
+  <data name="notifications.binding_not_published" xml:space="preserve"><value>该场景尚未发布绑定。</value></data>
+  <data name="notifications.binding_scene_conflict" xml:space="preserve"><value>同一作用域下该场景渠道已有已发布绑定。</value></data>
 </root>

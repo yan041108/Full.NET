@@ -115,6 +115,14 @@ internal static class OpenApiNotificationsInboxMessagesContractAssertions
             hostTag,
             201,
             "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/tenant-inbox-messages",
+            HttpMethod.Post,
+            "notificationsSendTenantInboxMessage",
+            "NotificationsTenantInboxMessages",
+            201,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

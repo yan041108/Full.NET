@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
@@ -39,7 +40,7 @@ public sealed class HostInboxMessageServiceTests
                 "recipient",
                 "收件人"));
         command.ExecuteAsync(
-                InboxMessageSql.Insert,
+                InboxMessageSql.InsertHost,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(1);
@@ -100,12 +101,48 @@ public sealed class HostInboxMessageServiceTests
                 integrationEvent != null
                 && integrationEvent.RecipientUserId == recipientUserId
                 && integrationEvent.MessageId == messageId
-                && integrationEvent.Title == "系统消息"),
+                && integrationEvent.Title == "系统消息"
+                && integrationEvent.TenantScopeKey == "host"),
             Arg.Any<CancellationToken>());
         await publisher.Received(2).PublishToUserAsync(
             recipientUserId,
             Arg.Any<RealtimeMessage>(),
             CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task Send_rejects_tenant_session_without_directory_or_transaction()
+    {
+        var transaction = new RecordingTransaction();
+        var userDirectory = Substitute.For<IHostUserDirectory>();
+        var currentTenant = Substitute.For<ICurrentTenant>();
+        currentTenant.IsHost.Returns(false);
+        currentTenant.IsAvailable.Returns(true);
+        currentTenant.Id.Returns(Guid.CreateVersion7());
+        var service = new HostInboxMessageService(
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>(),
+            transaction,
+            Substitute.For<IOutboxWriter>(),
+            userDirectory,
+            currentTenant,
+            new NotificationRealtimeDelivery(
+                Substitute.For<IQueryExecutor>(),
+                Substitute.For<IRealtimePublisher>()),
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>(),
+            NullLogger<HostInboxMessageService>.Instance);
+
+        var result = await service.SendAsync(
+            Guid.CreateVersion7(),
+            new SendHostInboxMessageRequest(Guid.CreateVersion7(), "标题", "正文"));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(NotificationsErrorCodes.InboxScopeForbidden, result.Error!.Code);
+        Assert.AreEqual(0, transaction.ExecutionCount);
+        await userDirectory.DidNotReceive().FindActiveHostUserAsync(
+            Arg.Any<Guid>(),
+            Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -178,7 +215,7 @@ public sealed class HostInboxMessageServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(new HostUserDirectoryEntry(recipientUserId, "recipient", "收件人"));
         command.ExecuteAsync(
-                InboxMessageSql.Insert,
+                InboxMessageSql.InsertHost,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(1);
@@ -226,10 +263,19 @@ public sealed class HostInboxMessageServiceTests
             transaction,
             outboxWriter,
             userDirectory,
+            CreateHostTenant(),
             new NotificationRealtimeDelivery(query, publisher),
             clock,
             idGenerator,
             NullLogger<HostInboxMessageService>.Instance);
+
+    private static ICurrentTenant CreateHostTenant()
+    {
+        var currentTenant = Substitute.For<ICurrentTenant>();
+        currentTenant.IsHost.Returns(true);
+        currentTenant.IsAvailable.Returns(true);
+        return currentTenant;
+    }
 
     private sealed class RecordingTransaction : ICommandTransaction
     {

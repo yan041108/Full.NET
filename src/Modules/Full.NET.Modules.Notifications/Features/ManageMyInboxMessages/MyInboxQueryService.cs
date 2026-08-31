@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
@@ -6,18 +7,18 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Notifications.Features.ManageMyInboxMessages;
 
-/// <summary>当前用户站内信分页查询与未读计数。</summary>
+/// <summary>当前用户站内信分页查询与未读计数；作用域只来自受信会话。</summary>
 internal sealed class MyInboxQueryService(
     IQueryExecutor queryExecutor,
+    ICurrentTenant currentTenant,
     IOptions<DatabaseOptions> databaseOptions)
 {
     /// <summary>
-    /// 按收件人分页查询站内信，按创建时间倒序排列。
+    /// 按收件人与当前作用域分页查询站内信，按创建时间倒序排列。
     /// </summary>
     /// <remarks>
-    /// 查询以 <paramref name="recipientUserId"/> 与 <c>TenantId IS NULL</c> 共同作为行守卫，
-    /// 收件人标识必须来自可信认证上下文；分页参数在服务端做上下界钳制，
-    /// 列表语句按当前数据库提供程序在 SQL Server 与 MySQL 实现间切换。
+    /// 查询以 <paramref name="recipientUserId"/> 与受信 <c>TenantScopeKey</c> 共同作为行守卫，
+    /// 收件人标识必须来自可信认证上下文；分页参数在服务端做上下界钳制。
     /// </remarks>
     public async Task<Result<PagedResult<InboxMessageResponse>>> ListAsync(
         Guid recipientUserId,
@@ -28,20 +29,22 @@ internal sealed class MyInboxQueryService(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
+        var scope = NotificationInboxScope.Resolve(currentTenant);
 
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 InboxMessageSql.CountForRecipient,
-                new Dictionary<string, object?> { ["RecipientUserId"] = recipientUserId },
+                NotificationPlatformSqlParameters.Create(
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<InboxMessageRecord>(
                 ResolveListStatement(),
-                new Dictionary<string, object?>
-                {
-                    ["RecipientUserId"] = recipientUserId,
-                    ["Offset"] = offset,
-                    ["PageSize"] = pageSize,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey),
+                    ("Offset", offset),
+                    ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -54,19 +57,19 @@ internal sealed class MyInboxQueryService(
     }
 
     /// <summary>
-    /// 查询指定收件人的当前未读站内信数量，作为实时徽标的权威值。
+    /// 查询指定收件人在当前作用域的未读站内信数量，作为实时徽标的权威值。
     /// </summary>
     public async Task<Result<InboxUnreadCountResponse>> GetUnreadCountAsync(
         Guid recipientUserId,
         CancellationToken cancellationToken = default)
     {
+        var scope = NotificationInboxScope.Resolve(currentTenant);
         var unreadCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 InboxMessageSql.CountUnreadForRecipient,
-                new Dictionary<string, object?>
-                {
-                    ["RecipientUserId"] = recipientUserId,
-                    ["UnreadStatus"] = InboxMessageStatuses.Unread,
-                },
+                NotificationPlatformSqlParameters.Create(
+                    ("RecipientUserId", recipientUserId),
+                    ("TenantScopeKey", scope.TenantScopeKey),
+                    ("UnreadStatus", InboxMessageStatuses.Unread)),
                 cancellationToken)
             .ConfigureAwait(false);
 

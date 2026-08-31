@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications;
@@ -52,7 +53,8 @@ public sealed class MyInboxManagementServiceTests
             1,
             Arg.Is<InboxReadStateChangedIntegrationEvent>(integrationEvent =>
                 integrationEvent != null
-                && integrationEvent.RecipientUserId == fixture.RecipientUserId),
+                && integrationEvent.RecipientUserId == fixture.RecipientUserId
+                && integrationEvent.TenantScopeKey == "host"),
             Arg.Any<CancellationToken>());
     }
 
@@ -137,11 +139,15 @@ public sealed class MyInboxManagementServiceTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(0L);
+        var currentTenant = Substitute.For<ICurrentTenant>();
+        currentTenant.IsHost.Returns(true);
+        currentTenant.IsAvailable.Returns(true);
         var service = new MyInboxManagementService(
             query,
             command,
             transaction,
             outboxWriter,
+            currentTenant,
             new NotificationRealtimeDelivery(query, publisher),
             clock,
             NullLogger<MyInboxManagementService>.Instance);

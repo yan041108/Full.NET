@@ -170,6 +170,31 @@ export function createAppRouter(
         component: () => import('../views/InboxMessagesView.vue')
       },
       {
+        name: 'notification-templates',
+        path: '/notifications/templates',
+        component: () => import('../views/NotificationTemplatesView.vue')
+      },
+      {
+        name: 'notification-provider-profiles',
+        path: '/notifications/provider-profiles',
+        component: () => import('../views/NotificationProviderProfilesView.vue')
+      },
+      {
+        name: 'notification-bindings',
+        path: '/notifications/bindings',
+        component: () => import('../views/NotificationBindingsView.vue')
+      },
+      {
+        name: 'notification-deliveries',
+        path: '/notifications/deliveries',
+        component: () => import('../views/NotificationDeliveriesView.vue')
+      },
+      {
+        name: 'notification-preferences',
+        path: '/notifications/preferences',
+        component: () => import('../views/NotificationPreferencesView.vue')
+      },
+      {
         name: 'host-jobs',
         path: '/jobs/host-definitions',
         component: () => import('../views/HostJobsView.vue')

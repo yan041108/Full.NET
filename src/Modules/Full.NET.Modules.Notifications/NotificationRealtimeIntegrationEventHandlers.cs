@@ -67,6 +67,7 @@ internal sealed class InboxReadStateChangedRealtimeHandler(
             serializer.Deserialize<InboxReadStateChangedIntegrationEvent>(payload);
         return delivery.PublishInboxUnreadCountAsync(
             integrationEvent.RecipientUserId,
+            integrationEvent.TenantScopeKey,
             cancellationToken);
     }
 }

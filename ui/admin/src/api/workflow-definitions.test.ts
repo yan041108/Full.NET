@@ -30,7 +30,7 @@ describe('workflow definition 管理 API', () => {
     vi.mocked(http.request).mockResolvedValue(response);
 
     await createWorkflowDefinition('expense', response.draft);
-    expect(http.request).toHaveBeenLastCalledWith('/api/v1/workflow/definitions/', expect.objectContaining({
+    expect(http.request).toHaveBeenLastCalledWith('/api/v1/workflow/definitions', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ definitionKey: 'expense', draft: response.draft })
     }), undefined);
@@ -87,6 +87,8 @@ describe('workflow definition 管理 API', () => {
     await expect(getWorkflowNodeTypeCatalog()).resolves.toMatchObject({ catalogVersion: 1 });
 
     vi.mocked(http.request).mockResolvedValueOnce({ catalogVersion: 'bad' });
-    await expect(getWorkflowNodeTypeCatalog()).rejects.toThrow('client.invalid_workflow_node_catalog');
+    await expect(getWorkflowNodeTypeCatalog()).rejects.toThrow(
+      'client.invalid_workflow_node_type_catalog_response'
+    );
   });
 });

@@ -76,6 +76,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'workflow-definitions',
       path: '/workflow/definitions'
     });
+    expect(catalog.localNavigationFor('notification-templates')).toEqual({
+      componentKey: 'notification-templates',
+      routeName: 'notification-templates',
+      path: '/notifications/templates'
+    });
   });
 
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {
