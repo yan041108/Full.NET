@@ -13,6 +13,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询可分配岗位关系的用户列表，供岗位成员分配弹窗复用。 */
 export async function listAssignableOrganizationUserPositionUsers(
   page = 1,
   pageSize = 100,
@@ -30,6 +31,7 @@ export async function listAssignableOrganizationUserPositionUsers(
   return value;
 }
 
+/** 分页查询用户岗位关系列表，并对响应页做失败关闭校验。 */
 export async function listOrganizationUserPositions(
   page = 1,
   pageSize = 20,
@@ -47,6 +49,7 @@ export async function listOrganizationUserPositions(
   return value;
 }
 
+/** 创建用户岗位关系，并可指定是否为主岗位。 */
 export async function createOrganizationUserPosition(
   userId: string,
   positionId: string,
@@ -65,6 +68,7 @@ export async function createOrganizationUserPosition(
   return value;
 }
 
+/** 更新用户岗位关系的主岗位标记，并携带版本号维持乐观并发。 */
 export async function updateOrganizationUserPosition(
   id: string,
   isPrimary: boolean,
@@ -83,6 +87,7 @@ export async function updateOrganizationUserPosition(
   return value;
 }
 
+/** 禁用用户岗位关系。 */
 export async function disableOrganizationUserPosition(
   id: string,
   signal?: AbortSignal
@@ -98,3 +103,10 @@ export async function disableOrganizationUserPosition(
 
   return value;
 }
+
+/** 导出可分配用户页、用户岗位隶属详情与分页模型，供成员分配弹窗、列表页与主岗位切换流程共享同一契约。 */
+export type {
+  OrganizationAssignableUserPage,
+  OrganizationUserPosition,
+  OrganizationUserPositionPage
+};

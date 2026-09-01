@@ -8,6 +8,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询在线会话列表，并对用户名筛选词做 trim 规范化。 */
 export async function listHostOnlineSessions(
   page = 1,
   pageSize = 20,
@@ -31,6 +32,7 @@ export async function listHostOnlineSessions(
   return value;
 }
 
+/** 撤销指定在线会话。 */
 export async function revokeHostOnlineSession(
   id: string,
   signal?: AbortSignal
@@ -46,3 +48,6 @@ export async function revokeHostOnlineSession(
 
   return value;
 }
+
+/** 导出在线会话详情与分页模型，供会话列表、筛选器与强制下线流程共享同一契约。 */
+export type { HostOnlineSession, HostOnlineSessionPage };

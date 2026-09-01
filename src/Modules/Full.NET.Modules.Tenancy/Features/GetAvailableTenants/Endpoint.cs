@@ -10,8 +10,15 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.Tenancy.Features.GetAvailableTenants;
 
+/// <summary>
+/// 暴露当前主体可切换租户列表端点。
+/// </summary>
 internal static class Endpoint
 {
+    /// <summary>
+    /// 将可切换租户列表查询映射到 Tenancy 路由组。
+    /// </summary>
+    /// <param name="group">Tenancy 模块路由组。</param>
     public static void Map(RouteGroupBuilder group)
     {
         group.MapGet("/available", async (

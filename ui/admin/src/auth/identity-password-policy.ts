@@ -1,6 +1,7 @@
-﻿/** 与 Identity 模块 Host 用户密码策略保持一致的最小长度。 */
+/** 与 Identity 模块 Host 用户密码策略保持一致的最小长度。 */
 export const IDENTITY_PASSWORD_MIN_LENGTH = 12;
 
+/** 以下模式需与服务端密码策略保持同语义，避免前后端校验结果漂移。 */
 const UPPERCASE_PATTERN = /[A-Z]/;
 const LOWERCASE_PATTERN = /[a-z]/;
 const DIGIT_PATTERN = /\d/;

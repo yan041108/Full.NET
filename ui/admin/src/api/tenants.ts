@@ -11,6 +11,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询 Host 租户列表，并对生成守卫遗漏的标识符约束补失败关闭校验。 */
 export async function listHostTenants(
   page = 1,
   pageSize = 20,
@@ -25,6 +26,7 @@ export async function listHostTenants(
   return value;
 }
 
+/** 创建 Host 租户，并可在创建时附带默认套餐。 */
 export async function createHostTenant(
   identifier: string,
   name: string,
@@ -51,6 +53,7 @@ export async function createHostTenant(
   return value;
 }
 
+/** 禁用 Host 租户。 */
 export async function disableHostTenant(
   id: string,
   signal?: AbortSignal
@@ -63,6 +66,7 @@ export async function disableHostTenant(
   return value;
 }
 
+/** 更新 Host 租户名称，并携带版本号维持乐观并发。 */
 export async function updateHostTenant(
   id: string,
   name: string,
@@ -81,6 +85,7 @@ export async function updateHostTenant(
   return value;
 }
 
+/** 为租户分配或清空套餐。 */
 export async function assignHostTenantPackage(
   tenantId: string,
   tenantPackageId: string | null,
@@ -98,3 +103,6 @@ export async function assignHostTenantPackage(
 
   return value;
 }
+
+/** 导出租户详情与分页模型，供租户列表、开通弹窗与套餐分配流程共享同一契约。 */
+export type { HostTenant, HostTenantPage };

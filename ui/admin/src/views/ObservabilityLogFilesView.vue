@@ -34,6 +34,7 @@ const problem = ref<FullNetProblemDetails>();
 const canRead = computed(() => session.can('observability.log_files.read'));
 const canDownload = computed(() => session.can('observability.log_files.download'));
 
+/** 将未知异常统一折叠为可渲染的 ProblemDetails，避免页面分支散落多套兜底文案。 */
 function toProblem(error: unknown): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -45,6 +46,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
       };
 }
 
+/** 始终按当前活动语言格式化 UTC 时间，避免切换语言后仍残留旧 locale 的展示结果。 */
 function formatUtc(value: string): string {
   return new Intl.DateTimeFormat(locale.value, {
     dateStyle: 'short',
@@ -52,6 +54,7 @@ function formatUtc(value: string): string {
   }).format(new Date(value));
 }
 
+/** 仅用于日志文件列表展示的轻量字节格式化；预览正文仍保持服务端原始内容。 */
 function formatBytes(value: number): string {
   if (value < 1024) {
     return `${value} B`;
@@ -62,6 +65,7 @@ function formatBytes(value: number): string {
   return `${(value / 1024 / 1024).toFixed(1)} MiB`;
 }
 
+/** 切换选中文件时先清空旧尾部内容，避免新请求失败后继续误看上一份日志。 */
 async function loadTail(file: LogFileSummary): Promise<void> {
   selected.value = file;
   tail.value = undefined;
@@ -73,6 +77,7 @@ async function loadTail(file: LogFileSummary): Promise<void> {
   }
 }
 
+/** 首次加载与手动刷新共用同一入口，并在无读取权限时失败关闭。 */
 async function load(): Promise<void> {
   if (!canRead.value || loading.value) {
     return;
@@ -98,6 +103,7 @@ async function load(): Promise<void> {
   }
 }
 
+/** 下载只允许作用于当前选中的文件，并复用浏览器原生保存流程而不把 Blob 常驻内存。 */
 async function download(): Promise<void> {
   if (!selected.value || !canDownload.value || downloading.value) {
     return;

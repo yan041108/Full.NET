@@ -222,6 +222,7 @@ export function filterOrganizationUnitsForTree(
   return units.filter(unit => keep.has(unit.id));
 }
 
+/** 按显示顺序再按机构编码稳定排序，保证树与下拉的遍历结果可预测。 */
 function sortUnits(units: readonly OrganizationUnit[]): OrganizationUnit[] {
   return [...units].sort((left, right) => {
     if (left.displayOrder !== right.displayOrder) {

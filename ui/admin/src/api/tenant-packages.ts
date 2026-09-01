@@ -10,6 +10,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询 Host 租户套餐列表，并对生成守卫遗漏的编码约束补失败关闭校验。 */
 export async function listHostTenantPackages(
   page = 1,
   pageSize = 20,
@@ -28,6 +29,7 @@ export async function listHostTenantPackages(
   return value;
 }
 
+/** 创建 Host 租户套餐，并把空白描述规整为 null。 */
 export async function createHostTenantPackage(
   code: string,
   name: string,
@@ -52,6 +54,7 @@ export async function createHostTenantPackage(
   return value;
 }
 
+/** 禁用 Host 租户套餐。 */
 export async function disableHostTenantPackage(
   id: string,
   signal?: AbortSignal
@@ -68,6 +71,7 @@ export async function disableHostTenantPackage(
   return value;
 }
 
+/** 更新 Host 租户套餐名称与描述，并携带版本号维持乐观并发。 */
 export async function updateHostTenantPackage(
   id: string,
   name: string,
@@ -86,3 +90,6 @@ export async function updateHostTenantPackage(
 
   return value;
 }
+
+/** 导出租户套餐详情与分页模型，供套餐列表、编辑弹窗与禁用流程共享同一契约。 */
+export type { HostTenantPackage, HostTenantPackagePage };

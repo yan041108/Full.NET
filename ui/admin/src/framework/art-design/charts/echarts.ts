@@ -14,6 +14,7 @@ import { applyChartMotionPolicy, mergeChartTheme } from './fullNetChartTheme';
 
 let registered = false;
 
+/** 仅首次注册按需图表组件，避免重复 use 带来的额外初始化成本。 */
 function ensureRegistered(): void {
   if (registered) {
     return;
@@ -28,6 +29,7 @@ function ensureRegistered(): void {
   registered = true;
 }
 
+/** 图表创建选项，目前只承载主题和语言等壳层级上下文。 */
 export interface CreateFullNetChartOptions {
   locale?: string;
   themeMode?: 'light' | 'dark';
@@ -60,6 +62,7 @@ export function updateFullNetChart(
   chart.setOption(buildChartOption(option, options), true);
 }
 
+/** 在统一主题合并后再应用动效策略，保证减弱动画时仍保留最新视觉变量。 */
 function buildChartOption(
   option: EChartsOption,
   options: CreateFullNetChartOptions
@@ -69,10 +72,12 @@ function buildChartOption(
   };
 }
 
+/** 调整图表尺寸，供容器尺寸变化或抽屉展开后复用。 */
 export function resizeFullNetChart(chart: ECharts | null | undefined): void {
   chart?.resize();
 }
 
+/** 销毁图表实例并释放关联 DOM/Canvas 资源。 */
 export function disposeFullNetChart(chart: ECharts | null | undefined): void {
   chart?.dispose();
 }

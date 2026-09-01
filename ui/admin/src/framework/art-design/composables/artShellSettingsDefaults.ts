@@ -6,6 +6,7 @@ export type ArtContainerWidth = 'full' | 'boxed';
 export type ArtTabStyle = 'default' | 'card' | 'google';
 export type ArtCustomRadius = '0' | '0.25' | '0.5' | '0.75' | '1';
 
+/** Art 壳层可持久化的外观与布局设置。 */
 export interface ArtShellSettings {
   themeMode: ArtThemeMode;
   menuCollapsed: boolean;
@@ -27,6 +28,7 @@ export interface ArtShellSettings {
   dualMenuShowText: boolean;
 }
 
+/** 壳层主题主色候选目录，供设置面板和文档变量同步复用。 */
 export const ART_SHELL_MAIN_COLORS = [
   '#409eff',
   '#0d47a1',
@@ -38,6 +40,7 @@ export const ART_SHELL_MAIN_COLORS = [
   '#ff9800'
 ] as const;
 
+/** 将枚举化圆角档位映射为真正写入 CSS 变量的像素值。 */
 const radiusMap: Record<ArtCustomRadius, string> = {
   '0': '0px',
   '0.25': '4px',
@@ -46,6 +49,7 @@ const radiusMap: Record<ArtCustomRadius, string> = {
   '1': '16px'
 };
 
+/** 创建一份稳定的壳层默认设置，供首启、重置和存储损坏回退共用。 */
 export function createDefaultArtShellSettings(): ArtShellSettings {
   return {
     themeMode: 'light',
@@ -69,10 +73,12 @@ export function createDefaultArtShellSettings(): ArtShellSettings {
   };
 }
 
+/** 将圆角档位解析为 CSS 长度；未知值时回退到默认中等圆角。 */
 export function resolveCustomRadius(value: ArtCustomRadius): string {
   return radiusMap[value] ?? radiusMap['0.5'];
 }
 
+/** 把壳层设置投影到 document，统一驱动主题类名、数据属性和 CSS 变量。 */
 export function applyArtShellSettingsToDocument(settings: ArtShellSettings): void {
   if (typeof document === 'undefined') {
     return;

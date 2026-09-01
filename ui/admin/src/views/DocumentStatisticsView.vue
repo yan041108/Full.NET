@@ -13,10 +13,12 @@ const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const statistics = ref<HostDocumentStatisticsResponse | null>(null);
 
+/** 统计面板优先展示服务端已格式化好的总大小文案，避免前端再复制一套单位换算规则。 */
 function formatTotalSize(): string {
   return statistics.value?.summary.totalSizeInfo ?? '';
 }
 
+/** 页面只有一份汇总快照，失败时清空旧数据，避免用户把历史统计误认为最新结果。 */
 async function load() {
   loading.value = true;
   problem.value = undefined;
@@ -30,6 +32,7 @@ async function load() {
   }
 }
 
+/** 统一把未知异常收敛成当前页可展示的错误结构，保证空态和告警文案来源一致。 */
 function toProblem(error: unknown): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;

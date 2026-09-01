@@ -11,6 +11,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询文档分类树的扁平列表，并对响应结构做失败关闭校验。 */
 export async function listDocumentCategories(
   signal?: AbortSignal
 ): Promise<HostDocumentCategoryResponse[]> {
@@ -21,6 +22,7 @@ export async function listDocumentCategories(
   return value;
 }
 
+/** 创建文档分类。 */
 export async function createDocumentCategory(
   name: string,
   parentId: string | null,
@@ -44,6 +46,7 @@ export async function createDocumentCategory(
   return value;
 }
 
+/** 更新文档分类，并携带版本号维持乐观并发。 */
 export async function updateDocumentCategory(
   id: string,
   name: string,
@@ -70,6 +73,7 @@ export async function updateDocumentCategory(
   return value;
 }
 
+/** 删除文档分类。 */
 export async function deleteDocumentCategory(
   id: string,
   version: number,
@@ -85,6 +89,7 @@ export async function deleteDocumentCategory(
   );
 }
 
+/** 导出文档分类读写模型，供分类树、编辑弹窗与保存请求共享同一契约。 */
 export type {
   CreateHostDocumentCategoryRequest,
   HostDocumentCategoryResponse,

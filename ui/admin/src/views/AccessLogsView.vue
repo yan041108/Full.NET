@@ -77,10 +77,12 @@ onMounted(() => {
   void load();
 });
 
+/** 让客户端分页序号与当前页绑定，避免切页后序号重新从 1 开始。 */
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
 }
 
+/** 页面只保留一份访问日志快照，刷新时重新按游标拉全量数据并重算表格高度。 */
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
@@ -95,6 +97,7 @@ async function load(): Promise<void> {
   }
 }
 
+/** 服务端使用 cursor 翻页；前端需要按顺序拼接全部页，避免本地筛选只看到首屏数据。 */
 async function fetchAllLogs(query: AuditingAccessLogQuery): Promise<AuditingAccessLog[]> {
   const collected: AuditingAccessLog[] = [];
   let cursor: string | null | undefined;
@@ -116,12 +119,14 @@ async function fetchAllLogs(query: AuditingAccessLogQuery): Promise<AuditingAcce
   return collected;
 }
 
+/** 搜索动作先把表单值冻结为当前查询快照，再统一触发重新加载。 */
 function handleSearch(params: Record<string, string | undefined>): void {
   pathContains.value = params.pathContains ?? '';
   activeQuery.value = buildQuery();
   void load();
 }
 
+/** 重置不仅清空输入框，也要撤销 contains 默认时间窗的可见状态。 */
 function resetSearch(): void {
   pathContains.value = '';
   fromUtcInput.value = '';
@@ -152,6 +157,7 @@ const toUtcInput = computed({
   }
 });
 
+/** contains 搜索默认补 24 小时时窗，并把隐式默认值同步回可见输入框，避免筛选条件对用户不可见。 */
 function handlePathContainsInput(value: string): void {
   if (!value.trim()) {
     if (containsDefaultRangeApplied.value) {
@@ -174,6 +180,7 @@ function handlePathContainsInput(value: string): void {
   }
 }
 
+/** 只要用户手动改过时间范围，就撤销 contains 默认时间窗的自动管理。 */
 function markTimeRangeEdited(): void {
   containsDefaultRangeApplied.value = false;
 }
@@ -184,6 +191,7 @@ watch([fromUtcInput, toUtcInput], () => {
   }
 });
 
+/** 查询构建统一走生成契约默认值逻辑，保证手动搜索与自动补默认值的语义一致。 */
 function buildQuery(): AuditingAccessLogQuery {
   const query = applyAuditingAccessLogContainsDefaults({
     pathContains: pathContains.value,
@@ -194,6 +202,7 @@ function buildQuery(): AuditingAccessLogQuery {
   return query;
 }
 
+/** 把内部 UTC 默认值投影回 datetime-local 输入框，防止界面显示与真实查询参数漂移。 */
 function applyVisibleDefaults(query: AuditingAccessLogQuery): void {
   applyingVisibleDefaults.value = true;
   if (query.fromUtc && !fromUtcInput.value) {
@@ -205,6 +214,7 @@ function applyVisibleDefaults(query: AuditingAccessLogQuery): void {
   applyingVisibleDefaults.value = false;
 }
 
+/** datetime-local 输入按本地时区解析，提交前统一折叠为 ISO UTC 字符串。 */
 function toUtcIso(value: string): string | undefined {
   if (!value) {
     return undefined;
@@ -213,12 +223,14 @@ function toUtcIso(value: string): string | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
+/** 将服务端 UTC 字符串转换回本地 datetime-local 值，供默认时间窗可视化。 */
 function toDateTimeLocal(value: string): string {
   const parsed = new Date(value);
   const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
 }
 
+/** 未知异常统一折叠为访问日志页自己的稳定错误码，避免空态和告警分支各自兜底。 */
 function toProblem(error: unknown): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error

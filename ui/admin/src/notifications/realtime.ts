@@ -15,6 +15,7 @@ import {
 import type { InboxUnreadCount } from '@fullnet/client-contracts';
 import { getInboxUnreadCount } from '../api/inbox-messages';
 
+/** Vue 端通知实时状态，只暴露 UI 真正需要的未读数与修订号。 */
 export interface VueNotificationsRealtimeState {
   unreadCount: Ref<number>;
   inboxRevision: Ref<number>;
@@ -23,6 +24,7 @@ export interface VueNotificationsRealtimeState {
   dispose(): Promise<void>;
 }
 
+/** 创建实时通知状态所需依赖，可在测试中替换 HTTP 与实时控制器。 */
 export interface VueNotificationsRealtimeOptions {
   session: NotificationsRealtimeSession;
   enabled?: boolean;
@@ -33,9 +35,11 @@ export interface VueNotificationsRealtimeOptions {
   ) => NotificationsRealtimeController;
 }
 
+/** 注入键，供壳层和通知面板共享同一份实时状态。 */
 export const notificationsRealtimeKey:
   InjectionKey<VueNotificationsRealtimeState> = Symbol('notifications-realtime');
 
+/** 未提供 Provider 时的失败关闭回退状态。 */
 const fallbackState: VueNotificationsRealtimeState = {
   unreadCount: ref(0),
   inboxRevision: ref(0),
@@ -65,6 +69,7 @@ export function createVueNotificationsRealtime(
   let loadTransition = Promise.resolve();
   let disposed = false;
 
+  /** 仅把实时消息转换为本地修订号或刷新提示，真正未读数仍以 HTTP 权威值为准。 */
   const onMessage = (message: RealtimeMessage): void => {
     if (message.code === NOTIFICATIONS_REALTIME_CODES.inboxMessageReceived) {
       inboxRevision.value++;
@@ -100,6 +105,7 @@ export function createVueNotificationsRealtime(
     void queueUnreadCountLoad(generation, false);
   });
 
+  /** 串行化未读数刷新，并通过 sessionGeneration 丢弃过期会话返回值。 */
   function queueUnreadCountLoad(
     generation: number,
     refreshInbox: boolean
@@ -142,6 +148,7 @@ export function createVueNotificationsRealtime(
   };
 }
 
+/** 读取当前注入的通知实时状态；缺失 Provider 时返回零值回退实现。 */
 export function useNotificationsRealtime(): VueNotificationsRealtimeState {
   return inject(notificationsRealtimeKey, fallbackState);
 }

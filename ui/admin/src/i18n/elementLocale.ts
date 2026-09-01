@@ -8,17 +8,20 @@ import type { SupportedLocale } from '@fullnet/admin-i18n';
 type LocaleModule = Readonly<{ default: Language }>;
 type LocaleLoaders = Readonly<Record<SupportedLocale, () => Promise<LocaleModule>>>;
 
+/** Element Plus 语言包加载器目录，与 SupportedLocale 一一对应。 */
 export const elementLocaleLoaders: LocaleLoaders = {
   'zh-CN': () => import('element-plus/es/locale/lang/zh-cn'),
   'en-US': () => import('element-plus/es/locale/lang/en')
 };
 
+/** Element Plus 语言控制器依赖项，便于测试替换异步加载与 Day.js 侧效。 */
 export interface ElementLocaleControllerOptions {
   loaders?: LocaleLoaders;
   setDayjsLocale?: (locale: 'zh-cn' | 'en') => void;
   onFallback?: (locale: 'zh-CN') => void;
 }
 
+/** Element Plus 组件语言状态控制器。 */
 export interface ElementLocaleController {
   locale: ShallowRef<Language | undefined>;
   setLocale: (locale: SupportedLocale) => Promise<void>;
@@ -35,6 +38,7 @@ export function createElementLocaleController(
   const setDayjsLocale = options.setDayjsLocale ?? (value => dayjs.locale(value));
   let generation = 0;
 
+  /** 切换组件库语言，并确保较早发起的异步加载不会覆盖最后一次选择。 */
   async function setLocale(value: SupportedLocale): Promise<void> {
     const operation = ++generation;
     try {

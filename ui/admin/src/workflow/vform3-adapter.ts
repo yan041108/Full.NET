@@ -9,6 +9,7 @@ export interface VForm3DesignerJson {
   readonly formConfig: Record<string, unknown>;
 }
 
+/** 只声明适配层真正消费的 VForm3 字段，避免把设计器私有细节误当稳定契约。 */
 interface VForm3Widget {
   readonly id?: string;
   readonly type?: string;
@@ -19,6 +20,7 @@ interface VForm3Widget {
   readonly [key: string]: unknown;
 }
 
+/** 服务端字段类型到 VForm3 控件类型的闭合映射；未知类型统一降级为 input。 */
 const fieldToWidgetType: Readonly<Record<string, string>> = {
   text: 'input',
   textarea: 'textarea',
@@ -34,6 +36,7 @@ const fieldToWidgetType: Readonly<Record<string, string>> = {
   switch: 'switch'
 };
 
+/** VForm3 控件类型回编译到服务端字段类型的白名单映射。 */
 const widgetToFieldType: Readonly<Record<string, string>> = {
   input: 'text',
   textarea: 'textarea',
@@ -46,7 +49,9 @@ const widgetToFieldType: Readonly<Record<string, string>> = {
   switch: 'switch'
 };
 
+/** 设计器 JSON 中命中这些键名且配置了值时一律失败关闭，避免脚本或远程配置渗入。 */
 const unsafePropertyPattern = /(?:script|function|javascript|remote|url|header|body|iframe|html|css|onform|onevent|customclass)/iu;
+/** 表单字段与分组键必须保持稳定机器码，避免发布后因中文标签或临时 id 漂移。 */
 const stableKeyPattern = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
 
 /** 把服务端权威表单 Schema 投影为 VForm3 的设计态 JSON。 */
@@ -151,6 +156,7 @@ function toWidgetOptions(sectionKey: string, field: WorkflowFormField): Record<s
   return options;
 }
 
+/** 只回收服务端组件目录明确允许的约束键，未登记内容不会被带回权威 Schema。 */
 function readConstraints(
   fieldTypeKey: string,
   options: Record<string, unknown>,
@@ -172,6 +178,7 @@ function readConstraints(
   return result;
 }
 
+/** 递归收集设计器树中的真实控件节点，忽略布局容器与无关包装层。 */
 function collectWidgets(items: unknown[]): VForm3Widget[] {
   const result: VForm3Widget[] = [];
   const visit = (value: unknown): void => {
@@ -190,6 +197,7 @@ function collectWidgets(items: unknown[]): VForm3Widget[] {
   return result;
 }
 
+/** 把设计器 JSON 视为不可信输入，发现脚本、远程地址或 HTML 注入线索时立即拒绝。 */
 function assertSafeConfiguration(value: unknown): void {
   if (Array.isArray(value)) {
     value.forEach(assertSafeConfiguration);
@@ -207,6 +215,7 @@ function assertSafeConfiguration(value: unknown): void {
   }
 }
 
+/** 只有真正配置了内容的危险属性才触发拒绝，避免把空占位误报为攻击。 */
 function hasConfiguredValue(value: unknown): boolean {
   if (value === undefined || value === null || value === false || value === '') return false;
   if (Array.isArray(value)) return value.length > 0;
@@ -218,6 +227,7 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+/** 统一识别普通对象，避免把数组或 null 当成可递归的 JSON 记录。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -1,21 +1,24 @@
-﻿import {
+import {
   HOST_MENU_TYPES,
   type HostMenu,
   type HostMenuPermissionOption,
   type HostMenuType
 } from '@fullnet/client-contracts';
 
+/** Host 菜单树节点，兼容数据库持久化记录与前端补齐的虚拟按钮行。 */
 export interface MenuTreeRow extends HostMenu {
   isVirtual?: boolean;
   children?: MenuTreeRow[];
 }
 
+/** 父级菜单选择树节点，只保留级联选择所需的最小字段。 */
 export interface MenuTreeOption {
   value: string;
   label: string;
   children?: MenuTreeOption[];
 }
 
+/** 用固定前缀标识仅存在于授权目录中的虚拟按钮行，避免与数据库主键混淆。 */
 const VIRTUAL_BUTTON_ID_PREFIX = 'catalog:action:';
 
 const MENU_TYPE_SORT_ORDER: Record<HostMenuType, number> = {
@@ -88,6 +91,7 @@ export function mergeCatalogButtonRows(
   return [...menuRows, ...virtualRows];
 }
 
+/** 构建可安全渲染的菜单树；父节点缺失或存在环时自动降级为根节点，避免界面死循环。 */
 export function buildHostMenuTree(rows: readonly MenuTreeRow[]): MenuTreeRow[] {
   const byId = new Map(rows.map(row => [row.id, row]));
   const childrenByParent = new Map<string | null, MenuTreeRow[]>();
@@ -135,6 +139,7 @@ export function buildHostMenuTree(rows: readonly MenuTreeRow[]): MenuTreeRow[] {
   return sortMenuRows(roots);
 }
 
+/** 按匹配条件筛出菜单，同时保留命中节点的全部祖先链，便于树表保持可展开路径。 */
 export function filterMenusForTree(
   rows: readonly MenuTreeRow[],
   matches: (row: MenuTreeRow) => boolean
@@ -159,6 +164,7 @@ export function filterMenusForTree(
   return rows.filter(row => keep.has(row.id));
 }
 
+/** 构建父菜单下拉树，并排除当前菜单及其全部后代，防止把节点挂到自身子树下。 */
 export function buildMenuParentTreeOptions(
   menus: readonly HostMenu[],
   excludeMenuId?: string
@@ -211,14 +217,17 @@ export function buildMenuParentTreeOptions(
   return walk(null);
 }
 
+/** 判断行是否为授权目录投影出来的虚拟按钮，而不是数据库中的真实菜单记录。 */
 export function isVirtualCatalogButtonRow(row: MenuTreeRow): boolean {
   return row.isVirtual === true || row.id.startsWith(VIRTUAL_BUTTON_ID_PREFIX);
 }
 
+/** 判断行是否来自持久化菜单表，供编辑、删除等只允许真实记录的操作复用。 */
 export function isPersistedMenuRow(row: MenuTreeRow): boolean {
   return !isVirtualCatalogButtonRow(row);
 }
 
+/** 返回菜单类型对应的国际化键，保持表格、表单与筛选器展示语义一致。 */
 export function menuTypeLabelKey(menuType: HostMenuType): string {
   switch (menuType) {
     case HOST_MENU_TYPES.directory:
@@ -244,6 +253,7 @@ export function menuTypeTagType(
   }
 }
 
+/** 按类型、显示顺序和中文标题稳定排序，确保树表与父级选择器展示一致。 */
 function sortMenuRows<T extends { displayOrder: number; title: string; menuType?: HostMenuType }>(
   rows: readonly T[]
 ): T[] {

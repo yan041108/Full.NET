@@ -22,12 +22,14 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 读取角色授权页所需的完整授权树目录。 */
 export async function getAuthorizationTree(
   signal?: AbortSignal
 ): Promise<AuthorizationTreeModule[]> {
   return identityGetAuthorizationTree(http, {}, signal);
 }
 
+/** 分页查询 Host 角色列表。 */
 export async function listHostRoles(
   page = 1,
   pageSize = 20,
@@ -36,6 +38,7 @@ export async function listHostRoles(
   return identityListHostRoles(http, { page, pageSize }, signal);
 }
 
+/** 创建 Host 角色。 */
 export async function createHostRole(
   code: string,
   name: string,
@@ -44,6 +47,7 @@ export async function createHostRole(
   return identityCreateHostRole(http, { body: { code, name } }, signal);
 }
 
+/** 更新 Host 角色名称，并携带版本号维持乐观并发。 */
 export async function updateHostRole(
   id: string,
   name: string,
@@ -57,6 +61,7 @@ export async function updateHostRole(
   );
 }
 
+/** 整体替换 Host 角色的权限码集合。 */
 export async function replaceHostRolePermissions(
   id: string,
   permissionCodes: string[],
@@ -70,6 +75,7 @@ export async function replaceHostRolePermissions(
   );
 }
 
+/** 禁用 Host 角色。 */
 export async function disableHostRole(
   id: string,
   signal?: AbortSignal
@@ -77,6 +83,7 @@ export async function disableHostRole(
   return identityDisableHostRole(http, { roleId: id }, signal);
 }
 
+/** 读取 Host 角色数据权限范围，并对返回机器码做失败关闭校验。 */
 export async function getHostRoleDataScope(
   id: string,
   signal?: AbortSignal
@@ -90,6 +97,7 @@ export async function getHostRoleDataScope(
   return value;
 }
 
+/** 更新 Host 角色数据权限范围与机构范围。 */
 export async function updateHostRoleDataScope(
   id: string,
   dataScopeKind: RoleDataScopeKind,
@@ -113,6 +121,7 @@ export async function updateHostRoleDataScope(
   return value;
 }
 
+/** 读取字段投影目录，并对生成契约的枚举放宽做手写校验。 */
 export async function getFieldProjectionCatalog(
   signal?: AbortSignal
 ): Promise<FieldProjectionResourceDefinition[]> {
@@ -125,6 +134,7 @@ export async function getFieldProjectionCatalog(
   return value;
 }
 
+/** 读取角色在指定资源上的字段授权。 */
 export async function getHostRoleFieldGrants(
   id: string,
   resourceKey: string,
@@ -137,6 +147,7 @@ export async function getHostRoleFieldGrants(
   );
 }
 
+/** 整体替换角色在指定资源上的字段授权集合。 */
 export async function replaceHostRoleFieldGrants(
   id: string,
   resourceKey: string,
@@ -150,3 +161,14 @@ export async function replaceHostRoleFieldGrants(
     signal
   );
 }
+
+/** 导出授权树、角色、数据范围与字段投影模型，供角色列表、授权页、数据范围页与字段授权页共享同一契约。 */
+export type {
+  AuthorizationTreeModule,
+  FieldProjectionResourceDefinition,
+  HostRole,
+  HostRoleDataScope,
+  HostRoleFieldGrants,
+  HostRolePage,
+  RoleDataScopeKind
+};

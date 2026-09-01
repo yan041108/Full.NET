@@ -4,9 +4,15 @@ using Full.NET.Abstractions.Results;
 
 namespace Full.NET.Modules.Tenancy.Features.ProvisionTenant;
 
+/// <summary>
+/// 校验租户开通命令的格式与长度约束。
+/// </summary>
 internal sealed partial class ProvisionTenantCommandValidator
     : AbstractValidator<ProvisionTenantCommand>
 {
+    /// <summary>
+    /// 初始化租户开通命令校验规则。
+    /// </summary>
     public ProvisionTenantCommandValidator()
     {
         RuleFor(command => command.Identifier)
@@ -35,6 +41,10 @@ internal sealed partial class ProvisionTenantCommandValidator
             .WithMessage("Domain is required and must not exceed 253 characters.");
     }
 
+    /// <summary>
+    /// 返回租户标识允许的稳定格式正则。
+    /// </summary>
+    /// <returns>仅允许小写字母、数字和中划线，且首尾不能为中划线的正则表达式。</returns>
     [GeneratedRegex(
         "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
         RegexOptions.CultureInvariant)]

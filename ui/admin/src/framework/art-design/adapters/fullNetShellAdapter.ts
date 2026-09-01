@@ -61,6 +61,7 @@ export interface ShellNavigationGroup {
   items: ShellNavigationItem[];
 }
 
+/** 构建壳层导航所需的最小输入：服务端授权导航树与本地翻译器。 */
 export interface BuildShellNavigationOptions {
   navigation: NavigationNode[];
   translate: (key: MessageKey) => string;
@@ -215,6 +216,7 @@ function mapNavigationTreeToShellItems(
   });
 }
 
+/** 生成壳层可直接消费的扁平导航；映射异常时退回服务端标题，避免侧栏完全空白。 */
 export function buildShellNavigation(
   options: BuildShellNavigationOptions
 ): ShellNavigationItem[] {
@@ -238,6 +240,7 @@ export function buildShellNavigation(
   }));
 }
 
+/** 服务端树已分层时直接按树的一级节点分组，保留后端声明的结构语义。 */
 function buildGroupsFromNavigationTree(
   navigation: NavigationNode[],
   translate: (key: MessageKey) => string
@@ -267,6 +270,7 @@ function buildGroupsFromNavigationTree(
   return groups;
 }
 
+/** 服务端仅返回扁平导航时，按路径前缀推断一级分组以兼容 Art 壳层布局。 */
 function buildGroupsFromFlatNavigation(
   items: ShellNavigationItem[],
   translate: (key: MessageKey) => string
@@ -354,6 +358,7 @@ export function resolveShellIcon(icon: string): Component {
   return resolveMenuIconComponent(icon);
 }
 
+/** 将壳层导航项包装成树节点，同时挂接稳定 id 供菜单组件追踪。 */
 function toShellNavigationTreeItem(
   item: ShellNavigationItem,
   id: string,
@@ -366,10 +371,12 @@ function toShellNavigationTreeItem(
   };
 }
 
+/** 为分组目录生成不会与真实业务路径冲突的虚拟菜单路径。 */
 function groupPath(groupId: string): string {
   return `${SHELL_NAV_GROUP_PATH_PREFIX}${groupId}`;
 }
 
+/** 优先保留服务端树结构；仅在本地白名单命中时生成可渲染目录或页面节点。 */
 function mapServerNavigationTree(
   navigation: NavigationNode[],
   translate: (key: MessageKey) => string
@@ -414,6 +421,7 @@ function mapServerNavigationTree(
     .filter((item): item is ShellNavigationTreeItem => item !== null);
 }
 
+/** 将一级导航分组转为左侧树节点；多项分组表现为目录，单项分组直接落为页面。 */
 function buildTreeFromNavigationGroups(
   groups: ShellNavigationGroup[]
 ): ShellNavigationTreeItem[] {
@@ -548,6 +556,7 @@ export function buildFlatShellNavigationTree(
   return items.map(item => toShellNavigationTreeItem(item, item.path));
 }
 
+/** 将导航页签化，保留标题、图标和 affix 语义。 */
 function toShellTabItem(item: ShellNavigationItem): ShellTabItem {
   return {
     path: item.path,

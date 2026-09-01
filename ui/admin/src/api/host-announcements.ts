@@ -10,6 +10,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询 Host 公告列表，并对响应页做失败关闭校验。 */
 export async function listHostAnnouncements(
   page = 1,
   pageSize = 20,
@@ -27,6 +28,7 @@ export async function listHostAnnouncements(
   return value;
 }
 
+/** 创建 Host 公告草稿。 */
 export async function createHostAnnouncement(
   title: string,
   content: string,
@@ -44,6 +46,7 @@ export async function createHostAnnouncement(
   return value;
 }
 
+/** 更新 Host 公告草稿，并携带版本号维持乐观并发。 */
 export async function updateHostAnnouncement(
   id: string,
   title: string,
@@ -66,6 +69,7 @@ export async function updateHostAnnouncement(
   return value;
 }
 
+/** 发布 Host 公告。 */
 export async function publishHostAnnouncement(
   id: string,
   version: number,
@@ -86,4 +90,5 @@ export async function publishHostAnnouncement(
   return value;
 }
 
+/** 导出公告列表与单条公告模型，供公告管理页列表、编辑器与发布流程复用同一契约。 */
 export type { HostAnnouncement, HostAnnouncementPage };

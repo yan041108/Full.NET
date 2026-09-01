@@ -8,6 +8,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询枚举目录摘要列表，并对每个条目做失败关闭校验。 */
 export async function listSettingsEnumCatalogs(
   signal?: AbortSignal
 ): Promise<SettingsEnumCatalogSummary[]> {
@@ -19,6 +20,7 @@ export async function listSettingsEnumCatalogs(
   return value;
 }
 
+/** 查询单个枚举目录详情。 */
 export async function getSettingsEnumCatalog(
   catalogKey: string,
   signal?: AbortSignal
@@ -34,3 +36,9 @@ export async function getSettingsEnumCatalog(
 
   return value;
 }
+
+/** 导出枚举目录摘要与详情模型，供目录列表、详情抽屉与值类型提示共享同一契约。 */
+export type {
+  SettingsEnumCatalogDetail,
+  SettingsEnumCatalogSummary
+};

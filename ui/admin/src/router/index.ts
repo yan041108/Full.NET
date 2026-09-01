@@ -8,9 +8,13 @@ import { useSessionStore } from '../auth/session';
 import { flattenNavigation } from '../navigation/catalog';
 import OverviewView from '../views/OverviewView.vue';
 
+/** 状态页始终允许直接进入，避免未认证或无导航目录时被守卫二次拦截。 */
 const statusPaths = new Set(['/403', '/404', '/500']);
+
+/** 延迟加载状态页，避免普通业务路由首次渲染时额外拉取错误页代码。 */
 const loadStatusView = () => import('../views/StatusView.vue');
 
+/** 创建管理端路由，并用当前会话导航目录对受保护页面做失败关闭校验。 */
 export function createAppRouter(
   history: RouterHistory = createWebHashHistory(),
   pinia?: Pinia
@@ -281,6 +285,7 @@ export function createAppRouter(
     ]
   });
 
+  /** 已认证用户只能访问服务端已下发并被本地白名单认可的导航路径。 */
   router.beforeEach(to => {
     const session = useSessionStore(pinia);
     if (!session.isAuthenticated || statusPaths.has(to.path)) {

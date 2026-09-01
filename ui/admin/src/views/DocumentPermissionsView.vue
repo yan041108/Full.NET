@@ -23,9 +23,11 @@ const saving = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const permissions = ref<HostDocumentPermissionResponse[]>([]);
 
+/** 读取/写入权限码分别控制两个操作入口，避免页面只靠按钮隐藏表达授权边界。 */
 const canRead = () => session.can('document.host_permissions.read');
 const canSet = () => session.can('document.host_permissions.set');
 
+/** 只有在输入了文档标识后才请求权限快照，失败时清空旧列表避免误看历史结果。 */
 async function loadPermissions() {
   if (!documentId.value.trim()) {
     return;
@@ -42,6 +44,7 @@ async function loadPermissions() {
   }
 }
 
+/** 当前页采用整量保存语义；提交成功后直接以服务端返回结果替换本地列表，避免前端自行拼补权限集。 */
 async function savePermission() {
   if (!documentId.value.trim() || !userId.value.trim()) {
     return;
@@ -66,6 +69,7 @@ async function savePermission() {
   }
 }
 
+/** 将未知异常统一折叠为当前页的稳定错误结构，保证加载失败和保存失败共享同一展示通道。 */
 function toProblem(
   error: unknown,
   fallbackKey: 'documentPermissions.loadFailed' | 'documentPermissions.operationFailed' = 'documentPermissions.loadFailed'

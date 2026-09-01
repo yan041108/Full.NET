@@ -1,6 +1,7 @@
 import type { SettingsDictItem } from '@fullnet/client-contracts';
 import { listSettingsDictItems, listSettingsDictTypes } from '../api/dict-types';
 
+/** Host 用户档案表单依赖的字典类型编码，需与服务端种子和权限目录保持一致。 */
 export const HOST_USER_PROFILE_DICT_CODES = {
   accountType: 'identity.account_type',
   idCardType: 'identity.id_card_type',
@@ -12,11 +13,13 @@ export const HOST_USER_PROFILE_DICT_CODES = {
 export type HostUserProfileDictCode =
   (typeof HOST_USER_PROFILE_DICT_CODES)[keyof typeof HOST_USER_PROFILE_DICT_CODES];
 
+/** 档案表单下拉项的最小展示模型，只暴露界面真正需要的值和值标签。 */
 export interface HostUserProfileDictOption {
   value: string;
   label: string;
 }
 
+/** 分页拉全某个字典类型的启用项，避免档案表单因后台分页而漏掉候选值。 */
 async function fetchAllDictItems(dictTypeId: string): Promise<SettingsDictItem[]> {
   const pageSize = 100;
   const firstPage = await listSettingsDictItems(dictTypeId, 1, pageSize);
@@ -31,6 +34,7 @@ async function fetchAllDictItems(dictTypeId: string): Promise<SettingsDictItem[]
   return items.filter(item => item.isActive);
 }
 
+/** 加载 Host 用户档案依赖的全部字典下拉项；缺失的字典类型保持空数组而不是抛错。 */
 export async function loadHostUserProfileDictOptions(): Promise<
   Record<HostUserProfileDictCode, HostUserProfileDictOption[]>
 > {
@@ -79,6 +83,7 @@ export async function loadHostUserProfileDictOptions(): Promise<
   return empty;
 }
 
+/** 按本地日期计算年龄；无效日期或未来生日一律返回 null，避免展示误导性年龄。 */
 export function computeAgeFromBirthDate(birthDate: string | null | undefined): number | null {
   if (!birthDate) {
     return null;

@@ -8,6 +8,7 @@ export function labelComboboxesIn(
   root: ParentNode,
   labels: ComboboxLabelOptions
 ): void {
+  /** 仅在缺少无障碍名称时补写，避免覆盖业务侧显式声明的 aria 语义。 */
   root.querySelectorAll('.el-pagination .el-select__input').forEach(input => {
     if (!input.getAttribute('aria-label') && !input.getAttribute('aria-labelledby')) {
       input.setAttribute('aria-label', labels.pageSize);
@@ -15,6 +16,7 @@ export function labelComboboxesIn(
   });
 
   if (labels.tenantSelector) {
+    /** 租户选择器与分页器共用 Element Plus Select，需要按测试标识精确限定作用域。 */
     root.querySelectorAll('[data-testid="shell-tenant-select"] .el-select__input').forEach(input => {
       if (!input.getAttribute('aria-label') && !input.getAttribute('aria-labelledby')) {
         input.setAttribute('aria-label', labels.tenantSelector!);

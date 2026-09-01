@@ -65,10 +65,12 @@ onMounted(() => {
   void load();
 });
 
+/** 让客户端分页序号与当前页保持一致，避免切页后索引重置造成阅读跳跃。 */
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
 }
 
+/** 模块目录刷新时清空旧错误并重算表格高度，保证列表与详情面板看到的是同一批快照。 */
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
@@ -83,16 +85,19 @@ async function load(): Promise<void> {
   }
 }
 
+/** 搜索只影响客户端展示集合，不重新请求服务端，从而保持当前目录快照稳定。 */
 function handleSearch(params: Record<string, string | undefined>): void {
   appliedFilters.value = { keyword: params.keyword ?? '' };
   resetPage();
 }
 
+/** 重置时同时回到第一页，避免保留旧页码导致空表误判。 */
 function resetSearch(): void {
   appliedFilters.value = { keyword: '' };
   resetPage();
 }
 
+/** 详情面板按 moduleKey 重新读取权威数据，避免直接复用列表投影丢失依赖与能力细节。 */
 async function openModule(entry: IdentityModuleCatalogEntry): Promise<void> {
   problem.value = undefined;
   try {
@@ -102,6 +107,7 @@ async function openModule(entry: IdentityModuleCatalogEntry): Promise<void> {
   }
 }
 
+/** 将未知异常统一收敛为模块目录页自己的错误结构，保证列表和详情失败时文案一致。 */
 function toProblem(error: unknown): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error

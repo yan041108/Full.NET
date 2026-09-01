@@ -23,6 +23,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询宿主字典类型列表，并对响应页做失败关闭校验。 */
 export async function listSettingsDictTypes(
   page = 1,
   pageSize = 20,
@@ -40,6 +41,7 @@ export async function listSettingsDictTypes(
   return value;
 }
 
+/** 创建宿主字典类型，并把空白描述规整为 null。 */
 export async function createSettingsDictType(
   code: string,
   name: string,
@@ -66,6 +68,7 @@ export async function createSettingsDictType(
   return value;
 }
 
+/** 更新宿主字典类型，并携带版本号维持乐观并发。 */
 export async function updateSettingsDictType(
   id: string,
   name: string,
@@ -89,6 +92,7 @@ export async function updateSettingsDictType(
   return value;
 }
 
+/** 禁用宿主字典类型。 */
 export async function disableSettingsDictType(
   id: string,
   signal?: AbortSignal
@@ -105,6 +109,7 @@ export async function disableSettingsDictType(
   return value;
 }
 
+/** 分页查询指定字典类型下的字典项列表。 */
 export async function listSettingsDictItems(
   dictTypeId: string,
   page = 1,
@@ -123,6 +128,7 @@ export async function listSettingsDictItems(
   return value;
 }
 
+/** 创建宿主字典项，并把空白颜色值规整为 null。 */
 export async function createSettingsDictItem(
   dictTypeId: string,
   label: string,
@@ -151,6 +157,7 @@ export async function createSettingsDictItem(
   return response;
 }
 
+/** 更新宿主字典项，并携带版本号维持乐观并发。 */
 export async function updateSettingsDictItem(
   id: string,
   label: string,
@@ -174,6 +181,7 @@ export async function updateSettingsDictItem(
   return response;
 }
 
+/** 禁用宿主字典项。 */
 export async function disableSettingsDictItem(
   id: string,
   signal?: AbortSignal
@@ -190,7 +198,7 @@ export async function disableSettingsDictItem(
   return response;
 }
 
-// 硬删除已禁用的字典类型，携带乐观锁版本用于并发控制。
+/** 硬删除已禁用的字典类型，携带乐观锁版本用于并发控制。 */
 export async function deleteSettingsDictType(
   id: string,
   version: number,
@@ -203,7 +211,7 @@ export async function deleteSettingsDictType(
   );
 }
 
-// 硬删除已禁用的字典项，携带乐观锁版本用于并发控制。
+/** 硬删除已禁用的字典项，携带乐观锁版本用于并发控制。 */
 export async function deleteSettingsDictItem(
   id: string,
   version: number,
@@ -216,7 +224,7 @@ export async function deleteSettingsDictItem(
   );
 }
 
-// 全量字典类型列表（不分页），供下拉与全量消费场景使用。
+/** 全量字典类型列表（不分页），供下拉与全量消费场景使用。 */
 export async function listAllSettingsDictTypes(
   signal?: AbortSignal
 ): Promise<SettingsDictType[]> {
@@ -228,7 +236,7 @@ export async function listAllSettingsDictTypes(
   return value;
 }
 
-// 按字典类型编码查询启用字典项，对应 Admin.NET dataList by code。
+/** 按字典类型编码查询启用字典项，对应 Admin.NET dataList by code。 */
 export async function listSettingsDictItemsByCode(
   code: string,
   signal?: AbortSignal
@@ -245,7 +253,7 @@ export async function listSettingsDictItemsByCode(
   return value;
 }
 
-// 查询单个字典项详情。
+/** 查询单个字典项详情。 */
 export async function getSettingsDictItem(
   id: string,
   signal?: AbortSignal
@@ -261,3 +269,11 @@ export async function getSettingsDictItem(
 
   return response;
 }
+
+/** 导出宿主字典类型、字典项及其分页模型，供管理页、选择器与详情弹窗复用同一契约。 */
+export type {
+  SettingsDictItem,
+  SettingsDictItemPage,
+  SettingsDictType,
+  SettingsDictTypePage
+};

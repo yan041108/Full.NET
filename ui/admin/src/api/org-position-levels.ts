@@ -10,6 +10,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询岗位级别列表，并对响应页做失败关闭校验。 */
 export async function listOrganizationPositionLevels(
   page = 1,
   pageSize = 20,
@@ -27,6 +28,7 @@ export async function listOrganizationPositionLevels(
   return value;
 }
 
+/** 创建岗位级别。 */
 export async function createOrganizationPositionLevel(
   code: string,
   name: string,
@@ -45,6 +47,7 @@ export async function createOrganizationPositionLevel(
   return value;
 }
 
+/** 更新岗位级别名称与排序，并携带版本号维持乐观并发。 */
 export async function updateOrganizationPositionLevel(
   id: string,
   name: string,
@@ -64,6 +67,7 @@ export async function updateOrganizationPositionLevel(
   return value;
 }
 
+/** 禁用岗位级别。 */
 export async function disableOrganizationPositionLevel(
   id: string,
   signal?: AbortSignal
@@ -79,3 +83,6 @@ export async function disableOrganizationPositionLevel(
 
   return value;
 }
+
+/** 导出岗位级别详情与分页模型，供级别列表、编辑弹窗与岗位级别选择器共享同一契约。 */
+export type { OrganizationPositionLevel, OrganizationPositionLevelPage };

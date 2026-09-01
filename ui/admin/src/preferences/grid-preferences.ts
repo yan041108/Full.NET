@@ -7,6 +7,7 @@ import {
   type UpdateGridPreferenceRequest
 } from '@fullnet/client-contracts';
 
+/** Vue 表格列定义的最小公共形状，用于把远端偏好映射回本地列配置。 */
 export interface VueGridColumn {
   key: string;
   width?: number;
@@ -21,6 +22,7 @@ type GridPreferenceRequest = (
 
 /** 创建可注入 HTTP 边界的远端 Grid 偏好客户端。 */
 export function createGridPreferenceClient(request: GridPreferenceRequest) {
+  /** 按统一 API 路径发送偏好请求，保证 load/save/reset 使用同一资源定位。 */
   const send = async (
     gridKey: string,
     init?: RequestInit
@@ -30,6 +32,7 @@ export function createGridPreferenceClient(request: GridPreferenceRequest) {
       init
     );
 
+  /** 要求 gridKey 必须已在本地目录声明，未知表格禁止静默发送远端请求。 */
   const requireDefinition = (gridKey: string) => {
     const definition = gridPreferenceDefinitionFor(gridKey);
     if (!definition) {
@@ -38,6 +41,7 @@ export function createGridPreferenceClient(request: GridPreferenceRequest) {
     return definition;
   };
 
+  /** 要求响应结构与请求的 gridKey 对齐，防止串用其他表格的偏好载荷。 */
   const requireResponse = (
     gridKey: string,
     response: unknown
@@ -49,6 +53,7 @@ export function createGridPreferenceClient(request: GridPreferenceRequest) {
   };
 
   return {
+    /** 加载表格偏好；未知表格直接返回 undefined，方便页面按默认列配置降级。 */
     load: async (gridKey: string): Promise<GridPreferenceResponse | undefined> => {
       const definition = gridPreferenceDefinitionFor(gridKey);
       if (!definition) {
@@ -61,6 +66,7 @@ export function createGridPreferenceClient(request: GridPreferenceRequest) {
         ? response
         : undefined;
     },
+    /** 保存表格偏好；schemaVersion 不一致时失败关闭，避免旧页面覆盖新结构。 */
     save: async (gridKey: string, body: UpdateGridPreferenceRequest) => {
       const definition = requireDefinition(gridKey);
       if (body.schemaVersion !== definition.schemaVersion) {
@@ -80,6 +86,7 @@ export function createGridPreferenceClient(request: GridPreferenceRequest) {
         })
       );
     },
+    /** 重置为服务端默认偏好。 */
     reset: async (gridKey: string) => {
       requireDefinition(gridKey);
       return requireResponse(
@@ -105,6 +112,7 @@ export function applyGridPreference<TColumn extends VueGridColumn>(
     return fallback;
   }
 
+  /** 只合并服务端显式回传的列，并保留本地未知列，兼容前端先行新增列的场景。 */
   const byKey = new Map(preference.columns.map(column => [column.columnKey, column]));
   const originalOrder = new Map(columns.map((column, index) => [column.key, index]));
   return fallback

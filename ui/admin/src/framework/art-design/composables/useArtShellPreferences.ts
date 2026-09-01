@@ -15,10 +15,12 @@ const legacyMenuKey = 'fullnet.admin.artMenuCollapsed';
 const settings = ref<ArtShellSettings>(createDefaultArtShellSettings());
 let hydrated = false;
 
+/** 将当前壳层偏好写回 sessionStorage，保持刷新后仍能沿用本次会话设置。 */
 function persist(): void {
   sessionStorage.setItem(storageKey, JSON.stringify(settings.value));
 }
 
+/** 兼容早期仅保存主题和菜单折叠状态的旧键。 */
 function loadLegacySettings(): Partial<ArtShellSettings> {
   const partial: Partial<ArtShellSettings> = {};
   const storedTheme = sessionStorage.getItem(legacyThemeKey);
@@ -34,6 +36,7 @@ function loadLegacySettings(): Partial<ArtShellSettings> {
   return partial;
 }
 
+/** 首次使用时装载壳层偏好，并对白名单字段做失败关闭校验和默认值修正。 */
 function hydrateSettings(): void {
   if (hydrated || typeof window === 'undefined') {
     return;
@@ -96,6 +99,7 @@ function hydrateSettings(): void {
   persist();
 }
 
+/** 合并局部壳层偏好，同时立即同步到文档变量与会话存储。 */
 function patchSettings(partial: Partial<ArtShellSettings>): void {
   hydrateSettings();
   settings.value = {
@@ -113,22 +117,27 @@ export function useArtShellPreferences() {
   const themeMode = computed(() => settings.value.themeMode);
   const menuCollapsed = computed(() => settings.value.menuCollapsed);
 
+  /** 显式应用亮色或暗色主题。 */
   function applyTheme(mode: ArtThemeMode): void {
     patchSettings({ themeMode: mode });
   }
 
+  /** 在亮色与暗色之间切换主题。 */
   function toggleTheme(): void {
     applyTheme(settings.value.themeMode === 'light' ? 'dark' : 'light');
   }
 
+  /** 切换侧栏折叠状态。 */
   function toggleMenuCollapsed(): void {
     patchSettings({ menuCollapsed: !settings.value.menuCollapsed });
   }
 
+  /** 恢复到默认壳层设置。 */
   function resetSettings(): void {
     patchSettings(createDefaultArtShellSettings());
   }
 
+  /** 导出当前壳层设置 JSON，供调试或偏好迁移使用。 */
   function exportSettingsJson(): string {
     return JSON.stringify(settings.value, null, 2);
   }

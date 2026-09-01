@@ -15,6 +15,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询 Host 用户管理页所需的组织参考数据，并对响应结构做失败关闭校验。 */
 export async function getHostUserOrganizationReference(
   tenantId: string,
   signal?: AbortSignal
@@ -31,6 +32,7 @@ export async function getHostUserOrganizationReference(
   return value;
 }
 
+/** 为 Host 用户创建机构隶属关系。 */
 export async function createHostUserOrganizationUnit(
   tenantId: string,
   userId: string,
@@ -50,6 +52,7 @@ export async function createHostUserOrganizationUnit(
   return value;
 }
 
+/** 更新 Host 用户机构隶属关系的主机构标记，并维持版本并发控制。 */
 export async function updateHostUserOrganizationUnit(
   tenantId: string,
   assignmentId: string,
@@ -69,6 +72,7 @@ export async function updateHostUserOrganizationUnit(
   return value;
 }
 
+/** 禁用 Host 用户机构隶属关系。 */
 export async function disableHostUserOrganizationUnit(
   tenantId: string,
   assignmentId: string,
@@ -86,6 +90,7 @@ export async function disableHostUserOrganizationUnit(
   return value;
 }
 
+/** 为 Host 用户创建岗位隶属关系。 */
 export async function createHostUserOrganizationPosition(
   tenantId: string,
   userId: string,
@@ -105,6 +110,7 @@ export async function createHostUserOrganizationPosition(
   return value;
 }
 
+/** 更新 Host 用户岗位隶属关系的主岗位标记，并维持版本并发控制。 */
 export async function updateHostUserOrganizationPosition(
   tenantId: string,
   assignmentId: string,
@@ -124,6 +130,7 @@ export async function updateHostUserOrganizationPosition(
   return value;
 }
 
+/** 禁用 Host 用户岗位隶属关系。 */
 export async function disableHostUserOrganizationPosition(
   tenantId: string,
   assignmentId: string,
@@ -140,3 +147,10 @@ export async function disableHostUserOrganizationPosition(
 
   return value;
 }
+
+/** 导出 Host 用户组织参考与机构/岗位隶属模型，供多步保存链路共享同一契约。 */
+export type {
+  HostUserOrganizationReference,
+  OrganizationUserPosition,
+  OrganizationUserUnit
+};

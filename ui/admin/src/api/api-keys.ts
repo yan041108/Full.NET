@@ -13,6 +13,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询 Host API Key 列表，并对筛选项做 trim 规范化。 */
 export async function listHostApiKeys(
   page = 1,
   pageSize = 20,
@@ -39,6 +40,7 @@ export async function listHostApiKeys(
   return value;
 }
 
+/** 创建 Host API Key，并校验返回的一次性明文密钥结果。 */
 export async function createHostApiKey(
   body: CreateHostApiKeyRequest,
   signal?: AbortSignal
@@ -52,6 +54,7 @@ export async function createHostApiKey(
   return value;
 }
 
+/** 禁用 Host API Key。 */
 export async function disableHostApiKey(
   id: string,
   signal?: AbortSignal
@@ -64,6 +67,7 @@ export async function disableHostApiKey(
   return value;
 }
 
+/** 轮换 Host API Key，并返回新的单次可见明文密钥。 */
 export async function rotateHostApiKey(
   id: string,
   signal?: AbortSignal
@@ -75,3 +79,11 @@ export async function rotateHostApiKey(
 
   return value;
 }
+
+/** 导出 Host API Key 列表、详情与一次性明文结果模型，供列表页、创建弹窗与轮换流程共享同一契约。 */
+export type {
+  CreateHostApiKeyRequest,
+  CreateHostApiKeyResult,
+  HostApiKey,
+  HostApiKeyPage
+};

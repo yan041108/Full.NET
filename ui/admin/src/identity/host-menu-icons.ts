@@ -38,12 +38,14 @@ const hostMenuIconComponentMap: Record<HostMenuIcon, Component> = {
   shield: Lock
 };
 
+/** 缓存 Iconify 组件实例，避免每次渲染或筛选都重复创建动态组件。 */
 const iconifyComponentCache = new Map<string, Component>();
 
 export const hostMenuIconOptions = HOST_MENU_ICON_OPTIONS;
 
 const iconifyPattern = /^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$/i;
 
+/** 判断输入是否符合 `collection:name` 形态的 Iconify 标识。 */
 export function isIconifyMenuIcon(icon: string): boolean {
   return iconifyPattern.test(icon);
 }
@@ -59,10 +61,12 @@ export function isValidMenuIconInput(value: string): boolean {
   return isHostMenuIcon(normalized) || isIconifyMenuIcon(normalized);
 }
 
+/** 判断图标是否命中平台内建的语义键目录。 */
 export function isHostMenuIcon(icon: string): icon is HostMenuIcon {
   return (HOST_MENU_ICON_OPTIONS as readonly string[]).includes(icon);
 }
 
+/** 按 Iconify 标识创建可复用组件，并以稳定名称便于调试与快照定位。 */
 function createIconifyComponent(icon: string): Component {
   const cached = iconifyComponentCache.get(icon);
   if (cached) {
@@ -99,6 +103,7 @@ export function resolveMenuIconComponent(icon: string): Component {
 /** @deprecated 使用 resolveMenuIconComponent */
 export const resolveHostMenuIcon = resolveMenuIconComponent;
 
+/** 按关键字过滤内建菜单图标，空查询时返回原目录副本以避免调用方误改只读常量。 */
 export function filterHostMenuIcons(
   query: string,
   icons: readonly HostMenuIcon[] = HOST_MENU_ICON_OPTIONS

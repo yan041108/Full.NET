@@ -8,6 +8,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询 Host 文件列表。 */
 export async function listHostFiles(
   page = 1,
   pageSize = 20,
@@ -16,6 +17,7 @@ export async function listHostFiles(
   return filesListHostFiles(http, { page, pageSize }, signal);
 }
 
+/** 上传 Host 文件。 */
 export async function uploadHostFile(
   file: File,
   signal?: AbortSignal
@@ -23,6 +25,7 @@ export async function uploadHostFile(
   return filesUploadHostFile(http, { file }, signal);
 }
 
+/** 删除指定 Host 文件。 */
 export async function deleteHostFile(
   id: string,
   signal?: AbortSignal
@@ -49,3 +52,6 @@ export function openHostFileBlob(blob: Blob): void {
 
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+/** 导出 Host 文件明细与分页模型，供列表页、上传流程和下载结果复用同一契约。 */
+export type { HostFile, HostFilePage };

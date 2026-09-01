@@ -10,6 +10,7 @@
  * 「系统语义」分组不走 Iconify，而是映射到 `@element-plus/icons-vue` 组件。
  */
 
+/** Element Plus 风格图标集合，优先覆盖后台壳层与系统管理场景。 */
 export const ELEMENT_PLUS_ICONIFY_ICONS = [
   'ep:house',
   'ep:home-filled',
@@ -139,6 +140,7 @@ export const ELEMENT_PLUS_ICONIFY_ICONS = [
   'ep:bottom'
 ] as const;
 
+/** Remix Icon 集合，补齐业务模块常见的通用图标语义。 */
 export const REMIX_ICONIFY_ICONS = [
   'ri:home-line',
   'ri:home-2-line',
@@ -283,6 +285,7 @@ export const REMIX_ICONIFY_ICONS = [
   'ri:fullscreen-exit-line'
 ] as const;
 
+/** Tabler Icon 集合，提供偏线框风格的替代选项。 */
 export const TABLER_ICONIFY_ICONS = [
   'tabler:home',
   'tabler:smart-home',
@@ -405,6 +408,7 @@ export const TABLER_ICONIFY_ICONS = [
   'tabler:minimize'
 ] as const;
 
+/** Solar Icon 集合，补充更轻量的线性图标风格。 */
 export const SOLAR_ICONIFY_ICONS = [
   'solar:home-2-linear',
   'solar:home-smile-linear',

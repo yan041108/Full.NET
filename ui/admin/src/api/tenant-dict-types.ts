@@ -23,6 +23,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询租户字典类型列表，并对响应页做失败关闭校验。 */
 export async function listSettingsTenantDictTypes(
   page = 1,
   pageSize = 20,
@@ -40,6 +41,7 @@ export async function listSettingsTenantDictTypes(
   return value;
 }
 
+/** 创建租户字典类型，并把空白描述规整为 null。 */
 export async function createSettingsTenantDictType(
   code: string,
   name: string,
@@ -66,6 +68,7 @@ export async function createSettingsTenantDictType(
   return value;
 }
 
+/** 更新租户字典类型，并携带版本号维持乐观并发。 */
 export async function updateSettingsTenantDictType(
   id: string,
   name: string,
@@ -89,6 +92,7 @@ export async function updateSettingsTenantDictType(
   return value;
 }
 
+/** 禁用租户字典类型。 */
 export async function disableSettingsTenantDictType(
   id: string,
   signal?: AbortSignal
@@ -105,6 +109,7 @@ export async function disableSettingsTenantDictType(
   return value;
 }
 
+/** 分页查询指定租户字典类型下的字典项列表。 */
 export async function listSettingsTenantDictItems(
   dictTypeId: string,
   page = 1,
@@ -123,6 +128,7 @@ export async function listSettingsTenantDictItems(
   return value;
 }
 
+/** 创建租户字典项，并把空白颜色值规整为 null。 */
 export async function createSettingsTenantDictItem(
   dictTypeId: string,
   label: string,
@@ -151,6 +157,7 @@ export async function createSettingsTenantDictItem(
   return response;
 }
 
+/** 更新租户字典项，并携带版本号维持乐观并发。 */
 export async function updateSettingsTenantDictItem(
   id: string,
   label: string,
@@ -174,6 +181,7 @@ export async function updateSettingsTenantDictItem(
   return response;
 }
 
+/** 禁用租户字典项。 */
 export async function disableSettingsTenantDictItem(
   id: string,
   signal?: AbortSignal
@@ -190,6 +198,7 @@ export async function disableSettingsTenantDictItem(
   return response;
 }
 
+/** 硬删除已禁用的租户字典类型，携带乐观锁版本用于并发控制。 */
 export async function deleteSettingsTenantDictType(
   id: string,
   version: number,
@@ -202,6 +211,7 @@ export async function deleteSettingsTenantDictType(
   );
 }
 
+/** 硬删除已禁用的租户字典项，携带乐观锁版本用于并发控制。 */
 export async function deleteSettingsTenantDictItem(
   id: string,
   version: number,
@@ -214,6 +224,7 @@ export async function deleteSettingsTenantDictItem(
   );
 }
 
+/** 全量租户字典类型列表（不分页），供下拉与全量消费场景使用。 */
 export async function listAllSettingsTenantDictTypes(
   signal?: AbortSignal
 ): Promise<SettingsDictType[]> {
@@ -225,6 +236,7 @@ export async function listAllSettingsTenantDictTypes(
   return value;
 }
 
+/** 按字典类型编码查询启用的租户字典项。 */
 export async function listSettingsTenantDictItemsByCode(
   code: string,
   signal?: AbortSignal
@@ -241,6 +253,7 @@ export async function listSettingsTenantDictItemsByCode(
   return value;
 }
 
+/** 查询单个租户字典项详情。 */
 export async function getSettingsTenantDictItem(
   id: string,
   signal?: AbortSignal
@@ -256,3 +269,11 @@ export async function getSettingsTenantDictItem(
 
   return response;
 }
+
+/** 导出租户字典类型、字典项及其分页模型，供租户管理页、选择器与详情弹窗复用同一契约。 */
+export type {
+  SettingsDictItem,
+  SettingsDictItemPage,
+  SettingsDictType,
+  SettingsDictTypePage
+};

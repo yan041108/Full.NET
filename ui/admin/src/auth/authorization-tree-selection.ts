@@ -119,6 +119,7 @@ export function permissionCodesToCheckedNodeIds(
   return checked;
 }
 
+/** 将树形节点拍平成深度优先列表，便于统一做勾选状态计算。 */
 export function flattenPermissionTreeNodes(
   nodes: readonly PermissionTreeNode[]
 ): PermissionTreeNode[] {
@@ -133,6 +134,7 @@ export function flattenPermissionTreeNodes(
   return flattened;
 }
 
+/** 将页面节点投影为本地树节点，并把操作与子页面递归挂到同一层 children。 */
 function projectPageNode(page: AuthorizationTreePage): PermissionTreeNode {
   const children: PermissionTreeNode[] = [
     ...page.actions.map(action => projectActionNode(page.permissionCode, action)),
@@ -148,6 +150,7 @@ function projectPageNode(page: AuthorizationTreePage): PermissionTreeNode {
   };
 }
 
+/** 为操作节点补齐所属页面权限码，保证勾选子操作时父页面能被自动补齐。 */
 function projectActionNode(
   pagePermissionCode: string,
   action: AuthorizationTreeAction
@@ -161,6 +164,7 @@ function projectActionNode(
   };
 }
 
+/** 递归收集页面及其全部后代页面、操作的权限码目录。 */
 function collectPagePermissionCodes(
   page: AuthorizationTreePage,
   codes: Set<string>
@@ -175,6 +179,7 @@ function collectPagePermissionCodes(
   }
 }
 
+/** 收集某个树节点后代的全部权限码；模块节点本身没有独立权限码，因此只看子树。 */
 function collectSubtreePermissionCodes(node: PermissionTreeNode): string[] {
   const codes: string[] = [];
   for (const child of node.children ?? []) {
@@ -187,6 +192,7 @@ function collectSubtreePermissionCodes(node: PermissionTreeNode): string[] {
   return codes;
 }
 
+/** 仅当节点子树中的全部权限码都已命中时，才把该节点视为完全选中。 */
 function isNodeFullySelected(
   node: PermissionTreeNode,
   selected: ReadonlySet<string>

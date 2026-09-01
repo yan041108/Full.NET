@@ -9,6 +9,7 @@ import {
 
 export type MenuIconLibrary = 'legacy' | 'iconify';
 
+/** 菜单图标分组定义，统一描述页签标题、渲染库和候选图标集合。 */
 export interface MenuIconGroupDefinition {
   id: string;
   titleKey: MessageKey;
@@ -74,6 +75,7 @@ export interface FilteredMenuIconGroup extends MenuIconGroupDefinition {
   icons: string[];
 }
 
+/** 按查询词过滤每个图标分组，并丢弃已经没有候选项的空分组。 */
 export function filterMenuIconGroups(
   query: string,
   groups: readonly MenuIconGroupDefinition[] = MENU_ICON_GROUPS
@@ -90,6 +92,7 @@ export function filterMenuIconGroups(
     .filter(group => group.icons.length > 0);
 }
 
+/** 判断图标是否属于当前允许保存的菜单图标目录。 */
 export function isIconInMenuIconCatalog(
   icon: string,
   groups: readonly MenuIconGroupDefinition[] = MENU_ICON_GROUPS
@@ -97,6 +100,7 @@ export function isIconInMenuIconCatalog(
   return groups.some(group => group.icons.includes(icon));
 }
 
+/** 先按显式目录定位图标分组，找不到时再按 Iconify 前缀做宽松回退。 */
 export function findMenuIconGroup(
   icon: string,
   groups: readonly MenuIconGroupDefinition[] = MENU_ICON_GROUPS

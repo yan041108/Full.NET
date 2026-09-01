@@ -5,6 +5,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 读取当前登录用户快照，并补一层手写契约校验防止生成守卫漏检。 */
 export async function getCurrentUser(
   signal?: AbortSignal
 ): Promise<CurrentUserResponse> {
@@ -17,4 +18,5 @@ export async function getCurrentUser(
   return value;
 }
 
+/** 导出当前用户快照模型，供会话恢复、壳层渲染与权限初始化共享同一契约。 */
 export type { CurrentUserResponse };

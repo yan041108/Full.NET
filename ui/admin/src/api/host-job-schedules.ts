@@ -18,6 +18,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** Host 作业计划列表查询参数；搜索词会在发送前做 trim 规范化。 */
 export interface ListHostJobSchedulesParams {
   page?: number;
   pageSize?: number;
@@ -27,6 +28,7 @@ export interface ListHostJobSchedulesParams {
   triggerKind?: string;
 }
 
+/** 分页查询 Host 作业计划列表，并对响应页做失败关闭校验。 */
 export async function listHostJobSchedules(
   params: ListHostJobSchedulesParams = {},
   signal?: AbortSignal
@@ -51,6 +53,7 @@ export async function listHostJobSchedules(
   return value;
 }
 
+/** 查询可供创建计划的作业定义选项目录。 */
 export async function listHostJobScheduleDefinitionOptions(
   signal?: AbortSignal
 ): Promise<HostJobScheduleDefinitionOption[]> {
@@ -62,6 +65,7 @@ export async function listHostJobScheduleDefinitionOptions(
   return value;
 }
 
+/** 预览 Cron 表达式在指定时区下的触发时间。 */
 export async function previewHostJobScheduleCron(
   cronExpression: string,
   timeZoneId: string,
@@ -79,6 +83,7 @@ export async function previewHostJobScheduleCron(
   return value;
 }
 
+/** 创建 Host 作业计划，并把可空时间字段统一规整为 null。 */
 export async function createHostJobSchedule(
   jobDefinitionId: string,
   triggerKind: string,
@@ -115,6 +120,7 @@ export async function createHostJobSchedule(
   return value;
 }
 
+/** 更新 Host 作业计划，并携带版本号维持乐观并发。 */
 export async function updateHostJobSchedule(
   id: string,
   triggerKind: string,
@@ -153,6 +159,7 @@ export async function updateHostJobSchedule(
   return value;
 }
 
+/** 暂停 Host 作业计划。 */
 export async function pauseHostJobSchedule(
   id: string,
   version: number,
@@ -173,6 +180,7 @@ export async function pauseHostJobSchedule(
   return value;
 }
 
+/** 恢复 Host 作业计划。 */
 export async function resumeHostJobSchedule(
   id: string,
   version: number,
@@ -193,6 +201,7 @@ export async function resumeHostJobSchedule(
   return value;
 }
 
+/** 删除 Host 作业计划。 */
 export async function deleteHostJobSchedule(
   id: string,
   version: number,
@@ -208,6 +217,7 @@ export async function deleteHostJobSchedule(
   );
 }
 
+/** 导出作业计划列表、目录、Cron 预览与计划详情模型，供计划页和编辑表单共享同一契约。 */
 export type {
   HostJobSchedule,
   HostJobScheduleCronPreview,

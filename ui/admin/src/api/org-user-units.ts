@@ -13,6 +13,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询可分配机构关系的用户列表，供机构成员分配弹窗复用。 */
 export async function listAssignableOrganizationUserUnitUsers(
   page = 1,
   pageSize = 100,
@@ -30,6 +31,7 @@ export async function listAssignableOrganizationUserUnitUsers(
   return value;
 }
 
+/** 分页查询用户机构关系列表，并对响应页做失败关闭校验。 */
 export async function listOrganizationUserUnits(
   page = 1,
   pageSize = 20,
@@ -47,6 +49,7 @@ export async function listOrganizationUserUnits(
   return value;
 }
 
+/** 创建用户机构关系，并可指定是否为主机构。 */
 export async function createOrganizationUserUnit(
   userId: string,
   unitId: string,
@@ -65,6 +68,7 @@ export async function createOrganizationUserUnit(
   return value;
 }
 
+/** 更新用户机构关系的主机构标记，并携带版本号维持乐观并发。 */
 export async function updateOrganizationUserUnit(
   id: string,
   isPrimary: boolean,
@@ -83,6 +87,7 @@ export async function updateOrganizationUserUnit(
   return value;
 }
 
+/** 禁用用户机构关系。 */
 export async function disableOrganizationUserUnit(
   id: string,
   signal?: AbortSignal
@@ -98,3 +103,10 @@ export async function disableOrganizationUserUnit(
 
   return value;
 }
+
+/** 导出可分配用户页、用户机构隶属详情与分页模型，供成员分配弹窗、列表页与主机构切换流程共享同一契约。 */
+export type {
+  OrganizationAssignableUserPage,
+  OrganizationUserUnit,
+  OrganizationUserUnitPage
+};

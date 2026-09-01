@@ -12,6 +12,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询当前超级管理员列表，并对响应结构做失败关闭校验。 */
 export async function getSuperAdministrators(
   signal?: AbortSignal
 ): Promise<SuperAdministrator[]> {
@@ -23,6 +24,7 @@ export async function getSuperAdministrators(
   return value;
 }
 
+/** 查询最近的超级管理员变更审计；页面固定只展示最近 50 条。 */
 export async function getSuperAdministratorAudits(
   signal?: AbortSignal
 ): Promise<SuperAdministratorAudit[]> {
@@ -39,6 +41,7 @@ export async function getSuperAdministratorAudits(
   return value;
 }
 
+/** 授予超级管理员角色，需携带当前操作者密码与可选 TOTP 二次确认。 */
 export async function grantSuperAdministrator(
   username: string,
   currentPassword: string,
@@ -63,6 +66,7 @@ export async function grantSuperAdministrator(
   return value;
 }
 
+/** 撤销超级管理员角色，需携带当前操作者密码与可选 TOTP 二次确认。 */
 export async function revokeSuperAdministrator(
   targetUserId: string,
   currentPassword: string,
@@ -86,3 +90,10 @@ export async function revokeSuperAdministrator(
 
   return value;
 }
+
+/** 导出超级管理员列表、审计与变更结果模型，供列表页、审计面板与授予/撤销流程共享同一契约。 */
+export type {
+  SuperAdministrator,
+  SuperAdministratorAudit,
+  SuperAdministratorChangeResponse
+};

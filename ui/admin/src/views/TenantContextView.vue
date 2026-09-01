@@ -69,20 +69,24 @@ onMounted(() => {
   void nextTick(updateTableHeight);
 });
 
+/** 让客户端分页序号与当前页保持一致，避免切页后索引重新从 1 开始。 */
 function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
 }
 
+/** 搜索只过滤当前会话可见的租户快照，不额外请求服务端，保证上下文切换入口可预测。 */
 function handleSearch(params: Record<string, string | undefined>): void {
   appliedFilters.value = { keyword: params.keyword ?? '' };
   resetPage();
 }
 
+/** 重置时一并回到第一页，避免沿用旧页码导致列表看起来像空结果。 */
 function resetSearch(): void {
   appliedFilters.value = { keyword: '' };
   resetPage();
 }
 
+/** 切换入口统一复用 Store 的上下文切换能力，并按目标上下文决定跳转到首页还是留在上下文页。 */
 async function selectContext(tenantId: string | null): Promise<void> {
   if (session.switching) {
     return;
@@ -100,16 +104,21 @@ async function selectContext(tenantId: string | null): Promise<void> {
       await router.push('/tenant-context');
     }
   } catch (error: unknown) {
-    problem.value = isFullNetProblemDetails(error)
-      ? error
-      : {
-          status: 500,
-          code: 'client.context_switch_failed',
-          title: t('shell.contextSwitchFailed')
-        };
+    problem.value = toProblem(error);
   } finally {
     pendingTenantId.value = undefined;
   }
+}
+
+/** 统一把未知切换异常折叠为稳定错误码，避免模板层区分多套失败分支。 */
+function toProblem(error: unknown): FullNetProblemDetails {
+  return isFullNetProblemDetails(error)
+    ? error
+    : {
+        status: 500,
+        code: 'client.context_switch_failed',
+        title: t('shell.contextSwitchFailed')
+      };
 }
 </script>
 

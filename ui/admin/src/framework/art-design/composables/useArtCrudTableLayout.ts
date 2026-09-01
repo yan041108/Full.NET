@@ -1,4 +1,4 @@
-﻿import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
 import { useAdminI18n } from '../../../i18n/adminI18n';
 import { labelComboboxesIn, scheduleComboboxLabeling } from '../accessibility/labelComboboxes';
 
@@ -24,6 +24,7 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
       : 'var(--art-default-box-color)'
   }));
 
+  /** 为分页下拉补齐无障碍名称，避免 Element Plus 输入框仅靠视觉上下文。 */
   function labelPaginationComboboxes(): void {
     const container = tableMainRef.value;
     if (!container) {
@@ -33,6 +34,7 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
     labelComboboxesIn(container, { pageSize: t('table.pageSize') });
   }
 
+  /** 按视口高度重算表格区域，保证分页条固定在底部时主体仍可滚动。 */
   function updateTableHeight(): void {
     const container = tableMainRef.value;
     if (!container) {
@@ -58,6 +60,7 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
     window.removeEventListener('resize', updateTableHeight);
   });
 
+  /** 在异步渲染后重复补标，兼容分页器和下拉框延迟挂载。 */
   function schedulePaginationLabeling(): void {
     const container = tableMainRef.value;
     if (!container) {
@@ -68,6 +71,7 @@ export function useArtCrudTableLayout(options: ArtCrudTableLayoutOptions = {}) {
     scheduleComboboxLabeling(container, { pageSize: t('table.pageSize') });
   }
 
+  /** 监听列表 loading，在数据切换后重新测量表格高度。 */
   function watchLoading(loading: Ref<boolean>): void {
     watch(loading, () => {
       void nextTick(updateTableHeight);
@@ -110,6 +114,7 @@ export function useArtClientPagination<T>(filteredItems: Ref<T[]>, initialPageSi
     { immediate: true }
   );
 
+  /** 重置到第一页，供筛选条件变化或查询重置后复用。 */
   function resetPage(): void {
     page.value = 1;
   }

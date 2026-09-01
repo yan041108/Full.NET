@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <summary>
 /// 在受信任的认证会话中变更宿主管理员的有效租户上下文。
 /// </summary>
+/// <remarks>
+/// 该服务只接受已经通过认证和租户可达性验证的输入，不负责替代 Endpoint 的权限判断。
+/// </remarks>
 public interface IIdentitySessionContextService
 {
     /// <summary>

@@ -11,6 +11,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询文档回收站列表，并对响应页做失败关闭校验。 */
 export async function listRecycleBinItems(
   page = 1,
   pageSize = 20,
@@ -27,6 +28,7 @@ export async function listRecycleBinItems(
   return value;
 }
 
+/** 恢复回收站条目；请求与响应都必须通过运行时契约校验。 */
 export async function restoreRecycleBinItem(
   id: string,
   req: RestoreHostRecycleBinItemRequest,
@@ -46,6 +48,7 @@ export async function restoreRecycleBinItem(
   return value;
 }
 
+/** 永久清除回收站条目。 */
 export async function purgeRecycleBinItem(
   id: string,
   signal?: AbortSignal
@@ -53,6 +56,7 @@ export async function purgeRecycleBinItem(
   return documentHostPurgeRecycleBinItem(http, { id }, signal);
 }
 
+/** 导出回收站分页、条目与恢复请求模型，供列表页和恢复确认流程复用同一数据结构。 */
 export type {
   HostRecycleBinItemResponse,
   HostRecycleBinPage,

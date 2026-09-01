@@ -52,6 +52,7 @@ import { http } from './http';
 
 
 
+/** 生成带追踪信息的代码预览，并对返回结构做失败关闭校验。 */
 export async function previewTrackedCodeGeneration(
 
   input: CodeGenerationRunPreviewRequest,
@@ -80,6 +81,7 @@ export async function previewTrackedCodeGeneration(
 
 
 
+/** 应用一次带追踪信息的代码生成执行。 */
 export async function applyTrackedCodeGeneration(
 
   input: CodeGenerationRunApplyRequest,
@@ -104,6 +106,7 @@ export async function applyTrackedCodeGeneration(
 
 
 
+/** 回滚单次代码生成执行。 */
 export async function rollbackTrackedCodeGeneration(
 
   input: CodeGenerationRunRollbackRequest,
@@ -128,6 +131,7 @@ export async function rollbackTrackedCodeGeneration(
 
 
 
+/** 批量回滚一条连续的代码生成执行链。 */
 export async function rollbackChainTrackedCodeGeneration(
 
   input: CodeGenerationRunRollbackChainRequest,
@@ -152,6 +156,7 @@ export async function rollbackChainTrackedCodeGeneration(
 
 
 
+/** 根据目标应用记录自动选择单次回滚或链式回滚策略。 */
 export async function executeTrackedCodeGenerationRollback(
 
   runs: readonly CodeGenerationRunResponse[],
@@ -184,6 +189,7 @@ export async function executeTrackedCodeGenerationRollback(
 
 
 
+/** 查询代码生成运行记录列表。 */
 export async function listCodeGenerationRuns(
 
   status?: CodeGenerationRunStatus,
@@ -224,20 +230,19 @@ export async function listCodeGenerationRuns(
 
 
 
+/** 下载某次代码生成运行产物。 */
 export async function downloadCodeGenerationArtifacts(
-
   runId: string,
 
   signal?: AbortSignal
 
 ): Promise<Blob> {
-
   return codeGenerationDownloadRunArtifacts(http, { runId }, signal);
-
 }
 
 
 
+/** 导出代码生成运行、预览、应用与回滚模型，供预览页、执行历史与回滚流程共享同一契约。 */
 export type {
 
   CodeGenerationRunApplyRequest,

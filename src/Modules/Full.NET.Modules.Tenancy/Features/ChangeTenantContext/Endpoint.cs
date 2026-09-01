@@ -9,8 +9,15 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.Tenancy.Features.ChangeTenantContext;
 
+/// <summary>
+/// 暴露租户上下文切换端点。
+/// </summary>
 internal static class Endpoint
 {
+    /// <summary>
+    /// 将租户上下文切换入口映射到 Tenancy 路由组。
+    /// </summary>
+    /// <param name="group">Tenancy 模块路由组。</param>
     public static void Map(RouteGroupBuilder group)
     {
         group.MapPut("/context", async (

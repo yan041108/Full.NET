@@ -11,8 +11,10 @@ export interface LocalNavigationDefinition {
   captionKey: MessageKey;
 }
 
+/** 共享契约只负责稳定路由语义，本地多语言标题仍由管理端自行绑定。 */
 const navigationCatalog = createAdminNavigationCatalog();
 
+/** 组件键到本地文案键的闭合映射；缺任何一侧都按未知导航失败关闭。 */
 const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' | 'captionKey'>>([
   ['overview', {
     titleKey: 'navigation.overview.title',

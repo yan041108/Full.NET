@@ -19,6 +19,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询文档项列表，并对响应页做失败关闭校验。 */
 export async function listDocumentItems(
   page = 1,
   pageSize = 20,
@@ -31,6 +32,7 @@ export async function listDocumentItems(
   return value;
 }
 
+/** 创建文档项；当前前端固定使用默认文档类型与空分类/标签占位。 */
 export async function createDocumentItem(
   title: string,
   description: string | null,
@@ -53,6 +55,7 @@ export async function createDocumentItem(
   return value;
 }
 
+/** 更新文档项基础信息，并携带版本号维持乐观并发。 */
 export async function updateDocumentItem(
   itemId: string,
   title: string,
@@ -84,6 +87,7 @@ export async function updateDocumentItem(
   return value;
 }
 
+/** 直接上传新版本文件并附着到文档项。 */
 export async function uploadDocumentVersion(
   itemId: string,
   file: File,
@@ -100,6 +104,7 @@ export async function uploadDocumentVersion(
   return value;
 }
 
+/** 下载文档项当前内容。 */
 export async function downloadDocumentContent(
   itemId: string,
   signal?: AbortSignal
@@ -107,6 +112,7 @@ export async function downloadDocumentContent(
   return documentHostDownloadItemContent(http, { itemId }, signal);
 }
 
+/** 查询文档项的全部历史版本列表。 */
 export async function listDocumentVersions(
   itemId: string,
   signal?: AbortSignal
@@ -118,6 +124,7 @@ export async function listDocumentVersions(
   return value;
 }
 
+/** 预览文档内容；传入 versionId 时预览指定历史版本，否则预览当前版本。 */
 export async function previewDocumentContent(
   itemId: string,
   versionId?: string,
@@ -146,6 +153,7 @@ export function openDocumentBlob(blob: Blob): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** 将已上传文件追加为文档项的新版本。 */
 export async function addDocumentVersion(
   itemId: string,
   fileId: string,
@@ -169,6 +177,7 @@ export async function addDocumentVersion(
   return value;
 }
 
+/** 删除文档项。 */
 export async function deleteDocumentItem(
   itemId: string,
   version: number,
@@ -184,6 +193,7 @@ export async function deleteDocumentItem(
   );
 }
 
+/** 从回收站恢复文档项。 */
 export async function restoreDocumentItem(
   itemId: string,
   version: number,
@@ -203,4 +213,5 @@ export async function restoreDocumentItem(
   return value;
 }
 
+/** 导出文档项分页、详情与版本模型，供列表页、版本侧栏与内容预览流程共享同一契约。 */
 export type { HostDocumentItemPage, HostDocumentItemResponse, HostDocumentVersionResponse };

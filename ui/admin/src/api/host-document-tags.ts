@@ -9,6 +9,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 查询文档标签列表，并对响应结构做失败关闭校验。 */
 export async function listDocumentTags(
   signal?: AbortSignal
 ): Promise<HostDocumentTagResponse[]> {
@@ -19,6 +20,7 @@ export async function listDocumentTags(
   return value;
 }
 
+/** 创建文档标签。 */
 export async function createDocumentTag(
   name: string,
   code: string | null,
@@ -38,6 +40,7 @@ export async function createDocumentTag(
   return value;
 }
 
+/** 更新文档标签，并携带版本号维持乐观并发。 */
 export async function updateDocumentTag(
   id: string,
   name: string,
@@ -62,6 +65,7 @@ export async function updateDocumentTag(
   return value;
 }
 
+/** 删除文档标签。 */
 export async function deleteDocumentTag(
   id: string,
   version: number,
@@ -77,4 +81,5 @@ export async function deleteDocumentTag(
   );
 }
 
+/** 导出文档标签模型，供标签列表、编辑弹窗与选择器复用同一契约。 */
 export type { HostDocumentTagResponse };

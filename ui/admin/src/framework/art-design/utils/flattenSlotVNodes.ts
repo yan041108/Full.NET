@@ -5,6 +5,7 @@ export function flattenSlotVNodes(nodes: VNodeChild[]): VNode[] {
   const result: VNode[] = [];
 
   for (const node of nodes) {
+    /** 文本、布尔和空值不可能成为可点击动作节点，直接跳过。 */
     if (
       node === null
       || node === undefined
@@ -25,6 +26,7 @@ export function flattenSlotVNodes(nodes: VNodeChild[]): VNode[] {
       continue;
     }
 
+    /** Fragment 只承载结构，不是最终动作节点，需要把内部 children 继续拍平。 */
     if (vnode.type === Fragment) {
       const children = vnode.children;
       if (Array.isArray(children)) {

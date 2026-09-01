@@ -10,6 +10,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询机构列表，并对响应页做失败关闭校验。 */
 export async function listOrganizationUnits(
   page = 1,
   pageSize = 20,
@@ -27,6 +28,7 @@ export async function listOrganizationUnits(
   return value;
 }
 
+/** 创建机构，可在创建时直接指定上级机构。 */
 export async function createOrganizationUnit(
   code: string,
   name: string,
@@ -46,6 +48,7 @@ export async function createOrganizationUnit(
   return value;
 }
 
+/** 更新机构名称、排序与上级机构，并携带版本号维持乐观并发。 */
 export async function updateOrganizationUnit(
   id: string,
   name: string,
@@ -66,6 +69,7 @@ export async function updateOrganizationUnit(
   return value;
 }
 
+/** 禁用机构。 */
 export async function disableOrganizationUnit(
   id: string,
   signal?: AbortSignal
@@ -81,3 +85,6 @@ export async function disableOrganizationUnit(
 
   return value;
 }
+
+/** 导出机构详情与分页模型，供机构列表、树选择器与编辑弹窗共享同一契约。 */
+export type { OrganizationUnit, OrganizationUnitPage };

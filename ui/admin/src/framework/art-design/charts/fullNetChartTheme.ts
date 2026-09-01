@@ -4,6 +4,7 @@ import type { CreateFullNetChartOptions } from './echarts';
 
 type EChartsOption = EChartsCoreOption;
 
+/** 兼容单轴与多轴配置时的最小可着色结构。 */
 interface AxisLike {
   axisLine?: Record<string, unknown>;
   axisLabel?: Record<string, unknown>;
@@ -31,6 +32,7 @@ const darkTheme = {
   tooltipText: '#f4f7f8'
 };
 
+/** 根据亮暗主题选择一组稳定的图表语义色。 */
 function resolvePalette(themeMode: 'light' | 'dark' = 'light') {
   return themeMode === 'dark' ? darkTheme : lightTheme;
 }

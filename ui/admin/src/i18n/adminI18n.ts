@@ -9,12 +9,14 @@ import {
   type SupportedLocale
 } from '@fullnet/admin-i18n';
 
+/** 管理端语言状态初始化选项，允许测试或宿主注入存储、首选语言和 Document。 */
 export interface AdminI18nOptions {
   storage?: Pick<Storage, 'getItem' | 'setItem'>;
   preferredLocales?: readonly string[];
   document?: Document;
 }
 
+/** 管理端共享国际化控制器，统一暴露当前语言、翻译器与标题更新入口。 */
 export interface AdminI18n {
   locale: DeepReadonly<Ref<SupportedLocale>>;
   t: (key: MessageKey, parameters?: MessageParameters) => string;
@@ -47,6 +49,7 @@ export function createAdminI18n(options: AdminI18nOptions = {}): AdminI18n {
     applyDocumentLocale(targetDocument, value, targetDocument.title);
   }
 
+  /** 同步更新页面标题，并保持 `Full.NET` 品牌后缀一致。 */
   function setPageTitle(key: MessageKey): void {
     applyDocumentLocale(
       targetDocument,
@@ -63,6 +66,7 @@ export function createAdminI18n(options: AdminI18nOptions = {}): AdminI18n {
   };
 }
 
+/** 在受限运行环境里安全读取浏览器存储，不把异常扩散到应用启动阶段。 */
 function resolveBrowserStorage(): Pick<Storage, 'getItem' | 'setItem'> | undefined {
   try {
     return globalThis.localStorage;
@@ -71,6 +75,7 @@ function resolveBrowserStorage(): Pick<Storage, 'getItem' | 'setItem'> | undefin
   }
 }
 
+/** 安全读取已保存语言；浏览器拒绝存储访问时按未命中处理。 */
 function safeRead(
   storage: Pick<Storage, 'getItem' | 'setItem'> | undefined
 ): string | null {
@@ -81,6 +86,7 @@ function safeRead(
   }
 }
 
+/** 安全写入语言偏好；写入失败只丢失持久化，不影响当前内存语言。 */
 function safeWrite(
   storage: Pick<Storage, 'getItem' | 'setItem'> | undefined,
   value: SupportedLocale

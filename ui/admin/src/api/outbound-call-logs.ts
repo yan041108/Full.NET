@@ -14,6 +14,7 @@ import { http } from './http';
 
 
 
+/** 分页查询外呼日志列表，并对响应页做失败关闭校验。 */
 export async function listAuditingOutboundCallLogs(
 
   page = 1,
@@ -48,5 +49,6 @@ export async function listAuditingOutboundCallLogs(
 
 
 
+/** 导出外呼日志明细与分页模型，供链路审计列表和失败详情共用同一契约。 */
 export type { AuditingOutboundCallLog, AuditingOutboundCallLogPage };
 

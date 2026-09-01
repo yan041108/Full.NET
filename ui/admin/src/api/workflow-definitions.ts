@@ -12,6 +12,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 读取单个工作流定义详情。 */
 export async function getWorkflowDefinition(
   definitionId: string,
   signal?: AbortSignal
@@ -19,12 +20,14 @@ export async function getWorkflowDefinition(
   return workflowGetDefinition(http, { definitionId }, signal);
 }
 
+/** 查询工作流节点类型目录，供设计器构建节点面板。 */
 export async function getWorkflowNodeTypeCatalog(
   signal?: AbortSignal
 ): Promise<WorkflowNodeTypeCatalogResponse> {
   return workflowGetNodeTypeCatalog(http, {}, signal);
 }
 
+/** 创建工作流定义草稿。 */
 export async function createWorkflowDefinition(
   definitionKey: string,
   draft: WorkflowDefinitionDraft,
@@ -35,6 +38,7 @@ export async function createWorkflowDefinition(
   }, signal);
 }
 
+/** 更新工作流定义草稿，并携带期望修订号维持乐观并发。 */
 export async function updateWorkflowDefinitionDraft(
   definitionId: string,
   expectedRevision: number,
@@ -47,6 +51,7 @@ export async function updateWorkflowDefinitionDraft(
   }, signal);
 }
 
+/** 发布工作流定义，并绑定选中的表单版本。 */
 export async function publishWorkflowDefinition(
   definitionId: string,
   expectedRevision: number,
@@ -59,6 +64,7 @@ export async function publishWorkflowDefinition(
   }, signal);
 }
 
+/** 导出定义设计器所需的草稿、目录与已发布版本模型，供编辑页和发布流程共享同一契约。 */
 export type {
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,

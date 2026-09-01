@@ -28,6 +28,7 @@ import { http } from './http';
 
 
 
+/** 分页查询代码生成模板列表，并对筛选词做 trim 规范化。 */
 export async function listCodeGenerationTemplates(
 
   page = 1,
@@ -84,6 +85,7 @@ export async function listCodeGenerationTemplates(
 
 
 
+/** 读取单个代码生成模板详情。 */
 export async function getCodeGenerationTemplate(
 
   templateId: string,
@@ -108,6 +110,7 @@ export async function getCodeGenerationTemplate(
 
 
 
+/** 创建代码生成模板，并对返回结构做失败关闭校验。 */
 export async function createCodeGenerationTemplate(
 
   input: CreateCodeGenerationTemplateRequest,
@@ -128,6 +131,7 @@ export async function createCodeGenerationTemplate(
 
 
 
+/** 更新代码生成模板，并对返回结构做失败关闭校验。 */
 export async function updateCodeGenerationTemplate(
 
   templateId: string,
@@ -150,6 +154,7 @@ export async function updateCodeGenerationTemplate(
 
 
 
+/** 删除代码生成模板。 */
 export async function deleteCodeGenerationTemplate(
 
   templateId: string,
@@ -174,6 +179,7 @@ export async function deleteCodeGenerationTemplate(
 
 
 
+/** 校验模板响应结构，避免调用方重复编写同样的失败关闭逻辑。 */
 function readTemplate(value: unknown): CodeGenerationTemplateResponse {
 
   if (!isCodeGenerationTemplateResponse(value)) {
@@ -190,6 +196,7 @@ function readTemplate(value: unknown): CodeGenerationTemplateResponse {
 
 
 
+/** 导出代码生成模板分页、详情与写入模型，供模板列表、编辑页与删除确认流程共享同一契约。 */
 export type {
 
   CodeGenerationTemplatePage,

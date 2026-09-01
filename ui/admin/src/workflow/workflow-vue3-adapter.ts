@@ -12,19 +12,25 @@ export interface WorkflowVue3Node {
   readonly [key: string]: unknown;
 }
 
+/** 旧设计器节点类型到服务端稳定节点类型的闭合映射。 */
 const sourceToTargetType = new Map<number, string>([
   [0, 'start'],
   [1, 'human.approval'],
   [2, 'notify.cc']
 ]);
+/** 服务端节点类型回投影到旧设计器枚举，保持历史草稿可回显。 */
 const targetToSourceType = new Map<string, number>([
   ['start', 0],
   ['human.approval', 1],
   ['notify.cc', 2]
 ]);
+/** 节点键进入服务端后会成为稳定引用标识，因此禁止临时随机串或中文标签。 */
 const stableKeyPattern = /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/u;
+/** 旧设计器里涉及脚本、远程调用或副作用的配置一律视为不可信。 */
 const unsafePropertyPattern = /(?:script|function|javascript|remote|url|header|body|webhook|sql|deleteData|modifyData)/iu;
+/** 这些字段只参与树结构，不属于节点业务配置。 */
 const structuralKeys = new Set(['id', 'type', 'childNode', 'conditionNodes']);
+/** 这些字段是旧设计器的瞬时 UI 状态，编译时必须丢弃，避免污染权威 Draft。 */
 const transientDesignerKeys = new Set([
   'error',
   'errorTip',
@@ -116,6 +122,7 @@ function readStableKey(value: unknown): string {
   return key;
 }
 
+/** 只允许旧设计器节点携带适配层显式支持的闭合配置，其余字段一律拒绝。 */
 function readClosedNodeConfig(
   node: WorkflowVue3Node,
   nodeTypeKey: string
@@ -138,6 +145,7 @@ function readClosedNodeConfig(
   return result;
 }
 
+/** 服务端回显到旧设计器时，同样只恢复被批准的闭合配置。 */
 function readClosedTargetConfig(
   config: Record<string, unknown>,
   nodeTypeKey: string
@@ -155,6 +163,7 @@ function readClosedTargetConfig(
   return result;
 }
 
+/** 字段权限策略必须是稳定字段键到有限策略枚举的映射，避免任意值透传。 */
 function assertFieldPolicies(value: unknown): asserts value is Record<string, string> {
   if (!isRecord(value) || Object.entries(value).some(([fieldKey, policy]) =>
     !stableKeyPattern.test(fieldKey)
@@ -163,10 +172,12 @@ function assertFieldPolicies(value: unknown): asserts value is Record<string, st
   }
 }
 
+/** 通过 JSON 克隆切断设计器对象引用，防止回显后再编辑时反向污染草稿源对象。 */
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+/** 旧设计器配置按不可信输入处理，命中危险键或脚本内容时立即失败关闭。 */
 function assertSafeConfiguration(value: unknown): void {
   if (Array.isArray(value)) {
     value.forEach(assertSafeConfiguration);
@@ -184,6 +195,7 @@ function assertSafeConfiguration(value: unknown): void {
   }
 }
 
+/** 仅当危险字段真正配置了内容时才拒绝，避免把空壳结构误判为非法。 */
 function hasConfiguredValue(value: unknown): boolean {
   if (value === undefined || value === null || value === false || value === '') return false;
   if (Array.isArray(value)) return value.length > 0;
@@ -191,12 +203,14 @@ function hasConfiguredValue(value: unknown): boolean {
   return true;
 }
 
+/** 为旧设计器缺失名称的节点补稳定默认文案，保证回显后仍可辨识。 */
 function defaultNodeName(nodeTypeKey: string): string {
   if (nodeTypeKey === 'start') return '发起人';
   if (nodeTypeKey === 'human.approval') return '审批人';
   return '抄送人';
 }
 
+/** 统一识别普通对象，避免把数组或 null 当成可递归节点。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

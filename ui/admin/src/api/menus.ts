@@ -19,6 +19,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询 Host 菜单列表，并对生成契约放宽的 menuType 做失败关闭校验。 */
 export async function listHostMenus(
   page = 1,
   pageSize = 20,
@@ -33,6 +34,7 @@ export async function listHostMenus(
   return value;
 }
 
+/** 查询全部 Host 菜单，供树构建和父级选择器复用。 */
 export async function listHostMenusAll(
   signal?: AbortSignal
 ): Promise<HostMenu[]> {
@@ -44,6 +46,7 @@ export async function listHostMenusAll(
   return value;
 }
 
+/** 创建 Host 菜单。 */
 export async function createHostMenu(
   body: CreateHostMenuRequest,
   signal?: AbortSignal
@@ -56,6 +59,7 @@ export async function createHostMenu(
   return value;
 }
 
+/** 查询菜单可绑定的页面/操作权限目录。 */
 export async function listHostMenuPermissionOptions(
   signal?: AbortSignal
 ): Promise<HostMenuPermissionOption[]> {
@@ -68,6 +72,7 @@ export async function listHostMenuPermissionOptions(
   return value;
 }
 
+/** 更新 Host 菜单。 */
 export async function updateHostMenu(
   id: string,
   body: UpdateHostMenuRequest,
@@ -85,6 +90,7 @@ export async function updateHostMenu(
   return value;
 }
 
+/** 禁用 Host 菜单。 */
 export async function disableHostMenu(
   id: string,
   signal?: AbortSignal
@@ -97,6 +103,7 @@ export async function disableHostMenu(
   return value;
 }
 
+/** 启用 Host 菜单。 */
 export async function enableHostMenu(
   id: string,
   signal?: AbortSignal
@@ -109,6 +116,7 @@ export async function enableHostMenu(
   return value;
 }
 
+/** 按授权目录同步 Host 菜单目录，并返回创建/跳过/重挂接统计。 */
 export async function syncHostMenuCatalog(
   signal?: AbortSignal
 ): Promise<{
@@ -118,3 +126,12 @@ export async function syncHostMenuCatalog(
 }> {
   return identitySyncHostMenuCatalog(http, {}, signal);
 }
+
+/** 导出菜单详情、分页、权限选项与写入模型，供菜单列表、编辑页与权限绑定选择器共享同一契约。 */
+export type {
+  CreateHostMenuRequest,
+  HostMenu,
+  HostMenuPermissionOption,
+  HostMenuPage,
+  UpdateHostMenuRequest
+};

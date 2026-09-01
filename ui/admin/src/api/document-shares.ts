@@ -18,6 +18,7 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 分页查询文档分享列表，并对响应页做失败关闭校验。 */
 export async function listDocumentShares(
   page = 1,
   pageSize = 20,
@@ -34,6 +35,7 @@ export async function listDocumentShares(
   return value;
 }
 
+/** 创建文档分享；请求与响应都必须通过运行时契约校验。 */
 export async function createDocumentShare(
   req: CreateHostDocumentShareRequest,
   signal?: AbortSignal
@@ -48,6 +50,7 @@ export async function createDocumentShare(
   return value;
 }
 
+/** 更新文档分享状态，例如启用、停用或过期。 */
 export async function updateDocumentShareStatus(
   id: string,
   req: UpdateHostDocumentShareStatusRequest,
@@ -67,6 +70,7 @@ export async function updateDocumentShareStatus(
   return value;
 }
 
+/** 通过分享码访问文档分享，可附带访问密码等公开访问参数。 */
 export async function accessDocumentShareByCode(
   shareCode: string,
   req: AccessHostDocumentShareRequest = {},
@@ -86,6 +90,7 @@ export async function accessDocumentShareByCode(
   return value;
 }
 
+/** 导出分享页所需的请求、分页与公开访问模型，避免管理端和公开访问流程契约漂移。 */
 export type {
   AccessHostDocumentShareRequest,
   CreateHostDocumentShareRequest,
