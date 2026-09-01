@@ -31,6 +31,28 @@ public enum ModuleIntegrationStatus
 /// <summary>
 /// 表示一个不会自动应用的模块接入建议。
 /// </summary>
+/// <remarks>
+/// 该 record 只是只读规划产物，不进入写盘计划。所有包含 ManualReview 或
+/// Blocked 的 <see cref="ModuleIntegrationPlan"/> 必须先由开发者人工确认，
+/// 再通过对应的 IntegrationEditor.Apply 显式应用，禁止静默跳过。
+/// </remarks>
+/// <param name="Area">
+/// 影响区域枚举值。用于前端工作台按区域分组展示，并决定后续调用
+/// 哪一类 IntegrationEditor 来执行自动应用。
+/// </param>
+/// <param name="Status">
+/// 保守判定结果。Satisfied 表示已对齐无需改动；ChangeRequired 表示
+/// 有自动编辑器可安全处理；ManualReview 表示无法推断拓扑，需人工介入；
+/// Blocked 表示检测到冲突或依赖缺失，禁止继续。
+/// </param>
+/// <param name="RelativePath">
+/// 仓库相对路径；指向将要被检查或编辑的目标文件。必须已通过
+/// <see cref="GenerationArtifactPath"/> 可移植性校验，禁止使用绝对路径。
+/// </param>
+/// <param name="Instruction">
+/// 给开发者的简短中文操作说明；当 Status = ManualReview/Blocked 时
+/// 该字段必须包含可执行的修复步骤，不应只给出笼统描述。
+/// </param>
 public sealed record ModuleIntegrationPlanItem(
     ModuleIntegrationArea Area,
     ModuleIntegrationStatus Status,

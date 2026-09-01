@@ -19,6 +19,9 @@ public sealed class QueryDispatcher(IServiceProvider services) : IQueryDispatche
     /// </summary>
     /// <typeparam name="TQuery">查询类型，需匹配已注册的 <c>IQueryHandler</c>。</typeparam>
     /// <typeparam name="TResult">查询结果类型。</typeparam>
+    /// <param name="query">待分发的查询实例。</param>
+    /// <param name="cancellationToken">用于取消 Handler 与 Behavior 管道的令牌。</param>
+    /// <returns>包含成功值或结构化错误的应用层结果。</returns>
     /// <exception cref="InvalidOperationException">未注册对应 Handler。</exception>
     public Task<Result<TResult>> SendAsync<TQuery, TResult>(
         TQuery query,

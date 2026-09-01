@@ -22,6 +22,9 @@ public sealed class CommandDispatcher(
     /// </summary>
     /// <typeparam name="TCommand">命令类型，需匹配已注册的 <c>ICommandHandler</c>。</typeparam>
     /// <typeparam name="TResult">命令返回结果类型。</typeparam>
+    /// <param name="command">待分发的命令实例。</param>
+    /// <param name="cancellationToken">用于取消 Handler 与 Behavior 管道的令牌。</param>
+    /// <returns>包含成功值或结构化错误的应用层结果。</returns>
     /// <exception cref="InvalidOperationException">缺少 Handler 或事务命令未注册事务组件。</exception>
     public Task<Result<TResult>> SendAsync<TCommand, TResult>(
         TCommand command,

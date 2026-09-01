@@ -32,6 +32,9 @@ public static class CodeGenerationErrorCodes
 /// <summary>
 /// 表示一次只读 CRUD 产物预览请求。
 /// </summary>
+/// <remarks>
+/// 契约字段顺序为稳定机器码的一部分；新增可选字段只能追加以避免位置参数漂移。
+/// </remarks>
 /// <param name="OwnerKey">项目所有者键。</param>
 /// <param name="ModuleKey">模块键。</param>
 /// <param name="EntityKey">实体键。</param>
@@ -43,6 +46,9 @@ public static class CodeGenerationErrorCodes
 /// <param name="DataScope">显式数据作用域机器码。</param>
 /// <param name="HasVersion">是否生成乐观并发契约。</param>
 /// <param name="Columns">显式字段集合。</param>
+/// <param name="EntityCapabilities">实体生命周期能力声明；null 时按模块默认推断。</param>
+/// <param name="Scene">生成场景稳定机器码，用于区分管理端、租户端等模板变体；null 使用默认场景。</param>
+/// <param name="Relationships">跨实体关系声明集合；null 表示不生成关联导航与外键约束。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationPreviewRequest(
     string OwnerKey,

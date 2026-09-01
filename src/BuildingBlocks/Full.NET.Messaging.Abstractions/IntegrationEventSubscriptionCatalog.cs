@@ -19,35 +19,70 @@ public sealed record IntegrationEventConsumerDefinition(string ConsumerName);
 /// </remarks>
 public interface IIntegrationEventSubscriptionCatalog
 {
-    /// <summary>按路由键解析唯一订阅；未注册时抛出异常。</summary>
+    /// <summary>
+    /// 按路由键解析唯一订阅；未注册时抛出异常。
+    /// </summary>
+    /// <param name="consumerName">订阅所属 Consumer Group 的稳定机器码。</param>
+    /// <param name="eventType">集成事件类型的小写点分稳定机器码。</param>
+    /// <param name="schemaVersion">事件载荷 Schema 版本号（从 1 开始）。</param>
+    /// <returns>解析到的唯一订阅实例。</returns>
+    /// <exception cref="ArgumentException"><paramref name="consumerName"/> 或 <paramref name="eventType"/> 不符合稳定机器码约束。</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="schemaVersion"/> 小于 1。</exception>
+    /// <exception cref="InvalidOperationException">路由在目录中未注册。</exception>
     IIntegrationEventSubscription GetRequired(
         string consumerName,
         string eventType,
         int schemaVersion);
 
-    /// <summary>按生成注册表声明的具体订阅类型解析当前 Scope 中的实例。</summary>
+    /// <summary>
+    /// 按生成注册表声明的具体订阅类型解析当前 Scope 中的实例。
+    /// </summary>
+    /// <param name="handlerType">订阅实现类型，需与生成器注册表声明的类型完全一致。</param>
+    /// <returns>解析到的唯一订阅实例。</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="handlerType"/> 为 <see langword="null"/>。</exception>
+    /// <exception cref="InvalidOperationException">该类型未在目录中注册为唯一订阅。</exception>
     IIntegrationEventSubscription GetByHandlerTypeRequired(Type handlerType);
 
     /// <summary>查询事件流在目录中声明的发布所有权。</summary>
+    /// <param name="eventType">集成事件类型的小写点分稳定机器码。</param>
+    /// <param name="schemaVersion">事件载荷 Schema 版本号（从 1 开始）。</param>
+    /// <returns>该事件流目录声明的默认发布所有权。</returns>
+    /// <exception cref="ArgumentException"><paramref name="eventType"/> 不符合稳定机器码约束。</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="schemaVersion"/> 小于 1。</exception>
     EventDeliveryOwner GetDeliveryOwner(string eventType, int schemaVersion);
 
     /// <summary>在目录默认所有权之上叠加持久化切流记录，得到运行时有效所有权。</summary>
+    /// <param name="eventType">集成事件类型的小写点分稳定机器码。</param>
+    /// <param name="schemaVersion">事件载荷 Schema 版本号（从 1 开始）。</param>
+    /// <param name="persistedCurrentOwner">持久化存储中的当前切流所有权；<see langword="null"/> 表示未切流。</param>
+    /// <returns>运行时实际生效的发布所有权。</returns>
     EventDeliveryOwner ResolveDeliveryOwner(
         string eventType,
         int schemaVersion,
         EventDeliveryOwner? persistedCurrentOwner);
 
     /// <summary>查询事件流绑定的 Topic 目录条目。</summary>
+    /// <param name="eventType">集成事件类型的小写点分稳定机器码。</param>
+    /// <param name="schemaVersion">事件载荷 Schema 版本号（从 1 开始）。</param>
+    /// <returns>绑定的 Topic 目录条目。</returns>
+    /// <exception cref="ArgumentException"><paramref name="eventType"/> 不符合稳定机器码约束。</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="schemaVersion"/> 小于 1。</exception>
+    /// <exception cref="InvalidOperationException">该事件流未在 Topic 目录中注册。</exception>
     IntegrationEventTopicDefinition GetTopicRequired(
         string eventType,
         int schemaVersion);
 
     /// <summary>按稳定 TopicCode 查询目录条目；范围重放禁止使用目录外 Topic。</summary>
+    /// <param name="topicCode">逻辑 Topic 的稳定机器码，需符合 <c>MessagingNames.TopicCodePattern</c>。</param>
+    /// <returns>匹配的 Topic 目录条目。</returns>
+    /// <exception cref="ArgumentException"><paramref name="topicCode"/> 为空或不符合稳定机器码约束。</exception>
+    /// <exception cref="InvalidOperationException">该 TopicCode 未在目录中注册。</exception>
     IntegrationEventTopicDefinition GetTopicByCodeRequired(string topicCode);
 
     /// <summary>
     /// 返回目录中所有已注册的业务订阅；用于启动守卫检查 CdcKafka 模式是否存在真实生产订阅。
     /// </summary>
+    /// <returns>目录构造阶段通过校验的全部订阅快照集合；只读，不可修改。</returns>
     IReadOnlyCollection<IIntegrationEventSubscription> GetAllSubscriptions();
 }
 
@@ -63,6 +98,17 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
     private readonly IReadOnlyDictionary<Type, IIntegrationEventSubscription> _subscriptionsByHandlerType;
     private readonly IReadOnlyCollection<IIntegrationEventSubscription> _allSubscriptions;
 
+    /// <summary>
+    /// 从 Topic 与订阅集合构造目录，自动派生 Consumer 定义。
+    /// </summary>
+    /// <param name="topics">所有已声明的 Topic 定义集合。</param>
+    /// <param name="subscriptions">所有已声明的业务订阅集合。</param>
+    /// <remarks>
+    /// 通过 <paramref name="subscriptions"/> 中的 <c>ConsumerName</c> 自动去重派生 <see cref="IntegrationEventConsumerDefinition"/>，
+    /// 适用于调用方不关心消费者目录的场景。
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="topics"/> 或 <paramref name="subscriptions"/> 为 <see langword="null"/>。</exception>
+    /// <exception cref="InvalidOperationException">存在重复 TopicCode、重复消费者名、重复路由键或引用未注册 Topic。</exception>
     public IntegrationEventSubscriptionCatalog(
         IEnumerable<IntegrationEventTopicDefinition> topics,
         IEnumerable<IIntegrationEventSubscription> subscriptions)
@@ -70,6 +116,19 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
     {
     }
 
+    /// <summary>
+    /// 从 Topic、Consumer 与订阅集合构造目录，并在构造期校验所有不变量。
+    /// </summary>
+    /// <param name="topics">所有已声明的 Topic 定义集合。</param>
+    /// <param name="consumers">所有已声明的 Kafka Consumer Group 稳定身份。</param>
+    /// <param name="subscriptions">所有已声明的业务订阅集合。</param>
+    /// <remarks>
+    /// 构造阶段会同步校验：TopicCode 唯一、ConsumerName 唯一且合规、路由三元组唯一、
+    /// 订阅引用的 Topic 存在、幂等策略可识别；任一校验失败立即抛出 <see cref="InvalidOperationException"/>，
+    /// 避免运行期才发现目录错乱。
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="topics"/>、<paramref name="consumers"/> 或 <paramref name="subscriptions"/> 为 <see langword="null"/>。</exception>
+    /// <exception cref="InvalidOperationException">存在重复 TopicCode、重复消费者名、重复路由键或引用未注册 Topic。</exception>
     public IntegrationEventSubscriptionCatalog(
         IEnumerable<IntegrationEventTopicDefinition> topics,
         IEnumerable<IntegrationEventConsumerDefinition> consumers,
@@ -115,6 +174,13 @@ public sealed class IntegrationEventSubscriptionCatalog : IIntegrationEventSubsc
             + $"schema {schemaVersion} is not registered in the catalog.");
     }
 
+    /// <summary>
+    /// 按生成注册表声明的具体订阅类型解析当前 Scope 中的实例。
+    /// </summary>
+    /// <param name="handlerType">订阅实现类型，需与生成器注册表声明的类型完全一致。</param>
+    /// <returns>解析到的唯一订阅实例。</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="handlerType"/> 为 <see langword="null"/>。</exception>
+    /// <exception cref="InvalidOperationException">该类型未在目录中注册为唯一订阅。</exception>
     public IIntegrationEventSubscription GetByHandlerTypeRequired(Type handlerType)
     {
         ArgumentNullException.ThrowIfNull(handlerType);
