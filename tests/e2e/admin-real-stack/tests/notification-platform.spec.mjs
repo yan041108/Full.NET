@@ -79,7 +79,9 @@ test('Host 管理员可打开通知控制面；空目录、FanOut 明示且不�
   await expect(page.getByTestId('notification-deliveries-retry')).toHaveCount(0);
 
   await clickMainNavLink(page, /通知偏好/, '通知');
-  await expect(page.getByTestId('notification-preferences-unavailable')).toBeVisible();
+  await expect(page.getByTestId('notification-preferences-endpoint-list')).toBeVisible();
   await expect(page.getByTestId('notification-preferences-save')).toHaveCount(0);
-  await expect(page.getByTestId('notification-preferences-unavailable')).toContainText('首个真实 Provider');
+  await expect(page.getByTestId('notification-preferences-no-profile')).toContainText(
+    '没有已发布并启用的 SMTP 邮件渠道配置'
+  );
 });

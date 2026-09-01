@@ -49,7 +49,23 @@ public sealed record SendTenantInboxMessageRequest(
     string Title,
     string Content);
 
+/// <summary>当前用户登记收件端点的请求；服务端始终以待验证状态保存。</summary>
+/// <param name="ProviderProfileVersionId">当前作用域内已发布并启用的渠道配置版本标识。</param>
+/// <param name="EndpointKindKey">渠道 Adapter 声明的稳定端点类型键。</param>
+/// <param name="RawValue">只允许在请求和受保护写入边界短暂存在的端点原值。</param>
+public sealed record CreateMyRecipientEndpointRequest(
+    Guid ProviderProfileVersionId,
+    string EndpointKindKey,
+    string RawValue);
+
 /// <summary>收件端点对外响应，只返回掩码与验证状态。</summary>
+/// <param name="Id">收件端点标识。</param>
+/// <param name="UserId">端点所属用户标识。</param>
+/// <param name="ProviderProfileVersionId">端点绑定的不可变渠道配置版本标识。</param>
+/// <param name="EndpointKindKey">端点类型稳定键。</param>
+/// <param name="MaskedValue">可供界面展示的脱敏值。</param>
+/// <param name="VerificationStatusKey">服务端维护的验证状态稳定键。</param>
+/// <param name="CreatedAtUtc">端点首次登记时间。</param>
 public sealed record RecipientEndpointResponse(
     Guid Id,
     Guid UserId,

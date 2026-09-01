@@ -1340,6 +1340,24 @@
       "status": "generated"
     },
     {
+      "operationId": "notificationsListMyRecipientEndpoints",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-recipient-endpoints",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsCreateMyRecipientEndpoint",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-recipient-endpoints",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsDeleteMyRecipientEndpoint",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-recipient-endpoints",
+      "status": "generated"
+    },
+    {
       "operationId": "notificationsListBindings",
       "apiModule": "ui/admin/src/api/notification-platform.ts",
       "generatedGroup": "notifications-bindings",

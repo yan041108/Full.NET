@@ -484,6 +484,12 @@ export interface CreateHostUserRequest {
   readonly username: string;
 }
 
+export interface CreateMyRecipientEndpointRequest {
+  readonly endpointKindKey: string;
+  readonly providerProfileVersionId: string;
+  readonly rawValue: string;
+}
+
 export interface CreateNotificationBindingRequest {
   readonly bindingKey: string;
   readonly channelKey: string;
@@ -1774,6 +1780,16 @@ export interface PublishWorkflowDefinitionRequest {
 
 export interface PublishWorkflowFormRequest {
   readonly expectedRevision: number;
+}
+
+export interface RecipientEndpointResponse {
+  readonly createdAtUtc: string;
+  readonly endpointKindKey: string;
+  readonly id: string;
+  readonly maskedValue: string;
+  readonly providerProfileVersionId: string;
+  readonly userId: string;
+  readonly verificationStatusKey: string;
 }
 
 export interface ReplaceHostRoleFieldGrantsRequest {

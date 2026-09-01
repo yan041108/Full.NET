@@ -151,6 +151,9 @@
       "name": "NotificationsDeliveries"
     },
     {
+      "name": "NotificationsRecipientEndpoints"
+    },
+    {
       "name": "ObservabilityLogFiles"
     },
     {
@@ -11089,6 +11092,205 @@
         ],
         "tags": [
           "NotificationsMyInboxMessages"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-recipient-endpoints": {
+      "get": {
+        "operationId": "notificationsListMyRecipientEndpoints",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecipientEndpointResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsRecipientEndpoints"
+        ]
+      },
+      "post": {
+        "operationId": "notificationsCreateMyRecipientEndpoint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMyRecipientEndpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientEndpointResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsRecipientEndpoints"
+        ]
+      }
+    },
+    "/api/v1/notifications/my-recipient-endpoints/{endpointId}": {
+      "delete": {
+        "operationId": "notificationsDeleteMyRecipientEndpoint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpointId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "NotificationsRecipientEndpoints"
         ]
       }
     },
@@ -23709,6 +23911,26 @@
         ],
         "type": "object"
       },
+      "CreateMyRecipientEndpointRequest": {
+        "properties": {
+          "endpointKindKey": {
+            "type": "string"
+          },
+          "providerProfileVersionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rawValue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "providerProfileVersionId",
+          "endpointKindKey",
+          "rawValue"
+        ],
+        "type": "object"
+      },
       "CreateNotificationBindingRequest": {
         "properties": {
           "bindingKey": {
@@ -30243,6 +30465,45 @@
         },
         "required": [
           "expectedRevision"
+        ],
+        "type": "object"
+      },
+      "RecipientEndpointResponse": {
+        "properties": {
+          "createdAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endpointKindKey": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maskedValue": {
+            "type": "string"
+          },
+          "providerProfileVersionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "verificationStatusKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "providerProfileVersionId",
+          "endpointKindKey",
+          "maskedValue",
+          "verificationStatusKey",
+          "createdAtUtc"
         ],
         "type": "object"
       },

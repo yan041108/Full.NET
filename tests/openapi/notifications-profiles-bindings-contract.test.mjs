@@ -25,6 +25,14 @@ const bindingEndpointPath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Notifications/Features/ManageBindings/Endpoint.cs'
 );
+const recipientContractsPath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Notifications/Contracts/InboxMessageContracts.cs'
+);
+const recipientEndpointPath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Notifications/Features/ManageRecipientEndpoints/Endpoint.cs'
+);
 
 test('渠道配置与绑定 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = JSON.parse(await readFile(contractPath, 'utf8'));
@@ -32,6 +40,8 @@ test('渠道配置与绑定 OpenAPI 夹具与 C# 契约和端点源码一致', a
   const bindingContracts = await readFile(bindingContractsPath, 'utf8');
   const profileEndpoint = await readFile(profileEndpointPath, 'utf8');
   const bindingEndpoint = await readFile(bindingEndpointPath, 'utf8');
+  const recipientContracts = await readFile(recipientContractsPath, 'utf8');
+  const recipientEndpoint = await readFile(recipientEndpointPath, 'utf8');
 
   assert.equal(contract.id, 'notifications-profiles-bindings-v1');
   assert.match(profileContracts, /record CreateNotificationProviderProfileRequest/u);
@@ -45,4 +55,17 @@ test('渠道配置与绑定 OpenAPI 夹具与 C# 契约和端点源码一致', a
   assert.match(profileEndpoint, /\.WithName\("notificationsCreateProviderProfile"\)/u);
   assert.match(bindingEndpoint, /MapGroup\("\/api\/v1\/notifications\/bindings"\)/u);
   assert.match(bindingEndpoint, /\.WithName\("notificationsPublishBinding"\)/u);
+  assert.match(recipientContracts, /record CreateMyRecipientEndpointRequest/u);
+  assert.doesNotMatch(
+    recipientContracts.match(/record CreateMyRecipientEndpointRequest[\s\S]*?\);/u)?.[0] ?? '',
+    /UserId|TenantId|VerificationStatusKey/u
+  );
+  assert.match(
+    recipientEndpoint,
+    /MapGroup\("\/api\/v1\/notifications\/my-recipient-endpoints"\)/u
+  );
+  assert.match(
+    recipientEndpoint,
+    /\.WithName\("notificationsCreateMyRecipientEndpoint"\)/u
+  );
 });

@@ -76,6 +76,34 @@
       ]
     },
     {
+      "path": "/api/v1/notifications/my-recipient-endpoints",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.preferences.read",
+          "successStatus": 200,
+          "responseSchema": "RecipientEndpointResponseList"
+        },
+        {
+          "method": "POST",
+          "permission": "notifications.preferences.update",
+          "successStatus": 201,
+          "requestSchema": "CreateMyRecipientEndpointRequest",
+          "responseSchema": "RecipientEndpointResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-recipient-endpoints/{endpointId}",
+      "operations": [
+        {
+          "method": "DELETE",
+          "permission": "notifications.preferences.update",
+          "successStatus": 204
+        }
+      ]
+    },
+    {
       "path": "/api/v1/notifications/bindings",
       "operations": [
         {
@@ -122,6 +150,16 @@
     },
     "NotificationProviderProfileResponse": {
       "properties": ["id", "profileKey", "providerTypeKey", "nonSecretConfigJson", "secretStatus", "isEnabled"]
+    },
+    "CreateMyRecipientEndpointRequest": {
+      "properties": ["providerProfileVersionId", "endpointKindKey", "rawValue"]
+    },
+    "RecipientEndpointResponse": {
+      "properties": ["id", "userId", "providerProfileVersionId", "endpointKindKey", "maskedValue", "verificationStatusKey", "createdAtUtc"]
+    },
+    "RecipientEndpointResponseList": {
+      "properties": [],
+      "itemSchema": "RecipientEndpointResponse"
     }
   }
 }

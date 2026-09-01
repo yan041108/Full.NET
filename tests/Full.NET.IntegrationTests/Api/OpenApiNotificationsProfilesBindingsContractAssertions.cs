@@ -6,6 +6,10 @@ namespace Full.NET.IntegrationTests.Api;
 /// <summary>校验渠道配置与绑定端点在 OpenAPI 文档中的路径、方法与核心 schema 属性。</summary>
 internal static class OpenApiNotificationsProfilesBindingsContractAssertions
 {
+    /// <summary>将冻结夹具与运行时 OpenAPI 的路径、响应和安全声明逐项比对。</summary>
+    /// <param name="client">能够读取当前运行时 OpenAPI 的 HTTP 客户端。</param>
+    /// <param name="cancellationToken">用于取消文件与 HTTP 读取的令牌。</param>
+    /// <returns>表示异步契约验证的任务。</returns>
     public static async Task VerifyAsync(
         HttpClient client,
         CancellationToken cancellationToken = default)
@@ -48,6 +52,8 @@ internal static class OpenApiNotificationsProfilesBindingsContractAssertions
         _ = schemas;
     }
 
+    /// <summary>验证进入生成客户端试点的 Profile、Binding 与收件端点操作。</summary>
+    /// <param name="document">运行时 OpenAPI 根文档。</param>
     private static void AssertPilotOperations(JsonElement document)
     {
         OpenApiPilotContractAssertions.AssertOperation(
@@ -93,6 +99,31 @@ internal static class OpenApiNotificationsProfilesBindingsContractAssertions
             200,
             "application/json",
             "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-recipient-endpoints",
+            HttpMethod.Get,
+            "notificationsListMyRecipientEndpoints",
+            "NotificationsRecipientEndpoints",
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-recipient-endpoints",
+            HttpMethod.Post,
+            "notificationsCreateMyRecipientEndpoint",
+            "NotificationsRecipientEndpoints",
+            201,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/my-recipient-endpoints/{endpointId}",
+            HttpMethod.Delete,
+            "notificationsDeleteMyRecipientEndpoint",
+            "NotificationsRecipientEndpoints",
+            204,
+            null);
     }
 
     private static async Task<JsonDocument> LoadContractDocumentAsync(

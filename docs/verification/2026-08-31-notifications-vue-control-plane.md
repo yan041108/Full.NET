@@ -37,3 +37,7 @@
 - Vue 通知控制面达到与当前切片相称的 **Build-verified**，其中模板创建/发布和平台管理页已补齐双库真实栈 E2E。整体仍不得升 `Verified`：生产目录没有真实 Provider，且本切片新路径没有 Linux Native AOT 原生进程证据。
 - 邮件/短信/企微/公众号/钉钉仍为 **Planned**。容量继续 `Capacity-not-verified`。未改 Layui。未创建生产 Provider 项目。
 - 本任务未触发规则或 Skill 演进。
+
+## 后续演进
+
+2026-09-02，通知偏好页的诚实占位已由当前用户邮箱端点登记/查询/删除切片替代；新入口仍只保存 `pending`，不会伪装邮件验证或真实投递。新证据见[收件端点管理验证](2026-09-02-notifications-recipient-endpoint-management.md)。本文件上方范围和证据继续保留 2026-08-31 的历史快照语义。

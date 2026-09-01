@@ -13,6 +13,8 @@
   <data name="notifications.inbox_validation_failed" xml:space="preserve"><value>站内信标题或内容无效。</value></data>
   <data name="notifications.inbox_scope_forbidden" xml:space="preserve"><value>当前会话作用域不允许该站内信操作。</value></data>
   <data name="notifications.recipient_endpoint_validation_failed" xml:space="preserve"><value>收件端点值或类型无效。</value></data>
+  <data name="notifications.recipient_endpoint_not_found" xml:space="preserve"><value>未找到当前用户的收件端点。</value></data>
+  <data name="notifications.recipient_endpoint_conflict" xml:space="preserve"><value>当前渠道配置已经登记相同类型的收件端点。</value></data>
   <data name="notifications.policy.suppressed" xml:space="preserve"><value>当前偏好不允许发送该通知。</value></data>
   <data name="notifications.policy.marketing_consent_required" xml:space="preserve"><value>营销通知需要明确同意后才能发送。</value></data>
   <data name="notifications.route.profile_unavailable" xml:space="preserve"><value>没有恰好一个可用的渠道配置。</value></data>

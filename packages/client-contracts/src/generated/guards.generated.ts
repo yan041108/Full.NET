@@ -65,6 +65,7 @@ import type {
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
+  CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
   CreateNotificationProviderProfileRequest,
   CreateNotificationTemplateRequest,
@@ -219,6 +220,7 @@ import type {
   PublishNotificationTemplateRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  RecipientEndpointResponse,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
@@ -984,6 +986,17 @@ export function readCreateHostUserRequest(value: unknown): CreateHostUserRequest
 
 function isCreateHostUserRequest(value: unknown): value is CreateHostUserRequest {
   return isRecord(value) && (value["accountType"] === undefined || ((value["accountType"] === null) || (typeof value["accountType"] === 'string'))) && (typeof value["displayName"] === 'string') && (typeof value["password"] === 'string') && (value["profile"] === undefined || ((value["profile"] === null) || (isHostUserProfileWriteRequest(value["profile"])))) && (typeof value["username"] === 'string');
+}
+
+export function readCreateMyRecipientEndpointRequest(value: unknown): CreateMyRecipientEndpointRequest {
+  if (!(isCreateMyRecipientEndpointRequest(value))) {
+    throw new Error('client.invalid_create_my_recipient_endpoint_request');
+  }
+  return value;
+}
+
+function isCreateMyRecipientEndpointRequest(value: unknown): value is CreateMyRecipientEndpointRequest {
+  return isRecord(value) && (typeof value["endpointKindKey"] === 'string') && (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"])) && (typeof value["rawValue"] === 'string');
 }
 
 export function readCreateNotificationBindingRequest(value: unknown): CreateNotificationBindingRequest {
@@ -2680,6 +2693,17 @@ function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowF
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
 }
 
+export function readRecipientEndpointResponse(value: unknown): RecipientEndpointResponse {
+  if (!(isRecipientEndpointResponse(value))) {
+    throw new Error('client.invalid_recipient_endpoint_response');
+  }
+  return value;
+}
+
+function isRecipientEndpointResponse(value: unknown): value is RecipientEndpointResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointKindKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["maskedValue"] === 'string') && (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["verificationStatusKey"] === 'string');
+}
+
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
   if (!(isReplaceHostRoleFieldGrantsRequest(value))) {
     throw new Error('client.invalid_replace_host_role_field_grants_request');
@@ -3610,6 +3634,13 @@ export function readJobsListHostJobScheduleDefinitionOptionsResponse(value: unkn
     throw new Error('client.invalid_jobs_list_host_job_schedule_definition_options_response');
   }
   return value as Array<HostJobScheduleDefinitionOptionResponse>;
+}
+
+export function readNotificationsListMyRecipientEndpointsResponse(value: unknown): Array<RecipientEndpointResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isRecipientEndpointResponse(item5)))) {
+    throw new Error('client.invalid_notifications_list_my_recipient_endpoints_response');
+  }
+  return value as Array<RecipientEndpointResponse>;
 }
 
 export function readNotificationsListProviderTypesResponse(value: unknown): Array<NotificationProviderTypeDescriptor> {

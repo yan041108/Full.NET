@@ -35,6 +35,12 @@ public static class NotificationsErrorCodes
     /// <summary>收件端点原值或类型校验失败。</summary>
     public const string RecipientEndpointValidationFailed = "notifications.recipient_endpoint_validation_failed";
 
+    /// <summary>当前作用域和用户未找到指定收件端点。</summary>
+    public const string RecipientEndpointNotFound = "notifications.recipient_endpoint_not_found";
+
+    /// <summary>同一用户、渠道配置版本和端点类型已经登记。</summary>
+    public const string RecipientEndpointConflict = "notifications.recipient_endpoint_conflict";
+
     /// <summary>政策求值后消息被抑制，不得创建外部 Delivery。</summary>
     public const string PolicySuppressed = "notifications.policy.suppressed";
 
@@ -161,6 +167,8 @@ public static class NotificationsErrorCodes
         InboxValidationFailed,
         InboxScopeForbidden,
         RecipientEndpointValidationFailed,
+        RecipientEndpointNotFound,
+        RecipientEndpointConflict,
         PolicySuppressed,
         PolicyMarketingConsentRequired,
         RouteProfileUnavailable,

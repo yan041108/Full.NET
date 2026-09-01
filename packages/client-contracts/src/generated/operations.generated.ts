@@ -66,6 +66,7 @@ import type {
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
+  CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
   CreateNotificationProviderProfileRequest,
   CreateNotificationTemplateRequest,
@@ -220,6 +221,7 @@ import type {
   PublishNotificationTemplateRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  RecipientEndpointResponse,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
@@ -365,6 +367,7 @@ import {
   readNotificationBindingResponse,
   readNotificationDeliveryResponse,
   readNotificationProviderProfileResponse,
+  readNotificationsListMyRecipientEndpointsResponse,
   readNotificationsListProviderTypesResponse,
   readNotificationTemplateResponse,
   readObservabilityListLogFilesResponse,
@@ -408,6 +411,7 @@ import {
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
+  readRecipientEndpointResponse,
   readSerialNumberPreviewResponse,
   readSerialNumberRuleResponse,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
@@ -3431,6 +3435,28 @@ export async function notificationsCreateHostAnnouncement(
   return readHostAnnouncementResponse(value);
 }
 
+export interface NotificationsCreateMyRecipientEndpointParameters {
+  readonly body: CreateMyRecipientEndpointRequest;
+}
+
+export async function notificationsCreateMyRecipientEndpoint(
+  http: HttpClient,
+  parameters: NotificationsCreateMyRecipientEndpointParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RecipientEndpointResponse> {
+  const path = `/api/v1/notifications/my-recipient-endpoints`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRecipientEndpointResponse(value);
+}
+
 export interface NotificationsCreateProviderProfileParameters {
   readonly body: CreateNotificationProviderProfileRequest;
 }
@@ -3473,6 +3499,25 @@ export async function notificationsCreateTemplate(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationTemplateResponse(value);
+}
+
+export interface NotificationsDeleteMyRecipientEndpointParameters {
+  readonly endpointId: string;
+}
+
+export async function notificationsDeleteMyRecipientEndpoint(
+  http: HttpClient,
+  parameters: NotificationsDeleteMyRecipientEndpointParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/notifications/my-recipient-endpoints/${encodeURIComponent(String(parameters.endpointId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
 }
 
 export interface NotificationsDisableProviderProfileParameters {
@@ -3713,6 +3758,24 @@ export async function notificationsListMyInboxMessages(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfInboxMessageResponse(value);
+}
+
+export interface NotificationsListMyRecipientEndpointsParameters {
+
+}
+
+export async function notificationsListMyRecipientEndpoints(
+  http: HttpClient,
+  parameters: NotificationsListMyRecipientEndpointsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<RecipientEndpointResponse>> {
+  const path = `/api/v1/notifications/my-recipient-endpoints`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readNotificationsListMyRecipientEndpointsResponse(value);
 }
 
 export interface NotificationsListProviderProfilesParameters {

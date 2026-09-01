@@ -105,6 +105,8 @@ public sealed class NotificationsModule : IFullNetModule
                 metrics.AddMeter(NotificationDeliveryTelemetry.MeterName));
     }
 
+    /// <summary>映射 Notifications 模块全部受保护和公开 HTTP 路由。</summary>
+    /// <param name="endpoints">应用程序路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageHostAnnouncements.Endpoint.Map(endpoints);
@@ -117,6 +119,7 @@ public sealed class NotificationsModule : IFullNetModule
         Features.ManageBindings.Endpoint.Map(endpoints);
         Features.ManageDeliveries.Endpoint.Map(endpoints);
         Features.ReceiveProviderReceipts.Endpoint.Map(endpoints);
+        Features.ManageRecipientEndpoints.Endpoint.Map(endpoints);
     }
 
     private static void RegisterRealtimeHandlers(IServiceCollection services)

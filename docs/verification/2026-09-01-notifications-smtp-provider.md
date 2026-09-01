@@ -46,7 +46,7 @@
 
 - `Accepted` 只代表 SMTP 服务器接受消息，不代表收件、送达或已读；本次外部实测连 `Accepted` 也未达到。
 - 未执行 Linux Native AOT publish/原生进程 SMTP E2E，不标记 `Aot-published` 或 `Native-provider-verified`。
-- 现有 `RecipientEndpointStore` 仍未暴露自助/API/UI 管理入口；真实业务接入前必须补齐受验证邮箱端点登记流程与精确权限。
+- 当前用户邮箱端点登记/查询/删除 API 与 Vue 管理页已在后续切片达到 **Build-verified**，见[收件端点管理验证](2026-09-02-notifications-recipient-endpoint-management.md)；但登记状态固定为 `pending`，真实业务接入前仍必须补齐邮件验证码与自动升级 `verified` 的闭环。
 - 未执行负载、限速、多租户账号矩阵、连接复用、退信对账或生产密钥托管认证，不外推为生产就绪。
 
 ## 参考
