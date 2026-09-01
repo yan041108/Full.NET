@@ -1,4 +1,4 @@
-﻿using Confluent.Kafka;
+using Confluent.Kafka;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -33,26 +33,37 @@ public enum KafkaClassicPartitionAssignmentMode
 /// </summary>
 public sealed class KafkaMessagingOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Messaging:Kafka";
 
+    /// <summary>单条 Kafka 消息的最小尺寸上限（字节）；防止极端值导致 Broker 拒绝。</summary>
     public const int MinMessageMaxBytes = 1_024;
 
+    /// <summary>单条 Kafka 消息的最大尺寸上限（字节）；默认 10 MB。</summary>
     public const int MaxMessageMaxBytes = 10_485_760;
 
+    /// <summary>生产者单次批量聚合的最大字节数（字节）；默认 1 MB。</summary>
     public const int MaxProducerBatchSizeBytes = 1_048_576;
 
+    /// <summary>是否启用 Kafka 消息总线；关闭时不创建 Producer/Consumer。</summary>
     public bool Enabled { get; set; }
 
+    /// <summary>Kafka Broker 连接串，多个节点使用逗号分隔。</summary>
     public string? BootstrapServers { get; set; }
 
+    /// <summary>安全协议：Plaintext / Ssl / SaslSsl 等。</summary>
     public string SecurityProtocol { get; set; } = "Plaintext";
 
+    /// <summary>SASL 认证机制：如 SCRAM-SHA-256 / PLAIN。</summary>
     public string? SaslMechanism { get; set; }
 
+    /// <summary>SASL 用户名；仅在 SaslMechanism 不为空时使用。</summary>
     public string? SaslUsername { get; set; }
 
+    /// <summary>SASL 密码；仅从受信任的 Secret 源读取，禁止写入日志或快照。</summary>
     public string? SaslPassword { get; set; }
 
+    /// <summary>客户端标识；用于 Broker 指标与审计定位。</summary>
     public string? ClientId { get; set; }
 
     /// <summary>

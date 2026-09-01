@@ -11,6 +11,9 @@ namespace Full.NET.Data.Dapper.Outbox;
 /// </remarks>
 public sealed class MessagingOutboxOptions
 {
+    /// <summary>
+    /// IConfiguration 绑定节名称；约定值为 "Messaging:Outbox"，升级一个周期后移除。
+    /// </summary>
     public const string SectionName = "Messaging:Outbox";
 
     /// <summary>
@@ -25,8 +28,18 @@ public sealed class MessagingOutboxOptions
     public MessagingOutboxMode Mode { get; set; } = MessagingOutboxMode.Legacy;
 }
 
+/// <summary>
+/// Outbox 写入路由的旧全局模式枚举；已被按流路由替代，保留用于配置迁移过渡期。
+/// </summary>
 public enum MessagingOutboxMode
 {
+    /// <summary>
+    /// 使用旧 fn_outbox_message 表的轮询 Outbox 写入路径；升级前默认值。
+    /// </summary>
     Legacy,
+
+    /// <summary>
+    /// 使用追加式 Messaging Outbox 写入路径；受控切流后单流生效前的历史选项。
+    /// </summary>
     AppendOnlyV2,
 }

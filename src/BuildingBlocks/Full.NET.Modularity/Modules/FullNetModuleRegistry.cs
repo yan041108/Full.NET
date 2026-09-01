@@ -1,10 +1,17 @@
 namespace Full.NET.Modularity.Modules;
 
+/// <summary>
+/// 在 Composition 启动阶段收集模块注册并执行依赖图去重、循环检测与稳定键唯一性校验。
+/// </summary>
 public sealed class FullNetModuleRegistry
 {
     private readonly Dictionary<string, ModuleRegistration> _modules =
         new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// 注册一个模块实例；立即校验稳定键唯一、依赖集合完整且不重复。
+    /// </summary>
+    /// <param name="module">已实现 <see cref="IFullNetModule"/> 的模块实例。</param>
     public void Add(IFullNetModule module)
     {
         ArgumentNullException.ThrowIfNull(module);

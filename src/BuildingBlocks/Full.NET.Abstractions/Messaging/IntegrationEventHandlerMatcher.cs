@@ -10,6 +10,15 @@ namespace Full.NET.Abstractions.Messaging;
 /// </remarks>
 public static class IntegrationEventHandlerMatcher
 {
+    /// <summary>
+    /// 按 (MessageType, SchemaVersion) 从已注册 Handler 集合中匹配适用的实现，
+    /// 展开 <see cref="IIntegrationEventHandler.LegacyEventTypes"/> 别名作为兼容路由。
+    /// </summary>
+    /// <param name="handlers">当前容器中已注册的全部 Integration Event Handler。</param>
+    /// <param name="messageType">规范化或兼容消息类型名。</param>
+    /// <param name="schemaVersion">消息载荷的模式版本正整数。</param>
+    /// <returns>匹配成功的 Handler 集合；未命中时返回空列表。</returns>
+    /// <exception cref="ArgumentException"><paramref name="messageType"/> 为空或仅包含空白字符。</exception>
     public static IReadOnlyList<IIntegrationEventHandler> Match(
         IReadOnlyCollection<IIntegrationEventHandler> handlers,
         string messageType,

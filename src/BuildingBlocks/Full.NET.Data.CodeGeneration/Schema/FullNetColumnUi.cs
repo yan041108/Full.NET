@@ -44,6 +44,8 @@ public enum FullNetColumnQueryKind
 
 /// <summary>
 /// 保存不影响物理列名的展示、表单与查询元数据。
+/// 确定性：进入模板哈希的字段顺序固定；显式声明后模板必须按字面量渲染，禁止二次推导导致漂移。
+/// FAIL-closed：若 Required=true 但物理列 IsNullable=true，生成器立即抛异常；禁止表单契约与物理约束冲突。
 /// </summary>
 /// <param name="ControlKind">工作台与生成页面使用的控件。</param>
 /// <param name="ShowInList">是否出现在列表列。</param>
@@ -56,15 +58,25 @@ public enum FullNetColumnQueryKind
 /// <param name="Unique">写入时是否做同作用域唯一校验。</param>
 /// <param name="IncludeInImportExport">是否纳入导入导出列。</param>
 public sealed record FullNetColumnUi(
+    [property: System.ComponentModel.Description("工作台与生成页面使用的控件；枚举值稳定，未知控件 FAIL-closed 回退为 Text。")]
     FullNetColumnControlKind ControlKind,
+    [property: System.ComponentModel.Description("是否出现在列表列；系统列除 Id 外默认隐藏，显式声明优先。")]
     bool ShowInList,
+    [property: System.ComponentModel.Description("是否进入创建表单；CreatedAtUtc/Version 等系统列必须为 false。")]
     bool IncludeInCreate,
+    [property: System.ComponentModel.Description("是否进入更新表单；Id/DeletedAtUtc 等系统列必须为 false。")]
     bool IncludeInUpdate,
+    [property: System.ComponentModel.Description("表单是否必填；不得覆盖数据库可空性。物理可空但 Required=true 时生成器 FAIL-closed。")]
     bool Required,
+    [property: System.ComponentModel.Description("列表是否允许排序；用于生成 a-sortable-column 与 OrderBy 白名单。")]
     bool Sortable,
+    [property: System.ComponentModel.Description("列表是否允许过滤；为 false 时 QueryKind 忽略，不进入查询契约。")]
     bool Queryable,
+    [property: System.ComponentModel.Description("过滤比较方式；None 即使 Queryable=true 也不生成过滤入口。")]
     FullNetColumnQueryKind QueryKind,
+    [property: System.ComponentModel.Description("写入时是否做同作用域唯一校验；生成时将在 CommandValidator 内追加 Duplicate 检测。")]
     bool Unique,
+    [property: System.ComponentModel.Description("是否纳入导入导出列；用于 CSV/Xlsx 列头生成与导入列校验。")]
     bool IncludeInImportExport)
 {
     /// <summary>

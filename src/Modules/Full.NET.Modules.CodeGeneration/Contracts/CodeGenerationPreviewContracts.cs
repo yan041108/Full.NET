@@ -19,6 +19,11 @@ public static class CodeGenerationPreviewPermissions
 public static class CodeGenerationErrorCodes
 {
     /// <summary>
+    /// 模块错误码的通用前缀；所有具体错误码均以前缀 + '.' + 后缀拼接，避免跨模块冲突。
+    /// </summary>
+    public const string Prefix = "codegen.";
+
+    /// <summary>
     /// 表示请求未通过命名、类型或 CRUD 不变量校验。
     /// </summary>
     public const string InvalidPreviewSchema = "codegen.preview.invalid_schema";
@@ -62,6 +67,12 @@ public sealed record CodeGenerationPreviewRequest(
 /// <summary>
 /// 保存无法从列结构安全推断的实体生命周期、审计、并发与归属能力。
 /// </summary>
+/// <param name="DeleteMode">删除模式稳定机器码，如 soft/hard/none；决定是否生成软删除筛选器。</param>
+/// <param name="HasCreatedAudit">是否记录首次创建审计（创建者、创建时间）。</param>
+/// <param name="HasUpdatedAudit">是否记录最近更新审计（更新者、更新时间）。</param>
+/// <param name="HasDeletedAudit">是否记录软删除审计（删除者、删除时间）。</param>
+/// <param name="HasVersion">是否启用乐观并发 Version 列；启用后所有变更请求必须携带 Version 参数。</param>
+/// <param name="OwnershipMode">归属模式稳定机器码，如 host/tenant/user/none；决定查询时的默认数据范围过滤。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationEntityCapabilitiesRequest(
     string DeleteMode,
@@ -74,6 +85,14 @@ public sealed record CodeGenerationEntityCapabilitiesRequest(
 /// <summary>
 /// 保存跨实体关系两端已经显式确认的语义键、列名与数据作用域。
 /// </summary>
+/// <param name="PrincipalEntityKey">关系主端（一的一方）实体稳定键。</param>
+/// <param name="PrincipalColumnName">主端被引用列名，通常是主键或唯一约束列。</param>
+/// <param name="PrincipalDataScope">主端实体的数据作用域机器码，用于同租户/同归属校验。</param>
+/// <param name="DependentEntityKey">关系从端（多的一方）实体稳定键。</param>
+/// <param name="DependentColumnName">从端外键列名，该列类型必须与主端 PrincipalColumnName 兼容。</param>
+/// <param name="DependentDataScope">从端实体的数据作用域机器码，必须与主端一致或为其子集。</param>
+/// <param name="CompositeKeyColumnNames">复合主键的列名有序列表；当主端使用复合主键时必填。</param>
+/// <param name="CascadeDelete">是否启用级联删除；null 表示保留数据库默认，true 明确启用，false 明确禁用。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationRelationshipRequest(
     string PrincipalEntityKey,
@@ -115,6 +134,16 @@ public sealed record CodeGenerationPreviewColumnRequest(
 /// <summary>
 /// 表示列的展示、表单与查询决策，不得改写物理列名。
 /// </summary>
+/// <param name="ControlKind">UI 控件类型稳定机器码，如 text/textarea/number/date/select/tag/switch 等。</param>
+/// <param name="ShowInList">是否默认出现在列表视图列中。</param>
+/// <param name="IncludeInCreate">是否出现在创建表单中。</param>
+/// <param name="IncludeInUpdate">是否出现在编辑表单中。</param>
+/// <param name="Required">前端提交表单时是否启用必填校验；与数据库 IsNullable 是不同抽象。</param>
+/// <param name="Sortable">列表列是否允许点击排序。</param>
+/// <param name="Queryable">是否出现在高级筛选条件面板中。</param>
+/// <param name="QueryKind">查询比较方式稳定机器码，如 contains/equals/range/multi_select 等。</param>
+/// <param name="Unique">前端表单是否启用异步唯一性校验（结合作用域）。</param>
+/// <param name="IncludeInImportExport">是否参与导入导出模板字段列表。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CodeGenerationPreviewColumnUiRequest(
     string ControlKind,

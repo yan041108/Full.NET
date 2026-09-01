@@ -45,6 +45,10 @@ public sealed record UpdateHostDocumentTagRequest(
     }
 }
 
+/// <summary>
+/// 删除文档标签的请求契约，使用乐观并发 Version 守卫；不允许删除仍被文档引用的标签。
+/// </summary>
+/// <param name="Version">乐观并发版本号，必须等于当前行版本。</param>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DeleteHostDocumentTagRequest(long Version);
 

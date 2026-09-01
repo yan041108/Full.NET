@@ -49,5 +49,9 @@ public sealed class ModuleIntegrationPlan
             items.ToArray());
     }
 
+    /// <summary>
+    /// 获取按 Area 排序的只读接入项集合；每项声明影响区域、保守判定状态、相对路径与人工操作说明。
+    /// 确定性：排序使用 ModuleIntegrationArea 枚举值的数值序，与文化无关；含重复路径立即 FAIL-closed 抛异常。
+    /// </summary>
     public IReadOnlyList<ModuleIntegrationPlanItem> Items { get; }
 }

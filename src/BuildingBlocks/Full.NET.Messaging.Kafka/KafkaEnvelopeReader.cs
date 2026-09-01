@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using Confluent.Kafka;
 using Full.NET.Messaging.Abstractions;
@@ -6,19 +6,29 @@ using Full.NET.Messaging.Abstractions;
 namespace Full.NET.Messaging.Kafka;
 
 /// <summary>
-/// Kafka Envelope header names aligned with Debezium Outbox routing (spec section 6.3).
+/// Kafka 信封头名称，与 Debezium Outbox 路由规范第 6.3 节保持一致。
 /// </summary>
 public static class KafkaEnvelopeHeaderNames
 {
+    /// <summary>事件唯一标识（UUID v7 字符串）。</summary>
     public const string EventId = "event_id";
+    /// <summary>事件 CLR FullName 或等价稳定类型标识。</summary>
     public const string MessageType = "message_type";
+    /// <summary>事件载荷 Schema 版本号（十进制字符串）。</summary>
     public const string SchemaVersion = "schema_version";
+    /// <summary>载荷 Content-Type：如 application/x-memorypack。</summary>
     public const string ContentType = "content_type";
+    /// <summary>租户 Id（UUID D 字符串）；Host 级事件时省略。</summary>
     public const string TenantId = "tenant_id";
+    /// <summary>业务关联 Id；用于链路跨请求串联。</summary>
     public const string CorrelationId = "correlation_id";
+    /// <summary>因果 Id；表示触发本事件的上游事件 MessageId。</summary>
     public const string CausationId = "causation_id";
+    /// <summary>W3C TraceContext traceparent 头；用于分布式追踪关联。</summary>
     public const string TraceParent = "trace_parent";
+    /// <summary>生产者稳定标识；如 host/worker 的逻辑名。</summary>
     public const string Producer = "producer";
+    /// <summary>事件发生时间（UTC，ISO 8601）。</summary>
     public const string OccurredAtUtc = "occurred_at_utc";
 }
 

@@ -7,12 +7,16 @@ namespace Full.NET.Modules.CodeGeneration.Contracts;
 /// </summary>
 public static class CodeGenerationTemplatePermissions
 {
+    /// <summary>读取代码生成模板列表与详情。</summary>
     public const string Read = "codegen.templates.read";
 
+    /// <summary>创建新的代码生成模板。</summary>
     public const string Create = "codegen.templates.create";
 
+    /// <summary>修改现有代码生成模板的名称、描述与 Schema。</summary>
     public const string Update = "codegen.templates.update";
 
+    /// <summary>软删除代码生成模板，不影响已完成的 Run 结果。</summary>
     public const string Delete = "codegen.templates.delete";
 }
 
@@ -21,10 +25,13 @@ public static class CodeGenerationTemplatePermissions
 /// </summary>
 public static class CodeGenerationTemplateErrorCodes
 {
+    /// <summary>模板输入不满足字段或长度边界。</summary>
     public const string Invalid = "codegen.template.invalid";
 
+    /// <summary>模板标识不存在或已被删除。</summary>
     public const string NotFound = "codegen.template.not_found";
 
+    /// <summary>乐观并发版本冲突：模板已被其他请求修改。</summary>
     public const string VersionConflict = "codegen.template.version_conflict";
 }
 

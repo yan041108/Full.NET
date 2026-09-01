@@ -8,6 +8,9 @@ public sealed class DataCommandException(
     Exception innerException)
     : Exception("The data command failed.", innerException)
 {
+    /// <summary>
+    /// 获取当前命令失败的稳定分类；业务层可据此决定幂等恢复、重试或直接抛出 409。
+    /// </summary>
     public DataCommandFailureKind Kind { get; } = kind;
 }
 

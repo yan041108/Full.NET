@@ -7,20 +7,44 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public static class MessagingNames
 {
+    /// <summary>
+    /// MemoryPack 二进制序列化的 Content-Type 标识；当前 Envelope 仅支持此格式。
+    /// </summary>
     public const string ContentTypeMemoryPack = "application/x-memorypack";
 
+    /// <summary>
+    /// Kafka PartitionKey 的 UTF-8 字节数上限；超过会导致 Broker 拒绝写入。
+    /// </summary>
     public const int PartitionKeyMaxUtf8Bytes = 256;
 
+    /// <summary>
+    /// 关联 ID 字符串最大长度；超过会被契约校验拒绝。
+    /// </summary>
     public const int CorrelationIdMaxLength = 128;
 
+    /// <summary>
+    /// 生产者模块标识的最大字符长度。
+    /// </summary>
     public const int ProducerMaxLength = 128;
 
+    /// <summary>
+    /// 稳定事件类型名（四段式）的最大字符长度。
+    /// </summary>
     public const int MessageTypeMaxLength = 256;
 
+    /// <summary>
+    /// W3C TraceParent 头部字符串的最大长度。
+    /// </summary>
     public const int TraceParentMaxLength = 128;
 
+    /// <summary>
+    /// 逻辑 Topic 代码（三段式含版本后缀）的最大字符长度。
+    /// </summary>
     public const int TopicCodeMaxLength = 128;
 
+    /// <summary>
+    /// Kafka Consumer Group 名称的最大字符长度。
+    /// </summary>
     public const int ConsumerNameMaxLength = 128;
 
     /// <summary>

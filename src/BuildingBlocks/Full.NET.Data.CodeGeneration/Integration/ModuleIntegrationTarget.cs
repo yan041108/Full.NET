@@ -21,14 +21,31 @@ public sealed record ModuleClientRouteTarget
         LayuiControllerExport = layuiControllerExport;
     }
 
+    /// <summary>
+    /// 管理端浏览器访问该资源使用的 URL 路径段；必须以 "/" 开头，使用小写 kebab-case，禁止查询参数与哈希。
+    /// 确定性：路径格式由 Create 严格校验；非法输入 FAIL-closed 抛 ArgumentException。
+    /// </summary>
     public string RoutePath { get; }
 
+    /// <summary>
+    /// Vue Router 使用的稳定路由名称；必须是小写 kebab-case 机器码，用于 keep-alive 与路由导航匹配。
+    /// </summary>
     public string VueRouteName { get; }
 
+    /// <summary>
+    /// 生成的 Vue SFC 页面在仓库中的相对路径；必须以 ".vue" 结尾，且已通过 GenerationArtifactPath 可移植性校验。
+    /// </summary>
     public string VueComponentPath { get; }
 
+    /// <summary>
+    /// Layui 管理端使用的 controller 文件相对路径；Layui 未启用时为空。存在时必须以 ".js" 结尾且不得与 Vue 路径重复。
+    /// </summary>
     public string? LayuiControllerPath { get; }
 
+    /// <summary>
+    /// Layui controller 导出的工厂函数名称；必须匹配 "create{Name}Controller" 模式。
+    /// 与 LayuiControllerPath 必须同时提供或同时省略。
+    /// </summary>
     public string? LayuiControllerExport { get; }
 
     /// <summary>
@@ -187,20 +204,51 @@ public sealed record ModuleIntegrationTarget
         AuthorizationContributorPath = authorizationContributorPath;
     }
 
+    /// <summary>
+    /// 模块稳定名称；必须是有效的 C# 标识符，与 FullNetModule.Name 保持一致。
+    /// 用于 CompositionCatalogEditor 生成 AddModule 调用时的类型查找。
+    /// </summary>
     public string ModuleName { get; }
 
+    /// <summary>
+    /// 模块项目 .csproj 的仓库相对路径；必须以 ".csproj" 结尾且通过 GenerationArtifactPath 可移植性校验。
+    /// 用于 CompositionProjectEditor 校验项目引用未漂移。
+    /// </summary>
     public string ModuleProjectPath { get; }
 
+    /// <summary>
+    /// 模块入口点（如 XxxModule.cs）的仓库相对路径；必须以 ".cs" 结尾。
+    /// 用于 ModuleEntryIntegrationEditor 在 AddServices/MapEndpoints 内插入片段。
+    /// </summary>
     public string ModuleEntryPointPath { get; }
 
+    /// <summary>
+    /// Composition 宿主项目 .csproj 的仓库相对路径；必须以 ".csproj" 结尾。
+    /// 用于校验 Composition 是否包含模块项目引用。
+    /// </summary>
     public string CompositionProjectPath { get; }
 
+    /// <summary>
+    /// FullNetModuleCatalog.cs 的仓库相对路径；必须以 ".cs" 结尾。
+    /// 用于 CompositionCatalogEditor 在 CreateAllModules 中追加模块实例化行。
+    /// </summary>
     public string CompositionCatalogPath { get; }
 
+    /// <summary>
+    /// Vue 管理端路由注册文件相对路径；必须以 ".ts" 结尾。
+    /// 用于 ClientRouteIntegrationEditors 在路由表内追加 { path, name, component } 片段。
+    /// </summary>
     public string VueRouterPath { get; }
 
+    /// <summary>
+    /// Layui 管理端路由注册文件相对路径；Layui 未启用时为空。存在时必须以 ".js" 结尾。
+    /// </summary>
     public string? LayuiRouterPath { get; }
 
+    /// <summary>
+    /// 双管理端页面路由目标；包含 URL 路径段、Vue route name、组件路径以及可选的 Layui controller 映射。
+    /// 为空时规划器只接入后端与目录，不生成前端路由片段。
+    /// </summary>
     public ModuleClientRouteTarget? ClientRoute { get; }
 
     /// <summary>可选的目标模块 AuthorizationContributor 路径；缺省时不插入菜单片段。</summary>

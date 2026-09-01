@@ -28,11 +28,18 @@ public static class TenancyTenantManagementPermissions
 }
 
 /// <summary>更新 Host 租户显示名称请求；标识与域名创建后不可变。</summary>
+/// <param name="Name">更新后的租户显示名称。</param>
+/// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record UpdateHostTenantRequest(
     string Name,
     int Version);
 
 /// <summary>为 Host 租户分配或解除套餐绑定；null 表示解除。</summary>
+/// <param name="TenantPackageId">目标套餐标识；<see langword="null"/> 表示解除当前绑定。</param>
+/// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
+/// <remarks>
+/// 最后一名活动租户受系统保护，禁用套餐绑定前须确保至少保留一个可用租户。
+/// </remarks>
 public sealed record AssignHostTenantPackageRequest(
     Guid? TenantPackageId,
     int Version);

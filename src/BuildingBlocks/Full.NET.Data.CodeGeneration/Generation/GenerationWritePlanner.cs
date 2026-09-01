@@ -278,10 +278,18 @@ public static class GenerationWritePlanner
         return validated;
     }
 
+    /// <summary>
+    /// 表示当前磁盘上已有的文件快照；用于在分类动作前对齐相对路径与实际内容，避免双写漂移。
+    /// 确定性哈希校验：ExistingSha256 必须与上次清单摘要一致才能进入 Update/Delete；否则 FAIL-closed 标记为 Conflict。
+    /// </summary>
     private sealed record CurrentFile(
         string RelativePath,
         string Content);
 
+    /// <summary>
+    /// 表示本次生成期望写出的路径与内容；用于从 Generate 外部调用 PlanFromDesiredContents，避免伪造 GeneratedArtifactKind。
+    /// 确定性哈希：DesiredSha256 由 GenerationContentHash 对内容做 SHA-256 计算，与机器文化无关；不一致时 FAIL-closed 拒绝写盘。
+    /// </summary>
     private sealed record DesiredContent(
         string RelativePath,
         string Content);

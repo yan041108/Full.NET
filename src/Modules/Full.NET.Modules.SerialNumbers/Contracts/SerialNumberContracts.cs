@@ -109,16 +109,22 @@ public interface ISerialNumberAllocator
 /// <summary>Host 流水号规则权限。</summary>
 public static class SerialNumberRulePermissions
 {
+    /// <summary>读取流水号规则列表与详情。</summary>
     public const string Read = "serial_numbers.rules.read";
 
+    /// <summary>创建新的流水号规则。</summary>
     public const string Create = "serial_numbers.rules.create";
 
+    /// <summary>修改现有流水号规则的 Pattern、边界与显示顺序。</summary>
     public const string Update = "serial_numbers.rules.update";
 
+    /// <summary>启用流水号规则，允许后续分配取号。</summary>
     public const string Enable = "serial_numbers.rules.enable";
 
+    /// <summary>停用流水号规则，拒绝新的取号请求。</summary>
     public const string Disable = "serial_numbers.rules.disable";
 
+    /// <summary>使用指定模式与序列预览流水号输出结果。</summary>
     public const string Preview = "serial_numbers.rules.preview";
 }
 

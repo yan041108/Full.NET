@@ -9,17 +9,42 @@ namespace Full.NET.Messaging.Abstractions;
 /// </summary>
 public sealed class CdcDeliveryPosition
 {
+    /// <summary>
+    /// MySQL ROW Binlog 提供商标识。
+    /// </summary>
     public const string MySqlProvider = "mysql";
+
+    /// <summary>
+    /// SQL Server CDC 提供商标识。
+    /// </summary>
     public const string SqlServerProvider = "sqlserver";
 
+    /// <summary>
+    /// 提供商标识（MySQL 或 SQL Server）；决定 <see cref="Binlog"/> 或 <see cref="Lsn"/> 哪个字段有效。
+    /// </summary>
     public string Provider { get; init; } = string.Empty;
 
+    /// <summary>
+    /// 位点对应的最后一个事件 ID；用于 Producer Fence 与幂等表交叉校验。
+    /// </summary>
     public Guid? LastEventId { get; init; }
 
+    /// <summary>
+    /// MySQL Binlog 文件与偏移坐标；Provider 为 <see cref="MySqlProvider"/> 时不为 null。
+    /// </summary>
     public MySqlBinlogCoordinates? Binlog { get; init; }
 
+    /// <summary>
+    /// SQL Server CDC 提交 LSN 坐标；Provider 为 <see cref="SqlServerProvider"/> 时不为 null。
+    /// </summary>
     public SqlServerCdcLsnCoordinates? Lsn { get; init; }
 
+    /// <summary>
+    /// 构造 MySQL Binlog 格式的 CDC 位点快照。
+    /// </summary>
+    /// <param name="lastEventId">该位点前最后处理的集成事件 ID。</param>
+    /// <param name="file">Binlog 文件名，如 mysql-bin.000123。</param>
+    /// <param name="position">Binlog 文件内的字节偏移。</param>
     public static CdcDeliveryPosition ForMySql(
         Guid? lastEventId,
         string file,
@@ -31,6 +56,11 @@ public sealed class CdcDeliveryPosition
             Binlog = new MySqlBinlogCoordinates(file, position),
         };
 
+    /// <summary>
+    /// 构造 SQL Server CDC LSN 字符串格式的位点快照。
+    /// </summary>
+    /// <param name="lastEventId">该位点前最后处理的集成事件 ID。</param>
+    /// <param name="commitLsn">三段式十六进制 LSN 字符串。</param>
     public static CdcDeliveryPosition ForSqlServer(
         Guid? lastEventId,
         string commitLsn) =>
@@ -41,6 +71,11 @@ public sealed class CdcDeliveryPosition
             Lsn = new SqlServerCdcLsnCoordinates(commitLsn),
         };
 
+    /// <summary>
+    /// 由 10 字节原始 LSN 字节数组构造 SQL Server CDC 位点快照。
+    /// </summary>
+    /// <param name="lastEventId">该位点前最后处理的集成事件 ID。</param>
+    /// <param name="lsnBytes">长度为 10 的 LSN 原始字节。</param>
     public static CdcDeliveryPosition ForSqlServerBytes(Guid? lastEventId, byte[] lsnBytes) =>
         new()
         {
@@ -49,9 +84,17 @@ public sealed class CdcDeliveryPosition
             Lsn = SqlServerCdcLsnCoordinates.FromBytes(lsnBytes),
         };
 
+    /// <summary>
+    /// 使用源生成 JSON 上下文序列化为兼容形状的字符串。
+    /// </summary>
     public string ToJson() =>
         JsonSerializer.Serialize(this, MessagingJsonSerializerContext.Default.CdcDeliveryPosition);
 
+    /// <summary>
+    /// 尝试从 JSON 字符串反序列化为有效位点；格式非法或字段缺失时返回 false。
+    /// </summary>
+    /// <param name="json">来源字符串。</param>
+    /// <param name="position">解析成功时输出有效位点快照。</param>
     public static bool TryParse(string? json, out CdcDeliveryPosition? position)
     {
         position = null;
@@ -73,6 +116,9 @@ public sealed class CdcDeliveryPosition
         }
     }
 
+    /// <summary>
+    /// 校验 Provider 与对应坐标字段的一致性；构造持久化快照前必须先通过本校验。
+    /// </summary>
     public bool IsValid() =>
         Provider switch
         {
@@ -111,6 +157,9 @@ public sealed class CdcDeliveryPosition
 /// <summary>MySQL ROW Binlog 文件与偏移。</summary>
 public sealed record MySqlBinlogCoordinates(string File, long Position)
 {
+    /// <summary>
+    /// 校验文件名非空且偏移非负。
+    /// </summary>
     public bool IsValid() =>
         !string.IsNullOrWhiteSpace(File) && Position >= 0;
 
@@ -164,8 +213,15 @@ public sealed record MySqlBinlogCoordinates(string File, long Position)
 /// <summary>SQL Server CDC commit LSN。</summary>
 public sealed record SqlServerCdcLsnCoordinates(string CommitLsn)
 {
+    /// <summary>
+    /// 校验 LSN 字符串是否符合三段式十六进制格式。
+    /// </summary>
     public bool IsValid() => TryParseLsn(CommitLsn, out _);
 
+    /// <summary>
+    /// 从 10 字节原始二进制 LSN 转换为三段式十六进制字符串表示。
+    /// </summary>
+    /// <param name="lsnBytes">长度必须为 10 的 LSN 字节数组。</param>
     public static SqlServerCdcLsnCoordinates FromBytes(byte[] lsnBytes)
     {
         ArgumentNullException.ThrowIfNull(lsnBytes);

@@ -29,6 +29,10 @@ public interface IOutboxBacklogReader
     /// <summary>
     /// 读取指定事件流在旧 Outbox 中最后写入的事件边界，用于所有权切换时固定 CDC 起点。
     /// </summary>
+    /// <param name="eventType">规范化事件类型（如 fullnet.organization.unit.changed）。</param>
+    /// <param name="schemaVersion">结构版本正整数。</param>
+    /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <returns>旧 Outbox 中该事件流最后一条事件的 Id 与发生时间；空流时返回 null。</returns>
     Task<OutboxStreamCutoffSnapshot?> ReadLastStreamEventAsync(
         string eventType,
         int schemaVersion,
@@ -82,5 +86,7 @@ public sealed record OutboxVersionRetirementSnapshot(
 
 /// <summary>旧 Outbox 中某一事件流最后写入事件的稳定边界。</summary>
 public sealed record OutboxStreamCutoffSnapshot(
+    /// <summary>旧 Outbox 中该事件流最后一条事件的 UUID v7 标识。</summary>
     Guid EventId,
+    /// <summary>该事件发生的 UTC 时间；用于对齐 CDC 起点时间戳。</summary>
     DateTimeOffset OccurredAtUtc);

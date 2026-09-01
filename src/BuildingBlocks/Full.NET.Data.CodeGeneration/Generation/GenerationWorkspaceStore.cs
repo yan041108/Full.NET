@@ -1532,12 +1532,20 @@ public static class GenerationWorkspaceStore
             relativePath);
     }
 
+    /// <summary>
+    /// 表示已写入临时目录但尚未原子提交的产物；用于清单提交前的复验与失败清理。
+    /// 确定性：临时文件通过 WriteThrough + Flush 落盘后再计算 SHA-256 与期望摘要对齐，FAIL-closed 拒绝摘要漂移。
+    /// </summary>
     private sealed record StagedFile(
         GenerationWriteAction? Action,
         string TargetPath,
         string TemporaryPath,
         bool IsManifest);
 
+    /// <summary>
+    /// 表示已通过同卷 rename 声明空位的待删除产物；用于清单提交异常时按原路径原子恢复。
+    /// 确定性哈希：claim 后立即复验 recovery 内容摘要与 ExistingSha256 一致；不匹配 FAIL-closed 立即安全回滚。
+    /// </summary>
     private sealed record ClaimedDeletion(
         GenerationWriteAction Action,
         string TargetPath,
@@ -1545,16 +1553,31 @@ public static class GenerationWorkspaceStore
         string MetadataPath,
         string CommittedMetadataPath);
 
+    /// <summary>
+    /// 表示删除 recovery 目录中的单个阶段证据条目；用于枚举清理前校验 recovery/metadata 成对完整性。
+    /// FAIL-closed：任何阶段缺失或格式非法均阻塞后续 Capture/Apply，禁止猜测状态自动清理。
+    /// </summary>
     private sealed record DeleteRecoveryEntry(
         string Identifier,
         DeleteRecoveryEntryKind Kind,
         string FullPath);
 
+    /// <summary>
+    /// 标识删除 recovery 证据所处的提交阶段；只有 Recovery + CommittedMetadata 成对才算完整墓碑。
+    /// FAIL-closed：未形成完整墓碑的任何状态都阻塞入口 Capture，禁止继续生成以免 recovery 与清单不一致。
+    /// </summary>
     private enum DeleteRecoveryEntryKind
     {
+        /// <summary>未知或格式不匹配的条目，立即 FAIL-closed 阻塞后续生成流程。</summary>
         Unknown = 0,
+
+        /// <summary>旧产物内容的 recovery 副本，摘要已与 PreviousManifest 校验一致。</summary>
         Recovery = 1,
+
+        /// <summary>pending 阶段的路径元数据；表示删除仅声明空位但清单尚未提交，异常时将自动恢复原路径。</summary>
         PendingMetadata = 2,
+
+        /// <summary>清单提交完成后的 committed 墓碑；recovery 内容保留作人工审计证据，不做物理删除。</summary>
         CommittedMetadata = 3,
     }
 }

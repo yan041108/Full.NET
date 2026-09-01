@@ -20,6 +20,13 @@ public static class TenancyTenantPackagePermissions
 }
 
 /// <summary>租户套餐摘要；编码创建后不可变。</summary>
+/// <param name="Id">套餐稳定标识。</param>
+/// <param name="Code">稳定套餐编码；在 Host 作用域内唯一且创建后不可变。</param>
+/// <param name="Name">套餐显示名称。</param>
+/// <param name="Description">套餐说明文本；可省略。</param>
+/// <param name="IsActive">是否处于活动状态；禁用套餐不可再分配。</param>
+/// <param name="Version">乐观并发版本；写操作须回传以避免覆盖并发变更。</param>
+/// <param name="AssignedTenantCount">当前绑定该套餐的活动租户数量。</param>
 public sealed record TenantPackageSummary(
     Guid Id,
     string Code,
@@ -30,12 +37,18 @@ public sealed record TenantPackageSummary(
     int AssignedTenantCount = 0);
 
 /// <summary>创建 Host 租户套餐请求。</summary>
+/// <param name="Code">稳定套餐编码；须在 Host 作用域内保持唯一。</param>
+/// <param name="Name">套餐显示名称。</param>
+/// <param name="Description">套餐说明文本；可省略。</param>
 public sealed record CreateHostTenantPackageRequest(
     string Code,
     string Name,
     string? Description);
 
 /// <summary>更新 Host 租户套餐显示信息请求。</summary>
+/// <param name="Name">更新后的套餐显示名称。</param>
+/// <param name="Description">更新后的套餐说明文本；可省略。</param>
+/// <param name="Version">调用方看到的当前版本；服务端据此拒绝并发覆盖。</param>
 public sealed record UpdateHostTenantPackageRequest(
     string Name,
     string? Description,

@@ -5,6 +5,7 @@ namespace Full.NET.Realtime.SignalR;
 /// </summary>
 public sealed class RealtimeOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Realtime";
 
     /// <summary>是否启用 SignalR Hub 与发布器；关闭时注入 <see cref="NullRealtimePublisher"/>。</summary>

@@ -5,6 +5,7 @@ namespace Full.NET.Hosting.Forwarding;
 /// </summary>
 public sealed class TrustedProxyOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "TrustedProxy";
 
     /// <summary>

@@ -15,11 +15,15 @@ public enum InboxConsumeStatus
 /// <summary>
 /// <see cref="IIntegrationEventInbox"/> 与 Consumer Dispatcher 的统一消费结果。
 /// </summary>
-public sealed record InboxConsumeResult(InboxConsumeStatus Status)
+public sealed record InboxConsumeResult(
+    /// <summary>当前消费的稳定状态；用于决定是否确认 Broker Offset。</summary>
+    InboxConsumeStatus Status)
 {
+    /// <summary>首次处理完成并已写入 processed 终态。</summary>
     public static InboxConsumeResult Processed { get; } =
         new(InboxConsumeStatus.Processed);
 
+    /// <summary>重复投递，数据库已存在 processed 记录，无需再次执行业务 Handler。</summary>
     public static InboxConsumeResult AlreadyProcessed { get; } =
         new(InboxConsumeStatus.AlreadyProcessed);
 }
@@ -29,12 +33,19 @@ public sealed record InboxConsumeResult(InboxConsumeStatus Status)
 /// </summary>
 public enum InboxClaimStatus
 {
+    /// <summary>当前事务内成功声明处理权，行状态为 processing，需后续 MarkProcessedAsync 闭环。</summary>
     Claimed = 0,
+
+    /// <summary>同 Consumer 已存在 processed 行且 PayloadHash 一致，直接跳过业务执行。</summary>
     AlreadyProcessed = 1,
+
+    /// <summary>同 Consumer 存在已处理行但 PayloadHash 不一致；Dispatcher 会抛出契约冲突异常。</summary>
     PayloadMismatch = 2,
 }
 
 /// <summary>
 /// 当前命令事务内 Inbox 声明结果。
 /// </summary>
-public sealed record InboxClaimResult(InboxClaimStatus Status);
+public sealed record InboxClaimResult(
+    /// <summary>声明结果枚举；Claimed 时必须在同一事务完成业务写与 MarkProcessedAsync。</summary>
+    InboxClaimStatus Status);

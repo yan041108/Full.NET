@@ -8,9 +8,14 @@ namespace Full.NET.Data.CodeGeneration.Integration;
 
 /// <summary>
 /// 表示只存在于系统临时目录中的一个编译源文件。
+/// 确定性：落盘路径使用正斜杠与全小写的 GUID 前缀目录，编译输出不因临时目录位置漂移；内容为空字符串时 FAIL-closed 抛异常，禁止写入空壳文件。
 /// </summary>
+/// <param name="FullPath">临时目录中文件的绝对路径。</param>
+/// <param name="Content">写入临时文件的完整 UTF-8 文本。</param>
 public sealed record ModuleIntegrationProjectedSourceFile(
+    [property: System.ComponentModel.Description("临时目录中文件的绝对路径；由 ModuleIntegrationBuildProjection 在 projectionRoot/generated 下生成。")]
     string FullPath,
+    [property: System.ComponentModel.Description("写入临时文件的完整 UTF-8 文本；包括候选 Catalog、探针入口或替换过的模块入口。")]
     string Content);
 
 /// <summary>

@@ -18,15 +18,19 @@ public enum S3EndpointMode
 /// </summary>
 public sealed class S3FileStorageOptions
 {
+    /// <summary>配置节名称。</summary>
     public const string SectionName = "Files:S3";
 
     /// <summary>凭据环境变量：优先 Files 专用键，其次标准 AWS 键。</summary>
     public const string AccessKeyEnvironmentVariable = "Files__S3__AccessKeyId";
 
+    /// <summary>Secret Access Key 环境变量；同 AccessKey 解析优先级。</summary>
     public const string SecretKeyEnvironmentVariable = "Files__S3__SecretAccessKey";
 
+    /// <summary>临时会话令牌环境变量；仅 Assume Role 等场景需要。</summary>
     public const string SessionTokenEnvironmentVariable = "Files__S3__SessionToken";
 
+    /// <summary>端点模式；AWS 原生或自定义兼容端点（MinIO 等）。</summary>
     public S3EndpointMode EndpointMode { get; set; } = S3EndpointMode.Aws;
 
     /// <summary>自定义端点基址（仅 Custom）；Production 要求 HTTPS 或明确受信内网。</summary>
@@ -35,6 +39,7 @@ public sealed class S3FileStorageOptions
     /// <summary>AWS 区域或自定义端点的签名 Region。</summary>
     public string? Region { get; set; }
 
+    /// <summary>存放文件的 Bucket 名称；生产环境应开启版本控制与服务端加密。</summary>
     public string BucketName { get; set; } = string.Empty;
 
     /// <summary>自定义端点通常需要 path-style；Aws 模式默认 false。</summary>
@@ -43,6 +48,7 @@ public sealed class S3FileStorageOptions
     /// <summary>是否允许非 HTTPS 的 Custom ServiceUrl（仅非 Production 或显式受信内网场景）。</summary>
     public bool AllowInsecureServiceUrl { get; set; }
 
+    /// <summary>单对象上传/下载/删除请求的总超时；大文件分片场景应相应延长。</summary>
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(100);
 }
 
