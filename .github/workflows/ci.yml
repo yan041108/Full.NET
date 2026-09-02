@@ -77,7 +77,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000'
         env:
           OPENAPI_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: pnpm test:openapi:breaking -- --base-ref "$OPENAPI_BASE_REF"
+        run: pnpm test:openapi:breaking --base-ref "$OPENAPI_BASE_REF"
 
       - name: Verify uni-app targets
         run: |

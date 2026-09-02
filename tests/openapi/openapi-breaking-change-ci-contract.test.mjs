@@ -32,6 +32,6 @@ test('package 与 pull request/push main CI 执行 OpenAPI 向后兼容门禁', 
   );
   assert.match(
     clientBuildJob,
-    /name: Verify OpenAPI backward compatibility\s+if: github\.event_name == 'pull_request' \|\| github\.event\.before != '0000000000000000000000000000000000000000'\s+env:\s+OPENAPI_BASE_REF: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.sha \|\| github\.event\.before \}\}\s+run: pnpm test:openapi:breaking -- --base-ref "\$OPENAPI_BASE_REF"/u
+    /name: Verify OpenAPI backward compatibility\s+if: github\.event_name == 'pull_request' \|\| github\.event\.before != '0000000000000000000000000000000000000000'\s+env:\s+OPENAPI_BASE_REF: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.base\.sha \|\| github\.event\.before \}\}\s+run: pnpm test:openapi:breaking --base-ref "\$OPENAPI_BASE_REF"/u
   );
 });
