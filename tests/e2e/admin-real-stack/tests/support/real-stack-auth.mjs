@@ -5,6 +5,21 @@ const password = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const viewerUsername = process.env.FULLNET_E2E_VIEWER_USERNAME ?? 'e2e-viewer';
 const viewerPassword = process.env.FULLNET_E2E_VIEWER_PASSWORD ?? password;
 
+/** 展开 Art 侧栏全部分组，使折叠菜单中的叶子链接进入可点击树。 */
+export async function expandMainNavigation(page) {
+  const navigation = page.getByRole('navigation', { name: '主导航' }).first();
+  await expect(navigation).toBeVisible({ timeout: 15_000 });
+  const subMenus = navigation.locator('.el-sub-menu');
+  const subMenuCount = await subMenus.count();
+  for (let index = 0; index < subMenuCount; index += 1) {
+    const subMenu = subMenus.nth(index);
+    if (!await subMenu.evaluate(element => element.classList.contains('is-opened'))) {
+      await subMenu.locator(':scope > .el-sub-menu__title').click();
+      await expect(subMenu).toHaveClass(/is-opened/);
+    }
+  }
+}
+
 /** 登录 Host 管理员并等待动态导航就绪。 */
 export async function loginAsHostAdmin(page, baseUrl = '/') {
   await page.goto(baseUrl);
@@ -15,6 +30,7 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
   });
+  await expandMainNavigation(page);
 }
 
 /** 登录 Development 受限查看者并等待动态导航就绪。 */
@@ -265,6 +281,7 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
   });
+  await expandMainNavigation(page);
 }
 
 /**
@@ -272,6 +289,7 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
  * 分组菜单默认折叠时叶子 link 不在可点击树中。
  */
 export async function clickMainNavLink(page, linkName, groupTitle) {
+  await expandMainNavigation(page);
   const navigation = page.getByRole('navigation', { name: '主导航' }).first();
   const link = navigation.getByRole('link', { name: linkName });
   if ((await link.count()) === 0 || !(await link.first().isVisible().catch(() => false))) {
@@ -613,10 +631,13 @@ export async function enterTenantAccessToken(request, clientKind, hostAccessToke
 
 /** 登录后进入 Development 种子租户，并等待侧栏上下文名可见。 */
 export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local') {
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /租户上下文/ }).click();
+  await clickMainNavLink(page, /租户上下文/);
   await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
-  await page.getByRole('button', { name: '进入租户' }).click();
+  const tenantRow = page
+    .locator('.tenant-context-view')
+    .locator('tr')
+    .filter({ hasText: tenantName });
+  await tenantRow.getByRole('button', { name: '进入租户' }).click();
   await expectVisibleCurrentContext(page, tenantName);
 }
 
@@ -630,6 +651,7 @@ export async function expectVisibleCurrentContext(page, name) {
       await expect(
         page.getByTestId('shell-tenant-select').getByText(name, { exact: true })
       ).toBeVisible({ timeout: 3_000 });
+      await page.keyboard.press('Escape');
       return;
     }
 

@@ -653,6 +653,14 @@ internal sealed class HostUserManagementService(
                 return Result<HostUserProfileResponse?>.Failure(racedConflict);
             }
 
+            var mappedConflict = HostUserProfileUniqueConstraintMapper.TryMapConflict(
+                exception,
+                normalizedProfile);
+            if (mappedConflict is not null)
+            {
+                return Result<HostUserProfileResponse?>.Failure(mappedConflict);
+            }
+
             throw;
         }
 

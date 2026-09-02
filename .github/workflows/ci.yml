@@ -289,7 +289,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: integration-matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 105
+    timeout-minutes: 130
     strategy:
       fail-fast: false
       matrix:
