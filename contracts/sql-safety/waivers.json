@@ -26,7 +26,7 @@
     {
       "ruleId": "FNSAFETY004",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
-      "line": 395,
+      "line": 394,
       "actual": "RENAME",
       "reason": "UUID Binary16 Contract 在维护窗口内将影子列提升为主列名；受 DestructiveDdlApprovalId 与双库恢复测试门禁。",
       "risk": "维护窗口内列重命名；回滚依赖备份与 008 影子列策略。",
@@ -37,7 +37,7 @@
     {
       "ruleId": "FNSAFETY004",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
-      "line": 420,
+      "line": 419,
       "actual": "RENAME",
       "reason": "UUID Binary16 Contract 第二阶段列重命名；与同文件维护门禁及恢复测试绑定。",
       "risk": "维护窗口内列重命名；回滚依赖备份。",
@@ -48,7 +48,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/009_UuidBinaryContract.sql",
-      "line": 592,
+      "line": 591,
       "actual": "DROP COLUMN",
       "reason": "Contract 删除 char(36) 遗留列；需 DestructiveDdlApprovalId，由 UuidBinaryContract 双库测试覆盖。",
       "risk": "不可逆丢弃遗留文本 UUID 列；发布前须备份验证。",
@@ -59,7 +59,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
-      "line": 302,
+      "line": 301,
       "actual": "DROP COLUMN",
       "reason": "Pre-v1 Naming Contract 退役 Outbox legacy Type 列；维护窗口 + NamingContract 双库测试。",
       "risk": "丢弃 legacy 镜像列；协议别名窗口关闭前不得提前执行。",
@@ -70,7 +70,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
-      "line": 317,
+      "line": 316,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox legacy OccurredAt 列；同上维护窗口。",
       "risk": "丢弃 legacy 时间列。",
@@ -81,7 +81,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
-      "line": 332,
+      "line": 331,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox legacy ProcessedAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -92,7 +92,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
-      "line": 347,
+      "line": 346,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox legacy NextAttemptAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -103,7 +103,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
-      "line": 362,
+      "line": 361,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox legacy LockedUntil 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -114,7 +114,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/011_NamingContract.sql",
-      "line": 376,
+      "line": 375,
       "actual": "DROP TABLE",
       "reason": "退役 legacy fn_tenant_tenant；数据已复制到 fn_tenancy_tenant，由 NamingContract 双库测试覆盖。",
       "risk": "删除 legacy 表；Contract 后不可回读旧表名。",
@@ -125,7 +125,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 207,
+      "line": 252,
       "actual": "DROP COLUMN",
       "reason": "SQL Server Naming Contract 退役 Outbox Type 列。",
       "risk": "丢弃 legacy 镜像列。",
@@ -136,7 +136,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 209,
+      "line": 254,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox OccurredAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -147,7 +147,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 211,
+      "line": 256,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox ProcessedAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -158,7 +158,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 213,
+      "line": 258,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox NextAttemptAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -169,7 +169,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 215,
+      "line": 260,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox LockedUntil 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -180,7 +180,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 218,
+      "line": 263,
       "actual": "DROP TABLE",
       "reason": "退役 legacy fn_tenant_tenant；与 MySQL 011 对称。",
       "risk": "删除 legacy 表。",
@@ -191,7 +191,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/051_CodeGenerationRollback.sql",
-      "line": 41,
+      "line": 40,
       "actual": "DROP COLUMN",
       "reason": "051 重跑时先移除仅由 OperationKind、Status 与 SourceApplyRunId 推导的生成列，再以规范表达式重建，避免异常中间态保留错误的成功回滚唯一键。",
       "risk": "生成列没有独立业务数据；051 双库恢复测试验证重建后原运行记录和成功回滚唯一约束保持有效。",
@@ -202,7 +202,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/093_DocumentAdminNetParity.sql",
-      "line": 441,
+      "line": 411,
       "actual": "DROP COLUMN",
       "reason": "093 将旧 Password 值回填到 PasswordHash 后退役明文兼容列；Migration093DocumentAdminNetParityRecoveryTests 覆盖 MySQL 漂移恢复与值保留。",
       "risk": "旧列删除不可逆；仅在 PasswordHash 已存在并完成空值回填的分支执行，恢复测试验证迁移后值未丢失。",
@@ -213,7 +213,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/093_DocumentAdminNetParity.sql",
-      "line": 299,
+      "line": 722,
       "actual": "DROP COLUMN",
       "reason": "093 将旧 Password 值回填到 PasswordHash 后退役明文兼容列；Migration093DocumentAdminNetParityRecoveryTests 覆盖 SQL Server 漂移恢复与值保留。",
       "risk": "旧列删除不可逆；仅在 PasswordHash 已存在并完成空值回填的分支执行，恢复测试验证迁移后值未丢失。",

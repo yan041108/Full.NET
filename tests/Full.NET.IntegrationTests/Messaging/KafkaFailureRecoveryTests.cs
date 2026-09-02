@@ -106,6 +106,10 @@ public sealed class KafkaFailureRecoveryTests
         Assert.AreEqual(topic, sourceTopic);
     }
 
+    /// <summary>
+    /// 验证死信发布失败时源消息位点不提交，且回退 position 后可重投。
+    /// </summary>
+    /// <returns>表示异步 Kafka 故障恢复验证的任务。</returns>
     [TestMethod]
     public async Task Dead_letter_publish_failure_leaves_source_offset_uncommitted()
     {
@@ -149,9 +153,11 @@ public sealed class KafkaFailureRecoveryTests
 
         // Consume 会推进本地 position；未提交只保证组 offset 未前移，当前实例要立即重试仍需回退。
         consumer.Seek(consumed.TopicPartitionOffset);
-        var redelivered = consumer.Consume(TimeSpan.FromMilliseconds(500));
+        var redelivered = await KafkaTestMessages
+            .ConsumeOneAsync(consumer, TimeSpan.FromSeconds(30))
+            .ConfigureAwait(false);
         Assert.IsNotNull(redelivered);
-        Assert.AreEqual(0x55, redelivered!.Message.Value![0]);
+        Assert.AreEqual(0x55, redelivered.Message.Value![0]);
     }
 
     [TestMethod]

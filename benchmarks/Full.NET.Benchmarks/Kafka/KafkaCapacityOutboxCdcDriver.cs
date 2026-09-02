@@ -109,6 +109,12 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
         serviceProvider.Dispose();
     }
 
+    /// <summary>
+    /// 执行单个 Scope C 样本，并在开始计量前等待 Connector 建立可观测的源位点。
+    /// </summary>
+    /// <param name="context">当前容量样本上下文。</param>
+    /// <param name="cancellationToken">用于取消 Connector 准备、生产与排空的令牌。</param>
+    /// <returns>包含完整性、性能与 CDC 扩展数据的样本证据。</returns>
     private async Task<KafkaCapacitySampleEvidence> ExecuteSampleAsync(
         KafkaCapacitySampleContext context,
         CancellationToken cancellationToken)
@@ -145,35 +151,29 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                 cancellationToken)
                 .ConfigureAwait(false))
         {
-            return new KafkaCapacitySampleEvidence(
-                context.Sample.ScopeCode,
-                context.Sample.SampleId,
-                context.Sample.Scenario,
-                context.Sample.TargetMessagesPerSecond,
-                context.Sample.PayloadSizeBytes,
-                context.TopicIdentity.Partitions,
-                context.Sample.ProducerConcurrency,
-                KafkaCapacitySampleState.Incomplete,
-                tracker.Complete(false),
-                new KafkaCapacityPerformanceEvidence(
-                    0,
-                    0,
-                    0,
-                    scheduleLatency.Snapshot(),
-                    outboxCommitLatency.Snapshot(),
-                    observer.Snapshot().EndToEndLatency,
-                    0,
-                    0,
-                    GC.GetTotalMemory(false),
-                    0),
-                ["connect_not_healthy"],
-                OutboxCdc: new KafkaCapacityOutboxCdcExtensionEvidence(
-                    0,
-                    outboxCommitLatency.Snapshot(),
-                    cdcTracker.CdcToKafkaLatency));
+            return CreateConnectorUnavailableEvidence(
+                context,
+                tracker,
+                scheduleLatency,
+                outboxCommitLatency,
+                cdcTracker,
+                "connect_not_healthy");
         }
 
-        await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+        // RUNNING 只表示 Task 线程已启动；必须等待源位点可读，否则 schema snapshot 仍可锁表并丢失样本起点。
+        if (!await WaitForConnectorPositionAsync(
+                connectorName,
+                TimeSpan.FromSeconds(configuration.Connect.HealthTimeoutSeconds),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return CreateConnectorUnavailableEvidence(
+                context,
+                tracker,
+                scheduleLatency,
+                outboxCommitLatency,
+                cdcTracker,
+                "connect_position_not_ready");
+        }
 
         var consumerConfig = BuildConsumerConfig(context);
         await using var consumerLoop = new KafkaCapacityWorkerConsumerLoop(
@@ -340,6 +340,80 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                     .ToArray(),
             OutboxCdc: extension);
     }
+
+    /// <summary>
+    /// 轮询 Connector 已提交的源位点，作为 snapshot 完成且可安全开始计量的语义门禁。
+    /// </summary>
+    /// <param name="connectorName">当前样本的 Connector 名称。</param>
+    /// <param name="timeout">最长等待时间。</param>
+    /// <param name="cancellationToken">用于取消轮询的令牌。</param>
+    /// <returns>在时限内读到源位点时返回 <see langword="true"/>。</returns>
+    private async Task<bool> WaitForConnectorPositionAsync(
+        string connectorName,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTimeOffset.UtcNow.Add(timeout);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await connectAdmin.TryReadConnectorPositionAsync(
+                    connectorName,
+                    cancellationToken).ConfigureAwait(false) is not null)
+            {
+                return true;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 创建 Connector 未就绪时的统一未完成证据，确保不把空样本误报为性能结果。
+    /// </summary>
+    /// <param name="context">当前样本上下文。</param>
+    /// <param name="tracker">完整性跟踪器。</param>
+    /// <param name="scheduleLatency">调度延迟直方图。</param>
+    /// <param name="outboxCommitLatency">Outbox 提交延迟直方图。</param>
+    /// <param name="cdcTracker">CDC 发布跟踪器。</param>
+    /// <param name="failureCode">稳定失败代码。</param>
+    /// <returns>不含计量样本的未完成证据。</returns>
+    private KafkaCapacitySampleEvidence CreateConnectorUnavailableEvidence(
+        KafkaCapacitySampleContext context,
+        KafkaCapacityIntegrityTracker tracker,
+        KafkaCapacityLatencyHistogram scheduleLatency,
+        KafkaCapacityLatencyHistogram outboxCommitLatency,
+        KafkaCapacityCdcTracker cdcTracker,
+        string failureCode) =>
+        new(
+            context.Sample.ScopeCode,
+            context.Sample.SampleId,
+            context.Sample.Scenario,
+            context.Sample.TargetMessagesPerSecond,
+            context.Sample.PayloadSizeBytes,
+            context.TopicIdentity.Partitions,
+            context.Sample.ProducerConcurrency,
+            KafkaCapacitySampleState.Incomplete,
+            tracker.Complete(false),
+            new KafkaCapacityPerformanceEvidence(
+                0,
+                0,
+                0,
+                scheduleLatency.Snapshot(),
+                outboxCommitLatency.Snapshot(),
+                observer.Snapshot().EndToEndLatency,
+                0,
+                0,
+                GC.GetTotalMemory(false),
+                0),
+            [failureCode],
+            OutboxCdc: new KafkaCapacityOutboxCdcExtensionEvidence(
+                0,
+                outboxCommitLatency.Snapshot(),
+                cdcTracker.CdcToKafkaLatency));
 
     private ConsumerConfig BuildConsumerConfig(KafkaCapacitySampleContext context)
     {

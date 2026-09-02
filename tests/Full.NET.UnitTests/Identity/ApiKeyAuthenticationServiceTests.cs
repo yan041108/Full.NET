@@ -79,10 +79,9 @@ public sealed class ApiKeyAuthenticationServiceTests
             return false;
         }
 
-        var type = parameters.GetType();
-        return Equals(type.GetProperty("LastUsedAtUtc")?.GetValue(parameters), Now)
+        return Equals(ReadSqlParameter<DateTimeOffset>(parameters, "LastUsedAtUtc"), Now)
             && Equals(
-                type.GetProperty("LastUsedBeforeUtc")?.GetValue(parameters),
+                ReadSqlParameter<DateTimeOffset>(parameters, "LastUsedBeforeUtc"),
                 Now.AddMinutes(-5));
     }
 }

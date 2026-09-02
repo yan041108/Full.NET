@@ -329,9 +329,8 @@ public sealed class OrganizationHostUserDirectoryCompositionTests
         {
             if (statement == listStatement && parameters is not null)
             {
-                var parameterType = parameters.GetType();
-                LastPageSize = (int)parameterType.GetProperty("PageSize")!.GetValue(parameters)!;
-                var offset = (int)parameterType.GetProperty("Offset")!.GetValue(parameters)!;
+                LastPageSize = ReadSqlParameter<int>(parameters, "PageSize");
+                var offset = ReadSqlParameter<int>(parameters, "Offset");
                 if (listRows is IReadOnlyList<T> typedRows)
                 {
                     var page = typedRows.Skip(offset).Take(LastPageSize).ToArray();

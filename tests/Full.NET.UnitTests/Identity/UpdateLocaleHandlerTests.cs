@@ -153,8 +153,7 @@ public sealed class UpdateLocaleHandlerTests
             return false;
         }
 
-        var parameterType = parameters.GetType();
-        return Equals(parameterType.GetProperty("SessionId")?.GetValue(parameters), SessionId);
+        return Equals(ReadSqlParameter<Guid>(parameters, "SessionId"), SessionId);
     }
 
     private static RefreshSessionRecord CreateSession(

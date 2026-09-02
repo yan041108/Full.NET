@@ -272,7 +272,7 @@ public sealed class AuditingPagedQueryRoundTripTests
         new(Options.Create(new AuditingQueryOptions()));
 
     private static T ReadParameter<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        ReadSqlParameter<T>(parameters, name);
 
     private sealed class RecordingMultiResultQueryExecutor(
         long total,

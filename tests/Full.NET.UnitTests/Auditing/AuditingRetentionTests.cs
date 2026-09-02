@@ -193,14 +193,10 @@ public sealed class AuditingRetentionTests
             Options.Create(new DatabaseOptions { Provider = provider }));
 
     private static DateTimeOffset ReadCutoff(object parameters) =>
-        (DateTimeOffset)(parameters.GetType().GetProperty("CutoffUtc")
-            ?.GetValue(parameters)
-            ?? throw new InvalidOperationException("CutoffUtc is missing."));
+        ReadSqlParameter<DateTimeOffset>(parameters, "CutoffUtc");
 
     private static Guid[] ReadIds(object parameters) =>
-        (Guid[])(parameters.GetType().GetProperty("Ids")
-            ?.GetValue(parameters)
-            ?? throw new InvalidOperationException("Ids are missing."));
+        ReadSqlParameter<Guid[]>(parameters, "Ids");
 
     private sealed class RecordingQueryExecutor(
         IReadOnlyDictionary<string, Queue<IReadOnlyList<Guid>>>? results = null)

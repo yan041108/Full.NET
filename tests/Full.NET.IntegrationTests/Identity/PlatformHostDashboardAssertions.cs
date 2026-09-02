@@ -1,14 +1,23 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Auditing.Persistence;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
 
 /// <summary>Host 工作台汇总纵向切片验收夹具。</summary>
 internal static class PlatformHostDashboardAssertions
 {
+    /// <summary>
+    /// 验证 Host 工作台的权限、实时汇总与 OpenAPI 契约。
+    /// </summary>
+    /// <param name="factory">待验证的真实测试宿主。</param>
+    /// <param name="cancellationToken">用于取消整个验收流程的令牌。</param>
+    /// <returns>表示异步验收执行的任务。</returns>
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
@@ -17,7 +26,7 @@ internal static class PlatformHostDashboardAssertions
         using var client = factory.CreateClientForHost("localhost");
 
         await VerifyRequiresDashboardPermissionAsync(factory, client, cancellationToken);
-        await VerifySummaryReturnsLiveMetricsAsync(client, cancellationToken);
+        await VerifySummaryReturnsLiveMetricsAsync(factory, client, cancellationToken);
         await OpenApiPlatformHostDashboardContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -39,16 +48,20 @@ internal static class PlatformHostDashboardAssertions
     }
 
     /// <summary>
-    /// 验证工作台能够在访问日志异步落库后返回实时指标与最近活动。
+    /// 验证工作台能够从审计表返回实时汇总指标与最近活动。
     /// </summary>
+    /// <param name="factory">已初始化的真实测试宿主。</param>
     /// <param name="client">已连接真实测试宿主的 HTTP 客户端。</param>
     /// <param name="cancellationToken">用于取消 HTTP 调用与等待的令牌。</param>
     /// <returns>表示异步验证执行的任务。</returns>
     private static async Task VerifySummaryReturnsLiveMetricsAsync(
+        FullNetApiFactory factory,
         HttpClient client,
         CancellationToken cancellationToken)
     {
         var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+
+        await SeedAccessMetricAsync(factory, cancellationToken);
 
         using var probeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         probeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
@@ -88,7 +101,7 @@ internal static class PlatformHostDashboardAssertions
                 break;
             }
 
-            // AccessLog 是有界异步批量写入，轮询权威查询以验证最终可见性，避免依赖固定机器时序。
+            // OperationLog 仍通过微批落库，轮询权威查询避免依赖固定机器时序。
             await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
         }
 
@@ -106,6 +119,35 @@ internal static class PlatformHostDashboardAssertions
                 summary.RecentActivities[index].OccurredAtUtc,
                 summary.RecentActivities[index - 1].OccurredAtUtc);
         }
+    }
+
+    /// <summary>
+    /// 写入一条可预期的访问指标，避免把 B2 结构化 HTTP 日志误当成审计表写入链。
+    /// </summary>
+    /// <param name="factory">已初始化的真实测试宿主。</param>
+    /// <param name="cancellationToken">用于取消数据库写入的令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private static async Task SeedAccessMetricAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var commandExecutor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        await commandExecutor.ExecuteAsync(
+            AccessLogSql.Insert,
+            AuditingSqlParameters.Create(
+                ("Id", Guid.CreateVersion7()),
+                ("OccurredAtUtc", DateTimeOffset.UtcNow),
+                ("HttpMethod", "GET"),
+                ("RequestPath", "/api/v1/me"),
+                ("StatusCode", (int)HttpStatusCode.OK),
+                ("DurationMs", 1),
+                ("UserId", null),
+                ("TenantId", null),
+                ("TraceId", "dashboard-integration-probe"),
+                ("ClientIpFingerprint", null),
+                ("IsAuthenticated", true)),
+            cancellationToken);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

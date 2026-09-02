@@ -181,7 +181,7 @@ public sealed class SuperAdministratorManagementServiceTests
             "unit-test"));
 
     private static T ReadProperty<T>(object value, string propertyName) =>
-        (T)value.GetType().GetProperty(propertyName)!.GetValue(value)!;
+        ReadSqlParameter<T>(value, propertyName);
 
     private sealed class Fixture
     {

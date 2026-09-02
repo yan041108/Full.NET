@@ -161,5 +161,5 @@ public sealed class TenantResolverTests
     }
 
     private static string? ReadDomain(object parameters) =>
-        parameters.GetType().GetProperty("Domain")?.GetValue(parameters) as string;
+        ReadSqlParameter<string?>(parameters, "Domain");
 }

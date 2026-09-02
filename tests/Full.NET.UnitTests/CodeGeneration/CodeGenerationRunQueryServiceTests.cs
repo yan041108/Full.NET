@@ -134,7 +134,7 @@ public sealed class CodeGenerationRunQueryServiceTests
         };
 
     private static T Read<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        ReadSqlParameter<T>(parameters, name);
 
     private sealed class RecordingMultiResultQueryExecutor(
         long total,

@@ -133,6 +133,10 @@ public sealed class KafkaCapacityRunnerTests
         }
     }
 
+    /// <summary>
+    /// 验证真实 Kafka 的低速率与吞吐场景正确，且运行 Topic 在样本结束后保留。
+    /// </summary>
+    /// <returns>表示异步容量验证的任务。</returns>
     [TestMethod]
     [TestCategory("RequiresDocker")]
     public async Task Real_Kafka_low_rate_and_throughput_are_correct_and_topic_is_retained()
@@ -179,7 +183,7 @@ public sealed class KafkaCapacityRunnerTests
                 "--producer-concurrency", "2",
                 "--partitions", "2",
                 "--replication-factor", "1",
-                "--warmup-seconds", "1",
+                "--warmup-seconds", "0",
                 "--duration-seconds", "2",
                 "--drain-seconds", "15",
                 "--max-messages-per-sample", "1000",

@@ -23,6 +23,13 @@ internal static class NativeWorkerE2EAssertions
         "IL2026",
     ];
 
+    /// <summary>
+    /// 验证一次性版本退役扫描在指定数据库提供程序下输出稳定机器协议。
+    /// </summary>
+    /// <param name="provider">待验证的数据库提供程序。</param>
+    /// <param name="connectionString">测试数据库连接字符串。</param>
+    /// <param name="cancellationToken">用于取消数据库准备与进程执行的令牌。</param>
+    /// <returns>表示异步验证执行的任务。</returns>
     public static async Task VerifyVersionRetirementAsync(
         DatabaseProvider provider,
         string connectionString,
@@ -52,9 +59,10 @@ internal static class NativeWorkerE2EAssertions
             0,
             result.ExitCode,
             $"Native Worker 退出失败。日志：{result.LogPath}\n{result.StandardError}");
+        // Worker 使用结构化控制台日志，停机日志也以 JSON 开头；必须按协议字段筛选，不能把最后一条日志误当成命令结果。
         var jsonLine = result.StandardOutput
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-            .LastOrDefault(line => line.TrimStart().StartsWith('{'));
+            .FirstOrDefault(static line => IsVersionRetirementPayload(line));
         Assert.IsNotNull(jsonLine, $"Native Worker 未输出 JSON。日志：{result.LogPath}");
         using var payload = JsonDocument.Parse(jsonLine);
         Assert.AreEqual(
@@ -71,6 +79,29 @@ internal static class NativeWorkerE2EAssertions
             Assert.IsFalse(
                 combinedOutput.Contains(marker, StringComparison.Ordinal),
                 $"Native Worker 日志包含 AOT 致命标记 {marker}：{result.LogPath}");
+        }
+    }
+
+    /// <summary>
+    /// 判断单行 JSON 是否为版本退役命令协议，而不是结构化宿主日志。
+    /// </summary>
+    /// <param name="line">Worker 标准输出中的单行文本。</param>
+    /// <returns>包含稳定 <c>code</c> 字段时返回 <see langword="true"/>。</returns>
+    private static bool IsVersionRetirementPayload(string line)
+    {
+        if (!line.TrimStart().StartsWith('{'))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var candidate = JsonDocument.Parse(line);
+            return candidate.RootElement.TryGetProperty("code", out _);
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

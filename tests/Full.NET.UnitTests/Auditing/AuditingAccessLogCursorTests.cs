@@ -249,7 +249,7 @@ public sealed class AuditingAccessLogCursorTests
         };
 
     private static T ReadParameter<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        ReadSqlParameter<T>(parameters, name);
 
     private static byte[] DecodeBase64Url(string value)
     {

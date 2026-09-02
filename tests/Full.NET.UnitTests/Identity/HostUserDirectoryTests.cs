@@ -62,10 +62,10 @@ public sealed class HostUserDirectoryTests
     }
 
     private static Guid[] ReadUserIds(object parameters) =>
-        (Guid[])parameters.GetType().GetProperty("UserIds")!.GetValue(parameters)!;
+        ReadSqlParameter<Guid[]>(parameters, "UserIds");
 
     private static int ReadIntParameter(object parameters, string propertyName) =>
-        (int)parameters.GetType().GetProperty(propertyName)!.GetValue(parameters)!;
+        ReadSqlParameter<int>(parameters, propertyName);
 
     private sealed class RecordingQueryExecutor(
         IReadOnlyList<HostUserDirectoryRecord> records) : IQueryExecutor

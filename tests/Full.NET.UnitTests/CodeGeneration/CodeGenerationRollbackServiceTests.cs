@@ -724,7 +724,7 @@ public sealed class CodeGenerationRollbackServiceTests
         CreateSucceededApplyRecord(ApplyRunId, Now.AddSeconds(-30));
 
     private static T Read<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        ReadSqlParameter<T>(parameters, name);
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {

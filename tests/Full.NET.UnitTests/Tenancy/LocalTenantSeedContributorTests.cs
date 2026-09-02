@@ -162,5 +162,5 @@ public sealed class LocalTenantSeedContributorTests
         1);
 
     private static string? ReadIdentifier(object parameters) =>
-        parameters.GetType().GetProperty("Identifier")?.GetValue(parameters) as string;
+        ReadSqlParameter<string?>(parameters, "Identifier");
 }

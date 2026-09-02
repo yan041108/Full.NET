@@ -196,7 +196,7 @@ public sealed class FieldProjectionResolverTests
         {
             QueryCount++;
             Assert.AreEqual(IdentitySql.GetUserFieldProjectionGrants, statement);
-            Assert.AreEqual(UserId, parameters?.GetType().GetProperty("UserId")?.GetValue(parameters));
+            Assert.AreEqual(UserId, ReadSqlParameter<Guid>(parameters, "UserId"));
             return Task.FromResult<IReadOnlyList<T>>(rows.Cast<T>().ToArray());
         }
     }

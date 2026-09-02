@@ -385,10 +385,10 @@ public sealed class CodeGenerationTemplateServiceTests
             ]);
 
     private static T ReadParameter<T>(object parameters, string name) =>
-        (T)parameters.GetType().GetProperty(name)!.GetValue(parameters)!;
+        ReadSqlParameter<T>(parameters, name);
 
     private static object? ReadOptionalParameter(object parameters, string name) =>
-        parameters.GetType().GetProperty(name)!.GetValue(parameters);
+        ReadOptionalSqlParameter(parameters, name, out _);
 
     private sealed class RecordingMultiResultQueryExecutor(
         long total,

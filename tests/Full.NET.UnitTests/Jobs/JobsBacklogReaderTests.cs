@@ -102,12 +102,7 @@ public sealed class JobsBacklogReaderTests
             Options.Create(new DatabaseOptions { Provider = provider }));
 
     private static T Parameter<T>(object? parameters, string name) =>
-        (T)(parameters?
-            .GetType()
-            .GetProperty(name)?
-            .GetValue(parameters)
-            ?? throw new InvalidOperationException(
-                $"Parameter '{name}' was not found."));
+        ReadSqlParameter<T>(parameters, name);
 
     private sealed class RecordingQueryExecutor(object row) : IQueryExecutor
     {

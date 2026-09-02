@@ -935,14 +935,8 @@ public sealed class HostFileManagementServiceTests
                 return Task.FromResult(1);
             }
 
-            var sizeProperty = parameters?.GetType().GetProperty("SizeBytes")
-                ?? throw new InvalidOperationException(
-                    "Insert parameters did not contain SizeBytes.");
-            InsertSizeBytes = (long?)sizeProperty.GetValue(parameters);
-            var providerProperty = parameters?.GetType().GetProperty("ProviderKey")
-                ?? throw new InvalidOperationException(
-                    "Insert parameters did not contain ProviderKey.");
-            InsertProviderKey = (string?)providerProperty.GetValue(parameters);
+            InsertSizeBytes = ReadSqlParameter<long>(parameters, "SizeBytes");
+            InsertProviderKey = ReadSqlParameter<string>(parameters, "ProviderKey");
             return Task.FromResult(1);
         }
     }

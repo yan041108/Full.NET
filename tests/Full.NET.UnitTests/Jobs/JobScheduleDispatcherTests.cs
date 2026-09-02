@@ -185,10 +185,7 @@ public sealed class JobScheduleDispatcherTests
         {
             Assert.IsTrue(_transactionActive);
             QueryStatement = statement;
-            ObservedBatchSize = (int?)parameters?
-                .GetType()
-                .GetProperty("BatchSize")
-                ?.GetValue(parameters);
+            ObservedBatchSize = ReadSqlParameter<int>(parameters, "BatchSize");
             return Task.FromResult<IReadOnlyList<T>>(
                 schedules.Cast<T>().ToArray());
         }
@@ -200,13 +197,7 @@ public sealed class JobScheduleDispatcherTests
         {
             Assert.IsTrue(_transactionActive);
             CommandNames.Add(statement.Name);
-            var values = parameters?.GetType()
-                .GetProperties()
-                .ToDictionary(
-                    property => property.Name,
-                    property => property.GetValue(parameters),
-                    StringComparer.Ordinal)
-                ?? [];
+            var values = ReadSqlParameters(parameters);
             if (statement == JobSql.InsertScheduledExecution)
             {
                 ExecutionId = (Guid?)values["Id"];

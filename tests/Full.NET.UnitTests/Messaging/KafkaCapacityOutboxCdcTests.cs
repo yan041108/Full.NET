@@ -200,6 +200,33 @@ public sealed class KafkaCapacityOutboxCdcTests
         Assert.IsFalse(source.Contains(".GetAwaiter()", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// 验证 Scope C 以 Connector 源位点作为计量起点门禁，而不是依赖固定延时。
+    /// </summary>
+    [TestMethod]
+    public void Scope_C_waits_for_connector_position_before_starting_consumer()
+    {
+        var sourcePath = Path.Combine(
+            FindRepositoryRoot(),
+            "benchmarks",
+            "Full.NET.Benchmarks",
+            "Kafka",
+            "KafkaCapacityOutboxCdcDriver.cs");
+        var source = File.ReadAllText(sourcePath);
+        var positionGate = source.IndexOf(
+            "WaitForConnectorPositionAsync(",
+            StringComparison.Ordinal);
+        var consumerStart = source.IndexOf(
+            "BuildConsumerConfig(context)",
+            StringComparison.Ordinal);
+
+        Assert.IsGreaterThanOrEqualTo(0, positionGate);
+        Assert.IsGreaterThan(positionGate, consumerStart);
+        Assert.IsFalse(source.Contains(
+            "Task.Delay(TimeSpan.FromSeconds(2)",
+            StringComparison.Ordinal));
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

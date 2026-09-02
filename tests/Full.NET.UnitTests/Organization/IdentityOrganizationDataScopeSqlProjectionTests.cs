@@ -41,7 +41,7 @@ public sealed class IdentityOrganizationDataScopeSqlProjectionTests
         StringAssert.Contains(subtree.Sql, "WITH primary_unit AS");
         Assert.AreEqual(
             currentUserId,
-            self.Parameters!.GetType().GetProperty("DataScopeUserId")!.GetValue(self.Parameters));
+            ReadSqlParameter<Guid>(self.Parameters, "DataScopeUserId"));
         Assert.ThrowsExactly<ArgumentException>(() =>
             projection.BuildOrganizationUnitFilter(
                 RoleDataScopeKinds.Custom,

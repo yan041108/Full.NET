@@ -426,13 +426,10 @@ public sealed class HostJobScheduleServiceTests
 
         private static Dictionary<string, object?> ParameterValues(
             object? parameters) =>
-            parameters?.GetType()
-                .GetProperties()
-                .ToDictionary(
-                    property => property.Name,
-                    property => property.GetValue(parameters),
-                    StringComparer.Ordinal)
-            ?? [];
+            ReadSqlParameters(parameters).ToDictionary(
+                static pair => pair.Key,
+                static pair => pair.Value,
+                StringComparer.Ordinal);
     }
 
     private sealed class PassThroughTransaction : ICommandTransaction

@@ -158,13 +158,13 @@ public sealed class HostRoleManagementServiceTests
             IdentitySql.RotateSecurityStampsByRole,
             Arg.Is<object>(parameters =>
                 parameters != null
-                && (Guid)parameters.GetType().GetProperty("RoleId")!.GetValue(parameters)! == RoleId),
+                && ReadSqlParameter<Guid>(parameters, "RoleId") == RoleId),
             Arg.Any<CancellationToken>());
         await fixture.Command.Received(1).ExecuteAsync(
             IdentitySql.RevokeSessionsByRole,
             Arg.Is<object>(parameters =>
                 parameters != null
-                && (Guid)parameters.GetType().GetProperty("RoleId")!.GetValue(parameters)! == RoleId),
+                && ReadSqlParameter<Guid>(parameters, "RoleId") == RoleId),
             Arg.Any<CancellationToken>());
     }
 

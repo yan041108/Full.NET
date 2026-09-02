@@ -20,12 +20,9 @@ public sealed class HostFileQueryServiceTests
 
         _ = await service.ListAsync(int.MaxValue, 100);
 
-        var offset = queryExecutor.Parameters!
-            .GetType()
-            .GetProperty("Offset")!
-            .GetValue(queryExecutor.Parameters);
+        var offset = ReadSqlParameter<long>(queryExecutor.Parameters, "Offset");
         Assert.IsInstanceOfType<long>(offset);
-        Assert.AreEqual(((long)int.MaxValue - 1) * 100, (long)offset);
+        Assert.AreEqual(((long)int.MaxValue - 1) * 100, offset);
     }
 
     private sealed class RecordingQueryExecutor : IQueryExecutor
