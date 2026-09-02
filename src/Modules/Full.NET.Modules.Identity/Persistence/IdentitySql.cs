@@ -555,6 +555,9 @@ internal static class IdentitySql
         """,
         SqlDataScope.Global);
 
+    /// <summary>
+    /// 以会话版本和令牌原租户上下文共同执行 CAS 更新，防止并发请求串行落库后旧令牌再次成功切换。
+    /// </summary>
     public static readonly SqlStatement UpdateRefreshSessionContext = new(
         "identity.update_refresh_session_explicit_context",
         """
@@ -564,6 +567,8 @@ internal static class IdentitySql
         WHERE Id = @SessionId
           AND UserId = @UserId
           AND Version = @Version
+          AND (ActiveTenantId = @ExpectedActiveTenantId
+               OR (ActiveTenantId IS NULL AND @ExpectedActiveTenantId IS NULL))
           AND ConsumedAtUtc IS NULL
           AND RevokedAtUtc IS NULL
         """,

@@ -78,6 +78,32 @@ public sealed class IdentitySessionContextServiceTests
         Assert.AreEqual("identity.session_context_conflict", result.Error?.Code);
     }
 
+    /// <summary>验证上下文更新携带令牌中的原租户，以拒绝已被另一请求替换的旧令牌。</summary>
+    [TestMethod]
+    public async Task Change_compares_the_active_tenant_from_the_access_token()
+    {
+        var fixture = new Fixture();
+        RefreshSessionContextUpdate? captured = null;
+        fixture.CommandExecutor.ExecuteAsync(
+                IdentitySql.UpdateRefreshSessionContext,
+                Arg.Do<object?>(value => captured = (RefreshSessionContextUpdate)value!),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        var principal = CreatePrincipal();
+        ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(
+            IdentityClaimTypes.TenantId,
+            TenantId.ToString("D")));
+
+        var result = await fixture.Service.ChangeAsync(principal, null);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(captured);
+        Assert.IsTrue(captured.ExpectedActiveTenantId == TenantId);
+        StringAssert.Contains(
+            IdentitySql.UpdateRefreshSessionContext.Text,
+            "ActiveTenantId = @ExpectedActiveTenantId");
+    }
+
     [TestMethod]
     public async Task Non_host_actor_is_rejected_before_session_access()
     {

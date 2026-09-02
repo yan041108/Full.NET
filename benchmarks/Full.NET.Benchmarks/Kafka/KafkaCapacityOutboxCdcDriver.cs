@@ -119,12 +119,10 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
         KafkaCapacitySampleContext context,
         CancellationToken cancellationToken)
     {
-        observer.BeginPhase(context.RunHash, context.SampleHash);
         var tracker = new KafkaCapacityIntegrityTracker(
             context.MaximumMessages,
             context.TopicIdentity.Partitions);
         var cdcTracker = new KafkaCapacityCdcTracker(context.MaximumMessages);
-        cdcTracker.BeginPhase(context.RunHash, context.SampleHash);
         var scheduleLatency = new KafkaCapacityLatencyHistogram();
         var outboxCommitLatency = new KafkaCapacityLatencyHistogram();
         var failureCodes = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
@@ -174,6 +172,26 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                 cdcTracker,
                 "connect_position_not_ready");
         }
+
+
+        // 控制面 RUNNING 与 offset 只能证明 Source Task 已启动；真实 Outbox 探针必须先穿过 CDC 路由，
+        // 否则正式样本可能落在 schema 初始化与 binlog 流切换之间并被错误判为业务丢失。
+        if (!await WaitForCdcDeliveryAsync(
+                context,
+                TimeSpan.FromSeconds(configuration.Connect.HealthTimeoutSeconds),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return CreateConnectorUnavailableEvidence(
+                context,
+                tracker,
+                scheduleLatency,
+                outboxCommitLatency,
+                cdcTracker,
+                "connect_delivery_not_ready");
+        }
+
+        observer.BeginPhase(context.RunHash, context.SampleHash);
+        cdcTracker.BeginPhase(context.RunHash, context.SampleHash);
 
         var consumerConfig = BuildConsumerConfig(context);
         await using var consumerLoop = new KafkaCapacityWorkerConsumerLoop(
@@ -368,6 +386,81 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                 .ConfigureAwait(false);
         }
 
+        return false;
+    }
+
+    /// <summary>
+    /// 写入隔离的 Outbox 探针并等待 Debezium 将其路由到正式 Topic，确认数据面已真正就绪。
+    /// </summary>
+    /// <param name="context">正式样本上下文，用于派生隔离探针与目标 Topic。</param>
+    /// <param name="timeout">探针从数据库提交到 Kafka 可见的最长等待时间。</param>
+    /// <param name="cancellationToken">用于取消数据库写入和 Kafka 轮询的令牌。</param>
+    /// <returns>在时限内读取到精确探针载荷时返回真。</returns>
+    private async Task<bool> WaitForCdcDeliveryAsync(
+        KafkaCapacitySampleContext context,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var probeContext = context.CreateCdcReadinessProbe();
+        using var consumer = new ConsumerBuilder<string, byte[]>(
+            BuildConsumerConfig(probeContext)).Build();
+        var assignments = Enumerable.Range(0, context.TopicIdentity.Partitions)
+            .Select(partition => new TopicPartitionOffset(
+                context.TopicIdentity.TopicName,
+                new Partition(partition),
+                consumer.QueryWatermarkOffsets(
+                    new TopicPartition(
+                        context.TopicIdentity.TopicName,
+                        new Partition(partition)),
+                    timeout).High))
+            .ToArray();
+        consumer.Assign(assignments);
+
+        // 探针使用独立哈希且正式 Consumer 在探针完成后才读取高水位，因此不会污染吞吐与完整性统计。
+        var probeTimestamp = Stopwatch.GetElapsedTime(
+            0,
+            Stopwatch.GetTimestamp()).Ticks / 10;
+        using (var scope = serviceProvider.CreateScope())
+        {
+            await outboxProducer.WriteCommittedAsync(
+                    scope,
+                    probeContext,
+                    0,
+                    0,
+                    probeTimestamp,
+                    probeTimestamp,
+                    new KafkaCapacityLatencyHistogram(),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var deadline = DateTimeOffset.UtcNow.Add(timeout);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = deadline - DateTimeOffset.UtcNow;
+            var consumed = consumer.Consume(
+                remaining < TimeSpan.FromMilliseconds(250)
+                    ? remaining
+                    : TimeSpan.FromMilliseconds(250));
+            if (consumed?.Message?.Value is null
+                || !KafkaCapacityEnvelopePayloadDecoder.TryDecode(
+                    consumed.Message.Value,
+                    out var envelope))
+            {
+                continue;
+            }
+
+            if (envelope.RunHash == probeContext.RunHash
+                && envelope.SampleHash == probeContext.SampleHash
+                && envelope.GlobalSequence == 0)
+            {
+                consumer.Close();
+                return true;
+            }
+        }
+
+        consumer.Close();
         return false;
     }
 

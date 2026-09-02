@@ -174,6 +174,25 @@ public sealed class KafkaCapacitySampleContext
             MaximumScheduleLatencyMicroseconds);
     }
 
+    /// <summary>
+    /// 创建不计入正式样本的 CDC 就绪探针上下文，并使用独立样本哈希隔离探针载荷。
+    /// </summary>
+    /// <returns>复用当前 Topic、但身份哈希与正式样本不同的探针上下文。</returns>
+    internal KafkaCapacitySampleContext CreateCdcReadinessProbe() =>
+        new(
+            Sample,
+            TopicIdentity,
+            ConsumerGroupId,
+            ProducerClientId,
+            ConsumerClientId,
+            RunHash,
+            SampleHash ^ 0xC3C3_C3C3,
+            TimeSpan.Zero,
+            Duration,
+            DrainTimeout,
+            MaximumMessages,
+            MaximumScheduleLatencyMicroseconds);
+
     private static uint Hash32(string value)
     {
         var bytes = Convert.FromHexString(KafkaCapacityFingerprint.Sha256(value));

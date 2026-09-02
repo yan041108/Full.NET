@@ -201,7 +201,7 @@ public sealed class KafkaCapacityOutboxCdcTests
     }
 
     /// <summary>
-    /// 验证 Scope C 以 Connector 源位点作为计量起点门禁，而不是依赖固定延时。
+    /// 验证 Scope C 在源位点后继续等待真实 CDC 探针，再启动正式 Consumer。
     /// </summary>
     [TestMethod]
     public void Scope_C_waits_for_connector_position_before_starting_consumer()
@@ -216,12 +216,16 @@ public sealed class KafkaCapacityOutboxCdcTests
         var positionGate = source.IndexOf(
             "WaitForConnectorPositionAsync(",
             StringComparison.Ordinal);
+        var deliveryGate = source.IndexOf(
+            "WaitForCdcDeliveryAsync(",
+            StringComparison.Ordinal);
         var consumerStart = source.IndexOf(
             "BuildConsumerConfig(context)",
             StringComparison.Ordinal);
 
         Assert.IsGreaterThanOrEqualTo(0, positionGate);
-        Assert.IsGreaterThan(positionGate, consumerStart);
+        Assert.IsGreaterThan(positionGate, deliveryGate);
+        Assert.IsGreaterThan(deliveryGate, consumerStart);
         Assert.IsFalse(source.Contains(
             "Task.Delay(TimeSpan.FromSeconds(2)",
             StringComparison.Ordinal));

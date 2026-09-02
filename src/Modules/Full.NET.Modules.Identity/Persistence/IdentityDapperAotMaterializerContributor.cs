@@ -482,6 +482,9 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         return parameters;
     }
 
+    /// <summary>绑定刷新会话上下文的并发比较与目标值参数。</summary>
+    /// <param name="update">包含令牌原上下文、目标上下文和会话版本的更新参数。</param>
+    /// <returns>供 Dapper AOT 执行更新语句的固定参数集合。</returns>
     private static DynamicParameters BindRefreshSessionContextUpdate(
         Features.ChangeSessionContext.RefreshSessionContextUpdate update)
     {
@@ -489,6 +492,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("SessionId", update.SessionId);
         parameters.Add("UserId", update.UserId);
         parameters.Add("ActiveTenantId", update.ActiveTenantId);
+        parameters.Add("ExpectedActiveTenantId", update.ExpectedActiveTenantId);
         parameters.Add("Version", update.Version);
         return parameters;
     }

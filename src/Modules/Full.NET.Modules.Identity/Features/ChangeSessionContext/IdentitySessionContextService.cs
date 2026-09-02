@@ -25,13 +25,24 @@ internal sealed class IdentitySessionContextService(
     private const string HostScope = "host";
     private const string SwitchPermission = "tenancy.tenants.switch";
 
+    /// <summary>
+    /// 使用当前 Access Token 所代表的会话上下文执行一次乐观并发切换并签发新令牌。
+    /// </summary>
+    /// <param name="principal">包含会话标识、来源作用域和当前租户上下文的已认证身份。</param>
+    /// <param name="tenant">目标租户；传入空值表示返回 Host 上下文。</param>
+    /// <param name="cancellationToken">用于取消数据库读写的令牌。</param>
+    /// <returns>切换成功时返回新令牌和上下文，状态已变化时返回稳定冲突结果。</returns>
     public async Task<Result<TenantContextTokenResponse>> ChangeAsync(
         ClaimsPrincipal principal,
         VerifiedTenantContext? tenant,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(principal);
-        if (!TryReadIdentity(principal, out var userId, out var sessionId)
+        if (!TryReadIdentity(
+                principal,
+                out var userId,
+                out var sessionId,
+                out var expectedActiveTenantId)
             || !string.Equals(
                 principal.FindFirstValue(IdentityClaimTypes.ActorScope),
                 HostScope,
@@ -64,6 +75,7 @@ internal sealed class IdentitySessionContextService(
                     sessionId,
                     userId,
                     tenant?.Id,
+                    expectedActiveTenantId,
                     record!.SessionVersion),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -165,18 +177,43 @@ internal sealed class IdentitySessionContextService(
             && !record.RevokedAtUtc.HasValue;
     }
 
+    /// <summary>读取并验证上下文切换所需的用户、会话和当前租户 Claim。</summary>
+    /// <param name="principal">待解析的已认证身份。</param>
+    /// <param name="userId">解析得到的用户标识。</param>
+    /// <param name="sessionId">解析得到的刷新会话标识。</param>
+    /// <param name="activeTenantId">令牌代表的当前租户；Host 上下文为空。</param>
+    /// <returns>全部必需 Claim 合法且租户 Claim 为空或为有效 Guid 时返回真。</returns>
     private static bool TryReadIdentity(
         ClaimsPrincipal principal,
         out Guid userId,
-        out Guid sessionId)
+        out Guid sessionId,
+        out Guid? activeTenantId)
     {
         sessionId = Guid.Empty;
-        return Guid.TryParse(
+        activeTenantId = null;
+        if (!Guid.TryParse(
                 principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
                 out userId)
-            && Guid.TryParse(
+            || !Guid.TryParse(
                 principal.FindFirstValue(IdentityClaimTypes.SessionId),
-                out sessionId);
+                out sessionId))
+        {
+            return false;
+        }
+
+        var tenantClaim = principal.FindFirstValue(IdentityClaimTypes.TenantId);
+        if (string.IsNullOrEmpty(tenantClaim))
+        {
+            return true;
+        }
+
+        if (!Guid.TryParse(tenantClaim, out var parsedTenantId))
+        {
+            return false;
+        }
+
+        activeTenantId = parsedTenantId;
+        return true;
     }
 
     private static IdentityUser ToUser(RefreshSessionRecord record) => new(
@@ -213,8 +250,15 @@ internal sealed class IdentitySessionContextService(
             Type: type));
 }
 
+/// <summary>刷新会话上下文的乐观并发更新参数。</summary>
+/// <param name="SessionId">刷新会话标识。</param>
+/// <param name="UserId">会话所属用户标识。</param>
+/// <param name="ActiveTenantId">要写入的新活动租户标识。</param>
+/// <param name="ExpectedActiveTenantId">发起请求的令牌所代表的原活动租户标识。</param>
+/// <param name="Version">读取会话时观察到的并发版本。</param>
 internal sealed record RefreshSessionContextUpdate(
     Guid SessionId,
     Guid UserId,
     Guid? ActiveTenantId,
+    Guid? ExpectedActiveTenantId,
     int Version);
