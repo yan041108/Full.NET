@@ -643,7 +643,7 @@ internal sealed class HostUserManagementService(
         catch (DataCommandException exception)
             when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
-            var racedConflict = await FindProfileConflictAsync(
+            var racedConflict = await ResolveRacedProfileConflictAsync(
                     userId,
                     normalizedProfile,
                     cancellationToken)
@@ -662,6 +662,16 @@ internal sealed class HostUserManagementService(
             }
 
             throw;
+        }
+
+        var postWriteConflict = await FindProfileConflictAsync(
+                userId,
+                normalizedProfile,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (postWriteConflict is not null)
+        {
+            return Result<HostUserProfileResponse?>.Failure(postWriteConflict);
         }
 
         return Result<HostUserProfileResponse?>.Success(
@@ -713,6 +723,36 @@ internal sealed class HostUserManagementService(
                 "Identity document is already assigned to another host user."),
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// 在唯一约束竞态后重试读取冲突行；另一并发写入提交可能存在极短可见性窗口。
+    /// </summary>
+    private async Task<Error?> ResolveRacedProfileConflictAsync(
+        Guid userId,
+        HostUserProfileWriteRequest profile,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var conflict = await FindProfileConflictAsync(
+                    userId,
+                    profile,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (conflict is not null)
+            {
+                return conflict;
+            }
+
+            if (attempt < 2)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        return null;
     }
 
     private static Error ProfileConflict(string code, string message) =>
