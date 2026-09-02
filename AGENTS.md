@@ -28,7 +28,7 @@
 
 ### 完成前
 
-1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。工作区已脏时，开发内循环运行 `pnpm test:inner -- --snapshot <task-id>`（可用 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase inner` 审查影响集），禁止用 `test:e2e:real`、完整 `test:e2e:admin`、`test:integration:full` 或 `messaging-heavy` 代替 inner。纵向功能切片关闭时运行 `pnpm test:slice -- --snapshot <task-id>` 或 `pnpm test:integration:affected -- --snapshot <task-id> --phase slice`，合并候选使用同一快照和 `--phase merge`；干净单窗口任务可把 `--snapshot <task-id>` 替换为 `--base <任务基线>`。本地只运行选择器命中的影响集，完整集合只保留给 `main` CI 的互斥并行分片门禁。细则见 [`rules/development-quality.md`](rules/development-quality.md) R-20260816-local-test-inner-budget。
+1. 必须执行与风险相称的构建、测试和静态检查，并依据新鲜输出报告结果。默认先在本地运行编译、静态检查、治理测试和不依赖容器的直接单元/架构测试；工作区已脏时使用 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，干净单窗口任务可把 `--snapshot <task-id>` 替换为 `--base <任务基线>`。Docker/Testcontainers、SQL Server/MySQL 双库 Integration、Kafka/CDC/Capacity、真实浏览器和 Linux Native AOT 等环境重型验证，取得提交与推送授权后默认交给 GitHub Actions，必须核对目标提交的必需工作流并修复失败；只有定位 CI 失败、GitHub Actions 不可用或用户明确要求时，才在本地运行选择器命中的环境重型影响集。本地禁止用 `test:e2e:real`、完整 `test:e2e:admin`、`test:integration:full` 或 `messaging-heavy` 冒充内循环，完整集合只保留给 `main` CI 的互斥并行分片门禁。细则见 [`rules/development-quality.md`](rules/development-quality.md) R-20260816-local-test-inner-budget 与 R-20260903-github-actions-first-verification。
 2. 只更新被行为、配置、迁移或使用方式真实影响的 README、开发文档和路线图；测试数量只修改 [`eng/testing/test-matrix.json`](eng/testing/test-matrix.json)，禁止在多份文档复制门槛。
 3. 按 [`rules/rule-evolution.md`](rules/rule-evolution.md) 检查是否命中用户纠正、重复失败、高风险新类别或规则冲突；未命中时只在交付中写一行结论，不更新规则候选。
 4. 只有命中 [`rules/skill-evolution.md`](rules/skill-evolution.md) 的真实 Skill 缺口或里程碑集中复盘时才修改 Skill 或候选；普通任务禁止机械累计次数。

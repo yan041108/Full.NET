@@ -86,6 +86,10 @@ test('开发规则必须按开发阶段分层，并把完整集合留给 main CI
   assert.match(rules, /完整集合只保留给 `main` CI/);
   assert.match(rules, /本地任务禁止运行 `test:integration:full`/);
   assert.match(rules, /R-20260816-local-test-inner-budget/);
+  assert.match(rules, /R-20260903-github-actions-first-verification/);
+  assert.match(rules, /环境重型验证必须优先交给 GitHub Actions/);
+  assert.match(rules, /按精确 commit SHA 核对所有必需工作流/);
+  assert.match(rules, /GitHub Actions 不可用时的受影响测试补偿/);
   assert.match(rules, /pnpm test:inner/);
   assert.match(rules, /禁止在 inner 运行 `pnpm test:e2e:real`/);
   assert.match(rules, /只读、已迁移的 schema 模板/);
@@ -109,8 +113,11 @@ test('其它任务窗口使用快照和受影响测试选择器，不复制测�
     assert.match(source, /完整集合只保留给 `main` CI/);
   }
   assert.match(agents, /test:task:start/);
-  assert.match(agents, /pnpm test:inner/);
+  assert.match(agents, /test:integration:affected:plan/);
   assert.match(agents, /R-20260816-local-test-inner-budget/);
+  assert.match(agents, /R-20260903-github-actions-first-verification/);
+  assert.match(agents, /默认交给 GitHub Actions/);
+  assert.match(agents, /核对目标提交的必需工作流/);
 });
 
 test('统一构建后的快速套件必须显式跳过重复构建', async () => {

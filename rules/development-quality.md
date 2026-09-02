@@ -279,11 +279,11 @@
 
 1. 新行为和缺陷修复必须先建立能失败的测试或可复现实验；文档和纯机械变更可用结构化检查代替行为测试。
 2. 至少覆盖成功、验证失败、权限失败、取消、并发、重复请求和依赖故障中与变更相关的路径。
-3. 数据层变更必须运行 SQL Server 与 MySQL 集成测试。Docker 或外部依赖不可用时，必须报告未验证项，禁止静默跳过后宣称通过。
-4. Full.NET 使用 Microsoft Testing Platform；必须通过测试矩阵生成的稳定命令执行套件并保留最低发现数门槛，不能只看到构建成功就认为测试已执行。Integration 验证必须按变更风险分层：本地只运行受影响测试；SQL、事务、租户过滤和迁移变更必须覆盖 SQL Server 与 MySQL；共享基础设施运行对应 Smoke、能力过滤集或专项分片；完整集合只由 `main` CI 并行分片执行。聚焦结果只能表述为聚焦通过，被门槛拒绝、零发现或降低门槛的运行不得作为完成证据。
+3. 数据层变更必须运行 SQL Server 与 MySQL 集成测试。取得提交与推送授权时，双库、Docker/Testcontainers 和其他外部依赖验证默认由 GitHub Actions 执行；GitHub Actions 不可用且本地依赖也不可用时，必须报告未验证项，禁止静默跳过后宣称通过。
+4. Full.NET 使用 Microsoft Testing Platform；必须通过测试矩阵生成的稳定命令执行套件并保留最低发现数门槛，不能只看到构建成功就认为测试已执行。Integration 验证必须按变更风险分层：本地先规划影响集并运行低成本直接测试；SQL、事务、租户过滤和迁移变更必须由 GitHub Actions 或必要的本地聚焦测试覆盖 SQL Server 与 MySQL；共享基础设施运行对应 Smoke、能力过滤集或专项分片；完整集合只由 `main` CI 并行分片执行。聚焦结果只能表述为聚焦通过，被门槛拒绝、零发现或降低门槛的运行不得作为完成证据。
 5. 测试套件、最低发现数、超时和 Integration 分片只维护在 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json)；README、开发指南、CI 与 Skill 只能引用稳定命令或该清单，禁止复制易变数字。增删测试后必须更新清单并运行 `pnpm test:integration:partitions` 与 `pnpm test:governance`；普通门槛变化不得再要求人工追加 `test-threshold-audit` 长文档。
 6. 架构、兼容性和序列化契约必须有专门测试；不能只依赖端到端测试偶然覆盖。
-7. 完成前必须运行 Release 构建、相关测试和 `git diff --check`；报告测试总数、失败数和任何跳过项。
+7. 完成前必须运行 Release 构建、相关测试和 `git diff --check`；已推送的变更还必须核对目标提交的 GitHub Actions 必需工作流。报告测试总数、失败数和任何跳过项，不得用其他提交或过期工作流结果作为当前变更证据。
 8. 验证命令必须在最终代码状态下重新运行，禁止复用变更前的结果作为完成证据。凡测试会扫描或执行构建产物，测试入口必须在同一命令链先生成当前源码的新产物；禁止依赖工作区遗留产物产生假通过。
 
 ### 11.1 Integration 变更风险分层
@@ -303,14 +303,14 @@
 
 | 阶段 | 触发时机 | 默认门禁 |
 | --- | --- | --- |
-| `inner` | 每次代码迭代 | 编译、Unit/Contract/类型检查；Identity、Tenancy、Outbox、缓存、迁移和共享宿主等高风险变更立即运行登记的聚焦 Integration |
-| `slice` | 一个 API＋数据库＋客户端纵向功能切片关闭，最长不超过两个工作日 | 运行该切片全部 affected 双库 Integration 与受影响客户端测试 |
-| `merge` | PR、合并候选或每日功能列车 | 运行 slice 影响集并追加双库 Smoke；默认排除 `messaging-heavy` 分片（Kafka/CDC/Capacity Docker 重测），Messaging 变更在 slice 验证，完整重测由 `main` CI 第五分片承担；需要本地复核重测时使用 `--include-heavy` |
+| `inner` | 每次代码迭代 | 本地编译、静态检查、Unit/Architecture/Contract；先规划高风险 Integration，默认不启动 Docker、完整浏览器或真实栈 |
+| `slice` | 一个 API＋数据库＋客户端纵向功能切片关闭，最长不超过两个工作日 | GitHub Actions 运行该切片全部 affected 双库 Integration 与受影响客户端测试；本地只补充不依赖容器的快速验证或故障复现 |
+| `merge` | PR、合并候选或每日功能列车 | GitHub Actions 运行 slice 影响集并追加双库 Smoke；默认排除 `messaging-heavy` 分片（Kafka/CDC/Capacity Docker 重测），Messaging 变更在 slice 验证，完整重测由 `main` CI 第五分片承担；诊断 CI 失败需要本地复核重测时使用 `--include-heavy` |
 | `main` | 受保护分支 CI | 运行测试矩阵中的完整互斥分片和汇总门禁 |
 
 本地任务禁止运行 `test:integration:full`，只运行从任务边界计算出的受影响测试；共享路径不得自动升级为完整集合。完整集合只保留给 `main` CI。准备发布时以最近一次目标 `main` CI 全量门禁为完整 Integration 证据，本地仍只补跑发布变更的影响集。
 
-本地标准入口为 `pnpm test:inner`、`pnpm test:slice`、`pnpm test:integration:affected:plan` 和 `pnpm test:integration:affected`。`inner` 阶段必须使用 `pnpm test:inner`（或等价的 `test:integration:affected --phase inner`），禁止用 `pnpm test:e2e:real`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy` 代替内循环。`test:e2e:real` 只用于 `Verified` 关闭或真实 CORS/Cookie/Session 缺陷；完整 `test:e2e:admin` 属于 slice/客户端契约关闭，不进入每次代码迭代。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用。完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度，也不得让多个用例共享可变业务数据库。只读 schema 模板克隆到独立数据库、本地 Testcontainers 复用，以及 inner 缩小浏览器套件，属于已批准的加速手段，不在此禁令内。
+本地标准入口为 `pnpm test:integration:affected:plan`；`pnpm test:inner`、`pnpm test:slice` 和 `pnpm test:integration:affected` 仅在影响集不需要环境重型依赖、定位 CI 失败、GitHub Actions 不可用或用户明确要求本地验证时执行。`inner` 禁止用 `pnpm test:e2e:real`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy` 代替内循环。`test:e2e:real` 只用于 `Verified` 关闭或真实 CORS/Cookie/Session 缺陷；完整 `test:e2e:admin` 属于 slice/客户端契约关闭，不进入每次代码迭代。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用。完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度，也不得让多个用例共享可变业务数据库。只读 schema 模板克隆到独立数据库和本地 Testcontainers 复用只用于获准的本地聚焦复现，不能取代目标提交的 GitHub Actions 结果。
 
 代码、SQL、配置或脚本任务开始时必须记录 `git rev-parse HEAD`。工作区已脏或任务跨窗口时必须运行 `pnpm test:task:start -- <task-id>` 创建任务快照；后续通过 `--snapshot <task-id>` 只选择任务开始后真正改变的文件。干净且单窗口任务可继续使用 `--base <任务基线>`。先运行 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，再运行对应 affected 命令。`inner` 阶段聚焦测试与 Smoke 只强制 MySQL Provider，选择器不得用宽子串把迁移恢复或 `messaging-heavy` 卷进 inner；`slice` 与 `merge` 仍要求同场景 SQL Server 与 MySQL。`merge` 默认跳过 `messaging-heavy`；Messaging/Kafka/CDC/Capacity 变更先在 `slice` 验证，必要时追加 `--include-heavy`。选择器排除 `App_Data`、纯 `benchmarks/` 文档式变更等运行时或基准工件，合并多个过滤目标并按 UID 去重；已在测试矩阵登记恢复集的迁移运行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块，迁移 Runner 或共享夹具也运行 migrations 分片。不得通过遗漏路径、改写边界或手工缩小 `--filter` 规避受影响测试。
 
@@ -327,9 +327,19 @@
 - 来源：项目所有者明确要求加快测试与开发速度，并授权修改测试规则；代理在 Document 等切片中把 `test:e2e:real`、完整 Playwright 和双库 Integration 当作每次迭代门禁，导致内循环数十分钟
 - 适用范围：本地开发、修复、重构和代理自动验证；不降低 `main` CI 全量分片或 `Verified` 真实栈门槛
 - 风险：每次改几行代码都启动完整浏览器、真实 Migrator/API/Worker 或 585 项 Integration，开发反馈被拖垮，同时把 inner 通过误报为 slice/`Verified`
-- 规则：`inner` 必须使用 `pnpm test:inner`（审查影响集时用 `pnpm test:integration:affected:plan -- --phase inner`）。禁止在 inner 运行 `pnpm test:e2e:real`、`pnpm test:e2e:real:mysql`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy`。inner 的 Smoke 与聚焦 Integration 必须附加 `FullyQualifiedName~MySql`，禁止再跑同场景 SQL Server。Identity/Tenancy/Outbox/CodeGeneration 过滤器必须限定到对应 API/模块测试命名空间，禁止用 `~Identity`、`~Outbox` 这类会命中迁移恢复或 CDC 重测的宽子串。`slice` 使用 `pnpm test:slice` 或 `test:integration:affected --phase slice`，覆盖该纵向切片的双库 Integration 与受影响客户端测试。`test:e2e:real` 只用于功能 `Verified` 关闭，或修复真实 CORS、Cookie、CSRF、Session 与跨 Origin 凭据问题。每个 API Integration 用例仍必须使用独立数据库；允许把只读、已迁移的 schema 模板（不含租户/管理员/导航业务行）克隆到这些独立库，每个用例仍必须自行执行供给与引导。禁止多个用例共享同一可变业务库。本地默认复用 Testcontainers 容器；CI 必须销毁。设置 `FULLNET_TESTCONTAINERS_REUSE=0` 或 `FULLNET_API_SCHEMA_TEMPLATE=0` 可关闭对应加速
+- 规则：先用 `pnpm test:integration:affected:plan -- --phase inner` 审查影响集；确需本地执行 inner Integration 时使用 `pnpm test:inner`。禁止在 inner 运行 `pnpm test:e2e:real`、`pnpm test:e2e:real:mysql`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy`。本地 inner 的 Smoke 与聚焦 Integration 必须附加 `FullyQualifiedName~MySql`，禁止再跑同场景 SQL Server。Identity/Tenancy/Outbox/CodeGeneration 过滤器必须限定到对应 API/模块测试命名空间，禁止用 `~Identity`、`~Outbox` 这类会命中迁移恢复或 CDC 重测的宽子串。确需本地关闭 slice 时使用 `pnpm test:slice` 或 `test:integration:affected --phase slice`，覆盖该纵向切片的双库 Integration 与受影响客户端测试。`test:e2e:real` 只用于功能 `Verified` 关闭，或修复真实 CORS、Cookie、CSRF、Session 与跨 Origin 凭据问题。每个 API Integration 用例仍必须使用独立数据库；允许把只读、已迁移的 schema 模板（不含租户/管理员/导航业务行）克隆到这些独立库，每个用例仍必须自行执行供给与引导。禁止多个用例共享同一可变业务库。本地聚焦复现可以复用 Testcontainers 容器；CI 必须销毁。设置 `FULLNET_TESTCONTAINERS_REUSE=0` 或 `FULLNET_API_SCHEMA_TEMPLATE=0` 可关闭对应加速
 - 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定 `test:inner`/`test:slice`、inner 禁令和模板克隆/复用入口；`pnpm test:governance` 与 `pnpm test:integration:tooling` 必须通过
 - 例外：用户在当前任务中明确要求运行真实栈或完整浏览器套件时可以执行，但不得把该结果写成 inner 完成证据
+
+### R-20260903-github-actions-first-verification：环境重型验证默认由 GitHub Actions 执行
+
+- 状态：强制
+- 来源：项目所有者明确要求后续测试尽可能使用 GitHub Actions，并授权更新项目规则
+- 适用范围：所有代码、SQL、配置、脚本和发布候选验证；不改变测试矩阵、双库、Native AOT、真实栈或最低发现数门槛
+- 风险：在开发机重复启动 Docker、双数据库、Kafka/CDC、完整浏览器和 Linux Native AOT 会显著拖慢反馈并产生环境差异；反向地，只推送而不核对目标提交工作流又会把“已触发”误报为“已验证”
+- 规则：本地默认执行影响集规划、编译、静态检查、治理测试以及不依赖容器的直接 Unit/Architecture/Contract 测试。取得提交与推送授权后，Docker/Testcontainers、SQL Server/MySQL 双库 Integration、Kafka/CDC/Capacity、真实浏览器、Linux Native AOT publish/原生进程等环境重型验证必须优先交给 GitHub Actions；代理必须按精确 commit SHA 核对所有必需工作流，等待终态并修复失败，不能引用其他提交、被取消运行或仅“已触发”的状态作为完成证据。本地环境重型测试只用于定位 CI 失败、GitHub Actions 不可用时的受影响测试补偿，或用户明确要求；仍禁止本地完整 Integration、完整真实浏览器或 `messaging-heavy` 全量。远端执行不得降低发现数、删减双库、忽略退出码、把失败改成跳过，或通过 `continue-on-error` 绕过门禁
+- 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定 GitHub Actions 优先、目标提交核验和本地环境重型测试例外；`pnpm test:governance` 必须通过。代码任务交付记录必须列出目标提交及其必需工作流终态
+- 例外：任务没有提交或推送授权时不得擅自外部写入；应运行可用的本地快速验证，并把尚未获得目标提交 GitHub Actions 证据列为未验证项。GitHub Actions 故障或额度不可用时，可在本地运行选择器命中的环境重型影响集，但不得把局部结果表述为完整 CI 通过
 
 ## 12. 文档、依赖与发布许可
 
