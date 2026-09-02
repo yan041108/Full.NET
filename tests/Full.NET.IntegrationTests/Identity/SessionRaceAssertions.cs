@@ -21,7 +21,8 @@ internal static class SessionRaceAssertions
         CancellationToken cancellationToken = default)
     {
         await factory.InitializeAsync(cancellationToken);
-        using var client = factory.CreateClientForHost("localhost");
+        // 并发会话测试必须固定使用请求中显式携带的 Cookie，避免首个响应更新 Cookie 容器后把第二次请求变成合法的串行轮换。
+        using var client = factory.CreateClientForHost("localhost", handleCookies: false);
 
         await VerifyConcurrentRefreshAsync(client, cancellationToken);
         await VerifyConcurrentContextSwitchAsync(factory, client, cancellationToken);

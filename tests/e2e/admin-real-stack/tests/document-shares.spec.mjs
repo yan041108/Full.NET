@@ -34,7 +34,7 @@ test('Host 管理员可创建分享并在禁用后拒绝匿名访问', async ({ 
   await navigation.getByRole('link', { name: /文档分享/ }).click();
   await expect(page.getByRole('heading', { name: '文档分享', exact: true })).toBeVisible();
 
-  const row = page.locator('.art-data-row').filter({ hasText: share.shareCode });
+  const row = page.locator('.el-table__row').filter({ hasText: share.shareCode });
   await expect(row).toBeVisible();
   await row.getByTestId('document-share-toggle').click();
   await expect(page.getByText('分享状态已更新')).toBeVisible({ timeout: 15_000 });
@@ -57,5 +57,5 @@ test('Host 管理员可通过 UI 创建分享', async ({ page, request }, testIn
   await page.getByTestId('document-share-editor-form').locator('input').first().fill(document.id);
   await page.getByTestId('document-share-editor-submit').click();
   await expect(page.getByText('分享已创建')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('.art-data-row').filter({ hasText: document.id })).toBeVisible();
+  await expect(page.locator('.el-table__row').filter({ hasText: document.id })).toBeVisible();
 });

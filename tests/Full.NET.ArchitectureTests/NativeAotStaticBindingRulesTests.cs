@@ -427,7 +427,10 @@ public sealed class NativeAotStaticBindingRulesTests
     }
 
     [TestMethod]
-    public void DapperNativeAotScalarReader_SupportsNullableScalars()
+    /// <summary>
+    /// 验证 Native AOT 标量读取器同时闭包可空类型与跨数据库时间类型转换。
+    /// </summary>
+    public void DapperNativeAotScalarReader_SupportsNullableAndDateTimeOffsetScalars()
     {
         var root = ArchitectureRepositoryRoot.Find();
         var source = File.ReadAllText(Path.Combine(
@@ -439,6 +442,10 @@ public sealed class NativeAotStaticBindingRulesTests
 
         StringAssert.Contains(source, "Nullable.GetUnderlyingType(type) ?? type");
         StringAssert.Contains(source, "Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)");
+        StringAssert.Contains(source, "scalarType == typeof(DateTimeOffset)");
+        StringAssert.Contains(
+            source,
+            "AotDataReaderExtensions.ReadDateTimeOffset(reader, ordinal)");
     }
 
     [TestMethod]

@@ -49,8 +49,8 @@ const menuPopperClass = computed(() =>
       v-if="showBrand"
       class="art-sidebar__brand"
       to="/"
-      :aria-label="brandTitle"
-      :title="systemName"
+      :aria-label="systemName"
+      :title="brandTitle"
     >
       <span class="art-sidebar__logo" aria-hidden="true">F</span>
       <p v-show="!menuCollapsed">{{ systemName }}</p>

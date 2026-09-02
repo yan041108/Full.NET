@@ -11,6 +11,11 @@ namespace Full.NET.Data.Dapper;
 /// </summary>
 internal static class DapperAotSqlExecution
 {
+    /// <summary>
+    /// 判断查询结果类型能否直接从首列完成 Native AOT 标量物化。
+    /// </summary>
+    /// <param name="type">待判断的结果类型，允许为可空值类型。</param>
+    /// <returns>可按标量物化时返回 <see langword="true"/>。</returns>
     public static bool IsScalarType(Type type)
     {
         var scalarType = Nullable.GetUnderlyingType(type) ?? type;
@@ -23,7 +28,8 @@ internal static class DapperAotSqlExecution
             || scalarType == typeof(double)
             || scalarType == typeof(float)
             || scalarType == typeof(short)
-            || scalarType == typeof(byte);
+            || scalarType == typeof(byte)
+            || scalarType == typeof(DateTimeOffset);
     }
 
     public static async Task<T?> QuerySingleOrDefaultAsync<T>(
@@ -305,6 +311,13 @@ internal static class DapperAotSqlExecution
         }
     }
 
+    /// <summary>
+    /// 从指定列读取 Native AOT 标量，并兼容数据库提供程序的时间类型差异。
+    /// </summary>
+    /// <typeparam name="T">目标标量类型。</typeparam>
+    /// <param name="reader">当前数据读取器。</param>
+    /// <param name="ordinal">待读取列的序号。</param>
+    /// <returns>转换后的标量；数据库值为 NULL 时返回目标类型默认值。</returns>
     private static T ReadScalar<T>(DbDataReader reader, int ordinal)
     {
         if (reader.IsDBNull(ordinal))
@@ -319,6 +332,12 @@ internal static class DapperAotSqlExecution
         }
 
         var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        if (targetType == typeof(DateTimeOffset))
+        {
+            // SQL Server 返回 DateTimeOffset，MySQL DATETIME 返回 DateTime；统一按 UTC 物化后再交给泛型调用方。
+            return (T)(object)AotDataReaderExtensions.ReadDateTimeOffset(reader, ordinal);
+        }
+
         return (T)Convert.ChangeType(value, targetType);
     }
 

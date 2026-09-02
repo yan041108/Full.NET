@@ -31,7 +31,9 @@ test('Host 管理员可从真实 API 加载公告列表', async ({ page }, testI
   await expect(
     announcementsView.getByRole('heading', { name: '公告管理', exact: true })
   ).toBeVisible();
-  await expect(announcementsView.getByRole('heading', { name: '公告列表' })).toBeVisible();
+  await expect(
+    announcementsView.getByRole('columnheader', { name: '标题', exact: true })
+  ).toBeVisible();
 });
 
 test('受限 Host 账号访问公告 API 被拒绝且导航裁剪', async ({

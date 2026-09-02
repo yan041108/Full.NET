@@ -28,8 +28,15 @@ test('Host 管理员可从真实 API 加载访问日志', async ({ page }, testI
     : page.locator('.access-logs-view');
 
   await expect(accessLogsView.getByRole('heading', { name: '访问日志', exact: true })).toBeVisible();
-  await expect(accessLogsView.getByText('/api/', { exact: false }).first()).toBeVisible({
-    timeout: 15_000
+  // 访问日志属于有界异步写入；页面需重新取数，不能只等待首次空快照自行变化。
+  await expect(async () => {
+    await page.reload();
+    await expect(accessLogsView.getByText('/api/', { exact: false }).first()).toBeVisible({
+      timeout: 1_000
+    });
+  }).toPass({
+    timeout: 15_000,
+    intervals: [250, 500, 1_000]
   });
 });
 

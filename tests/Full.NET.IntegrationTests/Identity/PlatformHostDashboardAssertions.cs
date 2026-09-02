@@ -38,6 +38,12 @@ internal static class PlatformHostDashboardAssertions
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    /// <summary>
+    /// 验证工作台能够在访问日志异步落库后返回实时指标与最近活动。
+    /// </summary>
+    /// <param name="client">已连接真实测试宿主的 HTTP 客户端。</param>
+    /// <param name="cancellationToken">用于取消 HTTP 调用与等待的令牌。</param>
+    /// <returns>表示异步验证执行的任务。</returns>
     private static async Task VerifySummaryReturnsLiveMetricsAsync(
         HttpClient client,
         CancellationToken cancellationToken)
@@ -63,16 +69,29 @@ internal static class PlatformHostDashboardAssertions
             Assert.AreEqual(HttpStatusCode.NotFound, activityResponse.StatusCode);
         }
 
-        using var summaryRequest = new HttpRequestMessage(
-            HttpMethod.Get,
-            "/api/v1/platform/host-dashboard-summary");
-        summaryRequest.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            adminToken);
-        using var summaryResponse = await client.SendAsync(summaryRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, summaryResponse.StatusCode);
-        var summary = await summaryResponse.Content.ReadFromJsonAsync<HostDashboardSummaryResponse>(
-            cancellationToken);
+        HostDashboardSummaryResponse? summary = null;
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            using var summaryRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                "/api/v1/platform/host-dashboard-summary");
+            summaryRequest.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                adminToken);
+            using var summaryResponse = await client.SendAsync(summaryRequest, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, summaryResponse.StatusCode);
+            summary = await summaryResponse.Content.ReadFromJsonAsync<HostDashboardSummaryResponse>(
+                cancellationToken);
+            Assert.IsNotNull(summary);
+            if (summary.TodayRequestCount >= 1)
+            {
+                break;
+            }
+
+            // AccessLog 是有界异步批量写入，轮询权威查询以验证最终可见性，避免依赖固定机器时序。
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+        }
+
         Assert.IsNotNull(summary);
         Assert.IsTrue(summary.ActiveTenantCount >= 0);
         Assert.IsTrue(summary.OnlineSessionCount >= 1);

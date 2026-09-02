@@ -37,7 +37,7 @@ test('Host 管理员可创建文档并绑定新版本', async ({ page }, testInf
   await view.getByTestId('host-document-item-create').click();
   await expect(view.getByText(title, { exact: true })).toBeVisible();
 
-  const row = view.locator('.art-data-row').filter({ hasText: title });
+  const row = view.locator('.el-table__row').filter({ hasText: title });
   await row.getByTestId('host-document-item-version-file').setInputFiles({
     name: `${title}.txt`,
     mimeType: 'text/plain',

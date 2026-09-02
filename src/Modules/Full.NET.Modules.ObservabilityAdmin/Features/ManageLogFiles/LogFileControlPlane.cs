@@ -296,6 +296,12 @@ public sealed partial class LogFileControlPlane
         }
     }
 
+    /// <summary>
+    /// 在不跟随链接的前提下打开受信日志文件，并再次核验最终路径仍位于允许目录。
+    /// </summary>
+    /// <param name="path">待打开的日志文件绝对路径。</param>
+    /// <param name="allowedRootPath">允许访问的规范化日志根目录。</param>
+    /// <returns>验证通过的只读文件流；文件不安全或平台不受支持时返回 <see langword="null"/>。</returns>
     private static FileStream? OpenReadWithoutFollowingLinks(string path, string allowedRootPath)
     {
         SafeFileHandle handle;
@@ -366,7 +372,13 @@ public sealed partial class LogFileControlPlane
                 return null;
             }
 
-            return new FileStream(handle, FileAccess.Read, 64 * 1024, isAsync: true);
+            // Windows 句柄显式带 FILE_FLAG_OVERLAPPED；Linux open() 返回同步句柄，必须让 FileStream
+            // 使用同步句柄模式，再由 ReadAsync 安全回退，否则 .NET 会在构造阶段拒绝该句柄。
+            return new FileStream(
+                handle,
+                FileAccess.Read,
+                64 * 1024,
+                isAsync: OperatingSystem.IsWindows());
         }
         catch
         {

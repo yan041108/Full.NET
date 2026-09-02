@@ -79,6 +79,8 @@ assert.deepEqual(packageDefinition.pnpm.overrides, {
   '@dcloudio/uni-mp-weixin>ws': '8.21.0',
   '@dcloudio/uni-cli-shared>adm-zip': '0.6.0',
   '@dcloudio/uni-nvue-styler>postcss': '8.5.19',
+  browserslist: '4.28.8',
+  nanoid: '3.3.18',
   'express@4.20.0>path-to-regexp': '0.1.13',
   undici: '7.29.0',
   'brace-expansion': '2.1.4'

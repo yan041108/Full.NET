@@ -245,12 +245,19 @@ internal sealed class FullNetApiFactory(
         }
     }
 
-    public HttpClient CreateClientForHost(string host)
+    /// <summary>
+    /// 创建指向指定主机名的测试客户端，并按场景决定是否维护响应 Cookie。
+    /// </summary>
+    /// <param name="host">写入请求 Host 头的主机名。</param>
+    /// <param name="handleCookies">是否让测试客户端自动保存并附加响应 Cookie。</param>
+    /// <returns>已设置基础地址与 Host 头的测试客户端。</returns>
+    public HttpClient CreateClientForHost(string host, bool handleCookies = true)
     {
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
-            BaseAddress = new Uri("http://localhost")
+            BaseAddress = new Uri("http://localhost"),
+            HandleCookies = handleCookies,
         });
         client.DefaultRequestHeaders.Host = host;
         return client;

@@ -69,7 +69,7 @@ async function discover(filter) {
 }
 
 async function runCli() {
-  const fullTests = await discover();
+  const fullTests = await discover(shards.full.filter);
   if (fullTests.length !== shards.full.minimum) {
     throw new Error(
       `全量发现 ${fullTests.length} 项，与 canonical ${shards.full.minimum} 不一致。`
