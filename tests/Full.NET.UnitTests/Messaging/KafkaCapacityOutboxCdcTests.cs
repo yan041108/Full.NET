@@ -2,6 +2,7 @@ using Full.NET.Benchmarks.Kafka;
 using Full.NET.Data.Abstractions;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
+using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
@@ -61,6 +62,11 @@ public sealed class KafkaCapacityOutboxCdcTests
         Assert.IsFalse(
             scope.ServiceProvider.GetServices<IEventStreamOwnershipGate>()
                 .Any(gate => gate.GetType().Name.Contains("Permissive", StringComparison.Ordinal)));
+        Assert.AreEqual(
+            "EffectiveEventDeliveryOwnerResolver",
+            scope.ServiceProvider.GetRequiredService<IEffectiveEventDeliveryOwnerResolver>()
+                .GetType()
+                .Name);
         await provider.DisposeAsync();
     }
 
@@ -162,6 +168,49 @@ public sealed class KafkaCapacityOutboxCdcTests
         var wrapped = JsonSerializer.SerializeToUtf8Bytes(payload);
         Assert.IsTrue(
             KafkaCapacityEnvelopePayloadDecoder.TryDecode(wrapped, out var envelope));
+        Assert.AreEqual(42, envelope.GlobalSequence);
+        Assert.AreEqual(runHash, envelope.RunHash);
+    }
+
+    [TestMethod]
+    public void Envelope_payload_decoder_reads_production_memorypack_byte_array_wrapper()
+    {
+        const uint runHash = 0xA1B2C3D4;
+        const uint sampleHash = 0x11223344;
+        var payload = KafkaCapacityEnvelopeCodec.Encode(
+            128,
+            runHash,
+            sampleHash,
+            42,
+            7,
+            1000,
+            2000);
+        var wrapped = new MemoryPackIntegrationEventSerializer().Serialize(payload);
+
+        Assert.IsTrue(
+            KafkaCapacityEnvelopePayloadDecoder.TryDecode(wrapped, out var envelope));
+        Assert.AreEqual(42, envelope.GlobalSequence);
+        Assert.AreEqual(runHash, envelope.RunHash);
+    }
+
+    [TestMethod]
+    public void Envelope_payload_decoder_reads_connect_json_around_production_memorypack_wrapper()
+    {
+        const uint runHash = 0xA1B2C3D4;
+        const uint sampleHash = 0x11223344;
+        var payload = KafkaCapacityEnvelopeCodec.Encode(
+            128,
+            runHash,
+            sampleHash,
+            42,
+            7,
+            1000,
+            2000);
+        var memoryPackWrapped = new MemoryPackIntegrationEventSerializer().Serialize(payload);
+        var connectWrapped = JsonSerializer.SerializeToUtf8Bytes(memoryPackWrapped);
+
+        Assert.IsTrue(
+            KafkaCapacityEnvelopePayloadDecoder.TryDecode(connectWrapped, out var envelope));
         Assert.AreEqual(42, envelope.GlobalSequence);
         Assert.AreEqual(runHash, envelope.RunHash);
     }

@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Auditing\Full.NET.Modules.Auditing.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Jobs\Full.NET.Modules.Jobs.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Messaging\Full.NET.Modules.Messaging.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -8,6 +8,7 @@ using Full.NET.Data.Dapper.Outbox;
 using Full.NET.Messaging.Abstractions;
 using Full.NET.Messaging.Kafka;
 using Full.NET.Modularity.Messaging;
+using Full.NET.Modules.Messaging;
 using Full.NET.Serialization.MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -136,9 +137,13 @@ public static class KafkaCapacityServiceFactory
             return;
         }
 
-        // WorkerParity：移除 Fast 专用 serializer/ownership override，保留 AddFullNetDapper 默认门控。
+        // WorkerParity 必须复用生产 Worker 的持久化所有权解析器；仅保留 Dapper 默认解析器会把
+        // 已切流到 CDC 的事件错误写入旧 Outbox，使 Debezium 永远看不到容量探针。
         services.RemoveAll<IIntegrationEventSerializer>();
         services.AddFullNetMemoryPack();
+        new MessagingModule().AddBackgroundServices(
+            services,
+            new ConfigurationBuilder().Build());
     }
 
     private static ServiceProvider BuildProvider(ServiceCollection services) =>
