@@ -11,6 +11,9 @@ namespace Full.NET.IntegrationTests.Messaging;
 [DoNotParallelize]
 public sealed class OrganizationCdcKafkaIdentityProjectionMySqlE2ETests
 {
+    /// <summary>
+    /// 验证组织单元事件可经 MySQL CDC 与 Kafka 到达 Identity 投影。
+    /// </summary>
     [TestMethod]
     [TestCategory("RequiresDocker")]
     public async Task MySql_organization_unit_changed_reaches_identity_projection_via_cdc_kafka()
@@ -18,12 +21,6 @@ public sealed class OrganizationCdcKafkaIdentityProjectionMySqlE2ETests
         await using var scenario = await RequireMySqlScenarioAsync();
         var pilotServices = await EventDeliveryPilotTestSupport
             .BuildPilotServicesAsync(scenario.Options);
-        await OrganizationCdcKafkaIdentityProjectionE2ESupport
-            .SeedPilotStreamOwnershipAsync(scenario.Options);
-        await EventDeliveryPilotTestSupport.WritePilotOutboxEventAsync(
-            pilotServices,
-            CancellationToken.None);
-
         var connectorName = $"fullnet-org-pilot-{Guid.NewGuid():N}";
         var connectorConfig = await scenario.CreateConnectorConfigAsync();
         try
@@ -33,6 +30,13 @@ public sealed class OrganizationCdcKafkaIdentityProjectionMySqlE2ETests
                 connectorName,
                 connectorConfig,
                 TimeSpan.FromSeconds(120));
+
+            // Connector 使用 no_data 快照，必须在业务写入前建立 binlog 游标，避免测试依赖残留 offset 或执行顺序。
+            await OrganizationCdcKafkaIdentityProjectionE2ESupport
+                .SeedPilotStreamOwnershipAsync(scenario.Options);
+            await EventDeliveryPilotTestSupport.WritePilotOutboxEventAsync(
+                pilotServices,
+                CancellationToken.None);
 
             var topic = CdcDebeziumE2ESupport.GetShadowTopic(
                 EventDeliveryPilotTestSupport.PilotEventType);
@@ -71,6 +75,10 @@ public sealed class OrganizationCdcKafkaIdentityProjectionMySqlE2ETests
         }
     }
 
+    /// <summary>
+    /// 创建具备 MySQL CDC 与 Debezium 前置条件的测试场景。
+    /// </summary>
+    /// <returns>可用的 MySQL CDC 测试场景。</returns>
     private static async Task<CdcDebeziumMySqlE2EScenario> RequireMySqlScenarioAsync()
     {
         var scenario = await CdcDebeziumMySqlE2EScenario.TryCreateAsync();
@@ -83,6 +91,11 @@ public sealed class OrganizationCdcKafkaIdentityProjectionMySqlE2ETests
         return scenario;
     }
 
+    /// <summary>
+    /// 读取当前试点事件流最近写入的 Outbox 事件标识。
+    /// </summary>
+    /// <param name="options">数据库连接与提供程序选项。</param>
+    /// <returns>最近写入的事件标识。</returns>
     private static async Task<Guid> ReadLatestPilotOutboxEventIdAsync(DatabaseOptions options)
     {
         await using var connection = new MySqlConnector.MySqlConnection(options.ConnectionString);

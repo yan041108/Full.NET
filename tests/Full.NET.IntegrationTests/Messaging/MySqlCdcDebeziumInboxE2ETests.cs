@@ -11,6 +11,37 @@ namespace Full.NET.IntegrationTests.Messaging;
 [DoNotParallelize]
 public sealed class MySqlCdcDebeziumInboxE2ETests
 {
+    /// <summary>
+    /// 验证动态 Connector 使用独立 source identity，同时保持业务事件路由主题稳定。
+    /// </summary>
+    [TestMethod]
+    public void Dynamic_connectors_isolate_offsets_without_changing_outbox_route()
+    {
+        var template = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["connector.class"] = "io.debezium.connector.mysql.MySqlConnector",
+            ["topic.prefix"] = "fullnet.dev.shadow.mysql",
+            ["transforms.outbox.route.topic.replacement"] = "fullnet.dev.shadow.${routedByValue}",
+        };
+
+        var first = CdcDebeziumConnectorTestSupport.CreateIsolatedConnectorConfig(
+            "fullnet-mysql-first",
+            template);
+        var second = CdcDebeziumConnectorTestSupport.CreateIsolatedConnectorConfig(
+            "fullnet-mysql-second",
+            template);
+
+        Assert.AreEqual("fullnet.dev.shadow.mysql", template["topic.prefix"]);
+        Assert.AreNotEqual(first["topic.prefix"], second["topic.prefix"]);
+        Assert.AreEqual("none", first["snapshot.locking.mode"]);
+        Assert.AreNotEqual(first["database.server.id"], second["database.server.id"]);
+        Assert.IsTrue(uint.TryParse(first["database.server.id"], out var firstServerId));
+        Assert.AreNotEqual(0U, firstServerId);
+        Assert.AreEqual(
+            template["transforms.outbox.route.topic.replacement"],
+            first["transforms.outbox.route.topic.replacement"]);
+    }
+
     [TestMethod]
     public async Task MySql_committed_outbox_reaches_kafka_via_debezium_and_inbox()
     {
@@ -163,6 +194,9 @@ public sealed class MySqlCdcDebeziumInboxE2ETests
         }
     }
 
+    /// <summary>
+    /// 验证 Connector 完整暂停期间不发布事件，并在恢复后交付积压事件。
+    /// </summary>
     [TestMethod]
     public async Task MySql_paused_connector_resumes_and_delivers_pending_outbox()
     {
@@ -178,6 +212,12 @@ public sealed class MySqlCdcDebeziumInboxE2ETests
                 TimeSpan.FromSeconds(120));
 
             await scenario.ConnectAdmin.PauseConnectorAsync(connectorName);
+            Assert.IsTrue(
+                await WaitForConnectorPausedAsync(
+                    scenario.ConnectAdmin,
+                    connectorName,
+                    TimeSpan.FromSeconds(120)),
+                "Connector and all tasks must reach PAUSED before the outbox write.");
             var partitionKey = Guid.CreateVersion7().ToString("D");
             var committed = await CdcShadowFixture.InsertCommittedOutboxEventAsync(
                 scenario.Options,
@@ -216,6 +256,32 @@ public sealed class MySqlCdcDebeziumInboxE2ETests
         {
             await scenario.ConnectAdmin.DeleteConnectorAsync(connectorName);
         }
+    }
+
+    /// <summary>
+    /// 等待 Connector 与全部任务完成异步暂停。
+    /// </summary>
+    /// <param name="connectAdmin">Kafka Connect 管理客户端。</param>
+    /// <param name="connectorName">Connector 名称。</param>
+    /// <param name="timeout">等待完整暂停的最长时间。</param>
+    /// <returns>在超时前完成暂停时返回 <see langword="true"/>。</returns>
+    private static async Task<bool> WaitForConnectorPausedAsync(
+        KafkaConnectAdminClient connectAdmin,
+        string connectorName,
+        TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await connectAdmin.IsConnectorPausedAsync(connectorName))
+            {
+                return true;
+            }
+
+            await Task.Delay(500);
+        }
+
+        return false;
     }
 
     [TestMethod]

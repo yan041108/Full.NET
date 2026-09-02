@@ -170,6 +170,12 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// 检查 Connector 及其全部任务是否均已完成暂停。
+    /// </summary>
+    /// <param name="connectorName">Connector 名称。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>Connector 与至少一个任务均处于 PAUSED 时返回 <see langword="true"/>。</returns>
     public async Task<bool> IsConnectorPausedAsync(
         string connectorName,
         CancellationToken cancellationToken = default)
@@ -185,13 +191,35 @@ public sealed class KafkaConnectAdminClient : IKafkaConnectAdminClient
         response.EnsureSuccessStatusCode();
         var statusJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         using var document = JsonDocument.Parse(statusJson);
-        if (!document.RootElement.TryGetProperty("connector", out var connector)
+        var root = document.RootElement;
+        if (!root.TryGetProperty("connector", out var connector)
             || !connector.TryGetProperty("state", out var stateElement))
         {
             return false;
         }
 
-        return string.Equals(stateElement.GetString(), "PAUSED", StringComparison.Ordinal);
+        if (!string.Equals(stateElement.GetString(), "PAUSED", StringComparison.Ordinal)
+            || !root.TryGetProperty("tasks", out var tasks)
+            || tasks.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var hasTasks = false;
+        foreach (var task in tasks.EnumerateArray())
+        {
+            hasTasks = true;
+            if (!task.TryGetProperty("state", out var taskStateElement)
+                || !string.Equals(
+                    taskStateElement.GetString(),
+                    "PAUSED",
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return hasTasks;
     }
 
     public async Task<CdcDeliveryPosition?> TryReadConnectorPositionAsync(
