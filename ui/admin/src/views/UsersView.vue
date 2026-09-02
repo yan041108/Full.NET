@@ -2139,7 +2139,10 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 align="center"
               >
                 <template #default="{ row }">
-                  <ArtTableActionGroup :max-visible="8">
+                  <ArtTableActionGroup
+                    :key="`${(row as UserRow).id}:${(row as UserRow).isActive}`"
+                    :max-visible="8"
+                  >
                     <PermissionGate code="identity.users.update">
                       <ArtTableActionButton
                         type="edit"
@@ -2178,7 +2181,11 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                   @click="resetPassword(row as UserRow)"
                       />
                     </PermissionGate>
-                    <PermissionGate v-if="row.isActive" code="identity.users.disable">
+                    <PermissionGate
+                      v-if="row.isActive"
+                      key="disable-user"
+                      code="identity.users.disable"
+                    >
                       <ArtTableActionButton
                         type="delete"
                         test-id="users-action-disable"
@@ -2186,7 +2193,11 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                   @click="disable(row as UserRow)"
                       />
                     </PermissionGate>
-                    <PermissionGate v-if="!row.isActive" code="identity.users.enable">
+                    <PermissionGate
+                      v-if="!row.isActive"
+                      key="enable-user"
+                      code="identity.users.enable"
+                    >
                       <el-button
                         link
                         type="success"

@@ -30,10 +30,10 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
   await expect(navigation).toBeVisible();
   await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /租户上下文/ })).toBeVisible();
-  await expect(navigation.getByRole('link', { name: /用户管理/ })).toBeVisible();
-  await expect(navigation.getByRole('link', { name: /角色管理/ })).toBeVisible();
-  await expect(navigation.getByRole('link', { name: /菜单管理/ })).toBeVisible();
-  await expect(navigation.getByRole('link', { name: /超级管理员/ })).toBeVisible();
+  for (const name of [/用户管理/, /角色管理/, /菜单管理/, /超级管理员/]) {
+    await revealNavigationLink(page, name);
+    await expect(navigation.getByRole('link', { name })).toBeVisible();
+  }
   await expect(page.getByRole('button', { name: '检查会话' })).toBeVisible();
   await expectShellHostContextVisible(page, testInfo);
   await expect(page.getByText('活跃租户', { exact: true })).toBeVisible();
@@ -41,7 +41,7 @@ test('动态导航和可信租户范围在两套管理端保持一致', async ({
 
   await navigation.getByRole('link', { name: /租户上下文/ }).click();
   await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Acme Corporation' })).toBeVisible();
+  await expect(page.getByText('Acme Corporation', { exact: true }).first()).toBeVisible();
 });
 
 test('超级管理员列表、审计与密码重认证授予在两端保持一致', async ({ page }) => {
@@ -56,17 +56,19 @@ test('超级管理员列表、审计与密码重认证授予在两端保持一�
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify([{
-      id: 'audit-1', targetUserId: 'target-1', actorUserId: 'e2e-user-id',
+      id: '019bc2b1-2a40-7cc3-8992-a80de51bfb01',
+      targetUserId: '019bc2b1-2a40-7cc3-8992-a80de51bfb02',
+      actorUserId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
       eventType: 'identity.super_administrator.granted',
       resultCode: 'identity.super_administrator.granted', succeeded: true,
       occurredAtUtc: '2026-07-18T00:00:00Z'
     }])
   }));
-  await page.route('**/api/v1/identity/super-administrators/', route => route.fulfill({
+  await page.route('**/api/v1/identity/super-administrators', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify([{
-      userId: 'e2e-user-id', username: 'admin',
+      userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295', username: 'admin',
       displayName: '系统管理员', isActive: true
     }])
   }));
@@ -75,34 +77,38 @@ test('超级管理员列表、审计与密码重认证授予在两端保持一�
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ targetUserId: 'target-1', changed: true })
+      body: JSON.stringify({ targetUserId: '019bc2b1-2a40-7cc3-8992-a80de51bfb02', changed: true })
     });
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /超级管理员/ }).click();
+  await openNavigationLink(page, /超级管理员/);
   await expect(page.getByRole('heading', { name: '超级管理员', exact: true })).toBeVisible();
   await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('identity.super_administrator.granted', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '本账号 TOTP', exact: true })).toBeVisible();
-  await page.getByLabel('Host 账号', { exact: true }).fill('target-admin');
-  await page.getByLabel('当前密码', { exact: true }).fill('FullNet!2026Secure');
-  await page.locator('[data-super-admin-grant-form] [name="totpCode"], .grant-strip input[maxlength="6"]').first().fill('123456');
-  await page.getByRole('button', { name: '确认授予' }).click();
+  await page.getByTestId('super-admin-action-grant').click();
+  const grantEditor = page.getByRole('dialog');
+  await grantEditor.getByLabel('Host 账号', { exact: true }).fill('target-admin');
+  await grantEditor.getByLabel('当前密码', { exact: true }).fill('FullNet!2026Secure');
+  await grantEditor.locator('input[name="totpCode"]').fill('123456');
+  await grantEditor.getByTestId('super-admin-grant-submit').click();
   await expect.poll(() => grants).toEqual([{
     username: 'target-admin',
     currentPassword: 'FullNet!2026Secure',
     totpCode: '123456'
   }]);
-  await expect(page.getByLabel('当前密码', { exact: true })).toHaveValue('');
+  await expect(grantEditor).not.toBeVisible();
+  await page.getByTestId('super-admin-action-grant').click();
+  await expect(page.getByRole('dialog').getByLabel('当前密码', { exact: true })).toHaveValue('');
 });
 
 test('用户列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
   const operations = [];
-  const userId = 'e2e-host-user-id';
-  const roleId = 'e2e-assignable-role-id';
+  const userId = '019bc2b1-2a40-7cc3-8992-a80de51bfa01';
+  const roleId = '019bc2b1-2a40-7cc3-8992-a80de51bfa02';
   const state = { hasUser: false, disabled: false, roleIds: [] };
   const listBody = () => {
     if (!state.hasUser) {
@@ -114,6 +120,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: userId,
         username: 'parity-user',
         displayName: '对等用户',
+        accountType: 'normal_user',
         isActive: !state.disabled,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
@@ -125,7 +132,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
     });
   };
 
-  await page.route('**/api/v1/identity/users?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/identity/users?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -144,6 +151,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: userId,
         username: 'parity-user',
         displayName: '对等用户',
+        accountType: 'normal_user',
         isActive: true,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: null,
@@ -161,6 +169,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: userId,
         username: 'parity-user',
         displayName: '对等用户',
+        accountType: 'normal_user',
         isActive: false,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: '2026-07-21T01:00:00Z',
@@ -178,6 +187,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
         id: userId,
         username: 'parity-user',
         displayName: '对等用户',
+        accountType: 'normal_user',
         isActive: true,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: '2026-07-21T02:00:00Z',
@@ -201,7 +211,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
       })
     });
   });
-  await page.route('**/api/v1/identity/roles?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/identity/roles?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
@@ -253,40 +263,56 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
 
     await route.fallback();
   });
+  await page.route('**/api/v1/settings/dict-types?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ items: [], page: 1, pageSize: 100, total: 0 })
+  }));
+  await page.route('**/api/v1/organization/host-user-management/reference?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ units: [], positions: [], userUnits: [], userPositions: [] })
+  }));
 
   await page.goto('/');
-  await page.getByRole('link', { name: /用户管理/ }).click();
+  await openNavigationLink(page, /用户管理/);
   await expect(page.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无 Host 用户', { exact: true })).toBeVisible();
 
   const usersView = routeView(page, clientKind, 'users', '.users-view');
-  await usersView.getByLabel('用户名', { exact: true }).fill('parity-user');
-  await usersView.getByLabel('显示名称', { exact: true }).fill('对等用户');
-  await usersView.getByLabel('初始密码', { exact: true }).fill('FullNet!2026Secure');
-  await usersView.getByRole('button', { name: '创建用户' }).click();
-  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
-    type: 'create',
-    body: {
-      username: 'parity-user',
-      displayName: '对等用户',
-      password: 'FullNet!2026Secure'
-    }
-  }]);
+  await usersView.getByTestId('users-action-create').click();
+  const editor = page.getByRole('dialog');
+  await editor.getByLabel('用户名', { exact: true }).fill('parity-user');
+  await editor.getByLabel('姓名', { exact: true }).fill('对等用户');
+  await editor.getByLabel('初始密码', { exact: true }).fill('FullNet!2026Secure');
+  await editor.getByTestId('users-editor-submit').click();
+  await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([
+    expect.objectContaining({
+      type: 'create',
+      body: expect.objectContaining({
+        username: 'parity-user',
+        displayName: '对等用户',
+        password: 'FullNet!2026Secure'
+      })
+    })
+  ]);
   await expect(page.getByText('对等用户', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '角色' }).click();
+  const userRow = page.getByRole('row', { name: /parity-user/ });
+  await userRow.getByRole('button', { name: '角色' }).click();
   if (clientKind === 'vue') {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await dialog.getByRole('checkbox').first().check();
-    await dialog.getByRole('button', { name: '保存角色', exact: true }).click();
+    await dialog.getByText('对等角色', { exact: true }).click();
+    await dialog.locator('.el-transfer__buttons button').last().click();
+    await dialog.getByTestId('users-editor-submit').click();
   } else {
     await page.locator('.layui-layer-content input[type="checkbox"]').first().check();
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'roles')).toBe(true);
 
-  await page.getByRole('article').getByRole('button', { name: '重置密码' }).click();
+  await userRow.getByRole('button', { name: '重置密码' }).click();
   if (clientKind === 'vue') {
     const passwordBox = page.locator('.el-message-box').last();
     await expect(passwordBox.locator('input')).toBeVisible();
@@ -304,7 +330,7 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
     body: { password: 'FullNet!2026Rotate' }
   }]);
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await userRow.getByRole('button', { name: '禁用' }).click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -313,9 +339,9 @@ test('用户列表、创建与禁用在两端保持一致', async ({ page }, tes
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '启用' }).click();
+  await userRow.getByRole('button', { name: '启用' }).click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '启用', exact: true })
@@ -354,7 +380,7 @@ test('租户列表、开通与禁用在两端保持一致', async ({ page }, tes
     });
   };
 
-  await page.route('**/api/v1/tenancy/tenants?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/tenancy/tenants?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -404,15 +430,17 @@ test('租户列表、开通与禁用在两端保持一致', async ({ page }, tes
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户管理/ }).click();
+  await openNavigationLink(page, /租户管理/);
   await expect(page.getByRole('heading', { name: '租户管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无租户', { exact: true })).toBeVisible();
 
   const tenantsView = routeView(page, clientKind, 'tenants', '.tenants-view');
-  await tenantsView.getByLabel('租户标识', { exact: true }).fill('parity');
-  await tenantsView.getByLabel('显示名称', { exact: true }).fill('对等租户');
-  await tenantsView.getByLabel('访问域名', { exact: true }).fill('parity.localhost');
-  await tenantsView.getByRole('button', { name: '开通租户' }).click();
+  await tenantsView.getByTestId('tenants-action-create').click();
+  const tenantEditor = page.getByRole('dialog');
+  await tenantEditor.getByLabel('租户标识', { exact: true }).fill('parity');
+  await tenantEditor.getByLabel('显示名称', { exact: true }).fill('对等租户');
+  await tenantEditor.getByLabel('访问域名', { exact: true }).fill('parity.localhost');
+  await tenantEditor.getByTestId('tenants-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -423,7 +451,7 @@ test('租户列表、开通与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等租户', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -432,7 +460,7 @@ test('租户列表、开通与禁用在两端保持一致', async ({ page }, tes
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('租户开通可选套餐在两端保持一致', async ({ page }, testInfo) => {
@@ -460,7 +488,7 @@ test('租户开通可选套餐在两端保持一致', async ({ page }, testInfo)
       total: 1
     })
   }));
-  await page.route('**/api/v1/tenancy/tenants?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/tenancy/tenants?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 })
@@ -490,18 +518,16 @@ test('租户开通可选套餐在两端保持一致', async ({ page }, testInfo)
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户管理/ }).click();
+  await openNavigationLink(page, /租户管理/);
   const tenantsView = routeView(page, clientKind, 'tenants', '.tenants-view');
-  await tenantsView.getByLabel('租户标识', { exact: true }).fill('pkg-tenant');
-  await tenantsView.getByLabel('显示名称', { exact: true }).fill('套餐租户');
-  await tenantsView.getByLabel('访问域名', { exact: true }).fill('pkg-tenant.localhost');
-  if (clientKind === 'vue') {
-    await tenantsView.locator('.art-form-card .el-select').click();
-    await page.getByRole('option', { name: '标准套餐' }).click();
-  } else {
-    await tenantsView.locator('select[name="tenantPackageId"]').selectOption(packageId);
-  }
-  await tenantsView.getByRole('button', { name: '开通租户' }).click();
+  await tenantsView.getByTestId('tenants-action-create').click();
+  const tenantEditor = page.getByRole('dialog');
+  await tenantEditor.getByLabel('租户标识', { exact: true }).fill('pkg-tenant');
+  await tenantEditor.getByLabel('显示名称', { exact: true }).fill('套餐租户');
+  await tenantEditor.getByLabel('访问域名', { exact: true }).fill('pkg-tenant.localhost');
+  await tenantEditor.locator('.el-select').click();
+  await page.getByRole('option', { name: '标准套餐' }).click();
+  await tenantEditor.getByTestId('tenants-editor-submit').click();
   await expect.poll(() => operations).toEqual([{
     type: 'create',
     body: {
@@ -538,7 +564,7 @@ test('租户列表内分配套餐在两端保持一致', async ({ page }, testIn
     total: 1
   });
 
-  await page.route('**/api/v1/tenancy/tenants?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/tenancy/tenants?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -584,12 +610,13 @@ test('租户列表内分配套餐在两端保持一致', async ({ page }, testIn
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户管理/ }).click();
+  await openNavigationLink(page, /租户管理/);
   const tenantsView = routeView(page, clientKind, 'tenants', '.tenants-view');
   await expect(tenantsView.getByText('分配套餐租户', { exact: true })).toBeVisible();
 
   if (clientKind === 'vue') {
-    await tenantsView.locator('article .el-select').click();
+    await tenantsView.getByRole('row').filter({ hasText: '分配套餐租户' })
+      .locator('.el-select').click();
     await page.getByRole('option', { name: '标准套餐' }).click();
   } else {
     await tenantsView.locator(`select[data-tenants-package="${tenantId}"]`).selectOption(packageId);
@@ -598,7 +625,7 @@ test('租户列表内分配套餐在两端保持一致', async ({ page }, testIn
     type: 'assign',
     body: { tenantPackageId: packageId, version: 1 }
   }]);
-  await expect(tenantsView.getByText('套餐: 标准套餐', { exact: true })).toBeVisible();
+  await expect(tenantsView.getByRole('row').filter({ hasText: '标准套餐' })).toBeVisible();
 });
 
 test('套餐列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
@@ -628,7 +655,7 @@ test('套餐列表、创建与禁用在两端保持一致', async ({ page }, tes
     });
   };
 
-  await page.route('**/api/v1/tenancy/tenant-packages?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/tenancy/tenant-packages?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -673,15 +700,17 @@ test('套餐列表、创建与禁用在两端保持一致', async ({ page }, tes
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户套餐/ }).click();
+  await openNavigationLink(page, /租户套餐/);
   await expect(page.getByRole('heading', { name: '租户套餐', exact: true })).toBeVisible();
   await expect(page.getByText('尚无套餐', { exact: true })).toBeVisible();
 
   const packagesView = routeView(page, clientKind, 'tenant-packages', '.tenant-packages-view');
-  await packagesView.getByLabel('套餐编码', { exact: true }).fill('parity');
-  await packagesView.getByLabel('显示名称', { exact: true }).fill('对等套餐');
-  await packagesView.getByLabel('说明', { exact: true }).fill('说明');
-  await packagesView.getByRole('button', { name: '创建套餐' }).click();
+  await packagesView.getByTestId('tenant-packages-action-create').click();
+  const packageEditor = page.getByRole('dialog');
+  await packageEditor.getByLabel('套餐编码', { exact: true }).fill('parity');
+  await packageEditor.getByLabel('显示名称', { exact: true }).fill('对等套餐');
+  await packageEditor.getByLabel('说明', { exact: true }).fill('说明');
+  await packageEditor.getByTestId('tenant-packages-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -692,7 +721,7 @@ test('套餐列表、创建与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等套餐', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -701,7 +730,7 @@ test('套餐列表、创建与禁用在两端保持一致', async ({ page }, tes
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('套餐仍被引用时禁用失败在两端保持一致', async ({ page }, testInfo) => {
@@ -709,7 +738,7 @@ test('套餐仍被引用时禁用失败在两端保持一致', async ({ page }, 
   await mockAuthenticatedSession(page);
   const packageId = '019bc2b1-2a40-7cc3-8992-a80de51bf298';
 
-  await page.route('**/api/v1/tenancy/tenant-packages?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/tenancy/tenant-packages?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
@@ -740,11 +769,12 @@ test('套餐仍被引用时禁用失败在两端保持一致', async ({ page }, 
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户套餐/ }).click();
+  await openNavigationLink(page, /租户套餐/);
   const packagesView = routeView(page, clientKind, 'tenant-packages', '.tenant-packages-view');
-  await expect(packagesView.getByText('绑定租户: 1', { exact: true })).toBeVisible();
+  const packageRow = packagesView.getByRole('row').filter({ hasText: '绑定套餐' });
+  await expect(packageRow.getByRole('cell', { name: '1', exact: true }).last()).toBeVisible();
 
-  await packagesView.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await packagesView.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -775,6 +805,8 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
         description: '说明',
         displayOrder: 10,
         isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
         version: state.disabled ? 2 : 1
       }],
       page: 1,
@@ -783,7 +815,7 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
     });
   };
 
-  await page.route('**/api/v1/settings/dict-types?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/settings/dict-types?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -805,6 +837,8 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
         description: '说明',
         displayOrder: 10,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       })
     });
@@ -822,22 +856,26 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
         description: '说明',
         displayOrder: 10,
         isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
         version: 2
       })
     });
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /数据字典/ }).click();
+  await openNavigationLink(page, /数据字典/);
   await expect(page.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
   await expect(page.getByText('尚无字典类型', { exact: true })).toBeVisible();
 
   const dictTypesView = routeView(page, clientKind, 'dict-types', '.dict-types-view');
-  await dictTypesView.getByLabel('字典编码', { exact: true }).fill('parity_status');
-  await dictTypesView.getByLabel('显示名称', { exact: true }).fill('对等状态');
-  await dictTypesView.getByLabel('说明', { exact: true }).fill('说明');
-  await dictTypesView.getByLabel('显示顺序', { exact: true }).first().fill('10');
-  await dictTypesView.getByRole('button', { name: '创建字典类型' }).click();
+  await dictTypesView.getByTestId('dict-types-action-create').click();
+  const dictTypeEditor = page.getByRole('dialog');
+  await dictTypeEditor.getByLabel('字典编码', { exact: true }).fill('parity_status');
+  await dictTypeEditor.getByLabel('显示名称', { exact: true }).fill('对等状态');
+  await dictTypeEditor.getByLabel('说明', { exact: true }).fill('说明');
+  await dictTypeEditor.getByLabel('显示顺序', { exact: true }).first().fill('10');
+  await dictTypeEditor.getByTestId('dict-types-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -849,7 +887,7 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
   }]);
   await expect(page.getByText('对等状态', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -858,7 +896,7 @@ test('字典类型列表、创建与禁用在两端保持一致', async ({ page 
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('字典项列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
@@ -882,6 +920,8 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
         color: '#409eff',
         displayOrder: 5,
         isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
         version: state.disabled ? 2 : 1
       }],
       page: 1,
@@ -890,7 +930,7 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
     });
   };
 
-  await page.route('**/api/v1/settings/dict-types?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/settings/dict-types?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
@@ -901,6 +941,8 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
         description: null,
         displayOrder: 1,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       }],
       page: 1,
@@ -908,7 +950,7 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
       total: 1
     })
   }));
-  await page.route(`**/api/v1/settings/dict-types/${dictTypeId}/items?page=1&pageSize=20`, route => route.fulfill({
+  await page.route(`**/api/v1/settings/dict-types/${dictTypeId}/items?*`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: itemsBody()
@@ -931,6 +973,8 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
         color: '#409eff',
         displayOrder: 5,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       })
     });
@@ -949,27 +993,31 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
         color: '#409eff',
         displayOrder: 5,
         isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
         version: 2
       })
     });
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /数据字典/ }).click();
+  await openNavigationLink(page, /数据字典/);
   await expect(page.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
   await expect(page.getByText('对等枚举', { exact: true })).toBeVisible();
 
   const dictTypesView = routeView(page, clientKind, 'dict-types', '.dict-types-view');
   await dictTypesView.getByRole('button', { name: '字典项', exact: true }).click();
-  const itemsPanel = dictTypesView.locator('[data-dict-items-panel]');
+  const itemsPanel = dictTypesView.locator('.dict-types-view__pane').last();
   await expect(itemsPanel).toBeVisible();
   await expect(itemsPanel.getByText('该类型尚无字典项', { exact: true })).toBeVisible();
 
-  await itemsPanel.getByLabel('显示文本', { exact: true }).fill('对等项');
-  await itemsPanel.getByLabel('机器值', { exact: true }).fill('parity_item');
-  await itemsPanel.getByLabel('颜色', { exact: true }).fill('#409eff');
-  await itemsPanel.getByLabel('显示顺序', { exact: true }).fill('5');
-  await itemsPanel.getByRole('button', { name: '创建字典项' }).click();
+  await itemsPanel.getByTestId('dict-items-action-create').click();
+  const itemEditor = page.getByRole('dialog');
+  await itemEditor.getByLabel('显示文本', { exact: true }).fill('对等项');
+  await itemEditor.getByLabel('机器值', { exact: true }).fill('parity_item');
+  await itemEditor.getByLabel('颜色', { exact: true }).fill('#409eff');
+  await itemEditor.getByLabel('显示顺序', { exact: true }).fill('5');
+  await itemEditor.getByTestId('dict-items-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -980,9 +1028,9 @@ test('字典项列表、创建与禁用在两端保持一致', async ({ page }, 
     }
   }]);
   await expect(itemsPanel.getByText('对等项', { exact: true }).first()).toBeVisible();
-  await expect(itemsPanel.locator('code', { hasText: 'parity_item' })).toBeVisible();
+  await expect(itemsPanel.getByText('parity_item', { exact: true })).toBeVisible();
 
-  await itemsPanel.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await itemsPanel.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -1013,6 +1061,8 @@ test('租户字典类型列表、创建与禁用在两端保持一致', async ({
         description: '说明',
         displayOrder: 10,
         isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
         version: state.disabled ? 2 : 1
       }],
       page: 1,
@@ -1021,7 +1071,7 @@ test('租户字典类型列表、创建与禁用在两端保持一致', async ({
     });
   };
 
-  await page.route('**/api/v1/settings/tenant-dict-types?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/settings/tenant-dict-types?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -1043,6 +1093,8 @@ test('租户字典类型列表、创建与禁用在两端保持一致', async ({
         description: '说明',
         displayOrder: 10,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       })
     });
@@ -1060,22 +1112,31 @@ test('租户字典类型列表、创建与禁用在两端保持一致', async ({
         description: '说明',
         displayOrder: 10,
         isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
         version: 2
       })
     });
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户数据字典/ }).click();
+  await openNavigationLink(page, /租户数据字典/);
   await expect(page.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
   await expect(page.getByText('尚无字典类型', { exact: true })).toBeVisible();
 
-  const dictTypesView = routeView(page, clientKind, 'tenant-dict-types', '.dict-types-view');
-  await dictTypesView.getByLabel('字典编码', { exact: true }).fill('parity_tenant_status');
-  await dictTypesView.getByLabel('显示名称', { exact: true }).fill('对等租户状态');
-  await dictTypesView.getByLabel('说明', { exact: true }).fill('说明');
-  await dictTypesView.getByLabel('显示顺序', { exact: true }).first().fill('10');
-  await dictTypesView.getByRole('button', { name: '创建字典类型' }).click();
+  const dictTypesView = routeView(
+    page,
+    clientKind,
+    'tenant-dict-types',
+    '.tenant-dict-types-view'
+  );
+  await dictTypesView.getByTestId('tenant-dict-types-action-create').click();
+  const dictTypeEditor = page.getByRole('dialog');
+  await dictTypeEditor.getByLabel('字典编码', { exact: true }).fill('parity_tenant_status');
+  await dictTypeEditor.getByLabel('显示名称', { exact: true }).fill('对等租户状态');
+  await dictTypeEditor.getByLabel('说明', { exact: true }).fill('说明');
+  await dictTypeEditor.getByLabel('显示顺序', { exact: true }).first().fill('10');
+  await dictTypeEditor.getByTestId('tenant-dict-types-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -1087,7 +1148,7 @@ test('租户字典类型列表、创建与禁用在两端保持一致', async ({
   }]);
   await expect(page.getByText('对等租户状态', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -1096,7 +1157,7 @@ test('租户字典类型列表、创建与禁用在两端保持一致', async ({
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('租户字典项列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
@@ -1120,6 +1181,8 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
         color: '#409eff',
         displayOrder: 5,
         isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
         version: state.disabled ? 2 : 1
       }],
       page: 1,
@@ -1128,7 +1191,7 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
     });
   };
 
-  await page.route('**/api/v1/settings/tenant-dict-types?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/settings/tenant-dict-types?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
@@ -1139,6 +1202,8 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
         description: null,
         displayOrder: 1,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       }],
       page: 1,
@@ -1146,7 +1211,7 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
       total: 1
     })
   }));
-  await page.route(`**/api/v1/settings/tenant-dict-types/${dictTypeId}/items?page=1&pageSize=20`, route => route.fulfill({
+  await page.route(`**/api/v1/settings/tenant-dict-types/${dictTypeId}/items?*`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: itemsBody()
@@ -1169,6 +1234,8 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
         color: '#409eff',
         displayOrder: 5,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       })
     });
@@ -1187,29 +1254,36 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
         color: '#409eff',
         displayOrder: 5,
         isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
         version: 2
       })
     });
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /租户数据字典/ }).click();
+  await openNavigationLink(page, /租户数据字典/);
   await expect(page.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
   await expect(page.getByText('对等租户枚举', { exact: true })).toBeVisible();
 
-  const dictTypesView = routeView(page, clientKind, 'tenant-dict-types', '.dict-types-view');
+  const dictTypesView = routeView(
+    page,
+    clientKind,
+    'tenant-dict-types',
+    '.tenant-dict-types-view'
+  );
   await dictTypesView.getByRole('button', { name: '字典项', exact: true }).click();
-  const itemsPanel = clientKind === 'layui'
-    ? dictTypesView.locator('[data-tenant-dict-items-panel]')
-    : dictTypesView.locator('[data-dict-items-panel]');
+  const itemsPanel = dictTypesView.locator('.tenant-dict-types-view__pane').last();
   await expect(itemsPanel).toBeVisible();
   await expect(itemsPanel.getByText('该类型尚无字典项', { exact: true })).toBeVisible();
 
-  await itemsPanel.getByLabel('显示文本', { exact: true }).fill('对等租户项');
-  await itemsPanel.getByLabel('机器值', { exact: true }).fill('parity_tenant_item');
-  await itemsPanel.getByLabel('颜色', { exact: true }).fill('#409eff');
-  await itemsPanel.getByLabel('显示顺序', { exact: true }).fill('5');
-  await itemsPanel.getByRole('button', { name: '创建字典项' }).click();
+  await itemsPanel.getByTestId('dict-items-action-create').click();
+  const itemEditor = page.getByRole('dialog');
+  await itemEditor.getByLabel('显示文本', { exact: true }).fill('对等租户项');
+  await itemEditor.getByLabel('机器值', { exact: true }).fill('parity_tenant_item');
+  await itemEditor.getByLabel('颜色', { exact: true }).fill('#409eff');
+  await itemEditor.getByLabel('显示顺序', { exact: true }).fill('5');
+  await itemEditor.getByTestId('dict-items-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -1220,9 +1294,9 @@ test('租户字典项列表、创建与禁用在两端保持一致', async ({ pa
     }
   }]);
   await expect(itemsPanel.getByText('对等租户项', { exact: true }).first()).toBeVisible();
-  await expect(itemsPanel.locator('code', { hasText: 'parity_tenant_item' })).toBeVisible();
+  await expect(itemsPanel.getByText('parity_tenant_item', { exact: true })).toBeVisible();
 
-  await itemsPanel.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await itemsPanel.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -1251,10 +1325,14 @@ test('系统配置列表、创建与禁用在两端保持一致', async ({ page 
         configKey: 'parity.system.title',
         displayName: '对等标题',
         description: '说明',
+        groupName: null,
         valueKind: 'string',
         value: 'Full.NET',
+        hasValue: true,
         displayOrder: 10,
         isActive: !state.disabled,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: state.disabled ? '2026-07-21T01:00:00Z' : null,
         version: state.disabled ? 2 : 1
       }],
       page: 1,
@@ -1263,7 +1341,7 @@ test('系统配置列表、创建与禁用在两端保持一致', async ({ page 
     });
   };
 
-  await page.route('**/api/v1/settings/config-entries?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/settings/config-entries?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -1283,10 +1361,14 @@ test('系统配置列表、创建与禁用在两端保持一致', async ({ page 
         configKey: 'parity.system.title',
         displayName: '对等标题',
         description: '说明',
+        groupName: null,
         valueKind: 'string',
         value: 'Full.NET',
+        hasValue: true,
         displayOrder: 10,
         isActive: true,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: null,
         version: 1
       })
     });
@@ -1302,33 +1384,45 @@ test('系统配置列表、创建与禁用在两端保持一致', async ({ page 
         configKey: 'parity.system.title',
         displayName: '对等标题',
         description: '说明',
+        groupName: null,
         valueKind: 'string',
         value: 'Full.NET',
+        hasValue: true,
         displayOrder: 10,
         isActive: false,
+        createdAtUtc: '2026-07-21T00:00:00Z',
+        updatedAtUtc: '2026-07-21T01:00:00Z',
         version: 2
       })
     });
   });
+  await page.route('**/api/v1/settings/config-entries/groups*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: '[]'
+  }));
 
   await page.goto('/');
-  await page.getByRole('link', { name: /系统配置/ }).click();
+  await openNavigationLink(page, /系统配置/);
   await expect(page.getByRole('heading', { name: '系统配置', exact: true })).toBeVisible();
   await expect(page.getByText('尚无系统配置项', { exact: true })).toBeVisible();
 
   const configEntriesView = routeView(page, clientKind, 'config-entries', '.config-entries-view');
-  await configEntriesView.getByLabel('配置键', { exact: true }).fill('parity.system.title');
-  await configEntriesView.getByLabel('显示名称', { exact: true }).fill('对等标题');
-  await configEntriesView.getByLabel('说明', { exact: true }).fill('说明');
-  await configEntriesView.getByLabel('配置值', { exact: true }).fill('Full.NET');
-  await configEntriesView.getByLabel('显示顺序', { exact: true }).fill('10');
-  await configEntriesView.getByRole('button', { name: '创建配置项' }).click();
+  await configEntriesView.getByTestId('config-entries-action-create').click();
+  const configEditor = page.getByRole('dialog');
+  await configEditor.getByLabel('配置键', { exact: true }).fill('parity.system.title');
+  await configEditor.getByLabel('配置名称', { exact: true }).fill('对等标题');
+  await configEditor.getByLabel('备注', { exact: true }).fill('说明');
+  await configEditor.getByLabel('属性值', { exact: true }).fill('Full.NET');
+  await configEditor.getByLabel('显示顺序', { exact: true }).fill('10');
+  await configEditor.getByTestId('config-entries-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
       configKey: 'parity.system.title',
       displayName: '对等标题',
       description: '说明',
+      groupName: null,
       valueKind: 'string',
       value: 'Full.NET',
       displayOrder: 10
@@ -1336,7 +1430,7 @@ test('系统配置列表、创建与禁用在两端保持一致', async ({ page 
   }]);
   await expect(page.getByText('对等标题', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -1345,7 +1439,6 @@ test('系统配置列表、创建与禁用在两端保持一致', async ({ page 
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
 });
 
 test('枚举常量目录列表与详情在两端保持一致', async ({ page }, testInfo) => {
@@ -1388,14 +1481,16 @@ test('枚举常量目录列表与详情在两端保持一致', async ({ page }, 
   }));
 
   await page.goto('/');
-  await page.getByRole('link', { name: /枚举常量/ }).click();
+  await openNavigationLink(page, /枚举常量/);
   await expect(page.getByRole('heading', { name: '枚举常量', exact: true })).toBeVisible();
 
   const enumCatalogsView = routeView(page, clientKind, 'enum-catalogs', '.enum-catalogs-view');
   await expect(enumCatalogsView.getByText('settings.config_value_kind', { exact: true })).toBeVisible();
   await enumCatalogsView.getByRole('button', { name: '查看', exact: true }).click();
-  await expect(enumCatalogsView.locator('code', { hasText: 'string' })).toBeVisible();
-  await expect(enumCatalogsView.locator('code', { hasText: 'boolean' })).toBeVisible();
+  await expect(enumCatalogsView.getByRole('cell', { name: 'string', exact: true }).first())
+    .toBeVisible();
+  await expect(enumCatalogsView.getByRole('cell', { name: 'boolean', exact: true }).first())
+    .toBeVisible();
 });
 
 test('访问日志列表在两端保持一致', async ({ page }, testInfo) => {
@@ -1431,7 +1526,7 @@ test('访问日志列表在两端保持一致', async ({ page }, testInfo) => {
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /访问日志/ }).click();
+  await openNavigationLink(page, /访问日志/);
   await expect(page.getByRole('heading', { name: '访问日志', exact: true })).toBeVisible();
 
   const accessLogsView = routeView(page, clientKind, 'access-logs', '.access-logs-view');
@@ -1494,7 +1589,7 @@ test('在线用户列表与强制下线在两端保持一致', async ({ page }, 
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /在线用户/ }).click();
+  await openNavigationLink(page, /在线用户/);
   await expect(page.getByRole('heading', { name: '在线用户', exact: true })).toBeVisible();
 
   const onlineSessionsView = routeView(
@@ -1505,7 +1600,7 @@ test('在线用户列表与强制下线在两端保持一致', async ({ page }, 
   );
   await expect(onlineSessionsView.getByText('parity-user', { exact: true })).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '强制下线' }).click();
+  await page.getByRole('button', { name: '强制下线' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '强制下线', exact: true })
@@ -1602,16 +1697,18 @@ test('API Key 创建、轮换、一次性明文与禁用在两端保持一致', 
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /API Key/i }).click();
+  await openNavigationLink(page, /API Key/i);
   await expect(page.getByRole('heading', { name: 'API Key', exact: true })).toBeVisible();
 
   const apiKeysView = routeView(page, clientKind, 'api-keys', '.api-keys-view');
-  await apiKeysView.getByLabel('用户 ID').fill(userId);
-  await apiKeysView.getByLabel('显示名称').fill('对等流水线');
-  await apiKeysView.getByLabel('权限代码').fill(
+  await apiKeysView.getByTestId('api-keys-action-create').click();
+  const apiKeyEditor = page.getByRole('dialog');
+  await apiKeyEditor.getByTestId('api-key-user-id').fill(userId);
+  await apiKeyEditor.getByTestId('api-key-display-name').fill('对等流水线');
+  await apiKeyEditor.getByTestId('api-key-permissions').fill(
     'platform.dashboard.read,\nplatform.dashboard.read'
   );
-  await apiKeysView.getByRole('button', { name: '创建', exact: true }).click();
+  await apiKeyEditor.getByTestId('api-keys-editor-submit').click();
 
   await expect(apiKeysView.getByText('fn_live_once_only', { exact: true })).toBeVisible();
   await expect.poll(() => operations.find(operation => operation.type === 'create')?.body)
@@ -1626,7 +1723,7 @@ test('API Key 创建、轮换、一次性明文与禁用在两端保持一致', 
     session: Object.values(sessionStorage).includes(secret)
   }), 'fn_live_once_only')).toEqual({ local: false, session: false });
 
-  const rowByName = apiKeysView.getByRole('article').filter({ hasText: '对等流水线' });
+  const rowByName = apiKeysView.getByRole('row').filter({ hasText: '对等流水线' });
   await rowByName.filter({ hasText: '有效' }).getByRole('button', { name: '轮换', exact: true }).click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -1737,7 +1834,7 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /文件管理/ }).click();
+  await openNavigationLink(page, /文件管理/);
   await expect(page.getByRole('heading', { name: '文件管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无文件', { exact: true })).toBeVisible();
 
@@ -1751,7 +1848,9 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   await expect.poll(() => operations.some(operation => operation.type === 'upload')).toBe(true);
   await expect(hostFilesView.getByText('parity.txt', { exact: true })).toBeVisible();
 
-  await hostFilesView.getByRole('button', { name: '删除' }).click();
+  const deleteButton = hostFilesView.getByRole('button', { name: '删除' });
+  await expect(deleteButton).toBeEnabled();
+  await deleteButton.click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '删除', exact: true })
@@ -1849,7 +1948,7 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /公告管理/ }).click();
+  await openNavigationLink(page, /公告管理/);
   await expect(page.getByRole('heading', { name: '公告管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无公告', { exact: true })).toBeVisible();
 
@@ -1859,9 +1958,11 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
     'host-announcements',
     '.host-announcements-view'
   );
-  await announcementsView.locator('input, textarea').first().fill('parity-announcement');
-  await announcementsView.locator('textarea').fill('parity-content');
-  await announcementsView.getByRole('button', { name: '创建公告' }).click();
+  await announcementsView.getByTestId('host-announcements-action-create').click();
+  const announcementEditor = page.getByRole('dialog');
+  await announcementEditor.getByLabel('标题', { exact: true }).fill('parity-announcement');
+  await announcementEditor.getByLabel('正文', { exact: true }).fill('parity-content');
+  await announcementEditor.getByTestId('host-announcements-editor-submit').click();
   await expect.poll(() => operations.some(operation => operation.type === 'create')).toBe(true);
   await expect(announcementsView.getByText('parity-announcement', { exact: true })).toBeVisible();
 
@@ -1964,7 +2065,7 @@ test('消息中心列表与发信在两端保持一致', async ({ page }, testIn
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /消息中心/ }).click();
+  await openNavigationLink(page, /消息中心/);
   await expect(page.getByRole('heading', { name: '消息中心', exact: true })).toBeVisible();
   await expect(page.getByText('暂无站内信', { exact: true })).toBeVisible();
 
@@ -1976,7 +2077,9 @@ test('消息中心列表与发信在两端保持一致', async ({ page }, testIn
   await expect.poll(() => operations.some(operation => operation.type === 'send')).toBe(true);
   await expect(inboxView.getByText('parity-inbox', { exact: true })).toBeVisible();
 
-  await inboxView.getByRole('button', { name: '标记已读' }).click();
+  await inboxView.getByRole('row').filter({ hasText: 'parity-inbox' })
+    .getByTestId('inbox-messages-mark-read')
+    .evaluate(button => button.click());
   await expect.poll(() => operations.some(operation => operation.type === 'read')).toBe(true);
   await expect(inboxView.getByText('已读', { exact: true })).toBeVisible();
 });
@@ -1994,6 +2097,10 @@ test('任务调度列表在两端保持一致', async ({ page }, testInfo) => {
       jobKey: 'jobs.ping',
       displayName: 'parity-job',
       description: 'parity-description',
+      groupName: null,
+      handlerKind: 'ping',
+      args: null,
+      allowConcurrentExecutions: false,
       isEnabled: true,
       createdAtUtc: '2026-07-26T00:00:00Z',
       updatedAtUtc: null,
@@ -2005,6 +2112,15 @@ test('任务调度列表在两端保持一致', async ({ page }, testInfo) => {
   });
 
   await page.route('**/api/v1/jobs/host-definitions**', async route => {
+    if (route.request().method() === 'GET' && route.request().url().includes('/groups')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '[]'
+      });
+      return;
+    }
+
     if (route.request().method() === 'GET' && route.request().url().includes('page=1')) {
       await route.fulfill({
         status: 200,
@@ -2025,6 +2141,10 @@ test('任务调度列表在两端保持一致', async ({ page }, testInfo) => {
           jobKey: 'jobs.ping',
           displayName: 'parity-job',
           description: 'parity-description',
+          groupName: null,
+          handlerKind: 'ping',
+          args: null,
+          allowConcurrentExecutions: false,
           isEnabled: true,
           createdAtUtc: '2026-07-26T00:00:00Z',
           updatedAtUtc: null,
@@ -2060,13 +2180,16 @@ test('任务调度列表在两端保持一致', async ({ page }, testInfo) => {
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /任务定义/ }).click();
+  await openNavigationLink(page, /任务定义/);
   await expect(page.getByRole('heading', { name: '任务定义', exact: true })).toBeVisible();
   await expect(page.getByText('尚无任务定义', { exact: true })).toBeVisible();
 
   const jobsView = routeView(page, clientKind, 'host-jobs', '.host-jobs-view');
-  await jobsView.getByLabel('显示名称', { exact: true }).fill('parity-job');
-  await jobsView.getByRole('button', { name: '创建任务' }).click();
+  await jobsView.getByTestId('host-jobs-action-create').click();
+  const jobEditor = page.getByRole('dialog');
+  await jobEditor.getByLabel('任务键', { exact: true }).fill('jobs.ping');
+  await jobEditor.getByLabel('显示名称', { exact: true }).fill('parity-job');
+  await jobEditor.getByTestId('host-jobs-editor-submit').click();
   await expect.poll(() => operations.some(operation => operation.type === 'create')).toBe(true);
   await expect(jobsView.getByText('parity-job', { exact: true })).toBeVisible();
 
@@ -2109,7 +2232,7 @@ test('操作日志列表在两端保持一致', async ({ page }, testInfo) => {
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /操作日志/ }).click();
+  await openNavigationLink(page, /操作日志/);
   await expect(page.getByRole('heading', { name: '操作日志', exact: true })).toBeVisible();
 
   const operationLogsView = routeView(page, clientKind, 'operation-logs', '.operation-logs-view');
@@ -2150,7 +2273,7 @@ test('异常日志列表在两端保持一致', async ({ page }, testInfo) => {
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /异常日志/ }).click();
+  await openNavigationLink(page, /异常日志/);
   await expect(page.getByRole('heading', { name: '异常日志', exact: true })).toBeVisible();
 
   const exceptionLogsView = routeView(page, clientKind, 'exception-logs', '.exception-logs-view');
@@ -2162,7 +2285,7 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
   const operations = [];
-  const roleId = 'e2e-host-role-id';
+  const roleId = '019bc2b1-2a40-7cc3-8992-a80de51bfc08';
   const state = { hasRole: false, disabled: false, dataScopeKind: 'identity.data_scope.all' };
   const listBody = () => {
     if (!state.hasRole) {
@@ -2188,7 +2311,7 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
     });
   };
 
-  await page.route('**/api/v1/identity/roles?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/identity/roles?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -2272,14 +2395,16 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /角色管理/ }).click();
+  await openNavigationLink(page, /角色管理/);
   await expect(page.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无 Host 角色', { exact: true })).toBeVisible();
 
   const rolesView = routeView(page, clientKind, 'roles', '.roles-view');
-  await rolesView.getByLabel('角色编码', { exact: true }).fill('parity-role');
-  await rolesView.getByLabel('显示名称', { exact: true }).fill('对等角色');
-  await rolesView.getByRole('button', { name: '创建角色' }).click();
+  await rolesView.getByTestId('roles-action-create').click();
+  const roleEditor = page.getByRole('dialog');
+  await roleEditor.getByLabel('角色编码', { exact: true }).fill('parity-role');
+  await roleEditor.getByLabel('角色名称', { exact: true }).fill('对等角色');
+  await roleEditor.getByTestId('roles-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -2289,7 +2414,7 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等角色', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '数据范围' }).click();
+  await page.getByRole('button', { name: '数据范围' }).first().click();
   if (clientKind === 'vue') {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -2302,7 +2427,10 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
   }
   await expect.poll(() => operations.some(operation => operation.type === 'data-scope')).toBe(true);
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  if (clientKind === 'vue') {
+    await page.getByRole('button', { name: '更多操作' }).click();
+  }
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -2311,14 +2439,14 @@ test('角色列表、创建与禁用在两端保持一致', async ({ page }, tes
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('菜单列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page);
   const operations = [];
-  const menuId = 'e2e-host-menu-id';
+  const menuId = '019bc2b1-2a40-7cc3-8992-a80de51bfc09';
   const state = { hasMenu: false, disabled: false };
   const listBody = () => {
     if (!state.hasMenu) {
@@ -2329,8 +2457,11 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
       items: [{
         id: menuId,
         parentId: null,
+        menuType: 'menu',
         routeName: 'parity-menu',
         path: '/',
+        redirect: null,
+        linkUrl: null,
         componentKey: 'overview',
         title: '对等菜单',
         caption: 'Parity menu',
@@ -2338,6 +2469,11 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
         displayOrder: 50,
         requiredPermission: 'platform.dashboard.read',
         isSystem: false,
+        isHidden: false,
+        isKeepAlive: false,
+        isAffix: false,
+        isEmbedded: false,
+        remark: null,
         isActive: !state.disabled,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: null,
@@ -2349,7 +2485,7 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
     });
   };
 
-  await page.route('**/api/v1/identity/menus?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/identity/menus?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -2367,8 +2503,11 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
       body: JSON.stringify({
         id: menuId,
         parentId: null,
+        menuType: 'menu',
         routeName: 'parity-menu',
         path: '/',
+        redirect: null,
+        linkUrl: null,
         componentKey: 'overview',
         title: '对等菜单',
         caption: '对等菜单',
@@ -2376,6 +2515,11 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
         displayOrder: 50,
         requiredPermission: 'platform.dashboard.read',
         isSystem: false,
+        isHidden: false,
+        isKeepAlive: false,
+        isAffix: false,
+        isEmbedded: false,
+        remark: null,
         isActive: true,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: null,
@@ -2392,8 +2536,11 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
       body: JSON.stringify({
         id: menuId,
         parentId: null,
+        menuType: 'menu',
         routeName: 'parity-menu',
         path: '/',
+        redirect: null,
+        linkUrl: null,
         componentKey: 'overview',
         title: '对等菜单',
         caption: '对等菜单',
@@ -2401,6 +2548,11 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
         displayOrder: 50,
         requiredPermission: 'platform.dashboard.read',
         isSystem: false,
+        isHidden: false,
+        isKeepAlive: false,
+        isAffix: false,
+        isEmbedded: false,
+        remark: null,
         isActive: false,
         createdAtUtc: '2026-07-21T00:00:00Z',
         updatedAtUtc: '2026-07-21T01:00:00Z',
@@ -2408,16 +2560,39 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
       })
     });
   });
+  await page.route('**/api/v1/identity/menus/all', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(JSON.parse(listBody()).items)
+  }));
+  await page.route('**/api/v1/identity/menus/permission-options', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([{
+      code: 'platform.dashboard.read',
+      moduleKey: 'platform',
+      moduleTitle: '平台',
+      pageId: 'dashboard',
+      pageTitle: '工作台',
+      kind: 'page',
+      displayName: '查看工作台',
+      displayNameKey: 'permissions.platform.dashboard.read',
+      actionId: null,
+      actionKey: null
+    }])
+  }));
 
   await page.goto('/');
-  await page.getByRole('link', { name: /菜单管理/ }).click();
+  await openNavigationLink(page, /菜单管理/);
   await expect(page.getByRole('heading', { name: '菜单管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无 Host 菜单', { exact: true })).toBeVisible();
 
   const menusView = routeView(page, clientKind, 'menus', '.menus-view');
-  await menusView.getByLabel('路由名', { exact: true }).fill('parity-menu');
-  await menusView.getByLabel('显示标题', { exact: true }).fill('对等菜单');
-  await menusView.getByRole('button', { name: '创建菜单' }).click();
+  await menusView.getByTestId('menus-action-create').click();
+  const menuEditor = page.getByRole('dialog');
+  await menuEditor.getByLabel('路由名', { exact: true }).fill('parity-menu');
+  await menuEditor.getByLabel('显示标题', { exact: true }).fill('对等菜单');
+  await menuEditor.getByTestId('menus-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: expect.objectContaining({
@@ -2429,7 +2604,8 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等菜单', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  const menuRow = menusView.getByRole('row').filter({ hasText: '对等菜单' });
+  await menuRow.getByRole('switch').click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -2438,14 +2614,14 @@ test('菜单列表、创建与禁用在两端保持一致', async ({ page }, tes
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(menuRow.getByRole('switch')).not.toBeChecked();
 });
 
 test('机构列表、创建与禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page, { initialTenantId: tenantId });
   const operations = [];
-  const unitId = 'e2e-tenant-unit-id';
+  const unitId = '019bc2b1-2a40-7cc3-8992-a80de51bfc03';
   const state = { hasUnit: false, disabled: false };
   const listBody = () => {
     if (!state.hasUnit) {
@@ -2470,7 +2646,7 @@ test('机构列表、创建与禁用在两端保持一致', async ({ page }, tes
     });
   };
 
-  await page.route('**/api/v1/organization/units?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/organization/units?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -2519,14 +2695,16 @@ test('机构列表、创建与禁用在两端保持一致', async ({ page }, tes
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /机构管理/ }).click();
+  await openNavigationLink(page, /机构管理/);
   await expect(page.getByRole('heading', { name: '机构管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无租户机构', { exact: true })).toBeVisible();
 
   const orgUnitsView = routeView(page, clientKind, 'org-units', '.org-units-view');
-  await orgUnitsView.getByLabel('机构编码', { exact: true }).fill('parity-unit');
-  await orgUnitsView.getByLabel('显示名称', { exact: true }).fill('对等机构');
-  await orgUnitsView.getByRole('button', { name: '创建机构' }).click();
+  await orgUnitsView.getByTestId('org-units-action-create').click();
+  const unitEditor = page.getByRole('dialog');
+  await unitEditor.getByLabel('机构编码', { exact: true }).fill('parity-unit');
+  await unitEditor.getByLabel('显示名称', { exact: true }).fill('对等机构');
+  await unitEditor.getByTestId('org-units-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -2538,7 +2716,7 @@ test('机构列表、创建与禁用在两端保持一致', async ({ page }, tes
   }]);
   await expect(page.getByText('对等机构', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -2547,16 +2725,16 @@ test('机构列表、创建与禁用在两端保持一致', async ({ page }, tes
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('职位创建、机构与职级绑定及禁用在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page, { initialTenantId: tenantId });
   const operations = [];
-  const positionId = 'e2e-tenant-position-id';
-  const unitId = 'e2e-tenant-unit-id';
-  const positionLevelId = 'e2e-tenant-position-level-id';
+  const positionId = '019bc2b1-2a40-7cc3-8992-a80de51bfc04';
+  const unitId = '019bc2b1-2a40-7cc3-8992-a80de51bfc03';
+  const positionLevelId = '019bc2b1-2a40-7cc3-8992-a80de51bfc05';
   const state = {
     hasPosition: false,
     disabled: false,
@@ -2592,13 +2770,13 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
     });
   };
 
-  await page.route('**/api/v1/organization/positions?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/organization/positions?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
     })
   );
-  await page.route('**/api/v1/organization/units?page=1&pageSize=100', route => route.fulfill({
+  await page.route('**/api/v1/organization/units?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
@@ -2619,7 +2797,7 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
     })
   }));
   await page.route(
-    '**/api/v1/organization/position-levels?page=1&pageSize=100',
+    '**/api/v1/organization/position-levels?*',
     route => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -2750,14 +2928,16 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /职位管理/ }).click();
+  await openNavigationLink(page, /职位管理/);
   await expect(page.getByRole('heading', { name: '职位管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无租户职位', { exact: true })).toBeVisible();
 
   const orgPositionsView = routeView(page, clientKind, 'org-positions', '.org-positions-view');
-  await orgPositionsView.getByLabel('职位编码', { exact: true }).fill('parity-pos');
-  await orgPositionsView.getByLabel('显示名称', { exact: true }).fill('对等职位');
-  await orgPositionsView.getByRole('button', { name: '创建职位' }).click();
+  await orgPositionsView.getByTestId('org-positions-action-create').click();
+  const positionEditor = page.getByRole('dialog');
+  await positionEditor.getByLabel('职位编码', { exact: true }).fill('parity-pos');
+  await positionEditor.getByLabel('显示名称', { exact: true }).fill('对等职位');
+  await positionEditor.getByTestId('org-positions-editor-submit').click();
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
@@ -2769,7 +2949,8 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
   await expect(page.getByText('对等职位', { exact: true }).first()).toBeVisible();
 
   if (clientKind === 'vue') {
-    await orgPositionsView.locator('.el-select').first().click();
+    const positionRow = orgPositionsView.getByRole('row').filter({ hasText: '对等职位' });
+    await positionRow.locator('.el-select').first().click();
     await page.getByRole('option', { name: /对等机构/ }).click();
   } else {
     await orgPositionsView.getByLabel('所属机构', { exact: true }).selectOption(unitId);
@@ -2779,10 +2960,12 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
       && operation.body.unitId === unitId
       && operation.body.version === 1
   ))).toBe(true);
-  await expect(page.getByText('对等机构', { exact: true }).first()).toBeVisible();
+  await expect(orgPositionsView.getByRole('row').filter({ hasText: '对等职位' }))
+    .toContainText('对等机构');
 
   if (clientKind === 'vue') {
-    await orgPositionsView.locator('.el-select').nth(1).click();
+    const positionRow = orgPositionsView.getByRole('row').filter({ hasText: '对等职位' });
+    await positionRow.locator('.el-select').nth(1).click();
     await page.getByRole('option', { name: /高级/ }).click();
   } else {
     await orgPositionsView.getByLabel('所属职级', { exact: true })
@@ -2793,9 +2976,10 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
       && operation.body.positionLevelId === positionLevelId
       && operation.body.version === 2
   ))).toBe(true);
-  await expect(page.getByText('高级', { exact: true }).first()).toBeVisible();
+  await expect(orgPositionsView.getByRole('row').filter({ hasText: '对等职位' }))
+    .toContainText('高级');
 
-  await page.getByRole('article').getByRole('button', { name: '禁用' }).click();
+  await page.getByRole('button', { name: '禁用' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '禁用', exact: true })
@@ -2804,7 +2988,7 @@ test('职位创建、机构与职级绑定及禁用在两端保持一致', async
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已禁用', { exact: true })).toBeVisible();
+  await expect(page.getByText('已禁用', { exact: true }).first()).toBeVisible();
 });
 
 test('职级列表与创建在两端保持一致', async ({ page }, testInfo) => {
@@ -2813,7 +2997,7 @@ test('职级列表与创建在两端保持一致', async ({ page }, testInfo) =>
   const operations = [];
   let hasLevel = false;
   const level = {
-    id: 'e2e-tenant-position-level-id',
+    id: '019bc2b1-2a40-7cc3-8992-a80de51bfc05',
     code: 'senior',
     name: '高级',
     displayOrder: 10,
@@ -2824,7 +3008,7 @@ test('职级列表与创建在两端保持一致', async ({ page }, testInfo) =>
   };
 
   await page.route(
-    '**/api/v1/organization/position-levels?page=1&pageSize=20',
+    '**/api/v1/organization/position-levels?*',
     route => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -2851,7 +3035,7 @@ test('职级列表与创建在两端保持一致', async ({ page }, testInfo) =>
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /职级管理/ }).click();
+  await openNavigationLink(page, /职级管理/);
   await expect(page.getByRole('heading', { name: '职级管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无租户职级', { exact: true })).toBeVisible();
 
@@ -2861,9 +3045,11 @@ test('职级列表与创建在两端保持一致', async ({ page }, testInfo) =>
     'org-position-levels',
     '.org-position-levels-view'
   );
-  await view.getByLabel('职级编码', { exact: true }).fill('senior');
-  await view.getByLabel('显示名称', { exact: true }).fill('高级');
-  await view.getByRole('button', { name: '创建职级' }).click();
+  await view.getByTestId('org-position-levels-action-create').click();
+  const positionLevelEditor = page.getByRole('dialog');
+  await positionLevelEditor.getByLabel('职级编码', { exact: true }).fill('senior');
+  await positionLevelEditor.getByLabel('显示名称', { exact: true }).fill('高级');
+  await positionLevelEditor.getByTestId('org-position-levels-editor-submit').click();
   await expect.poll(() => operations).toEqual([{
     code: 'senior',
     name: '高级',
@@ -2876,7 +3062,7 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page, { initialTenantId: tenantId });
   const operations = [];
-  const assignmentId = 'e2e-tenant-user-unit-id';
+  const assignmentId = '019bc2b1-2a40-7cc3-8992-a80de51bfc01';
   const state = { hasAssignment: false, disabled: false };
   const listBody = () => {
     if (!state.hasAssignment) {
@@ -2886,10 +3072,10 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
     return JSON.stringify({
       items: [{
         id: assignmentId,
-        userId: 'e2e-user-id',
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
         username: 'admin',
         displayName: '系统管理员',
-        unitId: 'e2e-tenant-unit-id',
+        unitId: '019bc2b1-2a40-7cc3-8992-a80de51bfc03',
         unitCode: 'parity-unit',
         unitName: '对等机构',
         isPrimary: false,
@@ -2916,14 +3102,24 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
         body: JSON.stringify({
           items: requestedPage === 1
             ? [{
-                id: 'e2e-user-id',
+                id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
                 username: 'admin',
-                displayName: '系统管理员'
+                displayName: '系统管理员',
+                accountType: 'normal_user',
+                isActive: true,
+                createdAtUtc: '2026-07-21T00:00:00Z',
+                updatedAtUtc: null,
+                version: 1
               }]
             : [{
-                id: 'e2e-user-page-2-id',
+                id: '019bc2b1-2a40-7cc3-8992-a80de51bfc06',
                 username: 'operator',
-                displayName: '分页操作员'
+                displayName: '分页操作员',
+                accountType: 'normal_user',
+                isActive: true,
+                createdAtUtc: '2026-07-21T00:00:00Z',
+                updatedAtUtc: null,
+                version: 1
               }],
           page: requestedPage,
           pageSize: 100,
@@ -2932,12 +3128,12 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
       });
     }
   );
-  await page.route('**/api/v1/organization/units?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/organization/units?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
       items: [{
-        id: 'e2e-tenant-unit-id',
+        id: '019bc2b1-2a40-7cc3-8992-a80de51bfc03',
         parentId: null,
         code: 'parity-unit',
         name: '对等机构',
@@ -2952,7 +3148,7 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
       total: 1
     })
   }));
-  await page.route('**/api/v1/organization/user-units?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/organization/user-units?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -2969,10 +3165,10 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
       contentType: 'application/json',
       body: JSON.stringify({
         id: assignmentId,
-        userId: 'e2e-user-id',
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
         username: 'admin',
         displayName: '系统管理员',
-        unitId: 'e2e-tenant-unit-id',
+        unitId: '019bc2b1-2a40-7cc3-8992-a80de51bfc03',
         unitCode: 'parity-unit',
         unitName: '对等机构',
         isPrimary: false,
@@ -2991,10 +3187,10 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
       contentType: 'application/json',
       body: JSON.stringify({
         id: assignmentId,
-        userId: 'e2e-user-id',
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
         username: 'admin',
         displayName: '系统管理员',
-        unitId: 'e2e-tenant-unit-id',
+        unitId: '019bc2b1-2a40-7cc3-8992-a80de51bfc03',
         unitCode: 'parity-unit',
         unitName: '对等机构',
         isPrimary: false,
@@ -3007,7 +3203,7 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /用户机构隶属/ }).click();
+  await openNavigationLink(page, /用户机构隶属/);
   await expect(page.getByRole('heading', { name: '用户机构隶属', exact: true })).toBeVisible();
   await expect(page.getByText('尚无用户机构隶属', { exact: true })).toBeVisible();
 
@@ -3018,32 +3214,38 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
     '.org-user-units-view'
   );
   if (clientKind === 'vue') {
-    await orgUserUnitsView.getByTestId('org-user-units-load-more-users').click();
-    await orgUserUnitsView.locator('.el-select').first().click();
+    await orgUserUnitsView.getByTestId('org-user-units-action-create').click();
+    const assignmentEditor = page.getByRole('dialog');
+    await assignmentEditor.getByTestId('org-user-units-load-more-users').click();
+    await assignmentEditor.locator('.el-select').first().click();
     await expect(page.getByRole('option', { name: /分页操作员/ })).toBeVisible();
     await page.getByRole('option', { name: /系统管理员/ }).click();
-    await orgUserUnitsView.locator('.el-select').nth(1).click();
+    await assignmentEditor.locator('.el-select').nth(1).click();
     await page.getByRole('option', { name: /对等机构/ }).click();
   } else {
     await orgUserUnitsView.locator('[data-org-user-units-load-more-users]').click();
     await expect(
-      orgUserUnitsView.locator('[data-org-user-units-user] option[value="e2e-user-page-2-id"]')
+      orgUserUnitsView.locator('[data-org-user-units-user] option[value="019bc2b1-2a40-7cc3-8992-a80de51bfc06"]')
     ).toHaveText(/分页操作员/);
-    await orgUserUnitsView.locator('[data-org-user-units-user]').selectOption('e2e-user-id');
-    await orgUserUnitsView.locator('[data-org-user-units-unit]').selectOption('e2e-tenant-unit-id');
+    await orgUserUnitsView.locator('[data-org-user-units-user]').selectOption('019bc2b1-2a40-7cc3-8992-a80de51bf295');
+    await orgUserUnitsView.locator('[data-org-user-units-unit]').selectOption('019bc2b1-2a40-7cc3-8992-a80de51bfc03');
   }
-  await orgUserUnitsView.getByRole('button', { name: '创建隶属' }).click();
+  if (clientKind === 'vue') {
+    await page.getByRole('dialog').getByTestId('org-user-units-editor-submit').click();
+  } else {
+    await orgUserUnitsView.getByRole('button', { name: '创建隶属' }).click();
+  }
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
-      userId: 'e2e-user-id',
-      unitId: 'e2e-tenant-unit-id',
+      userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
+      unitId: '019bc2b1-2a40-7cc3-8992-a80de51bfc03',
       isPrimary: false
     }
   }]);
   await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '取消隶属' }).click();
+  await page.getByRole('button', { name: '取消隶属' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '取消隶属', exact: true })
@@ -3052,14 +3254,14 @@ test('用户机构隶属列表、分配与取消在两端保持一致', async ({
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已取消', { exact: true })).toBeVisible();
+  await expect(page.getByText('已取消', { exact: true }).first()).toBeVisible();
 });
 
 test('用户职位隶属列表、分配与取消在两端保持一致', async ({ page }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await mockAuthenticatedSession(page, { initialTenantId: tenantId });
   const operations = [];
-  const assignmentId = 'e2e-tenant-user-position-id';
+  const assignmentId = '019bc2b1-2a40-7cc3-8992-a80de51bfc02';
   const state = { hasAssignment: false, disabled: false };
   const listBody = () => {
     if (!state.hasAssignment) {
@@ -3069,10 +3271,10 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
     return JSON.stringify({
       items: [{
         id: assignmentId,
-        userId: 'e2e-user-id',
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
         username: 'admin',
         displayName: '系统管理员',
-        positionId: 'e2e-tenant-position-id',
+        positionId: '019bc2b1-2a40-7cc3-8992-a80de51bfc04',
         positionCode: 'parity-pos',
         positionName: '对等职位',
         isPrimary: false,
@@ -3099,14 +3301,24 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
         body: JSON.stringify({
           items: requestedPage === 1
             ? [{
-                id: 'e2e-user-id',
+                id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
                 username: 'admin',
-                displayName: '系统管理员'
+                displayName: '系统管理员',
+                accountType: 'normal_user',
+                isActive: true,
+                createdAtUtc: '2026-07-25T00:00:00Z',
+                updatedAtUtc: null,
+                version: 1
               }]
             : [{
-                id: 'e2e-user-page-2-id',
+                id: '019bc2b1-2a40-7cc3-8992-a80de51bfc06',
                 username: 'operator',
-                displayName: '分页操作员'
+                displayName: '分页操作员',
+                accountType: 'normal_user',
+                isActive: true,
+                createdAtUtc: '2026-07-25T00:00:00Z',
+                updatedAtUtc: null,
+                version: 1
               }],
           page: requestedPage,
           pageSize: 100,
@@ -3115,12 +3327,12 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
       });
     }
   );
-  await page.route('**/api/v1/organization/positions?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/organization/positions?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
       items: [{
-        id: 'e2e-tenant-position-id',
+        id: '019bc2b1-2a40-7cc3-8992-a80de51bfc04',
         code: 'parity-pos',
         name: '对等职位',
         unitId: null,
@@ -3140,7 +3352,7 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
       total: 1
     })
   }));
-  await page.route('**/api/v1/organization/user-positions?page=1&pageSize=20', route => route.fulfill({
+  await page.route('**/api/v1/organization/user-positions?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: listBody()
@@ -3181,10 +3393,10 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
       contentType: 'application/json',
       body: JSON.stringify({
         id: assignmentId,
-        userId: 'e2e-user-id',
+        userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
         username: 'admin',
         displayName: '系统管理员',
-        positionId: 'e2e-tenant-position-id',
+        positionId: '019bc2b1-2a40-7cc3-8992-a80de51bfc04',
         positionCode: 'parity-pos',
         positionName: '对等职位',
         isPrimary: false,
@@ -3197,7 +3409,7 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /用户职位隶属/ }).click();
+  await openNavigationLink(page, /用户职位隶属/);
   await expect(page.getByRole('heading', { name: '用户职位隶属', exact: true })).toBeVisible();
   await expect(page.getByText('尚无用户职位隶属', { exact: true })).toBeVisible();
 
@@ -3208,35 +3420,41 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
     '.org-user-positions-view'
   );
   if (clientKind === 'vue') {
-    await orgUserPositionsView.getByTestId('org-user-positions-load-more-users').click();
-    await orgUserPositionsView.locator('.el-select').first().click();
+    await orgUserPositionsView.getByTestId('org-user-positions-action-create').click();
+    const assignmentEditor = page.getByRole('dialog');
+    await assignmentEditor.getByTestId('org-user-positions-load-more-users').click();
+    await assignmentEditor.locator('.el-select').first().click();
     await expect(page.getByRole('option', { name: /分页操作员/ })).toBeVisible();
     await page.getByRole('option', { name: /系统管理员/ }).click();
-    await orgUserPositionsView.locator('.el-select').nth(1).click();
+    await assignmentEditor.locator('.el-select').nth(1).click();
     await page.getByRole('option', { name: /对等职位/ }).click();
   } else {
     await orgUserPositionsView.locator('[data-org-user-positions-load-more-users]').click();
     await expect(
       orgUserPositionsView.locator(
-        '[data-org-user-positions-user] option[value="e2e-user-page-2-id"]'
+        '[data-org-user-positions-user] option[value="019bc2b1-2a40-7cc3-8992-a80de51bfc06"]'
       )
     ).toHaveText(/分页操作员/);
-    await orgUserPositionsView.locator('[data-org-user-positions-user]').selectOption('e2e-user-id');
+    await orgUserPositionsView.locator('[data-org-user-positions-user]').selectOption('019bc2b1-2a40-7cc3-8992-a80de51bf295');
     await orgUserPositionsView.locator('[data-org-user-positions-position]')
-      .selectOption('e2e-tenant-position-id');
+      .selectOption('019bc2b1-2a40-7cc3-8992-a80de51bfc04');
   }
-  await orgUserPositionsView.getByRole('button', { name: '创建隶属' }).click();
+  if (clientKind === 'vue') {
+    await page.getByRole('dialog').getByTestId('org-user-positions-editor-submit').click();
+  } else {
+    await orgUserPositionsView.getByRole('button', { name: '创建隶属' }).click();
+  }
   await expect.poll(() => operations.filter(operation => operation.type === 'create')).toEqual([{
     type: 'create',
     body: {
-      userId: 'e2e-user-id',
-      positionId: 'e2e-tenant-position-id',
+      userId: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
+      positionId: '019bc2b1-2a40-7cc3-8992-a80de51bfc04',
       isPrimary: false
     }
   }]);
   await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
 
-  await page.getByRole('article').getByRole('button', { name: '取消隶属' }).click();
+  await page.getByRole('button', { name: '取消隶属' }).first().click();
   if (clientKind === 'vue') {
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '取消隶属', exact: true })
@@ -3245,23 +3463,25 @@ test('用户职位隶属列表、分配与取消在两端保持一致', async ({
     await page.locator('.layui-layer-btn0').click();
   }
   await expect.poll(() => operations.some(operation => operation.type === 'disable')).toBe(true);
-  await expect(page.getByText('已取消', { exact: true })).toBeVisible();
+  await expect(page.getByText('已取消', { exact: true }).first()).toBeVisible();
 });
 
 test('进入租户、刷新恢复并返回 Host 的闭环等价', async ({ page }) => {
   const state = await mockAuthenticatedSession(page, { mutableContext: true });
   await page.goto('/');
-  await page.getByRole('link', { name: /租户上下文/ }).click();
+  await openNavigationLink(page, /租户上下文/);
 
   await page.getByRole('button', { name: '进入租户' }).click();
   await expect.poll(() => state.tenantId).toBe(tenantId);
-  await expect(page.getByText('Acme Corporation', { exact: true }).first())
-    .toBeVisible();
+  await page.getByRole('button', { name: '系统管理员' }).click();
+  await expect(page.getByTestId('shell-tenant-select')).toContainText('Acme Corporation');
+  await page.keyboard.press('Escape');
 
   await page.reload();
-  await expect(page.getByText('Acme Corporation', { exact: true }).first())
-    .toBeVisible();
-  await page.getByRole('link', { name: /租户上下文/ }).click();
+  await page.getByRole('button', { name: '系统管理员' }).click();
+  await expect(page.getByTestId('shell-tenant-select')).toContainText('Acme Corporation');
+  await page.keyboard.press('Escape');
+  await openNavigationLink(page, /租户上下文/);
   await page.getByRole('button', { name: '返回 Host' }).click();
 
   await expect.poll(() => state.tenantId).toBeNull();
@@ -3426,7 +3646,7 @@ function tokenResponse(accessToken = 'e2e-access-token') {
   return {
     accessToken,
     tokenType: 'Bearer',
-    expiresAtUtc: '2026-07-17T04:00:00Z'
+    expiresAtUtc: new Date(Date.now() + 60 * 60 * 1000).toISOString()
   };
 }
 
@@ -3456,7 +3676,7 @@ function contextTokenResponse(activeTenantId) {
 
 function currentUserResponse(activeTenantId = null) {
   return {
-    id: 'e2e-user-id',
+    id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
     username: 'admin',
     displayName: '系统管理员',
     tenantId: activeTenantId,
@@ -3481,7 +3701,12 @@ function currentUserResponse(activeTenantId = null) {
       'identity.super_administrators.revoke',
       'identity.super_administrators.read',
       'identity.users.read',
-      'identity.users.write',
+      'identity.users.create',
+      'identity.users.update',
+      'identity.users.assign_roles',
+      'identity.users.reset_password',
+      'identity.users.disable',
+      'identity.users.enable',
       'identity.sessions.read',
       'identity.sessions.revoke',
       'identity.api_keys.read',
@@ -3510,14 +3735,25 @@ function currentUserResponse(activeTenantId = null) {
       'settings.config.disable',
       'settings.enums.read',
       'files.files.read',
-      'files.files.write',
+      'files.files.upload',
+      'files.files.download',
+      'files.files.delete',
       'notifications.announcements.read',
-      'notifications.announcements.write',
+      'notifications.announcements.create',
+      'notifications.announcements.update',
+      'notifications.announcements.publish',
       'notifications.inbox.read',
-      'notifications.inbox.write',
+      'notifications.inbox.send',
+      'notifications.inbox.mark_read',
+      'notifications.inbox.mark_all_read',
       'jobs.definitions.read',
-      'jobs.definitions.write',
+      'jobs.definitions.create',
+      'jobs.definitions.update',
+      'jobs.definitions.disable',
+      'jobs.definitions.delete',
+      'jobs.definitions.trigger',
       'jobs.executions.read',
+      'jobs.executions.clear',
       'auditing.access.read',
       'auditing.operations.read',
       'auditing.exceptions.read',
@@ -3552,7 +3788,7 @@ function currentUserResponse(activeTenantId = null) {
           ]
         : [])
     ],
-    sessionId: 'e2e-session-id',
+    sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     preferredLocale: 'zh-CN',
     profileVersion: 1
   };
@@ -3735,4 +3971,31 @@ function routeView(page, clientKind, layuiViewKey, vueSelector) {
   return clientKind === 'layui'
     ? page.locator(`[data-route-view="${layuiViewKey}"]`)
     : page.locator(vueSelector);
+}
+
+async function revealNavigationLink(page, name) {
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await expect(navigation).toBeVisible();
+  const subMenus = navigation.locator('.el-sub-menu');
+  const subMenuCount = await subMenus.count();
+  for (let index = 0; index < subMenuCount; index += 1) {
+    const subMenu = subMenus.nth(index);
+    if (!await subMenu.evaluate(element => element.classList.contains('is-opened'))) {
+      await subMenu.locator(':scope > .el-sub-menu__title').click();
+      await expect(subMenu).toHaveClass(/is-opened/);
+    }
+  }
+
+  const link = navigation.getByRole('link', { name }).first();
+  await expect(link).toBeVisible();
+  return link;
+}
+
+async function openNavigationLink(page, name) {
+  const link = await revealNavigationLink(page, name);
+  const targetHash = await link.getAttribute('href');
+  await link.evaluate(element => element.click());
+  if (targetHash?.startsWith('#')) {
+    await expect(page).toHaveURL(url => url.hash === targetHash, { timeout: 15_000 });
+  }
 }

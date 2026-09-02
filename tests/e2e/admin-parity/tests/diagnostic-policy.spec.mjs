@@ -64,14 +64,14 @@ async function mockAuthenticatedSession(page) {
     body: JSON.stringify({
       accessToken: 'parity-access',
       tokenType: 'Bearer',
-      expiresAtUtc: '2026-08-01T04:00:00Z'
+      expiresAtUtc: new Date(Date.now() + 60 * 60 * 1000).toISOString()
     })
   }));
   await page.route('**/api/v1/me', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
-      id: 'e2e-user-id',
+      id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
       username: 'admin',
       displayName: '系统管理员',
       tenantId: null,
@@ -85,7 +85,7 @@ async function mockAuthenticatedSession(page) {
         'settings.diagnostic_policy.update',
         'settings.diagnostic_policy.restore'
       ],
-      sessionId: 'e2e-session-id',
+      sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
       preferredLocale: 'zh-CN',
       profileVersion: 1
     })

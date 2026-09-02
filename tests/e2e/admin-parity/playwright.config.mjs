@@ -3,6 +3,11 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  // 完整并发套件包含 Element Plus 页面与 axe 扫描，CI 冷启动时 30 秒不足以覆盖单用例生命周期。
+  timeout: 60_000,
+  expect: {
+    timeout: 10_000
+  },
   // Element Plus 与浏览器可访问性扫描内存占用较高，限制并发可避免 Vite/Edge 被系统回收。
   workers: 4,
   forbidOnly: Boolean(process.env.GITHUB_ACTIONS),
