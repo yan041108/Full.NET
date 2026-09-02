@@ -96,6 +96,17 @@ test('main CI 分片数量精确覆盖全量门槛', () => {
     assert.ok(args.includes('--minimum-expected-tests'));
     assert.ok(args.includes('--report-trx'));
   }
+  const messagingHeavyArgs = argumentsFor('messaging-heavy');
+  assert.deepEqual(
+    messagingHeavyArgs.slice(
+      messagingHeavyArgs.indexOf('--minimum-expected-tests'),
+      messagingHeavyArgs.indexOf('--minimum-expected-tests') + 2
+    ),
+    [
+      '--minimum-expected-tests',
+      String(shards['messaging-heavy'].minimumPassedOnTestcontainers)
+    ]
+  );
 });
 
 test('分片集合拒绝重复和遗漏', () => {

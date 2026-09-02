@@ -37,7 +37,7 @@
 ### main CI / 本地 `pnpm test:integration:messaging-heavy`
 
 - 测试**允许** Inconclusive；分片脚本在 TRX 中**单独统计** `Inconclusive` 计数（不得与 Passed 合并解读）。
-- 门禁仍要求：0 Failed；Executed 数量满足 `eng/testing/test-matrix.json` 中 `messaging-heavy.minimum`。
+- 门禁仍要求：0 Failed；Pass/Fail 执行数量满足 `eng/testing/test-matrix.json` 中 `messaging-heavy.minimumPassedOnTestcontainers`（默认 Testcontainers 上 6 项 SQL Server CDC 预期 Inconclusive，分片目录仍保留 `minimum: 57`）。
 
 ### Nightly 外部实例（可选证据链）
 

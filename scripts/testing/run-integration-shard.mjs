@@ -22,9 +22,10 @@ export function argumentsFor(shardName) {
   if (shard.filter) {
     args.push('--filter', shard.filter);
   }
+  const minimumExpectedTests = shard.minimumPassedOnTestcontainers ?? shard.minimum;
   args.push(
     '--minimum-expected-tests',
-    String(shard.minimum),
+    String(minimumExpectedTests),
     '--timeout',
     shard.timeout,
     '--report-trx',
