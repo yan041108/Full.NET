@@ -34,7 +34,7 @@ public static class CommonErrorCodes
     /// 数据库准入边界已达到静态容量上限。
     /// </summary>
     public const string DatabaseCapacityExhausted =
-        "common.database_capacity_exhausted";
+        "common.database.capacity_exhausted";
 
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。

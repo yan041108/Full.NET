@@ -6,7 +6,6 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Authorization;
-using global::Dapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -16,6 +15,8 @@ namespace Full.NET.Modules.Identity.Features.GetCurrentUser;
 
 internal static class Endpoint
 {
+    /// <summary>映射当前登录用户资料与授权快照查询端点。</summary>
+    /// <param name="endpoints">应用端点路由生成器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/v1/me", async (
@@ -43,9 +44,9 @@ internal static class Endpoint
                 return mapper.Map(Unauthorized(), httpContext);
             }
 
-            var profileParameters = new DynamicParameters();
-            profileParameters.Add("UserId", userId);
-            profileParameters.Add("ScopeKey", actorScope);
+            var profileParameters = IdentitySqlParameters.Create(
+                ("UserId", userId),
+                ("ScopeKey", actorScope));
             var profile = await queryExecutor
                 .QuerySingleOrDefaultAsync<IdentityProfileRecord>(
                     IdentitySql.FindProfileByIdentity,

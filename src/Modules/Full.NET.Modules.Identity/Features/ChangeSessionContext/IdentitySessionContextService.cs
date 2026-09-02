@@ -9,7 +9,6 @@ using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.IdentityModel.JsonWebTokens;
-using global::Dapper;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
 namespace Full.NET.Modules.Identity.Features.ChangeSessionContext;
@@ -133,12 +132,15 @@ internal sealed class IdentitySessionContextService(
                 context));
     }
 
+    /// <summary>按会话标识读取刷新会话，用于上下文切换前后的并发校验。</summary>
+    /// <param name="sessionId">刷新会话标识。</param>
+    /// <param name="cancellationToken">用于取消数据库查询的令牌。</param>
+    /// <returns>存在时返回刷新会话记录，否则返回空值。</returns>
     private Task<RefreshSessionRecord?> FindSessionAsync(
         Guid sessionId,
         CancellationToken cancellationToken)
     {
-        var parameters = new DynamicParameters();
-        parameters.Add("SessionId", sessionId);
+        var parameters = IdentitySqlParameters.Create(("SessionId", sessionId));
         return queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
             IdentitySql.FindRefreshSessionById,
             parameters,

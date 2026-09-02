@@ -85,5 +85,5 @@ Result: 29 passed, 1 failed. The failure reports four pre-existing `FNSQL003 uns
 
 - Helm production releases enable the protection for API and Worker. The connection Secret must explicitly match the role's `apiMaxPoolSize` or `workerMaxPoolSize`; an omitted Provider keyword defaults to 100 and therefore fails startup when the declared value differs.
 - Metrics use only `provider`, `host_role`, and acquisition `outcome`; raw SQL, connection strings, pool names, tenants and exception messages are excluded.
-- API overload returns HTTP 503 with `common.database_capacity_exhausted` and `Retry-After`. Worker backs off new acquisition; Outbox renewal and terminal writes use the critical reserve.
+- API overload returns HTTP 503 with `common.database.capacity_exhausted` and `Retry-After`. Worker backs off new acquisition; Outbox renewal and terminal writes use the critical reserve.
 - No production-equivalent soak, 2K/5K/10K run, adaptive high-water validation, or before/after performance benchmark was executed. Fixed QPS and latency improvements are unverified.

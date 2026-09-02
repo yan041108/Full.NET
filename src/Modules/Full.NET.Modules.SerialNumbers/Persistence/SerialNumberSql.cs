@@ -35,39 +35,61 @@ internal static class SerialNumberSql
         Version
         """;
 
+    /// <summary>SQL Server 规则分页模板；排序占位符只允许由白名单解析器替换。</summary>
+    private static readonly SqlStatement PageRulesSqlServerTemplate = new(
+        "serial_numbers.rule.page.sql_server",
+        $"""
+        SELECT COUNT(*) FROM fn_serialnumbers_rule
+        WHERE {RuleListWhereSqlServer};
+        SELECT {RuleListProjection}
+        FROM fn_serialnumbers_rule
+        WHERE {RuleListWhereSqlServer}
+        ORDER BY __ORDER_BY__
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>MySQL 规则分页模板；排序占位符只允许由白名单解析器替换。</summary>
+    private static readonly SqlStatement PageRulesMySqlTemplate = new(
+        "serial_numbers.rule.page.my_sql",
+        $"""
+        SELECT COUNT(*) FROM fn_serialnumbers_rule
+        WHERE {RuleListWhereMySql};
+        SELECT {RuleListProjection}
+        FROM fn_serialnumbers_rule
+        WHERE {RuleListWhereMySql}
+        ORDER BY __ORDER_BY__
+        LIMIT @PageSize OFFSET @Offset;
+        """,
+        SqlDataScope.HostOnly);
+
     /// <summary>
     /// 按白名单排序列与方向组装分页 SQL；末尾固定 Id 保证跨页顺序稳定。
     /// </summary>
+    /// <param name="orderByClause">经 <see cref="ResolveRuleListOrderBy"/> 生成的白名单排序片段。</param>
+    /// <returns>带确定排序的 SQL Server 分页语句。</returns>
     public static SqlStatement CreatePageRulesSqlServer(string orderByClause) =>
-        new(
-            "serial_numbers.rule.page.sql_server",
-            $"""
-            SELECT COUNT(*) FROM fn_serialnumbers_rule
-            WHERE {RuleListWhereSqlServer};
-            SELECT {RuleListProjection}
-            FROM fn_serialnumbers_rule
-            WHERE {RuleListWhereSqlServer}
-            ORDER BY {orderByClause}
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
-            """,
-            SqlDataScope.HostOnly);
+        PageRulesSqlServerTemplate with
+        {
+            Text = PageRulesSqlServerTemplate.Text.Replace(
+                "__ORDER_BY__",
+                orderByClause,
+                StringComparison.Ordinal),
+        };
 
     /// <summary>
     /// MySQL 等价分页语句：使用 LIMIT/OFFSET 语法，语义与 SQL Server 版本一致。
     /// </summary>
+    /// <param name="orderByClause">经 <see cref="ResolveRuleListOrderBy"/> 生成的白名单排序片段。</param>
+    /// <returns>带确定排序的 MySQL 分页语句。</returns>
     public static SqlStatement CreatePageRulesMySql(string orderByClause) =>
-        new(
-            "serial_numbers.rule.page.my_sql",
-            $"""
-            SELECT COUNT(*) FROM fn_serialnumbers_rule
-            WHERE {RuleListWhereMySql};
-            SELECT {RuleListProjection}
-            FROM fn_serialnumbers_rule
-            WHERE {RuleListWhereMySql}
-            ORDER BY {orderByClause}
-            LIMIT @PageSize OFFSET @Offset;
-            """,
-            SqlDataScope.HostOnly);
+        PageRulesMySqlTemplate with
+        {
+            Text = PageRulesMySqlTemplate.Text.Replace(
+                "__ORDER_BY__",
+                orderByClause,
+                StringComparison.Ordinal),
+        };
 
     /// <summary>
     /// 将 sortBy/sortDirection 解析为仅含白名单列的 ORDER BY 片段。

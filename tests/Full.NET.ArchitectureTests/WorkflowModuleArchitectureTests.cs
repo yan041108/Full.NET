@@ -5,6 +5,7 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class WorkflowModuleArchitectureTests
 {
+    /// <summary>验证 Workflow 只引用批准的 Building Block 与 Identity Contract。</summary>
     [TestMethod]
     public void Workflow_module_references_only_approved_building_blocks_and_identity_contracts()
     {
@@ -25,6 +26,7 @@ public sealed class WorkflowModuleArchitectureTests
         CollectionAssert.AreEqual(
             new[]
             {
+                "Full.NET.Abstractions",
                 "Full.NET.Data.Abstractions",
                 "Full.NET.Data.Dapper",
                 "Full.NET.Hosting",

@@ -445,6 +445,7 @@ public sealed class DependencyRulesTests
             + $"{string.Join(", ", result.FailingTypeNames ?? [])}");
     }
 
+    /// <summary>验证 Kafka Provider 只由批准项目引用，并通过 Host API 集中注册边界接线。</summary>
     [TestMethod]
     public void Kafka_provider_has_only_approved_dependencies_and_consumers()
     {
@@ -525,7 +526,14 @@ public sealed class DependencyRulesTests
             Path.Combine("tests", "Full.NET.UnitTests", "Full.NET.UnitTests.csproj"));
         var apiProgram = File.ReadAllText(
             Path.Combine(root, "src", "Hosts", "Full.NET.Host.Api", "Program.cs"));
-        StringAssert.Contains(apiProgram, "AddFullNetKafkaReplayOperations");
+        StringAssert.Contains(apiProgram, "AddKafkaReplayOperations");
+        var apiRegistration = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "Hosts",
+            "Full.NET.Host.Api",
+            "HostApiServiceRegistration.cs"));
+        StringAssert.Contains(apiRegistration, "AddFullNetKafkaReplayOperations");
         Assert.IsFalse(apiProgram.Contains(
             "AddFullNetKafkaMessaging(",
             StringComparison.Ordinal));

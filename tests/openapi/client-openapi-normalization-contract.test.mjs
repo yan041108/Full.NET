@@ -299,6 +299,6 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.match(
     workflow,
-    /name: Verify canonical client OpenAPI snapshot\s+run: pnpm openapi:client:snapshot -- --check --offline/u
+    /name: Verify canonical client OpenAPI snapshot\s+run: pnpm openapi:client:snapshot --check --offline/u
   );
 });

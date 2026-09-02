@@ -15,7 +15,7 @@
 - SQL Server 与 MySQL 必须使用各自官方连接字符串 Builder，未声明池上限时按 Provider 默认值解析。
 - 指标标签只允许 `provider`、`host_role` 和 `outcome`，禁止连接字符串、池名、租户、SQL 或异常消息。
 - 准入许可证从打开连接前持有到连接真正释放；事务、取消和异常路径必须只释放一次。
-- API 容量拒绝返回 HTTP 503 和稳定错误码 `common.database_capacity_exhausted`，客户端取消不得转换成 503。
+- API 容量拒绝返回 HTTP 503 和稳定错误码 `common.database.capacity_exhausted`，客户端取消不得转换成 503。
 - Worker 容量拒绝只暂停新领取并退避，不得改变已领取消息的至少一次交付语义。
 - 自适应高水位和 DbCommand 生成式复用不进入本计划；它们需要本计划产生的等待/持有证据后作为独立切片实施。
 - 没有生产等价容量验证时，交付状态保持 `Capacity-not-verified`。
@@ -71,7 +71,7 @@
 
 **Interfaces:**
 - Consumes: `ServiceCapacityExceededException` from Task 2.
-- Produces: HTTP 503 ProblemDetails with code `common.database_capacity_exhausted`, `Retry-After`, localized title and trace id.
+- Produces: HTTP 503 ProblemDetails with code `common.database.capacity_exhausted`, `Retry-After`, localized title and trace id.
 
 - [ ] **Step 1: Write a failing mapper test** asserting 503, stable code, sanitized title, trace id and `Retry-After`; retain the existing generic 500 test.
 - [ ] **Step 2: Run the mapper and resource completeness tests** and verify the new test fails as 500.

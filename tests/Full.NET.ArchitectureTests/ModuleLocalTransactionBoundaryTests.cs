@@ -13,6 +13,16 @@ public sealed class ModuleLocalTransactionBoundaryTests
         Assert.AreEqual("identity", definitions["IHostUserDirectory"]);
     }
 
+    /// <summary>验证 Port 实现扫描器不会把跨模块构造函数消费者误判为接口实现者。</summary>
+    [TestMethod]
+    public void Port_implementation_scanner_ignores_constructor_consumers()
+    {
+        var implementations = ModuleBoundaryDebtScanner.ScanPortImplementations(
+            ArchitectureRepositoryRoot.Find());
+
+        Assert.AreEqual("files", implementations["IHostFileReferenceClaimService"]);
+    }
+
     [TestMethod]
     public void Transaction_gate_matches_catalog()
     {

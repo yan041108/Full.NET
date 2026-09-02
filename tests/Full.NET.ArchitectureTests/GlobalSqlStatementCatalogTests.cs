@@ -35,6 +35,8 @@ public sealed class GlobalSqlStatementCatalogTests
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildExceptions",
         "Full.NET.Modules.Auditing.Features.WriteAuditBatch.AuditWriteBatchSql.BuildOutbounds",
         "Full.NET.Modules.Identity.Persistence.IdentitySql.BuildProjectedHostUserProfilesByIds",
+        "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.CreatePageRulesMySql",
+        "Full.NET.Modules.SerialNumbers.Persistence.SerialNumberSql.CreatePageRulesSqlServer",
     ];
 
     private static readonly JsonSerializerOptions JsonOptions = new()

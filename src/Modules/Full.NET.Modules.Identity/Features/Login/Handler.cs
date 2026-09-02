@@ -12,7 +12,6 @@ using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 using Full.NET.Modules.Identity.Authorization;
-using global::Dapper;
 
 namespace Full.NET.Modules.Identity.Features.Login;
 
@@ -379,13 +378,16 @@ internal sealed class Handler(
     /// </summary>
     private static bool IsSingleRowAffected(int affectedRows) => affectedRows is 1 or -1;
 
-    private static DynamicParameters CreateFindUserParameters(string normalizedUsername)
-    {
-        var parameters = new DynamicParameters();
-        parameters.Add("ScopeKey", HostScope);
-        parameters.Add("NormalizedUsername", normalizedUsername);
-        return parameters;
-    }
+    /// <summary>
+    /// 创建 Host 用户名查询参数，避免业务处理器直接依赖 Dapper 类型。
+    /// </summary>
+    /// <param name="normalizedUsername">已规范化的用户名。</param>
+    /// <returns>可由数据执行边界消费的参数字典。</returns>
+    private static Dictionary<string, object?> CreateFindUserParameters(
+        string normalizedUsername) =>
+        IdentitySqlParameters.Create(
+            ("ScopeKey", HostScope),
+            ("NormalizedUsername", normalizedUsername));
 
     private static IdentityUser ToUser(IdentityUserRecord record) => new(
         record.Id,

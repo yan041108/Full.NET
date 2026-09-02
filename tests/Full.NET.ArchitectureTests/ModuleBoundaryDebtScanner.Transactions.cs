@@ -82,6 +82,9 @@ internal static partial class ModuleBoundaryDebtScanner
             .ToArray();
     }
 
+    /// <summary>扫描各模块真正实现的 Contract Port，忽略仅在构造函数中消费接口的类型。</summary>
+    /// <param name="root">仓库根目录。</param>
+    /// <returns>以接口类型名为键、实现模块名为值的只读映射。</returns>
     public static IReadOnlyDictionary<string, string> ScanPortImplementations(string root)
     {
         var implementations = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -103,15 +106,19 @@ internal static partial class ModuleBoundaryDebtScanner
 
             var implementationModule = NormalizeModuleName(moduleMatch.Groups["module"].Value);
             var content = File.ReadAllText(path);
-            foreach (Match match in ImplementedInterfaceRegex().Matches(content))
+            foreach (Match declaration in TypeImplementationRegex().Matches(content))
             {
-                var contractType = match.Groups["contract"].Value;
-                if (!contractType.StartsWith('I'))
+                foreach (Match match in InterfaceTypeRegex().Matches(
+                    declaration.Groups["contracts"].Value))
                 {
-                    continue;
-                }
+                    var contractType = match.Groups["contract"].Value;
+                    if (!contractType.StartsWith('I'))
+                    {
+                        continue;
+                    }
 
-                implementations[contractType] = implementationModule;
+                    implementations[contractType] = implementationModule;
+                }
             }
         }
 
@@ -293,8 +300,15 @@ internal static partial class ModuleBoundaryDebtScanner
         RegexOptions.CultureInvariant)]
     private static partial Regex TransactionTargetRegex();
 
-    [GeneratedRegex(@"(?:^|[\s,:])(?<contract>I[A-Za-z0-9_]+)")]
-    private static partial Regex ImplementedInterfaceRegex();
+    /// <summary>匹配类型声明的实现列表，排除主构造函数中的接口参数。</summary>
+    [GeneratedRegex(
+        @"(?:class|record|struct)\s+[A-Za-z0-9_]+(?:\s*\([^{}]*\))?\s*:\s*(?<contracts>[^{]+)\{",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex TypeImplementationRegex();
+
+    /// <summary>从类型实现列表中提取接口类型名。</summary>
+    [GeneratedRegex(@"(?:^|[\s,])(?<contract>I[A-Za-z0-9_]+)", RegexOptions.CultureInvariant)]
+    private static partial Regex InterfaceTypeRegex();
 
     private static Regex MethodDeclarationRegex(string methodName) =>
         new(

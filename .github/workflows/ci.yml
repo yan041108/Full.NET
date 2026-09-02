@@ -71,7 +71,7 @@ jobs:
           pnpm --filter @fullnet/admin-i18n --filter @fullnet/admin test
 
       - name: Verify canonical client OpenAPI snapshot
-        run: pnpm openapi:client:snapshot -- --check --offline
+        run: pnpm openapi:client:snapshot --check --offline
 
       - name: Verify OpenAPI backward compatibility
         if: github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000'

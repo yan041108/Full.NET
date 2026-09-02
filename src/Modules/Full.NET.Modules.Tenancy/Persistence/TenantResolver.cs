@@ -4,7 +4,6 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Hosting;
-using global::Dapper;
 
 namespace Full.NET.Modules.Tenancy.Persistence;
 
@@ -138,17 +137,15 @@ internal sealed class TenantResolver(
         return domain.Trim().TrimEnd('.').ToLowerInvariant();
     }
 
-    private static DynamicParameters CreateDomainParameters(string domain)
-    {
-        var parameters = new DynamicParameters();
-        parameters.Add("Domain", domain);
-        return parameters;
-    }
+    /// <summary>创建域名查询参数。</summary>
+    /// <param name="domain">已规范化的租户域名。</param>
+    /// <returns>可由数据执行边界消费的参数字典。</returns>
+    private static Dictionary<string, object?> CreateDomainParameters(string domain) =>
+        TenancySqlParameters.Create(("Domain", domain));
 
-    private static DynamicParameters CreateTenantIdParameters(Guid tenantId)
-    {
-        var parameters = new DynamicParameters();
-        parameters.Add("TenantId", tenantId);
-        return parameters;
-    }
+    /// <summary>创建租户标识查询参数。</summary>
+    /// <param name="tenantId">租户标识。</param>
+    /// <returns>可由数据执行边界消费的参数字典。</returns>
+    private static Dictionary<string, object?> CreateTenantIdParameters(Guid tenantId) =>
+        TenancySqlParameters.Create(("TenantId", tenantId));
 }

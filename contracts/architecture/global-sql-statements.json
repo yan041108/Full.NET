@@ -1918,6 +1918,46 @@
       ]
     },
     {
+      "statementName": "notifications.recipient_endpoint.find_published_provider_type_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.FindPublishedProviderTypeForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "端点登记前只允许读取当前受信作用域中已启用且已发布的精确 Provider Profile 版本。",
+      "requiredSqlFragments": [
+        "fn_notifications_provider_profile_version",
+        "p.TenantScopeKey = @TenantScopeKey",
+        "p.LatestPublishedVersionId = pv.Id"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.lock_existing.sqlserver",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.LockExistingSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "SQL Server 在当前作用域、用户、Profile 版本和端点类型的唯一键范围内加锁，防止并发重复登记。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "ProviderProfileVersionId = @ProviderProfileVersionId",
+        "EndpointKindKey = @EndpointKindKey"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.lock_existing.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.LockExistingMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 在当前作用域、用户、Profile 版本和端点类型的唯一键范围内加锁，防止并发重复登记。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "ProviderProfileVersionId = @ProviderProfileVersionId",
+        "EndpointKindKey = @EndpointKindKey"
+      ]
+    },
+    {
       "statementName": "notifications.recipient_endpoint.insert",
       "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.Insert",
       "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
@@ -1926,6 +1966,18 @@
       "requiredSqlFragments": [
         "fn_notifications_recipient_endpoint",
         "@Id"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.delete_mine",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.DeleteMine",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "端点删除同时绑定当前受信作用域和当前用户，禁止跨作用域或代删其他用户端点。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
       ]
     },
     {
