@@ -229,6 +229,12 @@ public sealed class KafkaCapacityOutboxCdcTests
         Assert.IsFalse(source.Contains(
             "Task.Delay(TimeSpan.FromSeconds(2)",
             StringComparison.Ordinal));
+        Assert.IsFalse(source.Contains(
+            "serviceProvider.CreateScope()",
+            StringComparison.Ordinal));
+        Assert.IsTrue(source.Contains(
+            "serviceProvider.CreateAsyncScope()",
+            StringComparison.Ordinal));
     }
 
     private static string FindRepositoryRoot()

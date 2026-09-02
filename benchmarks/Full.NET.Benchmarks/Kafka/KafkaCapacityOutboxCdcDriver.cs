@@ -234,7 +234,7 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
                 await partitionLocks[partition].WaitAsync(token).ConfigureAwait(false);
                 try
                 {
-                    using var scope = serviceProvider.CreateScope();
+                    await using var scope = serviceProvider.CreateAsyncScope();
                     var partitionSequence = partitionSequences[partition]++;
                     await outboxProducer.WriteCommittedAsync(
                             scope,
@@ -420,7 +420,7 @@ public sealed class KafkaCapacityOutboxCdcExecutor(
         var probeTimestamp = Stopwatch.GetElapsedTime(
             0,
             Stopwatch.GetTimestamp()).Ticks / 10;
-        using (var scope = serviceProvider.CreateScope())
+        await using (var scope = serviceProvider.CreateAsyncScope())
         {
             await outboxProducer.WriteCommittedAsync(
                     scope,
