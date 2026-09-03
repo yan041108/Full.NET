@@ -48,6 +48,8 @@ const props = defineProps<{
   switching: boolean;
   displayName: string;
   roleLabel: string;
+  /** 当前 Host/租户上下文显示名，供顶栏稳定标记与真实栈断言。 */
+  currentContextName: string;
   availableTenants: Array<{ id: string; name: string }>;
   notificationUnreadCount: number;
   contextProblem?: FullNetProblemDetails;
@@ -391,6 +393,7 @@ watch(navigationGroups, () => {
           :switching="switching"
           :display-name="displayName"
           :role-label="roleLabel"
+          :current-context-name="currentContextName"
           :available-tenants="availableTenants"
           :show-menu-button="settings.showMenuButton || isMobileViewport"
           :show-refresh-button="settings.showRefreshButton"

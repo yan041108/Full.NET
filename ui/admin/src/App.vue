@@ -272,6 +272,7 @@ watch(
       :switching="session.switching"
       :display-name="session.currentUser?.displayName ?? ''"
       :role-label="roleLabel"
+      :current-context-name="session.currentContextName"
       :available-tenants="session.availableTenants"
       :notification-unread-count="notificationsRealtime.unreadCount.value"
       :context-problem="contextProblem"

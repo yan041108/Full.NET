@@ -56,6 +56,8 @@ const props = defineProps<{
   switching: boolean;
   displayName: string;
   roleLabel: string;
+  /** 当前 Host/租户上下文显示名，供真实栈 E2E 与读屏稳定读取。 */
+  currentContextName: string;
   availableTenants: Array<{ id: string; name: string }>;
   showMenuButton: boolean;
   showRefreshButton: boolean;
@@ -230,6 +232,13 @@ onUnmounted(() => {
           @click="emit('toggleTheme')"
         />
 
+        <span
+          class="art-header__current-context"
+          data-current-context
+          translate="no"
+          aria-live="polite"
+        >{{ currentContextName }}</span>
+
         <ArtUserMenu
           :display-name="displayName"
           :role-label="roleLabel"
@@ -290,6 +299,18 @@ onUnmounted(() => {
   height: var(--art-header-height);
   padding: 0 20px;
   border-bottom: 1px solid var(--art-card-border);
+}
+
+.art-header__current-context {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .art-header__left,

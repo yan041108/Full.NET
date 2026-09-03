@@ -293,17 +293,15 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
 }
 
 /** 展开侧栏并打开叶子导航，等待 hash 路由就绪。 */
-export async function openMainNavLink(page, linkName) {
-  await expandMainNavigation(page);
-  const navigation = page.getByRole('navigation', { name: '主导航' }).first();
-  const link = navigation.getByRole('link', { name: linkName }).first();
-  await expect(link).toBeVisible({ timeout: 15_000 });
+/** 点击 Art 侧栏叶子链接；优先命中菜单项，避免 router-link 上的 prevent 阻断导航。 */
+async function clickShellNavLink(page, link) {
   const targetHash = await link.getAttribute('href');
+  const menuItem = link.locator('xpath=ancestor::li[contains(@class,"el-menu-item")][1]');
+  const clickTarget = (await menuItem.count()) > 0 ? menuItem.first() : link;
   try {
-    await link.click({ timeout: 5_000 });
+    await clickTarget.click({ timeout: 5_000 });
   } catch {
-    // Art 侧栏折叠态下偶发命中层叠节点，回退到 DOM click。
-    await link.evaluate(element => element.click());
+    await clickTarget.evaluate(element => element.click());
   }
   if (targetHash?.startsWith('#')) {
     const normalizedTarget = targetHash.split('?')[0];
@@ -312,6 +310,14 @@ export async function openMainNavLink(page, linkName) {
       { timeout: 15_000 }
     );
   }
+}
+
+export async function openMainNavLink(page, linkName) {
+  await expandMainNavigation(page);
+  const navigation = page.getByRole('navigation', { name: '主导航' }).first();
+  const link = navigation.getByRole('link', { name: linkName }).first();
+  await expect(link).toBeVisible({ timeout: 15_000 });
+  await clickShellNavLink(page, link);
 }
 
 /**
@@ -336,20 +342,7 @@ export async function clickMainNavLink(page, linkName, groupTitle) {
     }
   }
   await expect(link.first()).toBeVisible({ timeout: 15_000 });
-  const targetLink = link.first();
-  const targetHash = await targetLink.getAttribute('href');
-  try {
-    await targetLink.click({ timeout: 5_000 });
-  } catch {
-    await targetLink.evaluate(element => element.click());
-  }
-  if (targetHash?.startsWith('#')) {
-    const normalizedTarget = targetHash.split('?')[0];
-    await expect(page).toHaveURL(
-      url => url.hash.split('?')[0] === normalizedTarget,
-      { timeout: 15_000 }
-    );
-  }
+  await clickShellNavLink(page, link.first());
 }
 
 /** 使用指定凭据经真实登录 API 获取 Access Token。 */
@@ -689,15 +682,21 @@ export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local'
   await expectVisibleCurrentContext(page, tenantName);
 }
 
-/** 断言当前上下文名称（避开 el-select/option 等 hidden 文本）。 */
+/** 断言当前上下文名称（优先读取顶栏稳定标记，避免命中隐藏下拉选项）。 */
 export async function expectVisibleCurrentContext(page, name) {
   await expect(async () => {
+    const contextMarker = page.locator('[data-current-context]');
+    if ((await contextMarker.count()) > 0) {
+      await expect(contextMarker.first()).toHaveText(name, { timeout: 3_000 });
+      return;
+    }
+
     const trigger = page.locator('.art-user-menu__trigger');
     if ((await trigger.count()) > 0) {
       await trigger.click({ timeout: 5_000 });
-      await expect(
-        page.getByTestId('shell-tenant-select').getByText(name, { exact: true })
-      ).toBeVisible({ timeout: 3_000 });
+      const tenantSelect = page.getByTestId('shell-tenant-select');
+      await expect(tenantSelect).toBeVisible({ timeout: 3_000 });
+      await expect(tenantSelect).toContainText(name, { timeout: 3_000 });
       await page.keyboard.press('Escape');
       return;
     }
