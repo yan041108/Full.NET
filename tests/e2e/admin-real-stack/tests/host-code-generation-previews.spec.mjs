@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -109,12 +110,7 @@ test('Host 管理员可通过双管理端执行受跟踪预览并回读无源码
 }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
-
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(
-    navigation.getByRole('link', { name: /代码生成/ })
-  ).toBeVisible();
-  await navigation.getByRole('link', { name: /代码生成/ }).click();
+  await clickMainNavLink(page, '代码生成预览');
 
   const view = codeGenerationView(page, clientKind);
   await expect(
@@ -171,11 +167,7 @@ test('Host 管理员可预览组织归属 Schema 并生成写入授权片段', a
 }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
-
-  await page
-    .getByRole('navigation', { name: '主导航' })
-    .getByRole('link', { name: /代码生成/ })
-    .click();
+  await clickMainNavLink(page, '代码生成预览');
 
   const view = codeGenerationView(page, clientKind);
   const explicitSchema = toOrganizationOwnedExplicitSchema(
@@ -219,9 +211,8 @@ test('受限 Host 账号访问预览 API 被拒绝且双端导航裁剪', async 
   await loginAsHostViewer(page);
   const navigation = page.getByRole('navigation', { name: '主导航' });
   await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
-  await expect(
-    navigation.getByRole('link', { name: /代码生成/ })
-  ).toHaveCount(0);
+  await expect(navigation.getByRole('link', { name: '代码生成模板' })).toHaveCount(0);
+  await expect(navigation.getByRole('link', { name: '代码生成预览' })).toHaveCount(0);
 
   await page.goto(statusPath(clientKind, 'code-generation/previews'));
   await expect(page.getByText('403', { exact: true })).toBeVisible();

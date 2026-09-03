@@ -50,6 +50,7 @@ export async function loginAsHostViewer(page, baseUrl = '/') {
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
   });
+  await expandMainNavigation(page);
 }
 
 /** 双管理端均使用 hash 路由访问状态页。 */
@@ -284,11 +285,28 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
   await expandMainNavigation(page);
 }
 
+/** 展开侧栏并打开叶子导航，等待 hash 路由就绪。 */
+export async function openMainNavLink(page, linkName) {
+  await expandMainNavigation(page);
+  const navigation = page.getByRole('navigation', { name: '主导航' }).first();
+  const link = navigation.getByRole('link', { name: linkName }).first();
+  await expect(link).toBeVisible({ timeout: 15_000 });
+  const targetHash = await link.getAttribute('href');
+  await link.click();
+  if (targetHash?.startsWith('#')) {
+    await expect(page).toHaveURL(url => url.hash === targetHash, { timeout: 15_000 });
+  }
+}
+
 /**
  * 展开 Art 侧栏分组后点击叶子导航链接。
  * 分组菜单默认折叠时叶子 link 不在可点击树中。
  */
 export async function clickMainNavLink(page, linkName, groupTitle) {
+  if (!groupTitle) {
+    await openMainNavLink(page, linkName);
+    return;
+  }
   await expandMainNavigation(page);
   const navigation = page.getByRole('navigation', { name: '主导航' }).first();
   const link = navigation.getByRole('link', { name: linkName });

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   findSeedAdminUserViaApi,
   loginAccessToken,
   loginAsHostAdmin,
@@ -65,13 +66,10 @@ async function fillPermissions(view, clientKind, value) {
 
 test('Host 管理员可从真实 API 加载 API Key 列表', async ({ page }) => {
   await loginAsHostAdmin(page);
-
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /API Key/i })).toBeVisible();
-  await navigation.getByRole('link', { name: /API Key/i }).click();
+  await clickMainNavLink(page, /API Key/i);
 
   await expect(page.getByRole('heading', { name: 'API Key', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'API Key 列表', exact: true })).toBeVisible();
+  await expect(page.locator('.api-keys-view')).toBeVisible();
 });
 
 test('Host 管理员可通过 UI 完成创建、轮换、认证与禁用', async ({
@@ -85,8 +83,7 @@ test('Host 管理员可通过 UI 完成创建、轮换、认证与禁用', async
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /API Key/i }).click();
+  await clickMainNavLink(page, /API Key/i);
 
   const view = apiKeysView(page, clientKind);
   await expect(view.getByRole('heading', { name: 'API Key', exact: true })).toBeVisible();

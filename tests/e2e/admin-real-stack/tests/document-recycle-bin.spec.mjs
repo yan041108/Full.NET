@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 import {
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
-  loginAsHostViewer,
-  statusPath
+  loginAsHostViewer
 } from './support/real-stack-auth.mjs';
 import {
   createHostDocumentItemViaApi,
@@ -29,8 +29,7 @@ test('Host 管理员可在回收站恢复已删除文档', async ({ page, reques
   await deleteHostDocumentItemViaApi(request, clientKind, document);
 
   await loginAsHostAdmin(page);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /文档回收站/ }).click();
+  await clickMainNavLink(page, /文档回收站/);
   await expect(page.getByRole('heading', { name: '文档回收站', exact: true })).toBeVisible();
 
   const row = page.locator('.el-table__row').filter({ hasText: document.title });
@@ -58,7 +57,7 @@ test('受限 Host 账号无法彻底删除回收站文档', async ({ page, reque
   expect(problem.code).toBe('authorization.permission_denied');
 
   await loginAsHostViewer(page);
-  await page.goto(statusPath(clientKind, 'document/recycle-bin'));
+  await clickMainNavLink(page, /文档回收站/);
   await expect(page.getByRole('heading', { name: '文档回收站', exact: true })).toBeVisible();
   await expect(page.getByTestId('document-recycle-purge')).toHaveCount(0);
 });

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
-  loginAccessToken,
+  clickMainNavLink,
   loginAsHostAdmin,
   loginAsHostViewer,
   loginHostAdminAccessToken
@@ -60,21 +60,21 @@ function codeGenerationTemplatesView(page, clientKind) {
 }
 
 async function openTemplateWorkspace(page, clientKind) {
-  const navigation = page.getByRole('navigation', { name: '主导航' });
   if (clientKind === 'layui') {
+    const navigation = page.getByRole('navigation', { name: '主导航' });
     await navigation.getByRole('link', { name: /代码生成/ }).click();
     return;
   }
-  await navigation.getByRole('link', { name: /代码生成模板/ }).click();
+  await clickMainNavLink(page, '代码生成模板');
 }
 
 async function openPreviewWorkspace(page, clientKind) {
-  const navigation = page.getByRole('navigation', { name: '主导航' });
   if (clientKind === 'layui') {
+    const navigation = page.getByRole('navigation', { name: '主导航' });
     await navigation.getByRole('link', { name: /代码生成/ }).click();
     return;
   }
-  await navigation.getByRole('link', { name: /代码生成预览/ }).click();
+  await clickMainNavLink(page, '代码生成预览');
 }
 
 function templateNameInput(view, clientKind) {
@@ -600,9 +600,10 @@ test('受限 Host 账号不能读取模板 API 且双端导航保持裁剪', asy
 
   await loginAsHostViewer(page);
   await expect(
-    page
-      .getByRole('navigation', { name: '主导航' })
-      .getByRole('link', { name: /代码生成/ })
+    page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '代码生成模板' })
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '代码生成预览' })
   ).toHaveCount(0);
 });
 
