@@ -65,7 +65,7 @@ async function openTemplateWorkspace(page, clientKind) {
     await navigation.getByRole('link', { name: /代码生成/ }).click();
     return;
   }
-  await clickMainNavLink(page, '代码生成模板');
+  await clickMainNavLink(page, '代码生成模板', '代码生成');
 }
 
 async function openPreviewWorkspace(page, clientKind) {
@@ -74,7 +74,7 @@ async function openPreviewWorkspace(page, clientKind) {
     await navigation.getByRole('link', { name: /代码生成/ }).click();
     return;
   }
-  await clickMainNavLink(page, '代码生成预览');
+  await clickMainNavLink(page, '代码生成预览', '代码生成');
 }
 
 function templateNameInput(view, clientKind) {
@@ -97,6 +97,15 @@ async function focusTemplateSchema(view, clientKind) {
   const input = templateSchemaInput(view, clientKind);
   await expect(input).toBeVisible();
   return input;
+}
+
+async function fillTemplateName(view, clientKind, templateName) {
+  if (clientKind === 'layui') {
+    await templateNameInput(view, clientKind).fill(templateName);
+    return;
+  }
+  await view.getByRole('tab', { name: '基础' }).click();
+  await templateNameInput(view, clientKind).fill(templateName);
 }
 
 function templateSaveButton(view, clientKind) {
@@ -239,7 +248,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     ? schemaInput(codeGenerationView(page, clientKind))
     : await focusTemplateSchema(templateView, clientKind);
   await schemaTarget.fill(JSON.stringify(explicitSchema, null, 2));
-  await templateNameInput(templateView, clientKind).fill(templateName);
+  await fillTemplateName(templateView, clientKind, templateName);
   await templateSaveButton(templateView, clientKind).click();
   if (clientKind === 'layui') {
     await expect(
@@ -332,7 +341,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
       .getByTestId('codegen-template-load')
       .click();
   }
-  await templateNameInput(templateView, clientKind).fill(updatedName);
+  await fillTemplateName(templateView, clientKind, updatedName);
   await templateUpdateButton(templateView, clientKind).click();
   if (clientKind === 'layui') {
     await expect(
@@ -478,7 +487,7 @@ test('Host 管理员可 Apply 组织归属模板并落盘写入授权 Feature', 
     ? schemaInput(codeGenerationView(page, clientKind))
     : await focusTemplateSchema(templateView, clientKind);
   await schemaTarget.fill(JSON.stringify(explicitSchema, null, 2));
-  await templateNameInput(templateView, clientKind).fill(templateName);
+  await fillTemplateName(templateView, clientKind, templateName);
   await templateSaveButton(templateView, clientKind).click();
 
   if (clientKind !== 'layui') {
@@ -657,7 +666,7 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
   }
   await (await focusTemplateSchema(templateView, 'vue'))
     .fill(JSON.stringify(schema, null, 2));
-  await templateNameInput(templateView, 'vue').fill(templateName);
+  await fillTemplateName(templateView, 'vue', templateName);
   await templateSaveButton(templateView, 'vue').click();
   await expect(templateView.getByTestId('codegen-template-table'))
     .toContainText(templateName);

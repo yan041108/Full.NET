@@ -58,10 +58,22 @@ async function authenticateUsersApi(request, clientKind, secret) {
 
 async function fillPermissions(view, clientKind, value) {
   if (clientKind === 'vue') {
-    await view.getByTestId('api-key-permissions').fill(value);
+    const dialog = view.page().getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByTestId('api-key-permissions').fill(value);
     return;
   }
   await view.locator('textarea[name="permissions"]').fill(value);
+}
+
+async function openCreateDialog(view, clientKind) {
+  if (clientKind === 'vue') {
+    await view.getByTestId('api-keys-action-create').click();
+    const dialog = view.page().getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    return dialog;
+  }
+  return view;
 }
 
 test('Host 管理员可从真实 API 加载 API Key 列表', async ({ page }) => {
@@ -88,16 +100,26 @@ test('Host 管理员可通过 UI 完成创建、轮换、认证与禁用', async
   const view = apiKeysView(page, clientKind);
   await expect(view.getByRole('heading', { name: 'API Key', exact: true })).toBeVisible();
 
-  await view.getByLabel('用户 ID', { exact: true }).fill(adminUser.id);
-  await view.getByLabel('显示名称', { exact: true }).fill(displayName);
-  await fillPermissions(view, clientKind, 'identity.users.read');
-  await view.getByRole('button', { name: '创建', exact: true }).click();
+  const editor = await openCreateDialog(view, clientKind);
+  if (clientKind === 'vue') {
+    await editor.getByTestId('api-key-user-id').fill(adminUser.id);
+    await editor.getByTestId('api-key-display-name').fill(displayName);
+    await fillPermissions(view, clientKind, 'identity.users.read');
+    await editor.getByTestId('api-keys-editor-submit').click();
+  } else {
+    await editor.getByLabel('用户 ID', { exact: true }).fill(adminUser.id);
+    await editor.getByLabel('显示名称', { exact: true }).fill(displayName);
+    await fillPermissions(view, clientKind, 'identity.users.read');
+    await editor.getByRole('button', { name: '创建', exact: true }).click();
+  }
 
   const initialSecret = await readSecretFromView(view, clientKind);
   expect(await authenticateUsersApi(request, clientKind, initialSecret).then(r => r.status()))
     .toBe(200);
 
-  const rowByName = view.getByRole('article').filter({ hasText: displayName });
+  const rowByName = clientKind === 'vue'
+    ? view.getByRole('row').filter({ hasText: displayName })
+    : view.getByRole('article').filter({ hasText: displayName });
   const refreshButton = clientKind === 'vue'
     ? view.getByTestId('api-keys-refresh')
     : view.locator('[data-api-keys-refresh]');

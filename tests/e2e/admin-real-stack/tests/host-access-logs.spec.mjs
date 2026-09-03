@@ -23,7 +23,7 @@ test('Host 管理员可从真实 API 加载访问日志', async ({ page, request
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
 
   // 先产生一条可检索的访问审计，避免仅依赖登录瞬间的异步落库时序。
-  const profileResponse = await request.get(`${apiBaseUrl}/api/v1/identity/me`, {
+  const profileResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Origin: origin

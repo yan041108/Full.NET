@@ -110,7 +110,7 @@ test('Host 管理员可通过双管理端执行受跟踪预览并回读无源码
 }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
-  await clickMainNavLink(page, '代码生成预览');
+  await clickMainNavLink(page, /代码生成预览/, '代码生成');
 
   const view = codeGenerationView(page, clientKind);
   await expect(
@@ -136,7 +136,7 @@ test('Host 管理员可通过双管理端执行受跟踪预览并回读无源码
     .getByRole('button', { name: new RegExp(artifactPath.replaceAll('.', '\\.')) })
     .click();
   await expect(generatedContent(view, clientKind))
-    .toContainText('/api/v1/catalog/products');
+    .toContainText('catalogListProducts');
 
   await page.reload();
   await expect(runHistory(codeGenerationView(page, clientKind), clientKind))
@@ -167,7 +167,7 @@ test('Host 管理员可预览组织归属 Schema 并生成写入授权片段', a
 }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
-  await clickMainNavLink(page, '代码生成预览');
+  await clickMainNavLink(page, /代码生成预览/, '代码生成');
 
   const view = codeGenerationView(page, clientKind);
   const explicitSchema = toOrganizationOwnedExplicitSchema(
