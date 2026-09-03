@@ -36,20 +36,40 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
     {
         const string readinessTopic = "fullnet.integration.readiness.v1";
         await EnsureTopicsAsync(readinessTopic).ConfigureAwait(false);
-        using var producer = CreateProducer("fullnet-integration-readiness");
-        var delivery = await producer.ProduceAsync(
-                readinessTopic,
-                new Message<string, byte[]>
-                {
-                    Key = "readiness",
-                    Value = [1],
-                })
-            .ConfigureAwait(false);
-        if (delivery.Status != PersistenceStatus.Persisted)
+
+        var deadline = DateTime.UtcNow.AddMinutes(2);
+        while (DateTime.UtcNow < deadline)
         {
-            throw new InvalidOperationException(
-                $"Kafka readiness probe was not persisted: {delivery.Status}.");
+            try
+            {
+                using var producer = CreateProducer("fullnet-integration-readiness");
+                var delivery = await producer.ProduceAsync(
+                        readinessTopic,
+                        new Message<string, byte[]>
+                        {
+                            Key = "readiness",
+                            Value = [1],
+                        })
+                    .ConfigureAwait(false);
+                if (delivery.Status == PersistenceStatus.Persisted)
+                {
+                    return;
+                }
+            }
+            catch (KafkaException exception) when (
+                exception.Error.Code is ErrorCode.CoordinatorLoadInProgress
+                    or ErrorCode.NotCoordinator
+                    or ErrorCode.LeaderNotAvailable
+                    or ErrorCode.NetworkException
+                    or ErrorCode.RequestTimedOut)
+            {
+                // 新启动的 KRaft 集群在 coordinator 就绪前会短暂拒绝幂等生产者。
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500)).ConfigureAwait(false);
         }
+
+        throw new InvalidOperationException("Kafka idempotent producer readiness probe timed out.");
     }
 
     public KafkaMessagingOptions CreateOptions(string clientId) =>

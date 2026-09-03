@@ -62,7 +62,7 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
   await dictTypeRow
     .getByRole('button', { name: '字典项', exact: true })
     .click();
-  const itemsPanel = dictTypesView.locator('[data-dict-items-panel]');
+  const itemsPanel = dictTypesView.locator('[data-dict-items-directory]');
   await expect(itemsPanel).toBeVisible();
   await expect(itemsPanel.getByText('真实栈项', { exact: true })).toBeVisible();
   await expect(itemsPanel.locator('code', { hasText: itemValue })).toBeVisible();

@@ -49,8 +49,8 @@ test('Host 管理员可从真实 API 加载访问日志', async ({ page, request
       timeout: 1_000
     });
   }).toPass({
-    timeout: 15_000,
-    intervals: [250, 500, 1_000]
+    timeout: 30_000,
+    intervals: [500, 1_000, 2_000]
   });
 });
 

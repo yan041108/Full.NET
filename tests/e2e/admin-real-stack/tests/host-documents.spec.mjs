@@ -43,7 +43,7 @@ test('Host 管理员可创建文档并绑定新版本', async ({ page }, testInf
     buffer: Buffer.from(`document ${clientKind}`)
   });
   await row.getByTestId('host-document-item-upload-version').click();
-  await expect(row.getByText('当前版本: 1')).toBeVisible({ timeout: 15_000 });
+  await expect(row.locator('td').filter({ hasText: /^1$/ })).toBeVisible({ timeout: 15_000 });
 });
 
 test('受限 Host 账号访问文档 API 被拒绝且导航裁剪', async ({

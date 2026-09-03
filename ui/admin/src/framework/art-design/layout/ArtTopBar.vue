@@ -235,6 +235,7 @@ onUnmounted(() => {
         <span
           class="art-header__current-context"
           data-current-context
+          data-testid="shell-current-context"
           translate="no"
           aria-live="polite"
         >{{ currentContextName }}</span>

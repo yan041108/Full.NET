@@ -116,7 +116,7 @@ async function expectTemplateListed(templateView, clientKind, templateName) {
     ).toBeVisible();
     return;
   }
-  await expect(templateView.locator('.art-crud-data-table')).toContainText(templateName);
+  await expect(templateView.locator('[data-testid="codegen-template-table"]')).toContainText(templateName);
 }
 
 function templateSaveButton(view, clientKind) {
@@ -452,7 +452,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
       templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
     ).toHaveCount(0);
   } else {
-    await expect(templateView.locator('.art-crud-data-table')).not.toContainText(updatedName);
+    await expect(templateView.locator('[data-testid="codegen-template-table"]')).not.toContainText(updatedName);
   }
 
   const deletedResponse = await request.get(
@@ -681,7 +681,7 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
 
   const row = templateView.locator('tr', { hasText: templateName });
   await row.getByTestId('codegen-template-copy').click();
-  await expect(templateView.locator('.art-crud-data-table')).toContainText(`${templateName} (copy)`);
+  await expect(templateView.locator('[data-testid="codegen-template-table"]')).toContainText(`${templateName} (copy)`);
 
   await row.getByTestId('codegen-template-load').click();
   await templateView.getByRole('tab', { name: '列配置' }).click();

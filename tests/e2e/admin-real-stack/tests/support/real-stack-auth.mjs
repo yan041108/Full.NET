@@ -679,15 +679,25 @@ export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local'
   await expect(tenantRow).toBeVisible({ timeout: 15_000 });
   await tenantRow.getByRole('button', { name: '进入租户' }).click();
   await expect(page.getByText('已进入租户上下文')).toBeVisible({ timeout: 15_000 });
+  await expect(page).toHaveURL(
+    url => {
+      const hash = url.hash.split('?')[0];
+      return hash === '#/' || hash === '';
+    },
+    { timeout: 15_000 }
+  );
+  await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
+    timeout: 15_000
+  });
   await expectVisibleCurrentContext(page, tenantName);
 }
 
-/** 断言当前上下文名称（优先读取顶栏稳定标记，避免命中隐藏下拉选项）。 */
+/** 断言当前上下文名称（读取顶栏稳定 test id，避免命中隐藏下拉选项）。 */
 export async function expectVisibleCurrentContext(page, name) {
+  const contextMarker = page.getByTestId('shell-current-context');
   await expect(async () => {
-    const contextMarker = page.locator('[data-current-context]');
     if ((await contextMarker.count()) > 0) {
-      await expect(contextMarker.first()).toHaveText(name, { timeout: 3_000 });
+      await expect(contextMarker).toHaveText(name, { timeout: 3_000 });
       return;
     }
 

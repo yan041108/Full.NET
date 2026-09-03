@@ -66,7 +66,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载并创建租户�
     .click();
   const itemsPanel = clientKind === 'layui'
     ? dictTypesView.locator('[data-tenant-dict-items-panel]')
-    : dictTypesView.locator('[data-dict-items-panel]');
+    : dictTypesView.locator('[data-dict-items-directory]');
   await expect(itemsPanel).toBeVisible();
   await expect(itemsPanel.getByText('真实栈租户项', { exact: true })).toBeVisible();
   await expect(itemsPanel.locator('code', { hasText: itemValue })).toBeVisible();

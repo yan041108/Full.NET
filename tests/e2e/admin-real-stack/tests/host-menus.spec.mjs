@@ -23,7 +23,7 @@ test('Host 管理员可从真实 API 加载菜单树表', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: '菜单管理', exact: true })).toBeVisible();
   await expect(page.getByTestId('menus-tree-table')).toBeVisible();
-  await expect(page.getByText('工作台', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('menus-tree-table').getByText('工作台', { exact: true })).toBeVisible();
   await expect(page.locator('.el-pagination')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '全部展开' })).toBeVisible();
 });

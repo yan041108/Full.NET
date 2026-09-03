@@ -145,7 +145,12 @@ test('Host 管理员可通过 UI 完成创建、轮换、认证与禁用', async
 
   await rowByName.filter({ hasText: '有效' }).getByRole('button', { name: '禁用', exact: true }).click();
   await confirmLayerPrimary(page, clientKind, '禁用');
-  await expect(rowByName.filter({ hasText: '有效' })).toHaveCount(0, { timeout: 15_000 });
+  await expect.poll(async () => {
+    if (clientKind === 'vue') {
+      await refreshButton.click();
+    }
+    return await rowByName.filter({ hasText: '有效' }).count();
+  }, { timeout: 15_000 }).toBe(0);
   await expect(rowByName.getByText('已禁用', { exact: true })).toHaveCount(2, { timeout: 15_000 });
 
   await expect.poll(
