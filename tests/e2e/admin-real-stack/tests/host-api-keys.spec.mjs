@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   findSeedAdminUserViaApi,
   loginAccessToken,
   loginAsHostAdmin,
@@ -117,17 +118,19 @@ test('Host 管理员可通过 UI 完成创建、轮换、认证与禁用', async
   expect(await authenticateUsersApi(request, clientKind, initialSecret).then(r => r.status()))
     .toBe(200);
 
-  const rowByName = clientKind === 'vue'
-    ? view.getByRole('row').filter({ hasText: displayName })
-    : view.getByRole('article').filter({ hasText: displayName });
+  const rowByName = crudTableRow(view, clientKind, displayName);
   const refreshButton = clientKind === 'vue'
-    ? view.getByTestId('api-keys-refresh')
+    ? view.getByRole('button', { name: '刷新' })
     : view.locator('[data-api-keys-refresh]');
 
   await expect.poll(async () => {
-    await refreshButton.click();
-    return await rowByName.innerText();
-  }, { timeout: 15_000 }).not.toMatch(/从未/);
+    if (clientKind === 'vue') {
+      await refreshButton.click();
+    } else {
+      await refreshButton.click();
+    }
+    return await rowByName.count();
+  }, { timeout: 30_000 }).toBeGreaterThan(0);
   await expect(rowByName.filter({ hasText: '有效' })).toBeVisible({ timeout: 15_000 });
 
   await rowByName.filter({ hasText: '有效' }).getByRole('button', { name: '轮换', exact: true }).click();

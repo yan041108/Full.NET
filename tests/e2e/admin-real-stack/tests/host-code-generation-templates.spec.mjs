@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
   loginHostAdminAccessToken
@@ -106,6 +107,16 @@ async function fillTemplateName(view, clientKind, templateName) {
   }
   await view.getByRole('tab', { name: '基础' }).click();
   await templateNameInput(view, clientKind).fill(templateName);
+}
+
+async function expectTemplateListed(templateView, clientKind, templateName) {
+  if (clientKind === 'layui') {
+    await expect(
+      templateView.getByRole('button', { name: new RegExp(`^${templateName}`) })
+    ).toBeVisible();
+    return;
+  }
+  await expect(templateView.locator('.art-crud-data-table')).toContainText(templateName);
 }
 
 function templateSaveButton(view, clientKind) {
@@ -251,12 +262,9 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   await fillTemplateName(templateView, clientKind, templateName);
   await templateSaveButton(templateView, clientKind).click();
   if (clientKind === 'layui') {
-    await expect(
-      templateView.getByRole('button', { name: new RegExp(`^${templateName}`) })
-    ).toBeVisible();
+    await expectTemplateListed(templateView, clientKind, templateName);
   } else {
-    await expect(templateView.getByTestId('codegen-template-table'))
-      .toContainText(templateName);
+    await expectTemplateListed(templateView, clientKind, templateName);
   }
 
   const created = await templateByName(
@@ -281,8 +289,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     await expect(persistedButton).toBeVisible();
     await persistedButton.click();
   } else {
-    await expect(templateView.getByTestId('codegen-template-table'))
-      .toContainText(templateName);
+    await expectTemplateListed(templateView, clientKind, templateName);
     await templateView
       .getByTestId('codegen-template-load')
       .first()
@@ -348,8 +355,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
       templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
     ).toBeVisible();
   } else {
-    await expect(templateView.getByTestId('codegen-template-table'))
-      .toContainText(updatedName);
+    await expectTemplateListed(templateView, clientKind, updatedName);
   }
 
   if (clientKind !== 'layui') {
@@ -446,8 +452,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
       templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
     ).toHaveCount(0);
   } else {
-    await expect(templateView.getByTestId('codegen-template-table'))
-      .not.toContainText(updatedName);
+    await expect(templateView.locator('.art-crud-data-table')).not.toContainText(updatedName);
   }
 
   const deletedResponse = await request.get(
@@ -668,18 +673,15 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
     .fill(JSON.stringify(schema, null, 2));
   await fillTemplateName(templateView, 'vue', templateName);
   await templateSaveButton(templateView, 'vue').click();
-  await expect(templateView.getByTestId('codegen-template-table'))
-    .toContainText(templateName);
+  await expectTemplateListed(templateView, 'vue', templateName);
 
   await templateView.getByTestId('codegen-template-filter-name').fill(templateName);
   await templateView.getByTestId('codegen-template-filter-search').click();
-  await expect(templateView.getByTestId('codegen-template-table'))
-    .toContainText(templateName);
+  await expectTemplateListed(templateView, 'vue', templateName);
 
   const row = templateView.locator('tr', { hasText: templateName });
   await row.getByTestId('codegen-template-copy').click();
-  await expect(templateView.getByTestId('codegen-template-table'))
-    .toContainText(`${templateName} (copy)`);
+  await expect(templateView.locator('.art-crud-data-table')).toContainText(`${templateName} (copy)`);
 
   await row.getByTestId('codegen-template-load').click();
   await templateView.getByRole('tab', { name: '列配置' }).click();

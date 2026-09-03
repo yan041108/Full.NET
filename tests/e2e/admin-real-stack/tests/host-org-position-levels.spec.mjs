@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   enterDevelopmentTenant,
   loginAsHostAdmin,
   loginTenantAdminAccessToken
@@ -97,7 +98,7 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
   expect(createResponse.status()).toBe(201);
   const created = await createResponse.json();
 
-  const levelRow = view.getByRole('article').filter({ hasText: code });
+  const levelRow = crudTableRow(view, clientKind, code);
   await expect(levelRow).toBeVisible({ timeout: 15_000 });
   await expect(levelRow.getByText(initialName, { exact: true })).toBeVisible();
 

@@ -23,13 +23,16 @@ test('Host 管理员可从真实 API 加载访问日志', async ({ page, request
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
 
   // 先产生一条可检索的访问审计，避免仅依赖登录瞬间的异步落库时序。
-  const profileResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Origin: origin
+  const enumResponse = await request.get(
+    `${apiBaseUrl}/api/v1/settings/enum-catalogs?page=1&pageSize=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Origin: origin
+      }
     }
-  });
-  expect(profileResponse.ok()).toBeTruthy();
+  );
+  expect(enumResponse.ok()).toBeTruthy();
 
   await loginAsHostAdmin(page);
   await clickMainNavLink(page, /访问日志/);
@@ -42,7 +45,7 @@ test('Host 管理员可从真实 API 加载访问日志', async ({ page, request
   // 访问日志属于有界异步写入；页面需重新取数，不能只等待首次空快照自行变化。
   await expect(async () => {
     await page.reload();
-    await expect(accessLogsView.getByText('/api/', { exact: false }).first()).toBeVisible({
+    await expect(accessLogsView.getByText('/api/v1/settings/enum-catalogs', { exact: false }).first()).toBeVisible({
       timeout: 1_000
     });
   }).toPass({

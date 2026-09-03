@@ -132,6 +132,13 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   await expect(view.getByTestId('roles-action-edit')).toHaveCount(0);
   await expect(view.getByTestId('role-open-permissions')).toHaveCount(0);
   await expect(view.getByTestId('roles-action-data-scope')).toHaveCount(0);
+  await expect.poll(async () => {
+    const activeRow = view
+      .locator('.roles-data-table tbody tr')
+      .filter({ hasText: '有效' })
+      .filter({ hasNotText: '系统角色' });
+    return await activeRow.count();
+  }, { timeout: 15_000 }).toBeGreaterThan(0);
   const activeRow = view
     .locator('.roles-data-table tbody tr')
     .filter({ hasText: '有效' })

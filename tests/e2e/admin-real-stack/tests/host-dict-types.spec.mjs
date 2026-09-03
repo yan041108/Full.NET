@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   createSettingsDictItemViaApi,
   createSettingsDictTypeViaApi,
   loginAccessToken,
@@ -54,7 +55,7 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
     : page.locator('.dict-types-view');
 
   await expect(dictTypesView.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
-  const dictTypeRow = dictTypesView.getByRole('article').filter({ hasText: typeCode });
+  const dictTypeRow = crudTableRow(dictTypesView, clientKind, typeCode);
   await expect(dictTypeRow).toBeVisible();
   await expect(dictTypeRow.getByText(`真实栈字典 ${clientKind}`, { exact: true })).toBeVisible();
 

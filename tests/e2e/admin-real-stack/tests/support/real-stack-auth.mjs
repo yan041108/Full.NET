@@ -5,6 +5,13 @@ const password = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const viewerUsername = process.env.FULLNET_E2E_VIEWER_USERNAME ?? 'e2e-viewer';
 const viewerPassword = process.env.FULLNET_E2E_VIEWER_PASSWORD ?? password;
 
+/** Vue Art 表格行；Layui 仍使用 article 卡片布局。 */
+export function crudTableRow(view, clientKind, text) {
+  return clientKind === 'layui'
+    ? view.getByRole('article').filter({ hasText: text })
+    : view.locator('.el-table__row').filter({ hasText: text });
+}
+
 /** 展开 Art 侧栏全部分组，使折叠菜单中的叶子链接进入可点击树。 */
 export async function expandMainNavigation(page) {
   const navigation = page.getByRole('navigation', { name: '主导航' }).first();
@@ -674,20 +681,20 @@ export async function enterDevelopmentTenant(page, tenantName = 'Full.NET Local'
   await clickMainNavLink(page, /租户上下文/);
   await expect(page.getByRole('heading', { name: '租户上下文' })).toBeVisible();
   const tenantRow = page
-    .locator('.tenant-context-view')
-    .locator('tr')
+    .locator('.tenant-context-view .el-table__row')
     .filter({ hasText: tenantName });
+  await expect(tenantRow).toBeVisible({ timeout: 15_000 });
   await tenantRow.getByRole('button', { name: '进入租户' }).click();
+  await expect(page.getByText('已进入租户上下文')).toBeVisible({ timeout: 15_000 });
   await expectVisibleCurrentContext(page, tenantName);
 }
 
 /** 断言当前上下文名称（避开 el-select/option 等 hidden 文本）。 */
 export async function expectVisibleCurrentContext(page, name) {
-  const vueShell = page.locator('[data-client-kind="vue"]');
-  const layuiContext = page.locator('.fn-tenant > [data-current-context]');
   await expect(async () => {
-    if ((await vueShell.count()) > 0) {
-      await page.locator('.art-user-menu__trigger').click({ timeout: 5_000 });
+    const trigger = page.locator('.art-user-menu__trigger');
+    if ((await trigger.count()) > 0) {
+      await trigger.click({ timeout: 5_000 });
       await expect(
         page.getByTestId('shell-tenant-select').getByText(name, { exact: true })
       ).toBeVisible({ timeout: 3_000 });
@@ -695,6 +702,9 @@ export async function expectVisibleCurrentContext(page, name) {
       return;
     }
 
-    await expect(layuiContext).toHaveText(name, { timeout: 3_000 });
+    await expect(page.locator('.fn-tenant > [data-current-context]')).toHaveText(
+      name,
+      { timeout: 3_000 }
+    );
   }).toPass({ timeout: 20_000 });
 }

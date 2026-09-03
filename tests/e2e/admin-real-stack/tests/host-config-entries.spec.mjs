@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   createSettingsConfigEntryViaApi,
   loginAccessToken,
   loginAsHostAdmin,
@@ -48,7 +49,7 @@ test('Host 管理员可从真实 API 加载系统配置项', async ({
     : page.locator('.config-entries-view');
 
   await expect(configEntriesView.getByRole('heading', { name: '系统配置', exact: true })).toBeVisible();
-  const configRow = configEntriesView.getByRole('article').filter({ hasText: configKey });
+  const configRow = crudTableRow(configEntriesView, clientKind, configKey);
   await expect(configRow).toBeVisible();
   await expect(configRow.getByText(`真实栈配置 ${clientKind}`, { exact: true })).toBeVisible();
 });

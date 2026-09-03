@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
@@ -147,7 +148,7 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
   expect(createResponse.status()).toBe(201);
   const created = await createResponse.json();
 
-  const assignmentRow = view.getByRole('article').filter({ hasText: username });
+  const assignmentRow = crudTableRow(view, clientKind, username);
   await expect(assignmentRow).toBeVisible({ timeout: 15_000 });
   await expect(assignmentRow.getByText(positionName, { exact: false })).toBeVisible();
 

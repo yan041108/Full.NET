@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   loginAccessToken,
   loginAccessTokenWithPassword,
   loginAsHostAdmin,
@@ -90,7 +91,7 @@ test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用',
   await view.getByLabel('初始密码', { exact: true }).fill(defaultPassword);
   await view.getByRole('button', { name: '创建用户', exact: true }).click();
 
-  const userRow = view.getByRole('article').filter({ hasText: username });
+  const userRow = crudTableRow(view, clientKind, username);
   await expect(userRow).toBeVisible({ timeout: 15_000 });
   await expect(userRow.getByText(displayName, { exact: true })).toBeVisible();
 
@@ -199,7 +200,7 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   await expect(view.getByTestId('users-action-edit')).toHaveCount(0);
   await expect(view.getByTestId('users-action-roles')).toHaveCount(0);
   await expect(view.getByTestId('users-action-reset-password')).toHaveCount(0);
-  const activeRow = view.getByRole('article').filter({ hasText: '有效' }).first();
+  const activeRow = crudTableRow(view, clientKind, '有效').first();
   await expect(activeRow.getByTestId('users-action-disable')).toBeVisible();
   await expect(activeRow.getByTestId('users-action-enable')).toHaveCount(0);
 });

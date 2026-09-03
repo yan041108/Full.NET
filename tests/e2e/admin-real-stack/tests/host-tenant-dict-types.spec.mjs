@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
   clickMainNavLink,
+  crudTableRow,
   createSettingsTenantDictItemViaApi,
   createSettingsTenantDictTypeViaApi,
   enterDevelopmentTenant,
@@ -56,7 +57,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载并创建租户�
     : page.locator('.dict-types-view');
 
   await expect(dictTypesView.getByRole('heading', { name: '数据字典', exact: true })).toBeVisible();
-  const dictTypeRow = dictTypesView.getByRole('article').filter({ hasText: typeCode });
+  const dictTypeRow = crudTableRow(dictTypesView, clientKind, typeCode);
   await expect(dictTypeRow).toBeVisible();
   await expect(dictTypeRow.getByText(`真实栈租户字典 ${clientKind}`, { exact: true })).toBeVisible();
 

@@ -733,7 +733,7 @@ internal sealed class HostUserManagementService(
         HostUserProfileWriteRequest profile,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < 3; attempt++)
+        for (var attempt = 0; attempt < 10; attempt++)
         {
             var conflict = await FindProfileConflictAsync(
                     userId,
@@ -745,9 +745,9 @@ internal sealed class HostUserManagementService(
                 return conflict;
             }
 
-            if (attempt < 2)
+            if (attempt < 9)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken)
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken)
                     .ConfigureAwait(false);
             }
         }
