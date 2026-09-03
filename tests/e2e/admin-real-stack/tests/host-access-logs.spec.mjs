@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
+  loginHostAdminAccessToken,
   statusPath
 } from './support/real-stack-auth.mjs';
 
@@ -15,13 +17,22 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('Host 管理员可从真实 API 加载访问日志', async ({ page }, testInfo) => {
+test('Host 管理员可从真实 API 加载访问日志', async ({ page, request }, testInfo) => {
   const clientKind = testInfo.project.metadata.clientKind;
-  await loginAsHostAdmin(page);
+  const origin = adminOrigin(clientKind);
+  const accessToken = await loginHostAdminAccessToken(request, clientKind);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /访问日志/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /访问日志/ }).click();
+  // 先产生一条可检索的访问审计，避免仅依赖登录瞬间的异步落库时序。
+  const profileResponse = await request.get(`${apiBaseUrl}/api/v1/identity/me`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Origin: origin
+    }
+  });
+  expect(profileResponse.ok()).toBeTruthy();
+
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /访问日志/);
 
   const accessLogsView = clientKind === 'layui'
     ? page.locator('[data-route-view="access-logs"]')

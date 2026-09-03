@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -37,9 +38,7 @@ test('Host 管理员可从真实 API 加载文件列表', async ({
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /文件管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /文件管理/ }).click();
+  await clickMainNavLink(page, /文件管理/);
 
   const hostFilesView = clientKind === 'layui'
     ? page.locator('[data-route-view="host-files"]')

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -23,9 +24,7 @@ test('Host 管理员可从真栈 API 加载文档分类列表', async ({ page },
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /文档分类/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /文档分类/ }).click();
+  await clickMainNavLink(page, /文档分类/);
 
   const view = page.locator('.document-categories-view');
   await expect(view.getByRole('heading', { name: /文档分类/, level: 1 })).toBeVisible();

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -19,9 +20,7 @@ test('Host 管理员可从真实 API 加载枚举常量目录', async ({ page },
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /枚举常量/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /枚举常量/ }).click();
+  await clickMainNavLink(page, /枚举常量/);
 
   const enumCatalogsView = clientKind === 'layui'
     ? page.locator('[data-route-view="enum-catalogs"]')

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -20,9 +21,7 @@ test('Host 管理员可从真实 API 加载在线会话列表', async ({ page },
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /在线用户/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /在线用户/ }).click();
+  await clickMainNavLink(page, /在线用户/);
 
   const onlineSessionsView = clientKind === 'layui'
     ? page.locator('[data-route-view="online-sessions"]')

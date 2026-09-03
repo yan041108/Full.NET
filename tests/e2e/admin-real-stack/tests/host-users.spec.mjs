@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
+  loginAccessTokenWithPassword,
   loginAsHostAdmin,
   loginAsHostUser,
   loginAsHostViewer,
-  loginAccessTokenWithPassword,
   provisionLimitedHostUserViaApi,
   statusPath
 } from './support/real-stack-auth.mjs';
@@ -59,9 +60,7 @@ async function fillPromptInput(page, clientKind, value) {
 test('Host 管理员可从真实 API 加载用户列表', async ({ page }) => {
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /用户管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /用户管理/ }).click();
+  await clickMainNavLink(page, /用户管理/);
 
   await expect(page.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
   await expect(page.getByText('系统管理员', { exact: true }).first()).toBeVisible();
@@ -81,8 +80,7 @@ test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用',
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /用户管理/ }).click();
+  await clickMainNavLink(page, /用户管理/);
 
   const view = usersView(page, clientKind);
   await expect(view.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
@@ -164,8 +162,7 @@ test('Vue 只读用户可见用户目录但无业务操作按钮', async ({
   });
 
   await loginAsHostUser(page, limited.username, limited.password);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /用户管理/ }).click();
+  await clickMainNavLink(page, /用户管理/);
 
   const view = page.locator('.users-view');
   await expect(view.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
@@ -193,8 +190,7 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   });
 
   await loginAsHostUser(page, limited.username, limited.password);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /用户管理/ }).click();
+  await clickMainNavLink(page, /用户管理/);
 
   const view = page.locator('.users-view');
   await expect(view.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();

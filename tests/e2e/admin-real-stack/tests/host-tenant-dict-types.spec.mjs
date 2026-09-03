@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   createSettingsTenantDictItemViaApi,
   createSettingsTenantDictTypeViaApi,
   enterDevelopmentTenant,
@@ -48,9 +49,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载并创建租户�
   await loginAsHostAdmin(page);
   await enterDevelopmentTenant(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /租户数据字典/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /租户数据字典/ }).click();
+  await clickMainNavLink(page, /租户数据字典/);
 
   const dictTypesView = clientKind === 'layui'
     ? page.locator('[data-route-view="tenant-dict-types"]')

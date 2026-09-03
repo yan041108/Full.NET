@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   enterDevelopmentTenant,
   loginAsHostAdmin,
   loginTenantAdminAccessToken
@@ -81,9 +82,7 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
   await loginAsHostAdmin(page);
   await enterDevelopmentTenant(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /职级管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /职级管理/ }).click();
+  await clickMainNavLink(page, /职级管理/);
 
   const view = positionLevelsView(page, clientKind);
   await expect(view.getByRole('heading', { name: '职级管理', exact: true })).toBeVisible();

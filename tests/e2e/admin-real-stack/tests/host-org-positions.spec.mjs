@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
@@ -104,9 +105,7 @@ test('Host 管理员通过双管理端把真实职位绑定到机构与职级', 
   await loginAsHostAdmin(page);
   await enterDevelopmentTenant(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /职位管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /职位管理/ }).click();
+  await clickMainNavLink(page, /职位管理/);
 
   await expect(page.getByRole('heading', { name: '职位管理', exact: true })).toBeVisible();
   const positionsView = clientKind === 'layui'

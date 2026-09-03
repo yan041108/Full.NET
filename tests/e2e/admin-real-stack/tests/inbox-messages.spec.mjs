@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -23,9 +24,7 @@ test('Host 管理员可从真实 API 加载站内信列表', async ({ page }, te
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /消息中心/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /消息中心/ }).click();
+  await clickMainNavLink(page, /消息中心/);
 
   const inboxView = page.locator('.inbox-messages-view');
   await expect(

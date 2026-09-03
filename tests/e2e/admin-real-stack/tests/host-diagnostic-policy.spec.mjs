@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -63,9 +64,7 @@ test('Host 管理员可加载并恢复限时诊断策略', async ({ page, reques
   expect(verified.isDefault).toBeFalsy();
 
   await loginAsHostAdmin(page);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /限时诊断/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /限时诊断/ }).click();
+  await clickMainNavLink(page, /限时诊断/);
 
   const view = clientKind === 'layui'
     ? page.locator('[data-route-view="diagnostic-policy"]')

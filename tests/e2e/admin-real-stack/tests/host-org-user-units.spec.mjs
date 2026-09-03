@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
@@ -21,9 +22,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载用户机构隶�
   await loginAsHostAdmin(page);
   await enterDevelopmentTenant(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /用户机构隶属/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /用户机构隶属/ }).click();
+  await clickMainNavLink(page, /用户机构隶属/);
 
   await expect(page.getByRole('heading', { name: '用户机构隶属', exact: true })).toBeVisible();
   await expect(page.getByText('尚无用户机构隶属', { exact: true })).toBeVisible({

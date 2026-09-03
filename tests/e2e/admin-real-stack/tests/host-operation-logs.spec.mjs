@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -38,9 +39,7 @@ test('Host 管理员可从真实 API 加载操作日志', async ({ page, request
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /操作日志/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /操作日志/ }).click();
+  await clickMainNavLink(page, /操作日志/);
 
   const operationLogsView = clientKind === 'layui'
     ? page.locator('[data-route-view="operation-logs"]')

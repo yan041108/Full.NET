@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
@@ -123,9 +124,7 @@ test('Host 管理员通过双管理端完成真实用户职位分配设主与取
   await loginAsHostAdmin(page);
   await enterDevelopmentTenant(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /用户职位隶属/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /用户职位隶属/ }).click();
+  await clickMainNavLink(page, /用户职位隶属/);
 
   const view = userPositionsView(page, clientKind);
   await expect(view.getByRole('heading', { name: '用户职位隶属', exact: true })).toBeVisible();

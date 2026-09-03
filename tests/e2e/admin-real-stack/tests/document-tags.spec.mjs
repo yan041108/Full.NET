@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -23,9 +24,7 @@ test('Host 管理员可从真栈 API 加载文档标签列表', async ({ page },
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /文档标签/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /文档标签/ }).click();
+  await clickMainNavLink(page, /文档标签/);
 
   const view = page.locator('.document-tags-view');
   await expect(view.getByRole('heading', { name: /文档标签/, level: 1 })).toBeVisible();

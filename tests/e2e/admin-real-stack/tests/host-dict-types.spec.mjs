@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   createSettingsDictItemViaApi,
   createSettingsDictTypeViaApi,
   loginAccessToken,
@@ -46,9 +47,7 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /数据字典/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /数据字典/ }).click();
+  await clickMainNavLink(page, /数据字典/);
 
   const dictTypesView = clientKind === 'layui'
     ? page.locator('[data-route-view="dict-types"]')

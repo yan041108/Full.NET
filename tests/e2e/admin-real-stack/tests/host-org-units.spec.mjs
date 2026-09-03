@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   enterDevelopmentTenant,
   enterTenantAccessToken,
   loginAccessToken,
@@ -20,10 +21,7 @@ test.beforeEach(async ({ page }) => {
 test('Host 管理员在租户上下文中可从真实 API 加载机构列表', async ({ page }) => {
   await loginAsHostAdmin(page);
   await enterDevelopmentTenant(page);
-
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /机构管理/ })).toBeVisible();
-  await page.goto('/#/organization/units');
+  await clickMainNavLink(page, /机构管理/);
 
   await expect(page.getByRole('heading', { name: '机构管理', exact: true })).toBeVisible();
   await expect(page.getByText('尚无租户机构', { exact: true })).toBeVisible();

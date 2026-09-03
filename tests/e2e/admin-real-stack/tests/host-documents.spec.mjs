@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -26,9 +27,7 @@ test('Host 管理员可创建文档并绑定新版本', async ({ page }, testInf
   const title = `e2e-doc-${Date.now().toString(36)}`;
 
   await loginAsHostAdmin(page);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /Host 文档库/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /Host 文档库/ }).click();
+  await clickMainNavLink(page, /Host 文档库/);
 
   const view = page.locator('.host-document-items-view');
   await expect(view.getByRole('heading', { name: 'Host 文档库', exact: true })).toBeVisible();

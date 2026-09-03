@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   createTenantPackageViaApi,
   findSeedTenantViaApi,
   loginAccessToken,
@@ -21,9 +22,7 @@ test('Host 管理员可从真实 API 加载租户列表', async ({ page }, testI
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /租户管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /租户管理/ }).click();
+  await clickMainNavLink(page, /租户管理/);
 
   const tenantsView = clientKind === 'layui'
     ? page.locator('[data-route-view="tenants"]')
@@ -47,8 +46,7 @@ test('Host 管理员可为种子租户分配套餐', async ({ page, request }, t
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /租户管理/ }).click();
+  await clickMainNavLink(page, /租户管理/);
 
   const tenantsView = clientKind === 'layui'
     ? page.locator('[data-route-view="tenants"]')

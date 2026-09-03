@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  clickMainNavLink,
   loginAsHostAdmin,
   statusPath
 } from './support/real-stack-auth.mjs';
@@ -30,8 +31,7 @@ test('Host 管理员可创建分享并在禁用后拒绝匿名访问', async ({ 
   expect(enabledAccess.ok()).toBeTruthy();
 
   await loginAsHostAdmin(page);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /文档分享/ }).click();
+  await clickMainNavLink(page, /文档分享/);
   await expect(page.getByRole('heading', { name: '文档分享', exact: true })).toBeVisible();
 
   const row = page.locator('.el-table__row').filter({ hasText: share.shareCode });

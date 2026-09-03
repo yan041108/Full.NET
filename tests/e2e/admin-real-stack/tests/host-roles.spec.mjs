@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAccessTokenWithPassword,
   loginAsHostAdmin,
@@ -21,9 +22,7 @@ test.beforeEach(async ({ page }) => {
 test('Host 管理员可从真实 API 加载角色列表', async ({ page }) => {
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /角色管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /角色管理/ }).click();
+  await clickMainNavLink(page, /角色管理/);
 
   await expect(page.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();
   await expect(page.getByText('宿主管理员', { exact: true }).first()).toBeVisible();
@@ -65,8 +64,7 @@ test('Host 管理员在角色授权树可看到用户页面与操作节点', asy
   test.skip(testInfo.project.metadata.clientKind !== 'vue', '授权树 UI 仅验收 Vue 管理端');
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /角色管理/ }).click();
+  await clickMainNavLink(page, /角色管理/);
 
   const customRoleRow = page.locator('.roles-data-table tbody tr').filter({ hasText: 'e2e-host-viewer' });
   if ((await customRoleRow.count()) === 0) {
@@ -100,8 +98,7 @@ test('Vue 只读角色可见目录但无业务操作按钮', async ({
   });
 
   await loginAsHostUser(page, limited.username, limited.password);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /角色管理/ }).click();
+  await clickMainNavLink(page, /角色管理/);
 
   const view = page.locator('.roles-view');
   await expect(view.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();
@@ -127,8 +124,7 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   });
 
   await loginAsHostUser(page, limited.username, limited.password);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /角色管理/ }).click();
+  await clickMainNavLink(page, /角色管理/);
 
   const view = page.locator('.roles-view');
   await expect(view.getByRole('heading', { name: '角色管理', exact: true })).toBeVisible();

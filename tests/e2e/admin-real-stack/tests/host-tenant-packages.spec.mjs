@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -19,9 +20,7 @@ test('Host 管理员可从真实 API 加载套餐目录', async ({ page }, testI
   const clientKind = testInfo.project.metadata.clientKind;
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /租户套餐/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /租户套餐/ }).click();
+  await clickMainNavLink(page, /租户套餐/);
 
   const packagesView = clientKind === 'layui'
     ? page.locator('[data-route-view="tenant-packages"]')

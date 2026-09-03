@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginHostAdminAccessToken
@@ -26,8 +27,7 @@ test('Host 管理员可查看文档统计面板', async ({ page, request }, test
   await createHostDocumentItemViaApi(request, clientKind);
 
   await loginAsHostAdmin(page);
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await navigation.getByRole('link', { name: /文档统计/ }).click();
+  await clickMainNavLink(page, /文档统计/);
   await expect(page.getByRole('heading', { name: '文档统计', exact: true })).toBeVisible();
   await expect(page.getByTestId('document-statistics-panel')).toBeVisible({ timeout: 15_000 });
 });

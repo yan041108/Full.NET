@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -18,9 +19,7 @@ test.beforeEach(async ({ page }) => {
 test('Host 管理员可从真实 API 加载菜单树表', async ({ page }) => {
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /菜单管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /菜单管理/ }).click();
+  await clickMainNavLink(page, /菜单管理/);
 
   await expect(page.getByRole('heading', { name: '菜单管理', exact: true })).toBeVisible();
   await expect(page.getByTestId('menus-tree-table')).toBeVisible();

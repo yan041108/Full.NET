@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -23,9 +24,7 @@ test('Host 管理员可从真实 API 加载任务计划列表', async ({ page },
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /任务计划/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /任务计划/ }).click();
+  await clickMainNavLink(page, /任务计划/);
 
   const view = page.locator('.host-job-schedules-view');
   await expect(view.getByRole('heading', { name: /任务计划/, level: 1 })).toBeVisible();

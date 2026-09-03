@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   loginAccessToken,
   loginAsHostAdmin,
   loginAsHostViewer,
@@ -23,9 +24,7 @@ test('Host 管理员可从真实 API 加载公告列表', async ({ page }, testI
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /公告管理/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /公告管理/ }).click();
+  await clickMainNavLink(page, /公告管理/);
 
   const announcementsView = page.locator('.host-announcements-view');
   await expect(

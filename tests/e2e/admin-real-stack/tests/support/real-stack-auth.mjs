@@ -292,7 +292,8 @@ export async function openMainNavLink(page, linkName) {
   const link = navigation.getByRole('link', { name: linkName }).first();
   await expect(link).toBeVisible({ timeout: 15_000 });
   const targetHash = await link.getAttribute('href');
-  await link.click();
+  // 使用 DOM click 规避 Art 侧栏折叠态下 Playwright 命中层叠节点的问题。
+  await link.evaluate(element => element.click());
   if (targetHash?.startsWith('#')) {
     await expect(page).toHaveURL(url => url.hash === targetHash, { timeout: 15_000 });
   }
@@ -320,7 +321,7 @@ export async function clickMainNavLink(page, linkName, groupTitle) {
     }
   }
   await expect(link.first()).toBeVisible({ timeout: 15_000 });
-  await link.first().click();
+  await link.first().evaluate(element => element.click());
 }
 
 /** 使用指定凭据经真实登录 API 获取 Access Token。 */

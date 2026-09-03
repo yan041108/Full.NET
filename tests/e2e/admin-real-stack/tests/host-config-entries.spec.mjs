@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   adminOrigin,
+  clickMainNavLink,
   createSettingsConfigEntryViaApi,
   loginAccessToken,
   loginAsHostAdmin,
@@ -40,9 +41,7 @@ test('Host 管理员可从真实 API 加载系统配置项', async ({
 
   await loginAsHostAdmin(page);
 
-  const navigation = page.getByRole('navigation', { name: '主导航' });
-  await expect(navigation.getByRole('link', { name: /系统配置/ })).toBeVisible();
-  await navigation.getByRole('link', { name: /系统配置/ }).click();
+  await clickMainNavLink(page, /系统配置/);
 
   const configEntriesView = clientKind === 'layui'
     ? page.locator('[data-route-view="config-entries"]')
