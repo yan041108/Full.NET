@@ -1,7 +1,7 @@
 # Workflow Tenant 本地收件人候选目录验证记录
 
-> 日期：2026-09-05  
-> 状态：`Build-verified`；SQL Server/MySQL 共享 API 断言和 Linux Native AOT 以目标提交的 GitHub Actions 结果为最终门禁。  
+> 日期：2026-09-05
+> 状态：`Build-verified`；SQL Server/MySQL 共享 API 断言和 Linux Native AOT 以目标提交的 GitHub Actions 结果为最终门禁。
 > 任务基线：`1f5107fcfc91f25207a136ee4348d4dae4580930`
 
 ## 1. 交付边界

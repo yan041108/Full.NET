@@ -1,7 +1,7 @@
 # Workflow Tenant 本地收件人候选目录实施计划
 
-> **状态：** Implemented，等待 GitHub Actions 双库与 Native AOT 门禁  
-> **任务基线：** `1f5107fcfc91f25207a136ee4348d4dae4580930`  
+> **状态：** Implemented，等待 GitHub Actions 双库与 Native AOT 门禁
+> **任务基线：** `1f5107fcfc91f25207a136ee4348d4dae4580930`
 > **任务快照：** `workflow-tenant-recipient-directory-20260905`
 
 ## 目标
