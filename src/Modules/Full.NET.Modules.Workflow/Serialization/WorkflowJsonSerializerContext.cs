@@ -37,6 +37,7 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowDefinitionVersionResponse[]))]
 [JsonSerializable(typeof(StartWorkflowInstanceRequest))]
 [JsonSerializable(typeof(CancelWorkflowInstanceRequest))]
+[JsonSerializable(typeof(ReassignWorkflowInstanceRequest))]
 [JsonSerializable(typeof(WorkflowInstanceResponse))]
 [JsonSerializable(typeof(WorkflowTodoResponse))]
 [JsonSerializable(typeof(WorkflowTodoResponse[]))]

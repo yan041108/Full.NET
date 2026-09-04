@@ -221,6 +221,7 @@ import type {
   PublishNotificationTemplateRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
@@ -2709,6 +2710,17 @@ export function readPublishWorkflowFormRequest(value: unknown): PublishWorkflowF
 
 function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowFormRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
+}
+
+export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWorkflowInstanceRequest {
+  if (!(isReassignWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_reassign_workflow_instance_request');
+  }
+  return value;
+}
+
+function isReassignWorkflowInstanceRequest(value: unknown): value is ReassignWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readRecipientEndpointResponse(value: unknown): RecipientEndpointResponse {

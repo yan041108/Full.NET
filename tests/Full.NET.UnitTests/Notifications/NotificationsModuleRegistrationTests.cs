@@ -45,6 +45,9 @@ public sealed class NotificationsModuleRegistrationTests
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(NotificationRecipientEndpointProtector)
             && descriptor.Lifetime == ServiceLifetime.Singleton));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(WorkflowNotificationTemplateProvisioner)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
     }
 
     [TestMethod]

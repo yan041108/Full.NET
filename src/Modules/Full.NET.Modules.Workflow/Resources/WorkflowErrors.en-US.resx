@@ -32,6 +32,8 @@
   <data name="workflow.form.not_found" xml:space="preserve"><value>The workflow form was not found.</value></data>
   <data name="workflow.form.key_exists" xml:space="preserve"><value>The form key already exists in the current scope.</value></data>
   <data name="workflow.todo.assignee_mismatch" xml:space="preserve"><value>The todo is not assigned to the current user.</value></data>
+  <data name="workflow.todo.assignee_not_found" xml:space="preserve"><value>The target assignee was not found, is inactive, or is outside the current scope.</value></data>
+  <data name="workflow.todo.assignee_unchanged" xml:space="preserve"><value>The target assignee is already assigned to this todo.</value></data>
   <data name="workflow.todo.not_active" xml:space="preserve"><value>The todo is no longer active.</value></data>
   <data name="workflow.instance.terminal" xml:space="preserve"><value>The workflow instance is already terminal.</value></data>
   <data name="workflow.instance.forbidden" xml:space="preserve"><value>You cannot read this workflow instance.</value></data>

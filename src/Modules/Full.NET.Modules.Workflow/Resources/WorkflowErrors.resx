@@ -32,6 +32,8 @@
   <data name="workflow.form.not_found" xml:space="preserve"><value>工作流表单不存在。</value></data>
   <data name="workflow.form.key_exists" xml:space="preserve"><value>当前作用域已存在相同表单键。</value></data>
   <data name="workflow.todo.assignee_mismatch" xml:space="preserve"><value>待办不属于当前用户。</value></data>
+  <data name="workflow.todo.assignee_not_found" xml:space="preserve"><value>目标办理人不存在、已停用或不属于当前作用域。</value></data>
+  <data name="workflow.todo.assignee_unchanged" xml:space="preserve"><value>目标办理人与当前办理人相同，无需改派。</value></data>
   <data name="workflow.todo.not_active" xml:space="preserve"><value>待办已不处于可处理状态。</value></data>
   <data name="workflow.instance.terminal" xml:space="preserve"><value>工作流实例已进入终态。</value></data>
   <data name="workflow.instance.forbidden" xml:space="preserve"><value>无权读取该工作流实例。</value></data>

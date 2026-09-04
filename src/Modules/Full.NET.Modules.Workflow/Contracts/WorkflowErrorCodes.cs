@@ -33,6 +33,8 @@ public static class WorkflowErrorCodes
     public const string FormNotFound = Prefix + "form.not_found";
     public const string FormKeyExists = Prefix + "form.key_exists";
     public const string TodoAssigneeMismatch = Prefix + "todo.assignee_mismatch";
+    public const string TodoAssigneeNotFound = Prefix + "todo.assignee_not_found";
+    public const string TodoAssigneeUnchanged = Prefix + "todo.assignee_unchanged";
     public const string TodoNotActive = Prefix + "todo.not_active";
     public const string InstanceTerminal = Prefix + "instance.terminal";
     public const string InstanceVersionConflict = Prefix + "instance.version_conflict";
@@ -75,6 +77,8 @@ public static class WorkflowErrorCodes
         FormNotFound,
         FormKeyExists,
         TodoAssigneeMismatch,
+        TodoAssigneeNotFound,
+        TodoAssigneeUnchanged,
         TodoNotActive,
         InstanceTerminal,
         InstanceVersionConflict,

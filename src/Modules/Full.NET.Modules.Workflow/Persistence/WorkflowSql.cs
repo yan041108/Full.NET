@@ -777,6 +777,27 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>在租户作用域和待办修订号保护下改派活动待办。</summary>
+    public static readonly SqlStatement ReassignTodoWithRevision = new(
+        "workflow.todo.reassign_with_revision",
+        """
+        UPDATE fn_workflow_todo
+        SET AssigneeUserId = @AssigneeUserId,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND AssigneeUserId = @ExpectedAssigneeUserId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.StatusKey = 'active'
+                AND instance.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CancelTodoWithRevision = new(
         "workflow.todo.cancel_with_revision",
         """

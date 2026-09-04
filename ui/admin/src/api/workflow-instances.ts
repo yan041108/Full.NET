@@ -2,7 +2,9 @@ import {
   workflowCancelInstance as cancelInstance,
   workflowGetInstance,
   workflowListInstanceExecutionLogs,
+  workflowReassignInstance as reassignInstance,
   type CancelWorkflowInstanceRequest,
+  type ReassignWorkflowInstanceRequest,
   type WorkflowExecutionLogResponse,
   type WorkflowInstanceResponse
 } from '@fullnet/client-contracts';
@@ -19,6 +21,18 @@ export async function cancelWorkflowInstance(
 
 /** 取消时由调用方显式携带 expectedRevision 与幂等键，避免重复取消覆盖并发状态。 */
 export type { CancelWorkflowInstanceRequest };
+
+/** 使用恢复控制面把当前活动待办改派给同一作用域内的活动用户。 */
+export async function reassignWorkflowInstance(
+  instanceId: string,
+  body: ReassignWorkflowInstanceRequest,
+  signal?: AbortSignal
+): Promise<WorkflowInstanceResponse> {
+  return reassignInstance(http, { instanceId, body }, signal);
+}
+
+/** 改派请求必须显式携带目标用户、expectedRevision 与幂等键。 */
+export type { ReassignWorkflowInstanceRequest };
 
 /** 读取工作流实例详情，供待办页与详情页回到同一权威实例快照。 */
 export async function getWorkflowInstance(

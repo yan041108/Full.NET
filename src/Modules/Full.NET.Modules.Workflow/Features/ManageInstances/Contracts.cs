@@ -14,6 +14,17 @@ internal sealed record CancelWorkflowInstanceRequest(
     string? Reason,
     string IdempotencyKey);
 
+/// <summary>活动工作流待办改派请求。</summary>
+/// <param name="AssigneeUserId">当前可信作用域内的新办理人标识。</param>
+/// <param name="ExpectedRevision">客户端最后读取到的实例修订号。</param>
+/// <param name="Reason">可选的改派原因，最多 512 个字符。</param>
+/// <param name="IdempotencyKey">调用方生成的幂等键。</param>
+internal sealed record ReassignWorkflowInstanceRequest(
+    Guid AssigneeUserId,
+    long ExpectedRevision,
+    string? Reason,
+    string IdempotencyKey);
+
 internal sealed record WorkflowInstanceResponse(
     Guid Id,
     Guid DefinitionVersionId,

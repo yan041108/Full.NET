@@ -35,6 +35,7 @@ internal static class WorkflowRuntimeApiAssertions
                 WorkflowPermissions.InstancesStart,
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.InstancesCancel,
+                WorkflowPermissions.InstancesRecover,
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.TodosApprove,
                 WorkflowPermissions.TodosReject,
@@ -158,6 +159,83 @@ internal static class WorkflowRuntimeApiAssertions
                     idempotencyKey = $"approve-{Guid.NewGuid():N}",
                 }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var reassignBusinessId = Guid.NewGuid().ToString("N");
+        using var reassignStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = reassignBusinessId,
+                initialValues = new { reason = "assignee unavailable" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, reassignStart.StatusCode,
+            await reassignStart.Content.ReadAsStringAsync(cancellationToken));
+        using var reassignStarted = JsonDocument.Parse(
+            await reassignStart.Content.ReadAsStringAsync(cancellationToken));
+        var reassignInstanceId = reassignStarted.RootElement.GetProperty("id").GetGuid();
+        var reassignTodoId = reassignStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var permissionDeniedReassign = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{reassignInstanceId:D}/reassign", other.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 1,
+                    reason = "missing recovery permission",
+                    idempotencyKey = $"reassign-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedReassign.StatusCode);
+
+        var reassignIdempotencyKey = $"reassign-{Guid.NewGuid():N}";
+        using var reassign = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{reassignInstanceId:D}/reassign", identity.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 1,
+                    reason = "审批人请假",
+                    idempotencyKey = reassignIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reassign.StatusCode,
+            await reassign.Content.ReadAsStringAsync(cancellationToken));
+        using var reassigned = JsonDocument.Parse(await reassign.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(2, reassigned.RootElement.GetProperty("revision").GetInt64());
+        Assert.AreEqual(reassignTodoId, reassigned.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var reassignReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{reassignInstanceId:D}/reassign", identity.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 1,
+                    reason = "审批人请假",
+                    idempotencyKey = reassignIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reassignReplay.StatusCode,
+            await reassignReplay.Content.ReadAsStringAsync(cancellationToken));
+        await VerifyWorkflowOutboxAsync<WorkflowTodoAssignedIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.TodoAssigned,
+            value => value.InstanceId == reassignInstanceId &&
+                     value.TodoId == reassignTodoId &&
+                     value.RecipientUserId == other.UserId,
+            cancellationToken);
+
+        using var reassignedMine = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/todos/mine", other.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reassignedMine.StatusCode,
+            await reassignedMine.Content.ReadAsStringAsync(cancellationToken));
+        using var reassignedTodos = JsonDocument.Parse(
+            await reassignedMine.Content.ReadAsStringAsync(cancellationToken));
+        Assert.IsTrue(reassignedTodos.RootElement.EnumerateArray().Any(item =>
+            item.GetProperty("id").GetGuid() == reassignTodoId &&
+            item.GetProperty("assigneeUserId").GetGuid() == other.UserId));
 
         await AssertDangerousPatchesRejectedAsync(
             client, identity.AccessToken, todoId, cancellationToken);
@@ -1646,6 +1724,9 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/instances/{instanceId}/cancel", HttpMethod.Post,
             "workflowCancelInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/reassign", HttpMethod.Post,
+            "workflowReassignInstance", "WorkflowInstances", 200, "application/json", "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/todos/{todoId}", HttpMethod.Get,
             "workflowGetTodo", "WorkflowTodos", 200, "application/json");

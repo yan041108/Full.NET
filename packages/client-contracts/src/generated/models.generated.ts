@@ -1799,6 +1799,13 @@ export interface PublishWorkflowFormRequest {
   readonly expectedRevision: number;
 }
 
+export interface ReassignWorkflowInstanceRequest {
+  readonly assigneeUserId: string;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface RecipientEndpointResponse {
   readonly createdAtUtc: string;
   readonly endpointKindKey: string;

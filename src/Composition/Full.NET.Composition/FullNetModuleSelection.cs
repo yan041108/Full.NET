@@ -199,6 +199,16 @@ public static class FullNetModuleSelection
     {
         foreach (var module in enabledModules)
         {
+            foreach (var optionalDependency in module.OptionalContractDependencies)
+            {
+                if (!OfficialModuleNames.Contains(optionalDependency, StringComparer.Ordinal) ||
+                    module.Dependencies.Contains(optionalDependency, StringComparer.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"模块“{module.Name}”包含无效或重复的可选契约依赖“{optionalDependency}”。");
+                }
+            }
+
             foreach (var dependency in module.Dependencies)
             {
                 if (!enabledNames.Contains(dependency))

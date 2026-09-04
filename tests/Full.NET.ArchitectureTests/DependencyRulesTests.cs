@@ -216,12 +216,15 @@ public sealed class DependencyRulesTests
                         && !module.Dependencies.Contains(
                             dependency,
                             StringComparer.Ordinal)
+                        && !module.OptionalContractDependencies.Contains(
+                            dependency,
+                            StringComparer.Ordinal)
                         && !HasReverseModuleDependency(
                             module.Name,
                             dependency,
                             moduleByName))
                     .Select(dependency =>
-                        $"{module.Name} references {dependency}.Contracts without declaring {dependency}");
+                        $"{module.Name} references {dependency}.Contracts without declaring required or optional {dependency}");
             })
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
