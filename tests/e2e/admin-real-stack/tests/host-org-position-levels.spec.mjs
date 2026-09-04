@@ -48,7 +48,7 @@ async function confirmDisable(page, clientKind) {
   if (clientKind === 'vue') {
     const dialog = page.getByRole('dialog').last();
     await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: '确定', exact: true }).click();
+    await dialog.getByRole('button', { name: '禁用', exact: true }).click();
     return;
   }
 
@@ -88,12 +88,23 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
   const view = positionLevelsView(page, clientKind);
   await expect(view.getByRole('heading', { name: '职级管理', exact: true })).toBeVisible();
 
-  await view.getByLabel('职级编码', { exact: true }).fill(code);
-  await view.getByLabel('显示名称', { exact: true }).fill(initialName);
+  if (clientKind === 'vue') {
+    await view.getByTestId('org-position-levels-action-create').click();
+    const editor = page.getByTestId('org-position-levels-editor-form');
+    await editor.getByLabel('职级编码', { exact: true }).fill(code);
+    await editor.getByLabel('显示名称', { exact: true }).fill(initialName);
+  } else {
+    await view.getByLabel('职级编码', { exact: true }).fill(code);
+    await view.getByLabel('显示名称', { exact: true }).fill(initialName);
+  }
   const createResponsePromise = page.waitForResponse(response =>
     response.request().method() === 'POST'
       && response.url().endsWith('/api/v1/organization/position-levels'));
-  await view.getByRole('button', { name: '创建职级', exact: true }).click();
+  if (clientKind === 'vue') {
+    await page.getByTestId('org-position-levels-editor-submit').click();
+  } else {
+    await view.getByRole('button', { name: '创建职级', exact: true }).click();
+  }
   const createResponse = await createResponsePromise;
   expect(createResponse.status()).toBe(201);
   const created = await createResponse.json();
@@ -107,8 +118,15 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
       && response.url().endsWith(
         `/api/v1/organization/position-levels/${created.id}`
       ));
-  await levelRow.getByRole('button', { name: '编辑', exact: true }).click();
-  await fillPromptInput(page, clientKind, updatedName);
+  if (clientKind === 'vue') {
+    await levelRow.getByTestId('org-position-levels-action-edit').click();
+    const editor = page.getByTestId('org-position-levels-editor-form');
+    await editor.getByLabel('显示名称', { exact: true }).fill(updatedName);
+    await page.getByTestId('org-position-levels-editor-submit').click();
+  } else {
+    await levelRow.getByRole('button', { name: '编辑', exact: true }).click();
+    await fillPromptInput(page, clientKind, updatedName);
+  }
   expect((await updateResponsePromise).ok()).toBeTruthy();
   await expect(levelRow.getByText(updatedName, { exact: true })).toBeVisible({
     timeout: 15_000
@@ -119,7 +137,11 @@ test('Host 管理员通过双管理端完成真实职级创建更新与禁用', 
       && response.url().endsWith(
         `/api/v1/organization/position-levels/${created.id}/disable`
       ));
-  await levelRow.getByRole('button', { name: '禁用', exact: true }).click();
+  if (clientKind === 'vue') {
+    await levelRow.getByTestId('org-position-levels-action-disable').click();
+  } else {
+    await levelRow.getByRole('button', { name: '禁用', exact: true }).click();
+  }
   await confirmDisable(page, clientKind);
   expect((await disableResponsePromise).ok()).toBeTruthy();
   await expect(levelRow.getByText('已禁用', { exact: true })).toBeVisible({

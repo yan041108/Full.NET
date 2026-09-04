@@ -59,12 +59,11 @@ test('受限 Host 账号无法彻底删除回收站文档', async ({ page, reque
   expect(problem.code).toBe('authorization.permission_denied');
 
   await loginAsHostViewer(page);
+  const navigation = page.getByRole('navigation', { name: '主导航' });
+  await expect(navigation.getByRole('link', { name: /工作台/ })).toBeVisible();
+  await expect(navigation.getByRole('link', { name: /文档回收站/ })).toHaveCount(0);
+
   await page.goto(statusPath(clientKind, 'document/recycle-bin'));
-  const permissionDenied = page.getByRole('heading', { name: '没有访问权限' });
-  if (await permissionDenied.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await expect(permissionDenied).toBeVisible();
-    return;
-  }
-  await expect(page.getByRole('heading', { name: '文档回收站', exact: true })).toBeVisible();
-  await expect(page.getByTestId('document-recycle-purge')).toHaveCount(0);
+  await expect(page.getByText('403', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible();
 });
