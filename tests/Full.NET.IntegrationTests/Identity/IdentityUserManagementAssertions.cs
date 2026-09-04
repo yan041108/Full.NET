@@ -245,7 +245,8 @@ internal static class IdentityUserManagementAssertions
         {
             CollectionAssert.AreEquivalent(
                 new[] { HttpStatusCode.OK, HttpStatusCode.Conflict },
-                updateResponses.Select(response => response.StatusCode).ToArray());
+                updateResponses.Select(response => response.StatusCode).ToArray(),
+                $"并发资料更新响应：{string.Join(", ", updateResponses.Select(response => $"{(int)response.StatusCode} {response.StatusCode}"))}");
             Assert.IsTrue(losingIndex >= 0);
         }
 
