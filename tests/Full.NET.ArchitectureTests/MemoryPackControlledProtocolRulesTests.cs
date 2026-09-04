@@ -2,6 +2,7 @@ using System.Reflection;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Workflow.Contracts;
 using global::MemoryPack;
 
 namespace Full.NET.ArchitectureTests;
@@ -21,6 +22,10 @@ public sealed class MemoryPackControlledProtocolRulesTests
         typeof(InboxMessageReceivedIntegrationEvent),
         typeof(InboxReadStateChangedIntegrationEvent),
         typeof(IdentityOrganizationUnitChangedIntegrationEvent),
+        typeof(WorkflowTodoAssignedIntegrationEvent),
+        typeof(WorkflowInstanceCompletedIntegrationEvent),
+        typeof(WorkflowInstanceRejectedIntegrationEvent),
+        typeof(WorkflowInstanceCancelledIntegrationEvent),
     ];
 
     private static readonly HashSet<Type> ForbiddenPropertyTypes =
@@ -142,6 +147,39 @@ public sealed class MemoryPackControlledProtocolRulesTests
                 && left.IsActive == right.IsActive
                 && left.Version == right.Version
                 && left.ChangedAtUtc == right.ChangedAtUtc);
+        RoundTrip(
+            new WorkflowTodoAssignedIntegrationEvent(
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000001"),
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000002"),
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000003"),
+                "contract",
+                "C-2026-001",
+                DateTimeOffset.Parse("2026-09-05T01:00:00Z")),
+            (left, right) => left == right);
+        RoundTrip(
+            new WorkflowInstanceCompletedIntegrationEvent(
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000004"),
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000005"),
+                "contract",
+                "C-2026-002",
+                DateTimeOffset.Parse("2026-09-05T02:00:00Z")),
+            (left, right) => left == right);
+        RoundTrip(
+            new WorkflowInstanceRejectedIntegrationEvent(
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000006"),
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000007"),
+                "contract",
+                "C-2026-003",
+                DateTimeOffset.Parse("2026-09-05T03:00:00Z")),
+            (left, right) => left == right);
+        RoundTrip(
+            new WorkflowInstanceCancelledIntegrationEvent(
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000008"),
+                Guid.Parse("018f3b2a-7c4e-7b2a-9f3a-900000000009"),
+                "contract",
+                "C-2026-004",
+                DateTimeOffset.Parse("2026-09-05T04:00:00Z")),
+            (left, right) => left == right);
     }
 
     private static void RoundTrip<T>(

@@ -60,9 +60,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostModuleCatalogQueryService>();
         services.TryAddScoped<
             Features.GetHostDashboardSummary.HostDashboardQueryService>();
-        services.TryAddScoped<HostUsers.HostUserDirectory>();
-        services.TryAddScoped<IHostUserDirectory>(provider =>
-            provider.GetRequiredService<HostUsers.HostUserDirectory>());
+        services.AddHostUserDirectory();
         services.TryAddScoped<IHostUserDisplayDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
         services.TryAddScoped<HostUsers.HostUserSelectionDirectory>();
@@ -102,6 +100,17 @@ internal static class IdentityDomainServiceCollectionExtensions
                 LocalePreferenceResponse>,
             Features.UpdateLocale.Handler>();
 
+        return services;
+    }
+
+    /// <summary>注册后台消息消费者解析受信用户所需的最小 Host 用户目录。</summary>
+    /// <param name="services">应用依赖注入服务集合。</param>
+    /// <returns>原服务集合，便于继续链式注册。</returns>
+    internal static IServiceCollection AddHostUserDirectory(this IServiceCollection services)
+    {
+        services.TryAddScoped<HostUsers.HostUserDirectory>();
+        services.TryAddScoped<IHostUserDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserDirectory>());
         return services;
     }
 }

@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
+using Full.NET.Modules.Notifications.Features.ProjectWorkflowNotifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,6 +33,10 @@ public sealed class NotificationsModuleRegistrationTests
                 typeof(AnnouncementPublishedRealtimeHandler),
                 typeof(InboxMessageReceivedRealtimeHandler),
                 typeof(InboxReadStateChangedRealtimeHandler),
+                typeof(WorkflowTodoAssignedIntegrationEventHandler),
+                typeof(WorkflowInstanceCompletedIntegrationEventHandler),
+                typeof(WorkflowInstanceRejectedIntegrationEventHandler),
+                typeof(WorkflowInstanceCancelledIntegrationEventHandler),
             },
             handlerTypes);
         Assert.IsTrue(services.Any(descriptor =>

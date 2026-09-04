@@ -24,6 +24,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
 /// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
+/// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 internal sealed class WorkflowInstanceManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -32,7 +33,8 @@ internal sealed class WorkflowInstanceManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    WorkflowAutomaticTransitionWriter automaticTransitionWriter)
+    WorkflowAutomaticTransitionWriter automaticTransitionWriter,
+    WorkflowNotificationOutboxPublisher notificationPublisher)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
     /// <param name="actorUserId">发起人的稳定用户标识。</param>
@@ -135,6 +137,16 @@ internal sealed class WorkflowInstanceManagementService(
                         ("OutcomeKey", "succeeded"),
                         ("DetailJson", $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}"),
                         ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+                // 待办提醒必须与待办本身同事务写入 Outbox；下游失败不得反向影响本事务。
+                await notificationPublisher.PublishTodoAssignedAsync(
+                    instanceId,
+                    todoId,
+                    actorUserId,
+                    request.BusinessType.Trim(),
+                    request.BusinessId.Trim(),
+                    now,
+                    token).ConfigureAwait(false);
 
                 return Result<WorkflowInstanceResponse>.Success(new(
                     instanceId, asset.DefinitionVersionId, asset.FormVersionId,
@@ -358,6 +370,15 @@ internal sealed class WorkflowInstanceManagementService(
                 ("OutcomeKey", "succeeded"),
                 ("DetailJson", $"{{\"previousRevision\":{request.ExpectedRevision}}}"),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+        // 取消结果仅提醒发起人，事件与终态同事务提交并由 Notifications 独立重试。
+        await notificationPublisher.PublishInstanceCancelledAsync(
+            instance.Id,
+            instance.StartedById,
+            instance.BusinessType,
+            instance.BusinessId,
+            now,
+            token).ConfigureAwait(false);
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,

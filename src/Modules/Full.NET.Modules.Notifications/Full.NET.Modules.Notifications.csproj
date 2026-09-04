@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Realtime.Abstractions\Full.NET.Realtime.Abstractions.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Organization.Contracts\Full.NET.Modules.Organization.Contracts.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Workflow.Contracts\Full.NET.Modules.Workflow.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

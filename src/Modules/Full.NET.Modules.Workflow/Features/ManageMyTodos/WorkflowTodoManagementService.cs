@@ -25,6 +25,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
 /// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
+/// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 internal sealed class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -33,7 +34,8 @@ internal sealed class WorkflowTodoManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    WorkflowAutomaticTransitionWriter automaticTransitionWriter)
+    WorkflowAutomaticTransitionWriter automaticTransitionWriter,
+    WorkflowNotificationOutboxPublisher notificationPublisher)
 {
     public async Task<Result<IReadOnlyList<WorkflowTodoResponse>>> ListMineAsync(
         Guid actorUserId,
@@ -365,6 +367,39 @@ internal sealed class WorkflowTodoManagementService(
                 ("ResourceTypeKey", "todo"), ("ResourceId", todo.Id),
                 ("OutcomeKey", "succeeded"), ("DetailJson", null),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+        // 只在首次成功迁移后发布提醒；上方幂等回放分支不会再次追加 Outbox。
+        if (advancesToNextApproval)
+        {
+            await notificationPublisher.PublishTodoAssignedAsync(
+                instance.Id,
+                nextTodoId!.Value,
+                actorUserId,
+                instance.BusinessType,
+                instance.BusinessId,
+                now,
+                token).ConfigureAwait(false);
+        }
+        else if (actionKey == "reject")
+        {
+            await notificationPublisher.PublishInstanceRejectedAsync(
+                instance.Id,
+                instance.StartedById,
+                instance.BusinessType,
+                instance.BusinessId,
+                now,
+                token).ConfigureAwait(false);
+        }
+        else
+        {
+            await notificationPublisher.PublishInstanceCompletedAsync(
+                instance.Id,
+                instance.StartedById,
+                instance.BusinessType,
+                instance.BusinessId,
+                now,
+                token).ConfigureAwait(false);
+        }
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,

@@ -52,6 +52,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowTodoManagementService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowAutomaticTransitionWriter>();
+        services.AddScoped<WorkflowNotificationOutboxPublisher>();
         services.AddScoped<WorkflowCcManagementService>();
 #if FULLNET_AOT_COMPILE
         new Persistence.WorkflowDapperAotMaterializerContributor()

@@ -46,18 +46,41 @@ internal sealed class NotificationIntentService(
                 await MapAsync(record, cancellationToken).ConfigureAwait(false));
     }
 
+    /// <summary>使用当前可信请求作用域创建通知意图。</summary>
+    /// <param name="actorUserId">当前操作用户标识。</param>
+    /// <param name="request">模板、场景、收件人和幂等请求。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>首次创建或幂等回放结果。</returns>
     public async Task<Result<NotificationIntentCreateResult>> CreateAsync(
         Guid actorUserId,
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
-        var prepared = await PrepareAsync(request, cancellationToken).ConfigureAwait(false);
+        return await CreateForTrustedEventAsync(
+            NotificationInboxScope.Resolve(currentTenant),
+            actorUserId,
+            request,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>在调用方提供的可信事件作用域内创建通知意图。</summary>
+    /// <param name="scope">由消息 Envelope 构造的可信通知作用域。</param>
+    /// <param name="actorUserId">创建通知的受信业务主体。</param>
+    /// <param name="request">模板化通知意图请求。</param>
+    /// <param name="cancellationToken">消息租约取消令牌。</param>
+    /// <returns>首次创建或幂等回放结果。</returns>
+    internal async Task<Result<NotificationIntentCreateResult>> CreateForTrustedEventAsync(
+        NotificationInboxScope scope,
+        Guid actorUserId,
+        CreateNotificationIntentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var prepared = await PrepareAsync(scope, request, cancellationToken).ConfigureAwait(false);
         if (!prepared.IsSuccess)
         {
             return Result<NotificationIntentCreateResult>.Failure(prepared.Error!);
         }
 
-        var scope = NotificationInboxScope.Resolve(currentTenant);
         var result = await transaction.ExecuteResultAsync(
                 token => CreateCoreAsync(scope, actorUserId, prepared.Value!, token),
                 cancellationToken)
@@ -72,6 +95,7 @@ internal sealed class NotificationIntentService(
     }
 
     private async Task<Result<PreparedIntent>> PrepareAsync(
+        NotificationInboxScope scope,
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
@@ -105,7 +129,6 @@ internal sealed class NotificationIntentService(
             return Result<PreparedIntent>.Failure(recipients.Error!);
         }
 
-        var scope = NotificationInboxScope.Resolve(currentTenant);
         var template = await queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
                 NotificationPlatformSql.FindTemplateByKey,
                 NotificationPlatformSqlParameters.Create(

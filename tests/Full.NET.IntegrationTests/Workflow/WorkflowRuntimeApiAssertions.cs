@@ -73,6 +73,7 @@ internal static class WorkflowRuntimeApiAssertions
         Assert.AreEqual(versions.DefinitionVersionId, started.RootElement.GetProperty("definitionVersionId").GetGuid());
         Assert.AreEqual(versions.FormVersionId, started.RootElement.GetProperty("formVersionId").GetGuid());
         Assert.AreEqual("active", started.RootElement.GetProperty("statusKey").GetString());
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
         var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
 
         using var startReplay = await client.SendAsync(
@@ -89,6 +90,11 @@ internal static class WorkflowRuntimeApiAssertions
         using var replayedStart = JsonDocument.Parse(await startReplay.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(started.RootElement.GetProperty("id").GetGuid(),
             replayedStart.RootElement.GetProperty("id").GetGuid());
+        await VerifyWorkflowOutboxAsync<WorkflowTodoAssignedIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.TodoAssigned,
+            value => value.InstanceId == instanceId && value.TodoId == todoId,
+            cancellationToken);
 
         using var activeConflict = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
@@ -184,8 +190,12 @@ internal static class WorkflowRuntimeApiAssertions
         using var replayed = JsonDocument.Parse(await replay.Content.ReadAsStringAsync(cancellationToken));
         Assert.AreEqual(approved.RootElement.GetProperty("revision").GetInt64(),
             replayed.RootElement.GetProperty("revision").GetInt64());
+        await VerifyWorkflowOutboxAsync<WorkflowInstanceCompletedIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.InstanceCompleted,
+            value => value.InstanceId == instanceId,
+            cancellationToken);
 
-        var instanceId = started.RootElement.GetProperty("id").GetGuid();
         using var readInstance = await client.SendAsync(
             Authorized(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}", identity.AccessToken),
             cancellationToken);
@@ -243,6 +253,11 @@ internal static class WorkflowRuntimeApiAssertions
         Assert.AreEqual("rejected", rejected.RootElement.GetProperty("statusKey").GetString());
 
         var reopenedInstanceId = reopened.RootElement.GetProperty("id").GetGuid();
+        await VerifyWorkflowOutboxAsync<WorkflowInstanceRejectedIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.InstanceRejected,
+            value => value.InstanceId == reopenedInstanceId,
+            cancellationToken);
         using var logs = await client.SendAsync(
             Authorized(HttpMethod.Get,
                 $"/api/v1/workflow/instances/{reopenedInstanceId:D}/execution-logs",
@@ -326,6 +341,11 @@ internal static class WorkflowRuntimeApiAssertions
                 }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, cancelReplay.StatusCode,
             await cancelReplay.Content.ReadAsStringAsync(cancellationToken));
+        await VerifyWorkflowOutboxAsync<WorkflowInstanceCancelledIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.InstanceCancelled,
+            value => value.InstanceId == cancelInstanceId,
+            cancellationToken);
 
         using var changedReplay = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post,
@@ -1649,6 +1669,38 @@ internal static class WorkflowRuntimeApiAssertions
             "workflowMarkCcRead", "WorkflowCc", 200, "application/json");
     }
 
+    /// <summary>验证指定实例的 Workflow 提醒事件只写入一次事务 Outbox。</summary>
+    /// <typeparam name="TEvent">具体 MemoryPack 提醒事件类型。</typeparam>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="messageType">规范消息类型。</param>
+    /// <param name="matches">定位当前测试实例的载荷断言。</param>
+    /// <param name="cancellationToken">取消当前数据库读取的令牌。</param>
+    private static async Task VerifyWorkflowOutboxAsync<TEvent>(
+        FullNetApiFactory factory,
+        string messageType,
+        Func<TEvent, bool> matches,
+        CancellationToken cancellationToken)
+        where TEvent : notnull
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var rows = await scope.ServiceProvider.GetRequiredService<IQueryExecutor>()
+            .QueryAsync<WorkflowNotificationOutboxRecord>(
+                new SqlStatement(
+                    "test.workflow.notification_outbox",
+                    """
+                    SELECT SchemaVersion, Payload
+                    FROM fn_outbox_message
+                    WHERE MessageType = @MessageType
+                    """,
+                    SqlDataScope.Global),
+                new { MessageType = messageType },
+                cancellationToken);
+        var serializer = scope.ServiceProvider.GetRequiredService<IIntegrationEventSerializer>();
+        var matching = rows.Count(row =>
+            row.SchemaVersion == 1 && matches(serializer.Deserialize<TEvent>(row.Payload)));
+        Assert.AreEqual(1, matching, $"{messageType} 对当前实例必须恰好写入一次。");
+    }
+
     private static HttpRequestMessage Authorized(HttpMethod method, string path, string token)
     {
         var request = new HttpRequestMessage(method, path);
@@ -1664,4 +1716,14 @@ internal static class WorkflowRuntimeApiAssertions
     }
 
     private sealed record PublishedRuntimeAssets(Guid DefinitionVersionId, Guid FormVersionId);
+
+    /// <summary>读取 Workflow 通知 Outbox 载荷所需的最小投影。</summary>
+    private sealed class WorkflowNotificationOutboxRecord
+    {
+        /// <summary>获取或设置事件模式版本。</summary>
+        public int SchemaVersion { get; set; }
+
+        /// <summary>获取或设置 MemoryPack 载荷。</summary>
+        public byte[] Payload { get; set; } = [];
+    }
 }

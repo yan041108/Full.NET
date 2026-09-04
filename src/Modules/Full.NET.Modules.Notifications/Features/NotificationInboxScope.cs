@@ -11,6 +11,14 @@ internal readonly record struct NotificationInboxScope(
 {
     public bool IsHost => string.Equals(ScopeKey, "host", StringComparison.Ordinal);
 
+    /// <summary>从 Integration Event Envelope 的可信租户标识创建通知作用域。</summary>
+    /// <param name="tenantId">可信消息租户标识；为空表示 Host 作用域。</param>
+    /// <returns>可用于 Notifications SQL 过滤的稳定作用域。</returns>
+    public static NotificationInboxScope FromTrustedTenantId(Guid? tenantId) =>
+        tenantId is { } value
+            ? new(value, "tenant", $"tenant:{value:N}")
+            : new(null, "host", "host");
+
     public static NotificationInboxScope Resolve(ICurrentTenant currentTenant)
     {
         if (currentTenant.IsHost)

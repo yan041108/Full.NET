@@ -51,6 +51,7 @@ public sealed class NotificationsModule : IFullNetModule
         IConfiguration configuration)
     {
         RegisterRealtimeHandlers(services);
+        RegisterWorkflowNotificationProjection(services);
         RegisterDeliveryCore(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IConfigureOptions<RateLimiterOptions>,
@@ -108,6 +109,7 @@ public sealed class NotificationsModule : IFullNetModule
                 new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
 #endif
         RegisterRealtimeHandlers(services);
+        RegisterWorkflowNotificationProjection(services);
         RegisterDeliveryCore(services, configuration);
         services.AddOptions<NotificationDeliveryWorkerOptions>()
             .Bind(configuration.GetSection(NotificationDeliveryWorkerOptions.SectionName))
@@ -154,6 +156,28 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             InboxReadStateChangedRealtimeHandler>());
+    }
+
+    /// <summary>注册 Workflow 可靠提醒事件的 Intent/Inbox 投影闭包。</summary>
+    /// <param name="services">应用依赖注入服务集合。</param>
+    private static void RegisterWorkflowNotificationProjection(IServiceCollection services)
+    {
+        services.TryAddSingleton<Providers.INotificationProviderTypeCatalog, Providers.NotificationProviderTypeCatalog>();
+        services.TryAddScoped<Features.ProjectInboxFromIntent.InboxIntentProjectionService>();
+        services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
+        services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationProjectionService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowTodoAssignedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowInstanceCompletedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowInstanceRejectedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowInstanceCancelledIntegrationEventHandler>());
     }
 
     /// <summary>

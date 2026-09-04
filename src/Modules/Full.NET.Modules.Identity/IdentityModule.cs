@@ -145,6 +145,8 @@ public sealed class IdentityModule : IFullNetModule
 #endif
         RegisterOrganizationUnitChangedTopic(services);
         AddOrganizationUnitProjection(services);
+        // Workflow 通知事件在 Worker 中仍需确认用户处于活动状态，只注册最小目录而不装配完整 HTTP 身份域。
+        services.AddHostUserDirectory();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             OrganizationUnitChangedIntegrationEventHandler>());

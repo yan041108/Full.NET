@@ -44,6 +44,7 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.ObservabilityAdmin\Full.NET.Modules.ObservabilityAdmin.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Workflow\Full.NET.Modules.Workflow.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Workflow.Contracts\Full.NET.Modules.Workflow.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />
