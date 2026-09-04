@@ -63,11 +63,12 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
   await view.getByTestId('serial-rule-minimum').fill('1');
   await view.getByTestId('serial-rule-maximum').fill('9999');
   await view.getByTestId('serial-rule-create').click();
-  await expect(view.getByText('规则已创建')).toBeVisible({ timeout: 15_000 });
+  // Element Plus 消息提示传送到 body，不属于页面 section 子树。
+  await expect(page.getByText('规则已创建')).toBeVisible({ timeout: 15_000 });
 
   await view.getByTestId('serial-rule-display-name').fill(`E2E 流水号更新 ${stamp}`);
   await view.getByTestId('serial-rule-save').click();
-  await expect(view.getByText('规则已更新')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('规则已更新')).toBeVisible({ timeout: 15_000 });
 
   await view.getByTestId('serial-rule-preview-tenant').fill('acme');
   await view.getByTestId('serial-rule-preview-sequence').fill('7');

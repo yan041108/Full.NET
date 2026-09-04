@@ -30,7 +30,7 @@ test('Host 管理员可从真实 API 加载站内信列表', async ({ page }, te
   await expect(
     inboxView.getByRole('heading', { name: '消息中心', exact: true })
   ).toBeVisible();
-  await expect(inboxView.getByRole('heading', { name: '消息列表' })).toBeVisible();
+  await expect(inboxView.getByRole('heading', { name: '我的站内信' })).toBeVisible();
 });
 
 test('受限 Host 账号访问站内信 API 被拒绝且导航裁剪', async ({

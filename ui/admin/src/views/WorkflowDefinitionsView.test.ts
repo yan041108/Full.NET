@@ -160,6 +160,18 @@ describe('WorkflowDefinitionsView', () => {
     vi.mocked(publishWorkflowDefinition).mockReset().mockResolvedValue(version);
   });
 
+  it('真实挂载管理页时不依赖宿主的 Element Plus 全局注册', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      mountWithPermissions(['workflow.definitions.read']);
+      await flushPromises();
+
+      expect(warning.mock.calls.flat().join('\n')).not.toContain('Failed to resolve component: el-');
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   it('没有实例发起权限时不创建发起入口', async () => {
     const wrapper = mountWithPermissions(['workflow.definitions.read']);
     await flushPromises();

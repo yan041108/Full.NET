@@ -340,6 +340,7 @@ function toProblem(
           @refresh="load"
         >
           <template #left>
+            <h2 data-testid="inbox-messages-list-title">{{ t('inboxMessages.listTitle') }}</h2>
             <PermissionGate code="notifications.inbox.mark_all_read">
               <el-button
                 plain

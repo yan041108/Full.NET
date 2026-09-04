@@ -93,6 +93,7 @@ describe('Vue Host \u6d88\u606f\u4e2d\u5fc3\u9875', () => {
     const wrapper = mountWithPermissions(['notifications.inbox.read']);
     await flushPromises();
 
+    expect(wrapper.get('[data-testid="inbox-messages-list-title"]').text()).toBe('\u6211\u7684\u7ad9\u5185\u4fe1');
     expect(wrapper.find('[data-testid="inbox-messages-send"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="inbox-messages-mark-read"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="inbox-messages-mark-all-read"]').exists()).toBe(false);

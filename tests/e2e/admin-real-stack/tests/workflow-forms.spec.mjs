@@ -89,7 +89,8 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
   await refreshedRow.getByTestId('workflow-form-edit').click();
   const designer = refreshedView.getByTestId('vform3-workflow-designer');
   await expect(designer).toBeVisible();
-  await expect(designer.getByText(fieldKey, { exact: true }).first()).toBeVisible();
+  // VForm3 会把必填标记与字段标签合成渲染，不应将第三方 DOM 文本结构当成稳定契约。
+  await expect(designer.getByText(fieldKey, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
   await refreshedView.getByTestId('workflow-form-save').click();
   await expect(refreshedView.getByRole('dialog').getByText('Revision 3', { exact: true }))
     .toBeVisible({ timeout: 15_000 });

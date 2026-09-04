@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElButton, ElCard, ElDrawer, ElMessage } from 'element-plus';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails,
