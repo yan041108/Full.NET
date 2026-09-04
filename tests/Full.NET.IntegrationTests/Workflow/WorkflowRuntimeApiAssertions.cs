@@ -968,8 +968,8 @@ internal static class WorkflowRuntimeApiAssertions
             await managerRuntime.Content.ReadAsStringAsync(cancellationToken));
         using var managerTodo = JsonDocument.Parse(
             await managerRuntime.Content.ReadAsStringAsync(cancellationToken));
-        Assert.AreEqual("hidden",
-            managerTodo.RootElement.GetProperty("fieldPolicies").GetProperty("decision").GetString());
+        Assert.IsFalse(managerTodo.RootElement.GetProperty("fieldPolicies")
+            .TryGetProperty("decision", out _));
         Assert.IsFalse(managerTodo.RootElement.GetProperty("submission").TryGetProperty("decision", out _));
 
         using var rejectStart = await client.SendAsync(
