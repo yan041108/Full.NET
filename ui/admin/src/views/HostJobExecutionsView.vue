@@ -12,7 +12,7 @@ import {
   ElTableColumn,
   ElTag
 } from 'element-plus';
-import type { FullNetProblemDetails, HostJobDefinition, HostJobExecution } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, HostJobDefinition, HostJobExecution, HostJobSchedule } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -21,12 +21,14 @@ import {
   listHostJobDefinitions,
   listHostJobExecutions
 } from '../api/host-jobs';
+import { listHostJobSchedules } from '../api/host-job-schedules';
 
 defineOptions({ name: 'HostJobExecutionsView' });
 
 const session = useSessionStore();
 const { t, locale } = useAdminI18n();
 const definitions = ref<HostJobDefinition[]>([]);
+const schedules = ref<HostJobSchedule[]>([]);
 const executions = ref<HostJobExecution[]>([]);
 const page = ref(1);
 const pageSize = ref(20);
@@ -34,6 +36,7 @@ const total = ref(0);
 const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const filterDefinitionId = ref('');
+const filterScheduleId = ref('');
 const filterStatus = ref('');
 const filterRange = ref<[Date, Date] | null>(null);
 const detailOpen = ref(false);
@@ -41,6 +44,15 @@ const detailLoading = ref(false);
 const detail = ref<HostJobExecution | null>(null);
 
 const canRead = computed(() => session.can('jobs.executions.read'));
+
+const scheduleOptions = computed(() => {
+  if (!filterDefinitionId.value) {
+    return schedules.value;
+  }
+  return schedules.value.filter(
+    item => item.jobDefinitionId === filterDefinitionId.value
+  );
+});
 
 const statusOptions = [
   'pending',
@@ -54,6 +66,11 @@ async function loadDefinitions(): Promise<void> {
   definitions.value = result.items;
 }
 
+async function loadSchedules(): Promise<void> {
+  const result = await listHostJobSchedules({ page: 1, pageSize: 100 });
+  schedules.value = result.items;
+}
+
 async function loadExecutions(): Promise<void> {
   if (!canRead.value) {
     return;
@@ -65,6 +82,7 @@ async function loadExecutions(): Promise<void> {
       page: page.value,
       pageSize: pageSize.value,
       jobDefinitionId: filterDefinitionId.value || undefined,
+      jobScheduleId: filterScheduleId.value || undefined,
       status: filterStatus.value || undefined,
       fromUtc: filterRange.value?.[0]?.toISOString(),
       toUtc: filterRange.value?.[1]?.toISOString()
@@ -94,10 +112,59 @@ async function openDetail(row: HostJobExecution): Promise<void> {
 
 function resetFilters(): void {
   filterDefinitionId.value = '';
+  filterScheduleId.value = '';
   filterStatus.value = '';
   filterRange.value = null;
   page.value = 1;
   void loadExecutions();
+}
+
+function onDefinitionFilterChange(): void {
+  if (
+    filterScheduleId.value
+    && !scheduleOptions.value.some(item => item.id === filterScheduleId.value)
+  ) {
+    filterScheduleId.value = '';
+  }
+}
+
+function scheduleLabel(schedule: HostJobSchedule): string {
+  const trigger = schedule.cronExpression ?? schedule.triggerKind;
+  return `${schedule.jobDefinitionDisplayName} · ${trigger}`;
+}
+
+function formatElapsed(
+  startedAtUtc: string | null | undefined,
+  finishedAtUtc: string | null | undefined
+): string {
+  if (!startedAtUtc || !finishedAtUtc) {
+    return '—';
+  }
+  const elapsedMs = new Date(finishedAtUtc).getTime() - new Date(startedAtUtc).getTime();
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    return '—';
+  }
+  if (elapsedMs < 1000) {
+    return t('hostJobExecutions.elapsedMs', { value: elapsedMs });
+  }
+  return t('hostJobExecutions.elapsedSeconds', {
+    value: (elapsedMs / 1000).toFixed(2)
+  });
+}
+
+/** 仅展示稳定机器码形态的错误标识，避免把异常堆栈或上游响应原文暴露到管理端。 */
+function formatExecutionError(
+  status: HostJobExecution['status'],
+  errorMessage: string | null | undefined
+): string {
+  if (status !== 'failed' || !errorMessage?.trim()) {
+    return '—';
+  }
+  const trimmed = errorMessage.trim();
+  if (/^[a-z][\w.-]{2,127}$/i.test(trimmed)) {
+    return trimmed;
+  }
+  return t('hostJobExecutions.detailErrorUnavailable');
 }
 
 function statusTagType(status: HostJobExecution['status']): 'info' | 'warning' | 'success' | 'danger' {
@@ -156,6 +223,7 @@ onMounted(async () => {
     return;
   }
   await loadDefinitions();
+  await loadSchedules();
   await loadExecutions();
 });
 </script>
@@ -177,11 +245,35 @@ onMounted(async () => {
       <div class="host-job-executions-filters art-form-grid">
         <label>
           <span>{{ t('hostJobExecutions.filterDefinition') }}</span>
-          <ElSelect v-model="filterDefinitionId" clearable filterable style="width: 100%">
+          <ElSelect
+            v-model="filterDefinitionId"
+            clearable
+            filterable
+            style="width: 100%"
+            data-testid="host-job-executions-filter-definition"
+            @change="onDefinitionFilterChange"
+          >
             <ElOption
               v-for="item in definitions"
               :key="item.id"
               :label="item.displayName"
+              :value="item.id"
+            />
+          </ElSelect>
+        </label>
+        <label>
+          <span>{{ t('hostJobExecutions.filterSchedule') }}</span>
+          <ElSelect
+            v-model="filterScheduleId"
+            clearable
+            filterable
+            style="width: 100%"
+            data-testid="host-job-executions-filter-schedule"
+          >
+            <ElOption
+              v-for="item in scheduleOptions"
+              :key="item.id"
+              :label="scheduleLabel(item)"
               :value="item.id"
             />
           </ElSelect>
@@ -265,10 +357,16 @@ onMounted(async () => {
           <dd>{{ formatUtc(detail.scheduledForUtc) }}</dd>
           <dt>{{ t('hostJobExecutions.detailNextRetry') }}</dt>
           <dd>{{ formatUtc(detail.nextAttemptAtUtc) }}</dd>
+          <dt>{{ t('hostJobExecutions.detailStartedAt') }}</dt>
+          <dd>{{ formatUtc(detail.startedAtUtc) }}</dd>
+          <dt>{{ t('hostJobExecutions.detailFinishedAt') }}</dt>
+          <dd>{{ formatUtc(detail.finishedAtUtc) }}</dd>
+          <dt>{{ t('hostJobExecutions.detailElapsed') }}</dt>
+          <dd>{{ formatElapsed(detail.startedAtUtc, detail.finishedAtUtc) }}</dd>
           <dt>{{ t('hostJobExecutions.detailAttemptCount') }}</dt>
           <dd>{{ detail.attemptCount }}</dd>
           <dt>{{ t('hostJobExecutions.detailError') }}</dt>
-          <dd translate="no">{{ detail.errorMessage ?? '—' }}</dd>
+          <dd translate="no">{{ formatExecutionError(detail.status, detail.errorMessage) }}</dd>
         </dl>
       </div>
     </ElDrawer>
