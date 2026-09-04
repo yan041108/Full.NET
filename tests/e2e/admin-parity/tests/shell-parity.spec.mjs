@@ -1879,8 +1879,15 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
         id: announcementId,
         title: 'parity-announcement',
         content: 'parity-content',
+        kind: 'announcement',
+        audienceKind: 'all',
         status: state.published ? 'published' : 'draft',
         publishedAtUtc: state.published ? '2026-07-26T00:00:00Z' : null,
+        publishedByUserId: state.published ? '01912345-6789-7abc-8def-0123456789ac' : null,
+        retractedAtUtc: null,
+        retractedByUserId: null,
+        targetUserIds: [],
+        targetOrganizations: [],
         createdAtUtc: '2026-07-26T00:00:00Z',
         updatedAtUtc: null,
         version: state.published ? 2 : 1
@@ -1913,8 +1920,15 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
           id: announcementId,
           title: 'parity-announcement',
           content: 'parity-content',
+          kind: 'announcement',
+          audienceKind: 'all',
           status: 'draft',
           publishedAtUtc: null,
+          publishedByUserId: null,
+          retractedAtUtc: null,
+          retractedByUserId: null,
+          targetUserIds: [],
+          targetOrganizations: [],
           createdAtUtc: '2026-07-26T00:00:00Z',
           updatedAtUtc: null,
           version: 1
@@ -1934,8 +1948,15 @@ test('Host 公告列表与创建发布在两端保持一致', async ({ page }, t
           id: announcementId,
           title: 'parity-announcement',
           content: 'parity-content',
+          kind: 'announcement',
+          audienceKind: 'all',
           status: 'published',
           publishedAtUtc: '2026-07-26T00:00:00Z',
+          publishedByUserId: '01912345-6789-7abc-8def-0123456789ac',
+          retractedAtUtc: null,
+          retractedByUserId: null,
+          targetUserIds: [],
+          targetOrganizations: [],
           createdAtUtc: '2026-07-26T00:00:00Z',
           updatedAtUtc: '2026-07-26T00:00:00Z',
           version: 2
@@ -1983,7 +2004,28 @@ test('消息中心列表与发信在两端保持一致', async ({ page }, testIn
   await mockAuthenticatedSession(page);
   const operations = [];
   const messageId = '01912345-6789-7abc-8def-0123456789b2';
+  const recipientUserId = '01912345-6789-7abc-8def-0123456789ac';
   const state = { hasItem: false, unread: 0 };
+
+  await page.route('**/api/v1/identity/users?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      items: [{
+        id: recipientUserId,
+        username: 'parity-recipient',
+        displayName: '对等收件人',
+        accountType: 'normal_user',
+        isActive: true,
+        createdAtUtc: '2026-07-26T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }],
+      page: 1,
+      pageSize: 200,
+      total: 1
+    })
+  }));
 
   const listBody = () => JSON.stringify({
     items: state.hasItem
@@ -2070,10 +2112,20 @@ test('消息中心列表与发信在两端保持一致', async ({ page }, testIn
   await expect(page.getByText('暂无站内信', { exact: true })).toBeVisible();
 
   const inboxView = routeView(page, clientKind, 'inbox-messages', '.inbox-messages-view');
-  await inboxView.locator('input').nth(0).fill('01912345-6789-7abc-8def-0123456789ac');
+  if (clientKind === 'vue') {
+    await inboxView.getByTestId('inbox-messages-recipient').click();
+    await page.getByRole('option', { name: /对等收件人/ }).click();
+  } else {
+    await inboxView.locator('input').nth(0).fill(recipientUserId);
+  }
   await inboxView.locator('input').nth(1).fill('parity-inbox');
   await inboxView.locator('textarea').fill('parity-inbox-content');
   await inboxView.getByRole('button', { name: '发送' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '发送', exact: true })
+      .evaluate(button => button.click());
+  }
   await expect.poll(() => operations.some(operation => operation.type === 'send')).toBe(true);
   await expect(inboxView.getByText('parity-inbox', { exact: true })).toBeVisible();
 
