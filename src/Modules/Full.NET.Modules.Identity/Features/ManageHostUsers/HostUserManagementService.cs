@@ -609,6 +609,8 @@ internal sealed class HostUserManagementService(
             return Result<HostUserProfileResponse?>.Failure(existingConflict);
         }
 
+        // 唯一索引是并发写入的最终仲裁者。禁止在写成功后再次扫描冲突行，否则两笔事务分别锁住
+        // 不同资料行并争用同一唯一键时会形成锁顺序反转，SQL Server 可能把其中一笔选为死锁牺牲者。
         try
         {
             if (existing is null)
@@ -662,16 +664,6 @@ internal sealed class HostUserManagementService(
             }
 
             throw;
-        }
-
-        var postWriteConflict = await FindProfileConflictAsync(
-                userId,
-                normalizedProfile,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (postWriteConflict is not null)
-        {
-            return Result<HostUserProfileResponse?>.Failure(postWriteConflict);
         }
 
         return Result<HostUserProfileResponse?>.Success(
