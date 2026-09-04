@@ -145,4 +145,29 @@ describe('Vue API Key 管理页', () => {
 
     expect(listMock).toHaveBeenCalledTimes(1);
   });
+
+  it('使用密钥标识作为稳定行键以避免刷新后复用旧操作上下文', async () => {
+    listMock.mockResolvedValue({
+      items: [{
+        id: '019bc2b1-2a40-7cc3-8992-a80de51bf295',
+        userId,
+        username: 'automation',
+        displayName: '流水线',
+        keyPrefix: 'fn_live_abcd',
+        permissions: ['identity.users.read'],
+        expiresAtUtc: null,
+        isActive: true,
+        lastUsedAtUtc: null,
+        createdAtUtc: '2026-07-26T00:00:00Z'
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+
+    const wrapper = mount(ApiKeysView);
+    await flushPromises();
+
+    expect(wrapper.getComponent({ name: 'ElTable' }).props('rowKey')).toBe('id');
+  });
 });

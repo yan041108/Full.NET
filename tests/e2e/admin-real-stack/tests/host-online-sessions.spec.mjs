@@ -28,7 +28,9 @@ test('Host 管理员可从真实 API 加载在线会话列表', async ({ page },
     : page.locator('.online-sessions-view');
 
   await expect(onlineSessionsView.getByRole('heading', { name: '在线用户', exact: true })).toBeVisible();
-  await expect(onlineSessionsView.locator('code', { hasText: adminUsername }).first()).toBeVisible({
+  await expect(onlineSessionsView.getByRole('cell', {
+    name: new RegExp(` ${adminUsername}$`)
+  }).first()).toBeVisible({
     timeout: 15_000
   });
 });
