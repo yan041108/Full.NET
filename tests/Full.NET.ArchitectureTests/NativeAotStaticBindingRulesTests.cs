@@ -569,6 +569,10 @@ public sealed class NativeAotStaticBindingRulesTests
             moduleDirectory,
             "Persistence",
             "NotificationRecipientEndpointSql.cs"));
+        var challengeSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "NotificationRecipientEndpointChallengeSql.cs"));
 
         StringAssert.Contains(moduleSource, "#if FULLNET_AOT_COMPILE");
         StringAssert.Contains(moduleSource, "NotificationsDapperAotMaterializerContributor");
@@ -585,6 +589,7 @@ public sealed class NativeAotStaticBindingRulesTests
                      "NotificationDeliveryAttemptRecord",
                      "NotificationReceiptRecord",
                      "NotificationRecipientEndpointRecord",
+                     "NotificationRecipientEndpointChallengeRecord",
                      "NotificationProviderProfileRecord",
                      "NotificationProviderProfileVersionRecord",
                      "NotificationBindingRecord",
@@ -595,7 +600,8 @@ public sealed class NativeAotStaticBindingRulesTests
         }
 
         const string announcementProjection =
-            "Id, TenantId, Title, Content, Status, PublishedAtUtc, "
+            "Id, TenantId, Title, Content, Kind, AudienceKind, Status, "
+            + "PublishedAtUtc, PublishedByUserId, RetractedAtUtc, RetractedByUserId, "
             + "CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UpdatedByUserId, Version";
         foreach (var statement in new[]
                  {
@@ -734,6 +740,17 @@ public sealed class NativeAotStaticBindingRulesTests
             ExtractSelectProjection(endpointSqlSource, "FindMaskedById")
                 .Contains("ProtectedValue", StringComparison.Ordinal),
             "按 Id 查询投影禁止回显端点原值。");
+        const string challengeProjection =
+            "Id, RecipientEndpointId, TenantScopeKey, UserId, CodeHash, "
+            + "AttemptCount, MaxAttempts, ExpiresAtUtc, ConsumedAtUtc, CreatedAtUtc";
+        Assert.AreEqual(
+            challengeProjection,
+            ExtractSelectProjection(challengeSqlSource, "FindActiveByEndpointMySql"),
+            "Challenge MySQL 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            $"TOP (1) {challengeProjection}",
+            ExtractSelectProjection(challengeSqlSource, "FindActiveByEndpoint"),
+            "Challenge SQL Server 投影顺序必须与物化器一致。");
     }
 
     [TestMethod]
@@ -1805,9 +1822,39 @@ public sealed class NativeAotStaticBindingRulesTests
         var fromIndex = source.IndexOf("FROM", selectIndex, StringComparison.Ordinal);
         Assert.IsTrue(selectIndex >= 0 && fromIndex > selectIndex, $"未找到 SELECT 投影：{statementField}");
 
-        return Regex.Replace(
+        var projection = Regex.Replace(
             source[(selectIndex + "SELECT".Length)..fromIndex],
             @"\s+",
             " ").Trim();
+        var constReference = Regex.Match(projection, @"^\{(\w+)\}$");
+        if (constReference.Success)
+        {
+            projection = Regex.Replace(
+                ExtractRawStringConst(source, constReference.Groups[1].Value),
+                @"\s+",
+                " ").Trim();
+        }
+
+        return projection;
+    }
+
+    private static string ExtractRawStringConst(string source, string constName)
+    {
+        var declaration = $"const string {constName} =";
+        var start = source.IndexOf(declaration, StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return string.Empty;
+        }
+
+        var quoteStart = source.IndexOf("\"\"\"", start, StringComparison.Ordinal);
+        if (quoteStart < 0)
+        {
+            return string.Empty;
+        }
+
+        quoteStart += 3;
+        var quoteEnd = source.IndexOf("\"\"\"", quoteStart, StringComparison.Ordinal);
+        return quoteEnd < 0 ? string.Empty : source[quoteStart..quoteEnd];
     }
 }

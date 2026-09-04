@@ -21,6 +21,9 @@ IF COL_LENGTH(N'dbo.fn_notifications_announcement', N'RetractedByUserId') IS NUL
     ALTER TABLE dbo.fn_notifications_announcement
         ADD RetractedByUserId uniqueidentifier NULL;
 
+-- 新增列与引用该列的 CHECK 必须分批编译，否则恢复路径会在 ALTER 执行前解析失败。
+GO
+
 IF NOT EXISTS (
     SELECT 1
     FROM sys.check_constraints

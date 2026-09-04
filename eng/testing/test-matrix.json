@@ -341,7 +341,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 322,
+        "minimum": 326,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -357,7 +357,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 639,
+        "minimum": 643,
         "timeout": "90m"
       }
     }

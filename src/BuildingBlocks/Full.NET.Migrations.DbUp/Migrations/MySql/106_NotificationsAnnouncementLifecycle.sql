@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS fn_notifications_announcement_target_organization (
     TenantId BINARY(16) NOT NULL,
     OrganizationUnitId BINARY(16) NOT NULL,
     CONSTRAINT PK_fn_notifications_announcement_target_organization PRIMARY KEY (Id),
-    CONSTRAINT FK_fn_notifications_announcement_target_organization_Announcement
+    CONSTRAINT FK_fn_notif_ann_target_org_Announcement
         FOREIGN KEY (AnnouncementId) REFERENCES fn_notifications_announcement(Id),
     UNIQUE KEY UX_fn_notifications_announcement_target_organization (AnnouncementId, TenantId, OrganizationUnitId)
 );
