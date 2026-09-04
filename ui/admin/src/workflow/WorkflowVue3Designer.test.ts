@@ -5,6 +5,25 @@ import { nextTick } from 'vue';
 import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
 
 describe('WorkflowVue3Designer', () => {
+  it('初始化外部流程树时不反向回写，避免父子双向绑定递归更新', async () => {
+    const wrapper = mount(WorkflowVue3Designer, {
+      props: {
+        disabled: false,
+        modelValue: {
+          id: 'start',
+          type: 0,
+          nodeName: '发起人',
+          childNode: null
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await nextTick();
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+  });
+
   it('真实挂载复制设计器时不依赖宿主的 Element Plus 全局注册', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {

@@ -387,13 +387,14 @@ function toProblem(
         <ElInput v-model="previewSequence" data-testid="serial-rule-preview-sequence" inputmode="numeric" :placeholder="t('serialNumberRules.fieldPreviewSequence')" />
         <label>
           <span>{{ t('serialNumberRules.fieldPreviewAtUtc') }}</span>
-          <ElDatePicker
-            v-model="previewAtUtc"
-            type="datetime"
-            value-format="YYYY-MM-DDTHH:mm:ss[Z]"
-            data-testid="serial-rule-preview-at"
-            style="width: 100%"
-          />
+          <div data-testid="serial-rule-preview-at">
+            <ElDatePicker
+              v-model="previewAtUtc"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss[Z]"
+              style="width: 100%"
+            />
+          </div>
         </label>
         <PermissionGate code="serial_numbers.rules.preview">
           <ElButton data-testid="serial-rule-preview" :disabled="changing" @click="runPreview">

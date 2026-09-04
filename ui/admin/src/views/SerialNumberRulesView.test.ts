@@ -122,6 +122,18 @@ describe('Vue 流水号规则页', () => {
     expect(wrapper.find('[data-testid="serial-rule-create"]').exists()).toBe(false);
   });
 
+  it('预览时间提供稳定容器并包含真实可填写输入框', async () => {
+    const wrapper = mountWithPermissions([
+      'serial_numbers.rules.read',
+      'serial_numbers.rules.preview'
+    ]);
+    await flushPromises();
+
+    const field = wrapper.get('[data-testid="serial-rule-preview-at"]');
+    expect(field.element.tagName).toBe('DIV');
+    expect(field.find('input').exists()).toBe(true);
+  });
+
   it('查询时把名称/键/状态/作用域/重置周期与稳定排序参数发给服务端', async () => {
     const wrapper = mountWithPermissions(['serial_numbers.rules.read']);
     await flushPromises();

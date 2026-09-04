@@ -12,6 +12,13 @@ import { loadVForm3Designer } from './vform3-loader';
 interface VFormDesignerInstance {
   getFormJson?: () => unknown;
   setFormJson?: (value: unknown) => void;
+  designer?: {
+    emitHistoryChange?: () => void;
+    loadFormJson?: (value: unknown) => boolean;
+  };
+  $refs?: {
+    formRef?: unknown;
+  };
 }
 
 withDefaults(defineProps<{
@@ -47,10 +54,21 @@ function getFormJson(): unknown {
 }
 
 function setFormJson(value: unknown): void {
-  if (designer.value?.setFormJson === undefined) {
+  const instance = designer.value;
+  if (instance?.setFormJson === undefined) {
     throw new Error('client.vform3_not_ready');
   }
-  designer.value.setFormJson(value);
+
+  // VForm3 3.0.10 在 Vue 3.5 下可能无法建立其内部 formRef；此时公开方法会在
+  // 已加载 JSON 后访问空 ref。使用同版本暴露的设计器内核完成等价加载，避免未处理异常。
+  if (instance.$refs?.formRef === undefined
+    && instance.designer?.loadFormJson !== undefined) {
+    const loaded = instance.designer.loadFormJson(value);
+    if (!loaded) throw new Error('client.invalid_workflow_form_draft');
+    instance.designer.emitHistoryChange?.();
+    return;
+  }
+  instance.setFormJson(value);
 }
 
 function toErrorCode(error: unknown): string {

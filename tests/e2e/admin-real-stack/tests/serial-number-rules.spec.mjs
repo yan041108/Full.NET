@@ -72,7 +72,7 @@ test('Host 管理员可创建、更新并预览流水号规则', async ({ page, 
 
   await view.getByTestId('serial-rule-preview-tenant').fill('acme');
   await view.getByTestId('serial-rule-preview-sequence').fill('7');
-  await view.getByTestId('serial-rule-preview-at').fill('2026-08-20T00:00:00Z');
+  await view.getByTestId('serial-rule-preview-at').locator('input').fill('2026-08-20T00:00:00Z');
   await view.getByTestId('serial-rule-preview').click();
   await expect(view.getByTestId('serial-rule-preview-value')).toHaveText(
     'E2E-20260820-acme-0007',

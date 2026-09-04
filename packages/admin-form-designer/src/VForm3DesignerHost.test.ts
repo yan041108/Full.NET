@@ -7,11 +7,16 @@ let currentJson: unknown;
 const setFormJson = vi.fn((value: unknown) => {
   currentJson = value;
 });
+const loadFormJson = vi.fn((value: unknown) => {
+  currentJson = value;
+  return true;
+});
 const fakeDesigner = defineComponent({
   setup(_, { expose }) {
     expose({
       setFormJson,
-      getFormJson: () => currentJson
+      getFormJson: () => currentJson,
+      designer: { loadFormJson }
     });
     return () => h('div', { 'data-testid': 'vform3-fake-designer' });
   }
@@ -46,6 +51,7 @@ describe('VForm3DesignerHost', () => {
     const value = { widgetList: [{ type: 'input' }] };
     host.setFormJson(value);
     expect(host.getFormJson()).toEqual(value);
+    expect(loadFormJson).toHaveBeenCalledWith(value);
     expect((window as unknown as Record<string, unknown>).axios).toBe(hostAxios);
     delete (window as unknown as Record<string, unknown>).axios;
   }, 20_000);
