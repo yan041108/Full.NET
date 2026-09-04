@@ -539,6 +539,9 @@ public sealed class NativeAotStaticBindingRulesTests
             "Append-only cutoff MySQL 投影顺序必须一致。");
     }
 
+    /// <summary>
+    /// 验证 Notifications 模块的全部查询投影均具有 Native AOT 行物化器，且列顺序与读取器保持一致。
+    /// </summary>
     [TestMethod]
     public void NotificationsModule_RegistersAllNativeAotRowMaterializers()
     {
@@ -557,6 +560,10 @@ public sealed class NativeAotStaticBindingRulesTests
             moduleDirectory,
             "Persistence",
             "AnnouncementSql.cs"));
+        var announcementTargetSqlSource = File.ReadAllText(Path.Combine(
+            moduleDirectory,
+            "Persistence",
+            "AnnouncementTargetSql.cs"));
         var inboxSqlSource = File.ReadAllText(Path.Combine(
             moduleDirectory,
             "Persistence",
@@ -579,6 +586,8 @@ public sealed class NativeAotStaticBindingRulesTests
         foreach (var recordType in new[]
                  {
                      "AnnouncementRecord",
+                     "AnnouncementTargetUserRecord",
+                     "AnnouncementTargetOrganizationRecord",
                      "InboxMessageRecord",
                      "NotificationTemplateRecord",
                      "NotificationTemplateListRecord",
@@ -589,6 +598,7 @@ public sealed class NativeAotStaticBindingRulesTests
                      "NotificationDeliveryAttemptRecord",
                      "NotificationReceiptRecord",
                      "NotificationRecipientEndpointRecord",
+                     "NotificationRecipientEndpointProtectedRecord",
                      "NotificationRecipientEndpointChallengeRecord",
                      "NotificationProviderProfileRecord",
                      "NotificationProviderProfileVersionRecord",
@@ -598,6 +608,15 @@ public sealed class NativeAotStaticBindingRulesTests
         {
             StringAssert.Contains(contributorSource, $"registrar.Register<{recordType}>");
         }
+
+        Assert.AreEqual(
+            "Id, AnnouncementId, UserId",
+            ExtractSelectProjection(announcementTargetSqlSource, "ListUsersByAnnouncementIds"),
+            "公告用户受众 SQL 投影顺序必须与物化器一致。");
+        Assert.AreEqual(
+            "Id, AnnouncementId, TenantId, OrganizationUnitId",
+            ExtractSelectProjection(announcementTargetSqlSource, "ListOrganizationsByAnnouncementIds"),
+            "公告机构受众 SQL 投影顺序必须与物化器一致。");
 
         const string announcementProjection =
             "Id, TenantId, Title, Content, Kind, AudienceKind, Status, "
@@ -740,6 +759,10 @@ public sealed class NativeAotStaticBindingRulesTests
             ExtractSelectProjection(endpointSqlSource, "FindMaskedById")
                 .Contains("ProtectedValue", StringComparison.Ordinal),
             "按 Id 查询投影禁止回显端点原值。");
+        Assert.AreEqual(
+            "Id, UserId, ProviderProfileVersionId, EndpointKindKey, ProtectedValue, VerificationStatusKey",
+            ExtractSelectProjection(endpointSqlSource, "FindOwnedPendingProtected"),
+            "验证边界受保护端点投影必须与专用物化器一致。");
         const string challengeProjection =
             "Id, RecipientEndpointId, TenantScopeKey, UserId, CodeHash, "
             + "AttemptCount, MaxAttempts, ExpiresAtUtc, ConsumedAtUtc, CreatedAtUtc";

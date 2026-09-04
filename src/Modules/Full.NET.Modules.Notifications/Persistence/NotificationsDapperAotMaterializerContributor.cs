@@ -9,9 +9,15 @@ namespace Full.NET.Modules.Notifications.Persistence;
 /// </summary>
 internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAotMaterializerContributor
 {
+    /// <summary>
+    /// 在首个数据库请求前注册 Notifications 模块的全部 Native AOT 行物化器。
+    /// </summary>
+    /// <param name="registrar">用于写入进程级静态物化器注册表的注册器。</param>
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         registrar.Register<AnnouncementRecord>(ReadAnnouncementRecord);
+        registrar.Register<AnnouncementTargetUserRecord>(ReadAnnouncementTargetUserRecord);
+        registrar.Register<AnnouncementTargetOrganizationRecord>(ReadAnnouncementTargetOrganizationRecord);
         registrar.Register<InboxMessageRecord>(ReadInboxMessageRecord);
         registrar.Register<NotificationTemplateRecord>(ReadTemplate);
         registrar.Register<NotificationTemplateListRecord>(ReadTemplateList);
@@ -22,6 +28,7 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationDeliveryAttemptRecord>(ReadDeliveryAttempt);
         registrar.Register<NotificationReceiptRecord>(ReadReceipt);
         registrar.Register<NotificationRecipientEndpointRecord>(ReadRecipientEndpoint);
+        registrar.Register<NotificationRecipientEndpointProtectedRecord>(ReadRecipientEndpointProtected);
         registrar.Register<NotificationRecipientEndpointChallengeRecord>(ReadRecipientEndpointChallenge);
         registrar.Register<NotificationProviderProfileRecord>(ReadProfile);
         registrar.Register<NotificationProviderProfileVersionRecord>(ReadProfileVersion);
@@ -48,6 +55,34 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             CreatedByUserId = reader.GetGuid(13),
             UpdatedByUserId = AotDataReaderExtensions.ReadNullableGuid(reader, 14),
             Version = reader.GetInt32(15),
+        };
+
+    /// <summary>
+    /// 按公告用户受众查询的固定列顺序物化目标用户记录。
+    /// </summary>
+    /// <param name="reader">已经定位到当前结果行的数据读取器。</param>
+    /// <returns>包含公告与用户关联标识的受众记录。</returns>
+    private static AnnouncementTargetUserRecord ReadAnnouncementTargetUserRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            AnnouncementId = reader.GetGuid(1),
+            UserId = reader.GetGuid(2),
+        };
+
+    /// <summary>
+    /// 按公告机构受众查询的固定列顺序物化目标机构记录。
+    /// </summary>
+    /// <param name="reader">已经定位到当前结果行的数据读取器。</param>
+    /// <returns>包含租户与机构单元边界的受众记录。</returns>
+    private static AnnouncementTargetOrganizationRecord ReadAnnouncementTargetOrganizationRecord(
+        DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            AnnouncementId = reader.GetGuid(1),
+            TenantId = reader.GetGuid(2),
+            OrganizationUnitId = reader.GetGuid(3),
         };
 
     private static InboxMessageRecord ReadInboxMessageRecord(DbDataReader reader) =>
@@ -80,6 +115,21 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetString(8),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10));
+
+    /// <summary>
+    /// 仅在可信验证边界内物化待验证端点的受保护值，禁止把结果传入 HTTP 响应。
+    /// </summary>
+    /// <param name="reader">已经定位到当前结果行的数据读取器。</param>
+    /// <returns>包含端点受保护值及验证状态的内部记录。</returns>
+    private static NotificationRecipientEndpointProtectedRecord ReadRecipientEndpointProtected(
+        DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetGuid(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5));
 
     private static NotificationRecipientEndpointChallengeRecord ReadRecipientEndpointChallenge(DbDataReader reader) =>
         new(
