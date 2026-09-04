@@ -65,7 +65,10 @@ test('Host 管理员可从真实 API 加载并创建数据字典类型与项', a
   const itemsPanel = dictTypesView.locator('[data-dict-items-directory]');
   await expect(itemsPanel).toBeVisible();
   await expect(itemsPanel.getByText('真实栈项', { exact: true })).toBeVisible();
-  await expect(itemsPanel.locator('code', { hasText: itemValue })).toBeVisible();
+  await expect(itemsPanel.getByRole('cell', {
+    name: itemValue,
+    exact: true
+  })).toBeVisible();
 });
 
 test('受限 Host 账号访问数据字典 API 被拒绝且导航裁剪', async ({

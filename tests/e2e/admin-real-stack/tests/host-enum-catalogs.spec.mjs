@@ -28,8 +28,13 @@ test('Host 管理员可从真实 API 加载枚举常量目录', async ({ page },
 
   await expect(enumCatalogsView.getByRole('heading', { name: '枚举常量', exact: true })).toBeVisible();
   await expect(enumCatalogsView.getByText('settings.config_value_kind', { exact: true })).toBeVisible();
-  await enumCatalogsView.getByRole('button', { name: '查看', exact: true }).first().click();
-  await expect(enumCatalogsView.locator('code', { hasText: 'string' })).toBeVisible();
+  await enumCatalogsView.getByRole('row', {
+    name: /配置值类型 settings\.config_value_kind/u
+  }).getByRole('button', { name: '查看', exact: true }).click();
+  await expect(enumCatalogsView.getByRole('cell', {
+    name: 'string',
+    exact: true
+  }).first()).toBeVisible();
 });
 
 test('受限 Host 账号访问枚举目录 API 被拒绝且导航裁剪', async ({
