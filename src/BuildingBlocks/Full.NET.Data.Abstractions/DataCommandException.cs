@@ -33,4 +33,13 @@ public enum DataCommandFailureKind
     /// 否则抛出领域级冲突异常转化为 HTTP 409。禁止通过捕获通用 Exception 代替本分类。
     /// </remarks>
     UniqueConstraint = 1,
+
+    /// <summary>
+    /// 数据库检测到事务死锁并回滚当前事务。
+    /// </summary>
+    /// <remarks>
+    /// 调用方只能在整个事务单元可安全重放时执行有界重试，禁止仅重试事务中的单条命令，
+    /// 否则可能破坏前置校验、写入与后置读取之间的一致性。
+    /// </remarks>
+    Deadlock = 2,
 }

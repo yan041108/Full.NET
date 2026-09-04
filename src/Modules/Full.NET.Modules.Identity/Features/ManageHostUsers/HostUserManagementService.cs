@@ -21,6 +21,7 @@ internal sealed class HostUserManagementService(
     IIdGenerator idGenerator)
 {
     private const string HostScope = "host";
+    private const int MaxDeadlockRetryAttempts = 3;
 
     public Task<Result<HostUserResponse>> CreateAsync(
         CreateHostUserRequest request,
@@ -44,14 +45,46 @@ internal sealed class HostUserManagementService(
             token => EnableCoreAsync(userId, token),
             cancellationToken);
 
-    public Task<Result<HostUserResponse>> UpdateAsync(
+    /// <summary>
+    /// 更新 Host 用户及其扩展资料；数据库回滚死锁事务后，有界重放完整事务单元。
+    /// </summary>
+    /// <param name="userId">待更新的 Host 用户标识。</param>
+    /// <param name="request">用户基础资料与并发版本请求。</param>
+    /// <param name="allowedProfileFieldKeys">当前调用方允许写入的扩展资料字段键集合。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>更新后的用户响应，或稳定的校验、并发及唯一性冲突结果。</returns>
+    public async Task<Result<HostUserResponse>> UpdateAsync(
         Guid userId,
         UpdateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => UpdateCoreAsync(userId, request, allowedProfileFieldKeys, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await transaction.ExecuteResultAsync(
+                        token => UpdateCoreAsync(
+                            userId,
+                            request,
+                            allowedProfileFieldKeys,
+                            token),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (DataCommandException exception)
+                when (exception.Kind == DataCommandFailureKind.Deadlock
+                      && attempt < MaxDeadlockRetryAttempts)
+            {
+                // Provider 已回滚死锁事务，必须从前置校验开始重放完整事务；短暂递增退避用于
+                // 降低两个请求立即再次争用同一锁序列的概率，达到上限后保留原异常供统一诊断。
+                await Task.Delay(
+                        TimeSpan.FromMilliseconds(25 * attempt),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+    }
 
     public Task<Result<HostUserResponse>> ResetPasswordAsync(
         Guid userId,
