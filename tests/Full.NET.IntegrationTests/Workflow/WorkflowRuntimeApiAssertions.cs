@@ -952,6 +952,12 @@ internal static class WorkflowRuntimeApiAssertions
             client, token, tenantRecipientUserId, formVersionId, cancellationToken);
         _ = await PublishCcDefinitionAsync(
             client, token, activeHostRecipientUserId, formVersionId, cancellationToken);
+        var fieldPolicies = new Dictionary<string, string>
+        {
+            ["reason"] = "readOnly",
+            ["secret"] = "hidden",
+            ["decision"] = "required",
+        };
         foreach (var invalidRecipientUserId in invalidRecipientUserIds)
         {
             using var create = await client.SendAsync(
@@ -966,7 +972,9 @@ internal static class WorkflowRuntimeApiAssertions
                             new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1,
                                 config = new { nextNodeKeys = new[] { "notify" } } },
                             new { nodeKey = "notify", nodeTypeKey = "notify.cc", nodeSchemaVersion = 1,
-                                config = new { nextNodeKeys = new[] { "end" }, recipientUserIds = new[] { invalidRecipientUserId } } },
+                                config = new { nextNodeKeys = new[] { "approve" }, recipientUserIds = new[] { invalidRecipientUserId } } },
+                            new { nodeKey = "approve", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                                config = new { nextNodeKeys = new[] { "end" }, fieldPolicies } },
                             new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1,
                                 config = new { nextNodeKeys = Array.Empty<string>() } },
                         },
