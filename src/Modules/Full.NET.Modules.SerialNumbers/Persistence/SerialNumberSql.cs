@@ -19,12 +19,16 @@ internal static class SerialNumberSql
         (@NameContains IS NULL OR DisplayName LIKE '%' + @NameContains + '%')
           AND (@KeyContains IS NULL OR RuleKey LIKE '%' + @KeyContains + '%')
           AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
+          AND (@Scope IS NULL OR Scope = @Scope)
+          AND (@ResetInterval IS NULL OR ResetInterval = @ResetInterval)
         """;
 
     private const string RuleListWhereMySql = """
         (@NameContains IS NULL OR DisplayName LIKE CONCAT('%', @NameContains, '%'))
           AND (@KeyContains IS NULL OR RuleKey LIKE CONCAT('%', @KeyContains, '%'))
           AND (@IsEnabled IS NULL OR IsEnabled = @IsEnabled)
+          AND (@Scope IS NULL OR Scope = @Scope)
+          AND (@ResetInterval IS NULL OR ResetInterval = @ResetInterval)
         """;
 
     /// <summary>规则列表投影字段；与 SerialNumberRuleRecord 属性顺序对齐以支持 Dapper 直接映射。</summary>

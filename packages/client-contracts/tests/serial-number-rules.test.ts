@@ -34,18 +34,28 @@ describe('serial-number-rules contracts', () => {
       pageSize: 20,
       total: 1
     })).toBe(true);
-    expect(isSerialNumberPreviewResponse({ value: 'INV-2026-acme-00042' })).toBe(true);
+    expect(isSerialNumberPreviewResponse({
+      value: 'INV-2026-acme-00042',
+      resetBucket: '20260730',
+      sequenceValue: 42
+    })).toBe(true);
     expect(isPreviewSerialNumberRequest({
       scope: 1,
       pattern: rule.pattern,
       tenantIdentifier: 'acme',
       sequenceValue: 42,
-      atUtc: '2026-07-30T00:00:00Z'
+      atUtc: '2026-07-30T00:00:00Z',
+      resetInterval: 1
     })).toBe(true);
   });
 
   it('rejects invalid payloads', () => {
     expect(isSerialNumberRuleResponse({ ...rule, scope: 2 })).toBe(false);
     expect(isSerialNumberPreviewResponse({ value: '' })).toBe(false);
+    expect(isSerialNumberPreviewResponse({
+      value: 'INV-2026-acme-00042',
+      resetBucket: '',
+      sequenceValue: 42
+    })).toBe(false);
   });
 });

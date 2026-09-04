@@ -7,10 +7,13 @@ export interface PreviewSerialNumberRequest {
   tenantIdentifier: string | null;
   sequenceValue: number;
   atUtc: string;
+  resetInterval?: SerialNumberResetInterval;
 }
 
 export interface SerialNumberPreviewResponse {
   value: string;
+  resetBucket: string;
+  sequenceValue: number;
 }
 
 export interface CreateSerialNumberRuleRequest {
@@ -158,7 +161,10 @@ export function isSerialNumberPreviewResponse(
 ): value is SerialNumberPreviewResponse {
   return isRecord(value)
     && typeof value.value === 'string'
-    && value.value.length > 0;
+    && value.value.length > 0
+    && typeof value.resetBucket === 'string'
+    && value.resetBucket.length > 0
+    && Number.isSafeInteger(value.sequenceValue);
 }
 
 export function isPreviewSerialNumberRequest(
@@ -170,5 +176,6 @@ export function isPreviewSerialNumberRequest(
     && (value.tenantIdentifier === null
       || isBoundedText(value.tenantIdentifier, 1, 64))
     && Number.isSafeInteger(value.sequenceValue)
-    && isDateTime(value.atUtc);
+    && isDateTime(value.atUtc)
+    && (value.resetInterval === undefined || isResetInterval(value.resetInterval));
 }

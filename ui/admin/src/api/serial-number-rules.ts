@@ -5,18 +5,19 @@ import {
   serialNumbersCreateRule,
   serialNumbersDisableRule,
   serialNumbersEnableRule,
-  serialNumbersListRules,
   serialNumbersPreviewSerialNumber,
   serialNumbersUpdateRule,
   type ChangeSerialNumberRuleStatusRequest,
   type CreateSerialNumberRuleRequest,
   type PreviewSerialNumberRequest,
   type SerialNumberPreviewResponse,
+  type SerialNumberResetInterval,
   type SerialNumberRulePage,
   type SerialNumberRuleResponse,
+  type SerialNumberRuleScope,
   type UpdateSerialNumberRuleRequest
 } from '@fullnet/client-contracts';
-import { http } from './http';
+import { http, request } from './http';
 
 /** 流水号规则列表支持的排序字段，保持与服务端查询契约一致。 */
 export type SerialNumberRuleSortBy =
@@ -35,8 +36,40 @@ export interface ListSerialNumberRulesParams {
   name?: string;
   key?: string;
   isEnabled?: boolean;
+  scope?: SerialNumberRuleScope;
+  resetInterval?: SerialNumberResetInterval;
   sortBy?: SerialNumberRuleSortBy;
   sortDirection?: SerialNumberRuleSortDirection;
+}
+
+function buildListQuery(params: ListSerialNumberRulesParams): string {
+  const query = new URLSearchParams();
+  query.set('page', String(params.page ?? 1));
+  query.set('pageSize', String(params.pageSize ?? 20));
+  const name = params.name?.trim();
+  const key = params.key?.trim();
+  if (name) {
+    query.set('name', name);
+  }
+  if (key) {
+    query.set('key', key);
+  }
+  if (params.isEnabled !== undefined) {
+    query.set('isEnabled', String(params.isEnabled));
+  }
+  if (params.scope !== undefined) {
+    query.set('scope', String(params.scope));
+  }
+  if (params.resetInterval !== undefined) {
+    query.set('resetInterval', String(params.resetInterval));
+  }
+  if (params.sortBy) {
+    query.set('sortBy', params.sortBy);
+  }
+  if (params.sortDirection) {
+    query.set('sortDirection', params.sortDirection);
+  }
+  return query.toString();
 }
 
 /** 查询流水号规则列表，并对响应页做运行时校验，避免脏载荷进入页面。 */
@@ -49,23 +82,9 @@ export async function listSerialNumberRules(
     typeof params === 'number'
       ? { page: params, pageSize }
       : params;
-  const name = normalized.name?.trim();
-  const key = normalized.key?.trim();
-  const value = await serialNumbersListRules(
-    http,
-    {
-      page: normalized.page ?? 1,
-      pageSize: normalized.pageSize ?? 20,
-      ...(name ? { name } : {}),
-      ...(key ? { key } : {}),
-      ...(normalized.isEnabled !== undefined
-        ? { isEnabled: normalized.isEnabled }
-        : {}),
-      ...(normalized.sortBy ? { sortBy: normalized.sortBy } : {}),
-      ...(normalized.sortDirection
-        ? { sortDirection: normalized.sortDirection }
-        : {})
-    },
+  const value = await request<unknown>(
+    `/api/v1/serial-numbers/rules?${buildListQuery(normalized)}`,
+    { method: 'GET' },
     signal
   );
   if (!isSerialNumberRulePage(value)) {

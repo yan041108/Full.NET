@@ -22,11 +22,17 @@ internal sealed class SerialNumberPreviewService
 
         try
         {
+            var resetBucket = SerialNumberResetBucket.Create(
+                request.ResetInterval,
+                request.AtUtc);
             return Result<SerialNumberPreviewResponse>.Success(
-                new SerialNumberPreviewResponse(parsed.Value!.Format(
-                    request.AtUtc,
-                    request.TenantIdentifier,
-                    request.SequenceValue)));
+                new SerialNumberPreviewResponse(
+                    parsed.Value!.Format(
+                        request.AtUtc,
+                        request.TenantIdentifier,
+                        request.SequenceValue),
+                    resetBucket,
+                    request.SequenceValue));
         }
         catch (ArgumentException)
         {

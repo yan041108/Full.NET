@@ -183,7 +183,8 @@ internal static class SerialNumberRuleManagementAssertions
                                0,
                                0,
                                0,
-                               TimeSpan.Zero))),
+                               TimeSpan.Zero),
+                           SerialNumberResetInterval.Day)),
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.OK, preview.StatusCode);
@@ -191,6 +192,8 @@ internal static class SerialNumberRuleManagementAssertions
                 .ReadFromJsonAsync<SerialNumberPreviewResponse>(
                     cancellationToken);
             Assert.AreEqual("INV-2026-acme-00042", value?.Value);
+            Assert.AreEqual("20260730", value?.ResetBucket);
+            Assert.AreEqual(42L, value?.SequenceValue);
         }
 
         var update = new UpdateSerialNumberRuleRequest(

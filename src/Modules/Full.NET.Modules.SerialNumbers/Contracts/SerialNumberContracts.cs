@@ -34,10 +34,17 @@ public sealed record PreviewSerialNumberRequest(
     string Pattern,
     string? TenantIdentifier,
     long SequenceValue,
-    DateTimeOffset AtUtc);
+    DateTimeOffset AtUtc,
+    SerialNumberResetInterval ResetInterval = SerialNumberResetInterval.Never);
 
-/// <summary>流水号预览结果。</summary>
-public sealed record SerialNumberPreviewResponse(string Value);
+/// <summary>流水号预览结果；不读取或修改计数器状态。</summary>
+/// <param name="Value">按 Pattern 渲染后的预览值。</param>
+/// <param name="ResetBucket">当前 UTC 时间对应的重置桶。</param>
+/// <param name="SequenceValue">用于渲染的序列值，即下一次将分配的序号。</param>
+public sealed record SerialNumberPreviewResponse(
+    string Value,
+    string ResetBucket,
+    long SequenceValue);
 
 /// <summary>创建 Host 管理的流水号规则。</summary>
 public sealed record CreateSerialNumberRuleRequest(

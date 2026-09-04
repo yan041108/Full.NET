@@ -804,7 +804,8 @@ internal static class NativeApiE2EAssertions
                 "N-{sequence:4}",
                 null,
                 7,
-                new DateTimeOffset(2026, 8, 28, 0, 0, 0, TimeSpan.Zero)));
+                new DateTimeOffset(2026, 8, 28, 0, 0, 0, TimeSpan.Zero),
+                SerialNumberResetInterval.Never));
         using var previewResponse = await client.SendAsync(
                 previewRequest,
                 cancellationToken)

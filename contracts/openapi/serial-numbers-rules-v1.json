@@ -83,12 +83,15 @@
                                                                           "pattern",
                                                                           "tenantIdentifier",
                                                                           "sequenceValue",
-                                                                          "atUtc"
+                                                                          "atUtc",
+                                                                          "resetInterval"
                                                                       ]
                                                    },
                     "SerialNumberPreviewResponse":  {
                                                         "properties":  [
-                                                                           "value"
+                                                                           "value",
+                                                                           "resetBucket",
+                                                                           "sequenceValue"
                                                                        ]
                                                     },
                     "CreateSerialNumberRuleRequest":  {

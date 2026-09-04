@@ -26,6 +26,8 @@ internal sealed class HostSerialRuleService(
         string? name = null,
         string? key = null,
         bool? isEnabled = null,
+        int? scope = null,
+        int? resetInterval = null,
         string? sortBy = null,
         string? sortDirection = null,
         CancellationToken cancellationToken = default)
@@ -52,7 +54,9 @@ internal sealed class HostSerialRuleService(
                     ("PageSize", pageSize),
                     ("NameContains", NormalizeContains(name)),
                     ("KeyContains", NormalizeContains(key)),
-                    ("IsEnabled", isEnabled)),
+                    ("IsEnabled", isEnabled),
+                    ("Scope", NormalizeScopeFilter(scope)),
+                    ("ResetInterval", NormalizeResetIntervalFilter(resetInterval))),
                 async (reader, _) =>
                 {
                     var total = await reader.ReadSingleOrDefaultAsync<long>()
@@ -76,6 +80,16 @@ internal sealed class HostSerialRuleService(
         var trimmed = value?.Trim();
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
+
+    internal static int? NormalizeScopeFilter(int? scope) =>
+        scope is int value && Enum.IsDefined(typeof(SerialNumberRuleScope), value)
+            ? value
+            : null;
+
+    internal static int? NormalizeResetIntervalFilter(int? resetInterval) =>
+        resetInterval is int value && Enum.IsDefined(typeof(SerialNumberResetInterval), value)
+            ? value
+            : null;
 
     public async Task<Result<SerialNumberRuleResponse>> GetAsync(
         Guid ruleId,

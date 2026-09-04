@@ -122,11 +122,19 @@ describe('Vue 流水号规则页', () => {
     expect(wrapper.find('[data-testid="serial-rule-create"]').exists()).toBe(false);
   });
 
-  it('查询时把名称/键/状态与稳定排序参数发给服务端', async () => {
+  it('查询时把名称/键/状态/作用域/重置周期与稳定排序参数发给服务端', async () => {
     const wrapper = mountWithPermissions(['serial_numbers.rules.read']);
     await flushPromises();
     await wrapper.get('[data-testid="serial-rule-filter-name"]').setValue('发票');
     await wrapper.get('[data-testid="serial-rule-filter-key"]').setValue('invoice');
+    await wrapper
+      .get('[data-testid="serial-rule-filter-scope"]')
+      .findComponent({ name: 'ElSelect' })
+      .setValue(1);
+    await wrapper
+      .get('[data-testid="serial-rule-filter-reset-interval"]')
+      .findComponent({ name: 'ElSelect' })
+      .setValue(2);
     await wrapper.get('[data-testid="serial-rule-filter-apply"]').trigger('click');
     await flushPromises();
     expect(listMock).toHaveBeenLastCalledWith(
@@ -135,10 +143,33 @@ describe('Vue 流水号规则页', () => {
         pageSize: 20,
         name: '发票',
         key: 'invoice',
+        scope: 1,
+        resetInterval: 2,
         sortBy: 'displayOrder',
         sortDirection: 'asc'
       })
     );
+  });
+
+  it('预览成功后展示重置桶与序列值', async () => {
+    vi.mocked(previewSerialNumber).mockResolvedValue({
+      value: 'INV-2026-acme-00042',
+      resetBucket: '20260730',
+      sequenceValue: 42
+    });
+    const wrapper = mountWithPermissions([
+      'serial_numbers.rules.read',
+      'serial_numbers.rules.preview'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="serial-rule-preview"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="serial-rule-preview-value"]').text())
+      .toBe('INV-2026-acme-00042');
+    expect(wrapper.get('[data-testid="serial-rule-preview-bucket"]').text())
+      .toContain('20260730');
+    expect(wrapper.get('[data-testid="serial-rule-preview-sequence-value"]').text())
+      .toContain('42');
   });
 
   it('列表加载失败时向用户显示稳定错误码', async () => {

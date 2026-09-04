@@ -15,7 +15,8 @@ public sealed class SerialNumberPreviewServiceTests
             "INV-{utc:yyyy}-{tenant}-{sequence:4}",
             "acme",
             7,
-            new DateTimeOffset(2026, 7, 30, 8, 9, 10, TimeSpan.Zero));
+            new DateTimeOffset(2026, 7, 30, 8, 9, 10, TimeSpan.Zero),
+            SerialNumberResetInterval.Never);
 
         var first = service.Preview(request);
         var second = service.Preview(request);
@@ -24,6 +25,8 @@ public sealed class SerialNumberPreviewServiceTests
         Assert.IsTrue(second.IsSuccess);
         Assert.AreEqual("INV-2026-acme-0007", first.Value!.Value);
         Assert.AreEqual(first.Value, second.Value);
+        Assert.AreEqual("all", first.Value.ResetBucket);
+        Assert.AreEqual(7L, first.Value.SequenceValue);
     }
 
     [TestMethod]
@@ -36,7 +39,8 @@ public sealed class SerialNumberPreviewServiceTests
             "{sequence:2}",
             null,
             100,
-            new DateTimeOffset(2026, 7, 30, 8, 9, 10, TimeSpan.Zero)));
+            new DateTimeOffset(2026, 7, 30, 8, 9, 10, TimeSpan.Zero),
+            SerialNumberResetInterval.Never));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(

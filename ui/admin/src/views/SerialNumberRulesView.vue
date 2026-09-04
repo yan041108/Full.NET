@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import {
   ElButton,
   ElCard,
+  ElDatePicker,
   ElInput,
   ElMessage,
   ElOption,
@@ -38,6 +39,8 @@ const total = ref(0);
 const filterName = ref('');
 const filterKey = ref('');
 const filterStatus = ref<'all' | 'enabled' | 'disabled'>('all');
+const filterScope = ref<'' | 0 | 1>('');
+const filterResetInterval = ref<'' | 0 | 1 | 2 | 3>('');
 const sortBy = ref<SerialNumberRuleSortBy>('displayOrder');
 const sortDirection = ref<SerialNumberRuleSortDirection>('asc');
 const selectedRuleId = ref<string>();
@@ -55,6 +58,8 @@ const previewTenant = ref('acme');
 const previewSequence = ref('42');
 const previewAtUtc = ref(new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'));
 const previewValue = ref('');
+const previewResetBucket = ref('');
+const previewSequenceValue = ref<number | null>(null);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -95,6 +100,10 @@ async function loadRules(): Promise<void> {
     name: filterName.value || undefined,
     key: filterKey.value || undefined,
     isEnabled: isEnabledFilter,
+    ...(filterScope.value === '' ? {} : { scope: filterScope.value }),
+    ...(filterResetInterval.value === ''
+      ? {}
+      : { resetInterval: filterResetInterval.value }),
     sortBy: sortBy.value,
     sortDirection: sortDirection.value
   });
@@ -230,15 +239,20 @@ async function runPreview(): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   previewValue.value = '';
+  previewResetBucket.value = '';
+  previewSequenceValue.value = null;
   try {
     const response = await previewSerialNumber({
       scope: scope.value,
       pattern: pattern.value,
       tenantIdentifier: scope.value === 1 ? previewTenant.value.trim() || null : null,
       sequenceValue: Number(previewSequence.value),
-      atUtc: previewAtUtc.value
+      atUtc: previewAtUtc.value,
+      resetInterval: resetInterval.value
     });
     previewValue.value = response.value;
+    previewResetBucket.value = response.resetBucket;
+    previewSequenceValue.value = response.sequenceValue;
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
@@ -371,13 +385,28 @@ function toProblem(
       <div class="art-form-grid">
         <ElInput v-if="scope === 1" v-model="previewTenant" data-testid="serial-rule-preview-tenant" maxlength="64" :placeholder="t('serialNumberRules.fieldPreviewTenant')" />
         <ElInput v-model="previewSequence" data-testid="serial-rule-preview-sequence" inputmode="numeric" :placeholder="t('serialNumberRules.fieldPreviewSequence')" />
-        <ElInput v-model="previewAtUtc" data-testid="serial-rule-preview-at" :placeholder="t('serialNumberRules.fieldPreviewAtUtc')" />
+        <label>
+          <span>{{ t('serialNumberRules.fieldPreviewAtUtc') }}</span>
+          <ElDatePicker
+            v-model="previewAtUtc"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ss[Z]"
+            data-testid="serial-rule-preview-at"
+            style="width: 100%"
+          />
+        </label>
         <PermissionGate code="serial_numbers.rules.preview">
           <ElButton data-testid="serial-rule-preview" :disabled="changing" @click="runPreview">
             {{ t('serialNumberRules.preview') }}
           </ElButton>
         </PermissionGate>
         <p v-if="previewValue" data-testid="serial-rule-preview-value">{{ previewValue }}</p>
+        <p v-if="previewResetBucket" data-testid="serial-rule-preview-bucket" class="art-muted">
+          {{ t('serialNumberRules.previewResetBucket', { bucket: previewResetBucket }) }}
+        </p>
+        <p v-if="previewSequenceValue !== null" data-testid="serial-rule-preview-sequence-value" class="art-muted">
+          {{ t('serialNumberRules.previewSequenceValue', { value: previewSequenceValue }) }}
+        </p>
       </div>
     </ElCard>
 
@@ -404,6 +433,24 @@ function toProblem(
             <ElOption :label="t('serialNumberRules.filterStatusAll')" value="all" />
             <ElOption :label="t('serialNumberRules.statusEnabled')" value="enabled" />
             <ElOption :label="t('serialNumberRules.statusDisabled')" value="disabled" />
+          </ElSelect>
+        </label>
+        <label>
+          <span>{{ t('serialNumberRules.filterScope') }}</span>
+          <ElSelect v-model="filterScope" data-testid="serial-rule-filter-scope" clearable>
+            <ElOption :label="t('serialNumberRules.filterScopeAll')" value="" />
+            <ElOption :label="t('serialNumberRules.scopeHost')" :value="0" />
+            <ElOption :label="t('serialNumberRules.scopeTenant')" :value="1" />
+          </ElSelect>
+        </label>
+        <label>
+          <span>{{ t('serialNumberRules.filterResetInterval') }}</span>
+          <ElSelect v-model="filterResetInterval" data-testid="serial-rule-filter-reset-interval" clearable>
+            <ElOption :label="t('serialNumberRules.filterResetIntervalAll')" value="" />
+            <ElOption :label="t('serialNumberRules.resetNever')" :value="0" />
+            <ElOption :label="t('serialNumberRules.resetDay')" :value="1" />
+            <ElOption :label="t('serialNumberRules.resetMonth')" :value="2" />
+            <ElOption :label="t('serialNumberRules.resetYear')" :value="3" />
           </ElSelect>
         </label>
         <label>

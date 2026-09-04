@@ -23,6 +23,8 @@ internal static class Endpoint
             string? name,
             string? key,
             bool? isEnabled,
+            int? scope,
+            int? resetInterval,
             string? sortBy,
             string? sortDirection,
             HostSerialRuleService service,
@@ -36,6 +38,8 @@ internal static class Endpoint
                     name,
                     key,
                     isEnabled,
+                    scope,
+                    resetInterval,
                     sortBy,
                     sortDirection,
                     cancellationToken)
