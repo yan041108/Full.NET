@@ -11,12 +11,8 @@ namespace Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 internal static class Endpoint
 {
     /// <summary>
-    /// 注册 Host 公告管理路由组，包含列表、详情、创建、更新与发布操作。
+    /// 注册 Host 公告管理路由组，包含列表、详情、创建、更新、发布与撤回操作。
     /// </summary>
-    /// <remarks>
-    /// 每个操作绑定独立稳定权限码并经 <c>RequireAuthorization</c> 强制校验；
-    /// 创建、更新、发布使用乐观版本号做 CAS 并发控制，发布后由 Outbox 修复实时广播。
-    /// </remarks>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/notifications/host-announcements")
@@ -25,6 +21,10 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            string? title,
+            string? status,
+            string? kind,
+            string? audienceKind,
             HostAnnouncementQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -33,6 +33,7 @@ internal static class Endpoint
             var result = await queries.ListAsync(
                     page ?? 1,
                     pageSize ?? 20,
+                    new HostAnnouncementListFilter(title, status, kind, audienceKind),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
@@ -147,6 +148,36 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Publish));
+
+        group.MapPost("/{announcementId:guid}/retract", async (
+            Guid announcementId,
+            RetractHostAnnouncementRequest request,
+            HostAnnouncementManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.RetractAsync(
+                    userId,
+                    announcementId,
+                    request.Version,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("notificationsRetractHostAnnouncement")
+        .Produces<HostAnnouncementResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Retract));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

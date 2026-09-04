@@ -371,14 +371,21 @@ export {
   isHostAnnouncement,
   isHostAnnouncementPage,
   isPublishHostAnnouncementRequest,
+  isRetractHostAnnouncementRequest,
   isUpdateHostAnnouncementRequest
 } from './host-announcements.js';
 
 export type {
+  AnnouncementAudienceKind,
+  AnnouncementKind,
+  AnnouncementStatus,
   CreateHostAnnouncementRequest,
   HostAnnouncement,
+  HostAnnouncementListQuery,
   HostAnnouncementPage,
+  HostAnnouncementTargetOrganization,
   PublishHostAnnouncementRequest,
+  RetractHostAnnouncementRequest,
   UpdateHostAnnouncementRequest
 } from './host-announcements.js';
 

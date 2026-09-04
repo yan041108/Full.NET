@@ -13,9 +13,19 @@ internal sealed class AnnouncementRecord
 
     public string Content { get; set; } = string.Empty;
 
+    public string Kind { get; set; } = string.Empty;
+
+    public string AudienceKind { get; set; } = string.Empty;
+
     public string Status { get; set; } = string.Empty;
 
     public DateTimeOffset? PublishedAtUtc { get; set; }
+
+    public Guid? PublishedByUserId { get; set; }
+
+    public DateTimeOffset? RetractedAtUtc { get; set; }
+
+    public Guid? RetractedByUserId { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
 
@@ -26,4 +36,26 @@ internal sealed class AnnouncementRecord
     public Guid? UpdatedByUserId { get; set; }
 
     public int Version { get; set; }
+}
+
+/// <summary>公告用户受众子表行投影。</summary>
+internal sealed class AnnouncementTargetUserRecord
+{
+    public Guid Id { get; set; }
+
+    public Guid AnnouncementId { get; set; }
+
+    public Guid UserId { get; set; }
+}
+
+/// <summary>公告机构受众子表行投影。</summary>
+internal sealed class AnnouncementTargetOrganizationRecord
+{
+    public Guid Id { get; set; }
+
+    public Guid AnnouncementId { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    public Guid OrganizationUnitId { get; set; }
 }

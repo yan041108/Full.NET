@@ -39,6 +39,10 @@ internal sealed class NotificationsAuthorizationContributor
             "发布公告",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            HostAnnouncementPermissions.Retract,
+            "撤回公告",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             InboxPermissions.Read,
             "查询站内信",
             PlatformScopes),
@@ -132,6 +136,13 @@ internal sealed class NotificationsAuthorizationContributor
             "发布公告",
             "publish",
             30),
+        new AuthorizationActionDefinition(
+            "notifications.announcements.retract",
+            "host-announcements",
+            HostAnnouncementPermissions.Retract,
+            "撤回公告",
+            "retract",
+            40),
         new AuthorizationActionDefinition(
             "notifications.inbox.send",
             "inbox-messages",

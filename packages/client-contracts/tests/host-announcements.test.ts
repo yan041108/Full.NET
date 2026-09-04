@@ -4,6 +4,7 @@ import {
   isHostAnnouncement,
   isHostAnnouncementPage,
   isPublishHostAnnouncementRequest,
+  isRetractHostAnnouncementRequest,
   isUpdateHostAnnouncementRequest
 } from '../src/host-announcements';
 
@@ -12,8 +13,15 @@ describe('host-announcements contracts', () => {
     id: '01912345-6789-7abc-8def-0123456789ab',
     title: '系统维护通知',
     content: '将于今晚进行维护。',
+    kind: 'announcement',
+    audienceKind: 'all',
     status: 'draft',
     publishedAtUtc: null,
+    publishedByUserId: null,
+    retractedAtUtc: null,
+    retractedByUserId: null,
+    targetUserIds: [],
+    targetOrganizations: [],
     createdAtUtc: '2026-07-26T00:00:00Z',
     updatedAtUtc: null,
     version: 1
@@ -37,6 +45,7 @@ describe('host-announcements contracts', () => {
       version: 1
     })).toBe(true);
     expect(isPublishHostAnnouncementRequest({ version: 1 })).toBe(true);
+    expect(isRetractHostAnnouncementRequest({ version: 2 })).toBe(true);
   });
 
   it('rejects invalid ids', () => {

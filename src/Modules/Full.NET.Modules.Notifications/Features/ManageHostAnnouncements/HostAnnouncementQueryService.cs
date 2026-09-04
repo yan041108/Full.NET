@@ -12,38 +12,38 @@ internal sealed class HostAnnouncementQueryService(
     IOptions<DatabaseOptions> databaseOptions)
 {
     /// <summary>
-    /// 分页查询 Host 公告，按创建时间倒序排列。
+    /// 分页查询 Host 公告，按创建时间倒序排列，并支持标题与状态过滤。
     /// </summary>
-    /// <remarks>
-    /// 列表语句按当前数据库提供程序在 SQL Server 与 MySQL 实现间切换；
-    /// 分页参数在服务端做上下界钳制，<c>OFFSET/FETCH</c> 与 <c>LIMIT/OFFSET</c> 由稳定排序保证稳定。
-    /// </remarks>
     public async Task<Result<PagedResult<HostAnnouncementResponse>>> ListAsync(
         int page,
         int pageSize,
+        HostAnnouncementListFilter filter,
         CancellationToken cancellationToken)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
+        var parameters = BuildFilterParameters(filter, offset, pageSize);
 
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 AnnouncementSql.CountHost,
-                cancellationToken: cancellationToken)
+                parameters,
+                cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<AnnouncementRecord>(
                 ResolveListStatement(),
-                new Dictionary<string, object?>
-                {
-                    ["Offset"] = offset,
-                    ["PageSize"] = pageSize,
-                },
+                parameters,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var rowArray = rows.ToArray();
+        var targets = await LoadTargetsAsync(
+                rowArray.Select(row => row.Id).ToArray(),
                 cancellationToken)
             .ConfigureAwait(false);
 
         return Result<PagedResult<HostAnnouncementResponse>>.Success(
             new PagedResult<HostAnnouncementResponse>(
-                rows.Select(Map).ToArray(),
+                rowArray.Select(row => Map(row, targets)).ToArray(),
                 page,
                 pageSize,
                 total));
@@ -66,7 +66,9 @@ internal sealed class HostAnnouncementQueryService(
             return NotFound();
         }
 
-        return Result<HostAnnouncementResponse>.Success(Map(record));
+        var targets = await LoadTargetsAsync([announcementId], cancellationToken)
+            .ConfigureAwait(false);
+        return Result<HostAnnouncementResponse>.Success(Map(record, targets));
     }
 
     private SqlStatement ResolveListStatement() =>
@@ -78,13 +80,65 @@ internal sealed class HostAnnouncementQueryService(
                 $"Unsupported database provider '{databaseOptions.Value.Provider}'.")
         };
 
-    internal static HostAnnouncementResponse Map(AnnouncementRecord record) =>
+    private async Task<AnnouncementTargetBundle> LoadTargetsAsync(
+        IReadOnlyCollection<Guid> announcementIds,
+        CancellationToken cancellationToken)
+    {
+        if (announcementIds.Count == 0)
+        {
+            return AnnouncementTargetBundle.Empty;
+        }
+
+        var users = await queryExecutor.QueryAsync<AnnouncementTargetUserRecord>(
+                AnnouncementTargetSql.ListUsersByAnnouncementIds,
+                new Dictionary<string, object?> { ["AnnouncementIds"] = announcementIds },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var organizations = await queryExecutor.QueryAsync<AnnouncementTargetOrganizationRecord>(
+                AnnouncementTargetSql.ListOrganizationsByAnnouncementIds,
+                new Dictionary<string, object?> { ["AnnouncementIds"] = announcementIds },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return AnnouncementTargetBundle.From(users, organizations);
+    }
+
+    private static Dictionary<string, object?> BuildFilterParameters(
+        HostAnnouncementListFilter filter,
+        int offset,
+        int pageSize)
+    {
+        var title = string.IsNullOrWhiteSpace(filter.Title) ? null : filter.Title.Trim();
+        return new Dictionary<string, object?>
+        {
+            ["Offset"] = offset,
+            ["PageSize"] = pageSize,
+            ["Title"] = title,
+            ["TitlePattern"] = title is null ? null : $"%{title}%",
+            ["Status"] = NormalizeFilterValue(filter.Status),
+            ["Kind"] = NormalizeFilterValue(filter.Kind),
+            ["AudienceKind"] = NormalizeFilterValue(filter.AudienceKind),
+        };
+    }
+
+    private static string? NormalizeFilterValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    internal static HostAnnouncementResponse Map(
+        AnnouncementRecord record,
+        AnnouncementTargetBundle targets) =>
         new(
             record.Id,
             record.Title,
             record.Content,
+            record.Kind,
+            record.AudienceKind,
             record.Status,
             record.PublishedAtUtc,
+            record.PublishedByUserId,
+            record.RetractedAtUtc,
+            record.RetractedByUserId,
+            targets.GetUserIds(record.Id),
+            targets.GetOrganizations(record.Id),
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);
@@ -94,4 +148,37 @@ internal sealed class HostAnnouncementQueryService(
             NotificationsErrorCodes.AnnouncementNotFound,
             "The host announcement was not found.",
             ErrorType.NotFound));
+}
+
+/// <summary>公告受众子表批量查询结果。</summary>
+internal sealed class AnnouncementTargetBundle
+{
+    public static AnnouncementTargetBundle Empty { get; } = new([], []);
+
+    private readonly ILookup<Guid, Guid> _users;
+    private readonly ILookup<Guid, HostAnnouncementTargetOrganization> _organizations;
+
+    private AnnouncementTargetBundle(
+        IEnumerable<AnnouncementTargetUserRecord> users,
+        IEnumerable<AnnouncementTargetOrganizationRecord> organizations)
+    {
+        _users = users.ToLookup(row => row.AnnouncementId, row => row.UserId);
+        _organizations = organizations.ToLookup(
+            row => row.AnnouncementId,
+            row => new HostAnnouncementTargetOrganization(row.TenantId, row.OrganizationUnitId));
+    }
+
+    public static AnnouncementTargetBundle From(
+        IEnumerable<AnnouncementTargetUserRecord> users,
+        IEnumerable<AnnouncementTargetOrganizationRecord> organizations) =>
+        new(users, organizations);
+
+    public IReadOnlyList<Guid> GetUserIds(Guid announcementId) =>
+        _users[announcementId].OrderBy(id => id).ToArray();
+
+    public IReadOnlyList<HostAnnouncementTargetOrganization> GetOrganizations(Guid announcementId) =>
+        _organizations[announcementId]
+            .OrderBy(target => target.TenantId)
+            .ThenBy(target => target.OrganizationUnitId)
+            .ToArray();
 }

@@ -12,4 +12,6 @@ public static class HostAnnouncementPermissions
     public const string Update = "notifications.announcements.update";
 
     public const string Publish = "notifications.announcements.publish";
+
+    public const string Retract = "notifications.announcements.retract";
 }

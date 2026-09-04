@@ -37,7 +37,7 @@ test('Host 公告 OpenAPI 夹具结构完整且路径唯一', async () => {
       seen.add(key);
       assert.match(
         operation.permission,
-        /^notifications\.announcements\.(read|create|update|publish)$/u
+        /^notifications\.announcements\.(read|create|update|publish|retract)$/u
       );
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
@@ -59,6 +59,7 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(contractsSource, /record CreateHostAnnouncementRequest/u);
   assert.match(contractsSource, /record UpdateHostAnnouncementRequest/u);
   assert.match(contractsSource, /record PublishHostAnnouncementRequest/u);
+  assert.match(contractsSource, /record RetractHostAnnouncementRequest/u);
   assert.match(
     endpointSource,
     /MapGroup\("\/api\/v1\/notifications\/host-announcements"\)/u
@@ -68,6 +69,7 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(endpointSource, /WithName\("notificationsCreateHostAnnouncement"\)/u);
   assert.match(endpointSource, /WithName\("notificationsUpdateHostAnnouncement"\)/u);
   assert.match(endpointSource, /WithName\("notificationsPublishHostAnnouncement"\)/u);
+  assert.match(endpointSource, /WithName\("notificationsRetractHostAnnouncement"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/notifications/host-announcements', {
@@ -85,6 +87,11 @@ test('Host 公告 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['/api/v1/notifications/host-announcements/{announcementId}/publish', {
       markers: new Map([
         ['POST', 'MapPost("/{announcementId:guid}/publish",']
+      ])
+    }],
+    ['/api/v1/notifications/host-announcements/{announcementId}/retract', {
+      markers: new Map([
+        ['POST', 'MapPost("/{announcementId:guid}/retract",']
       ])
     }]
   ]);

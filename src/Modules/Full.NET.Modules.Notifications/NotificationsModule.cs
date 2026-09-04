@@ -57,6 +57,7 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementQueryService>();
+        services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementAudienceValidator>();
         services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementManagementService>();
         services.TryAddScoped<Features.ManageMyInboxMessages.MyInboxQueryService>();
         services.TryAddScoped<Features.ManageMyInboxMessages.MyInboxManagementService>();

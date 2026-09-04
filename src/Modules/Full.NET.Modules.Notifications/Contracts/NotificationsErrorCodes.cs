@@ -20,6 +20,8 @@ public static class NotificationsErrorCodes
     /// <summary>公告标题或正文长度校验失败。</summary>
     public const string AnnouncementValidationFailed = "notifications.announcement_validation_failed";
 
+    public const string AnnouncementAudienceInvalid = "notifications.announcement_audience_invalid";
+
     /// <summary>站内信未找到。</summary>
     public const string InboxMessageNotFound = "notifications.inbox_message_not_found";
 
@@ -162,6 +164,7 @@ public static class NotificationsErrorCodes
         AnnouncementConcurrencyConflict,
         AnnouncementInvalidStatus,
         AnnouncementValidationFailed,
+        AnnouncementAudienceInvalid,
         InboxMessageNotFound,
         InboxRecipientNotFound,
         InboxValidationFailed,

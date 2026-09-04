@@ -50,6 +50,18 @@
           "responseSchema": "HostAnnouncementResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}/retract",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.retract",
+          "successStatus": 200,
+          "requestSchema": "RetractHostAnnouncementRequest",
+          "responseSchema": "HostAnnouncementResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -58,8 +70,15 @@
         "id",
         "title",
         "content",
+        "kind",
+        "audienceKind",
         "status",
         "publishedAtUtc",
+        "publishedByUserId",
+        "retractedAtUtc",
+        "retractedByUserId",
+        "targetUserIds",
+        "targetOrganizations",
         "createdAtUtc",
         "updatedAtUtc",
         "version"
@@ -76,17 +95,30 @@
     "CreateHostAnnouncementRequest": {
       "properties": [
         "title",
-        "content"
+        "content",
+        "kind",
+        "audienceKind",
+        "targetUserIds",
+        "targetOrganizations"
       ]
     },
     "UpdateHostAnnouncementRequest": {
       "properties": [
         "title",
         "content",
-        "version"
+        "version",
+        "kind",
+        "audienceKind",
+        "targetUserIds",
+        "targetOrganizations"
       ]
     },
     "PublishHostAnnouncementRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "RetractHostAnnouncementRequest": {
       "properties": [
         "version"
       ]

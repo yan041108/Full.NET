@@ -10,24 +10,20 @@ using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.ManageHostAnnouncements;
 
-/// <summary>Host 公告创建、更新与发布；提交后执行低延迟广播并由 Outbox 负责修复。</summary>
+/// <summary>Host 公告创建、更新、发布与撤回；提交后执行低延迟广播并由 Outbox 负责修复。</summary>
 internal sealed class HostAnnouncementManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IOutboxWriter outboxWriter,
     HostAnnouncementQueryService queries,
+    HostAnnouncementAudienceValidator audienceValidator,
     NotificationRealtimeDelivery realtimeDelivery,
     IClock clock,
     IIdGenerator idGenerator,
     ILogger<HostAnnouncementManagementService> logger)
 {
-    /// <summary>
-    /// 创建一条处于草稿状态的 Host 公告；全程在命令事务内执行。
-    /// </summary>
-    /// <param name="actorUserId">触发创建操作的 Host 用户标识，用于审计。</param>
-    /// <param name="request">公告标题与正文，长度经服务端校验。</param>
-    /// <param name="cancellationToken">用于取消数据库操作的令牌。</param>
+    /// <summary>创建一条处于草稿状态的 Host 公告。</summary>
     public Task<Result<HostAnnouncementResponse>> CreateAsync(
         Guid actorUserId,
         CreateHostAnnouncementRequest request,
@@ -36,13 +32,7 @@ internal sealed class HostAnnouncementManagementService(
             token => CreateCoreAsync(actorUserId, request, token),
             cancellationToken);
 
-    /// <summary>
-    /// 更新未发布草稿公告的标题与正文，使用乐观版本号做 CAS 并发控制。
-    /// </summary>
-    /// <remarks>
-    /// 仅 <c>Draft</c> 状态可更新；SQL 以 <c>Status = Draft AND Version = 期望值</c> 作为守卫，
-    /// 影响行数为 0 时返回并发冲突而非静默覆盖。已发布公告不可再编辑。
-    /// </remarks>
+    /// <summary>更新未发布草稿公告；使用乐观版本号做 CAS 并发控制。</summary>
     public Task<Result<HostAnnouncementResponse>> UpdateAsync(
         Guid actorUserId,
         Guid announcementId,
@@ -52,13 +42,7 @@ internal sealed class HostAnnouncementManagementService(
             token => UpdateCoreAsync(actorUserId, announcementId, request, token),
             cancellationToken);
 
-    /// <summary>
-    /// 发布草稿公告：CAS 推进状态为已发布，并在同一事务内追加实时修复 Outbox 事件。
-    /// </summary>
-    /// <remarks>
-    /// 事务提交成功后再尝试低延迟广播；广播失败仅告警，不影响已提交事实，
-    /// 最终一致性由 Outbox 消费者保证。CAS 失败（版本或状态不符）返回并发/状态错误。
-    /// </remarks>
+    /// <summary>发布草稿公告；已发布时幂等返回当前事实。</summary>
     public async Task<Result<HostAnnouncementResponse>> PublishAsync(
         Guid actorUserId,
         Guid announcementId,
@@ -69,7 +53,8 @@ internal sealed class HostAnnouncementManagementService(
                 token => PublishCoreAsync(actorUserId, announcementId, version, token),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (result.IsSuccess)
+        if (result.IsSuccess
+            && string.Equals(result.Value!.Status, AnnouncementStatuses.Published, StringComparison.Ordinal))
         {
             await TryPublishAnnouncementAsync(result.Value!, CancellationToken.None)
                 .ConfigureAwait(false);
@@ -77,6 +62,16 @@ internal sealed class HostAnnouncementManagementService(
 
         return result;
     }
+
+    /// <summary>撤回已发布公告；已撤回时幂等返回当前事实。</summary>
+    public Task<Result<HostAnnouncementResponse>> RetractAsync(
+        Guid actorUserId,
+        Guid announcementId,
+        int version,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => RetractCoreAsync(actorUserId, announcementId, version, token),
+            cancellationToken);
 
     private async Task<Result<HostAnnouncementResponse>> CreateCoreAsync(
         Guid actorUserId,
@@ -89,6 +84,18 @@ internal sealed class HostAnnouncementManagementService(
             return validation;
         }
 
+        var audience = await audienceValidator.ValidateAsync(
+                request.Kind,
+                request.AudienceKind,
+                request.TargetUserIds,
+                request.TargetOrganizations,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!audience.IsSuccess)
+        {
+            return Result<HostAnnouncementResponse>.Failure(audience.Error!);
+        }
+
         var now = clock.UtcNow;
         var announcementId = idGenerator.NewId();
         await commandExecutor.ExecuteAsync(
@@ -98,11 +105,18 @@ internal sealed class HostAnnouncementManagementService(
                     ["Id"] = announcementId,
                     ["Title"] = request.Title.Trim(),
                     ["Content"] = request.Content.Trim(),
+                    ["Kind"] = audience.Value!.Kind,
+                    ["AudienceKind"] = audience.Value.AudienceKind,
                     ["Status"] = AnnouncementStatuses.Draft,
                     ["CreatedAtUtc"] = now,
                     ["CreatedByUserId"] = actorUserId,
                     ["Version"] = 1,
                 },
+                cancellationToken)
+            .ConfigureAwait(false);
+        await SyncTargetsAsync(
+                announcementId,
+                audience.Value,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -134,7 +148,21 @@ internal sealed class HostAnnouncementManagementService(
 
         if (!string.Equals(existing.Status, AnnouncementStatuses.Draft, StringComparison.Ordinal))
         {
-            return InvalidStatus();
+            return InvalidStatus("Only draft announcements can be updated.");
+        }
+
+        var existingTargets = await LoadExistingTargetsAsync(announcementId, cancellationToken)
+            .ConfigureAwait(false);
+        var audience = await audienceValidator.ValidateAsync(
+                request.Kind ?? existing.Kind,
+                request.AudienceKind ?? existing.AudienceKind,
+                request.TargetUserIds ?? existingTargets.TargetUserIds,
+                request.TargetOrganizations ?? existingTargets.TargetOrganizations,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!audience.IsSuccess)
+        {
+            return Result<HostAnnouncementResponse>.Failure(audience.Error!);
         }
 
         var now = clock.UtcNow;
@@ -145,6 +173,8 @@ internal sealed class HostAnnouncementManagementService(
                     ["Id"] = announcementId,
                     ["Title"] = request.Title.Trim(),
                     ["Content"] = request.Content.Trim(),
+                    ["Kind"] = audience.Value!.Kind,
+                    ["AudienceKind"] = audience.Value.AudienceKind,
                     ["UpdatedAtUtc"] = now,
                     ["UpdatedByUserId"] = actorUserId,
                     ["NextVersion"] = request.Version + 1,
@@ -157,6 +187,12 @@ internal sealed class HostAnnouncementManagementService(
         {
             return ConcurrencyConflict();
         }
+
+        await ReplaceTargetsAsync(
+                announcementId,
+                audience.Value,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         return await queries.GetByIdAsync(announcementId, cancellationToken)
             .ConfigureAwait(false);
@@ -178,9 +214,15 @@ internal sealed class HostAnnouncementManagementService(
             return NotFound();
         }
 
+        if (string.Equals(existing.Status, AnnouncementStatuses.Published, StringComparison.Ordinal))
+        {
+            return await queries.GetByIdAsync(announcementId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (!string.Equals(existing.Status, AnnouncementStatuses.Draft, StringComparison.Ordinal))
         {
-            return InvalidStatus();
+            return InvalidStatus("Only draft announcements can be published.");
         }
 
         var now = clock.UtcNow;
@@ -192,6 +234,7 @@ internal sealed class HostAnnouncementManagementService(
                     ["PublishedStatus"] = AnnouncementStatuses.Published,
                     ["DraftStatus"] = AnnouncementStatuses.Draft,
                     ["PublishedAtUtc"] = now,
+                    ["PublishedByUserId"] = actorUserId,
                     ["UpdatedAtUtc"] = now,
                     ["UpdatedByUserId"] = actorUserId,
                     ["NextVersion"] = version + 1,
@@ -214,6 +257,136 @@ internal sealed class HostAnnouncementManagementService(
             .ConfigureAwait(false);
 
         return await queries.GetByIdAsync(announcementId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostAnnouncementResponse>> RetractCoreAsync(
+        Guid actorUserId,
+        Guid announcementId,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<AnnouncementRecord>(
+                AnnouncementSql.FindHostById,
+                new Dictionary<string, object?> { ["Id"] = announcementId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        if (string.Equals(existing.Status, AnnouncementStatuses.Retracted, StringComparison.Ordinal))
+        {
+            return await queries.GetByIdAsync(announcementId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (!string.Equals(existing.Status, AnnouncementStatuses.Published, StringComparison.Ordinal))
+        {
+            return InvalidStatus("Only published announcements can be retracted.");
+        }
+
+        var now = clock.UtcNow;
+        var affected = await commandExecutor.ExecuteAsync(
+                AnnouncementSql.Retract,
+                new Dictionary<string, object?>
+                {
+                    ["Id"] = announcementId,
+                    ["RetractedStatus"] = AnnouncementStatuses.Retracted,
+                    ["PublishedStatus"] = AnnouncementStatuses.Published,
+                    ["RetractedAtUtc"] = now,
+                    ["RetractedByUserId"] = actorUserId,
+                    ["UpdatedAtUtc"] = now,
+                    ["UpdatedByUserId"] = actorUserId,
+                    ["NextVersion"] = version + 1,
+                    ["Version"] = version,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected == 0)
+        {
+            return ConcurrencyConflict();
+        }
+
+        return await queries.GetByIdAsync(announcementId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task SyncTargetsAsync(
+        Guid announcementId,
+        HostAnnouncementAudienceState audience,
+        CancellationToken cancellationToken)
+    {
+        foreach (var userId in audience.TargetUserIds)
+        {
+            await commandExecutor.ExecuteAsync(
+                    AnnouncementTargetSql.InsertUser,
+                    new Dictionary<string, object?>
+                    {
+                        ["Id"] = idGenerator.NewId(),
+                        ["AnnouncementId"] = announcementId,
+                        ["UserId"] = userId,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (var organization in audience.TargetOrganizations)
+        {
+            await commandExecutor.ExecuteAsync(
+                    AnnouncementTargetSql.InsertOrganization,
+                    new Dictionary<string, object?>
+                    {
+                        ["Id"] = idGenerator.NewId(),
+                        ["AnnouncementId"] = announcementId,
+                        ["TenantId"] = organization.TenantId,
+                        ["OrganizationUnitId"] = organization.OrganizationUnitId,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task<HostAnnouncementAudienceState> LoadExistingTargetsAsync(
+        Guid announcementId,
+        CancellationToken cancellationToken)
+    {
+        var users = await queryExecutor.QueryAsync<AnnouncementTargetUserRecord>(
+                AnnouncementTargetSql.ListUsersByAnnouncementIds,
+                new Dictionary<string, object?> { ["AnnouncementIds"] = new[] { announcementId } },
+                cancellationToken)
+            .ConfigureAwait(false);
+        var organizations = await queryExecutor.QueryAsync<AnnouncementTargetOrganizationRecord>(
+                AnnouncementTargetSql.ListOrganizationsByAnnouncementIds,
+                new Dictionary<string, object?> { ["AnnouncementIds"] = new[] { announcementId } },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new HostAnnouncementAudienceState(
+            AnnouncementKinds.Announcement,
+            AnnouncementAudienceKinds.All,
+            users.Select(row => row.UserId).ToArray(),
+            organizations
+                .Select(row => new HostAnnouncementTargetOrganization(row.TenantId, row.OrganizationUnitId))
+                .ToArray());
+    }
+
+    private async Task ReplaceTargetsAsync(
+        Guid announcementId,
+        HostAnnouncementAudienceState audience,
+        CancellationToken cancellationToken)
+    {
+        await commandExecutor.ExecuteAsync(
+                AnnouncementTargetSql.DeleteUsersByAnnouncementId,
+                new Dictionary<string, object?> { ["AnnouncementId"] = announcementId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+                AnnouncementTargetSql.DeleteOrganizationsByAnnouncementId,
+                new Dictionary<string, object?> { ["AnnouncementId"] = announcementId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        await SyncTargetsAsync(announcementId, audience, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -274,9 +447,9 @@ internal sealed class HostAnnouncementManagementService(
             "The host announcement changed concurrently.",
             ErrorType.Conflict));
 
-    private static Result<HostAnnouncementResponse> InvalidStatus() =>
+    private static Result<HostAnnouncementResponse> InvalidStatus(string message) =>
         Result<HostAnnouncementResponse>.Failure(new Error(
             NotificationsErrorCodes.AnnouncementInvalidStatus,
-            "Only draft announcements can be updated or published.",
+            message,
             ErrorType.Validation));
 }

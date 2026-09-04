@@ -128,16 +128,28 @@ internal static class NotificationsHostAnnouncementAssertions
             adminToken,
             new PublishHostAnnouncementRequest(published.Version));
         using var republishResponse = await client.SendAsync(republishRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.BadRequest, republishResponse.StatusCode);
-        using var invalidStatusProblem = JsonDocument.Parse(
-            await republishResponse.Content.ReadAsStringAsync(cancellationToken));
-        Assert.AreEqual(
-            NotificationsErrorCodes.AnnouncementInvalidStatus,
-            invalidStatusProblem.RootElement.GetProperty("code").GetString());
+        Assert.AreEqual(HttpStatusCode.OK, republishResponse.StatusCode);
+        var republished = await republishResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(republished);
+        Assert.AreEqual(AnnouncementStatuses.Published, republished.Status);
+
+        using var retractRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}/retract",
+            adminToken,
+            new RetractHostAnnouncementRequest(published.Version));
+        using var retractResponse = await client.SendAsync(retractRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retractResponse.StatusCode);
+        var retracted = await retractResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(retracted);
+        Assert.AreEqual(AnnouncementStatuses.Retracted, retracted.Status);
+        Assert.IsNotNull(retracted.RetractedAtUtc);
 
         using var listRequest = new HttpRequestMessage(
             HttpMethod.Get,
-            "/api/v1/notifications/host-announcements?page=1&pageSize=20");
+            "/api/v1/notifications/host-announcements?page=1&pageSize=20&status=retracted");
         listRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             adminToken);
@@ -147,6 +159,7 @@ internal static class NotificationsHostAnnouncementAssertions
             cancellationToken);
         Assert.IsNotNull(page);
         Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
+        Assert.IsTrue(page.Items.All(item => item.Status == AnnouncementStatuses.Retracted));
     }
 
     private static async Task VerifyExactAnnouncementActionPermissionBoundariesAsync(
@@ -201,6 +214,13 @@ internal static class NotificationsHostAnnouncementAssertions
             $"/api/v1/notifications/host-announcements/{created.Id:D}/publish",
             cancellationToken,
             new PublishHostAnnouncementRequest(created.Version));
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            readOnlyToken,
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}/retract",
+            cancellationToken,
+            new RetractHostAnnouncementRequest(created.Version));
 
         var createOnlyToken = await factory.CreateHostAccessTokenAsync(
             [
@@ -304,6 +324,51 @@ internal static class NotificationsHostAnnouncementAssertions
             $"/api/v1/notifications/host-announcements/{publishTarget.Id:D}",
             cancellationToken,
             new UpdateHostAnnouncementRequest("拒绝", "正文", publishTarget.Version + 1));
+
+        var retractTargetTitle = $"撤回目标-{Guid.NewGuid():N}"[..24];
+        using var retractSeedRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            adminToken,
+            new CreateHostAnnouncementRequest(retractTargetTitle, "retract-only"));
+        using var retractSeedResponse = await client.SendAsync(retractSeedRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, retractSeedResponse.StatusCode);
+        var retractTarget = await retractSeedResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(retractTarget);
+        using var retractSeedPublishRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{retractTarget.Id:D}/publish",
+            adminToken,
+            new PublishHostAnnouncementRequest(retractTarget.Version));
+        using var retractSeedPublishResponse = await client.SendAsync(
+            retractSeedPublishRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retractSeedPublishResponse.StatusCode);
+        var retractSeedPublished = await retractSeedPublishResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(retractSeedPublished);
+
+        var retractOnlyToken = await factory.CreateHostAccessTokenAsync(
+            [
+                HostAnnouncementPermissions.Read,
+                HostAnnouncementPermissions.Retract,
+            ],
+            cancellationToken);
+        using var retractOnlyRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{retractTarget.Id:D}/retract",
+            retractOnlyToken,
+            new RetractHostAnnouncementRequest(retractSeedPublished.Version));
+        using var retractOnlyResponse = await client.SendAsync(retractOnlyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retractOnlyResponse.StatusCode);
+        await AssertAnnouncementPermissionDeniedAsync(
+            client,
+            retractOnlyToken,
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            cancellationToken,
+            new CreateHostAnnouncementRequest("拒绝", "正文"));
     }
 
     private static async Task AssertAnnouncementPermissionDeniedAsync<TRequest>(

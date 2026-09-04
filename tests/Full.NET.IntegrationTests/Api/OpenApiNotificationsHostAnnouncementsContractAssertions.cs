@@ -106,6 +106,14 @@ internal static class OpenApiNotificationsHostAnnouncementsContractAssertions
             tag,
             200,
             "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/notifications/host-announcements/{announcementId}/retract",
+            HttpMethod.Post,
+            "notificationsRetractHostAnnouncement",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)

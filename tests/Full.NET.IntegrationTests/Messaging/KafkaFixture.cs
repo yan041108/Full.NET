@@ -57,9 +57,8 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
                 }
             }
             catch (KafkaException exception) when (
-                exception.Error.Code is ErrorCode.CoordinatorLoadInProgress
-                    or ErrorCode.NotCoordinator
-                    or ErrorCode.LeaderNotAvailable
+                IsCoordinatorStartupError(exception.Error.Code)
+                || exception.Error.Code is ErrorCode.LeaderNotAvailable
                     or ErrorCode.NetworkException
                     or ErrorCode.RequestTimedOut)
             {
@@ -170,6 +169,9 @@ public sealed class KafkaTestEnvironment : IAsyncDisposable
     {
         await _container.DisposeAsync().ConfigureAwait(false);
     }
+
+    private static bool IsCoordinatorStartupError(ErrorCode code) =>
+        (int)code is 14 or 16;
 }
 
 /// <summary>
