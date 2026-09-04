@@ -13,7 +13,8 @@ namespace Full.NET.IntegrationTests.Migrations;
 [TestClass]
 public sealed class Migration104NotificationsPlatformExtensionRecoveryTests
 {
-    private const int PlatformTableCount = 14;
+    // 104 之后新增公告用户/机构受众表与收件端点验证挑战表，平台表总数必须随正式迁移演进。
+    private const int PlatformTableCount = 17;
 
     [TestMethod]
     public async Task SqlServer_recovers_partial_schema_and_enforces_platform_invariants()

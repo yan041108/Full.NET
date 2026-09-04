@@ -7,7 +7,9 @@ import {
   listNotificationProviderTypes,
   listNotificationTemplates,
   parseNonSecretConfigJson,
-  retryNotificationDelivery
+  retryNotificationDelivery,
+  sendMyRecipientEndpointVerification,
+  verifyMyRecipientEndpoint
 } from './notification-platform';
 import type { NotificationProviderTypeDescriptor } from './notification-platform';
 
@@ -150,6 +152,44 @@ describe('notification-platform api', () => {
         method: 'POST',
         body: JSON.stringify({ revision: 2, reason: 'ops-retry' })
       }),
+      undefined
+    );
+  });
+
+  it('sends and verifies a recipient endpoint code with valid request bodies', async () => {
+    const endpointId = '0198f36e-f7a7-7c52-9cbb-774e67411206';
+    requestMock
+      .mockResolvedValueOnce({
+        expiresAtUtc: '2026-09-04T01:15:00Z',
+        resendAvailableAtUtc: '2026-09-04T01:01:00Z'
+      })
+      .mockResolvedValueOnce({
+        id: endpointId,
+        userId: '0198f36e-f7a7-7c52-9cbb-774e67411207',
+        providerProfileVersionId: '0198f36e-f7a7-7c52-9cbb-774e67411208',
+        endpointKindKey: 'email',
+        maskedValue: 't***@example.test',
+        createdAtUtc: '2026-09-04T01:00:00Z',
+        verificationStatusKey: 'verified'
+      });
+
+    await sendMyRecipientEndpointVerification(endpointId);
+    expect(requestMock).toHaveBeenNthCalledWith(
+      1,
+      `/api/v1/notifications/my-recipient-endpoints/${endpointId}/verification/send`,
+      { method: 'POST' },
+      undefined
+    );
+
+    await verifyMyRecipientEndpoint(endpointId, '123456');
+    expect(requestMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/v1/notifications/my-recipient-endpoints/${endpointId}/verification/verify`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: '123456' })
+      },
       undefined
     );
   });

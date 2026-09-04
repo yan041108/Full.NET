@@ -71,7 +71,7 @@ defineExpose({ readDraft });
 </template>
 
 <style scoped>
-.workflow-vue3-adapter { min-height: 620px; overflow: auto; background: var(--el-fill-color-light); }
+.workflow-vue3-adapter { position: relative; inset: auto; min-height: 620px; overflow: auto; background: var(--el-fill-color-light); }
 .workflow-vue3-adapter__canvas { min-width: 960px; min-height: 620px; padding: 48px 24px 96px; transform-origin: 50% 0; }
 .workflow-vue3-adapter__canvas.is-disabled { pointer-events: none; opacity: 0.72; }
 </style>

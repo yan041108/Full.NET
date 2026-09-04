@@ -1358,6 +1358,18 @@
       "status": "generated"
     },
     {
+      "operationId": "notificationsSendMyRecipientEndpointVerification",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-recipient-endpoints",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsVerifyMyRecipientEndpoint",
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "generatedGroup": "notifications-recipient-endpoints",
+      "status": "generated"
+    },
+    {
       "operationId": "notificationsListBindings",
       "apiModule": "ui/admin/src/api/notification-platform.ts",
       "generatedGroup": "notifications-bindings",

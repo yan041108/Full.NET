@@ -1,6 +1,37 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_notifications_announcement": {
+      "columns": {
+        "AudienceKind": "公告受众类型键",
+        "Kind": "公告内容类型键",
+        "PublishedByUserId": "发布人用户标识",
+        "RetractedAtUtc": "撤回时间(UTC)",
+        "RetractedByUserId": "撤回人用户标识"
+      }
+    },
+    "fn_notifications_announcement_target_organization": {
+      "comment": "公告机构受众表",
+      "columns": {
+        "AnnouncementId": "公告标识",
+        "OrganizationUnitId": "机构单元标识",
+        "TenantId": "机构所属租户标识"
+      }
+    },
+    "fn_notifications_announcement_target_user": {
+      "comment": "公告用户受众表",
+      "columns": {
+        "AnnouncementId": "公告标识"
+      }
+    },
+    "fn_notifications_recipient_endpoint_challenge": {
+      "comment": "通知收件端点验证挑战表",
+      "columns": {
+        "CodeHash": "验证码摘要",
+        "MaxAttempts": "最大校验尝试次数",
+        "RecipientEndpointId": "收件端点标识"
+      }
+    },
     "fn_serialnumbers_counter": {
       "columns": {
         "ScopeTenantKey": "作用域租户键"

@@ -407,11 +407,25 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
     return false;
   }
 
-  const baselineFields = Object.keys(baselineOperation).filter(field => field !== 'responses');
-  const currentFields = Object.keys(currentOperation).filter(field => field !== 'responses');
+  const allowsOptionalQueryExpansion = approvedOptionalQueryExpansionOperationIds.has(
+    baselineOperation.operationId
+  );
+  const ignoredFields = allowsOptionalQueryExpansion
+    ? new Set(['responses', 'parameters'])
+    : new Set(['responses']);
+  const baselineFields = Object.keys(baselineOperation).filter(field => !ignoredFields.has(field));
+  const currentFields = Object.keys(currentOperation).filter(field => !ignoredFields.has(field));
   if (!isDeepStrictEqual(baselineFields, currentFields)
     || baselineFields.some(field =>
       !isDeepStrictEqual(baselineOperation[field], currentOperation[field]))) {
+    return false;
+  }
+
+  if (allowsOptionalQueryExpansion
+    && !isApprovedOptionalQueryParameterExpansion(
+      baselineOperation.parameters,
+      currentOperation.parameters
+    )) {
     return false;
   }
 
@@ -421,6 +435,32 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
     && isPlainObject(currentResponses)
     && Object.entries(baselineResponses).every(([statusCode, response]) =>
       isDeepStrictEqual(response, currentResponses[statusCode]));
+}
+
+const approvedOptionalQueryExpansionOperationIds = new Set([
+  'notificationsListHostAnnouncements',
+  'notificationsListMyInboxMessages',
+  'serialNumbersListRules'
+]);
+
+function isApprovedOptionalQueryParameterExpansion(baselineParameters, currentParameters) {
+  const baseline = Array.isArray(baselineParameters) ? baselineParameters : [];
+  if (!Array.isArray(currentParameters) || currentParameters.length < baseline.length) {
+    return false;
+  }
+
+  const findBaselineParameter = (parameter) => baseline.find((candidate) =>
+    candidate?.in === parameter?.in && candidate?.name === parameter?.name);
+
+  // OpenAPI 参数数组顺序不承载语义；既有参数必须按位置和名称原样保留，新增项只能是非必填 query 参数。
+  return baseline.every((parameter) => currentParameters.some((candidate) =>
+    candidate?.in === parameter?.in
+    && candidate?.name === parameter?.name
+    && isDeepStrictEqual(parameter, candidate)))
+    && currentParameters.filter((parameter) => !findBaselineParameter(parameter)).every(parameter =>
+      isPlainObject(parameter)
+      && parameter.in === 'query'
+      && parameter.required !== true);
 }
 
 function isAdditiveOpenApiTags(baselineTags, currentTags) {
@@ -474,6 +514,10 @@ function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSche
     return true;
   }
 
+  if (isApprovedAdditiveSchemaEvolution(schemaName, baselineSchema, currentSchema)) {
+    return true;
+  }
+
   // 这两个草稿类型在历史运行时已经拒绝未知字段，只是标准客户端快照遗漏了对应元数据。
   // 豁免精确限制为补上 additionalProperties=false，禁止借纠正快照改写其它 Schema 结构。
   if (!strictWorkflowSchemaMetadataRepairs.has(schemaName)
@@ -487,6 +531,55 @@ function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSche
   const repairedSchema = { ...currentSchema };
   delete repairedSchema.additionalProperties;
   return isDeepStrictEqual(baselineSchema, repairedSchema);
+}
+
+const approvedOptionalRequestSchemaEvolutions = new Set([
+  'CreateHostAnnouncementRequest',
+  'PreviewSerialNumberRequest',
+  'UpdateHostAnnouncementRequest'
+]);
+
+const approvedResponseSchemaEvolutions = new Set([
+  'HostAnnouncementResponse',
+  'SerialNumberPreviewResponse'
+]);
+
+function isApprovedAdditiveSchemaEvolution(schemaName, baselineSchema, currentSchema) {
+  const isOptionalRequest = approvedOptionalRequestSchemaEvolutions.has(schemaName);
+  const isResponse = approvedResponseSchemaEvolutions.has(schemaName);
+  if ((!isOptionalRequest && !isResponse)
+    || !isPlainObject(baselineSchema)
+    || !isPlainObject(currentSchema)
+    || !isPlainObject(baselineSchema.properties)
+    || !isPlainObject(currentSchema.properties)) {
+    return false;
+  }
+
+  const baselineWithoutShape = { ...baselineSchema };
+  const currentWithoutShape = { ...currentSchema };
+  delete baselineWithoutShape.properties;
+  delete baselineWithoutShape.required;
+  delete currentWithoutShape.properties;
+  delete currentWithoutShape.required;
+  if (!isDeepStrictEqual(baselineWithoutShape, currentWithoutShape)) {
+    return false;
+  }
+
+  if (!Object.entries(baselineSchema.properties).every(([propertyName, propertySchema]) =>
+    isDeepStrictEqual(propertySchema, currentSchema.properties[propertyName]))) {
+    return false;
+  }
+
+  const baselineRequired = Array.isArray(baselineSchema.required) ? baselineSchema.required : [];
+  const currentRequired = Array.isArray(currentSchema.required) ? currentSchema.required : [];
+  if (!baselineRequired.every((propertyName) => currentRequired.includes(propertyName))) {
+    return false;
+  }
+
+  // required 数组的顺序不承载 OpenAPI 语义；请求扩展仍禁止新增必填项，响应可声明新增字段为必返事实。
+  return isResponse
+    || (currentRequired.length === baselineRequired.length
+      && currentRequired.every((propertyName) => baselineRequired.includes(propertyName)));
 }
 
 function isPlainObject(value) {

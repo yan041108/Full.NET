@@ -103,6 +103,7 @@ import type {
   FieldProjectionSensitivity,
   GrantSuperAdministratorRequest,
   HostAnnouncementResponse,
+  HostAnnouncementTargetOrganization,
   HostApiKeyResponse,
   HostDashboardActivityResponse,
   HostDashboardSummaryResponse,
@@ -231,6 +232,7 @@ import type {
   RetryNotificationDeliveryRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
+  SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
   SerialNumberResetInterval,
   SerialNumberRuleResponse,
@@ -276,6 +278,7 @@ import type {
   UpdateSerialNumberRuleRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
+  VerifyRecipientEndpointCodeRequest,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
@@ -412,6 +415,7 @@ import {
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
   readRecipientEndpointResponse,
+  readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
   readSerialNumberRuleResponse,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
@@ -3711,6 +3715,10 @@ export async function notificationsListDeliveries(
 export interface NotificationsListHostAnnouncementsParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly title?: string;
+  readonly status?: string;
+  readonly kind?: string;
+  readonly audienceKind?: string;
 }
 
 export async function notificationsListHostAnnouncements(
@@ -3726,6 +3734,18 @@ export async function notificationsListHostAnnouncements(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.title !== undefined) {
+    query.set('title', String(parameters.title));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  if (parameters.kind !== undefined) {
+    query.set('kind', String(parameters.kind));
+  }
+  if (parameters.audienceKind !== undefined) {
+    query.set('audienceKind', String(parameters.audienceKind));
+  }
   const path = query.size === 0 ? `/api/v1/notifications/host-announcements` : `/api/v1/notifications/host-announcements?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -3737,6 +3757,8 @@ export async function notificationsListHostAnnouncements(
 export interface NotificationsListMyInboxMessagesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly title?: string;
+  readonly status?: string;
 }
 
 export async function notificationsListMyInboxMessages(
@@ -3751,6 +3773,12 @@ export async function notificationsListMyInboxMessages(
   }
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.title !== undefined) {
+    query.set('title', String(parameters.title));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
   }
   const path = query.size === 0 ? `/api/v1/notifications/my-inbox-messages` : `/api/v1/notifications/my-inbox-messages?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -4021,6 +4049,24 @@ export async function notificationsSendHostInboxMessage(
   return readInboxMessageResponse(value);
 }
 
+export interface NotificationsSendMyRecipientEndpointVerificationParameters {
+  readonly endpointId: string;
+}
+
+export async function notificationsSendMyRecipientEndpointVerification(
+  http: HttpClient,
+  parameters: NotificationsSendMyRecipientEndpointVerificationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SendRecipientEndpointVerificationResponse> {
+  const path = `/api/v1/notifications/my-recipient-endpoints/${encodeURIComponent(String(parameters.endpointId))}/verification/send`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSendRecipientEndpointVerificationResponse(value);
+}
+
 export interface NotificationsUpdateBindingParameters {
   readonly bindingId: string;
   readonly body: UpdateNotificationBindingRequest;
@@ -4111,6 +4157,29 @@ export async function notificationsUpdateTemplate(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readNotificationTemplateResponse(value);
+}
+
+export interface NotificationsVerifyMyRecipientEndpointParameters {
+  readonly endpointId: string;
+  readonly body: VerifyRecipientEndpointCodeRequest;
+}
+
+export async function notificationsVerifyMyRecipientEndpoint(
+  http: HttpClient,
+  parameters: NotificationsVerifyMyRecipientEndpointParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RecipientEndpointResponse> {
+  const path = `/api/v1/notifications/my-recipient-endpoints/${encodeURIComponent(String(parameters.endpointId))}/verification/verify`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRecipientEndpointResponse(value);
 }
 
 export interface ObservabilityDownloadLogFileParameters {
@@ -5047,6 +5116,8 @@ export interface SerialNumbersListRulesParameters {
   readonly name?: string;
   readonly key?: string;
   readonly isEnabled?: boolean;
+  readonly scope?: number;
+  readonly resetInterval?: number;
   readonly sortBy?: string;
   readonly sortDirection?: string;
 }
@@ -5072,6 +5143,12 @@ export async function serialNumbersListRules(
   }
   if (parameters.isEnabled !== undefined) {
     query.set('isEnabled', String(parameters.isEnabled));
+  }
+  if (parameters.scope !== undefined) {
+    query.set('scope', String(parameters.scope));
+  }
+  if (parameters.resetInterval !== undefined) {
+    query.set('resetInterval', String(parameters.resetInterval));
   }
   if (parameters.sortBy !== undefined) {
     query.set('sortBy', String(parameters.sortBy));

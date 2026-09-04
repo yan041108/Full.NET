@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import type { HostAnnouncement } from '@fullnet/client-contracts';
 import HostAnnouncementsView from './HostAnnouncementsView.vue';
 import { useSessionStore } from '../auth/session';
 import {
@@ -88,7 +89,7 @@ vi.mock('../notifications/realtime', () => ({
 
 const listMock = vi.mocked(listHostAnnouncements);
 
-const draftAnnouncement = {
+const draftAnnouncement: HostAnnouncement = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   title: 'draft-title',
   content: 'draft-content',
@@ -106,7 +107,7 @@ const draftAnnouncement = {
   version: 1
 };
 
-const publishedAnnouncement = {
+const publishedAnnouncement: HostAnnouncement = {
   ...draftAnnouncement,
   status: 'published' as const,
   publishedAtUtc: '2026-07-26T01:00:00Z',

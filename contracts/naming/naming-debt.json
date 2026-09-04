@@ -5,6 +5,20 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/106_NotificationsAnnouncementLifecycle.sql",
+      "reason": "106 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等补齐公告生命周期列；对象名、列名和 DDL 均为脚本内常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/108_NotificationsRecipientEndpointVerification.sql",
+      "reason": "108 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等创建收件端点挑战活动索引；对象名和 DDL 均为脚本内常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/102_WorkflowFirstVerticalSlice.sql",
       "reason": "102 使用两个固定不可变版本触发器；对象名均为常量，并由 Workflow 双库迁移与不可变更新测试覆盖。",
       "removalMilestone": "M1.0"

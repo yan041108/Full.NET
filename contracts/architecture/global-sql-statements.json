@@ -2014,6 +2014,146 @@
         "ProviderProfileVersionId = @ProviderProfileVersionId",
         "VerificationStatusKey = 'verified'"
       ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.find_owned_pending_protected",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.FindOwnedPendingProtected",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "验证码边界只允许读取当前受信作用域中属于当前用户且仍待验证的精确端点。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "VerificationStatusKey = 'pending'"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.mark_failed",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.MarkFailed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "验证失败状态更新同时绑定当前受信作用域、当前用户和 pending 状态，禁止跨作用域更新。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "VerificationStatusKey = 'pending'"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.mark_verified",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.MarkVerified",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "验证成功状态更新同时绑定当前受信作用域、当前用户和 pending 状态，禁止跨作用域更新。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "VerificationStatusKey = 'pending'"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.find_active",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.FindActiveByEndpoint",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "SQL Server 只读取当前受信作用域和当前用户在指定端点下仍有效的最新挑战。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "RecipientEndpointId = @RecipientEndpointId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.find_active.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.FindActiveByEndpointMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 只读取当前受信作用域和当前用户在指定端点下仍有效的最新挑战。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "RecipientEndpointId = @RecipientEndpointId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.find_latest_created",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.FindLatestCreatedAtByEndpoint",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "SQL Server 冷却判断只统计当前受信作用域和当前用户在指定端点下的挑战。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "RecipientEndpointId = @RecipientEndpointId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.find_latest_created.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.FindLatestCreatedAtByEndpointMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 冷却判断只统计当前受信作用域和当前用户在指定端点下的挑战。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId",
+        "RecipientEndpointId = @RecipientEndpointId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.increment_attempt",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.IncrementAttempt",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "挑战尝试次数更新同时绑定当前受信作用域和当前用户，禁止跨作用域消耗尝试次数。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "挑战插入由已完成端点所有权校验的事务生成，并显式写入受信作用域和当前用户。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "@TenantScopeKey",
+        "@UserId",
+        "@RecipientEndpointId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.invalidate_active",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.InvalidateActiveByEndpoint",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "旧挑战失效发生在已按受信作用域和当前用户完成端点所有权校验的同一事务中，端点标识来自该校验结果。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "RecipientEndpointId = @RecipientEndpointId",
+        "ConsumedAtUtc IS NULL"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint_challenge.mark_consumed",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointChallengeSql.MarkConsumed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointChallengeSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "挑战消费同时绑定当前受信作用域和当前用户，禁止跨作用域消费验证码。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint_challenge",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
     }
   ]
 }

@@ -605,6 +605,68 @@ test('标准客户端 OpenAPI 允许纠正既有 Workflow 严格草稿元数据�
   );
 });
 
+test('标准客户端 OpenAPI 只允许已审查的可选请求与响应字段扩展', async () => {
+  const baseline = {
+    openapi: '3.1.0',
+    info: { title: 'Full.NET client', version: '1.0.0' },
+    tags: [],
+    paths: {
+      '/api/v1/notifications/host-announcements': {
+        get: {
+          operationId: 'notificationsListHostAnnouncements',
+          parameters: [{ in: 'query', name: 'page', schema: { type: 'integer' } }],
+          responses: { '200': { description: 'OK' } }
+        }
+      }
+    },
+    components: {
+      schemas: {
+        CreateHostAnnouncementRequest: {
+          type: 'object',
+          properties: { title: { type: 'string' } },
+          required: ['title']
+        },
+        HostAnnouncementResponse: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id']
+        }
+      },
+      securitySchemes: {}
+    }
+  };
+
+  const additive = clone(baseline);
+  additive.paths['/api/v1/notifications/host-announcements'].get.parameters.unshift({
+    in: 'query',
+    name: 'title',
+    schema: { type: 'string' }
+  });
+  additive.components.schemas.CreateHostAnnouncementRequest.properties.kind = {
+    type: ['null', 'string']
+  };
+  additive.components.schemas.HostAnnouncementResponse.properties.kind = { type: 'string' };
+  additive.components.schemas.HostAnnouncementResponse.required.splice(1, 0, 'kind');
+
+  const additiveResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': additive }
+  );
+  assert.equal(additiveResult.status, 0, additiveResult.stderr);
+
+  const rewritten = clone(additive);
+  rewritten.components.schemas.CreateHostAnnouncementRequest.required.push('kind');
+  const rewrittenResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': rewritten }
+  );
+  assert.equal(rewrittenResult.status, 1);
+  assert.match(
+    rewrittenResult.stderr,
+    /stable setting changed: fullnet-client-v1\.openapi\.json components/u
+  );
+});
+
 test('Git ref 模式可确认当前 contracts 相对 HEAD 无破坏变化', () => {
   const result = spawnSync(
     process.execPath,

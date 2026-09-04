@@ -51,7 +51,11 @@ describe('serial-number-rules api', () => {
       .mockResolvedValueOnce({ ...rule, version: 2 })
       .mockResolvedValueOnce({ ...rule, isEnabled: false, version: 3 })
       .mockResolvedValueOnce({ ...rule, isEnabled: true, version: 4 })
-      .mockResolvedValueOnce({ value: '20260730-0001' });
+      .mockResolvedValueOnce({
+        value: '20260730-0001',
+        resetBucket: '20260730',
+        sequenceValue: 1
+      });
 
     await listSerialNumberRules();
     await createSerialNumberRule({

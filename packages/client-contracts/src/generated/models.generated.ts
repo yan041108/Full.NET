@@ -371,7 +371,11 @@ export interface CreateDictTypeRequest {
 }
 
 export interface CreateHostAnnouncementRequest {
+  readonly audienceKind?: null | string;
   readonly content: string;
+  readonly kind?: null | string;
+  readonly targetOrganizations?: null | Array<HostAnnouncementTargetOrganization>;
+  readonly targetUserIds?: null | Array<string>;
   readonly title: string;
 }
 
@@ -732,14 +736,26 @@ export interface GrantSuperAdministratorRequest {
 }
 
 export interface HostAnnouncementResponse {
+  readonly audienceKind: string;
   readonly content: string;
   readonly createdAtUtc: string;
   readonly id: string;
+  readonly kind: string;
   readonly publishedAtUtc: null | string;
+  readonly publishedByUserId: null | string;
+  readonly retractedAtUtc: null | string;
+  readonly retractedByUserId: null | string;
   readonly status: string;
+  readonly targetOrganizations: Array<HostAnnouncementTargetOrganization>;
+  readonly targetUserIds: Array<string>;
   readonly title: string;
   readonly updatedAtUtc: null | string;
   readonly version: number;
+}
+
+export interface HostAnnouncementTargetOrganization {
+  readonly organizationUnitId: string;
+  readonly tenantId: string;
 }
 
 export interface HostApiKeyResponse {
@@ -1736,6 +1752,7 @@ export interface PagedResultOfTenantSummary {
 export interface PreviewSerialNumberRequest {
   readonly atUtc: string;
   readonly pattern: string;
+  readonly resetInterval?: SerialNumberResetInterval;
   readonly scope: SerialNumberRuleScope;
   readonly sequenceValue: number;
   readonly tenantIdentifier: null | string;
@@ -1836,7 +1853,14 @@ export interface SendHostInboxMessageRequest {
   readonly title: string;
 }
 
+export interface SendRecipientEndpointVerificationResponse {
+  readonly expiresAtUtc: string;
+  readonly resendAvailableAtUtc: string;
+}
+
 export interface SerialNumberPreviewResponse {
+  readonly resetBucket: string;
+  readonly sequenceValue: number;
   readonly value: string;
 }
 
@@ -1975,7 +1999,11 @@ export interface UpdateDictTypeRequest {
 }
 
 export interface UpdateHostAnnouncementRequest {
+  readonly audienceKind?: null | string;
   readonly content: string;
+  readonly kind?: null | string;
+  readonly targetOrganizations?: null | Array<HostAnnouncementTargetOrganization>;
+  readonly targetUserIds?: null | Array<string>;
   readonly title: string;
   readonly version: number;
 }
@@ -2165,6 +2193,10 @@ export interface UpdateWorkflowDefinitionDraftRequest {
 export interface UpdateWorkflowFormDraftRequest {
   readonly draft: WorkflowFormSchema;
   readonly expectedRevision: number;
+}
+
+export interface VerifyRecipientEndpointCodeRequest {
+  readonly code: string;
 }
 
 export interface WorkflowDefinitionDraft {

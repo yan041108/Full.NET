@@ -24,7 +24,7 @@ namespace Full.NET.Modules.Notifications;
 /// 通知中心模块：负责 Host 公告、站内信收件箱、渠道投递 Worker 与基于 SignalR 的实时推送。
 /// </summary>
 /// <remarks>
-/// 模块依赖 Identity 以解析用户目录；Host 与 Tenant 站内信共用一张表，作用域只来自受信会话。
+/// 模块依赖 Identity 解析用户目录，并依赖 Organization 校验机构受众；Host 与 Tenant 站内信共用一张表，作用域只来自受信会话。
 /// Delivery HostedService 只在 Worker 的 <see cref="AddBackgroundServices"/> 注册，避免 API 进程启动领取循环。
 /// </remarks>
 public sealed class NotificationsModule : IFullNetModule
@@ -40,9 +40,11 @@ public sealed class NotificationsModule : IFullNetModule
     internal const string RecipientEndpointVerificationVerifyRateLimitPolicy =
         "notifications-recipient-endpoint-verification-verify";
 
+    /// <summary>获取通知中心模块名称。</summary>
     public string Name => "Notifications";
 
-    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    /// <summary>获取通知中心运行所需的模块依赖。</summary>
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "Organization"];
 
     public void AddServices(
         IServiceCollection services,

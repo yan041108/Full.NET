@@ -102,6 +102,7 @@ import type {
   FieldProjectionSensitivity,
   GrantSuperAdministratorRequest,
   HostAnnouncementResponse,
+  HostAnnouncementTargetOrganization,
   HostApiKeyResponse,
   HostDashboardActivityResponse,
   HostDashboardSummaryResponse,
@@ -230,6 +231,7 @@ import type {
   RetryNotificationDeliveryRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
+  SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
   SerialNumberResetInterval,
   SerialNumberRuleResponse,
@@ -275,6 +277,7 @@ import type {
   UpdateSerialNumberRuleRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
+  VerifyRecipientEndpointCodeRequest,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
@@ -853,7 +856,7 @@ export function readCreateHostAnnouncementRequest(value: unknown): CreateHostAnn
 }
 
 function isCreateHostAnnouncementRequest(value: unknown): value is CreateHostAnnouncementRequest {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string');
+  return isRecord(value) && (value["audienceKind"] === undefined || ((value["audienceKind"] === null) || (typeof value["audienceKind"] === 'string'))) && (typeof value["content"] === 'string') && (value["kind"] === undefined || ((value["kind"] === null) || (typeof value["kind"] === 'string'))) && (value["targetOrganizations"] === undefined || ((value["targetOrganizations"] === null) || (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))))) && (value["targetUserIds"] === undefined || ((value["targetUserIds"] === null) || (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))))) && (typeof value["title"] === 'string');
 }
 
 export function readCreateHostApiKeyRequest(value: unknown): CreateHostApiKeyRequest {
@@ -1392,7 +1395,18 @@ export function readHostAnnouncementResponse(value: unknown): HostAnnouncementRe
 }
 
 function isHostAnnouncementResponse(value: unknown): value is HostAnnouncementResponse {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+  return isRecord(value) && (typeof value["audienceKind"] === 'string') && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["kind"] === 'string') && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))) && (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))) && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readHostAnnouncementTargetOrganization(value: unknown): HostAnnouncementTargetOrganization {
+  if (!(isHostAnnouncementTargetOrganization(value))) {
+    throw new Error('client.invalid_host_announcement_target_organization');
+  }
+  return value;
+}
+
+function isHostAnnouncementTargetOrganization(value: unknown): value is HostAnnouncementTargetOrganization {
+  return isRecord(value) && (typeof value["organizationUnitId"] === 'string' && guidPattern.test(value["organizationUnitId"])) && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]));
 }
 
 export function readHostApiKeyResponse(value: unknown): HostApiKeyResponse {
@@ -2602,7 +2616,7 @@ export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNum
 }
 
 function isPreviewSerialNumberRequest(value: unknown): value is PreviewSerialNumberRequest {
-  return isRecord(value) && (typeof value["atUtc"] === 'string') && (typeof value["pattern"] === 'string') && (isSerialNumberRuleScope(value["scope"])) && (typeof value["sequenceValue"] === 'number' && Number.isInteger(value["sequenceValue"])) && ((value["tenantIdentifier"] === null) || (typeof value["tenantIdentifier"] === 'string'));
+  return isRecord(value) && (typeof value["atUtc"] === 'string') && (typeof value["pattern"] === 'string') && (value["resetInterval"] === undefined || (isSerialNumberResetInterval(value["resetInterval"]))) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["sequenceValue"] === 'number' && Number.isInteger(value["sequenceValue"])) && ((value["tenantIdentifier"] === null) || (typeof value["tenantIdentifier"] === 'string'));
 }
 
 export function readProblemDetails(value: unknown): ProblemDetails {
@@ -2803,6 +2817,17 @@ function isSendHostInboxMessageRequest(value: unknown): value is SendHostInboxMe
   return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["recipientUserId"] === 'string' && guidPattern.test(value["recipientUserId"])) && (typeof value["title"] === 'string');
 }
 
+export function readSendRecipientEndpointVerificationResponse(value: unknown): SendRecipientEndpointVerificationResponse {
+  if (!(isSendRecipientEndpointVerificationResponse(value))) {
+    throw new Error('client.invalid_send_recipient_endpoint_verification_response');
+  }
+  return value;
+}
+
+function isSendRecipientEndpointVerificationResponse(value: unknown): value is SendRecipientEndpointVerificationResponse {
+  return isRecord(value) && (typeof value["expiresAtUtc"] === 'string') && (typeof value["resendAvailableAtUtc"] === 'string');
+}
+
 export function readSerialNumberPreviewResponse(value: unknown): SerialNumberPreviewResponse {
   if (!(isSerialNumberPreviewResponse(value))) {
     throw new Error('client.invalid_serial_number_preview_response');
@@ -2811,7 +2836,7 @@ export function readSerialNumberPreviewResponse(value: unknown): SerialNumberPre
 }
 
 function isSerialNumberPreviewResponse(value: unknown): value is SerialNumberPreviewResponse {
-  return isRecord(value) && (typeof value["value"] === 'string');
+  return isRecord(value) && (typeof value["resetBucket"] === 'string') && (typeof value["sequenceValue"] === 'number' && Number.isInteger(value["sequenceValue"])) && (typeof value["value"] === 'string');
 }
 
 export function readSerialNumberResetInterval(value: unknown): SerialNumberResetInterval {
@@ -3031,7 +3056,7 @@ export function readUpdateHostAnnouncementRequest(value: unknown): UpdateHostAnn
 }
 
 function isUpdateHostAnnouncementRequest(value: unknown): value is UpdateHostAnnouncementRequest {
-  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+  return isRecord(value) && (value["audienceKind"] === undefined || ((value["audienceKind"] === null) || (typeof value["audienceKind"] === 'string'))) && (typeof value["content"] === 'string') && (value["kind"] === undefined || ((value["kind"] === null) || (typeof value["kind"] === 'string'))) && (value["targetOrganizations"] === undefined || ((value["targetOrganizations"] === null) || (Array.isArray(value["targetOrganizations"]) && value["targetOrganizations"].every(item28 => isHostAnnouncementTargetOrganization(item28))))) && (value["targetUserIds"] === undefined || ((value["targetUserIds"] === null) || (Array.isArray(value["targetUserIds"]) && value["targetUserIds"].every(item22 => typeof item22 === 'string' && guidPattern.test(item22))))) && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readUpdateHostDocumentCategoryRequest(value: unknown): UpdateHostDocumentCategoryRequest {
@@ -3296,6 +3321,17 @@ export function readUpdateWorkflowFormDraftRequest(value: unknown): UpdateWorkfl
 
 function isUpdateWorkflowFormDraftRequest(value: unknown): value is UpdateWorkflowFormDraftRequest {
   return isRecord(value) && (isWorkflowFormSchema(value["draft"])) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
+}
+
+export function readVerifyRecipientEndpointCodeRequest(value: unknown): VerifyRecipientEndpointCodeRequest {
+  if (!(isVerifyRecipientEndpointCodeRequest(value))) {
+    throw new Error('client.invalid_verify_recipient_endpoint_code_request');
+  }
+  return value;
+}
+
+function isVerifyRecipientEndpointCodeRequest(value: unknown): value is VerifyRecipientEndpointCodeRequest {
+  return isRecord(value) && (typeof value["code"] === 'string');
 }
 
 export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionDraft {

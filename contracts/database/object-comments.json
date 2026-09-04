@@ -626,17 +626,39 @@
     "fn_notifications_announcement": {
       "comment": "通知公告表",
       "columns": {
+        "AudienceKind": "公告受众类型键",
         "Content": "内容",
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedByUserId": "创建人用户标识",
         "Id": "逻辑主键",
+        "Kind": "公告内容类型键",
         "PublishedAtUtc": "发布时间(UTC)",
+        "PublishedByUserId": "发布人用户标识",
+        "RetractedAtUtc": "撤回时间(UTC)",
+        "RetractedByUserId": "撤回人用户标识",
         "Status": "状态",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Title": "标题",
         "UpdatedAtUtc": "更新时间(UTC)",
         "UpdatedByUserId": "更新人用户标识",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_notifications_announcement_target_organization": {
+      "comment": "公告机构受众表",
+      "columns": {
+        "AnnouncementId": "公告标识",
+        "Id": "逻辑主键",
+        "OrganizationUnitId": "机构单元标识",
+        "TenantId": "机构所属租户标识"
+      }
+    },
+    "fn_notifications_announcement_target_user": {
+      "comment": "公告用户受众表",
+      "columns": {
+        "AnnouncementId": "公告标识",
+        "Id": "逻辑主键",
+        "UserId": "用户标识"
       }
     },
     "fn_notifications_binding": {
@@ -860,6 +882,21 @@
         "UpdatedAtUtc": "更新时间(UTC)",
         "UserId": "用户标识",
         "VerificationStatusKey": "端点验证状态键"
+      }
+    },
+    "fn_notifications_recipient_endpoint_challenge": {
+      "comment": "通知收件端点验证挑战表",
+      "columns": {
+        "AttemptCount": "尝试次数",
+        "CodeHash": "验证码摘要",
+        "ConsumedAtUtc": "消费时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "Id": "逻辑主键",
+        "MaxAttempts": "最大校验尝试次数",
+        "RecipientEndpointId": "收件端点标识",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UserId": "用户标识"
       }
     },
     "fn_notifications_template": {

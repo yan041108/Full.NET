@@ -745,8 +745,9 @@ function toProblem(
               </template>
             </el-table-column>
 
+            <!-- Element Plus 将表格插槽行推断为 DefaultRow；这里按数据源契约单层收窄为公告。 -->
             <el-table-column :label="t('hostAnnouncements.fieldAudience')" min-width="120">
-              <template #default="{ row }">{{ formatAudienceSummary(row) }}</template>
+              <template #default="{ row }">{{ formatAudienceSummary(row as HostAnnouncement) }}</template>
             </el-table-column>
 
             <el-table-column

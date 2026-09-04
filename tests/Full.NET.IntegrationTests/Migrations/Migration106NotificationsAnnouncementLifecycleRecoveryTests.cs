@@ -89,7 +89,7 @@ public sealed class Migration106NotificationsAnnouncementLifecycleRecoveryTests
             """
             DROP TABLE fn_notifications_announcement_target_organization;
             DROP TABLE fn_notifications_announcement_target_user;
-            DELETE FROM SchemaVersions
+            DELETE FROM schemaversions
             WHERE ScriptName LIKE '%106_NotificationsAnnouncementLifecycle.sql';
             """);
 

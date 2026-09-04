@@ -194,6 +194,7 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
   await clickMainNavLink(page, /用户管理/);
 
   const view = page.locator('.users-view');
+  const clientKind = testInfo.project.metadata.clientKind;
   await expect(view.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
   await expect(view.getByTestId('users-create-form')).toHaveCount(0);
   await expect(view.getByTestId('users-action-export')).toHaveCount(0);
