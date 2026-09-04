@@ -30,7 +30,12 @@ test('Host 管理员可从真实 API 加载租户列表', async ({ page }, testI
 
   await expect(tenantsView.getByRole('heading', { name: '租户管理', exact: true })).toBeVisible();
   await expect(tenantsView.getByText('Full.NET Local', { exact: true })).toBeVisible();
-  await expect(tenantsView.getByText(/local · localhost/u)).toBeVisible();
+  if (clientKind === 'vue') {
+    await expect(tenantsView.getByRole('cell', { name: /local Full\.NET Local/u })).toBeVisible();
+    await expect(tenantsView.getByRole('cell', { name: 'localhost', exact: true })).toBeVisible();
+  } else {
+    await expect(tenantsView.getByText(/local · localhost/u)).toBeVisible();
+  }
 });
 
 test('Host 管理员可为种子租户分配套餐', async ({ page, request }, testInfo) => {
@@ -51,9 +56,11 @@ test('Host 管理员可为种子租户分配套餐', async ({ page, request }, t
   const tenantsView = clientKind === 'layui'
     ? page.locator('[data-route-view="tenants"]')
     : page.locator('.tenants-view');
-  const tenantRow = tenantsView.locator('article').filter({
-    has: page.getByText('Full.NET Local', { exact: true })
-  });
+  const tenantRow = clientKind === 'vue'
+    ? tenantsView.locator('.el-table__row').filter({ hasText: 'Full.NET Local' })
+    : tenantsView.locator('article').filter({
+        has: page.getByText('Full.NET Local', { exact: true })
+      });
   await expect(tenantRow).toBeVisible();
 
   if (clientKind === 'vue') {
@@ -64,7 +71,8 @@ test('Host 管理员可为种子租户分配套餐', async ({ page, request }, t
       .selectOption(createdPackage.id);
   }
 
-  await expect(tenantRow.getByText(`套餐: ${packageName}`, { exact: true }))
+  const assignedPackageName = clientKind === 'vue' ? packageName : `套餐: ${packageName}`;
+  await expect(tenantRow.getByText(assignedPackageName, { exact: true }))
     .toBeVisible({ timeout: 15_000 });
 });
 

@@ -45,11 +45,11 @@ async function confirmLayerPrimary(page, clientKind, buttonName) {
 
 async function fillPromptInput(page, clientKind, value) {
   if (clientKind === 'vue') {
-    const prompt = page.locator('.el-message-box').last();
-    await expect(prompt.locator('input')).toBeVisible();
-    await prompt.locator('input').fill(value);
-    await prompt.locator('input').press('Enter');
-    await expect(prompt).toBeHidden();
+    const dialog = page.getByRole('dialog').last();
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('姓名', { exact: true }).fill(value);
+    await dialog.getByTestId('users-editor-submit').click();
+    await expect(dialog).toBeHidden();
   } else {
     const layer = page.locator('.layui-layer').last();
     await expect(layer.locator('.layui-layer-input')).toBeVisible();
@@ -86,10 +86,21 @@ test('Host 管理员可通过 UI 完成用户创建、更新、禁用与启用',
   const view = usersView(page, clientKind);
   await expect(view.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible();
 
-  await view.getByLabel('用户名', { exact: true }).fill(username);
-  await view.getByLabel('显示名称', { exact: true }).fill(displayName);
-  await view.getByLabel('初始密码', { exact: true }).fill(defaultPassword);
-  await view.getByRole('button', { name: '创建用户', exact: true }).click();
+  if (clientKind === 'vue') {
+    await view.getByTestId('users-action-create').click();
+    const dialog = page.getByRole('dialog').last();
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('用户名', { exact: true }).fill(username);
+    await dialog.getByLabel('姓名', { exact: true }).fill(displayName);
+    await dialog.getByLabel('初始密码', { exact: true }).fill(defaultPassword);
+    await dialog.getByTestId('users-editor-submit').click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+  } else {
+    await view.getByLabel('用户名', { exact: true }).fill(username);
+    await view.getByLabel('显示名称', { exact: true }).fill(displayName);
+    await view.getByLabel('初始密码', { exact: true }).fill(defaultPassword);
+    await view.getByRole('button', { name: '创建用户', exact: true }).click();
+  }
 
   const userRow = crudTableRow(view, clientKind, username);
   await expect(userRow).toBeVisible({ timeout: 15_000 });

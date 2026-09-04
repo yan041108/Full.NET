@@ -144,7 +144,8 @@ test('Vue 仅禁用权限用户只显示禁用按钮', async ({
     .filter({ hasText: '有效' })
     .filter({ hasNotText: '系统角色' })
     .first();
-  await expect(activeRow.getByTestId('roles-action-disable')).toBeVisible();
+  await activeRow.getByTestId('art-table-action-more').click();
+  await expect(page.locator('[data-testid="roles-action-disable"]:visible')).toBeVisible();
 });
 
 test('仅页面读权限调用相邻写 API 返回 authorization.permission_denied', async ({
