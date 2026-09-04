@@ -19,6 +19,26 @@ vi.mock('../api/inbox-messages', () => ({
   sendHostInboxMessage: vi.fn()
 }));
 
+vi.mock('../api/users', () => ({
+  listHostUsers: vi.fn().mockResolvedValue({
+    items: [
+      {
+        id: '01912345-6789-7abc-8def-0123456789ad',
+        username: 'alice',
+        displayName: 'Alice',
+        accountType: 'standard',
+        isActive: true,
+        createdAtUtc: '2026-07-26T00:00:00Z',
+        updatedAtUtc: null,
+        version: 1
+      }
+    ],
+    page: 1,
+    pageSize: 200,
+    total: 1
+  })
+}));
+
 vi.mock('../notifications/realtime', () => ({
   useNotificationsRealtime: () => ({
     inboxRevision: { value: 0 }
@@ -86,6 +106,7 @@ describe('Vue Host \u6d88\u606f\u4e2d\u5fc3\u9875', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="inbox-messages-send"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="inbox-messages-recipient"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="inbox-messages-mark-read"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="inbox-messages-mark-all-read"]').exists()).toBe(false);
   });

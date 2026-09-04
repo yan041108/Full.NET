@@ -51,6 +51,13 @@ public sealed record InboxMessageResponse(
 /// <param name="UnreadCount">当前状态为 Unread 的站内信条数，最小值为 0。</param>
 public sealed record InboxUnreadCountResponse(int UnreadCount);
 
+/// <summary>站内信列表查询过滤条件；空值表示不过滤。</summary>
+/// <param name="Title">标题包含匹配，服务端做 LIKE 模糊查询。</param>
+/// <param name="Status">读取状态稳定机器码，取值自 InboxMessageStatuses。</param>
+public sealed record InboxMessageListFilter(
+    string? Title = null,
+    string? Status = null);
+
 /// <summary>Host 管理员发送站内信的请求契约，收件人由管理员指定。</summary>
 /// <param name="RecipientUserId">接收者用户标识；必须属于当前租户或 Host 域。</param>
 /// <param name="Title">消息标题，建议不超过 256 字符。</param>

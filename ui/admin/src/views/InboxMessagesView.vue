@@ -5,19 +5,19 @@ import {
   ElCard,
   ElInput,
   ElMessage,
+  ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTag
 } from 'element-plus';
-import type { FullNetProblemDetails, InboxMessage } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, HostUser, InboxMessage } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
-import {
-  useArtClientPagination,
-  useArtCrudTableLayout
-} from '../framework/art-design/composables/useArtCrudTableLayout';
+import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -28,26 +28,33 @@ import {
   markInboxMessageRead,
   sendHostInboxMessage
 } from '../api/inbox-messages';
+import { listHostUsers } from '../api/users';
 import { useNotificationsRealtime } from '../notifications/realtime';
 
 defineOptions({ name: 'InboxMessagesView' });
 
 interface AppliedFilters {
   title: string;
+  status: '' | 'read' | 'unread';
 }
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
-const items = ref<InboxMessage[]>([]);
+const pagedItems = ref<InboxMessage[]>([]);
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
 const unreadCount = ref(0);
-const recipientUserId = ref('');
+const recipientUserIds = ref<string[]>([]);
 const title = ref('');
 const content = ref('');
+const hostUserOptions = ref<HostUser[]>([]);
+const hostUsersLoading = ref(false);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
-const appliedFilters = ref<AppliedFilters>({ title: '' });
+const appliedFilters = ref<AppliedFilters>({ title: '', status: '' });
 const canSend = computed(() => session.can('notifications.inbox.send'));
 const canMarkRead = computed(() => session.can('notifications.inbox.mark_read'));
 const canMarkAllRead = computed(() => session.can('notifications.inbox.mark_all_read'));
@@ -65,28 +72,35 @@ const {
   watchLoading
 } = useArtCrudTableLayout();
 
-const filteredItems = computed(() => {
-  const keyword = appliedFilters.value.title.trim().toLowerCase();
-  if (!keyword) {
-    return items.value;
-  }
-  return items.value.filter(item => item.title.toLowerCase().includes(keyword));
-});
-
-const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
-
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
     key: 'title',
     label: t('inboxMessages.fieldTitle'),
     placeholder: t('inboxMessages.searchTitlePlaceholder')
+  },
+  {
+    key: 'status',
+    label: t('inboxMessages.status'),
+    type: 'select',
+    placeholder: t('inboxMessages.searchStatusPlaceholder'),
+    options: [
+      { label: t('inboxMessages.statusUnread'), value: 'unread' },
+      { label: t('inboxMessages.statusRead'), value: 'read' }
+    ]
   }
 ]);
 
 watchLoading(loading);
 
+watch([page, pageSize], () => {
+  void load();
+});
+
 onMounted(() => {
   void load();
+  if (canSend.value) {
+    void ensureHostUserOptions();
+  }
 });
 
 watch(notificationsRealtime.inboxRevision, () => {
@@ -97,15 +111,39 @@ function rowIndex(index: number): number {
   return (page.value - 1) * pageSize.value + index + 1;
 }
 
+function hostUserLabel(user: HostUser): string {
+  return `${user.displayName} (${user.username})`;
+}
+
+async function ensureHostUserOptions(): Promise<void> {
+  if (hostUsersLoading.value || hostUserOptions.value.length > 0) {
+    return;
+  }
+  hostUsersLoading.value = true;
+  try {
+    const result = await listHostUsers(1, 200);
+    hostUserOptions.value = result.items.filter(user => user.isActive);
+  } finally {
+    hostUsersLoading.value = false;
+  }
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
+    const filters = appliedFilters.value;
     const [pageResult, unread] = await Promise.all([
-      listInboxMessages(),
+      listInboxMessages({
+        page: page.value,
+        pageSize: pageSize.value,
+        title: filters.title,
+        status: filters.status
+      }),
       getInboxUnreadCount()
     ]);
-    items.value = pageResult.items;
+    pagedItems.value = pageResult.items;
+    total.value = pageResult.total;
     unreadCount.value = unread.unreadCount;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
@@ -116,37 +154,59 @@ async function load(): Promise<void> {
 }
 
 function handleSearch(params: Record<string, string | undefined>): void {
-  appliedFilters.value = { title: params.title ?? '' };
-  resetPage();
+  appliedFilters.value = {
+    title: params.title ?? '',
+    status: (params.status as AppliedFilters['status']) ?? ''
+  };
+  page.value = 1;
+  void load();
 }
 
 function resetSearch(): void {
-  appliedFilters.value = { title: '' };
-  resetPage();
+  appliedFilters.value = { title: '', status: '' };
+  page.value = 1;
+  void load();
 }
 
 async function send(): Promise<void> {
+  const recipients = [...new Set(recipientUserIds.value)];
   if (
     changing.value
     || !canSend.value
-    || !recipientUserId.value.trim()
+    || recipients.length === 0
     || !title.value.trim()
     || !content.value.trim()
   ) {
     return;
   }
+
+  try {
+    await ElMessageBox.confirm(
+      t('inboxMessages.confirmSend', { count: recipients.length }),
+      t('inboxMessages.send'),
+      {
+        type: 'warning',
+        confirmButtonText: t('inboxMessages.send'),
+        cancelButtonText: t('users.cancel')
+      }
+    );
+  } catch {
+    return;
+  }
+
   changing.value = true;
   problem.value = undefined;
+  const normalizedTitle = title.value.trim();
+  const normalizedContent = content.value.trim();
   try {
-    await sendHostInboxMessage(
-      recipientUserId.value.trim(),
-      title.value.trim(),
-      content.value.trim()
-    );
-    recipientUserId.value = '';
+    for (const recipientUserId of recipients) {
+      await sendHostInboxMessage(recipientUserId, normalizedTitle, normalizedContent);
+    }
+    recipientUserIds.value = [];
     title.value = '';
     content.value = '';
     ElMessage.success(t('inboxMessages.sendSuccess'));
+    page.value = 1;
     await load();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'inboxMessages.operationFailed');
@@ -217,8 +277,25 @@ function toProblem(
       <el-card shadow="never" class="art-form-card" aria-labelledby="send-inbox-message-title">
         <div><h2 id="send-inbox-message-title">{{ t('inboxMessages.sendTitle') }}</h2></div>
         <label>
-          <span>{{ t('inboxMessages.recipientUserId') }}</span>
-          <el-input v-model="recipientUserId" data-testid="inbox-messages-recipient" />
+          <span>{{ t('inboxMessages.recipientUsers') }}</span>
+          <el-select
+            v-model="recipientUserIds"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :loading="hostUsersLoading"
+            :placeholder="t('inboxMessages.recipientUsersPlaceholder')"
+            data-testid="inbox-messages-recipient"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="user in hostUserOptions"
+              :key="user.id"
+              :label="hostUserLabel(user)"
+              :value="user.id"
+            />
+          </el-select>
         </label>
         <label>
           <span>{{ t('inboxMessages.fieldTitle') }}</span>
@@ -232,7 +309,7 @@ function toProblem(
           type="primary"
           data-testid="inbox-messages-send"
           :loading="changing"
-          :disabled="!recipientUserId.trim() || !title.trim() || !content.trim()"
+          :disabled="recipientUserIds.length === 0 || !title.trim() || !content.trim()"
           @click="send"
         >
           {{ t('inboxMessages.send') }}
@@ -243,8 +320,7 @@ function toProblem(
     <ArtSearchBar
       v-model="searchForm"
       :items="searchItems"
-      :default-visible-count="1"
-      :show-expand="false"
+      :default-visible-count="2"
       :search-label="t('inboxMessages.query')"
       :reset-label="t('inboxMessages.reset')"
       @search="handleSearch"
@@ -319,7 +395,7 @@ function toProblem(
                     size="small"
                     data-testid="inbox-messages-mark-read"
                     :disabled="changing"
-                  @click="markRead(row as InboxMessage)"
+                    @click="markRead(row as InboxMessage)"
                   >
                     {{ t('inboxMessages.markRead') }}
                   </el-button>

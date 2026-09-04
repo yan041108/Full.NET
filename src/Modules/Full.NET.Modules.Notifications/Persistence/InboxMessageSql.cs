@@ -78,12 +78,11 @@ internal static class InboxMessageSql
     public static readonly SqlStatement ListForRecipientSqlServer =
         new(
             "notifications.list_inbox_messages.sql_server",
-            """
+            $"""
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
                    ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
             FROM fn_notifications_inbox_message
-            WHERE RecipientUserId = @RecipientUserId
-              AND TenantScopeKey = @TenantScopeKey
+            WHERE {RecipientWhereClause}
             ORDER BY CreatedAtUtc DESC, Id
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """,
@@ -92,12 +91,11 @@ internal static class InboxMessageSql
     public static readonly SqlStatement ListForRecipientMySql =
         new(
             "notifications.list_inbox_messages.mysql",
-            """
+            $"""
             SELECT Id, TenantId, RecipientUserId, Title, Content, Status,
                    ReadAtUtc, CreatedAtUtc, CreatedByUserId, ScopeKey, TenantScopeKey, IntentId
             FROM fn_notifications_inbox_message
-            WHERE RecipientUserId = @RecipientUserId
-              AND TenantScopeKey = @TenantScopeKey
+            WHERE {RecipientWhereClause}
             ORDER BY CreatedAtUtc DESC, Id
             LIMIT @PageSize OFFSET @Offset
             """,
@@ -106,11 +104,10 @@ internal static class InboxMessageSql
     public static readonly SqlStatement CountForRecipient =
         new(
             "notifications.count_inbox_messages",
-            """
+            $"""
             SELECT COUNT(*)
             FROM fn_notifications_inbox_message
-            WHERE RecipientUserId = @RecipientUserId
-              AND TenantScopeKey = @TenantScopeKey
+            WHERE {RecipientWhereClause}
             """,
             SqlDataScope.Global);
 
@@ -178,4 +175,12 @@ internal static class InboxMessageSql
               AND Status = @UnreadStatus
             """,
             SqlDataScope.Global);
+
+    private const string RecipientWhereClause =
+        """
+        RecipientUserId = @RecipientUserId
+          AND TenantScopeKey = @TenantScopeKey
+          AND (@Title IS NULL OR Title LIKE @TitlePattern)
+          AND (@Status IS NULL OR Status = @Status)
+        """;
 }

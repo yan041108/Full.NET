@@ -24,27 +24,23 @@ internal sealed class MyInboxQueryService(
         Guid recipientUserId,
         int page,
         int pageSize,
+        InboxMessageListFilter? filter = null,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
         var scope = NotificationInboxScope.Resolve(currentTenant);
+        var parameters = BuildFilterParameters(scope.TenantScopeKey, recipientUserId, filter, offset, pageSize);
 
         var total = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 InboxMessageSql.CountForRecipient,
-                NotificationPlatformSqlParameters.Create(
-                    ("RecipientUserId", recipientUserId),
-                    ("TenantScopeKey", scope.TenantScopeKey)),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
         var rows = await queryExecutor.QueryAsync<InboxMessageRecord>(
                 ResolveListStatement(),
-                NotificationPlatformSqlParameters.Create(
-                    ("RecipientUserId", recipientUserId),
-                    ("TenantScopeKey", scope.TenantScopeKey),
-                    ("Offset", offset),
-                    ("PageSize", pageSize)),
+                parameters,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -95,4 +91,36 @@ internal sealed class MyInboxQueryService(
             _ => throw new InvalidOperationException(
                 $"Unsupported database provider '{databaseOptions.Value.Provider}'.")
         };
+
+    private static Dictionary<string, object?> BuildFilterParameters(
+        string tenantScopeKey,
+        Guid recipientUserId,
+        InboxMessageListFilter? filter,
+        int offset,
+        int pageSize)
+    {
+        var title = string.IsNullOrWhiteSpace(filter?.Title) ? null : filter.Title.Trim();
+        var status = NormalizeStatusFilter(filter?.Status);
+        return NotificationPlatformSqlParameters.Create(
+            ("RecipientUserId", recipientUserId),
+            ("TenantScopeKey", tenantScopeKey),
+            ("Offset", offset),
+            ("PageSize", pageSize),
+            ("Title", title),
+            ("TitlePattern", title is null ? null : $"%{title}%"),
+            ("Status", status));
+    }
+
+    internal static string? NormalizeStatusFilter(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        var normalized = status.Trim();
+        return normalized is InboxMessageStatuses.Read or InboxMessageStatuses.Unread
+            ? normalized
+            : null;
+    }
 }

@@ -26,6 +26,8 @@ internal static class Endpoint
         group.MapGet("/", async (
             int? page,
             int? pageSize,
+            string? title,
+            string? status,
             MyInboxQueryService queries,
             IApiResultMapper mapper,
             HttpContext httpContext,
@@ -40,6 +42,7 @@ internal static class Endpoint
                     userId,
                     page ?? 1,
                     pageSize ?? 20,
+                    new InboxMessageListFilter(title, status),
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
