@@ -32,6 +32,14 @@ public sealed class NotificationsModule : IFullNetModule
     /// <summary>匿名回执入口限流策略名；按连接 IP 分区。</summary>
     internal const string ProviderReceiptRateLimitPolicy = "notifications-provider-receipts";
 
+    /// <summary>收件端点验证码发送限流策略名。</summary>
+    internal const string RecipientEndpointVerificationSendRateLimitPolicy =
+        "notifications-recipient-endpoint-verification-send";
+
+    /// <summary>收件端点验证码校验限流策略名。</summary>
+    internal const string RecipientEndpointVerificationVerifyRateLimitPolicy =
+        "notifications-recipient-endpoint-verification-verify";
+
     public string Name => "Notifications";
 
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
@@ -72,6 +80,9 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ReceiveProviderReceipts.NotificationReceiptProcessor>();
         services.TryAddSingleton<Providers.INotificationProviderTypeCatalog, Providers.NotificationProviderTypeCatalog>();
         services.TryAddScoped<Features.ManageRecipientEndpoints.RecipientEndpointStore>();
+        services.TryAddScoped<Features.VerifyRecipientEndpoints.RecipientEndpointVerificationService>();
+        services.TryAddScoped<Features.VerifyRecipientEndpoints.IRecipientEndpointVerificationMailSender,
+            Features.VerifyRecipientEndpoints.SmtpRecipientEndpointVerificationMailSender>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -121,6 +132,7 @@ public sealed class NotificationsModule : IFullNetModule
         Features.ManageDeliveries.Endpoint.Map(endpoints);
         Features.ReceiveProviderReceipts.Endpoint.Map(endpoints);
         Features.ManageRecipientEndpoints.Endpoint.Map(endpoints);
+        Features.VerifyRecipientEndpoints.Endpoint.Map(endpoints);
     }
 
     private static void RegisterRealtimeHandlers(IServiceCollection services)

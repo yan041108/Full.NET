@@ -43,6 +43,26 @@ public static class NotificationsErrorCodes
     /// <summary>同一用户、渠道配置版本和端点类型已经登记。</summary>
     public const string RecipientEndpointConflict = "notifications.recipient_endpoint_conflict";
 
+    /// <summary>当前没有可校验的验证码挑战。</summary>
+    public const string RecipientEndpointVerificationChallengeMissing =
+        "notifications.recipient_endpoint_verification_challenge_missing";
+
+    /// <summary>验证码不正确。</summary>
+    public const string RecipientEndpointVerificationCodeInvalid =
+        "notifications.recipient_endpoint_verification_code_invalid";
+
+    /// <summary>验证码尝试次数已耗尽。</summary>
+    public const string RecipientEndpointVerificationAttemptsExhausted =
+        "notifications.recipient_endpoint_verification_attempts_exhausted";
+
+    /// <summary>验证码发送过于频繁。</summary>
+    public const string RecipientEndpointVerificationSendCooldown =
+        "notifications.recipient_endpoint_verification_send_cooldown";
+
+    /// <summary>验证码邮件未能成功发送。</summary>
+    public const string RecipientEndpointVerificationSendFailed =
+        "notifications.recipient_endpoint_verification_send_failed";
+
     /// <summary>政策求值后消息被抑制，不得创建外部 Delivery。</summary>
     public const string PolicySuppressed = "notifications.policy.suppressed";
 
@@ -172,6 +192,11 @@ public static class NotificationsErrorCodes
         RecipientEndpointValidationFailed,
         RecipientEndpointNotFound,
         RecipientEndpointConflict,
+        RecipientEndpointVerificationChallengeMissing,
+        RecipientEndpointVerificationCodeInvalid,
+        RecipientEndpointVerificationAttemptsExhausted,
+        RecipientEndpointVerificationSendCooldown,
+        RecipientEndpointVerificationSendFailed,
         PolicySuppressed,
         PolicyMarketingConsentRequired,
         RouteProfileUnavailable,

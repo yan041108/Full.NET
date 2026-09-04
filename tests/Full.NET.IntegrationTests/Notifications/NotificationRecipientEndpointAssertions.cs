@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Notifications.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Notifications;
 
@@ -125,6 +126,63 @@ internal static class NotificationRecipientEndpointAssertions
             missingDeleteRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, missingDeleteResponse.StatusCode);
+
+        await VerifyPendingToVerifiedFlowAsync(
+            hostClient,
+            hostToken,
+            hostProfile.LatestPublishedVersionId!.Value,
+            factory,
+            cancellationToken);
+    }
+
+    private static async Task VerifyPendingToVerifiedFlowAsync(
+        HttpClient client,
+        string token,
+        Guid profileVersionId,
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var rawAddress = $"verify-{Guid.NewGuid():N}@example.test";
+        using var createRequest = CreateEndpointRequest(token, profileVersionId, rawAddress);
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<RecipientEndpointResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+        Assert.AreEqual("pending", created.VerificationStatusKey);
+
+        var sender = factory.Services.GetRequiredService<CapturingRecipientEndpointVerificationMailSender>();
+        sender.Reset();
+
+        using var sendRequest = NotificationProfileBindingAssertions.CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-recipient-endpoints/{created.Id:D}/verification/send",
+            token,
+            new { });
+        using var sendResponse = await client.SendAsync(sendRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, sendResponse.StatusCode);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(sender.LastCode));
+
+        using var wrongVerifyRequest = NotificationProfileBindingAssertions.CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-recipient-endpoints/{created.Id:D}/verification/verify",
+            token,
+            new { code = "000000" });
+        using var wrongVerifyResponse = await client.SendAsync(wrongVerifyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, wrongVerifyResponse.StatusCode);
+
+        using var verifyRequest = NotificationProfileBindingAssertions.CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-recipient-endpoints/{created.Id:D}/verification/verify",
+            token,
+            new { code = sender.LastCode });
+        using var verifyResponse = await client.SendAsync(verifyRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, verifyResponse.StatusCode);
+        var verified = await verifyResponse.Content.ReadFromJsonAsync<RecipientEndpointResponse>(
+            cancellationToken);
+        Assert.IsNotNull(verified);
+        Assert.AreEqual("verified", verified.VerificationStatusKey);
+        Assert.AreEqual(created.Id, verified.Id);
     }
 
     /// <summary>

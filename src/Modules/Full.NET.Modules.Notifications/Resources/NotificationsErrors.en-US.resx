@@ -15,6 +15,11 @@
   <data name="notifications.recipient_endpoint_validation_failed" xml:space="preserve"><value>The recipient endpoint value or kind is invalid.</value></data>
   <data name="notifications.recipient_endpoint_not_found" xml:space="preserve"><value>The current user's recipient endpoint was not found.</value></data>
   <data name="notifications.recipient_endpoint_conflict" xml:space="preserve"><value>A recipient endpoint of this kind is already registered for the provider profile.</value></data>
+  <data name="notifications.recipient_endpoint_verification_challenge_missing" xml:space="preserve"><value>No active verification challenge was found.</value></data>
+  <data name="notifications.recipient_endpoint_verification_code_invalid" xml:space="preserve"><value>The verification code is invalid.</value></data>
+  <data name="notifications.recipient_endpoint_verification_attempts_exhausted" xml:space="preserve"><value>The verification attempts were exhausted.</value></data>
+  <data name="notifications.recipient_endpoint_verification_send_cooldown" xml:space="preserve"><value>A verification code was sent recently.</value></data>
+  <data name="notifications.recipient_endpoint_verification_send_failed" xml:space="preserve"><value>The verification email could not be sent.</value></data>
   <data name="notifications.policy.suppressed" xml:space="preserve"><value>Current preferences do not allow this notification.</value></data>
   <data name="notifications.policy.marketing_consent_required" xml:space="preserve"><value>Marketing notifications require explicit consent.</value></data>
   <data name="notifications.route.profile_unavailable" xml:space="preserve"><value>Exactly one available provider profile is required.</value></data>

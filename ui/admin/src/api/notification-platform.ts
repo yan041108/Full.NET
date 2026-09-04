@@ -43,7 +43,21 @@ import {
   type UpdateNotificationProviderProfileRequest,
   type UpdateNotificationTemplateRequest
 } from '@fullnet/client-contracts';
-import { http } from './http';
+import { http, request } from './http';
+
+export interface SendRecipientEndpointVerificationResponse {
+  expiresAtUtc: string;
+  resendAvailableAtUtc: string;
+}
+
+function isSendRecipientEndpointVerificationResponse(
+  value: unknown
+): value is SendRecipientEndpointVerificationResponse {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as SendRecipientEndpointVerificationResponse).expiresAtUtc === 'string'
+    && typeof (value as SendRecipientEndpointVerificationResponse).resendAvailableAtUtc === 'string';
+}
 
 /** 受控非密钥字段类型；未知 TypeKey 或密钥字段必须失败关闭，禁止退回自由 JSON 编辑。 */
 const allowedConfigTypes = new Set(['string', 'integer', 'boolean']);
@@ -180,6 +194,43 @@ export function deleteMyRecipientEndpoint(
   signal?: AbortSignal
 ): Promise<void> {
   return notificationsDeleteMyRecipientEndpoint(http, { endpointId }, signal);
+}
+
+/** 向待验证收件端点发送邮件验证码。 */
+export async function sendMyRecipientEndpointVerification(
+  endpointId: string,
+  signal?: AbortSignal
+): Promise<SendRecipientEndpointVerificationResponse> {
+  const value = await request<unknown>(
+    `/api/v1/notifications/my-recipient-endpoints/${endpointId}/verification/send`,
+    { method: 'POST', body: {} },
+    signal
+  );
+  if (!isSendRecipientEndpointVerificationResponse(value)) {
+    throw new Error('client.invalid_recipient_endpoint_verification_send');
+  }
+  return value;
+}
+
+/** 校验验证码并在成功时自动升级端点为 verified。 */
+export async function verifyMyRecipientEndpoint(
+  endpointId: string,
+  code: string,
+  signal?: AbortSignal
+): Promise<RecipientEndpointResponse> {
+  const value = await request<unknown>(
+    `/api/v1/notifications/my-recipient-endpoints/${endpointId}/verification/verify`,
+    { method: 'POST', body: { code } },
+    signal
+  );
+  if (
+    typeof value !== 'object'
+    || value === null
+    || typeof (value as RecipientEndpointResponse).verificationStatusKey !== 'string'
+  ) {
+    throw new Error('client.invalid_recipient_endpoint_verification_verify');
+  }
+  return value as RecipientEndpointResponse;
 }
 
 /** 分页查询通知绑定列表。 */

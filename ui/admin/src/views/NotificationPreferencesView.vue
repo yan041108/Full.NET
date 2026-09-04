@@ -20,7 +20,9 @@ import {
   createMyRecipientEndpoint,
   deleteMyRecipientEndpoint,
   listMyRecipientEndpoints,
-  listNotificationProviderProfiles
+  listNotificationProviderProfiles,
+  sendMyRecipientEndpointVerification,
+  verifyMyRecipientEndpoint
 } from '../api/notification-platform';
 
 defineOptions({ name: 'NotificationPreferencesView' });
@@ -36,6 +38,9 @@ const loading = ref(false);
 const saving = ref(false);
 const deletingId = ref<string>();
 const pendingDeleteId = ref<string>();
+const verificationCodes = ref<Record<string, string>>({});
+const verifyingId = ref<string>();
+const sendingId = ref<string>();
 const errorMessage = ref<string>();
 const canUpdate = computed(() => session.can('notifications.preferences.update'));
 const availableProfiles = computed(() => profiles.value.filter(profile =>
@@ -117,6 +122,43 @@ async function removeEndpoint(endpointId: string): Promise<void> {
   }
 }
 
+async function sendVerification(endpointId: string): Promise<void> {
+  if (sendingId.value || !canUpdate.value) {
+    return;
+  }
+  sendingId.value = endpointId;
+  errorMessage.value = undefined;
+  try {
+    await sendMyRecipientEndpointVerification(endpointId);
+    ElMessage.success(t('notificationPreferences.sendCodeSuccess'));
+  } catch {
+    errorMessage.value = t('notificationPreferences.operationFailed');
+  } finally {
+    sendingId.value = undefined;
+  }
+}
+
+async function verifyEndpoint(endpointId: string): Promise<void> {
+  const code = verificationCodes.value[endpointId]?.trim() ?? '';
+  if (!code || verifyingId.value || !canUpdate.value) {
+    return;
+  }
+  verifyingId.value = endpointId;
+  errorMessage.value = undefined;
+  try {
+    const verified = await verifyMyRecipientEndpoint(endpointId, code);
+    endpoints.value = endpoints.value.map(item =>
+      item.id === endpointId ? verified : item
+    );
+    verificationCodes.value[endpointId] = '';
+    ElMessage.success(t('notificationPreferences.verifySuccess'));
+  } catch {
+    errorMessage.value = t('notificationPreferences.operationFailed');
+  } finally {
+    verifyingId.value = undefined;
+  }
+}
+
 /** 将服务端稳定状态键映射为本地化文案，未知值保持可识别而不显示成功色。 */
 function statusText(status: string): string {
   switch (status) {
@@ -171,6 +213,12 @@ function profileLabel(profileVersionId: string): string {
       <ElAlert
         type="warning"
         :title="t('notificationPreferences.pendingWarning')"
+        :closable="false"
+        show-icon
+      />
+      <ElAlert
+        type="info"
+        :title="t('notificationPreferences.externalAuthNotice')"
         :closable="false"
         show-icon
       />
@@ -232,6 +280,33 @@ function profileLabel(profileVersionId: string): string {
             <ElTag :type="endpoint.verificationStatusKey === 'verified' ? 'success' : 'warning'">
               {{ statusText(endpoint.verificationStatusKey) }}
             </ElTag>
+            <div
+              v-if="canUpdate && endpoint.verificationStatusKey === 'pending'"
+              class="recipient-endpoint-verify"
+            >
+              <ElInput
+                v-model="verificationCodes[endpoint.id]"
+                data-testid="notification-preferences-code"
+                maxlength="6"
+                inputmode="numeric"
+                :placeholder="t('notificationPreferences.codePlaceholder')"
+              />
+              <ElButton
+                :loading="sendingId === endpoint.id"
+                data-testid="notification-preferences-send-code"
+                @click="sendVerification(endpoint.id)"
+              >
+                {{ t('notificationPreferences.sendCode') }}
+              </ElButton>
+              <ElButton
+                type="primary"
+                :loading="verifyingId === endpoint.id"
+                data-testid="notification-preferences-verify"
+                @click="verifyEndpoint(endpoint.id)"
+              >
+                {{ t('notificationPreferences.verifyCode') }}
+              </ElButton>
+            </div>
             <ElButton
               v-if="canUpdate"
               text
@@ -267,6 +342,17 @@ function profileLabel(profileVersionId: string): string {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.recipient-endpoint-verify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipient-endpoint-verify .el-input {
+  width: 140px;
 }
 
 .art-section-heading,

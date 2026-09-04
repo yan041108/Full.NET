@@ -7,14 +7,18 @@ import {
   createMyRecipientEndpoint,
   deleteMyRecipientEndpoint,
   listMyRecipientEndpoints,
-  listNotificationProviderProfiles
+  listNotificationProviderProfiles,
+  sendMyRecipientEndpointVerification,
+  verifyMyRecipientEndpoint
 } from '../api/notification-platform';
 
 vi.mock('../api/notification-platform', () => ({
   createMyRecipientEndpoint: vi.fn(),
   deleteMyRecipientEndpoint: vi.fn(),
   listMyRecipientEndpoints: vi.fn(),
-  listNotificationProviderProfiles: vi.fn()
+  listNotificationProviderProfiles: vi.fn(),
+  sendMyRecipientEndpointVerification: vi.fn(),
+  verifyMyRecipientEndpoint: vi.fn()
 }));
 
 const profile = {
@@ -125,5 +129,29 @@ describe('Vue 通知偏好页', () => {
 
     expect(wrapper.find('[data-testid="notification-preferences-no-profile"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="notification-preferences-save"]').exists()).toBe(false);
+  });
+
+  it('待验证端点可发送并校验验证码', async () => {
+    vi.mocked(sendMyRecipientEndpointVerification).mockResolvedValue({
+      expiresAtUtc: '2026-09-01T00:15:00Z',
+      resendAvailableAtUtc: '2026-09-01T00:01:00Z'
+    });
+    vi.mocked(verifyMyRecipientEndpoint).mockResolvedValue({
+      ...endpoint,
+      verificationStatusKey: 'verified'
+    });
+    const wrapper = mountView([
+      'notifications.preferences.read',
+      'notifications.preferences.update'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-preferences-send-code"]').trigger('click');
+    await flushPromises();
+    expect(sendMyRecipientEndpointVerification).toHaveBeenCalledWith(endpoint.id);
+    await wrapper.get('[data-testid="notification-preferences-code"]').setValue('123456');
+    await wrapper.get('[data-testid="notification-preferences-verify"]').trigger('click');
+    await flushPromises();
+    expect(verifyMyRecipientEndpoint).toHaveBeenCalledWith(endpoint.id, '123456');
+    expect(wrapper.text()).toContain('已验证');
   });
 });

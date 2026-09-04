@@ -11,6 +11,7 @@ using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Modules.Notifications.Features.VerifyRecipientEndpoints;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -36,6 +37,10 @@ internal static class NotificationProfileBindingAssertions
             ServiceDescriptor.Singleton<INotificationReceiptVerifier, TestNotificationReceiptVerifier>());
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<INotificationReceiptVerifier, AlternateTestNotificationReceiptVerifier>());
+        services.RemoveAll<IRecipientEndpointVerificationMailSender>();
+        services.AddSingleton<CapturingRecipientEndpointVerificationMailSender>();
+        services.AddSingleton<IRecipientEndpointVerificationMailSender>(provider =>
+            provider.GetRequiredService<CapturingRecipientEndpointVerificationMailSender>());
     }
 
     public static async Task VerifyAsync(

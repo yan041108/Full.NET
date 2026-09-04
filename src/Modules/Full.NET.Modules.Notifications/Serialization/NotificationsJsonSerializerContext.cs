@@ -27,6 +27,8 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(CreateMyRecipientEndpointRequest))]
 [JsonSerializable(typeof(RecipientEndpointResponse))]
 [JsonSerializable(typeof(IReadOnlyList<RecipientEndpointResponse>))]
+[JsonSerializable(typeof(SendRecipientEndpointVerificationResponse))]
+[JsonSerializable(typeof(VerifyRecipientEndpointCodeRequest))]
 [JsonSerializable(typeof(NotificationTemplateResponse))]
 [JsonSerializable(typeof(PagedResult<NotificationTemplateResponse>))]
 [JsonSerializable(typeof(CreateNotificationTemplateRequest))]

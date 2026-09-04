@@ -101,3 +101,14 @@ public sealed record RecipientEndpointResponse(
     string MaskedValue,
     string VerificationStatusKey,
     DateTimeOffset CreatedAtUtc);
+
+/// <summary>发送收件端点验证码后的响应；不包含验证码原文。</summary>
+/// <param name="ExpiresAtUtc">当前挑战过期时间。</param>
+/// <param name="ResendAvailableAtUtc">允许再次发送的最早时间。</param>
+public sealed record SendRecipientEndpointVerificationResponse(
+    DateTimeOffset ExpiresAtUtc,
+    DateTimeOffset ResendAvailableAtUtc);
+
+/// <summary>校验收件端点验证码的请求。</summary>
+/// <param name="Code">六位数字验证码。</param>
+public sealed record VerifyRecipientEndpointCodeRequest(string Code);
