@@ -36,6 +36,10 @@ export function createVForm3Widget(
   fieldTypeKey?: string
 ): VForm3Widget {
   const suffix = idFactory();
+  // 服务端发布编译要求小数与金额显式声明精度；新字段采用常用的两位精度，避免生成无法发布的草稿。
+  const publishableNumericDefaults = fieldTypeKey === 'decimal' || fieldTypeKey === 'money'
+    ? { precision: 2 }
+    : {};
   return {
     id: `fn-${suffix}`,
     type,
@@ -44,6 +48,7 @@ export function createVForm3Widget(
       label: `${type}_${suffix}`,
       required: false,
       fullNetSectionKey: 'main',
+      ...publishableNumericDefaults,
       ...(fieldTypeKey === undefined ? {} : { fullNetFieldType: fieldTypeKey })
     }
   };

@@ -3622,7 +3622,7 @@ test('工作流表单编辑器加载草稿后显示 VForm3 字段', async ({ pag
         fieldKey: 'amount_e2e',
         fieldTypeKey: 'money',
         required: true,
-        constraints: {}
+        constraints: { scale: 2 }
       }]
     }]
   };
@@ -3690,7 +3690,8 @@ test('工作流表单编辑器加载草稿后显示 VForm3 字段', async ({ pag
   expect(savedDraftRequest.draft.sections[0].fields[0]).toMatchObject({
     fieldKey: 'amount_e2e',
     fieldTypeKey: 'money',
-    required: false
+    required: false,
+    constraints: { scale: 2 }
   });
   await expect(view.getByRole('dialog').getByText('Revision 3', { exact: true })).toBeVisible();
 });

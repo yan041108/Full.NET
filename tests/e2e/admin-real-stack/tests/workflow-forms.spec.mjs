@@ -72,7 +72,7 @@ test('管理员可在严格 CSP 下通过 VForm3 完成表单草稿回读、保�
               fieldKey,
               fieldTypeKey: 'money',
               required: true,
-              constraints: {}
+              constraints: { scale: 2 }
             }]
           }]
         }

@@ -59,16 +59,20 @@ describe('VForm3 ESM 安全设计器', () => {
     expect(designer.getFormJson().widgetList[0]?.type).toBe('number');
   });
 
-  it('为整数、金额和日期时间新增路径写入明确的 Workflow 语义类型', async () => {
+  it('为整数、小数、金额和日期时间新增路径写入可发布的 Workflow 语义', async () => {
     const wrapper = mount(VForm3EsmDesigner);
     await wrapper.get('[data-testid="vform3-add-integer"]').trigger('click');
+    await wrapper.get('[data-testid="vform3-add-number"]').trigger('click');
     await wrapper.get('[data-testid="vform3-add-money"]').trigger('click');
     await wrapper.get('[data-testid="vform3-add-datetime"]').trigger('click');
 
     const designer = wrapper.vm as unknown as { getFormJson: () => {
       widgetList: Array<{ options: Record<string, unknown> }>;
     } };
-    expect(designer.getFormJson().widgetList.map(widget => widget.options.fullNetFieldType))
-      .toEqual(['integer', 'money', 'datetime']);
+    const widgets = designer.getFormJson().widgetList;
+    expect(widgets.map(widget => widget.options.fullNetFieldType))
+      .toEqual(['integer', 'decimal', 'money', 'datetime']);
+    expect(widgets[1]?.options.precision).toBe(2);
+    expect(widgets[2]?.options.precision).toBe(2);
   });
 });
