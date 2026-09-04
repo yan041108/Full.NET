@@ -47,7 +47,7 @@
 
 2026-08-30 增量复核确认：Admin.NET.Pro 新增的登录失败锁定与健康检查已被 Full.NET 覆盖；缓存和机构权限变化由 Full.NET 自有边界承接。新识别缺口为 Identity 用户资料服务端权威校验、Observability Admin 受控日志文件查看，以及 Notifications 有真实消费者后采用的强类型扩展元数据。依赖升级、Furion/EF Core/SqlSugar 修复和第二套前端维护不改变功能状态。
 
-同日刷新参考仓库至 `09d38bd8` 后又审计 31 个提交：新增明确缺口为 Identity 用户 Excel 模板/文件导入体验和 MCP 安全/AOT 设计；Workflow 已按批准的自有内核与不可变版本边界交付首批线性审批、双端运行时、原生表单设计器、Host/Tenant 权限并发表单安全矩阵及双库 Native AOT 证据，状态为 `Build-verified`。业务完成通知、可执行抄送/排他网关、Worker 恢复和生产容量仍开放。日志流式读取进一步确认 Observability Admin 缺口，但参考实现的路径拼接与本机 HTTP 回环均不得直接吸收。
+同日刷新参考仓库至 `09d38bd8` 后又审计 31 个提交：新增明确缺口为 Identity 用户 Excel 模板/文件导入体验和 MCP 安全/AOT 设计；Workflow 已按批准的自有内核与不可变版本边界交付首批线性审批、首个可执行 `notify.cc`、双端运行时、原生表单设计器、Host/Tenant 权限并发表单安全矩阵及双库 Native AOT 证据，状态为 `Build-verified`。业务完成通知、Tenant 本地收件人候选、可执行排他网关、Worker 恢复和生产容量仍开放。日志流式读取进一步确认 Observability Admin 缺口，但参考实现的路径拼接与本机 HTTP 回环均不得直接吸收。
 
 ## 2. README 内置功能基线
 
@@ -132,7 +132,7 @@
 | `Admin.NET.Plugin.K3Cloud` | 金蝶云星空接口集成 | K3Cloud | Provider + Sample | Mapped |
 | `Admin.NET.Plugin.PaddleOCR` | OCR 识别 | OCR | Provider | Mapped |
 | `Admin.NET.Plugin.ReZero` | 线上建表、动态接口、授权和超级 API | DynamicApi | Compatibility + Official Module | Mapped |
-| `Admin.NET.Plugin.WorkFlow` | 流程设计、发布、实例、审批、待办、抄送和业务联动 | Workflow | Official Module | **Build-verified**（已交付定义/表单 Draft→Publish、不可变版本、原生表单设计器、Workflow-Vue3 适配、Vue 与 uni-app/H5 运行时、多级线性审批/驳回，以及 SQL Server/MySQL Host/Tenant 管理端权限/并发/表单安全矩阵和 Native AOT 外部进程证据；`notify.cc`、`gateway.exclusive`、Worker 恢复与完整业务联动仍未关闭，见[核心计划](../superpowers/plans/2026-08-20-workflow-first-vertical-slice.md)、[首切片收口](../verification/2026-08-31-workflow-first-slice-closeout.md)、[管理端验证](../verification/2026-08-30-workflow-admin-approval-real-stack.md)与[AOT 验证](../verification/2026-08-30-workflow-native-aot.md)） |
+| `Admin.NET.Plugin.WorkFlow` | 流程设计、发布、实例、审批、待办、抄送和业务联动 | Workflow | Official Module | **Build-verified**（已交付定义/表单 Draft→Publish、不可变版本、原生表单设计器、Workflow-Vue3 适配、Vue 与 uni-app/H5 运行时、多级线性审批/驳回，以及首个 `notify.cc` 编译、执行、去重、本人查询/已读闭环；SQL Server/MySQL、管理端权限/并发/表单安全和 Native AOT 外部进程均有证据。Tenant 本地候选、`gateway.exclusive`、Worker 恢复与完整业务联动仍未关闭，见[`notify.cc` 验证](../verification/2026-09-04-workflow-notify-cc-verification.md)、[首切片收口](../verification/2026-08-31-workflow-first-slice-closeout.md)与[AOT 验证](../verification/2026-08-30-workflow-native-aot.md)） |
 | `Admin.NET.Plugin.WorkWeixin` | 企业微信接口集成 | WorkWeixin | Provider | Mapped |
 
 插件的详细功能必须在各自实施前建立独立设计规格。核心模块不得为了插件反向增加业务耦合。

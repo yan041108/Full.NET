@@ -55,4 +55,4 @@
 | Contracts / i18n / uni-app | 163/163、8/8、135/135 通过 |
 | `pnpm audit:clients` | 无未审查 Critical/High；保留既有 Vite 审查例外 |
 
-管理端全量套件在本机执行为 608/610 通过，两个无关用例命中各自 5 秒超时；对应两个文件隔离复跑为 27/27 通过，未修改无关实现或放宽超时。GitHub Actions 结果在合并候选提交后补充；SQL Server/MySQL 真实栈、Linux Native AOT 等环境重型验证以目标提交的 Actions 新鲜结果为准。
+管理端全量套件在本机执行为 608/610 通过，两个无关用例命中各自 5 秒超时；对应两个文件隔离复跑为 27/27 通过，未修改无关实现或放宽超时。目标提交 `9d465a27` 的 API/Worker Native AOT runs [`33880651936`](https://github.com/yan041108/Full.NET/actions/runs/33880651936) / [`33880652046`](https://github.com/yan041108/Full.NET/actions/runs/33880652046) 成功；CI run [`33880652055`](https://github.com/yan041108/Full.NET/actions/runs/33880652055) 的客户端门禁和 Workflow 表单目标真实栈通过，整条 run 因无关宽泛真实栈失败为 failure，因此没有将其误记为全绿。

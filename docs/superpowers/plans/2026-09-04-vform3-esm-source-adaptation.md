@@ -78,7 +78,7 @@
 - [x] 运行选择器命中的本地静态检查、治理测试、单测、管理端构建和目标 Playwright 回归。
 - [x] 运行 `git diff --check`、`git status --short`，审查只包含本任务影响集。
 - [x] 更新验证记录，明确本地命令、新旧包体、已移除风险和仍保留的自定义许可证约束。
-- [ ] 提交并推送后检查目标提交的 GitHub Actions；SQL Server/MySQL、真实浏览器与 Native AOT 等环境重型验证以 Actions 新鲜结果为准，失败则继续定位修复。
+- [x] 提交并推送后检查目标提交的 GitHub Actions：`9d465a27` 的 API/Worker Native AOT runs `33880651936` / `33880652046` 成功；CI run `33880652055` 的客户端和目标 Workflow 表单真实栈通过，宽泛真实栈仍有与本适配无关的既有失败，未把整条 run 误记为 success。
 
 ### 回退边界
 
