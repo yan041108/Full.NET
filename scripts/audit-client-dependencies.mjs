@@ -110,14 +110,14 @@ export function evaluateAuditReport(report, policy, now = new Date()) {
 }
 
 /**
- * 从 npm 审计命令收集可信报告，并仅对明确的上游传输错误执行一次有限重试。
+ * 从 npm 审计命令收集可信报告，并仅对明确的上游传输错误执行有限重试。
  *
  * @param {() => { error?: Error, status: number | null, stdout: string, stderr: string }} runAudit 执行一次审计命令的回调。
  * @param {{ maxAttempts?: number, waitBeforeRetry?: () => Promise<void>, onRetry?: (message: string) => void }} options 重试次数、等待与诊断回调。
  * @returns {Promise<object>} 可交给安全策略评估器的审计报告。
  */
 export async function collectAuditReport(runAudit, options = {}) {
-  const maxAttempts = options.maxAttempts ?? 2;
+  const maxAttempts = options.maxAttempts ?? 3;
   const waitBeforeRetry = options.waitBeforeRetry ?? (() => new Promise(resolve => setTimeout(resolve, 5_000)));
   const onRetry = options.onRetry ?? (() => {});
 
@@ -138,7 +138,7 @@ export async function collectAuditReport(runAudit, options = {}) {
     if (retryableAuditErrorCodes.has(auditErrorCode)) {
       const detail = report.error.message ?? auditErrorCode;
       if (attempt < maxAttempts) {
-        onRetry(`pnpm audit transport failed (${detail}); retrying once.`);
+        onRetry(`pnpm audit transport failed (${detail}); retrying attempt ${attempt + 1} of ${maxAttempts}.`);
         await waitBeforeRetry();
         continue;
       }

@@ -127,7 +127,7 @@ if (typeof evaluateAuditReport === 'function') {
     );
   });
 
-  test('retries one npm audit transport timeout and still fails closed after the limit', async () => {
+  test('retries two npm audit transport timeouts and still fails closed after the limit', async () => {
     const timeoutResult = {
       status: 1,
       stdout: JSON.stringify({
@@ -145,10 +145,10 @@ if (typeof evaluateAuditReport === 'function') {
     };
     let attempts = 0;
     const report = await collectAuditReport(
-      () => (++attempts === 1 ? timeoutResult : validResult),
+      () => (++attempts < 3 ? timeoutResult : validResult),
       { waitBeforeRetry: async () => {} }
     );
-    assert.equal(attempts, 2);
+    assert.equal(attempts, 3);
     assert.deepEqual(report, createReport([]));
 
     attempts = 0;
@@ -160,8 +160,8 @@ if (typeof evaluateAuditReport === 'function') {
         },
         { waitBeforeRetry: async () => {} }
       ),
-      /transport failed after 2 attempts/u
+      /transport failed after 3 attempts/u
     );
-    assert.equal(attempts, 2);
+    assert.equal(attempts, 3);
   });
 }
