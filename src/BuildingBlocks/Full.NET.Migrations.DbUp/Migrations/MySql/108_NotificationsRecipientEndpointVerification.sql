@@ -15,5 +15,17 @@ CREATE TABLE IF NOT EXISTS fn_notifications_recipient_endpoint_challenge (
         FOREIGN KEY (RecipientEndpointId) REFERENCES fn_notifications_recipient_endpoint(Id)
 ) COMMENT='收件端点验证码挑战表' ENGINE=InnoDB;
 
-CREATE INDEX IF NOT EXISTS IX_fn_notifications_endpoint_challenge_Endpoint_Active
-    ON fn_notifications_recipient_endpoint_challenge(RecipientEndpointId, ConsumedAtUtc, ExpiresAtUtc);
+SET @hasEndpointChallengeActiveIndex := (
+    SELECT COUNT(1)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_notifications_recipient_endpoint_challenge'
+      AND INDEX_NAME = 'IX_fn_notifications_endpoint_challenge_Endpoint_Active');
+
+SET @addEndpointChallengeActiveIndex := IF(
+    @hasEndpointChallengeActiveIndex = 0,
+    'CREATE INDEX IX_fn_notifications_endpoint_challenge_Endpoint_Active ON fn_notifications_recipient_endpoint_challenge(RecipientEndpointId, ConsumedAtUtc, ExpiresAtUtc)',
+    'SELECT 1');
+PREPARE stmt FROM @addEndpointChallengeActiveIndex;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
