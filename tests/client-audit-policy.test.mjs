@@ -23,6 +23,7 @@ assert.equal(
 );
 
 const evaluateAuditReport = auditModule.evaluateAuditReport;
+const collectAuditReport = auditModule.collectAuditReport;
 
 function createAdvisory({
   ghsa = 'GHSA-fx2h-pf6j-xcff',
@@ -124,5 +125,43 @@ if (typeof evaluateAuditReport === 'function') {
       () => evaluateAuditReport(createReport([advisory]), policy),
       /does not expose non-empty findings paths/u
     );
+  });
+
+  test('retries one npm audit transport timeout and still fails closed after the limit', async () => {
+    const timeoutResult = {
+      status: 1,
+      stdout: JSON.stringify({
+        error: {
+          code: 'ERR_SOCKET_TIMEOUT',
+          message: 'registry socket timeout'
+        }
+      }),
+      stderr: ''
+    };
+    const validResult = {
+      status: 0,
+      stdout: JSON.stringify(createReport([])),
+      stderr: ''
+    };
+    let attempts = 0;
+    const report = await collectAuditReport(
+      () => (++attempts === 1 ? timeoutResult : validResult),
+      { waitBeforeRetry: async () => {} }
+    );
+    assert.equal(attempts, 2);
+    assert.deepEqual(report, createReport([]));
+
+    attempts = 0;
+    await assert.rejects(
+      collectAuditReport(
+        () => {
+          attempts += 1;
+          return timeoutResult;
+        },
+        { waitBeforeRetry: async () => {} }
+      ),
+      /transport failed after 2 attempts/u
+    );
+    assert.equal(attempts, 2);
   });
 }
