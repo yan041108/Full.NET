@@ -13,6 +13,7 @@
 
 1. `ui/admin` 是 Full.NET 后台管理产品唯一持续交付线。所有新增后台页面、业务按钮、交互、可视化、富文本和模块接入必须在 Vue 3 + TypeScript 管理端实现。
 2. 新后台能力只有在服务端、共享客户端契约、Vue 权限/租户/错误处理、关键业务流程、可访问性和对应真实栈 E2E 全部通过后，才可标记 `Verified`；计划、接口、Vue 静态页面或局部构建通过最多标记为 `Implemented`/`Build-verified`。
+   功能建设期允许将页面级真实栈 E2E 和需要项目所有者参与的交互/视觉调整延后到逐页验收阶段，但必须如实保持为 `Implemented`/`Build-verified`，不得跳过最终验收直接升级状态。
 3. 禁止把 Layui 页面、适配器、测试或 E2E 列为新增功能的完成条件，也禁止为追求历史双端对等延迟 Vue 主线。
 4. 动态导航、页面和按钮可见性只负责体验，管理 Endpoint 仍必须执行服务端权限策略；未知导航、权限或操作标识必须失败关闭（见 [`development-quality.md`](development-quality.md) R-20260717-client-navigation-boundary 与 R-20260802-admin-action-authorization）。
 5. 与 API 跨 Origin 且携带凭据的 Vue 管理端必须验证精确 CORS 与认证写 Endpoint 限流（见 [`development-quality.md`](development-quality.md) R-20260717-credentialed-cors）。

@@ -335,11 +335,21 @@
 
 - 状态：强制
 - 来源：项目所有者明确要求后续测试尽可能使用 GitHub Actions，并授权更新项目规则
-- 适用范围：所有代码、SQL、配置、脚本和发布候选验证；不改变测试矩阵、双库、Native AOT、真实栈或最低发现数门槛
+- 适用范围：所有代码、SQL、配置、脚本和发布候选验证；不改变双库、Native AOT、最低发现数和发布候选门槛，功能建设期的页面验收节奏由 R-20260905-feature-first-page-acceptance 规定
 - 风险：在开发机重复启动 Docker、双数据库、Kafka/CDC、完整浏览器和 Linux Native AOT 会显著拖慢反馈并产生环境差异；反向地，只推送而不核对目标提交工作流又会把“已触发”误报为“已验证”
-- 规则：本地默认执行影响集规划、编译、静态检查、治理测试以及不依赖容器的直接 Unit/Architecture/Contract 测试。取得提交与推送授权后，Docker/Testcontainers、SQL Server/MySQL 双库 Integration、Kafka/CDC/Capacity、真实浏览器、Linux Native AOT publish/原生进程等环境重型验证必须优先交给 GitHub Actions；代理必须按精确 commit SHA 核对所有必需工作流，等待终态并修复失败，不能引用其他提交、被取消运行或仅“已触发”的状态作为完成证据。本地环境重型测试只用于定位 CI 失败、GitHub Actions 不可用时的受影响测试补偿，或用户明确要求；仍禁止本地完整 Integration、完整真实浏览器或 `messaging-heavy` 全量。远端执行不得降低发现数、删减双库、忽略退出码、把失败改成跳过，或通过 `continue-on-error` 绕过门禁
+- 规则：本地默认执行影响集规划、编译、静态检查、治理测试以及不依赖容器的直接 Unit/Architecture/Contract 测试。取得提交与推送授权后，Docker/Testcontainers、SQL Server/MySQL 双库 Integration、Kafka/CDC/Capacity、真实浏览器、Linux Native AOT publish/原生进程等环境重型验证必须优先交给 GitHub Actions。发布候选、`Verified` 关闭或用户指定的门禁必须按精确 commit SHA 核对所有必需工作流、等待终态并修复失败；功能建设期可以记录正在运行或仅页面验收失败的 Actions 后继续下一个功能切片，但不得将其作为通过证据，也不得延后安全、租户、数据、公共契约、双库或非页面回归。本地环境重型测试只用于定位 CI 失败、GitHub Actions 不可用时的受影响测试补偿，或用户明确要求；仍禁止本地完整 Integration、完整真实浏览器或 `messaging-heavy` 全量。远端执行不得降低发现数、删减双库、忽略退出码、把失败改成跳过，或通过 `continue-on-error` 绕过门禁
 - 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定 GitHub Actions 优先、目标提交核验和本地环境重型测试例外；`pnpm test:governance` 必须通过。代码任务交付记录必须列出目标提交及其必需工作流终态
 - 例外：任务没有提交或推送授权时不得擅自外部写入；应运行可用的本地快速验证，并把尚未获得目标提交 GitHub Actions 证据列为未验证项。GitHub Actions 故障或额度不可用时，可在本地运行选择器命中的环境重型影响集，但不得把局部结果表述为完整 CI 通过
+
+### R-20260905-feature-first-page-acceptance：功能建设优先，页面验收集中收敛
+
+- 状态：强制
+- 来源：项目所有者明确要求当前以推进功能开发为主，功能完成后再配合人工调整逐页验收
+- 适用范围：模块功能建设阶段、Vue 页面实现、页面级 Playwright/真实栈 E2E 与能力状态标记；不适用于发布候选和已启动的逐页验收阶段
+- 风险：在页面仍需要项目所有者人工调整时强制每个增量提交的完整页面 E2E 全绿，会把开发时间消耗在即将变更的定位器和交互细节上，延误核心业务能力闭环
+- 规则：功能建设阶段不得以页面级真实栈 E2E 全绿作为每个增量切片的强制退出条件。每个切片仍必须先完成领域规则、API、精确权限、租户/数据边界、共享契约、可实行的 Unit/Architecture/Integration 及 Vue 类型检查与聚焦组件测试，且只能标记 `Implemented` 或 `Build-verified`。页面定位器、布局、文案和交互差异登记到待验收范围，不得为此反复阻塞功能切片。模块功能完成或项目所有者启动验收时，必须按页面逐一执行聚焦自动化与逐页人工验收，修复交互与视觉问题后才能升级为 `Verified`
+- 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定功能优先阶段和逐页验收用词；功能切片交付必须列明已执行的非页面验证与延后的页面验收，能力状态不得越级
+- 例外：安全、权限绕过、租户越权、数据损坏、公共契约回归或与页面无关的真实运行故障仍必须立即修复；项目所有者明确指定某页面当前验收时，该页面恢复为当前切片门禁
 
 ## 12. 文档、依赖与发布许可
 

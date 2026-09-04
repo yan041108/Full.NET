@@ -87,6 +87,9 @@ test('开发规则必须按开发阶段分层，并把完整集合留给 main CI
   assert.match(rules, /本地任务禁止运行 `test:integration:full`/);
   assert.match(rules, /R-20260816-local-test-inner-budget/);
   assert.match(rules, /R-20260903-github-actions-first-verification/);
+  assert.match(rules, /R-20260905-feature-first-page-acceptance/);
+  assert.match(rules, /功能建设阶段不得以页面级真实栈 E2E 全绿作为每个增量切片的强制退出条件/);
+  assert.match(rules, /逐页人工验收/);
   assert.match(rules, /环境重型验证必须优先交给 GitHub Actions/);
   assert.match(rules, /按精确 commit SHA 核对所有必需工作流/);
   assert.match(rules, /GitHub Actions 不可用时的受影响测试补偿/);
@@ -116,6 +119,8 @@ test('其它任务窗口使用快照和受影响测试选择器，不复制测�
   assert.match(agents, /test:integration:affected:plan/);
   assert.match(agents, /R-20260816-local-test-inner-budget/);
   assert.match(agents, /R-20260903-github-actions-first-verification/);
+  assert.match(agents, /R-20260905-feature-first-page-acceptance/);
+  assert.match(agents, /功能纵向切片优先/);
   assert.match(agents, /默认交给 GitHub Actions/);
   assert.match(agents, /核对目标提交的必需工作流/);
 });
