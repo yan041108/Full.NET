@@ -102,6 +102,11 @@ export function createVueNotificationsRealtime(
       return;
     }
 
+    if (snapshot.switching) {
+      // 上下文切换会先让旧 Access Token 失效；此窗口不得补拉旧作用域数据，避免其 401 触发 Refresh 覆盖新令牌。
+      return;
+    }
+
     void queueUnreadCountLoad(generation, false);
   });
 

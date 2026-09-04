@@ -137,6 +137,43 @@ describe('Vue Notifications 实时状态', () => {
     await state.dispose();
   });
 
+  it('租户上下文切换期间不使用旧作用域补拉未读数', async () => {
+    const session = createSession();
+    const loadUnreadCount = vi.fn().mockResolvedValue({ unreadCount: 2 });
+    const state = createVueNotificationsRealtime({
+      session,
+      loadUnreadCount,
+      realtimeFactory: () => ({
+        whenSettled: async () => undefined,
+        dispose: async () => undefined
+      })
+    });
+
+    session.publish(authenticatedSnapshot());
+    await state.whenSettled();
+    expect(loadUnreadCount).toHaveBeenCalledOnce();
+
+    session.publish({
+      ...authenticatedSnapshot(),
+      switching: true
+    });
+    await state.whenSettled();
+    expect(loadUnreadCount).toHaveBeenCalledOnce();
+
+    session.publish({
+      ...authenticatedSnapshot(),
+      currentUser: {
+        ...authenticatedSnapshot().currentUser!,
+        tenantId: 'tenant-id',
+        scope: 'tenant:tenant-id'
+      },
+      currentContextName: 'Full.NET Local'
+    });
+    await state.whenSettled();
+    expect(loadUnreadCount).toHaveBeenCalledTimes(2);
+    await state.dispose();
+  });
+
   it('SignalR 重连后补拉未读数并刷新当前收件箱', async () => {
     const session = createSession();
     const loadUnreadCount = vi.fn()
