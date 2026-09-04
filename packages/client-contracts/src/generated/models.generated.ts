@@ -210,7 +210,7 @@ export interface CodeGenerationPreviewRequest {
   readonly dataScope: string;
   readonly entityCapabilities?: null | CodeGenerationEntityCapabilitiesRequest;
   readonly entityKey: string;
-  readonly hasVersion: null | boolean;
+  readonly hasVersion?: null | boolean;
   readonly moduleKey: string;
   readonly ownerKey: string;
   readonly permissionResourceName: string;

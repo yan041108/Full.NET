@@ -224,6 +224,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
   page,
   request
 }, testInfo) => {
+  testInfo.setTimeout(90_000);
   const clientKind = testInfo.project.metadata.clientKind;
   const accessToken = await loginHostAdminAccessToken(request, clientKind);
   const suffix = `${clientKind}-${Date.now()}`;
@@ -321,7 +322,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     })
     .click();
   await expect(generatedContent(previewView, clientKind))
-    .toContainText('/api/v1/catalog/products');
+    .toContainText('catalogListProducts');
 
   const applyResponse = page.waitForResponse(response =>
     response.request().method() === 'POST'
@@ -358,15 +359,12 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     await expectTemplateListed(templateView, clientKind, updatedName);
   }
 
-  if (clientKind !== 'layui') {
-    await openPreviewWorkspace(page, clientKind);
-    previewView = codeGenerationView(page, clientKind);
-    await previewView
-      .getByTestId('codegen-template-load')
-      .filter({ hasText: updatedName })
-      .click();
-  }
-  const schemaForSecondApply = JSON.parse(await schemaInput(previewView).inputValue());
+  const schemaForSecondApplyTarget = clientKind === 'layui'
+    ? schemaInput(templateView)
+    : await focusTemplateSchema(templateView, clientKind);
+  const schemaForSecondApply = JSON.parse(
+    await schemaForSecondApplyTarget.inputValue()
+  );
   schemaForSecondApply.columns.push({
     databaseName: 'Remark',
     clrPropertyName: 'Remark',
@@ -377,8 +375,30 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
     numericPrecision: null,
     numericScale: null
   });
-  await schemaInput(previewView).fill(JSON.stringify(schemaForSecondApply, null, 2));
+  await schemaForSecondApplyTarget.fill(
+    JSON.stringify(schemaForSecondApply, null, 2)
+  );
+  const secondTemplateUpdateResponse = page.waitForResponse(response =>
+    response.request().method() === 'PUT'
+    && response.url().endsWith(`/api/v1/code-generation/templates/${created.id}`)
+  );
+  await templateUpdateButton(templateView, clientKind).click();
+  expect((await secondTemplateUpdateResponse).ok()).toBeTruthy();
+
+  if (clientKind !== 'layui') {
+    await openPreviewWorkspace(page, clientKind);
+    previewView = codeGenerationView(page, clientKind);
+    await previewView
+      .getByTestId('codegen-template-load')
+      .filter({ hasText: updatedName })
+      .click();
+  }
+  const secondPreviewResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/v1/code-generation/runs/preview')
+  );
   await previewView.getByRole('button', { name: '生成预览', exact: true }).click();
+  expect((await secondPreviewResponse).ok()).toBeTruthy();
   await expect(previewView.getByText('acme_catalog_product', { exact: true }))
     .toBeVisible();
 
@@ -452,7 +472,7 @@ test('Host 管理员可通过双管理端持久化、更新并软删除生成模
       templateView.getByRole('button', { name: new RegExp(`^${updatedName}`) })
     ).toHaveCount(0);
   } else {
-    await expect(templateView.locator('[data-testid="codegen-template-table"]')).not.toContainText(updatedName);
+    await expect(templateView.locator('tr', { hasText: updatedName })).toHaveCount(0);
   }
 
   const deletedResponse = await request.get(

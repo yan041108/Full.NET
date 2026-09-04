@@ -605,6 +605,48 @@ test('标准客户端 OpenAPI 允许纠正既有 Workflow 严格草稿元数据�
   );
 });
 
+test('标准客户端 OpenAPI 允许纠正 JSON 省略字段必填性但拒绝扩大豁免', async () => {
+  const baseline = {
+    openapi: '3.1.0',
+    info: { title: 'Full.NET client', version: '1.0.0' },
+    tags: [],
+    paths: {},
+    components: {
+      schemas: {
+        CodeGenerationPreviewRequest: {
+          type: 'object',
+          properties: {
+            hasVersion: { type: ['null', 'boolean'] },
+            columns: { type: 'array', items: { type: 'string' } }
+          },
+          required: ['hasVersion', 'columns']
+        }
+      },
+      securitySchemes: {}
+    }
+  };
+
+  const repaired = clone(baseline);
+  repaired.components.schemas.CodeGenerationPreviewRequest.required = ['columns'];
+  const repairedResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': repaired }
+  );
+  assert.equal(repairedResult.status, 0, repairedResult.stderr);
+
+  const widened = clone(repaired);
+  widened.components.schemas.CodeGenerationPreviewRequest.required = [];
+  const widenedResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': widened }
+  );
+  assert.equal(widenedResult.status, 1);
+  assert.match(
+    widenedResult.stderr,
+    /stable setting changed: fullnet-client-v1\.openapi\.json components/u
+  );
+});
+
 test('标准客户端 OpenAPI 只允许已审查的可选请求与响应字段扩展', async () => {
   const baseline = {
     openapi: '3.1.0',

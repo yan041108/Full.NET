@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Full.NET.Abstractions.OpenApi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -30,6 +31,7 @@ public static class FullNetOpenApiExtensions
         {
             options.AddDocumentTransformer(ApplyDocumentMetadataAsync);
             options.AddOperationTransformer(ApplyOperationSecurityAsync);
+            options.AddSchemaTransformer(ApplyJsonOmissionOptionalityAsync);
             options.AddSchemaTransformer(ApplyStableStringEnumAsync);
         });
         return services;
@@ -115,6 +117,43 @@ public static class FullNetOpenApiExtensions
                 StringComparison.Ordinal) == true))
         {
             operation.Security.Add(CreateSecurityRequirement("Signature", document));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 将序列化时允许省略的 JSON 属性从 OpenAPI 必填集合中移除。
+    /// </summary>
+    /// <param name="schema">当前 CLR 类型对应的 OpenAPI Schema。</param>
+    /// <param name="context">Schema 转换上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已完成的转换任务。</returns>
+    private static Task ApplyJsonOmissionOptionalityAsync(
+        OpenApiSchema schema,
+        OpenApiSchemaTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        if (context.JsonPropertyInfo is not null || schema.Required is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        foreach (var property in context.JsonTypeInfo.Properties)
+        {
+            var ignoreAttribute = property.AttributeProvider?
+                .GetCustomAttributes(typeof(JsonIgnoreAttribute), inherit: true)
+                .OfType<JsonIgnoreAttribute>()
+                .SingleOrDefault();
+            if (ignoreAttribute?.Condition is not (
+                    JsonIgnoreCondition.WhenWritingNull
+                    or JsonIgnoreCondition.WhenWritingDefault))
+            {
+                continue;
+            }
+
+            // 只要服务端可能按 System.Text.Json 规则省略属性，客户端守卫就不能要求响应中始终存在该键。
+            schema.Required.Remove(property.Name);
         }
 
         return Task.CompletedTask;

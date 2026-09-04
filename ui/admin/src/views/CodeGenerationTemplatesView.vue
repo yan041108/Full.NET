@@ -738,7 +738,7 @@ function readProblem(
               v-if="canReadCatalog"
               v-model="schema.databaseTableName"
               filterable
-              data-testid="codegen-template-table"
+              data-testid="codegen-template-database-table"
               :placeholder="t('codeGenerationTemplates.table')"
             >
               <ElOption v-for="tableName in tableNames" :key="tableName" :label="tableName" :value="tableName" />

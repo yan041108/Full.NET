@@ -518,6 +518,14 @@ function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSche
     return true;
   }
 
+  if (isApprovedJsonOmissionOptionalityRepair(
+    schemaName,
+    baselineSchema,
+    currentSchema
+  )) {
+    return true;
+  }
+
   // 这两个草稿类型在历史运行时已经拒绝未知字段，只是标准客户端快照遗漏了对应元数据。
   // 豁免精确限制为补上 additionalProperties=false，禁止借纠正快照改写其它 Schema 结构。
   if (!strictWorkflowSchemaMetadataRepairs.has(schemaName)
@@ -531,6 +539,45 @@ function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSche
   const repairedSchema = { ...currentSchema };
   delete repairedSchema.additionalProperties;
   return isDeepStrictEqual(baselineSchema, repairedSchema);
+}
+
+const approvedJsonOmissionOptionalityRepairs = new Map([
+  ['CodeGenerationPreviewRequest', new Set(['hasVersion'])]
+]);
+
+function isApprovedJsonOmissionOptionalityRepair(
+  schemaName,
+  baselineSchema,
+  currentSchema
+) {
+  const optionalProperties = approvedJsonOmissionOptionalityRepairs.get(schemaName);
+  if (!optionalProperties
+    || !isPlainObject(baselineSchema)
+    || !isPlainObject(currentSchema)) {
+    return false;
+  }
+
+  const baselineWithoutRequired = { ...baselineSchema };
+  const currentWithoutRequired = { ...currentSchema };
+  delete baselineWithoutRequired.required;
+  delete currentWithoutRequired.required;
+  if (!isDeepStrictEqual(baselineWithoutRequired, currentWithoutRequired)) {
+    return false;
+  }
+
+  const baselineRequired = Array.isArray(baselineSchema.required)
+    ? baselineSchema.required
+    : [];
+  const currentRequired = Array.isArray(currentSchema.required)
+    ? currentSchema.required
+    : [];
+
+  // 豁免只允许移除已核实会被 System.Text.Json 省略的键，禁止借机改写其它必填性或 Schema 结构。
+  return baselineRequired.some(propertyName => optionalProperties.has(propertyName))
+    && isDeepStrictEqual(
+      baselineRequired.filter(propertyName => !optionalProperties.has(propertyName)),
+      currentRequired
+    );
 }
 
 const approvedOptionalRequestSchemaEvolutions = new Set([

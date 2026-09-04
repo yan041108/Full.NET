@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElButton, ElCard, ElInput, ElMessageBox, ElSwitch, ElTag } from 'element-plus';
 import {
@@ -145,6 +145,11 @@ const selectedArtifact = computed<CodeGenerationPreviewArtifact | undefined>(
 );
 
 onMounted(() => {
+  void loadTemplates().then(() => loadTemplateFromQuery());
+  void loadRuns();
+});
+
+onActivated(() => {
   void loadTemplates().then(() => loadTemplateFromQuery());
   void loadRuns();
 });
@@ -459,7 +464,7 @@ function readProblem(
 
 <template>
   <section
-    class="codegen-workbench art-page-stack art-full-height"
+    class="codegen-workbench art-page-stack"
     :aria-busy="loading"
   >
     <header class="art-page-header codegen-workbench__header">

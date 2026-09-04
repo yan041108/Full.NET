@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Full.NET.Data.Abstractions;
 
 namespace Full.NET.IntegrationTests.Api;
@@ -21,6 +22,7 @@ internal static class OpenApiClientSnapshotContractAssertions
         using var response = await client.GetAsync("/openapi/v1.json", cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         var rawDocument = await response.Content.ReadAsStringAsync(cancellationToken);
+        AssertOmittablePropertiesAreOptional(rawDocument);
 
         var exportPath = Environment.GetEnvironmentVariable(ExportPathEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(exportPath))
@@ -76,6 +78,28 @@ internal static class OpenApiClientSnapshotContractAssertions
         {
             Directory.Delete(temporaryDirectory, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// 核对响应序列化时允许省略的兼容字段不会被客户端契约误标为必填。
+    /// </summary>
+    /// <param name="rawDocument">运行时导出的原始 OpenAPI 文档。</param>
+    private static void AssertOmittablePropertiesAreOptional(string rawDocument)
+    {
+        using var document = JsonDocument.Parse(rawDocument);
+        var requestSchema = document.RootElement
+            .GetProperty("components")
+            .GetProperty("schemas")
+            .GetProperty("CodeGenerationPreviewRequest");
+        var requiredProperties = requestSchema
+            .GetProperty("required")
+            .EnumerateArray()
+            .Select(property => property.GetString())
+            .ToArray();
+
+        Assert.IsFalse(
+            requiredProperties.Contains("hasVersion", StringComparer.Ordinal),
+            "CodeGenerationPreviewRequest.hasVersion 可在现代响应中省略，不得生成必填客户端守卫。");
     }
 
     private static async Task NormalizeAsync(

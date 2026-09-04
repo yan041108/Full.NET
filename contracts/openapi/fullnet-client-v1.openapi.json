@@ -23116,7 +23116,6 @@
           "apiResourceName",
           "permissionResourceName",
           "dataScope",
-          "hasVersion",
           "columns"
         ],
         "type": "object"
