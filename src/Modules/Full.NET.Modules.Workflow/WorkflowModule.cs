@@ -47,6 +47,7 @@ public sealed class WorkflowModule : IFullNetModule
                 WorkflowJsonSerializerContext.Default));
         services.AddScoped<WorkflowFormManagementService>();
         services.AddScoped<WorkflowDefinitionManagementService>();
+        services.AddScoped<WorkflowRecipientCandidateQueryService>();
         services.AddScoped<WorkflowInstanceManagementService>();
         services.AddScoped<WorkflowTodoManagementService>();
         services.AddScoped<WorkflowCcTransitionWriter>();

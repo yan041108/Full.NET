@@ -79,6 +79,150 @@ internal static class IdentitySql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListActiveHostUserSelectionsByIds = new(
+        "identity.list_active_host_user_selections_by_ids",
+        """
+        SELECT Id, Username, DisplayName
+        FROM fn_identity_user
+        WHERE Id IN @UserIds
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        ORDER BY NormalizedUsername, Id
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement CountActiveTenantUserSelections = new(
+        "identity.count_active_tenant_user_selections",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        """,
+        // TenantRequired 让执行器使用当前可信租户覆盖同名参数，调用方不能借 Contract 跨租户枚举。
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ListActiveTenantUserSelectionsSqlServer = new(
+        "identity.list_active_tenant_user_selections.sql_server",
+        """
+        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ListActiveTenantUserSelectionsMySql = new(
+        "identity.list_active_tenant_user_selections.my_sql",
+        """
+        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ListActiveTenantUserSelectionsByIds = new(
+        "identity.list_active_tenant_user_selections_by_ids",
+        """
+        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.Id IN @UserIds
+          AND identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
     /// <remarks>
     /// 新建行的 <c>LockoutEndUtc</c> 与 <c>UpdatedAtUtc</c> 使用 SQL 字面量 NULL。Native AOT 下未标注 DbType 的空参数
     /// 在 SQL Server 上会被推断为 nvarchar，无法写入 datetimeoffset。

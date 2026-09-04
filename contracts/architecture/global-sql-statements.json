@@ -214,6 +214,19 @@
       ]
     },
     {
+      "statementName": "identity.list_active_host_user_selections_by_ids",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ListActiveHostUserSelectionsByIds",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "Host 工作流发布校验按显式用户标识批量读取候选人，SQL 必须同时限制用户标识集合和有效 Host 用户边界。",
+      "requiredSqlFragments": [
+        "Id IN @UserIds",
+        "ScopeKey = 'host'",
+        "TenantId IS NULL",
+        "IsActive = 1"
+      ]
+    },
+    {
       "statementName": "identity.list_active_host_user_selections.my_sql",
       "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ListActiveHostUserSelectionsMySql",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",

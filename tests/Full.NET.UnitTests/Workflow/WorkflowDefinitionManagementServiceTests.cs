@@ -30,7 +30,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var tenant = Substitute.For<ICurrentTenant>();
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
-        var users = Substitute.For<IHostUserDirectory>();
+        var users = Substitute.For<IHostUserBatchSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
         tenant.IsHost.Returns(true);
         clock.UtcNow.Returns(now);
 
@@ -48,7 +49,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
             .Returns((WorkflowFormVersionRecord?)null);
 
         var service = new WorkflowDefinitionManagementService(
-            query, command, new ImmediateTransaction(), tenant, clock, ids, users);
+            query, command, new ImmediateTransaction(), tenant, clock, ids, users, tenantUsers);
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -73,7 +74,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
         var tenant = Substitute.For<ICurrentTenant>();
         var clock = Substitute.For<IClock>();
         var ids = Substitute.For<IIdGenerator>();
-        var users = Substitute.For<IHostUserDirectory>();
+        var users = Substitute.For<IHostUserBatchSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
         var transaction = new TrackingTransaction();
         tenant.IsHost.Returns(true);
         clock.UtcNow.Returns(now);
@@ -93,22 +95,89 @@ public sealed class WorkflowDefinitionManagementServiceTests
             .Returns(new WorkflowFormVersionRecord(
                 formVersionId, formDefinitionId, 1, 1, 1, 1,
                 CreateFormSchemaJson(), "{}", new string('b', 64), actorId, now));
-        users.FindActiveHostUserAsync(recipientId, Arg.Any<CancellationToken>())
+        users.FindActiveHostUsersAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 Assert.IsFalse(transaction.HasStarted,
                     "跨模块 Identity 目录读取必须发生在 Workflow 本地事务之外。");
-                return (HostUserDirectoryEntry?)null;
+                return new Dictionary<Guid, HostUserDirectoryEntry>();
             });
 
         var service = new WorkflowDefinitionManagementService(
-            query, command, transaction, tenant, clock, ids, users);
+            query, command, transaction, tenant, clock, ids, users, tenantUsers);
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, result.Error!.Code);
+        Assert.AreEqual(0, command.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Tenant_publish_rejects_cross_tenant_cc_recipient_with_one_batch_lookup()
+    {
+        var tenantId = Guid.CreateVersion7();
+        var definitionId = Guid.CreateVersion7();
+        var draftId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var recipientId = Guid.CreateVersion7();
+        var formDefinitionId = Guid.CreateVersion7();
+        var formVersionId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        var query = Substitute.For<IQueryExecutor>();
+        var command = Substitute.For<ICommandExecutor>();
+        var tenant = Substitute.For<ICurrentTenant>();
+        var clock = Substitute.For<IClock>();
+        var ids = Substitute.For<IIdGenerator>();
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var transaction = new TrackingTransaction();
+        tenant.IsHost.Returns(false);
+        tenant.IsAvailable.Returns(true);
+        tenant.Id.Returns(tenantId);
+        clock.UtcNow.Returns(now);
+
+        query.QuerySingleOrDefaultAsync<WorkflowDefinitionRecord>(
+                WorkflowSql.FindDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowDefinitionRecord(
+                definitionId, tenantId, "tenant", $"tenant:{tenantId:N}", "leave", draftId, null,
+                actorId, now, null, 1));
+        query.QuerySingleOrDefaultAsync<WorkflowDefinitionDraftRecord>(
+                WorkflowSql.FindDefinitionDraftByDefinition, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowDefinitionDraftRecord(
+                draftId, definitionId, CreateCcDraftJson(recipientId), 1,
+                new string('a', 64), actorId, now));
+        query.QuerySingleOrDefaultAsync<WorkflowFormVersionRecord>(
+                WorkflowSql.FindFormVersionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowFormVersionRecord(
+                formVersionId, formDefinitionId, 1, 1, 1, 1,
+                CreateFormSchemaJson(), "{}", new string('b', 64), actorId, now));
+        tenantUsers.FindActiveTenantUsersAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.IsFalse(transaction.HasStarted,
+                    "Tenant 用户目录读取必须发生在 Workflow 本地事务之外。");
+                return new Dictionary<Guid, TenantUserDirectoryEntry>();
+            });
+
+        var service = new WorkflowDefinitionManagementService(
+            query, command, transaction, tenant, clock, ids, hostUsers, tenantUsers);
+
+        var result = await service.PublishAsync(
+            definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionCcRecipientsInvalid, result.Error!.Code);
+        await tenantUsers.Received(1).FindActiveTenantUsersAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(userIds =>
+                userIds != null && userIds.SequenceEqual(new[] { recipientId })),
+            Arg.Any<CancellationToken>());
+        await hostUsers.DidNotReceiveWithAnyArgs().FindActiveHostUsersAsync(default!, default);
         Assert.AreEqual(0, command.ReceivedCalls().Count());
     }
 

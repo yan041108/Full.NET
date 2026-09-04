@@ -4,10 +4,14 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Workflow;
 
@@ -423,10 +427,37 @@ internal static class WorkflowRuntimeApiAssertions
         using var tenantClient = factory.CreateClientForHost("localhost");
         using var limitedClient = factory.CreateClientForHost("localhost");
         var hostAdminToken = await LoginAsHostAdminAsync(hostClient, cancellationToken);
-        var tenantAdminToken = await EnterAcmeTenantAsync(
+        var tenantContext = await EnterAcmeTenantContextAsync(
             tenantClient,
             await LoginAsHostAdminAsync(tenantClient, cancellationToken),
             cancellationToken);
+        var tenantAdminToken = tenantContext.AccessToken;
+        var tenantId = tenantContext.Context.TenantId
+            ?? throw new InvalidOperationException("租户上下文令牌缺少 TenantId。");
+        var tenantRecipientUserId = await CreateTenantRecipientCandidateAsync(
+            factory, tenantId, cancellationToken);
+        var hostOnlyRecipient = await factory.CreateHostIdentityAsync(
+            $"workflow-host-only-{Guid.NewGuid():N}",
+            [],
+            cancellationToken);
+        var activeHostRecipient = await factory.CreateHostIdentityAsync(
+            $"workflow-tenant-member-{Guid.NewGuid():N}",
+            [],
+            cancellationToken);
+        var inactiveRoleRecipient = await factory.CreateHostIdentityAsync(
+            $"workflow-inactive-member-{Guid.NewGuid():N}",
+            [],
+            cancellationToken);
+        var otherTenantRecipient = await factory.CreateHostIdentityAsync(
+            $"workflow-other-tenant-{Guid.NewGuid():N}",
+            [],
+            cancellationToken);
+        await AssignHostRecipientTenantRoleAsync(
+            factory, activeHostRecipient.UserId, tenantId, true, cancellationToken);
+        await AssignHostRecipientTenantRoleAsync(
+            factory, inactiveRoleRecipient.UserId, tenantId, false, cancellationToken);
+        await AssignHostRecipientTenantRoleAsync(
+            factory, otherTenantRecipient.UserId, Guid.CreateVersion7(), true, cancellationToken);
 
         var hostVersions = await PublishRuntimeAssetsAsync(hostClient, hostAdminToken, cancellationToken);
         using var crossScopeStart = await tenantClient.SendAsync(
@@ -445,6 +476,14 @@ internal static class WorkflowRuntimeApiAssertions
             crossScopeProblem.RootElement.GetProperty("code").GetString());
 
         var tenantVersions = await PublishRuntimeAssetsAsync(tenantClient, tenantAdminToken, cancellationToken);
+        await AssertTenantRecipientDirectoryAsync(
+            tenantClient,
+            tenantAdminToken,
+            tenantVersions.FormVersionId,
+            tenantRecipientUserId,
+            activeHostRecipient.UserId,
+            [hostOnlyRecipient.UserId, inactiveRoleRecipient.UserId, otherTenantRecipient.UserId],
+            cancellationToken);
         using var start = await tenantClient.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", tenantAdminToken, new
             {
@@ -740,6 +779,20 @@ internal static class WorkflowRuntimeApiAssertions
         string hostAccessToken,
         CancellationToken cancellationToken)
     {
+        var entered = await EnterAcmeTenantContextAsync(client, hostAccessToken, cancellationToken);
+        return entered.AccessToken;
+    }
+
+    /// <summary>进入种子租户并返回服务端确认的完整租户上下文。</summary>
+    /// <param name="client">保留当前登录会话 Cookie 的测试客户端。</param>
+    /// <param name="hostAccessToken">Host 上下文访问令牌。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    /// <returns>新签发的租户令牌及其可信上下文摘要。</returns>
+    private static async Task<TenantContextTokenResponse> EnterAcmeTenantContextAsync(
+        HttpClient client,
+        string hostAccessToken,
+        CancellationToken cancellationToken)
+    {
         using var availableRequest = Authorized(HttpMethod.Get, "/api/v1/tenancy/available", hostAccessToken);
         using var availableResponse = await client.SendAsync(availableRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, availableResponse.StatusCode);
@@ -755,7 +808,186 @@ internal static class WorkflowRuntimeApiAssertions
         var entered = await enterResponse.Content
             .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
         Assert.IsNotNull(entered);
-        return entered.AccessToken;
+        return entered;
+    }
+
+    /// <summary>直接写入一个当前租户所属且无需额外角色证明成员关系的工作流候选用户。</summary>
+    /// <param name="factory">当前数据库提供程序对应的 API 工厂。</param>
+    /// <param name="tenantId">候选用户所属租户标识。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    /// <returns>新建候选用户标识。</returns>
+    private static async Task<Guid> CreateTenantRecipientCandidateAsync(
+        FullNetApiFactory factory,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var userId = Guid.CreateVersion7();
+        var suffix = userId.ToString("N");
+        var scopeKey = $"tenant:{tenantId:N}";
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+
+            // 身份主数据只能经 Host 控制面写入；运行时候选查询仍必须依赖请求中的可信 Tenant 上下文。
+            await command.ExecuteAsync(
+                IdentitySql.InsertUser,
+                new IdentityUserRecord(
+                    userId,
+                    tenantId,
+                    scopeKey,
+                    $"tenant-recipient-{suffix}",
+                    $"TENANT-RECIPIENT-{suffix.ToUpperInvariant()}",
+                    "租户审批候选人",
+                    "unused",
+                    true,
+                    0,
+                    null,
+                    Guid.NewGuid().ToString("N"),
+                    now,
+                    null,
+                    1),
+                cancellationToken);
+            return userId;
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    /// <summary>给 Host 用户写入一个用于候选目录验收的租户角色关系。</summary>
+    /// <param name="factory">当前数据库提供程序对应的 API 工厂。</param>
+    /// <param name="userId">待授予角色的 Host 用户标识。</param>
+    /// <param name="tenantId">角色归属租户标识。</param>
+    /// <param name="isActive">角色是否处于活动状态。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    private static async Task AssignHostRecipientTenantRoleAsync(
+        FullNetApiFactory factory,
+        Guid userId,
+        Guid tenantId,
+        bool isActive,
+        CancellationToken cancellationToken)
+    {
+        var roleId = Guid.CreateVersion7();
+        var scopeKey = $"tenant:{tenantId:N}";
+        var now = DateTimeOffset.UtcNow;
+        await using var scope = factory.Services.CreateAsyncScope();
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+
+            // Host 身份只有通过当前租户的活动角色才能进入 Tenant 候选目录；停用及其他租户角色用于反向验收。
+            await command.ExecuteAsync(
+                IdentitySql.InsertRole,
+                new InsertIdentityRole(
+                    roleId,
+                    tenantId,
+                    scopeKey,
+                    $"workflow-recipient-{roleId:N}",
+                    "工作流候选角色",
+                    false,
+                    isActive,
+                    false,
+                    RoleDataScopeKinds.All,
+                    now,
+                    null,
+                    1),
+                cancellationToken);
+            await command.ExecuteAsync(
+                IdentitySql.EnsureUserRole,
+                new IdentityUserRole(userId, roleId),
+                cancellationToken);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
+    }
+
+    /// <summary>验证租户候选目录和发布校验共享同一身份边界。</summary>
+    /// <param name="client">处于租户上下文的测试客户端。</param>
+    /// <param name="token">具备工作流定义读写权限的租户令牌。</param>
+    /// <param name="formVersionId">发布定义时绑定的租户表单版本。</param>
+    /// <param name="tenantRecipientUserId">当前租户的有效候选用户。</param>
+    /// <param name="activeHostRecipientUserId">拥有当前租户活动角色的 Host 候选用户。</param>
+    /// <param name="invalidRecipientUserIds">Host-only、停用角色或其他租户角色等无效用户标识。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    private static async Task AssertTenantRecipientDirectoryAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        Guid tenantRecipientUserId,
+        Guid activeHostRecipientUserId,
+        IReadOnlyCollection<Guid> invalidRecipientUserIds,
+        CancellationToken cancellationToken)
+    {
+        using var candidates = await client.SendAsync(
+            Authorized(HttpMethod.Get,
+                "/api/v1/workflow/definitions/recipient-candidates?page=1&pageSize=100",
+                token),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, candidates.StatusCode,
+            await candidates.Content.ReadAsStringAsync(cancellationToken));
+        using var candidatePage = JsonDocument.Parse(
+            await candidates.Content.ReadAsStringAsync(cancellationToken));
+        var candidateIds = candidatePage.RootElement.GetProperty("items")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("id").GetGuid())
+            .ToArray();
+        CollectionAssert.Contains(candidateIds, tenantRecipientUserId);
+        CollectionAssert.Contains(candidateIds, activeHostRecipientUserId);
+        foreach (var invalidRecipientUserId in invalidRecipientUserIds)
+        {
+            CollectionAssert.DoesNotContain(candidateIds, invalidRecipientUserId);
+        }
+
+        // 先证明直属用户与角色成员都能发布，再逐一验证非成员、停用角色和其他租户角色失败关闭。
+        _ = await PublishCcDefinitionAsync(
+            client, token, tenantRecipientUserId, formVersionId, cancellationToken);
+        _ = await PublishCcDefinitionAsync(
+            client, token, activeHostRecipientUserId, formVersionId, cancellationToken);
+        foreach (var invalidRecipientUserId in invalidRecipientUserIds)
+        {
+            using var create = await client.SendAsync(
+                AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
+                {
+                    definitionKey = $"runtime.invalid-tenant-cc.{Guid.NewGuid():N}",
+                    draft = new
+                    {
+                        schemaVersion = 1,
+                        nodes = new object[]
+                        {
+                            new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1,
+                                config = new { nextNodeKeys = new[] { "notify" } } },
+                            new { nodeKey = "notify", nodeTypeKey = "notify.cc", nodeSchemaVersion = 1,
+                                config = new { nextNodeKeys = new[] { "end" }, recipientUserIds = new[] { invalidRecipientUserId } } },
+                            new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1,
+                                config = new { nextNodeKeys = Array.Empty<string>() } },
+                        },
+                    },
+                }), cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Created, create.StatusCode,
+                await create.Content.ReadAsStringAsync(cancellationToken));
+            using var definition = JsonDocument.Parse(await create.Content.ReadAsStringAsync(cancellationToken));
+            using var publish = await client.SendAsync(
+                AuthorizedJson(HttpMethod.Post,
+                    $"/api/v1/workflow/definitions/{definition.RootElement.GetProperty("id").GetGuid():D}/publish",
+                    token,
+                    new { expectedRevision = 1, formVersionId }),
+                cancellationToken);
+            var publishBody = await publish.Content.ReadAsStringAsync(cancellationToken);
+            Assert.AreEqual(HttpStatusCode.BadRequest, publish.StatusCode, publishBody);
+            using var problem = JsonDocument.Parse(publishBody);
+            Assert.AreEqual(
+                WorkflowErrorCodes.DefinitionCcRecipientsInvalid,
+                problem.RootElement.GetProperty("code").GetString());
+        }
     }
 
     private static async Task VerifyLinearMultiApprovalAsync(

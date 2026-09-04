@@ -22,7 +22,8 @@ namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 /// <param name="currentTenant">可信当前租户上下文。</param>
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
-/// <param name="hostUserDirectory">Identity 提供的活动 Host 用户只读目录。</param>
+/// <param name="hostUserDirectory">Identity 提供的活动 Host 用户批量候选目录。</param>
+/// <param name="tenantUserDirectory">Identity 提供的当前 Tenant 活动用户批量候选目录。</param>
 internal sealed class WorkflowDefinitionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -30,7 +31,8 @@ internal sealed class WorkflowDefinitionManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IHostUserDirectory hostUserDirectory)
+    IHostUserBatchSelectionDirectory hostUserDirectory,
+    ITenantUserSelectionDirectory tenantUserDirectory)
 {
     public async Task<Result<IReadOnlyList<WorkflowDefinitionResponse>>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -235,16 +237,27 @@ internal sealed class WorkflowDefinitionManagementService(
                 out var recipients) ? recipients : [])
             .Distinct()
             .ToArray();
-        foreach (var recipientUserId in recipientUserIds)
+        int validRecipientCount;
+        if (scope.TenantId.HasValue)
         {
-            // 发布前只通过 Identity 只读契约确认活动用户，禁止 Workflow 跨模块读取身份表。
-            if (await hostUserDirectory.FindActiveHostUserAsync(recipientUserId, token)
-                    .ConfigureAwait(false) is null)
-            {
-                return Failure<WorkflowDefinitionVersionResponse>(
-                    WorkflowErrorCodes.DefinitionCcRecipientsInvalid,
-                    ErrorType.Validation);
-            }
+            // Tenant 定义只能引用当前可信 Tenant 的直属用户或有效成员，批量读取避免逐收件人 N+1。
+            var users = await tenantUserDirectory.FindActiveTenantUsersAsync(recipientUserIds, token)
+                .ConfigureAwait(false);
+            validRecipientCount = users.Count;
+        }
+        else
+        {
+            // Host 定义继续限定为活动 Host 用户，禁止把 Tenant 用户写入 Host 版本。
+            var users = await hostUserDirectory.FindActiveHostUsersAsync(recipientUserIds, token)
+                .ConfigureAwait(false);
+            validRecipientCount = users.Count;
+        }
+
+        if (validRecipientCount != recipientUserIds.Length)
+        {
+            return Failure<WorkflowDefinitionVersionResponse>(
+                WorkflowErrorCodes.DefinitionCcRecipientsInvalid,
+                ErrorType.Validation);
         }
 
         return await transaction.ExecuteResultAsync(

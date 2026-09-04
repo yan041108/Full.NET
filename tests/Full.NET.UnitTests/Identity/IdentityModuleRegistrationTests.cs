@@ -414,9 +414,12 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostUserDisplayDirectory>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostUserSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Factory<IHostUserSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Factory<IHostUserBatchSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
-            IHostUserSelectionDirectory,
-            HostUserSelectionDirectory>(ServiceLifetime.Scoped),
+            ITenantUserSelectionDirectory,
+            TenantUserSelectionDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostNavigationDefinitionLoader>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Type<

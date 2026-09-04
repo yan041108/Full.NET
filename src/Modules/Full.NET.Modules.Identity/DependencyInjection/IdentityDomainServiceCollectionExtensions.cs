@@ -65,9 +65,14 @@ internal static class IdentityDomainServiceCollectionExtensions
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
         services.TryAddScoped<IHostUserDisplayDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
+        services.TryAddScoped<HostUsers.HostUserSelectionDirectory>();
+        services.TryAddScoped<IHostUserSelectionDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
+        services.TryAddScoped<IHostUserBatchSelectionDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
         services.TryAddScoped<
-            IHostUserSelectionDirectory,
-            HostUsers.HostUserSelectionDirectory>();
+            ITenantUserSelectionDirectory,
+            HostUsers.TenantUserSelectionDirectory>();
         services.TryAddScoped<HostNavigationDefinitionLoader>();
         services.AddFullNetFluentValidation<Command, LoginSessionResult>();
         services.AddFullNetFluentValidation<

@@ -23,21 +23,13 @@ internal static class Endpoint
         group.MapGet("/recipient-candidates", async (
             int? page,
             int? pageSize,
-            [FromServices] IHostUserSelectionDirectory directory,
+            [FromServices] WorkflowRecipientCandidateQueryService service,
             CancellationToken token) =>
         {
-            var result = await directory.ListActiveHostUsersAsync(
+            return await service.ListAsync(
                 Math.Max(page ?? 1, 1),
                 Math.Clamp(pageSize ?? 50, 1, 100),
                 token).ConfigureAwait(false);
-            return new WorkflowRecipientCandidatePageResponse(
-                result.Items.Select(item => new WorkflowRecipientCandidateResponse(
-                    item.Id,
-                    item.Username,
-                    item.DisplayName)).ToArray(),
-                result.Page,
-                result.PageSize,
-                result.Total);
         })
         .WithName("workflowListRecipientCandidates")
         .Produces<WorkflowRecipientCandidatePageResponse>()
