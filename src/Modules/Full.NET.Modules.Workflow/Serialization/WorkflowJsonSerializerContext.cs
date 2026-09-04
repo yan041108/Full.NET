@@ -5,6 +5,7 @@ using Full.NET.Modules.Workflow.Features.ManageDefinitions;
 using Full.NET.Modules.Workflow.Features.ManageForms;
 using Full.NET.Modules.Workflow.Features.ManageInstances;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
+using Full.NET.Modules.Workflow.Features.ManageMyCc;
 
 namespace Full.NET.Modules.Workflow.Serialization;
 
@@ -27,6 +28,9 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(PublishWorkflowDefinitionRequest))]
 [JsonSerializable(typeof(WorkflowNodeTypeCatalogResponse))]
 [JsonSerializable(typeof(WorkflowNodeTypeResponse))]
+[JsonSerializable(typeof(WorkflowRecipientCandidateResponse))]
+[JsonSerializable(typeof(WorkflowRecipientCandidateResponse[]))]
+[JsonSerializable(typeof(WorkflowRecipientCandidatePageResponse))]
 [JsonSerializable(typeof(WorkflowDefinitionResponse))]
 [JsonSerializable(typeof(WorkflowDefinitionResponse[]))]
 [JsonSerializable(typeof(WorkflowDefinitionVersionResponse))]
@@ -41,6 +45,9 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(ActWorkflowTodoRequest))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse[]))]
+[JsonSerializable(typeof(WorkflowCcResponse))]
+[JsonSerializable(typeof(WorkflowCcResponse[]))]
+[JsonSerializable(typeof(WorkflowCcReadResponse))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

@@ -3,6 +3,7 @@ using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.Modules.Workflow;
 
+/// <summary>向 Identity 授权目录贡献工作流页面、精确动作和 Host/Tenant 权限。</summary>
 internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogContributor
 {
     private const AuthorizationScope SupportedScopes =
@@ -28,6 +29,8 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Permission(WorkflowPermissions.TodosRead, "查询本人工作流待办"),
         Permission(WorkflowPermissions.TodosApprove, "同意本人工作流待办"),
         Permission(WorkflowPermissions.TodosReject, "拒绝本人工作流待办"),
+        Permission(WorkflowPermissions.CcRead, "查询本人工作流抄送"),
+        Permission(WorkflowPermissions.CcMarkRead, "标记本人工作流抄送已读"),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -36,6 +39,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         NavigationItem("workflow-forms", "/workflow/forms", "工作流表单", 20, WorkflowPermissions.FormsRead),
         NavigationItem("workflow-instances", "/workflow/instances", "工作流实例", 30, WorkflowPermissions.InstancesRead),
         NavigationItem("workflow-todos", "/workflow/todos", "我的待办", 40, WorkflowPermissions.TodosRead),
+        NavigationItem("workflow-cc", "/workflow/cc", "我的抄送", 50, WorkflowPermissions.CcRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -51,6 +55,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.instances.recover", "workflow-instances", WorkflowPermissions.InstancesRecover, "恢复或改派", "recover", 30),
         Action("workflow.todos.approve", "workflow-todos", WorkflowPermissions.TodosApprove, "同意待办", "approve", 10),
         Action("workflow.todos.reject", "workflow-todos", WorkflowPermissions.TodosReject, "拒绝待办", "reject", 20),
+        Action("workflow.cc.mark-read", "workflow-cc", WorkflowPermissions.CcMarkRead, "标记已读", "mark-read", 10),
     ];
 
     private static PermissionDefinition Permission(string code, string name) =>

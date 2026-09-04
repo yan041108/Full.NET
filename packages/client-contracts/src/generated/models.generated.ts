@@ -2199,6 +2199,22 @@ export interface VerifyRecipientEndpointCodeRequest {
   readonly code: string;
 }
 
+export interface WorkflowCcReadResponse {
+  readonly id: string;
+  readonly readAtUtc: string;
+}
+
+export interface WorkflowCcResponse {
+  readonly businessId: string;
+  readonly businessType: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly nodeKey: string;
+  readonly readAtUtc: null | string;
+  readonly stepId: null | string;
+}
+
 export interface WorkflowDefinitionDraft {
   readonly nodes: Array<WorkflowNodeDraft>;
   readonly schemaVersion: number;
@@ -2326,6 +2342,19 @@ export interface WorkflowNodeTypeResponse {
   readonly nodeTypeKey: string;
   readonly publishable: boolean;
   readonly supportsFieldPolicies: boolean;
+}
+
+export interface WorkflowRecipientCandidatePageResponse {
+  readonly items: Array<WorkflowRecipientCandidateResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface WorkflowRecipientCandidateResponse {
+  readonly displayName: string;
+  readonly id: string;
+  readonly username: string;
 }
 
 export interface WorkflowTodoDetailResponse {

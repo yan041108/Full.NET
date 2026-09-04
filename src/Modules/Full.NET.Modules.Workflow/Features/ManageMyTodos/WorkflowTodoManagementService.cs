@@ -17,6 +17,14 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 
 /// <summary>只读取可信作用域内当前认证用户的有界活动待办。</summary>
+/// <param name="queryExecutor">受控查询执行器。</param>
+/// <param name="commandExecutor">显式 SQL 命令执行器。</param>
+/// <param name="transaction">Workflow 本地事务边界。</param>
+/// <param name="currentTenant">可信当前租户上下文。</param>
+/// <param name="clock">统一 UTC 时钟。</param>
+/// <param name="idGenerator">UUID v7 标识生成器。</param>
+/// <param name="databaseOptions">数据库提供程序配置。</param>
+/// <param name="ccTransitionWriter">同步抄送迁移写入器。</param>
 internal sealed class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -24,7 +32,8 @@ internal sealed class WorkflowTodoManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    WorkflowCcTransitionWriter ccTransitionWriter)
 {
     public async Task<Result<IReadOnlyList<WorkflowTodoResponse>>> ListMineAsync(
         Guid actorUserId,
@@ -147,6 +156,13 @@ internal sealed class WorkflowTodoManagementService(
             token => ActAsync(todoId, actorUserId, request, "reject", token),
             cancellationToken);
 
+    /// <summary>执行待办动作，并在批准迁移时同步写入沿途抄送。</summary>
+    /// <param name="todoId">待办标识。</param>
+    /// <param name="actorUserId">执行动作的当前用户标识。</param>
+    /// <param name="request">包含并发版本、幂等键和字段补丁的动作请求。</param>
+    /// <param name="actionKey">稳定动作码，只允许批准或驳回。</param>
+    /// <param name="token">取消当前异步操作的令牌。</param>
+    /// <returns>迁移后的实例状态或稳定业务错误。</returns>
     private async Task<Result<WorkflowInstanceResponse>> ActAsync(
         Guid todoId,
         Guid actorUserId,
@@ -310,6 +326,15 @@ internal sealed class WorkflowTodoManagementService(
                 ("FromStatusKey", "active"), ("ToStatusKey", instanceStatus),
                 ("IdempotencyKey", request.IdempotencyKey.Trim()),
                 ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+        if (actionKey == "approve")
+        {
+            await ccTransitionWriter.WriteAsync(
+                instance.Id,
+                scope.TenantScopeKey,
+                transition.CcNodes,
+                now,
+                token).ConfigureAwait(false);
+        }
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
             WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                 ("ScopeKey", scope.ScopeKey), ("InstanceId", instance.Id),

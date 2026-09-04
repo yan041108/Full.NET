@@ -16,6 +16,14 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 
 /// <summary>在可信作用域内固定发布版本，并原子创建实例、首步骤和本人待办。</summary>
+/// <param name="queryExecutor">受控查询执行器。</param>
+/// <param name="commandExecutor">显式 SQL 命令执行器。</param>
+/// <param name="transaction">Workflow 本地事务边界。</param>
+/// <param name="currentTenant">可信当前租户上下文。</param>
+/// <param name="clock">统一 UTC 时钟。</param>
+/// <param name="idGenerator">UUID v7 标识生成器。</param>
+/// <param name="databaseOptions">数据库提供程序配置。</param>
+/// <param name="ccTransitionWriter">同步抄送迁移写入器。</param>
 internal sealed class WorkflowInstanceManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -23,8 +31,14 @@ internal sealed class WorkflowInstanceManagementService(
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    WorkflowCcTransitionWriter ccTransitionWriter)
 {
+    /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
+    /// <param name="actorUserId">发起人的稳定用户标识。</param>
+    /// <param name="request">包含版本、业务标识和表单数据的启动请求。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>新建实例或幂等重放实例的结果。</returns>
     public async Task<Result<WorkflowInstanceResponse>> StartAsync(
         Guid actorUserId,
         StartWorkflowInstanceRequest request,
@@ -59,7 +73,11 @@ internal sealed class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
-        var approvalNodeKey = runtimePlan!.FirstApprovalNodeKey;
+        if (!runtimePlan!.TryResolveStart(out var startTransition) ||
+            startTransition.NextApprovalNodeKey is not { } approvalNodeKey)
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
 
         var instanceId = idGenerator.NewId();
         var stepId = idGenerator.NewId();
@@ -102,6 +120,12 @@ internal sealed class WorkflowInstanceManagementService(
                         ("FromStatusKey", null), ("ToStatusKey", "active"),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+                await ccTransitionWriter.WriteAsync(
+                    instanceId,
+                    scope.TenantScopeKey,
+                    startTransition.CcNodes,
+                    now,
+                    token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
                     Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Full.NET.Modules.Workflow.Persistence;
 
 namespace Full.NET.UnitTests.Workflow;
 
@@ -77,5 +78,12 @@ public sealed class WorkflowManagementContractTests
             formSchemaHash,
             "移动端必须获得可见 Schema 摘要，禁止不同字段策略复用同一缓存条目。");
         Assert.AreEqual(typeof(string), formSchemaHash.PropertyType);
+    }
+
+    [TestMethod]
+    public void Instance_participant_query_includes_cc_recipients()
+    {
+        StringAssert.Contains(WorkflowSql.IsInstanceParticipant.Text, "fn_workflow_cc");
+        StringAssert.Contains(WorkflowSql.IsInstanceParticipant.Text, "RecipientUserId");
     }
 }

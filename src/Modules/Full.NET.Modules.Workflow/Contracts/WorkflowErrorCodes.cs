@@ -16,6 +16,7 @@ public static class WorkflowErrorCodes
     public const string DefinitionStartInvalid = Prefix + "definition.start_invalid";
     public const string DefinitionSchemaUnsupported = Prefix + "definition.schema_unsupported";
     public const string DefinitionFieldPolicyInvalid = Prefix + "definition.field_policy_invalid";
+    public const string DefinitionCcRecipientsInvalid = Prefix + "definition.cc_recipients_invalid";
     public const string DefinitionTopologyUnsupported = Prefix + "definition.topology_unsupported";
     public const string DefinitionNotFound = Prefix + "definition.not_found";
     public const string DefinitionKeyExists = Prefix + "definition.key_exists";
@@ -40,6 +41,7 @@ public static class WorkflowErrorCodes
     public const string ActiveInstanceExists = Prefix + "instance.active_exists";
     public const string InstanceForbidden = Prefix + "instance.forbidden";
     public const string TodoForbidden = Prefix + "todo.forbidden";
+    public const string CcNotFound = Prefix + "cc.not_found";
     public const string RevisionConflict = Prefix + "revision.conflict";
     public const string InvalidTransition = Prefix + "transition.invalid";
 
@@ -55,6 +57,7 @@ public static class WorkflowErrorCodes
         DefinitionStartInvalid,
         DefinitionSchemaUnsupported,
         DefinitionFieldPolicyInvalid,
+        DefinitionCcRecipientsInvalid,
         DefinitionTopologyUnsupported,
         DefinitionNotFound,
         DefinitionKeyExists,
@@ -79,6 +82,7 @@ public static class WorkflowErrorCodes
         ActiveInstanceExists,
         InstanceForbidden,
         TodoForbidden,
+        CcNotFound,
         RevisionConflict,
         InvalidTransition,
     ]);

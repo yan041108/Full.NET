@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, provide, ref, watch } from 'vue';
 import type { WorkflowDefinitionDraft } from '@fullnet/client-contracts';
+import type { WorkflowRecipientCandidateResponse } from '@fullnet/client-contracts';
+import { ElButton, ElDrawer, ElOption, ElSelect } from 'element-plus';
+import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
 import NodeWrap from './vendor/workflow-vue3/src/components/nodeWrap.vue';
 import { useStore } from './vendor/workflow-vue3/src/stores/index.js';
 import type { WorkflowVue3Node } from './workflow-vue3-adapter';
@@ -22,6 +25,9 @@ const emit = defineEmits<{
   'validation-error': [code: string];
 }>();
 const store = useStore();
+const ccCandidates = ref<WorkflowRecipientCandidateResponse[]>([]);
+const ccRecipientUserIds = ref<string[]>([]);
+const ccCandidatesLoading = ref(false);
 const transientDesignerKeys = new Set([
   'error',
   'errorTip',
@@ -58,6 +64,63 @@ watch(nodeConfig, value => {
     || serializeComparableWorkflowTree(value) === serializeComparableWorkflowTree(props.modelValue)) return;
   emit('update:modelValue', cloneWorkflowTree(value));
 }, { deep: true });
+
+watch(() => store.copyerDrawer, visible => {
+  if (!visible) return;
+  const envelope = store.copyerConfig1 as {
+    value?: WorkflowVue3Node;
+    id?: number | string;
+  };
+  ccRecipientUserIds.value = Array.isArray(envelope.value?.recipientUserIds)
+    ? envelope.value.recipientUserIds.filter((value): value is string => typeof value === 'string')
+    : [];
+  void loadCcCandidates();
+});
+
+/** 加载抄送候选人最小投影；服务端负责活动状态和权限边界。 */
+async function loadCcCandidates(): Promise<void> {
+  if (ccCandidatesLoading.value || ccCandidates.value.length > 0) return;
+  ccCandidatesLoading.value = true;
+  try {
+    const result = await listWorkflowRecipientCandidates(1, 100);
+    ccCandidates.value = result.items;
+  } finally {
+    ccCandidatesLoading.value = false;
+  }
+}
+
+/** 保存闭合用户标识，同时维护 Workflow-Vue3 仅用于展示的用户列表。 */
+function saveCcRecipients(): void {
+  const ids = [...new Set(ccRecipientUserIds.value)];
+  if (ids.length < 1 || ids.length > 20) {
+    emit('validation-error', 'client.invalid_workflow_cc_recipients');
+    return;
+  }
+  const envelope = store.copyerConfig1 as {
+    value?: WorkflowVue3Node;
+    id?: number | string;
+  };
+  const labels = new Map(ccCandidates.value.map(candidate => [candidate.id, candidate]));
+  store.setCopyerConfig({
+    ...envelope,
+    flag: true,
+    value: {
+      ...envelope.value,
+      recipientUserIds: ids,
+      nodeUserList: ids.map(userId => ({
+        id: userId,
+        name: labels.get(userId)?.displayName ?? userId,
+        type: 'user'
+      }))
+    }
+  });
+  store.setCopyer(false);
+}
+
+/** 关闭抄送配置抽屉并丢弃本次未保存选择。 */
+function closeCcRecipients(): void {
+  store.setCopyer(false);
+}
 
 /** Workflow-Vue3 编辑树是纯 JSON 契约，使用 JSON 克隆可安全跨越 Vue Proxy 边界。 */
 function cloneWorkflowTree(value: WorkflowVue3Node): WorkflowVue3Node {
@@ -100,6 +163,36 @@ defineExpose({ readDraft });
       </div>
     </div>
   </section>
+  <el-drawer
+    :model-value="store.copyerDrawer"
+    title="选择抄送人"
+    size="min(520px, 94vw)"
+    @close="closeCcRecipients"
+  >
+    <el-select
+      v-model="ccRecipientUserIds"
+      data-testid="workflow-cc-recipient-select"
+      multiple
+      filterable
+      :multiple-limit="20"
+      :loading="ccCandidatesLoading"
+      placeholder="请选择 1–20 名抄送人"
+      style="width: 100%"
+    >
+      <el-option
+        v-for="candidate in ccCandidates"
+        :key="candidate.id"
+        :label="`${candidate.displayName} (${candidate.username})`"
+        :value="candidate.id"
+      />
+    </el-select>
+    <template #footer>
+      <el-button @click="closeCcRecipients">取消</el-button>
+      <el-button type="primary" :disabled="ccRecipientUserIds.length === 0" @click="saveCcRecipients">
+        确定
+      </el-button>
+    </template>
+  </el-drawer>
 </template>
 
 <style scoped>

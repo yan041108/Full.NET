@@ -6,6 +6,8 @@ import {
 } from './workflow-vue3-adapter';
 
 describe('Workflow-Vue3 定义适配器', () => {
+  const financeUserId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001';
+
   it('把线性审批树转换成服务端权威节点并补齐显式结束节点', () => {
     const draft = fromWorkflowVue3Tree({
       id: 'start',
@@ -20,6 +22,7 @@ describe('Workflow-Vue3 定义适配器', () => {
           id: 'finance-cc',
           type: 2,
           nodeName: '抄送财务',
+          recipientUserIds: [financeUserId],
           childNode: null
         }
       }
@@ -39,6 +42,7 @@ describe('Workflow-Vue3 定义适配器', () => {
     });
     expect(draft.nodes[2]?.config).toEqual({
       nodeName: '抄送财务',
+      recipientUserIds: [financeUserId],
       nextNodeKeys: ['end']
     });
   });
@@ -49,7 +53,10 @@ describe('Workflow-Vue3 定义适配器', () => {
       nodes: [
         node('start', 'start', ['approve']),
         node('approve', 'human.approval', ['cc'], { nodeName: '审批' }),
-        node('cc', 'notify.cc', ['end'], { nodeName: '抄送' }),
+        node('cc', 'notify.cc', ['end'], {
+          nodeName: '抄送',
+          recipientUserIds: [financeUserId]
+        }),
         node('end', 'end', [])
       ]
     } satisfies WorkflowDefinitionDraft;
@@ -66,10 +73,31 @@ describe('Workflow-Vue3 定义适配器', () => {
         childNode: {
           id: 'cc',
           type: 2,
-          nodeName: '抄送'
+          nodeName: '抄送',
+          recipientUserIds: [financeUserId]
         }
       }
     });
+  });
+
+  it('拒绝空、重复或非法抄送人标识', () => {
+    const tree = (recipientUserIds: string[]) => ({
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'copy',
+        type: 2,
+        recipientUserIds,
+        childNode: null
+      }
+    });
+
+    expect(() => fromWorkflowVue3Tree(tree([])))
+      .toThrow('client.invalid_workflow_cc_recipients');
+    expect(() => fromWorkflowVue3Tree(tree([financeUserId, financeUserId])))
+      .toThrow('client.invalid_workflow_cc_recipients');
+    expect(() => fromWorkflowVue3Tree(tree(['not-a-guid'])))
+      .toThrow('client.invalid_workflow_cc_recipients');
   });
 
   it('拒绝动态脚本、远程请求节点和非目录节点', () => {

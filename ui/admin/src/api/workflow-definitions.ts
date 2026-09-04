@@ -2,13 +2,15 @@ import {
   workflowCreateDefinition,
   workflowGetDefinition,
   workflowGetNodeTypeCatalog,
+  workflowListRecipientCandidates,
   workflowPublishDefinition,
   workflowUpdateDefinitionDraft,
   type WorkflowDefinitionDraft,
   type WorkflowDefinitionResponse,
   type WorkflowDefinitionVersionResponse,
   type WorkflowNodeTypeCatalogResponse,
-  type WorkflowNodeTypeResponse
+  type WorkflowNodeTypeResponse,
+  type WorkflowRecipientCandidatePageResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
@@ -25,6 +27,15 @@ export async function getWorkflowNodeTypeCatalog(
   signal?: AbortSignal
 ): Promise<WorkflowNodeTypeCatalogResponse> {
   return workflowGetNodeTypeCatalog(http, {}, signal);
+}
+
+/** 分页读取定义编辑器可选择的活动抄送人。 */
+export async function listWorkflowRecipientCandidates(
+  page = 1,
+  pageSize = 50,
+  signal?: AbortSignal
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  return workflowListRecipientCandidates(http, { page, pageSize }, signal);
 }
 
 /** 创建工作流定义草稿。 */
@@ -70,5 +81,6 @@ export type {
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
   WorkflowNodeTypeCatalogResponse,
-  WorkflowNodeTypeResponse
+  WorkflowNodeTypeResponse,
+  WorkflowRecipientCandidatePageResponse
 };

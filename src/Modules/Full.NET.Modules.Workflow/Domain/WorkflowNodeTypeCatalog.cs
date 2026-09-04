@@ -20,7 +20,7 @@ internal static class WorkflowNodeTypeCatalog
     [
         Node("start"),
         Node("human.approval", supportsFieldPolicies: true),
-        Node("notify.cc", publishable: false, executable: false),
+        Node("notify.cc"),
         Node("gateway.exclusive", publishable: false, executable: false),
         Node("end"),
     ];

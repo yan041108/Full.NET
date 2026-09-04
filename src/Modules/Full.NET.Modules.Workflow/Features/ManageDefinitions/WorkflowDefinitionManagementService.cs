@@ -11,17 +11,26 @@ using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Serialization;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Workflow.Features.ManageDefinitions;
 
 /// <summary>维护流程定义草稿，并在可信作用域内绑定不可变表单版本后发布。</summary>
+/// <param name="queryExecutor">受作用域约束的查询执行器。</param>
+/// <param name="commandExecutor">显式 SQL 命令执行器。</param>
+/// <param name="transaction">工作流本地事务边界。</param>
+/// <param name="currentTenant">可信当前租户上下文。</param>
+/// <param name="clock">统一 UTC 时钟。</param>
+/// <param name="idGenerator">UUID v7 标识生成器。</param>
+/// <param name="hostUserDirectory">Identity 提供的活动 Host 用户只读目录。</param>
 internal sealed class WorkflowDefinitionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     ICurrentTenant currentTenant,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    IHostUserDirectory hostUserDirectory)
 {
     public async Task<Result<IReadOnlyList<WorkflowDefinitionResponse>>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -143,10 +152,16 @@ internal sealed class WorkflowDefinitionManagementService(
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteResultAsync(token => UpdateDraftCoreAsync(id, actorUserId, request, token), cancellationToken);
 
+    /// <summary>校验不可变定义资产和跨模块用户引用后，在 Workflow 本地事务内发布版本。</summary>
+    /// <param name="id">工作流定义标识。</param>
+    /// <param name="actorUserId">可信当前操作人标识。</param>
+    /// <param name="request">发布修订号与绑定表单版本。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>发布成功后的不可变定义版本，或稳定业务错误。</returns>
     public Task<Result<WorkflowDefinitionVersionResponse>> PublishAsync(
         Guid id, Guid actorUserId, PublishWorkflowDefinitionRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(token => PublishCoreAsync(id, actorUserId, request, token), cancellationToken);
+        PublishCoreAsync(id, actorUserId, request, cancellationToken);
 
     private async Task<Result<WorkflowDefinitionResponse>> UpdateDraftCoreAsync(
         Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request, CancellationToken token)
@@ -213,6 +228,55 @@ internal sealed class WorkflowDefinitionManagementService(
                 compilation?.ErrorCode ?? WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
+        var recipientUserIds = model!.Nodes
+            .Where(node => node.NodeTypeKey == "notify.cc")
+            .SelectMany(node => WorkflowCcNodeConfiguration.TryReadRecipients(
+                node.Config,
+                out var recipients) ? recipients : [])
+            .Distinct()
+            .ToArray();
+        foreach (var recipientUserId in recipientUserIds)
+        {
+            // 发布前只通过 Identity 只读契约确认活动用户，禁止 Workflow 跨模块读取身份表。
+            if (await hostUserDirectory.FindActiveHostUserAsync(recipientUserId, token)
+                    .ConfigureAwait(false) is null)
+            {
+                return Failure<WorkflowDefinitionVersionResponse>(
+                    WorkflowErrorCodes.DefinitionCcRecipientsInvalid,
+                    ErrorType.Validation);
+            }
+        }
+
+        return await transaction.ExecuteResultAsync(
+            transactionToken => PersistPublishedVersionAsync(
+                id,
+                actorUserId,
+                request,
+                scope,
+                model,
+                compilation.Value!,
+                transactionToken),
+            token).ConfigureAwait(false);
+    }
+
+    /// <summary>在 Workflow 本地事务内认领草稿并写入不可变版本、最新指针和领域审计。</summary>
+    /// <param name="id">工作流定义标识。</param>
+    /// <param name="actorUserId">可信当前操作人标识。</param>
+    /// <param name="request">发布请求。</param>
+    /// <param name="scope">发布前解析的可信管理作用域。</param>
+    /// <param name="model">已编译的定义模型。</param>
+    /// <param name="artifact">已生成的规范化定义产物。</param>
+    /// <param name="token">本地事务取消令牌。</param>
+    /// <returns>发布成功后的不可变版本，或并发/资源错误。</returns>
+    private async Task<Result<WorkflowDefinitionVersionResponse>> PersistPublishedVersionAsync(
+        Guid id,
+        Guid actorUserId,
+        PublishWorkflowDefinitionRequest request,
+        WorkflowManagementScope scope,
+        WorkflowDefinitionDraft model,
+        WorkflowCompiledArtifact artifact,
+        CancellationToken token)
+    {
         var now = clock.UtcNow;
         var claimed = await commandExecutor.ExecuteAsync(
             WorkflowSql.ClaimDefinitionDraftForPublish,
@@ -228,7 +292,6 @@ internal sealed class WorkflowDefinitionManagementService(
             WorkflowSql.FindNextDefinitionVersionNumber,
             Parameters(("DefinitionId", id), ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
         var versionId = idGenerator.NewId();
-        var artifact = compilation.Value!;
         try
         {
             await commandExecutor.ExecuteAsync(

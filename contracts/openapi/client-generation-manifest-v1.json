@@ -62,6 +62,12 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowListRecipientCandidates",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowCreateDefinition",
       "apiModule": "ui/admin/src/api/workflow-definitions.ts",
       "generatedGroup": "workflow-definitions",
@@ -143,6 +149,18 @@
       "operationId": "workflowRejectTodo",
       "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListMyCc",
+      "apiModule": "ui/admin/src/api/workflow-cc.ts",
+      "generatedGroup": "workflow-cc",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowMarkCcRead",
+      "apiModule": "ui/admin/src/api/workflow-cc.ts",
+      "generatedGroup": "workflow-cc",
       "status": "generated"
     },
     {

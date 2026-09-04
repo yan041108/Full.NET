@@ -5,6 +5,9 @@ namespace Full.NET.Modules.Workflow.Domain;
 
 internal static class WorkflowDefinitionCompiler
 {
+    /// <summary>编译工作流图并验证节点类型、拓扑及抄送配置。</summary>
+    /// <param name="draft">待编译的工作流定义草稿。</param>
+    /// <returns>包含规范化定义或稳定错误码的编译结果。</returns>
     public static WorkflowCompilationResult Compile(WorkflowDefinitionDraft draft)
     {
         if (draft.SchemaVersion != WorkflowNodeTypeCatalog.Current.DefinitionSchemaVersion ||
@@ -26,6 +29,14 @@ internal static class WorkflowDefinitionCompiler
                 (!definition!.Publishable || !definition.Executable)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeTypeUnavailable);
+        }
+
+        // 抄送配置会进入运行时身份边界，只接受稳定用户标识的闭合集合，禁止任意副作用参数透传。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "notify.cc" &&
+                !WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionCcRecipientsInvalid);
         }
 
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
@@ -75,6 +86,10 @@ internal static class WorkflowDefinitionCompiler
             WorkflowJsonCanonicalizer.Compile(writer => WriteCanonical(writer, draft)));
     }
 
+    /// <summary>结合表单架构编译工作流图与节点字段策略。</summary>
+    /// <param name="draft">待编译的工作流定义草稿。</param>
+    /// <param name="formSchema">发布版本绑定的表单架构。</param>
+    /// <returns>包含规范化定义或稳定错误码的编译结果。</returns>
     public static WorkflowCompilationResult Compile(
         WorkflowDefinitionDraft draft,
         WorkflowFormSchema formSchema)

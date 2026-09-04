@@ -278,6 +278,8 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   VerifyRecipientEndpointCodeRequest,
+  WorkflowCcReadResponse,
+  WorkflowCcResponse,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
@@ -293,6 +295,8 @@ import type {
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
   WorkflowNodeTypeResponse,
+  WorkflowRecipientCandidatePageResponse,
+  WorkflowRecipientCandidateResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
   WorkflowTodoRuntimeResponse
@@ -3334,6 +3338,28 @@ function isVerifyRecipientEndpointCodeRequest(value: unknown): value is VerifyRe
   return isRecord(value) && (typeof value["code"] === 'string');
 }
 
+export function readWorkflowCcReadResponse(value: unknown): WorkflowCcReadResponse {
+  if (!(isWorkflowCcReadResponse(value))) {
+    throw new Error('client.invalid_workflow_cc_read_response');
+  }
+  return value;
+}
+
+function isWorkflowCcReadResponse(value: unknown): value is WorkflowCcReadResponse {
+  return isRecord(value) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["readAtUtc"] === 'string');
+}
+
+export function readWorkflowCcResponse(value: unknown): WorkflowCcResponse {
+  if (!(isWorkflowCcResponse(value))) {
+    throw new Error('client.invalid_workflow_cc_response');
+  }
+  return value;
+}
+
+function isWorkflowCcResponse(value: unknown): value is WorkflowCcResponse {
+  return isRecord(value) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["nodeKey"] === 'string') && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])));
+}
+
 export function readWorkflowDefinitionDraft(value: unknown): WorkflowDefinitionDraft {
   if (!(isWorkflowDefinitionDraft(value))) {
     throw new Error('client.invalid_workflow_definition_draft');
@@ -3497,6 +3523,28 @@ export function readWorkflowNodeTypeResponse(value: unknown): WorkflowNodeTypeRe
 
 function isWorkflowNodeTypeResponse(value: unknown): value is WorkflowNodeTypeResponse {
   return isRecord(value) && (typeof value["designable"] === 'boolean') && (typeof value["executable"] === 'boolean') && (typeof value["nodeSchemaVersion"] === 'number' && Number.isInteger(value["nodeSchemaVersion"])) && (typeof value["nodeTypeKey"] === 'string') && (typeof value["publishable"] === 'boolean') && (typeof value["supportsFieldPolicies"] === 'boolean');
+}
+
+export function readWorkflowRecipientCandidatePageResponse(value: unknown): WorkflowRecipientCandidatePageResponse {
+  if (!(isWorkflowRecipientCandidatePageResponse(value))) {
+    throw new Error('client.invalid_workflow_recipient_candidate_page_response');
+  }
+  return value;
+}
+
+function isWorkflowRecipientCandidatePageResponse(value: unknown): value is WorkflowRecipientCandidatePageResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecipientCandidateResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readWorkflowRecipientCandidateResponse(value: unknown): WorkflowRecipientCandidateResponse {
+  if (!(isWorkflowRecipientCandidateResponse(value))) {
+    throw new Error('client.invalid_workflow_recipient_candidate_response');
+  }
+  return value;
+}
+
+function isWorkflowRecipientCandidateResponse(value: unknown): value is WorkflowRecipientCandidateResponse {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["username"] === 'string');
 }
 
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
@@ -3775,6 +3823,13 @@ export function readWorkflowListInstanceExecutionLogsResponse(value: unknown): A
     throw new Error('client.invalid_workflow_list_instance_execution_logs_response');
   }
   return value as Array<WorkflowExecutionLogResponse>;
+}
+
+export function readWorkflowListMyCcResponse(value: unknown): Array<WorkflowCcResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowCcResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_my_cc_response');
+  }
+  return value as Array<WorkflowCcResponse>;
 }
 
 export function readWorkflowListMyTodosResponse(value: unknown): Array<WorkflowTodoResponse> {

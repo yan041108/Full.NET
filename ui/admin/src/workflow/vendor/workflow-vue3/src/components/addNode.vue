@@ -60,6 +60,7 @@ const addType = (type) => {
     settype: isApprover ? 1 : undefined,
     examineMode: isApprover ? 1 : undefined,
     nodeUserList: [],
+    recipientUserIds: isApprover ? undefined : [],
     placeHolder: isApprover ? '当前登录人审批' : '流程抄送',
     childNode: props.childNodeP,
   })

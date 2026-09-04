@@ -4,6 +4,7 @@ import {
   createWorkflowDefinition,
   getWorkflowDefinition,
   getWorkflowNodeTypeCatalog,
+  listWorkflowRecipientCandidates,
   publishWorkflowDefinition,
   updateWorkflowDefinitionDraft
 } from './workflow-definitions';
@@ -45,6 +46,18 @@ describe('workflow definition 管理 API', () => {
       method: 'PUT',
       body: JSON.stringify({ expectedRevision: 1, draft: response.draft })
     }), undefined);
+  });
+
+  it('通过生成客户端分页读取抄送候选人', async () => {
+    vi.mocked(http.request).mockResolvedValue({ items: [], page: 1, pageSize: 50, total: 0 });
+
+    await listWorkflowRecipientCandidates(1, 50);
+
+    expect(http.request).toHaveBeenCalledWith(
+      '/api/v1/workflow/definitions/recipient-candidates?page=1&pageSize=50',
+      { method: 'GET' },
+      undefined
+    );
   });
 
   it('发布时同时提交 Draft 修订和已发布表单版本', async () => {

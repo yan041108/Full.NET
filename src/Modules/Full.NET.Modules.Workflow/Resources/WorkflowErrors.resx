@@ -14,6 +14,8 @@
   <data name="workflow.definition.start_invalid" xml:space="preserve"><value>工作流必须包含唯一开始节点。</value></data>
   <data name="workflow.definition.schema_unsupported" xml:space="preserve"><value>工作流定义版本不受支持。</value></data>
   <data name="workflow.definition.field_policy_invalid" xml:space="preserve"><value>工作流节点字段策略无效。</value></data>
+  <data name="workflow.definition.cc_recipients_invalid" xml:space="preserve"><value>工作流抄送人配置无效或包含非活动用户。</value></data>
+  <data name="workflow.cc.not_found" xml:space="preserve"><value>工作流抄送记录不存在或不属于当前用户。</value></data>
   <data name="workflow.definition.topology_unsupported" xml:space="preserve"><value>当前部署尚不支持此工作流拓扑。</value></data>
   <data name="workflow.definition.not_found" xml:space="preserve"><value>工作流定义不存在。</value></data>
   <data name="workflow.definition.key_exists" xml:space="preserve"><value>当前作用域已存在相同流程定义键。</value></data>

@@ -26,6 +26,8 @@ const targetToSourceType = new Map<string, number>([
 ]);
 /** 节点键进入服务端后会成为稳定引用标识，因此禁止临时随机串或中文标签。 */
 const stableKeyPattern = /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/u;
+/** 抄送人使用服务端 Guid D 格式，禁止空标识和展示名称进入权威配置。 */
+const userIdPattern = /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 /** 旧设计器里涉及脚本、远程调用或副作用的配置一律视为不可信。 */
 const unsafePropertyPattern = /(?:script|function|javascript|remote|url|header|body|webhook|sql|deleteData|modifyData)/iu;
 /** 这些字段只参与树结构，不属于节点业务配置。 */
@@ -102,13 +104,24 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
     if (nextKeys.length !== 1) throw new Error('client.unsupported_workflow_node');
     const next = byKey.get(nextKeys[0]!);
     if (next === undefined) throw new Error('client.invalid_workflow_definition_draft');
+    const closedConfig = readClosedTargetConfig(config, node.nodeTypeKey);
+    const recipientUserIds = node.nodeTypeKey === 'notify.cc'
+      ? closedConfig.recipientUserIds as string[]
+      : undefined;
     return {
       id: node.nodeKey,
       type,
       nodeName: typeof config.nodeName === 'string'
         ? config.nodeName
         : defaultNodeName(node.nodeTypeKey),
-      ...readClosedTargetConfig(config, node.nodeTypeKey),
+      ...closedConfig,
+      ...(recipientUserIds === undefined ? {} : {
+        nodeUserList: recipientUserIds.map(userId => ({
+          id: userId,
+          name: userId,
+          type: 'user'
+        }))
+      }),
       childNode: build(next)
     };
   };
@@ -140,6 +153,10 @@ function readClosedNodeConfig(
       result.fieldPolicies = cloneJson(value);
       continue;
     }
+    if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
+      result.recipientUserIds = readRecipientUserIds(value);
+      continue;
+    }
     throw new Error('client.unsupported_workflow_node_configuration');
   }
   return result;
@@ -158,9 +175,28 @@ function readClosedTargetConfig(
       result.fieldPolicies = cloneJson(value);
       continue;
     }
+    if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
+      result.recipientUserIds = readRecipientUserIds(value);
+      continue;
+    }
     throw new Error('client.unsupported_workflow_node_configuration');
   }
   return result;
+}
+
+/** 验证抄送人闭合集合，并通过复制切断设计器可变数组引用。 */
+function readRecipientUserIds(value: unknown): string[] {
+  if (!Array.isArray(value)
+    || value.length < 1
+    || value.length > 20
+    || value.some(userId => typeof userId !== 'string' || !userIdPattern.test(userId))) {
+    throw new Error('client.invalid_workflow_cc_recipients');
+  }
+  const normalized = value.map(userId => String(userId).toLowerCase());
+  if (new Set(normalized).size !== normalized.length) {
+    throw new Error('client.invalid_workflow_cc_recipients');
+  }
+  return normalized;
 }
 
 /** 字段权限策略必须是稳定字段键到有限策略枚举的映射，避免任意值透传。 */

@@ -50,10 +50,58 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsFalse(WorkflowRuntimePlan.TryCreate(withoutApproval, out _));
     }
 
+    [TestMethod]
+    public void Linear_plan_accepts_cc_before_between_and_after_approvals()
+    {
+        var recipient = Guid.NewGuid();
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "before"),
+            CcNode("before", recipient, "first"),
+            Node("first", "human.approval", "middle"),
+            CcNode("middle", recipient, "second"),
+            Node("second", "human.approval", "after"),
+            CcNode("after", recipient, "end"),
+            Node("end", "end"),
+        ]);
+
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan));
+        Assert.IsNotNull(plan);
+        Assert.IsTrue(plan.TryResolveStart(out var initial));
+        Assert.AreEqual("first", initial.NextApprovalNodeKey);
+        CollectionAssert.AreEqual(new[] { "before" },
+            initial.CcNodes.Select(node => node.NodeKey).ToArray());
+
+        Assert.IsTrue(plan.TryResolveApproval("first", out var middle));
+        Assert.AreEqual("second", middle.NextApprovalNodeKey);
+        Assert.IsFalse(middle.CompletesInstance);
+        CollectionAssert.AreEqual(new[] { "middle" },
+            middle.CcNodes.Select(node => node.NodeKey).ToArray());
+
+        Assert.IsTrue(plan.TryResolveApproval("second", out var trailing));
+        Assert.IsNull(trailing.NextApprovalNodeKey);
+        Assert.IsTrue(trailing.CompletesInstance);
+        CollectionAssert.AreEqual(new[] { "after" },
+            trailing.CcNodes.Select(node => node.NodeKey).ToArray());
+        CollectionAssert.AreEqual(new[] { recipient },
+            trailing.CcNodes.Single().RecipientUserIds.ToArray());
+    }
+
     private static WorkflowNodeDraft Node(string key, string type, params string[] next) =>
         new(
             key,
             type,
             1,
             JsonSerializer.SerializeToElement(new { nextNodeKeys = next }));
+
+    private static WorkflowNodeDraft CcNode(string key, Guid recipient, params string[] next) =>
+        new(
+            key,
+            "notify.cc",
+            1,
+            JsonSerializer.SerializeToElement(new
+            {
+                nextNodeKeys = next,
+                recipientUserIds = new[] { recipient },
+            }));
 }

@@ -1,8 +1,21 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
+
+vi.mock('../api/workflow-definitions', () => ({
+  listWorkflowRecipientCandidates: vi.fn().mockResolvedValue({
+    items: [{
+      id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001',
+      username: 'finance',
+      displayName: '财务'
+    }],
+    page: 1,
+    pageSize: 100,
+    total: 1
+  })
+}));
 
 describe('WorkflowVue3Designer', () => {
   it('初始化外部流程树时不反向回写，避免父子双向绑定递归更新', async () => {
@@ -68,6 +81,38 @@ describe('WorkflowVue3Designer', () => {
 
     expect(document.body.querySelector('.add-node-popover-item.approver')).not.toBeNull();
     expect(document.body.querySelector('.add-node-popover-item.notifier')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it('服务端启用抄送后提供活动用户选择抽屉', async () => {
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        enabledNodeTypes: ['start', 'human.approval', 'notify.cc', 'end'],
+        modelValue: {
+          id: 'start',
+          type: 0,
+          nodeName: '发起人',
+          childNode: null
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.get('.add-node-btn .btn').trigger('click');
+    await nextTick();
+    const notifier = document.body.querySelector<HTMLButtonElement>(
+      '.add-node-popover-item.notifier'
+    );
+    expect(notifier).not.toBeNull();
+    notifier!.click();
+    await nextTick();
+    await wrapper.findAll('.node-wrap-box').at(-1)!.trigger('click');
+    await flushPromises();
+
+    expect(document.body.querySelector('[data-testid="workflow-cc-recipient-select"]'))
+      .not.toBeNull();
     wrapper.unmount();
   });
 });

@@ -279,6 +279,8 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   VerifyRecipientEndpointCodeRequest,
+  WorkflowCcReadResponse,
+  WorkflowCcResponse,
   WorkflowDefinitionDraft,
   WorkflowDefinitionResponse,
   WorkflowDefinitionVersionResponse,
@@ -294,6 +296,8 @@ import type {
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
   WorkflowNodeTypeResponse,
+  WorkflowRecipientCandidatePageResponse,
+  WorkflowRecipientCandidateResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
   WorkflowTodoRuntimeResponse
@@ -431,6 +435,7 @@ import {
   readTenantSummary,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
+  readWorkflowCcReadResponse,
   readWorkflowDefinitionResponse,
   readWorkflowDefinitionVersionResponse,
   readWorkflowFormComponentCatalogResponse,
@@ -441,8 +446,10 @@ import {
   readWorkflowListDefinitionVersionsResponse,
   readWorkflowListFormsResponse,
   readWorkflowListInstanceExecutionLogsResponse,
+  readWorkflowListMyCcResponse,
   readWorkflowListMyTodosResponse,
   readWorkflowNodeTypeCatalogResponse,
+  readWorkflowRecipientCandidatePageResponse,
   readWorkflowTodoDetailResponse,
   readWorkflowTodoRuntimeResponse
 } from './guards.generated.js';
@@ -6644,6 +6651,24 @@ export async function workflowListInstanceExecutionLogs(
   return readWorkflowListInstanceExecutionLogsResponse(value);
 }
 
+export interface WorkflowListMyCcParameters {
+
+}
+
+export async function workflowListMyCc(
+  http: HttpClient,
+  parameters: WorkflowListMyCcParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowCcResponse>> {
+  const path = `/api/v1/workflow/cc/mine`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListMyCcResponse(value);
+}
+
 export interface WorkflowListMyTodosParameters {
 
 }
@@ -6660,6 +6685,50 @@ export async function workflowListMyTodos(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowListMyTodosResponse(value);
+}
+
+export interface WorkflowListRecipientCandidatesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListRecipientCandidates(
+  http: HttpClient,
+  parameters: WorkflowListRecipientCandidatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecipientCandidatePageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/definitions/recipient-candidates` : `/api/v1/workflow/definitions/recipient-candidates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecipientCandidatePageResponse(value);
+}
+
+export interface WorkflowMarkCcReadParameters {
+  readonly ccId: string;
+}
+
+export async function workflowMarkCcRead(
+  http: HttpClient,
+  parameters: WorkflowMarkCcReadParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowCcReadResponse> {
+  const path = `/api/v1/workflow/cc/${encodeURIComponent(String(parameters.ccId))}/read`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowCcReadResponse(value);
 }
 
 export interface WorkflowPublishDefinitionParameters {

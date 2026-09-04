@@ -8,6 +8,8 @@ namespace Full.NET.Modules.Workflow.Persistence;
 internal sealed class WorkflowDapperAotMaterializerContributor
     : IDapperAotMaterializerContributor
 {
+    /// <summary>注册 Workflow 所有显式 SQL 投影对应的 Native AOT 行物化器。</summary>
+    /// <param name="registrar">应用级 Dapper AOT 物化器注册表。</param>
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         registrar.Register<WorkflowDefinitionRecord>(ReadDefinition);
@@ -23,6 +25,7 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowFormSubmissionRecord>(ReadFormSubmission);
         registrar.Register<WorkflowActionReceiptRecord>(ReadActionReceipt);
         registrar.Register<WorkflowExecutionLogRecord>(ReadExecutionLog);
+        registrar.Register<WorkflowCcRecord>(ReadCc);
     }
 
     private static WorkflowDefinitionRecord ReadDefinition(DbDataReader reader) =>
@@ -179,5 +182,20 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableString(reader, 6),
             AotDataReaderExtensions.ReadNullableString(reader, 7),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 8));
+
+    /// <summary>按显式 SQL 投影顺序物化“我的抄送”记录。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的抄送持久化投影。</returns>
+    private static WorkflowCcRecord ReadCc(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 2),
+            reader.GetString(3),
+            reader.GetGuid(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8));
 }
 #endif

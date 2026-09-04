@@ -154,3 +154,15 @@ internal sealed record WorkflowExecutionLogRecord(
     string? IdempotencyKey,
     string? Summary,
     DateTimeOffset CreatedAtUtc);
+
+/// <summary>“我的抄送”列表和本人已读动作使用的租户内持久化投影。</summary>
+internal sealed record WorkflowCcRecord(
+    Guid Id,
+    Guid InstanceId,
+    Guid? StepId,
+    string NodeKey,
+    Guid RecipientUserId,
+    string BusinessType,
+    string BusinessId,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? ReadAtUtc);

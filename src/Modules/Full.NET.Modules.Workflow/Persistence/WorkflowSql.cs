@@ -384,6 +384,108 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>写入已经同步完成的抄送步骤；抄送不产生待办，也不占用处理人。</summary>
+    public static readonly SqlStatement InsertCompletedCcStep = new(
+        "workflow.step.insert_completed_cc",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'notify.cc', 'completed', NULL,
+             NULL, 0, 1, @StartedAtUtc, @CompletedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取同一实例已经产生的抄送人，用于满足既有实例级唯一约束。</summary>
+    public static readonly SqlStatement ListCcRecipientIdsByInstance = new(
+        "workflow.cc.list_recipient_ids_by_instance",
+        """
+        SELECT cc.RecipientUserId
+        FROM fn_workflow_cc AS cc
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
+        WHERE cc.InstanceId = @InstanceId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入单个实例级抄送知识记录。</summary>
+    public static readonly SqlStatement InsertCc = new(
+        "workflow.cc.insert",
+        """
+        INSERT INTO fn_workflow_cc
+            (Id, InstanceId, StepId, RecipientUserId, CreatedAtUtc, ReadAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @RecipientUserId, @CreatedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按时间倒序读取 SQL Server 上当前用户的有界抄送记录。</summary>
+    public static readonly SqlStatement ListMyCcSqlServer = new(
+        "workflow.cc.list_mine.sqlserver",
+        """
+        SELECT TOP (@Take) cc.Id, cc.InstanceId, cc.StepId, step.NodeKey,
+               cc.RecipientUserId, instance.BusinessType, instance.BusinessId,
+               cc.CreatedAtUtc, cc.ReadAtUtc
+        FROM fn_workflow_cc AS cc
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
+        LEFT JOIN fn_workflow_step AS step ON step.Id = cc.StepId
+        WHERE instance.TenantScopeKey = @TenantScopeKey
+          AND cc.RecipientUserId = @RecipientUserId
+        ORDER BY cc.CreatedAtUtc DESC, cc.Id DESC
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按时间倒序读取 MySQL 上当前用户的有界抄送记录。</summary>
+    public static readonly SqlStatement ListMyCcMySql = new(
+        "workflow.cc.list_mine.mysql",
+        """
+        SELECT cc.Id, cc.InstanceId, cc.StepId, step.NodeKey,
+               cc.RecipientUserId, instance.BusinessType, instance.BusinessId,
+               cc.CreatedAtUtc, cc.ReadAtUtc
+        FROM fn_workflow_cc AS cc
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
+        LEFT JOIN fn_workflow_step AS step ON step.Id = cc.StepId
+        WHERE instance.TenantScopeKey = @TenantScopeKey
+          AND cc.RecipientUserId = @RecipientUserId
+        ORDER BY cc.CreatedAtUtc DESC, cc.Id DESC
+        LIMIT @Take
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信租户和当前用户边界内读取单条抄送记录。</summary>
+    public static readonly SqlStatement FindOwnCcById = new(
+        "workflow.cc.find_own_by_id",
+        """
+        SELECT cc.Id, cc.InstanceId, cc.StepId, step.NodeKey,
+               cc.RecipientUserId, instance.BusinessType, instance.BusinessId,
+               cc.CreatedAtUtc, cc.ReadAtUtc
+        FROM fn_workflow_cc AS cc
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
+        LEFT JOIN fn_workflow_step AS step ON step.Id = cc.StepId
+        WHERE cc.Id = @Id
+          AND cc.RecipientUserId = @RecipientUserId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>仅为当前用户尚未阅读的租户内抄送记录写入首次已读时间。</summary>
+    public static readonly SqlStatement MarkOwnCcRead = new(
+        "workflow.cc.mark_own_read",
+        """
+        UPDATE fn_workflow_cc
+        SET ReadAtUtc = @ReadAtUtc
+        WHERE Id = @Id
+          AND RecipientUserId = @RecipientUserId
+          AND ReadAtUtc IS NULL
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_cc.InstanceId
+                AND instance.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertTodo = new(
         "workflow.todo.insert",
         """
@@ -588,6 +690,13 @@ internal static class WorkflowSql
             INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
             WHERE todo.InstanceId = @InstanceId
               AND todo.AssigneeUserId = @ActorUserId
+              AND instance.TenantScopeKey = @TenantScopeKey
+        ) OR EXISTS (
+            SELECT 1
+            FROM fn_workflow_cc AS cc
+            INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
+            WHERE cc.InstanceId = @InstanceId
+              AND cc.RecipientUserId = @ActorUserId
               AND instance.TenantScopeKey = @TenantScopeKey
         ) THEN 1 ELSE 0 END
         """,

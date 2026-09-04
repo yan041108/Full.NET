@@ -18,6 +18,8 @@ public static class WorkflowPermissions
     public const string TodosRead = "workflow.todos.read";
     public const string TodosApprove = "workflow.todos.approve";
     public const string TodosReject = "workflow.todos.reject";
+    public const string CcRead = "workflow.cc.read";
+    public const string CcMarkRead = "workflow.cc.mark_read";
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -36,5 +38,7 @@ public static class WorkflowPermissions
         TodosRead,
         TodosApprove,
         TodosReject,
+        CcRead,
+        CcMarkRead,
     ]);
 }

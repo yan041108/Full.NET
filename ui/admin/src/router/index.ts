@@ -264,6 +264,11 @@ export function createAppRouter(
         component: () => import('../views/WorkflowTodosView.vue')
       },
       {
+        name: 'workflow-cc',
+        path: '/workflow/cc',
+        component: () => import('../views/WorkflowCcView.vue')
+      },
+      {
         name: 'workflow-definitions',
         path: '/workflow/definitions',
         component: () => import('../views/WorkflowDefinitionsView.vue')

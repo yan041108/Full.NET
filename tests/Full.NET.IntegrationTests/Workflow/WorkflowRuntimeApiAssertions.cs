@@ -34,6 +34,8 @@ internal static class WorkflowRuntimeApiAssertions
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.TodosApprove,
                 WorkflowPermissions.TodosReject,
+                WorkflowPermissions.CcRead,
+                WorkflowPermissions.CcMarkRead,
             ],
             cancellationToken);
         var versions = await PublishRuntimeAssetsAsync(client, identity.AccessToken, cancellationToken);
@@ -129,7 +131,12 @@ internal static class WorkflowRuntimeApiAssertions
 
         var other = await factory.CreateHostIdentityAsync(
             $"workflow-other-{Guid.NewGuid():N}",
-            [WorkflowPermissions.TodosApprove, WorkflowPermissions.InstancesRead],
+            [
+                WorkflowPermissions.TodosApprove,
+                WorkflowPermissions.InstancesRead,
+                WorkflowPermissions.CcRead,
+                WorkflowPermissions.CcMarkRead,
+            ],
             cancellationToken);
         using var forbidden = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", other.AccessToken,
@@ -195,6 +202,13 @@ internal static class WorkflowRuntimeApiAssertions
 
         await VerifyLinearMultiApprovalAsync(
             client, identity.AccessToken, versions.FormVersionId, cancellationToken);
+        await VerifyCcRuntimeAsync(
+            client,
+            identity.AccessToken,
+            other.AccessToken,
+            other.UserId,
+            versions.FormVersionId,
+            cancellationToken);
 
         using var reopen = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
@@ -856,6 +870,189 @@ internal static class WorkflowRuntimeApiAssertions
         return version.RootElement.GetProperty("id").GetGuid();
     }
 
+    /// <summary>验收启动前置和审批尾部抄送、实例级去重、本人查询与幂等已读。</summary>
+    /// <param name="client">已绑定目标数据库提供程序的测试客户端。</param>
+    /// <param name="publisherToken">具备定义发布、实例启动和待办动作权限的访问令牌。</param>
+    /// <param name="recipientToken">具备抄送读取、已读和实例读取权限的收件人令牌。</param>
+    /// <param name="recipientUserId">定义发布时校验并在运行时接收抄送的活动用户。</param>
+    /// <param name="formVersionId">已经发布的不可变表单版本。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    private static async Task VerifyCcRuntimeAsync(
+        HttpClient client,
+        string publisherToken,
+        string recipientToken,
+        Guid recipientUserId,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var definitionVersionId = await PublishCcDefinitionAsync(
+            client,
+            publisherToken,
+            recipientUserId,
+            formVersionId,
+            cancellationToken);
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", publisherToken, new
+            {
+                definitionVersionId,
+                businessType = "leave.cc",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "cc-stage", secret = "classified" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var approve = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", publisherToken, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "approved" },
+                comment = "cc runtime",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, approve.StatusCode,
+            await approve.Content.ReadAsStringAsync(cancellationToken));
+
+        using var mine = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/cc/mine", recipientToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, mine.StatusCode,
+            await mine.Content.ReadAsStringAsync(cancellationToken));
+        using var records = JsonDocument.Parse(await mine.Content.ReadAsStringAsync(cancellationToken));
+        var cc = records.RootElement.EnumerateArray()
+            .Single(item => item.GetProperty("instanceId").GetGuid() == instanceId);
+        Assert.AreEqual(JsonValueKind.Null, cc.GetProperty("readAtUtc").ValueKind);
+        var ccId = cc.GetProperty("id").GetGuid();
+
+        using var participantRead = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}", recipientToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, participantRead.StatusCode,
+            await participantRead.Content.ReadAsStringAsync(cancellationToken));
+
+        using var concealedCrossUserRead = await client.SendAsync(
+            Authorized(HttpMethod.Post, $"/api/v1/workflow/cc/{ccId:D}/read", publisherToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, concealedCrossUserRead.StatusCode);
+
+        using var markRead = await client.SendAsync(
+            Authorized(HttpMethod.Post, $"/api/v1/workflow/cc/{ccId:D}/read", recipientToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, markRead.StatusCode,
+            await markRead.Content.ReadAsStringAsync(cancellationToken));
+        using var replay = await client.SendAsync(
+            Authorized(HttpMethod.Post, $"/api/v1/workflow/cc/{ccId:D}/read", recipientToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, replay.StatusCode,
+            await replay.Content.ReadAsStringAsync(cancellationToken));
+
+        using var logs = await client.SendAsync(
+            Authorized(HttpMethod.Get,
+                $"/api/v1/workflow/instances/{instanceId:D}/execution-logs",
+                recipientToken), cancellationToken);
+        using var executionLogs = JsonDocument.Parse(await logs.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(2, executionLogs.RootElement.EnumerateArray()
+            .Count(item => item.GetProperty("transitionKey").GetString() == "node.notify.cc"));
+
+        using var rejectedStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", publisherToken, new
+            {
+                definitionVersionId,
+                businessType = "leave.cc.rejected",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "cc-reject", secret = "classified" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, rejectedStart.StatusCode,
+            await rejectedStart.Content.ReadAsStringAsync(cancellationToken));
+        using var rejectedInstance = JsonDocument.Parse(
+            await rejectedStart.Content.ReadAsStringAsync(cancellationToken));
+        var rejectedInstanceId = rejectedInstance.RootElement.GetProperty("id").GetGuid();
+        var rejectedTodoId = rejectedInstance.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var reject = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{rejectedTodoId:D}/reject", publisherToken, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "rejected" },
+                comment = "cc reject path",
+                idempotencyKey = $"reject-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reject.StatusCode,
+            await reject.Content.ReadAsStringAsync(cancellationToken));
+
+        using var rejectedLogs = await client.SendAsync(
+            Authorized(HttpMethod.Get,
+                $"/api/v1/workflow/instances/{rejectedInstanceId:D}/execution-logs",
+                recipientToken), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, rejectedLogs.StatusCode,
+            await rejectedLogs.Content.ReadAsStringAsync(cancellationToken));
+        using var rejectedExecutionLogs = JsonDocument.Parse(
+            await rejectedLogs.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(1, rejectedExecutionLogs.RootElement.EnumerateArray()
+            .Count(item => item.GetProperty("transitionKey").GetString() == "node.notify.cc"));
+    }
+
+    /// <summary>发布包含前置和尾部抄送的线性审批定义。</summary>
+    /// <param name="client">已绑定目标数据库提供程序的测试客户端。</param>
+    /// <param name="token">具备定义管理权限的访问令牌。</param>
+    /// <param name="recipientUserId">活动抄送人标识。</param>
+    /// <param name="formVersionId">绑定的不可变表单版本。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    /// <returns>发布后的定义版本标识。</returns>
+    private static async Task<Guid> PublishCcDefinitionAsync(
+        HttpClient client,
+        string token,
+        Guid recipientUserId,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var fieldPolicies = new Dictionary<string, string>
+        {
+            ["reason"] = "readOnly",
+            ["secret"] = "hidden",
+            ["decision"] = "required",
+        };
+        using var create = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
+            {
+                definitionKey = $"runtime.cc.{Guid.NewGuid():N}",
+                draft = new
+                {
+                    schemaVersion = 1,
+                    nodes = new object[]
+                    {
+                        new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "before" } } },
+                        new { nodeKey = "before", nodeTypeKey = "notify.cc", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "approve" }, recipientUserIds = new[] { recipientUserId } } },
+                        new { nodeKey = "approve", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "after" }, fieldPolicies } },
+                        new { nodeKey = "after", nodeTypeKey = "notify.cc", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "end" }, recipientUserIds = new[] { recipientUserId } } },
+                        new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = Array.Empty<string>() } },
+                    },
+                },
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, create.StatusCode,
+            await create.Content.ReadAsStringAsync(cancellationToken));
+        using var definition = JsonDocument.Parse(await create.Content.ReadAsStringAsync(cancellationToken));
+        using var publish = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/definitions/{definition.RootElement.GetProperty("id").GetGuid():D}/publish",
+                token,
+                new { expectedRevision = 1, formVersionId }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publish.StatusCode,
+            await publish.Content.ReadAsStringAsync(cancellationToken));
+        using var version = JsonDocument.Parse(await publish.Content.ReadAsStringAsync(cancellationToken));
+        return version.RootElement.GetProperty("id").GetGuid();
+    }
+
     private static async Task<PublishedRuntimeAssets> PublishRuntimeAssetsAsync(
         HttpClient client,
         string token,
@@ -978,6 +1175,15 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/instances/{instanceId}/execution-logs", HttpMethod.Get,
             "workflowListInstanceExecutionLogs", "WorkflowInstances", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/definitions/recipient-candidates", HttpMethod.Get,
+            "workflowListRecipientCandidates", "WorkflowDefinitions", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/cc/mine", HttpMethod.Get,
+            "workflowListMyCc", "WorkflowCc", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/cc/{ccId}/read", HttpMethod.Post,
+            "workflowMarkCcRead", "WorkflowCc", 200, "application/json");
     }
 
     private static HttpRequestMessage Authorized(HttpMethod method, string path, string token)

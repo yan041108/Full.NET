@@ -8,6 +8,10 @@ declare module '*workflow-vue3/src/components/nodeWrap.vue' {
 /** 仅暴露当前适配层真实使用的 store 接口，未知能力保持未声明以避免误用。 */
 declare module '*workflow-vue3/src/stores/index.js' {
   export function useStore(): {
+    copyerDrawer: boolean;
+    copyerConfig1: unknown;
+    setCopyer: (visible: boolean) => void;
+    setCopyerConfig: (value: unknown) => void;
     setFlowNodeConfig: (value: unknown) => void;
   };
 }

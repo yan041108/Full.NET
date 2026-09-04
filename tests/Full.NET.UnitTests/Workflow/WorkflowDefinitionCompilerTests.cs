@@ -66,7 +66,6 @@ public sealed class WorkflowDefinitionCompilerTests
     }
 
     [TestMethod]
-    [DataRow("notify.cc")]
     [DataRow("gateway.exclusive")]
     public void Compile_rejects_known_nodes_without_runtime_execution_support(string nodeTypeKey)
     {
@@ -79,6 +78,57 @@ public sealed class WorkflowDefinitionCompilerTests
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(WorkflowErrorCodes.DefinitionNodeTypeUnavailable, result.ErrorCode);
+    }
+
+    [TestMethod]
+    public void Compile_accepts_cc_with_closed_recipient_identifiers()
+    {
+        var recipientA = Guid.NewGuid();
+        var recipientB = Guid.NewGuid();
+        var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"copy\"]}"),
+            Node("copy", "notify.cc", JsonSerializer.Serialize(new
+            {
+                nextNodeKeys = new[] { "approve" },
+                recipientUserIds = new[] { recipientA, recipientB },
+            })),
+            Node("approve", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]));
+
+        Assert.IsTrue(result.IsSuccess);
+    }
+
+    [TestMethod]
+    [DataRow("[]")]
+    [DataRow("[\"not-a-guid\"]")]
+    [DataRow("[\"00000000-0000-0000-0000-000000000000\"]")]
+    public void Compile_rejects_invalid_cc_recipient_configuration(string recipientsJson)
+    {
+        var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"copy\"]}"),
+            Node("copy", "notify.cc",
+                $"{{\"nextNodeKeys\":[\"approve\"],\"recipientUserIds\":{recipientsJson}}}"),
+            Node("approve", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual("workflow.definition.cc_recipients_invalid", result.ErrorCode);
+    }
+
+    [TestMethod]
+    public void Compile_rejects_duplicate_or_over_limit_cc_recipients()
+    {
+        var duplicate = Guid.NewGuid();
+        var duplicateResult = CompileCcRecipients([duplicate, duplicate]);
+        var overLimitResult = CompileCcRecipients(
+            Enumerable.Range(0, 21).Select(_ => Guid.NewGuid()).ToArray());
+
+        Assert.AreEqual("workflow.definition.cc_recipients_invalid", duplicateResult.ErrorCode);
+        Assert.AreEqual("workflow.definition.cc_recipients_invalid", overLimitResult.ErrorCode);
     }
 
     [TestMethod]
@@ -125,6 +175,19 @@ public sealed class WorkflowDefinitionCompilerTests
         [
             Node("start", "start", "{\"nextNodeKeys\":[\"approve\"]}"),
             Node("approve", "human.approval", approvalConfig),
+            Node("end", "end", "{}"),
+        ]));
+
+    private static WorkflowCompilationResult CompileCcRecipients(IReadOnlyList<Guid> recipients) =>
+        WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"copy\"]}"),
+            Node("copy", "notify.cc", JsonSerializer.Serialize(new
+            {
+                nextNodeKeys = new[] { "approve" },
+                recipientUserIds = recipients,
+            })),
+            Node("approve", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
             Node("end", "end", "{}"),
         ]));
 
