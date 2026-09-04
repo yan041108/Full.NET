@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect } from '@playwright/test';
 
 export function readStackState() {
-  const statePath = new URL('../.stack-state.json', import.meta.url);
+  const statePath = new URL('../../.stack-state.json', import.meta.url);
   expect(existsSync(statePath)).toBeTruthy();
   return JSON.parse(readFileSync(statePath, 'utf8'));
 }

@@ -191,6 +191,16 @@ test('代码生成真实栈必须使用临时工作区并验证双端确认 Appl
   assert.match(spec, /IOrganizationOwnedEntityWriteAuthorizer/u);
 });
 
+test('代码生成工作区辅助函数必须读取真实栈根目录的状态文件', async () => {
+  const helperPath = path.resolve(
+    import.meta.dirname,
+    '../tests/support/codegeneration-workspace.mjs'
+  );
+  const source = await readFile(helperPath, 'utf8');
+
+  assert.match(source, /new URL\('\.\.\/\.\.\/\.stack-state\.json', import\.meta\.url\)/u);
+});
+
 test('运行日志真实栈必须使用隔离目录并在退出时清理', async () => {
   const bootstrapPath = path.resolve(
     import.meta.dirname,

@@ -496,6 +496,7 @@ test('Host 管理员可 Apply 组织归属模板并落盘写入授权 Feature', 
   const suffix = `${clientKind}-${Date.now()}`;
   const templateName = `e2e-org-owned-${suffix}`;
   const featureArtifactPath = 'backend/ProductFeature.g.cs';
+  const endpointArtifactPath = 'backend/ProductEndpoint.g.cs';
 
   await loginAsHostAdmin(page);
   await openTemplateWorkspace(page, clientKind);
@@ -551,9 +552,10 @@ test('Host 管理员可 Apply 组织归属模板并落盘写入授权 Feature', 
 
   if (process.env.FULLNET_E2E_SKIP_BOOTSTRAP !== '1') {
     const featureSource = readAppliedWorkspaceArtifact(featureArtifactPath);
+    const endpointSource = readAppliedWorkspaceArtifact(endpointArtifactPath);
     expect(featureSource).toContain('IOrganizationOwnedEntityWriteAuthorizer');
     expect(featureSource).toContain('BuildOrganizationUnitFilter');
-    expect(featureSource).toContain(
+    expect(endpointSource).toContain(
       'OrganizationRequestHeaders.OrganizationUnitId'
     );
   }
@@ -663,10 +665,10 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
   );
   delete schema.hasVersion;
   schema.entityCapabilities = {
-    deleteMode: 'soft.delete',
-    hasCreatedAudit: true,
-    hasUpdatedAudit: true,
-    hasDeletedAudit: true,
+    deleteMode: 'hard.delete',
+    hasCreatedAudit: false,
+    hasUpdatedAudit: false,
+    hasDeletedAudit: false,
     hasVersion: true,
     ownershipMode: 'none'
   };
@@ -699,7 +701,9 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
   await templateView.getByTestId('codegen-template-filter-search').click();
   await expectTemplateListed(templateView, 'vue', templateName);
 
-  const row = templateView.locator('tr', { hasText: templateName });
+  const row = templateView.getByRole('row', {
+    name: new RegExp(`^${templateName} ${schema.databaseTableName} `)
+  });
   await row.getByTestId('codegen-template-copy').click();
   await expect(templateView.locator('[data-testid="codegen-template-table"]')).toContainText(`${templateName} (copy)`);
 
@@ -716,8 +720,8 @@ test('Vue 工作台支持筛选、复制、列元数据与预览深链', async (
   const previewView = codeGenerationView(page, 'vue');
   await expect(previewView).toBeVisible();
   await expect(page).toHaveURL(/templateId=/);
-  await expect(previewView.getByTestId('codegen-schema')).toContainText(
-    schema.databaseTableName
+  await expect(previewView.getByTestId('codegen-schema')).toHaveValue(
+    new RegExp(schema.databaseTableName)
   );
   await expect(previewView.getByTestId('codegen-integration-target')).toBeVisible();
 
