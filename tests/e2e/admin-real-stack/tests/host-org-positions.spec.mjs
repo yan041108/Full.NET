@@ -130,7 +130,11 @@ test('Host 管理员通过双管理端把真实职位绑定到机构与职级', 
     await positionRow.getByLabel('所属机构', { exact: true }).selectOption(unit.id);
   }
   expect((await unitBindingResponse).ok()).toBeTruthy();
-  await expect(identity.getByText(unit.name, { exact: true })).toBeVisible();
+  if (clientKind === 'vue') {
+    await expect(positionRow.locator('.el-select').first()).toContainText(unit.name);
+  } else {
+    await expect(identity.getByText(unit.name, { exact: true })).toBeVisible();
+  }
 
   const positionLevelBindingResponse = page.waitForResponse(response =>
     response.request().method() === 'PUT'
@@ -146,7 +150,11 @@ test('Host 管理员通过双管理端把真实职位绑定到机构与职级', 
       .selectOption(positionLevel.id);
   }
   expect((await positionLevelBindingResponse).ok()).toBeTruthy();
-  await expect(identity.getByText(positionLevel.name, { exact: true })).toBeVisible();
+  if (clientKind === 'vue') {
+    await expect(positionRow.locator('.el-select').nth(1)).toContainText(positionLevel.name);
+  } else {
+    await expect(identity.getByText(positionLevel.name, { exact: true })).toBeVisible();
+  }
 
   const persisted = await getPosition(
     request,

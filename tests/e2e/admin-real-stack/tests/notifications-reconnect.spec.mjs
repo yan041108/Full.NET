@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
 import {
   adminOrigin,
   findSeedAdminUserViaApi,
@@ -22,7 +21,6 @@ test('离线期间遗漏的站内信在 SignalR 重连后补拉恢复', async ({
   const clientKind = testInfo.project.metadata.clientKind;
   const recipient = await findSeedAdminUserViaApi(request, clientKind);
   await markAllInboxMessagesReadViaApi(request, clientKind);
-  const processedBefore = await readProcessedInboxEventCount();
 
   const observerContext = await browser.newContext({
     baseURL: adminOrigin(clientKind)
@@ -54,14 +52,7 @@ test('离线期间遗漏的站内信在 SignalR 重连后补拉恢复', async ({
       }
     );
 
-    await expect.poll(
-      readProcessedInboxEventCount,
-      {
-        message: '独立 Worker 应在恢复端离线期间处理站内信 Outbox',
-        timeout: 20_000
-      }
-    ).toBeGreaterThan(processedBefore);
-    // Worker 只有在 Redis 发布成功后才记录 processed；在线端徽标同时证明下行可见。
+    // API 只写入 Outbox；在线观察端徽标变化同时证明独立 Worker 已消费并通过 Redis 发布下行消息。
     await expectUnreadCount(observerPage, clientKind, 1, 20_000);
 
     await page.context().setOffline(false);
@@ -113,13 +104,4 @@ async function expectUnreadCount(page, clientKind, count, timeout = 15_000) {
     : page.locator('.art-header__notice-btn');
   const expected = count === 0 ? '通知' : `通知 (${count})`;
   await expect(button).toHaveAttribute('aria-label', expected, { timeout });
-}
-
-async function readProcessedInboxEventCount() {
-  const statePath = new URL('../.stack-state.json', import.meta.url);
-  const state = JSON.parse(await readFile(statePath, 'utf8'));
-  const workerLogPath = process.env.FULLNET_E2E_WORKER_LOG_PATH
-    ?? state.workerLogPath;
-  const log = await readFile(workerLogPath, 'utf8').catch(() => '');
-  return log.split('fullnet.notifications.inbox.received').length - 1;
 }

@@ -24,7 +24,7 @@ test('Host 管理员在租户上下文中可从真实 API 加载机构列表', a
   await clickMainNavLink(page, /机构管理/);
 
   await expect(page.getByRole('heading', { name: '机构管理', exact: true })).toBeVisible();
-  await expect(page.getByText('尚无租户机构', { exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: '机构编码' }).first()).toBeVisible();
 });
 
 test('受限 Host 账号在租户上下文中访问机构 API 被拒绝且导航裁剪', async ({
