@@ -35,27 +35,12 @@
       "dist": "ui/admin/dist",
       "asset": {
         "directory": "assets",
-        "assetPrefix": "designer.umd-",
+        "assetPrefix": "VForm3EsmDesigner-",
         "assetSuffix": ".js"
       },
       "budget": {
-        "minifiedBytes": 1461821,
-        "gzipBytes": 342013,
-        "maxRegressionPercent": 5
-      }
-    },
-    {
-      "name": "Vue VForm3 Element Plus runtime graph",
-      "dist": "ui/admin/dist",
-      "entry": {
-        "directory": "assets",
-        "entryPrefix": "element-plus-components-",
-        "entrySuffix": ".js",
-        "followStaticImports": true
-      },
-      "budget": {
-        "minifiedBytes": 467256,
-        "gzipBytes": 173109,
+        "minifiedBytes": 8450,
+        "gzipBytes": 3203,
         "maxRegressionPercent": 5
       }
     }

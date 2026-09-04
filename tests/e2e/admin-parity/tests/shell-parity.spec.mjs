@@ -3610,6 +3610,91 @@ test('刷新失败后可登录、进入动态控制台并安全退出', async ({
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
 });
 
+test('工作流表单编辑器加载草稿后显示 VForm3 字段', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.metadata.clientKind !== 'vue', 'VForm3 仅在 Vue 管理端交付');
+  await mockAuthenticatedSession(page);
+  const draft = {
+    schemaVersion: 1,
+    adapterVersion: 1,
+    sections: [{
+      sectionKey: 'main',
+      fields: [{
+        fieldKey: 'amount_e2e',
+        fieldTypeKey: 'money',
+        required: true,
+        constraints: {}
+      }]
+    }]
+  };
+  const form = {
+    id: '019bc2b1-2a40-7cc3-8992-a80de51bfd01',
+    formKey: 'purchase.request',
+    draft,
+    draftRevision: 2,
+    latestPublishedVersionId: null,
+    createdAtUtc: '2026-09-04T00:00:00Z',
+    updatedAtUtc: null
+  };
+  let savedDraftRequest;
+  await page.route('**/api/v1/workflow/forms/component-catalog', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      catalogVersion: 1,
+      schemaVersion: 1,
+      adapterVersion: 1,
+      components: [{
+        fieldTypeKey: 'money',
+        designable: true,
+        publishable: true,
+        executable: true,
+        constraintKeys: ['minimum', 'maximum', 'scale']
+      }]
+    })
+  }));
+  await page.route('**/api/v1/workflow/forms/019bc2b1-2a40-7cc3-8992-a80de51bfd01/draft', route => {
+    savedDraftRequest = route.request().postDataJSON();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ...form,
+        draft: savedDraftRequest.draft,
+        draftRevision: 3,
+        updatedAtUtc: '2026-09-04T00:01:00Z'
+      })
+    });
+  });
+  await page.route('**/api/v1/workflow/forms/019bc2b1-2a40-7cc3-8992-a80de51bfd01', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(form)
+  }));
+  await page.route('**/api/v1/workflow/forms', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([form])
+  }));
+
+  await page.goto('/');
+  await openNavigationLink(page, /工作流表单/);
+  const view = page.locator('.workflow-forms');
+  await view.getByTestId('workflow-form-edit').click();
+  const designer = view.getByTestId('vform3-workflow-designer');
+  await expect(designer).toBeVisible();
+  await expect(designer.getByText('amount_e2e', { exact: false }).first()).toBeVisible();
+  await designer.locator('input[type="checkbox"]').uncheck();
+  await view.getByTestId('workflow-form-save').click();
+  await expect.poll(() => savedDraftRequest).toBeTruthy();
+  expect(savedDraftRequest.expectedRevision).toBe(2);
+  expect(savedDraftRequest.draft.sections[0].fields[0]).toMatchObject({
+    fieldKey: 'amount_e2e',
+    fieldTypeKey: 'money',
+    required: false
+  });
+  await expect(view.getByRole('dialog').getByText('Revision 3', { exact: true })).toBeVisible();
+});
+
 async function mockAuthenticatedSession(page, options = {}) {
   const state = { tenantId: options.initialTenantId ?? null };
   let meCalls = 0;
@@ -3809,6 +3894,8 @@ function currentUserResponse(activeTenantId = null) {
       'auditing.access.read',
       'auditing.operations.read',
       'auditing.exceptions.read',
+      'workflow.forms.read',
+      'workflow.forms.update',
       ...(activeTenantId
         ? [
             'organization.units.read',
@@ -3965,6 +4052,12 @@ function navigationResponse(unknownComponent = false, activeTenantId = null) {
       path: '/auditing/exception-logs', componentKey: 'exception-logs',
       title: '异常日志', caption: 'Host 作用域未处理异常审计', icon: 'warning',
       order: 62, requiredPermission: 'auditing.exceptions.read', children: []
+    },
+    {
+      id: 'workflow-forms', parentId: null, routeName: 'workflow-forms',
+      path: '/workflow/forms', componentKey: 'workflow-forms',
+      title: '工作流表单', caption: '工作流表单草稿与发布', icon: 'document',
+      order: 80, requiredPermission: 'workflow.forms.read', children: []
     }
   ];
 

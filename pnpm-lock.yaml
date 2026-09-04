@@ -89,13 +89,6 @@ importers:
         version: 2.2.12(typescript@5.9.3)
 
   packages/admin-form-designer:
-    dependencies:
-      element-plus:
-        specifier: 2.14.3
-        version: 2.14.3(vue@3.5.40(typescript@6.0.3))
-      vform3-builds:
-        specifier: 3.0.10
-        version: 3.0.10
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: 6.0.8
@@ -4502,9 +4495,6 @@ packages:
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
-
-  vform3-builds@3.0.10:
-    resolution: {integrity: sha512-sULNk72Z6NG94X9MMgpBwinaIOYjtl7Bn5jZbV9iZaglSYr2SHm/wpXPAjl8F8OW6SzOOJgIpRek+NvOvN7wsg==}
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
@@ -9511,8 +9501,6 @@ snapshots:
   varint@6.0.0: {}
 
   vary@1.1.2: {}
-
-  vform3-builds@3.0.10: {}
 
   vite-node@3.2.4(@types/node@24.10.1)(lightningcss@1.32.0)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.49.0):
     dependencies:
