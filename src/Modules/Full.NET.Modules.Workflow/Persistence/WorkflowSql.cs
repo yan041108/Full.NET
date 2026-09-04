@@ -397,6 +397,19 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>写入已经同步完成的排他网关步骤；网关只记录路由决策，不产生待办。</summary>
+    public static readonly SqlStatement InsertCompletedGatewayStep = new(
+        "workflow.step.insert_completed_gateway",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'gateway.exclusive', 'completed', NULL,
+             NULL, 0, 1, @StartedAtUtc, @CompletedAtUtc)
+        """,
+        SqlDataScope.Global);
+
     /// <summary>读取同一实例已经产生的抄送人，用于满足既有实例级唯一约束。</summary>
     public static readonly SqlStatement ListCcRecipientIdsByInstance = new(
         "workflow.cc.list_recipient_ids_by_instance",

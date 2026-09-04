@@ -4,7 +4,8 @@ import { ElButton, ElCard, ElDrawer, ElMessage } from 'element-plus';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails,
-  type WorkflowFieldPolicies
+  type WorkflowFieldPolicies,
+  type WorkflowFormField
 } from '@fullnet/client-contracts';
 import {
   createWorkflowDefinition,
@@ -60,6 +61,7 @@ const definitionDesigner = ref<WorkflowVue3DesignerInstance>();
 const enabledNodeTypes = ref<readonly string[]>([]);
 const publishedForms = ref<WorkflowFormResponse[]>([]);
 const publishFormVersionId = ref('');
+const gatewayFields = ref<readonly WorkflowFormField[]>([]);
 const canLoadPublishForms = computed(() =>
   session.can('workflow.definitions.publish') && session.can('workflow.forms.read'));
 
@@ -129,9 +131,21 @@ async function openEditor(definition: WorkflowDefinitionResponse): Promise<void>
     workflowTree.value = toWorkflowVue3Tree(authoritative.draft);
     publishedForms.value = forms.filter(form => form.latestPublishedVersionId !== null);
     publishFormVersionId.value = publishedForms.value[0]?.latestPublishedVersionId ?? '';
+    await loadGatewayFields();
   } catch (error: unknown) {
     showDesignerError(error instanceof Error ? error.message : 'client.invalid_workflow_definition_draft');
   }
+}
+
+/** 读取当前发布目标的不可变表单版本，供排他网关条件选择字段。 */
+async function loadGatewayFields(): Promise<void> {
+  gatewayFields.value = [];
+  if (!publishFormVersionId.value) return;
+  const result = await runManagementAction(
+    () => getWorkflowStartForm(publishFormVersionId.value),
+    'workflowDefinitions.loadFailed'
+  );
+  gatewayFields.value = result?.schema.sections.flatMap(section => section.fields) ?? [];
 }
 
 async function saveDefinitionDraft(): Promise<void> {
@@ -183,6 +197,7 @@ function closeEditor(): void {
   enabledNodeTypes.value = [];
   publishedForms.value = [];
   publishFormVersionId.value = '';
+  gatewayFields.value = [];
 }
 
 function createDefaultDefinitionDraft(): WorkflowDefinitionDraft {
@@ -412,12 +427,13 @@ function toProblem(
         v-model="workflowTree"
         :disabled="acting"
         :enabled-node-types="enabledNodeTypes"
+        :gateway-fields="gatewayFields"
         @validation-error="showDesignerError"
       />
       <div v-if="canLoadPublishForms" class="workflow-definitions__publish-row">
         <label>
           <span>{{ t('workflowDefinitions.formVersion') }}</span>
-          <select v-model="publishFormVersionId" data-testid="workflow-definition-form-version">
+          <select v-model="publishFormVersionId" data-testid="workflow-definition-form-version" @change="loadGatewayFields">
             <option value="">{{ t('workflowDefinitions.selectFormVersion') }}</option>
             <option
               v-for="form in publishedForms"

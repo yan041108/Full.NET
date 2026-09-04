@@ -23,7 +23,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
-/// <param name="ccTransitionWriter">同步抄送迁移写入器。</param>
+/// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
 internal sealed class WorkflowInstanceManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -32,7 +32,7 @@ internal sealed class WorkflowInstanceManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    WorkflowCcTransitionWriter ccTransitionWriter)
+    WorkflowAutomaticTransitionWriter automaticTransitionWriter)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
     /// <param name="actorUserId">发起人的稳定用户标识。</param>
@@ -65,15 +65,16 @@ internal sealed class WorkflowInstanceManagementService(
         var formSchema = JsonSerializer.Deserialize(
             asset.FormSchemaJson,
             WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
-        if (definition is null ||
-            !WorkflowRuntimePlan.TryCreate(definition, out var runtimePlan) ||
-            formSchema is null ||
+        if (definition is null || formSchema is null ||
+            !WorkflowRuntimePlan.TryCreate(definition, formSchema, out var runtimePlan) ||
             !WorkflowFormValueValidator.Validate(formSchema, request.InitialValues))
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
-        if (!runtimePlan!.TryResolveStart(out var startTransition) ||
+        var initialValues = request.InitialValues.EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
+        if (!runtimePlan!.TryResolveStart(initialValues, out var startTransition) ||
             startTransition.NextApprovalNodeKey is not { } approvalNodeKey)
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
@@ -120,10 +121,10 @@ internal sealed class WorkflowInstanceManagementService(
                         ("FromStatusKey", null), ("ToStatusKey", "active"),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
-                await ccTransitionWriter.WriteAsync(
+                await automaticTransitionWriter.WriteAsync(
                     instanceId,
                     scope.TenantScopeKey,
-                    startTransition.CcNodes,
+                    startTransition.AutomaticNodes,
                     now,
                     token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,

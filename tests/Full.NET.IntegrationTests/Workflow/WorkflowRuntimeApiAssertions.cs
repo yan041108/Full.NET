@@ -202,6 +202,8 @@ internal static class WorkflowRuntimeApiAssertions
 
         await VerifyLinearMultiApprovalAsync(
             client, identity.AccessToken, versions.FormVersionId, cancellationToken);
+        await VerifyExclusiveGatewayRuntimeAsync(
+            client, identity.AccessToken, versions.FormVersionId, cancellationToken);
         await VerifyCcRuntimeAsync(
             client,
             identity.AccessToken,
@@ -864,6 +866,227 @@ internal static class WorkflowRuntimeApiAssertions
             AuthorizedJson(HttpMethod.Post,
                 $"/api/v1/workflow/definitions/{definition.RootElement.GetProperty("id").GetGuid():D}/publish",
                 token, new { expectedRevision = 1, formVersionId }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publish.StatusCode,
+            await publish.Content.ReadAsStringAsync(cancellationToken));
+        using var version = JsonDocument.Parse(await publish.Content.ReadAsStringAsync(cancellationToken));
+        return version.RootElement.GetProperty("id").GetGuid();
+    }
+
+    /// <summary>验收审批字段补丁驱动排他网关，并持久化唯一分支执行轨迹。</summary>
+    /// <param name="client">已绑定目标数据库提供程序的测试客户端。</param>
+    /// <param name="token">具备定义、实例和待办权限的访问令牌。</param>
+    /// <param name="formVersionId">已经发布的不可变表单版本。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    private static async Task VerifyExclusiveGatewayRuntimeAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var definitionVersionId = await PublishExclusiveGatewayDefinitionAsync(
+            client, token, formVersionId, cancellationToken);
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", token, new
+            {
+                definitionVersionId,
+                businessType = "leave.gateway",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "gateway-stage", secret = "classified" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var firstTodoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var approve = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{firstTodoId:D}/approve", token, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "finance" },
+                comment = "route to finance",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, approve.StatusCode,
+            await approve.Content.ReadAsStringAsync(cancellationToken));
+        using var advanced = JsonDocument.Parse(await approve.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("active", advanced.RootElement.GetProperty("statusKey").GetString());
+        var secondTodoId = advanced.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var runtime = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{secondTodoId:D}/runtime", token),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, runtime.StatusCode,
+            await runtime.Content.ReadAsStringAsync(cancellationToken));
+        using var nextTodo = JsonDocument.Parse(await runtime.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("finance",
+            nextTodo.RootElement.GetProperty("submission").GetProperty("decision").GetString());
+        Assert.AreEqual("readOnly",
+            nextTodo.RootElement.GetProperty("fieldPolicies").GetProperty("decision").GetString());
+
+        using var logs = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/instances/{instanceId:D}/execution-logs", token),
+            cancellationToken);
+        using var executionLogs = JsonDocument.Parse(await logs.Content.ReadAsStringAsync(cancellationToken));
+        CollectionAssert.Contains(
+            executionLogs.RootElement.EnumerateArray()
+                .Select(item => item.GetProperty("transitionKey").GetString()).ToArray(),
+            "node.gateway.exclusive");
+
+        using var defaultStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", token, new
+            {
+                definitionVersionId,
+                businessType = "leave.gateway.default",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "default-stage" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, defaultStart.StatusCode,
+            await defaultStart.Content.ReadAsStringAsync(cancellationToken));
+        using var defaultStarted = JsonDocument.Parse(
+            await defaultStart.Content.ReadAsStringAsync(cancellationToken));
+        var defaultFirstTodoId = defaultStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+        using var defaultApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{defaultFirstTodoId:D}/approve", token, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "manager" },
+                comment = "route to default",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, defaultApprove.StatusCode,
+            await defaultApprove.Content.ReadAsStringAsync(cancellationToken));
+        using var defaultAdvanced = JsonDocument.Parse(
+            await defaultApprove.Content.ReadAsStringAsync(cancellationToken));
+        var managerTodoId = defaultAdvanced.RootElement.GetProperty("activeTodoId").GetGuid();
+        using var managerRuntime = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{managerTodoId:D}/runtime", token),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, managerRuntime.StatusCode,
+            await managerRuntime.Content.ReadAsStringAsync(cancellationToken));
+        using var managerTodo = JsonDocument.Parse(
+            await managerRuntime.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("hidden",
+            managerTodo.RootElement.GetProperty("fieldPolicies").GetProperty("decision").GetString());
+        Assert.IsFalse(managerTodo.RootElement.GetProperty("submission").TryGetProperty("decision", out _));
+
+        using var rejectStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", token, new
+            {
+                definitionVersionId,
+                businessType = "leave.gateway.reject",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "reject-before-gateway" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, rejectStart.StatusCode,
+            await rejectStart.Content.ReadAsStringAsync(cancellationToken));
+        using var rejectStarted = JsonDocument.Parse(
+            await rejectStart.Content.ReadAsStringAsync(cancellationToken));
+        var rejectInstanceId = rejectStarted.RootElement.GetProperty("id").GetGuid();
+        var rejectTodoId = rejectStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+        using var reject = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{rejectTodoId:D}/reject", token, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "finance" },
+                comment = "reject before route",
+                idempotencyKey = $"reject-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reject.StatusCode,
+            await reject.Content.ReadAsStringAsync(cancellationToken));
+        using var rejectLogs = await client.SendAsync(
+            Authorized(HttpMethod.Get,
+                $"/api/v1/workflow/instances/{rejectInstanceId:D}/execution-logs", token),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, rejectLogs.StatusCode,
+            await rejectLogs.Content.ReadAsStringAsync(cancellationToken));
+        using var rejectedExecutionLogs = JsonDocument.Parse(
+            await rejectLogs.Content.ReadAsStringAsync(cancellationToken));
+        CollectionAssert.DoesNotContain(
+            rejectedExecutionLogs.RootElement.EnumerateArray()
+                .Select(item => item.GetProperty("transitionKey").GetString()).ToArray(),
+            "node.gateway.exclusive");
+    }
+
+    /// <summary>发布包含审批后排他网关的定义，供双数据库运行时断言复用。</summary>
+    /// <param name="client">测试客户端。</param>
+    /// <param name="token">定义发布访问令牌。</param>
+    /// <param name="formVersionId">绑定的不可变表单版本。</param>
+    /// <param name="cancellationToken">测试取消令牌。</param>
+    /// <returns>已发布定义版本标识。</returns>
+    private static async Task<Guid> PublishExclusiveGatewayDefinitionAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var initialFieldPolicies = new Dictionary<string, string>
+        {
+            ["reason"] = "readOnly",
+            ["secret"] = "hidden",
+            ["decision"] = "editable",
+        };
+        var financeFieldPolicies = new Dictionary<string, string>(initialFieldPolicies)
+        {
+            ["decision"] = "readOnly",
+        };
+        var managerFieldPolicies = new Dictionary<string, string>(initialFieldPolicies)
+        {
+            ["decision"] = "hidden",
+        };
+        using var create = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
+            {
+                definitionKey = $"runtime.gateway.{Guid.NewGuid():N}",
+                draft = new
+                {
+                    schemaVersion = 1,
+                    nodes = new object[]
+                    {
+                        new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "initial" } } },
+                        new { nodeKey = "initial", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "route" }, fieldPolicies = initialFieldPolicies } },
+                        new
+                        {
+                            nodeKey = "route",
+                            nodeTypeKey = "gateway.exclusive",
+                            nodeSchemaVersion = 1,
+                            config = new
+                            {
+                                nextNodeKeys = new[] { "finance", "manager" },
+                                branches = new[]
+                                {
+                                    new
+                                    {
+                                        branchKey = "finance",
+                                        nextNodeKey = "finance",
+                                        condition = new { fieldKey = "decision", @operator = "equals", value = "finance" },
+                                    },
+                                },
+                                defaultNextNodeKey = "manager",
+                            },
+                        },
+                        new { nodeKey = "finance", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "end" }, fieldPolicies = financeFieldPolicies } },
+                        new { nodeKey = "manager", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "end" }, fieldPolicies = managerFieldPolicies } },
+                        new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = Array.Empty<string>() } },
+                    },
+                },
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, create.StatusCode,
+            await create.Content.ReadAsStringAsync(cancellationToken));
+        using var definition = JsonDocument.Parse(await create.Content.ReadAsStringAsync(cancellationToken));
+        using var publish = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/definitions/{definition.RootElement.GetProperty("id").GetGuid():D}/publish",
+                token,
+                new { expectedRevision = 1, formVersionId }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, publish.StatusCode,
             await publish.Content.ReadAsStringAsync(cancellationToken));
         using var version = JsonDocument.Parse(await publish.Content.ReadAsStringAsync(cancellationToken));

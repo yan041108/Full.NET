@@ -39,6 +39,14 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionCcRecipientsInvalid);
         }
 
+        // 网关配置必须先通过闭合结构校验，图遍历才可以信任其中声明的出口集合。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.exclusive" &&
+                !WorkflowExclusiveGatewayConfiguration.TryRead(node.Config, null, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeKeyDuplicate);
@@ -103,6 +111,19 @@ internal static class WorkflowDefinitionCompiler
         if (!TryCompileFieldPolicies(draft, formSchema, out var policiesByNode))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionFieldPolicyInvalid);
+        }
+
+        // 发布时将每个条件绑定到不可变表单架构，运行时不再接受临时字段或类型推断。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.exclusive" &&
+                !WorkflowExclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
+        if (!WorkflowRuntimePlan.TryCreate(draft, formSchema, out _))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTopologyUnsupported);
         }
 
         return WorkflowCompilationResult.Success(

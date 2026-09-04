@@ -10,8 +10,12 @@ declare module '*workflow-vue3/src/stores/index.js' {
   export function useStore(): {
     copyerDrawer: boolean;
     copyerConfig1: unknown;
+    conditionDrawer: boolean;
+    conditionsConfig1: unknown;
     setCopyer: (visible: boolean) => void;
     setCopyerConfig: (value: unknown) => void;
+    setCondition: (visible: boolean) => void;
+    setConditionsConfig: (value: unknown) => void;
     setFlowNodeConfig: (value: unknown) => void;
   };
 }

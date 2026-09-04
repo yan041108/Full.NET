@@ -7,7 +7,7 @@
 - 验证范围：在既有 Host Vue 审批、线性 `human.approval`、表单运行时与 Native AOT 证据之上，补齐 Host/Tenant × SQL Server/MySQL 的权限、并发与表单安全矩阵；关闭 Task 7 中 Tenant/422 与受影响 slice 遗留项。
 - 结论：Workflow 首切片 Task 7 的 Host/Tenant 真实栈矩阵与 slice 受影响集已关闭，能力状态保持 `Build-verified`。
 - 后续进展：`notify.cc` 首个可执行纵向切片已由 [`2026-09-04-workflow-notify-cc-verification.md`](2026-09-04-workflow-notify-cc-verification.md) 关闭。
-- 非结论：不得升格为 `Verified`。Worker 恢复/重放/reconcile、Tenant 本地收件人候选、`gateway.exclusive`、生产容量与人工产品验收仍开放。本机验证使用开发真实栈容器，保持 `Capacity-not-verified`。
+- 非结论：不得升格为 `Verified`。`gateway.exclusive` 首个闭合切片已由[独立验证记录](2026-09-05-workflow-exclusive-gateway-verification.md)接续；Worker 恢复/重放/reconcile、Tenant 本地收件人候选、生产容量与人工产品验收仍开放。本机验证使用开发真实栈容器，保持 `Capacity-not-verified`。
 
 本记录关闭 [`2026-08-30-workflow-admin-approval-real-stack.md`](2026-08-30-workflow-admin-approval-real-stack.md) 中明确留下的 Tenant 作用域与危险 Patch 422 缺口；不替代该记录中的 Host Vue 审批证据，也不替代 Native AOT 记录。
 

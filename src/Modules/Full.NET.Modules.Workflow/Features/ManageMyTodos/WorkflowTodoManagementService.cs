@@ -24,7 +24,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
-/// <param name="ccTransitionWriter">同步抄送迁移写入器。</param>
+/// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
 internal sealed class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -33,7 +33,7 @@ internal sealed class WorkflowTodoManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    WorkflowCcTransitionWriter ccTransitionWriter)
+    WorkflowAutomaticTransitionWriter automaticTransitionWriter)
 {
     public async Task<Result<IReadOnlyList<WorkflowTodoResponse>>> ListMineAsync(
         Guid actorUserId,
@@ -246,11 +246,17 @@ internal sealed class WorkflowTodoManagementService(
             : JsonSerializer.Deserialize(
                 asset.CanonicalJson,
                 WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);
+        var formSchema = asset is null
+            ? null
+            : JsonSerializer.Deserialize(
+                asset.FormSchemaJson,
+                WorkflowJsonSerializerContext.Default.WorkflowFormSchema);
         WorkflowRuntimePlan? runtimePlan = null;
         var transition = default(WorkflowApprovalTransition);
-        var hasPlan = definition is not null && WorkflowRuntimePlan.TryCreate(definition, out runtimePlan);
-        var hasTransition = hasPlan && runtimePlan!.TryResolveApproval(todo.NodeKey, out transition);
-        var patchedSubmission = asset is null || submission is null || !hasTransition
+        var hasPlan = definition is not null && formSchema is not null &&
+            WorkflowRuntimePlan.TryCreate(definition, formSchema, out runtimePlan) &&
+            runtimePlan!.ContainsApprovalNode(todo.NodeKey);
+        var patchedSubmission = asset is null || submission is null || !hasPlan
             ? null
             : BuildPatchedSubmission(
                 asset.CanonicalJson,
@@ -261,6 +267,23 @@ internal sealed class WorkflowTodoManagementService(
         if (patchedSubmission is null)
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+        }
+
+        if (actionKey == "approve")
+        {
+            var patchedValues = JsonSerializer.Deserialize(
+                patchedSubmission,
+                WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
+            if (patchedValues is null ||
+                !runtimePlan!.TryResolveApproval(todo.NodeKey, patchedValues, out transition))
+            {
+                return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+            }
+        }
+        else
+        {
+            // 驳回直接终止当前实例，不得执行或求值审批节点之后的任何自动节点。
+            transition = new WorkflowApprovalTransition(null, true, []);
         }
 
         var now = clock.UtcNow;
@@ -328,10 +351,10 @@ internal sealed class WorkflowTodoManagementService(
                 ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
         if (actionKey == "approve")
         {
-            await ccTransitionWriter.WriteAsync(
+            await automaticTransitionWriter.WriteAsync(
                 instance.Id,
                 scope.TenantScopeKey,
-                transition.CcNodes,
+                transition.AutomaticNodes,
                 now,
                 token).ConfigureAwait(false);
         }

@@ -186,6 +186,16 @@ All.prototype = {
     conditionStr(nodeConfig, index) {
         if (Number(nodeConfig?.type) === NodeType.ParallelRoute) return '所有分支都会执行'
         var currentNode = nodeConfig.conditionNodes[index];
+        if (currentNode?.isDefault) return '其他条件进入此流程'
+        if (currentNode?.fieldKey && currentNode?.operator) {
+            const labels = {
+                equals: '等于', notEquals: '不等于', greaterThan: '大于',
+                greaterThanOrEqual: '大于或等于', lessThan: '小于',
+                lessThanOrEqual: '小于或等于', isEmpty: '为空', isNotEmpty: '不为空',
+            }
+            const empty = ['isEmpty', 'isNotEmpty'].includes(currentNode.operator)
+            return `${currentNode.fieldKey} ${labels[currentNode.operator] || currentNode.operator}${empty ? '' : ` ${String(currentNode.value ?? '')}`}`
+        }
         if (currentNode && currentNode.conditionType === 'remote') return 'Full.NET 不支持远程条件'
         var conditionGroups = Array.isArray(currentNode.conditionGroupList) && currentNode.conditionGroupList.length
             ? currentNode.conditionGroupList

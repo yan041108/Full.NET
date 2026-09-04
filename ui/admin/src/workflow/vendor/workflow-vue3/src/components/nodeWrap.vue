@@ -48,7 +48,7 @@
           <div class="condition-node">
             <div class="condition-node-box">
               <div class="auto-judge" :class="(isTried || item.localTried) && item.error ? 'error active' : ''">
-                <div class="sort-left" v-if="index != 0" @click="arrTransfer(index, -1)">&lt;</div>
+                <div class="sort-left" v-if="index != 0 && !item.isDefault" @click="arrTransfer(index, -1)">&lt;</div>
                 <div class="title-wrapper">
                   <input
                     v-if="isInputList[index]"
@@ -61,10 +61,10 @@
                   />
                   <span v-else class="editable-title" @click="clickEvent(index)">{{ item.nodeName }}</span>
                   <span class="priority-title" @click="setPerson(item.priorityLevel)">优先级{{ item.priorityLevel }}</span>
-                  <span class="copy-branch" @click.stop="copyTerm(index)">复制</span>
-                  <i class="anticon anticon-close close" @click="delTerm(index)"></i>
+                  <span v-if="!item.isDefault" class="copy-branch" @click.stop="copyTerm(index)">复制</span>
+                  <i v-if="!item.isDefault" class="anticon anticon-close close" @click="delTerm(index)"></i>
                 </div>
-                <div class="sort-right" v-if="index != nodeConfig.conditionNodes.length - 1" @click="arrTransfer(index)">&gt;</div>
+                <div class="sort-right" v-if="index < nodeConfig.conditionNodes.length - 2 && !item.isDefault" @click="arrTransfer(index)">&gt;</div>
                 <div class="content" @click="setPerson(item.priorityLevel)">{{ $func.conditionStr(nodeConfig, index) }}</div>
                 <div class="error_tip" v-if="(isTried || item.localTried) && item.error">
                     <i class="anticon anticon-exclamation-circle"></i>
@@ -863,10 +863,15 @@ const delNode = () => {
 };
 const addTerm = () => {
     let len = props.nodeConfig.conditionNodes.length + 1;
-    props.nodeConfig.conditionNodes.push({
+    const nodeId = genNodeId()
+    const branch = {
+        id: nodeId,
         nodeName: `${getConditionPrefix()}${len}`,
         type: 3,
         priorityLevel: len,
+        branchKey: nodeId,
+        fieldKey: '',
+        operator: 'equals',
         conditionType: 'static',
         conditionGroupMode: 'fixed',
         conditionList: [],
@@ -878,18 +883,30 @@ const addTerm = () => {
             conditionList: [],
             nodeUserList: [],
         }],
-        childNode: null,
-    });
+        childNode: {
+            id: genNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+        },
+    }
+    const defaultIndex = props.nodeConfig.conditionNodes.findIndex(item => item.isDefault)
+    props.nodeConfig.conditionNodes.splice(defaultIndex < 0 ? props.nodeConfig.conditionNodes.length : defaultIndex, 0, branch);
+    props.nodeConfig.conditionNodes.forEach((item, index) => { item.priorityLevel = index + 1 })
     resetConditionNodesErr()
     emits("update:nodeConfig", props.nodeConfig);
 };
 const genNodeId = () => {
-    if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
+    if (typeof globalThis.crypto?.randomUUID === 'function') return `node-${globalThis.crypto.randomUUID()}`
     return `node-${Date.now()}-${_uid}`
 }
 const resetNodeIds = (node) => {
     if (!node) return
     node.id = genNodeId()
+    if (node.branchKey) node.branchKey = node.id
     if (Array.isArray(node.conditionNodes)) {
         node.conditionNodes.forEach((item) => {
             resetNodeIds(item)

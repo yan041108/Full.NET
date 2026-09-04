@@ -49,7 +49,7 @@ internal static class WorkflowFormValueValidator
                 continue;
             }
 
-            if (!IsValueValid(field, value))
+            if (!IsFieldValueValid(field, value))
             {
                 return false;
             }
@@ -58,7 +58,11 @@ internal static class WorkflowFormValueValidator
         return true;
     }
 
-    private static bool IsValueValid(WorkflowFormField field, JsonElement value) =>
+    /// <summary>校验单个字段值是否符合已发布表单字段的类型与约束。</summary>
+    /// <param name="field">已发布的表单字段定义。</param>
+    /// <param name="value">待校验的字段值。</param>
+    /// <returns>字段值符合声明式协议时返回 <see langword="true"/>。</returns>
+    internal static bool IsFieldValueValid(WorkflowFormField field, JsonElement value) =>
         field.FieldTypeKey switch
     {
         "text" or "textarea" => IsTextValid(field, value),

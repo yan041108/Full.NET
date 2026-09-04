@@ -48,4 +48,40 @@ public sealed class WorkflowCcTransitionWriterTests
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
     }
+
+    [TestMethod]
+    public async Task Automatic_writer_persists_gateway_step_and_branch_execution_log()
+    {
+        var command = Substitute.For<ICommandExecutor>();
+        var ids = Substitute.For<IIdGenerator>();
+        ids.NewId().Returns(Guid.CreateVersion7(), Guid.CreateVersion7());
+        var ccWriter = new WorkflowCcTransitionWriter(
+            Substitute.For<IQueryExecutor>(),
+            command,
+            ids);
+        var writer = new WorkflowAutomaticTransitionWriter(command, ids, ccWriter);
+
+        await writer.WriteAsync(
+            Guid.CreateVersion7(),
+            "host",
+            [new WorkflowAutomaticRuntimeNode(
+                "route",
+                "gateway.exclusive",
+                [],
+                "large")],
+            DateTimeOffset.UtcNow);
+
+        await command.Received(1).ExecuteAsync(
+            WorkflowSql.InsertCompletedGatewayStep,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await command.Received(1).ExecuteAsync(
+            WorkflowSql.InsertExecutionLog,
+            Arg.Is<object?>(parameters => HasBranchSummary(parameters)),
+            Arg.Any<CancellationToken>());
+    }
+
+    private static bool HasBranchSummary(object? parameters) =>
+        parameters is IReadOnlyDictionary<string, object?> values &&
+        Equals(values["Summary"], "branch:large");
 }

@@ -11,6 +11,10 @@
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Copyer).icon }}</span></span>
             <span>抄送人</span>
           </button>
+          <button v-if="enabledNodeTypes.has('gateway.exclusive')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.Route)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Route).icon }}</span></span>
+            <span>条件分支</span>
+          </button>
         </div>
         <template #reference>
           <button class="btn" type="button" aria-label="添加流程节点">
@@ -43,14 +47,62 @@ let fallbackSequence = 0
 
 /** 生成可持久化的稳定节点键，避免随机短标识发生碰撞。 */
 const createNodeId = () => {
-  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
+  if (typeof globalThis.crypto?.randomUUID === 'function') return `node-${globalThis.crypto.randomUUID()}`
   fallbackSequence += 1
   return `node-${Date.now()}-${fallbackSequence}`
 }
 
 const addType = (type) => {
   visible.value = false
-  if (![NodeType.Approver, NodeType.Copyer].includes(type)) return
+  if (![NodeType.Approver, NodeType.Copyer, NodeType.Route].includes(type)) return
+  if (type === NodeType.Route) {
+    const firstBranchId = createNodeId()
+    const defaultBranchId = createNodeId()
+    emit('update:childNodeP', {
+      id: createNodeId(),
+      nodeName: getNodeTypeMeta(type).label,
+      type,
+      error: false,
+      conditionNodes: [
+        {
+          id: firstBranchId,
+          nodeName: '条件1',
+          type: NodeType.ConditionItem,
+          priorityLevel: 1,
+          branchKey: firstBranchId,
+          fieldKey: '',
+          operator: 'equals',
+          childNode: {
+            id: createNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+          },
+        },
+        {
+          id: defaultBranchId,
+          nodeName: '其他条件',
+          type: NodeType.ConditionItem,
+          priorityLevel: 2,
+          isDefault: true,
+          childNode: {
+            id: createNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+          },
+        },
+      ],
+      childNode: props.childNodeP,
+    })
+    return
+  }
   const isApprover = type === NodeType.Approver
   emit('update:childNodeP', {
     id: createNodeId(),
@@ -77,4 +129,5 @@ const addType = (type) => {
 .item-wrapper { display: grid; width: 58px; height: 58px; place-items: center; border: 1px solid #e2e2e2; border-radius: 50%; }
 .approver .item-wrapper { color: #ff943e; }
 .notifier .item-wrapper { color: #3296fa; }
+.condition .item-wrapper { color: #15bc83; }
 </style>

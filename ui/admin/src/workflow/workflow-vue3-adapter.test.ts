@@ -80,6 +80,81 @@ describe('Workflow-Vue3 定义适配器', () => {
     });
   });
 
+  it('在 Workflow-Vue3 分支树与排他网关 Draft 之间双向转换', () => {
+    const tree = {
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'route',
+        type: 10,
+        nodeName: '金额分流',
+        conditionNodes: [
+          {
+            id: 'large-branch',
+            type: 3,
+            nodeName: '大额',
+            branchKey: 'large',
+            fieldKey: 'amount',
+            operator: 'greaterThanOrEqual',
+            value: '1000.00',
+            childNode: { id: 'finance', type: 1, childNode: null }
+          },
+          {
+            id: 'default-branch',
+            type: 3,
+            nodeName: '其他条件',
+            isDefault: true,
+            childNode: { id: 'manager', type: 1, childNode: null }
+          }
+        ],
+        childNode: null
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'route')).toEqual({
+      nodeKey: 'route',
+      nodeTypeKey: 'gateway.exclusive',
+      nodeSchemaVersion: 1,
+      config: {
+        nodeName: '金额分流',
+        nextNodeKeys: ['finance', 'manager'],
+        branches: [{
+          branchKey: 'large',
+          nextNodeKey: 'finance',
+          condition: {
+            fieldKey: 'amount',
+            operator: 'greaterThanOrEqual',
+            value: '1000.00'
+          }
+        }],
+        defaultNextNodeKey: 'manager'
+      }
+    });
+
+    expect(toWorkflowVue3Tree(draft)).toMatchObject({
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'route',
+        type: 10,
+        conditionNodes: [
+          {
+            branchKey: 'large',
+            fieldKey: 'amount',
+            operator: 'greaterThanOrEqual',
+            value: '1000.00',
+            childNode: { id: 'finance', type: 1 }
+          },
+          {
+            isDefault: true,
+            childNode: { id: 'manager', type: 1 }
+          }
+        ]
+      }
+    });
+  });
+
   it('拒绝空、重复或非法抄送人标识', () => {
     const tree = (recipientUserIds: string[]) => ({
       id: 'start',

@@ -17,6 +17,7 @@ public static class WorkflowErrorCodes
     public const string DefinitionSchemaUnsupported = Prefix + "definition.schema_unsupported";
     public const string DefinitionFieldPolicyInvalid = Prefix + "definition.field_policy_invalid";
     public const string DefinitionCcRecipientsInvalid = Prefix + "definition.cc_recipients_invalid";
+    public const string DefinitionGatewayInvalid = Prefix + "definition.gateway_invalid";
     public const string DefinitionTopologyUnsupported = Prefix + "definition.topology_unsupported";
     public const string DefinitionNotFound = Prefix + "definition.not_found";
     public const string DefinitionKeyExists = Prefix + "definition.key_exists";
@@ -58,6 +59,7 @@ public static class WorkflowErrorCodes
         DefinitionSchemaUnsupported,
         DefinitionFieldPolicyInvalid,
         DefinitionCcRecipientsInvalid,
+        DefinitionGatewayInvalid,
         DefinitionTopologyUnsupported,
         DefinitionNotFound,
         DefinitionKeyExists,

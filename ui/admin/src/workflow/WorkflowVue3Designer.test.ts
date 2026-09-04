@@ -115,4 +115,39 @@ describe('WorkflowVue3Designer', () => {
       .not.toBeNull();
     wrapper.unmount();
   });
+
+  it('服务端启用排他网关后提供条件分支入口', async () => {
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        enabledNodeTypes: ['start', 'human.approval', 'gateway.exclusive', 'end'],
+        gatewayFields: [{
+          fieldKey: 'amount',
+          fieldTypeKey: 'money',
+          required: true,
+          constraints: { scale: 2 }
+        }],
+        modelValue: {
+          id: 'start',
+          type: 0,
+          nodeName: '发起人',
+          childNode: null
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.get('.add-node-btn .btn').trigger('click');
+    await nextTick();
+    const gateway = document.body.querySelector<HTMLButtonElement>(
+      '.add-node-popover-item.condition'
+    );
+    expect(gateway).not.toBeNull();
+    gateway!.click();
+    await nextTick();
+
+    expect(wrapper.find('.branch-wrap').exists()).toBe(true);
+    wrapper.unmount();
+  });
 });

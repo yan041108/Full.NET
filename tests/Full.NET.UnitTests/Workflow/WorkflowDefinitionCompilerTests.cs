@@ -66,18 +66,34 @@ public sealed class WorkflowDefinitionCompilerTests
     }
 
     [TestMethod]
-    [DataRow("gateway.exclusive")]
-    public void Compile_rejects_known_nodes_without_runtime_execution_support(string nodeTypeKey)
+    public void Compile_accepts_exclusive_gateway_bound_to_form_schema()
     {
         var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
         [
-            Node("start", "start", "{\"nextNodeKeys\":[\"unsupported\"]}"),
-            Node("unsupported", nodeTypeKey, "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("start", "start", "{\"nextNodeKeys\":[\"route\"]}"),
+            Node("route", "gateway.exclusive", "{\"nextNodeKeys\":[\"large\",\"normal\"],\"branches\":[{\"branchKey\":\"large\",\"nextNodeKey\":\"large\",\"condition\":{\"fieldKey\":\"amount\",\"operator\":\"greaterThanOrEqual\",\"value\":\"1000.00\"}}],\"defaultNextNodeKey\":\"normal\"}"),
+            Node("large", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("normal", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
             Node("end", "end", "{}"),
-        ]));
+        ]), MoneyFormSchema());
+
+        Assert.IsTrue(result.IsSuccess);
+    }
+
+    [TestMethod]
+    public void Compile_rejects_gateway_condition_that_is_not_bound_to_form_schema()
+    {
+        var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"route\"]}"),
+            Node("route", "gateway.exclusive", "{\"nextNodeKeys\":[\"large\",\"normal\"],\"branches\":[{\"branchKey\":\"large\",\"nextNodeKey\":\"large\",\"condition\":{\"fieldKey\":\"missing\",\"operator\":\"equals\",\"value\":\"1000.00\"}}],\"defaultNextNodeKey\":\"normal\"}"),
+            Node("large", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("normal", "human.approval", "{\"nextNodeKeys\":[\"end\"]}"),
+            Node("end", "end", "{}"),
+        ]), MoneyFormSchema());
 
         Assert.IsFalse(result.IsSuccess);
-        Assert.AreEqual(WorkflowErrorCodes.DefinitionNodeTypeUnavailable, result.ErrorCode);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionGatewayInvalid, result.ErrorCode);
     }
 
     [TestMethod]
@@ -271,4 +287,20 @@ public sealed class WorkflowDefinitionCompilerTests
 
     private static WorkflowFormField FormField(string key, bool required) =>
         new(key, "text", required, new Dictionary<string, JsonElement>());
+
+    private static WorkflowFormSchema MoneyFormSchema() =>
+        new(1, 1,
+        [
+            new WorkflowFormSection("main",
+            [
+                new WorkflowFormField(
+                    "amount",
+                    "money",
+                    true,
+                    new Dictionary<string, JsonElement>
+                    {
+                        ["scale"] = JsonSerializer.SerializeToElement(2),
+                    }),
+            ]),
+        ]);
 }

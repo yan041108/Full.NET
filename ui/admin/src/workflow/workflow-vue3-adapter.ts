@@ -16,13 +16,15 @@ export interface WorkflowVue3Node {
 const sourceToTargetType = new Map<number, string>([
   [0, 'start'],
   [1, 'human.approval'],
-  [2, 'notify.cc']
+  [2, 'notify.cc'],
+  [10, 'gateway.exclusive']
 ]);
 /** 服务端节点类型回投影到旧设计器枚举，保持历史草稿可回显。 */
 const targetToSourceType = new Map<string, number>([
   ['start', 0],
   ['human.approval', 1],
-  ['notify.cc', 2]
+  ['notify.cc', 2],
+  ['gateway.exclusive', 10]
 ]);
 /** 节点键进入服务端后会成为稳定引用标识，因此禁止临时随机串或中文标签。 */
 const stableKeyPattern = /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/u;
@@ -47,22 +49,54 @@ export function fromWorkflowVue3Tree(root: unknown): WorkflowDefinitionDraft {
   if (!isRecord(root)) throw new Error('client.invalid_workflow_definition_draft');
   const nodes: WorkflowNodeDraft[] = [];
   const keys = new Set<string>();
-  let current: WorkflowVue3Node | null = root as WorkflowVue3Node;
-  while (current !== null) {
+
+  const compile = (current: WorkflowVue3Node, continuationKey: string): void => {
     const nodeKey = readStableKey(current.id);
     if (keys.has(nodeKey)) throw new Error('client.invalid_workflow_definition_draft');
     keys.add(nodeKey);
     const nodeTypeKey = sourceToTargetType.get(Number(current.type));
     if (nodeTypeKey === undefined) throw new Error('client.unsupported_workflow_node');
     assertSafeConfiguration(current);
-    if (Array.isArray(current.conditionNodes) && current.conditionNodes.length > 0) {
-      throw new Error('client.unsupported_workflow_node');
+
+    if (nodeTypeKey === 'gateway.exclusive') {
+      const conditionNodes = current.conditionNodes;
+      if (!Array.isArray(conditionNodes) || conditionNodes.length < 2 || conditionNodes.length > 16) {
+        throw new Error('client.invalid_workflow_gateway');
+      }
+      const defaults = conditionNodes.filter(condition => condition.isDefault === true);
+      if (defaults.length !== 1 || conditionNodes.at(-1) !== defaults[0]) {
+        throw new Error('client.invalid_workflow_gateway');
+      }
+      const targets = conditionNodes.map(condition => {
+        if (!isRecord(condition.childNode)) throw new Error('client.invalid_workflow_gateway');
+        return readStableKey(condition.childNode.id);
+      });
+      if (new Set(targets).size !== targets.length) throw new Error('client.invalid_workflow_gateway');
+      const branches = conditionNodes.slice(0, -1).map((condition, index) => ({
+        branchKey: readStableKey(condition.branchKey ?? `branch-${index + 1}`),
+        nextNodeKey: targets[index]!,
+        condition: readDesignerGatewayCondition(condition)
+      }));
+      nodes.push({
+        nodeKey,
+        nodeTypeKey,
+        nodeSchemaVersion: 1,
+        config: {
+          ...(typeof current.nodeName === 'string' ? { nodeName: current.nodeName } : {}),
+          nextNodeKeys: targets,
+          branches,
+          defaultNextNodeKey: targets.at(-1)!
+        }
+      });
+      conditionNodes.forEach(condition => compile(condition.childNode as WorkflowVue3Node, continuationKey));
+      if (isRecord(current.childNode)) compile(current.childNode as WorkflowVue3Node, continuationKey);
+      return;
     }
 
     const next: WorkflowVue3Node | null = isRecord(current.childNode)
       ? current.childNode as WorkflowVue3Node
       : null;
-    const nextNodeKey = next === null ? 'end' : readStableKey(next.id);
+    const nextNodeKey = next === null ? continuationKey : readStableKey(next.id);
     nodes.push({
       nodeKey,
       nodeTypeKey,
@@ -72,8 +106,10 @@ export function fromWorkflowVue3Tree(root: unknown): WorkflowDefinitionDraft {
         nextNodeKeys: [nextNodeKey]
       }
     });
-    current = next;
-  }
+    if (next !== null) compile(next, continuationKey);
+  };
+
+  compile(root as WorkflowVue3Node, 'end');
 
   if (nodes[0]?.nodeTypeKey !== 'start') {
     throw new Error('client.invalid_workflow_definition_draft');
@@ -90,14 +126,46 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
   if (start === undefined) throw new Error('client.invalid_workflow_definition_draft');
   const visited = new Set<string>();
 
-  const build = (node: WorkflowNodeDraft): WorkflowVue3Node | null => {
-    if (node.nodeTypeKey === 'end') return null;
+  const build = (node: WorkflowNodeDraft, stopKey = 'end'): WorkflowVue3Node | null => {
+    if (node.nodeKey === stopKey || node.nodeTypeKey === 'end') return null;
     if (visited.has(node.nodeKey)) throw new Error('client.invalid_workflow_definition_draft');
     visited.add(node.nodeKey);
     const type = targetToSourceType.get(node.nodeTypeKey);
     if (type === undefined) throw new Error('client.unsupported_workflow_node');
     const config = isRecord(node.config) ? node.config : {};
     assertSafeConfiguration(config);
+    if (node.nodeTypeKey === 'gateway.exclusive') {
+      const gateway = readTargetGatewayConfig(config);
+      const mergeKey = findGatewayMergeKey(gateway.nextNodeKeys, byKey);
+      const conditionNodes: WorkflowVue3Node[] = gateway.branches.map((branch, index) => ({
+        id: `${node.nodeKey}-${branch.branchKey}`,
+        type: 3,
+        nodeName: branch.branchKey,
+        branchKey: branch.branchKey,
+        fieldKey: branch.condition.fieldKey,
+        operator: branch.condition.operator,
+        ...(branch.condition.value === undefined ? {} : { value: cloneJson(branch.condition.value) }),
+        priorityLevel: index + 1,
+        childNode: build(byKey.get(branch.nextNodeKey)!, mergeKey)
+      }));
+      conditionNodes.push({
+        id: `${node.nodeKey}-default`,
+        type: 3,
+        nodeName: '其他条件',
+        isDefault: true,
+        priorityLevel: conditionNodes.length + 1,
+        childNode: build(byKey.get(gateway.defaultNextNodeKey)!, mergeKey)
+      });
+      const merge = byKey.get(mergeKey);
+      if (merge === undefined) throw new Error('client.invalid_workflow_definition_draft');
+      return {
+        id: node.nodeKey,
+        type,
+        nodeName: typeof config.nodeName === 'string' ? config.nodeName : '条件分支',
+        conditionNodes,
+        childNode: build(merge, stopKey)
+      };
+    }
     const nextKeys = Array.isArray(config.nextNodeKeys)
       ? config.nextNodeKeys.filter((value): value is string => typeof value === 'string')
       : [];
@@ -122,11 +190,108 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
           type: 'user'
         }))
       }),
-      childNode: build(next)
+      childNode: build(next, stopKey)
     };
   };
 
   return build(start) ?? (() => { throw new Error('client.invalid_workflow_definition_draft'); })();
+}
+
+interface GatewayConditionConfig {
+  readonly fieldKey: string;
+  readonly operator: string;
+  readonly value?: unknown;
+}
+
+interface GatewayBranchConfig {
+  readonly branchKey: string;
+  readonly nextNodeKey: string;
+  readonly condition: GatewayConditionConfig;
+}
+
+interface GatewayTargetConfig {
+  readonly nextNodeKeys: string[];
+  readonly branches: GatewayBranchConfig[];
+  readonly defaultNextNodeKey: string;
+}
+
+/** 从条件分支卡片读取闭合字段比较，不接受组合表达式或扩展执行参数。 */
+function readDesignerGatewayCondition(node: WorkflowVue3Node): GatewayConditionConfig {
+  const fieldKey = readStableKey(node.fieldKey);
+  const operator = typeof node.operator === 'string' ? node.operator : '';
+  const empty = ['isEmpty', 'isNotEmpty'].includes(operator);
+  if (!['equals', 'notEquals', 'greaterThan', 'greaterThanOrEqual', 'lessThan',
+    'lessThanOrEqual', 'isEmpty', 'isNotEmpty'].includes(operator)
+    || (empty ? node.value !== undefined : node.value === undefined)) {
+    throw new Error('client.invalid_workflow_gateway');
+  }
+  return { fieldKey, operator, ...(empty ? {} : { value: cloneJson(node.value) }) };
+}
+
+/** 从服务端 Draft 读取排他网关闭合配置，并核对有序出口集合。 */
+function readTargetGatewayConfig(config: Record<string, unknown>): GatewayTargetConfig {
+  const nextNodeKeys = Array.isArray(config.nextNodeKeys)
+    ? config.nextNodeKeys.map(readStableKey)
+    : [];
+  if (!Array.isArray(config.branches) || config.branches.length < 1 || config.branches.length > 15) {
+    throw new Error('client.invalid_workflow_gateway');
+  }
+  const branches = config.branches.map(value => {
+    if (!isRecord(value) || !isRecord(value.condition)) {
+      throw new Error('client.invalid_workflow_gateway');
+    }
+    return {
+      branchKey: readStableKey(value.branchKey),
+      nextNodeKey: readStableKey(value.nextNodeKey),
+      condition: readDesignerGatewayCondition(value.condition as WorkflowVue3Node)
+    };
+  });
+  const defaultNextNodeKey = readStableKey(config.defaultNextNodeKey);
+  const expected = [...branches.map(branch => branch.nextNodeKey), defaultNextNodeKey];
+  if (new Set(expected).size !== expected.length
+    || JSON.stringify(nextNodeKeys) !== JSON.stringify(expected)) {
+    throw new Error('client.invalid_workflow_gateway');
+  }
+  const allowed = new Set(['nodeName', 'nextNodeKeys', 'branches', 'defaultNextNodeKey']);
+  if (Object.keys(config).some(key => !allowed.has(key))) {
+    throw new Error('client.unsupported_workflow_node_configuration');
+  }
+  return { nextNodeKeys, branches, defaultNextNodeKey };
+}
+
+/** 选择所有分支首次汇合的最近节点；显式 end 也是合法汇合点。 */
+function findGatewayMergeKey(
+  targetKeys: string[],
+  byKey: ReadonlyMap<string, WorkflowNodeDraft>
+): string {
+  const distances = targetKeys.map(target => collectDistances(target, byKey));
+  const common = [...distances[0]!.keys()].filter(key => distances.every(items => items.has(key)));
+  common.sort((left, right) =>
+    Math.max(...distances.map(items => items.get(left)!))
+    - Math.max(...distances.map(items => items.get(right)!)));
+  if (common[0] === undefined) throw new Error('client.invalid_workflow_definition_draft');
+  return common[0];
+}
+
+/** 收集节点到所有后继的最短距离，供分支树恢复共同汇合点。 */
+function collectDistances(
+  startKey: string,
+  byKey: ReadonlyMap<string, WorkflowNodeDraft>
+): Map<string, number> {
+  const result = new Map<string, number>();
+  const pending: Array<[string, number]> = [[startKey, 0]];
+  while (pending.length > 0) {
+    const [key, distance] = pending.shift()!;
+    if (result.has(key)) continue;
+    result.set(key, distance);
+    const node = byKey.get(key);
+    if (node === undefined || !isRecord(node.config)) continue;
+    const next = Array.isArray(node.config.nextNodeKeys)
+      ? node.config.nextNodeKeys.filter((value): value is string => typeof value === 'string')
+      : [];
+    next.forEach(value => pending.push([value, distance + 1]));
+  }
+  return result;
 }
 
 function readStableKey(value: unknown): string {
@@ -243,6 +408,7 @@ function hasConfiguredValue(value: unknown): boolean {
 function defaultNodeName(nodeTypeKey: string): string {
   if (nodeTypeKey === 'start') return '发起人';
   if (nodeTypeKey === 'human.approval') return '审批人';
+  if (nodeTypeKey === 'gateway.exclusive') return '条件分支';
   return '抄送人';
 }
 

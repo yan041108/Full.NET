@@ -2,31 +2,50 @@ using System.Text.Json;
 
 namespace Full.NET.Modules.Workflow.Domain;
 
-/// <summary>描述执行器已经闭合的线性审批与抄送计划，防止定义校验和运行时推进规则漂移。</summary>
+/// <summary>描述执行器可闭合处理的审批、抄送与排他网关有向无环运行计划。</summary>
 internal sealed class WorkflowRuntimePlan
 {
-    private readonly WorkflowApprovalTransition startTransition;
-    private readonly IReadOnlyDictionary<string, WorkflowApprovalTransition> approvalTransitions;
+    private static readonly IReadOnlyDictionary<string, JsonElement> EmptyValues =
+        new Dictionary<string, JsonElement>(StringComparer.Ordinal);
 
-    /// <summary>使用已经解析的启动迁移和审批迁移创建不可变运行计划。</summary>
-    /// <param name="startTransition">从开始节点进入首个人工审批前需要执行的迁移。</param>
-    /// <param name="approvalTransitions">每个人工审批通过后需要执行的迁移。</param>
+    private readonly IReadOnlyDictionary<string, WorkflowNodeDraft> nodes;
+    private readonly IReadOnlyDictionary<string, string[]> outgoing;
+    private readonly IReadOnlyDictionary<string, WorkflowExclusiveGatewayDefinition> gateways;
+    private readonly string startNextNodeKey;
+
+    /// <summary>使用已验证节点、出口和网关条件创建不可变运行计划。</summary>
+    /// <param name="nodes">按稳定节点键索引的定义节点。</param>
+    /// <param name="outgoing">每个节点的有序出口。</param>
+    /// <param name="gateways">按节点键索引的排他网关定义。</param>
+    /// <param name="startNextNodeKey">开始节点的唯一后继。</param>
     private WorkflowRuntimePlan(
-        WorkflowApprovalTransition startTransition,
-        IReadOnlyDictionary<string, WorkflowApprovalTransition> approvalTransitions)
+        IReadOnlyDictionary<string, WorkflowNodeDraft> nodes,
+        IReadOnlyDictionary<string, string[]> outgoing,
+        IReadOnlyDictionary<string, WorkflowExclusiveGatewayDefinition> gateways,
+        string startNextNodeKey)
     {
-        this.startTransition = startTransition;
-        this.approvalTransitions = approvalTransitions;
+        this.nodes = nodes;
+        this.outgoing = outgoing;
+        this.gateways = gateways;
+        this.startNextNodeKey = startNextNodeKey;
     }
 
-    /// <summary>获取首个人工审批节点键；线性计划必须至少包含一个审批节点。</summary>
-    public string FirstApprovalNodeKey => startTransition.NextApprovalNodeKey!;
-
-    /// <summary>从定义草稿构造仅包含人工审批、抄送和终点的线性计划。</summary>
+    /// <summary>从定义草稿构造结构闭合的运行计划。</summary>
     /// <param name="draft">已经过结构反序列化的定义草稿。</param>
     /// <param name="plan">构造成功后的不可变运行计划。</param>
-    /// <returns>拓扑和抄送配置均可由当前执行器闭合处理时返回 <see langword="true"/>。</returns>
-    public static bool TryCreate(WorkflowDefinitionDraft draft, out WorkflowRuntimePlan? plan)
+    /// <returns>拓扑可由当前执行器闭合处理时返回 <see langword="true"/>。</returns>
+    public static bool TryCreate(WorkflowDefinitionDraft draft, out WorkflowRuntimePlan? plan) =>
+        TryCreate(draft, null, out plan);
+
+    /// <summary>从定义草稿构造绑定表单架构的运行计划。</summary>
+    /// <param name="draft">已经过结构反序列化的定义草稿。</param>
+    /// <param name="formSchema">发布版本绑定的表单架构；为空时只验证结构。</param>
+    /// <param name="plan">构造成功后的不可变运行计划。</param>
+    /// <returns>全部路径都可到达终点且每条路径至少包含一个审批时返回 <see langword="true"/>。</returns>
+    public static bool TryCreate(
+        WorkflowDefinitionDraft draft,
+        WorkflowFormSchema? formSchema,
+        out WorkflowRuntimePlan? plan)
     {
         plan = null;
         if (draft.Nodes.Count < 3 ||
@@ -36,101 +55,261 @@ internal sealed class WorkflowRuntimePlan
         }
 
         var nodes = draft.Nodes.ToDictionary(node => node.NodeKey, StringComparer.Ordinal);
-        var start = draft.Nodes.SingleOrDefault(node => node.NodeTypeKey == "start");
-        if (start is null || !TryReadSingleNext(start.Config, out var current))
+        var starts = draft.Nodes.Where(node => node.NodeTypeKey == "start").ToArray();
+        if (starts is not [var start] || !TryReadSingleNext(start.Config, out var startNextNodeKey))
         {
             return false;
         }
 
-        var visited = new HashSet<string>(StringComparer.Ordinal) { start.NodeKey };
-        var pendingCc = new List<WorkflowCcRuntimeNode>();
-        var approvals = new List<string>();
-        var transitions = new Dictionary<string, WorkflowApprovalTransition>(StringComparer.Ordinal);
-        string? previousApproval = null;
-        WorkflowApprovalTransition? initial = null;
-
-        while (current is not null && visited.Add(current) && nodes.TryGetValue(current, out var node))
+        var outgoing = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var gateways = new Dictionary<string, WorkflowExclusiveGatewayDefinition>(StringComparer.Ordinal);
+        foreach (var node in draft.Nodes)
         {
-            if (node.NodeTypeKey == "end")
-            {
-                if (!HasNoNext(node.Config) || approvals.Count == 0 || visited.Count != nodes.Count)
-                {
-                    return false;
-                }
-
-                var terminal = new WorkflowApprovalTransition(
-                    null,
-                    true,
-                    pendingCc.ToArray());
-                if (previousApproval is null)
-                {
-                    return false;
-                }
-
-                transitions.Add(previousApproval, terminal);
-                plan = new WorkflowRuntimePlan(initial!.Value, transitions);
-                return true;
-            }
-
-            if (!TryReadSingleNext(node.Config, out var next))
+            if (!TryReadNode(node, formSchema, outgoing, gateways))
             {
                 return false;
             }
+        }
 
-            if (node.NodeTypeKey == "notify.cc")
+        if (outgoing.Values.SelectMany(keys => keys).Any(key => !nodes.ContainsKey(key)))
+        {
+            return false;
+        }
+
+        var reachable = new HashSet<string>(StringComparer.Ordinal);
+        if (!ValidatePath(
+                start.NodeKey,
+                hasApproval: false,
+                nodes,
+                outgoing,
+                reachable,
+                new HashSet<string>(StringComparer.Ordinal),
+                new HashSet<(string NodeKey, bool HasApproval)>()) ||
+            reachable.Count != nodes.Count)
+        {
+            return false;
+        }
+
+        plan = new WorkflowRuntimePlan(nodes, outgoing, gateways, startNextNodeKey!);
+        return true;
+    }
+
+    /// <summary>解析不含条件网关的兼容启动迁移。</summary>
+    /// <param name="transition">启动迁移。</param>
+    /// <returns>路径无需表单值即可求值时返回 <see langword="true"/>。</returns>
+    public bool TryResolveStart(out WorkflowApprovalTransition transition) =>
+        TryResolveStart(EmptyValues, out transition);
+
+    /// <summary>根据实例表单值解析启动后到首个等待点的迁移。</summary>
+    /// <param name="values">实例绑定且已验证的表单值。</param>
+    /// <param name="transition">启动迁移。</param>
+    /// <returns>网关条件可安全求值且路径可达等待点时返回 <see langword="true"/>。</returns>
+    public bool TryResolveStart(
+        IReadOnlyDictionary<string, JsonElement> values,
+        out WorkflowApprovalTransition transition) =>
+        TryTraverse(startNextNodeKey, values, out transition);
+
+    /// <summary>解析不含条件网关的兼容审批通过迁移。</summary>
+    /// <param name="nodeKey">当前人工审批节点键。</param>
+    /// <param name="transition">匹配到的闭合迁移。</param>
+    /// <returns>节点属于计划且路径无需表单值即可求值时返回 <see langword="true"/>。</returns>
+    public bool TryResolveApproval(string nodeKey, out WorkflowApprovalTransition transition) =>
+        TryResolveApproval(nodeKey, EmptyValues, out transition);
+
+    /// <summary>根据审批后的实例表单值解析下一迁移。</summary>
+    /// <param name="nodeKey">当前人工审批节点键。</param>
+    /// <param name="values">应用本次字段补丁后的完整表单值。</param>
+    /// <param name="transition">匹配到的闭合迁移。</param>
+    /// <returns>当前节点与后继路径有效时返回 <see langword="true"/>。</returns>
+    public bool TryResolveApproval(
+        string nodeKey,
+        IReadOnlyDictionary<string, JsonElement> values,
+        out WorkflowApprovalTransition transition)
+    {
+        transition = default;
+        return nodes.TryGetValue(nodeKey, out var node) &&
+               node.NodeTypeKey == "human.approval" &&
+               outgoing.TryGetValue(nodeKey, out var next) &&
+               next is [var nextNodeKey] &&
+               TryTraverse(nextNodeKey, values, out transition);
+    }
+
+    /// <summary>确认节点是否为当前计划中的人工审批等待点。</summary>
+    /// <param name="nodeKey">待检查的节点键。</param>
+    /// <returns>节点存在且属于人工审批时返回 <see langword="true"/>。</returns>
+    public bool ContainsApprovalNode(string nodeKey) =>
+        nodes.TryGetValue(nodeKey, out var node) && node.NodeTypeKey == "human.approval";
+
+    /// <summary>沿唯一运行时路径执行自动节点，直到人工审批或终点。</summary>
+    /// <param name="initialNodeKey">遍历起点。</param>
+    /// <param name="values">实例绑定且已验证的表单值。</param>
+    /// <param name="transition">解析得到的运行迁移。</param>
+    /// <returns>路径可安全闭合时返回 <see langword="true"/>。</returns>
+    private bool TryTraverse(
+        string initialNodeKey,
+        IReadOnlyDictionary<string, JsonElement> values,
+        out WorkflowApprovalTransition transition)
+    {
+        transition = default;
+        var automaticNodes = new List<WorkflowAutomaticRuntimeNode>();
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var current = initialNodeKey;
+        while (visited.Add(current) && nodes.TryGetValue(current, out var node))
+        {
+            switch (node.NodeTypeKey)
             {
-                if (!WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out var recipients))
-                {
+                case "human.approval":
+                    transition = new WorkflowApprovalTransition(node.NodeKey, false, automaticNodes);
+                    return true;
+                case "end":
+                    transition = new WorkflowApprovalTransition(null, true, automaticNodes);
+                    return true;
+                case "notify.cc":
+                    if (!WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out var recipients) ||
+                        outgoing[node.NodeKey] is not [var ccNext])
+                    {
+                        return false;
+                    }
+
+                    automaticNodes.Add(new WorkflowAutomaticRuntimeNode(
+                        node.NodeKey,
+                        node.NodeTypeKey,
+                        recipients,
+                        null));
+                    current = ccNext;
+                    break;
+                case "gateway.exclusive":
+                    if (!gateways.TryGetValue(node.NodeKey, out var gateway) ||
+                        !gateway.TrySelectBranch(values, out var selection))
+                    {
+                        return false;
+                    }
+
+                    // 分支结果随自动步骤持久化，使同一实例的路由决策可以审计和复盘。
+                    automaticNodes.Add(new WorkflowAutomaticRuntimeNode(
+                        node.NodeKey,
+                        node.NodeTypeKey,
+                        [],
+                        selection.BranchKey));
+                    current = selection.NextNodeKey;
+                    break;
+                default:
                     return false;
-                }
-
-                pendingCc.Add(new WorkflowCcRuntimeNode(node.NodeKey, recipients));
-                current = next;
-                continue;
             }
-
-            if (node.NodeTypeKey != "human.approval")
-            {
-                return false;
-            }
-
-            var transition = new WorkflowApprovalTransition(
-                node.NodeKey,
-                false,
-                pendingCc.ToArray());
-            if (previousApproval is null)
-            {
-                initial = transition;
-            }
-            else
-            {
-                transitions.Add(previousApproval, transition);
-            }
-
-            approvals.Add(node.NodeKey);
-            previousApproval = node.NodeKey;
-            pendingCc.Clear();
-            current = next;
         }
 
         return false;
     }
 
-    /// <summary>解析实例启动后、首个人工审批前需要执行的抄送节点。</summary>
-    /// <param name="transition">启动迁移。</param>
-    /// <returns>计划存在时始终返回 <see langword="true"/>。</returns>
-    public bool TryResolveStart(out WorkflowApprovalTransition transition)
+    /// <summary>解析单个节点的出口与自动节点配置。</summary>
+    /// <param name="node">待解析节点。</param>
+    /// <param name="formSchema">可选的表单架构。</param>
+    /// <param name="outgoing">正在构建的出口索引。</param>
+    /// <param name="gateways">正在构建的网关索引。</param>
+    /// <returns>节点类型和配置均受当前执行器支持时返回 <see langword="true"/>。</returns>
+    private static bool TryReadNode(
+        WorkflowNodeDraft node,
+        WorkflowFormSchema? formSchema,
+        IDictionary<string, string[]> outgoing,
+        IDictionary<string, WorkflowExclusiveGatewayDefinition> gateways)
     {
-        transition = startTransition;
-        return true;
+        switch (node.NodeTypeKey)
+        {
+            case "start":
+            case "human.approval":
+                if (!TryReadSingleNext(node.Config, out var nextNodeKey))
+                {
+                    return false;
+                }
+
+                outgoing.Add(node.NodeKey, [nextNodeKey!]);
+                return true;
+            case "notify.cc":
+                if (!TryReadSingleNext(node.Config, out nextNodeKey) ||
+                    !WorkflowCcNodeConfiguration.TryReadRecipients(node.Config, out _))
+                {
+                    return false;
+                }
+
+                outgoing.Add(node.NodeKey, [nextNodeKey!]);
+                return true;
+            case "gateway.exclusive":
+                if (!WorkflowExclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out var gateway))
+                {
+                    return false;
+                }
+
+                var parsedGateway = gateway!;
+                gateways.Add(node.NodeKey, parsedGateway);
+                outgoing.Add(
+                    node.NodeKey,
+                    parsedGateway.Branches.Select(branch => branch.NextNodeKey)
+                        .Append(parsedGateway.DefaultNextNodeKey)
+                        .ToArray());
+                return true;
+            case "end":
+                if (!HasNoNext(node.Config))
+                {
+                    return false;
+                }
+
+                outgoing.Add(node.NodeKey, []);
+                return true;
+            default:
+                return false;
+        }
     }
 
-    /// <summary>解析指定人工审批通过后的抄送、下一审批或结束迁移。</summary>
-    /// <param name="nodeKey">当前人工审批节点键。</param>
-    /// <param name="transition">匹配到的闭合迁移。</param>
-    /// <returns>节点属于当前计划时返回 <see langword="true"/>。</returns>
-    public bool TryResolveApproval(string nodeKey, out WorkflowApprovalTransition transition) =>
-        approvalTransitions.TryGetValue(nodeKey, out transition);
+    /// <summary>验证每条静态路径无环、可达终点且至少经过一个人工审批。</summary>
+    /// <param name="nodeKey">当前节点键。</param>
+    /// <param name="hasApproval">当前路径是否已经过人工审批。</param>
+    /// <param name="nodes">节点索引。</param>
+    /// <param name="outgoing">出口索引。</param>
+    /// <param name="reachable">所有已到达节点集合。</param>
+    /// <param name="activePath">当前递归路径集合。</param>
+    /// <param name="validatedStates">已经验证的节点与审批状态组合，避免汇合图重复展开。</param>
+    /// <returns>当前节点下全部路径均闭合时返回 <see langword="true"/>。</returns>
+    private static bool ValidatePath(
+        string nodeKey,
+        bool hasApproval,
+        IReadOnlyDictionary<string, WorkflowNodeDraft> nodes,
+        IReadOnlyDictionary<string, string[]> outgoing,
+        ISet<string> reachable,
+        ISet<string> activePath,
+        ISet<(string NodeKey, bool HasApproval)> validatedStates)
+    {
+        if (!nodes.TryGetValue(nodeKey, out var node) || activePath.Contains(nodeKey))
+        {
+            return false;
+        }
+
+        reachable.Add(nodeKey);
+        if (validatedStates.Contains((nodeKey, hasApproval)))
+        {
+            return true;
+        }
+
+        activePath.Add(nodeKey);
+        var pathHasApproval = hasApproval || node.NodeTypeKey == "human.approval";
+        var valid = node.NodeTypeKey == "end"
+            ? pathHasApproval
+            : outgoing[nodeKey].Length > 0 && outgoing[nodeKey].All(next =>
+                ValidatePath(
+                    next,
+                    pathHasApproval,
+                    nodes,
+                    outgoing,
+                    reachable,
+                    activePath,
+                    validatedStates));
+        activePath.Remove(nodeKey);
+        if (valid)
+        {
+            validatedStates.Add((nodeKey, hasApproval));
+        }
+
+        return valid;
+    }
 
     /// <summary>从节点配置读取唯一后继节点键。</summary>
     /// <param name="config">节点配置 JSON。</param>
@@ -171,6 +350,17 @@ internal sealed class WorkflowRuntimePlan
     }
 }
 
+/// <summary>描述一次迁移中按路径顺序执行的自动节点。</summary>
+/// <param name="NodeKey">稳定节点键。</param>
+/// <param name="NodeTypeKey">自动节点类型机器键。</param>
+/// <param name="RecipientUserIds">抄送节点的收件人；其他节点为空。</param>
+/// <param name="OutcomeKey">网关命中的分支键；其他节点为空。</param>
+internal sealed record WorkflowAutomaticRuntimeNode(
+    string NodeKey,
+    string NodeTypeKey,
+    IReadOnlyList<Guid> RecipientUserIds,
+    string? OutcomeKey);
+
 /// <summary>描述一次审批边界之间需要同步落库的抄送节点。</summary>
 /// <param name="NodeKey">稳定抄送节点键。</param>
 /// <param name="RecipientUserIds">经过编译校验的收件人用户标识。</param>
@@ -179,10 +369,35 @@ internal sealed record WorkflowCcRuntimeNode(
     IReadOnlyList<Guid> RecipientUserIds);
 
 /// <summary>描述启动或审批通过后到下一等待点的闭合迁移。</summary>
-/// <param name="NextApprovalNodeKey">下一人工审批节点；流程结束时为空。</param>
-/// <param name="CompletesInstance">迁移完成后是否结束实例。</param>
-/// <param name="CcNodes">到达下一等待点前按顺序执行的抄送节点。</param>
-internal readonly record struct WorkflowApprovalTransition(
-    string? NextApprovalNodeKey,
-    bool CompletesInstance,
-    IReadOnlyList<WorkflowCcRuntimeNode> CcNodes);
+internal readonly record struct WorkflowApprovalTransition
+{
+    /// <summary>创建一次闭合运行迁移。</summary>
+    /// <param name="nextApprovalNodeKey">下一人工审批节点；流程结束时为空。</param>
+    /// <param name="completesInstance">迁移完成后是否结束实例。</param>
+    /// <param name="automaticNodes">到达下一等待点前按顺序执行的自动节点。</param>
+    public WorkflowApprovalTransition(
+        string? nextApprovalNodeKey,
+        bool completesInstance,
+        IReadOnlyList<WorkflowAutomaticRuntimeNode> automaticNodes)
+    {
+        NextApprovalNodeKey = nextApprovalNodeKey;
+        CompletesInstance = completesInstance;
+        AutomaticNodes = automaticNodes;
+    }
+
+    /// <summary>获取下一人工审批节点；流程结束时为空。</summary>
+    public string? NextApprovalNodeKey { get; }
+
+    /// <summary>获取迁移完成后是否结束实例。</summary>
+    public bool CompletesInstance { get; }
+
+    /// <summary>获取到达下一等待点前按顺序执行的自动节点。</summary>
+    public IReadOnlyList<WorkflowAutomaticRuntimeNode> AutomaticNodes { get; }
+
+    /// <summary>获取兼容现有抄送写入器的抄送节点投影。</summary>
+    public IReadOnlyList<WorkflowCcRuntimeNode> CcNodes =>
+        AutomaticNodes
+            .Where(node => node.NodeTypeKey == "notify.cc")
+            .Select(node => new WorkflowCcRuntimeNode(node.NodeKey, node.RecipientUserIds))
+            .ToArray();
+}

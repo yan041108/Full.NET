@@ -31,61 +31,98 @@ internal sealed class WorkflowCcTransitionWriter(
             return;
         }
 
+        var knownRecipients = await LoadKnownRecipientsAsync(
+            instanceId,
+            tenantScopeKey,
+            cancellationToken).ConfigureAwait(false);
+
+        foreach (var node in ccNodes)
+        {
+            await WriteNodeAsync(
+                instanceId,
+                node,
+                knownRecipients,
+                occurredAtUtc,
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>一次读取实例已知抄送人，供混合自动节点迁移复用。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="tenantScopeKey">可信租户作用域键。</param>
+    /// <param name="cancellationToken">调用方本地事务取消令牌。</param>
+    /// <returns>可在后续节点间共享的实例级抄送人集合。</returns>
+    internal async Task<HashSet<Guid>> LoadKnownRecipientsAsync(
+        Guid instanceId,
+        string tenantScopeKey,
+        CancellationToken cancellationToken)
+    {
         var existing = await queryExecutor.QueryAsync<Guid>(
             WorkflowSql.ListCcRecipientIdsByInstance,
             WorkflowSqlParameters.Create(
                 ("InstanceId", instanceId),
                 ("TenantScopeKey", tenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
-        var knownRecipients = existing.ToHashSet();
+        return existing.ToHashSet();
+    }
 
-        foreach (var node in ccNodes)
+    /// <summary>写入单个抄送步骤，并使用迁移级集合保持实例收件人去重。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="node">经过编译器验证的抄送节点。</param>
+    /// <param name="knownRecipients">同一实例已经知会的用户集合。</param>
+    /// <param name="occurredAtUtc">统一业务发生时间。</param>
+    /// <param name="cancellationToken">调用方本地事务取消令牌。</param>
+    internal async Task WriteNodeAsync(
+        Guid instanceId,
+        WorkflowCcRuntimeNode node,
+        ISet<Guid> knownRecipients,
+        DateTimeOffset occurredAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var stepId = idGenerator.NewId();
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.InsertCompletedCcStep,
+            WorkflowSqlParameters.Create(
+                ("Id", stepId),
+                ("InstanceId", instanceId),
+                ("NodeKey", node.NodeKey),
+                ("StartedAtUtc", occurredAtUtc),
+                ("CompletedAtUtc", occurredAtUtc)),
+            cancellationToken).ConfigureAwait(false);
+
+        var insertedCount = 0;
+        foreach (var recipientUserId in node.RecipientUserIds)
         {
-            var stepId = idGenerator.NewId();
-            await commandExecutor.ExecuteAsync(
-                WorkflowSql.InsertCompletedCcStep,
-                WorkflowSqlParameters.Create(
-                    ("Id", stepId),
-                    ("InstanceId", instanceId),
-                    ("NodeKey", node.NodeKey),
-                    ("StartedAtUtc", occurredAtUtc),
-                    ("CompletedAtUtc", occurredAtUtc)),
-                cancellationToken).ConfigureAwait(false);
-
-            var insertedCount = 0;
-            foreach (var recipientUserId in node.RecipientUserIds)
+            // 表结构按实例和用户唯一；后续抄送节点只保留执行轨迹，不重复制造知识记录。
+            if (!knownRecipients.Add(recipientUserId))
             {
-                // 表结构按实例和用户唯一；后续抄送节点只保留执行轨迹，不重复制造知识记录。
-                if (!knownRecipients.Add(recipientUserId))
-                {
-                    continue;
-                }
-
-                await commandExecutor.ExecuteAsync(
-                    WorkflowSql.InsertCc,
-                    WorkflowSqlParameters.Create(
-                        ("Id", idGenerator.NewId()),
-                        ("InstanceId", instanceId),
-                        ("StepId", stepId),
-                        ("RecipientUserId", recipientUserId),
-                        ("CreatedAtUtc", occurredAtUtc)),
-                    cancellationToken).ConfigureAwait(false);
-                insertedCount++;
+                continue;
             }
 
             await commandExecutor.ExecuteAsync(
-                WorkflowSql.InsertExecutionLog,
+                WorkflowSql.InsertCc,
                 WorkflowSqlParameters.Create(
                     ("Id", idGenerator.NewId()),
                     ("InstanceId", instanceId),
                     ("StepId", stepId),
-                    ("TransitionKey", "node.notify.cc"),
-                    ("FromStatusKey", null),
-                    ("ToStatusKey", "completed"),
-                    ("IdempotencyKey", null),
-                    ("Summary", $"recipients:{insertedCount}"),
+                    ("RecipientUserId", recipientUserId),
                     ("CreatedAtUtc", occurredAtUtc)),
                 cancellationToken).ConfigureAwait(false);
+            insertedCount++;
         }
+
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.InsertExecutionLog,
+            WorkflowSqlParameters.Create(
+                ("Id", idGenerator.NewId()),
+                ("InstanceId", instanceId),
+                ("StepId", stepId),
+                ("TransitionKey", "node.notify.cc"),
+                ("FromStatusKey", null),
+                ("ToStatusKey", "completed"),
+                ("IdempotencyKey", null),
+                ("Summary", $"recipients:{insertedCount}"),
+                ("CreatedAtUtc", occurredAtUtc)),
+            cancellationToken).ConfigureAwait(false);
     }
 }
