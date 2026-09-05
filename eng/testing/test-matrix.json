@@ -337,19 +337,19 @@
         "filter": "FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.MySql_|FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.SqlServer_"
       },
       "114": {
-        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+        "filter": "FullyQualifiedName~Migration114WorkflowCountersignRecoveryTests.MySql_|FullyQualifiedName~Migration114WorkflowCountersignRecoveryTests.SqlServer_"
       },
       "115": {
-        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+        "filter": "FullyQualifiedName~Migration115WorkflowParallelGatewayRecoveryTests.MySql_|FullyQualifiedName~Migration115WorkflowParallelGatewayRecoveryTests.SqlServer_"
       },
       "116": {
-        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+        "filter": "FullyQualifiedName~Migration116WorkflowInclusiveGatewayRecoveryTests.MySql_|FullyQualifiedName~Migration116WorkflowInclusiveGatewayRecoveryTests.SqlServer_"
       },
       "117": {
-        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+        "filter": "FullyQualifiedName~Migration117NotificationsTemplateLocaleRecoveryTests.MySql_|FullyQualifiedName~Migration117NotificationsTemplateLocaleRecoveryTests.SqlServer_"
       },
       "118": {
-        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+        "filter": "FullyQualifiedName~Migration118DataApprovalRequestRecoveryTests.MySql_|FullyQualifiedName~Migration118DataApprovalRequestRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -377,7 +377,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 336,
+        "minimum": 346,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -393,7 +393,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 657,
+        "minimum": 667,
         "timeout": "90m"
       }
     }

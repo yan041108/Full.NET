@@ -59,6 +59,17 @@ test('测试矩阵集中定义三个快速套件和完整 Integration 分片', (
     assert.match(selection.filter, /SqlServer/);
     assert.match(selection.filter, /Recovery|PartialRecovery/);
   }
+  for (const migrationNumber of ['114', '115', '116', '117', '118']) {
+    const filter = matrix.integration.migrationSelections[migrationNumber].filter;
+    assert.match(
+      filter,
+      new RegExp(`Migration${migrationNumber}.*RecoveryTests\\.MySql_`)
+    );
+    assert.match(
+      filter,
+      new RegExp(`Migration${migrationNumber}.*RecoveryTests\\.SqlServer_`)
+    );
+  }
   assert.equal(
     matrix.integration.mainPartitions.reduce(
       (sum, name) => sum + matrix.integration.shards[name].minimum,

@@ -209,12 +209,6 @@ BEGIN
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Workflow Revision', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_request', @level2type=N'COLUMN', @level2name=N'WorkflowRevision';
 
-    CREATE UNIQUE CLUSTERED INDEX UX_fn_dataapproval_request_Idempotency
-        ON dbo.fn_dataapproval_request (TenantScopeKey, IdempotencyKey);
-
-    CREATE INDEX IX_fn_dataapproval_request_SubmittedAtUtc
-        ON dbo.fn_dataapproval_request (TenantScopeKey, SubmittedAtUtc DESC, Id DESC);
-
     IF NOT EXISTS (
         SELECT 1
         FROM sys.extended_properties
@@ -225,3 +219,17 @@ BEGIN
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'数据审批请求表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_request';
 END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.fn_dataapproval_request')
+      AND name = N'UX_fn_dataapproval_request_Idempotency')
+    CREATE UNIQUE CLUSTERED INDEX UX_fn_dataapproval_request_Idempotency
+        ON dbo.fn_dataapproval_request (TenantScopeKey, IdempotencyKey);
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.fn_dataapproval_request')
+      AND name = N'IX_fn_dataapproval_request_SubmittedAtUtc')
+    CREATE INDEX IX_fn_dataapproval_request_SubmittedAtUtc
+        ON dbo.fn_dataapproval_request (TenantScopeKey, SubmittedAtUtc DESC, Id DESC);

@@ -45,6 +45,13 @@
       "removalMilestone": "M1.0"
     },
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/118_DataApprovalRequest.sql",
+      "reason": "118 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等补齐数据审批请求索引；索引名、表名与列名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/113_WorkflowMultiApproval.sql",

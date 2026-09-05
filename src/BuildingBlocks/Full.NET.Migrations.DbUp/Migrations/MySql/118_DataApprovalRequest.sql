@@ -27,3 +27,31 @@ CREATE TABLE IF NOT EXISTS fn_dataapproval_request (
     UNIQUE KEY UX_fn_dataapproval_request_Idempotency (TenantScopeKey, IdempotencyKey),
     KEY IX_fn_dataapproval_request_SubmittedAtUtc (TenantScopeKey, SubmittedAtUtc, Id)
 ) COMMENT='数据审批请求表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+SET @idempotency_index_exists := (
+    SELECT COUNT(1)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_dataapproval_request'
+      AND INDEX_NAME = 'UX_fn_dataapproval_request_Idempotency');
+SET @ddl := IF(
+    @idempotency_index_exists = 0,
+    'CREATE UNIQUE INDEX UX_fn_dataapproval_request_Idempotency ON fn_dataapproval_request (TenantScopeKey, IdempotencyKey)',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @submitted_index_exists := (
+    SELECT COUNT(1)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_dataapproval_request'
+      AND INDEX_NAME = 'IX_fn_dataapproval_request_SubmittedAtUtc');
+SET @ddl := IF(
+    @submitted_index_exists = 0,
+    'CREATE INDEX IX_fn_dataapproval_request_SubmittedAtUtc ON fn_dataapproval_request (TenantScopeKey, SubmittedAtUtc, Id)',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
