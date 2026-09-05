@@ -35,7 +35,8 @@ internal sealed class WorkflowTodoManagementService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter,
-    WorkflowNotificationOutboxPublisher notificationPublisher)
+    WorkflowNotificationOutboxPublisher notificationPublisher,
+    WorkflowTodoCountersignService countersignService)
 {
     public async Task<Result<IReadOnlyList<WorkflowTodoResponse>>> ListMineAsync(
         Guid actorUserId,
@@ -223,6 +224,29 @@ internal sealed class WorkflowTodoManagementService(
             token => ReturnCoreAsync(todoId, actorUserId, request, token),
             cancellationToken);
 
+    /// <summary>读取当前待办关联的活动加签链。</summary>
+    public Task<Result<WorkflowTodoCountersignChainResponse>> GetCountersignChainAsync(
+        Guid todoId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default) =>
+        countersignService.GetChainAsync(todoId, actorUserId, cancellationToken);
+
+    /// <summary>对活动待办发起前加签或后加签。</summary>
+    public Task<Result<WorkflowInstanceResponse>> CountersignAsync(
+        Guid todoId,
+        Guid actorUserId,
+        CountersignWorkflowTodoRequest request,
+        CancellationToken cancellationToken = default) =>
+        countersignService.CountersignAsync(todoId, actorUserId, request, cancellationToken);
+
+    /// <summary>取消尚未完成的活动加签链。</summary>
+    public Task<Result<WorkflowInstanceResponse>> CancelCountersignAsync(
+        Guid todoId,
+        Guid actorUserId,
+        CancelWorkflowTodoCountersignRequest request,
+        CancellationToken cancellationToken = default) =>
+        countersignService.CancelAsync(todoId, actorUserId, request, cancellationToken);
+
     public Task<Result<WorkflowInstanceResponse>> RejectAsync(
         Guid todoId,
         Guid actorUserId,
@@ -380,6 +404,19 @@ internal sealed class WorkflowTodoManagementService(
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
                 ("SubmissionJson", patchedSubmission), ("UpdatedById", actorUserId),
                 ("UpdatedAtUtc", now), ("Revision", submission!.Revision)), token).ConfigureAwait(false);
+        if (submissionUpdated != 1)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var countersignResult = await countersignService.TryHandleActAsync(
+            todo, instance, formVersionId, patchedSubmission, request, actionKey, actorUserId, scope, token)
+            .ConfigureAwait(false);
+        if (countersignResult is not null)
+        {
+            return countersignResult;
+        }
+
         var todoUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CompleteTodoWithRevision,
             WorkflowSqlParameters.Create(("Id", todo.Id), ("AssigneeUserId", actorUserId),
@@ -401,7 +438,7 @@ internal sealed class WorkflowTodoManagementService(
                 ("CompletedAtUtc", now), ("Revision", instance.Revision));
         var instanceUpdated = await commandExecutor.ExecuteAsync(
             instanceStatement, instanceParameters, token).ConfigureAwait(false);
-        if (submissionUpdated != 1 || todoUpdated != 1 || stepUpdated != 1 || instanceUpdated != 1)
+        if (todoUpdated != 1 || stepUpdated != 1 || instanceUpdated != 1)
         {
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }

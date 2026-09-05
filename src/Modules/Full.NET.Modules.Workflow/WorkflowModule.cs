@@ -58,6 +58,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowInstanceRecoveryService>();
         services.AddScoped<WorkflowRecoveryTaskService>();
         services.AddScoped<WorkflowTodoManagementService>();
+        services.AddScoped<WorkflowTodoCountersignService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowAutomaticTransitionWriter>();
         services.AddScoped<WorkflowNotificationOutboxPublisher>();

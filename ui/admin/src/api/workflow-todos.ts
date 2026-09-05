@@ -12,7 +12,7 @@ import {
   type WorkflowTodoResponse,
   type WorkflowTodoReturnTargetResponse
 } from '@fullnet/client-contracts';
-import { http } from './http';
+import { http, request } from './http';
 
 /** 查询当前用户待办列表。 */
 export async function listMyWorkflowTodos(
@@ -100,11 +100,83 @@ export async function returnWorkflowTodo(
   }, signal);
 }
 
+export type WorkflowTodoCountersignItem = {
+  itemId: string;
+  sequenceNo: number;
+  assigneeUserId: string;
+  statusKey: string;
+  todoId: string | null;
+};
+
+export type WorkflowTodoCountersignChain = {
+  chainId: string;
+  directionKey: 'before' | 'after';
+  statusKey: string;
+  items: WorkflowTodoCountersignItem[];
+};
+
+/** 读取当前待办的活动加签链。 */
+export async function getWorkflowTodoCountersignChain(
+  todoId: string,
+  signal?: AbortSignal
+): Promise<WorkflowTodoCountersignChain> {
+  return request<WorkflowTodoCountersignChain>(
+    `/api/v1/workflow/todos/${todoId}/countersign-chain`,
+    { method: 'GET', signal }
+  );
+}
+
+/** 对活动待办发起前加签或后加签。 */
+export async function countersignWorkflowTodo(
+  todoId: string,
+  directionKey: 'before' | 'after',
+  assigneeUserIds: string[],
+  expectedRevision: number,
+  comment: string | null,
+  idempotencyKey: string,
+  signal?: AbortSignal
+): Promise<WorkflowInstanceResponse> {
+  return request<WorkflowInstanceResponse>(
+    `/api/v1/workflow/todos/${todoId}/countersign`,
+    {
+      method: 'POST',
+      signal,
+      body: {
+        directionKey,
+        assigneeUserIds,
+        expectedRevision,
+        comment,
+        idempotencyKey
+      }
+    }
+  );
+}
+
+/** 取消尚未完成的活动加签链。 */
+export async function cancelWorkflowTodoCountersign(
+  todoId: string,
+  expectedRevision: number,
+  comment: string | null,
+  idempotencyKey: string,
+  signal?: AbortSignal
+): Promise<WorkflowInstanceResponse> {
+  return request<WorkflowInstanceResponse>(
+    `/api/v1/workflow/todos/${todoId}/countersign/cancel`,
+    {
+      method: 'POST',
+      signal,
+      body: { expectedRevision, comment, idempotencyKey }
+    }
+  );
+}
+
 /** 导出待办列表、详情、审批结果与字段补丁模型，供待办页和审批弹窗共享同一契约。 */
 export type {
   WorkflowInstanceResponse,
   WorkflowSubmission,
   WorkflowTodoDetail,
   WorkflowTodoResponse,
-  WorkflowTodoReturnTargetResponse
+  WorkflowTodoReturnTargetResponse,
+  WorkflowTodoCountersignChain,
+  WorkflowTodoCountersignItem
 };

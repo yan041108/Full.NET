@@ -31,6 +31,9 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowRecoveryScanCandidate>(ReadRecoveryScanCandidate);
         registrar.Register<WorkflowTodoTimeoutCandidateRecord>(ReadTodoTimeoutCandidate);
         registrar.Register<WorkflowTodoTimeoutSummaryRecord>(ReadTodoTimeoutSummary);
+        registrar.Register<WorkflowCountersignChainRecord>(ReadCountersignChain);
+        registrar.Register<WorkflowCountersignItemRecord>(ReadCountersignItem);
+        registrar.Register<WorkflowCountersignItemContextRecord>(ReadCountersignItemContext);
     }
 
     private static WorkflowDefinitionRecord ReadDefinition(DbDataReader reader) =>
@@ -274,5 +277,20 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 1),
             reader.GetInt32(2),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 3));
+
+    private static WorkflowCountersignChainRecord ReadCountersignChain(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetGuid(1), reader.GetGuid(2), reader.GetGuid(3),
+            reader.GetString(4), reader.GetString(5), reader.GetGuid(6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7));
+
+    private static WorkflowCountersignItemRecord ReadCountersignItem(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetGuid(1), reader.GetInt32(2), reader.GetGuid(3),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 4), reader.GetString(5));
+
+    private static WorkflowCountersignItemContextRecord ReadCountersignItemContext(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetGuid(1), reader.GetInt32(2), reader.GetGuid(3),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 4), reader.GetString(5),
+            reader.GetString(6), reader.GetGuid(7), reader.GetGuid(8), reader.GetGuid(9),
+            reader.GetString(10));
 }
 #endif

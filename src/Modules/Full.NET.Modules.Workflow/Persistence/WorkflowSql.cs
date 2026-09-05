@@ -1020,4 +1020,193 @@ internal static class WorkflowSql
           AND Revision = @Revision
         """,
         SqlDataScope.Global);
+
+    /// <summary>查询原待办上的活动加签链。</summary>
+    public static readonly SqlStatement FindActiveCountersignChainByOriginTodo = new(
+        "workflow.countersign_chain.find_active_by_origin_todo",
+        """
+        SELECT chain.Id, chain.InstanceId, chain.StepId, chain.OriginTodoId,
+               chain.DirectionKey, chain.StatusKey, chain.CreatedByUserId, chain.CreatedAtUtc
+        FROM fn_workflow_countersign_chain AS chain
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = chain.InstanceId
+        WHERE chain.OriginTodoId = @OriginTodoId
+          AND chain.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按待办标识查询所属加签项。</summary>
+    public static readonly SqlStatement FindCountersignItemByTodoId = new(
+        "workflow.countersign_item.find_by_todo",
+        """
+        SELECT item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey, chain.DirectionKey, chain.OriginTodoId,
+               chain.InstanceId, chain.StepId, chain.StatusKey AS ChainStatusKey
+        FROM fn_workflow_countersign_item AS item
+        INNER JOIN fn_workflow_countersign_chain AS chain ON chain.Id = item.ChainId
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = chain.InstanceId
+        WHERE item.TodoId = @TodoId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>列出加签链的全部有序加签项。</summary>
+    public static readonly SqlStatement ListCountersignItemsByChain = new(
+        "workflow.countersign_item.list_by_chain",
+        """
+        SELECT item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey
+        FROM fn_workflow_countersign_item AS item
+        WHERE item.ChainId = @ChainId
+        ORDER BY item.SequenceNo
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>插入新的加签链。</summary>
+    public static readonly SqlStatement InsertCountersignChain = new(
+        "workflow.countersign_chain.insert",
+        """
+        INSERT INTO fn_workflow_countersign_chain
+            (Id, InstanceId, StepId, OriginTodoId, DirectionKey, StatusKey,
+             CreatedByUserId, CreatedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @OriginTodoId, @DirectionKey, 'active',
+             @CreatedByUserId, @CreatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>插入新的加签项。</summary>
+    public static readonly SqlStatement InsertCountersignItem = new(
+        "workflow.countersign_item.insert",
+        """
+        INSERT INTO fn_workflow_countersign_item
+            (Id, ChainId, SequenceNo, AssigneeUserId, TodoId, StatusKey)
+        VALUES
+            (@Id, @ChainId, @SequenceNo, @AssigneeUserId, @TodoId, @StatusKey)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>把原办理人待办挂起为等待前加签。</summary>
+    public static readonly SqlStatement SuspendOriginTodoForBeforeCountersign = new(
+        "workflow.todo.suspend_for_before_countersign",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'awaiting_before_countersign',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND AssigneeUserId = @AssigneeUserId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.TenantScopeKey = @TenantScopeKey
+                AND instance.StatusKey = 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>前加签完成后恢复原始办理人待办。</summary>
+    public static readonly SqlStatement ReactivateOriginTodoAfterBeforeCountersign = new(
+        "workflow.todo.reactivate_after_before_countersign",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'active',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND StatusKey = 'awaiting_before_countersign'
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.TenantScopeKey = @TenantScopeKey
+                AND instance.StatusKey = 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>更新加签项状态并关联待办。</summary>
+    public static readonly SqlStatement ActivateCountersignItem = new(
+        "workflow.countersign_item.activate",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = @StatusKey,
+            TodoId = @TodoId
+        WHERE Id = @Id
+          AND ChainId = @ChainId
+          AND StatusKey = 'pending'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>完成加签项。</summary>
+    public static readonly SqlStatement CompleteCountersignItem = new(
+        "workflow.countersign_item.complete",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = 'completed'
+        WHERE Id = @Id
+          AND ChainId = @ChainId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>取消加签链。</summary>
+    public static readonly SqlStatement CancelCountersignChain = new(
+        "workflow.countersign_chain.cancel",
+        """
+        UPDATE fn_workflow_countersign_chain
+        SET StatusKey = 'cancelled'
+        WHERE Id = @Id
+          AND OriginTodoId = @OriginTodoId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>取消加签链下仍未完成的加签项。</summary>
+    public static readonly SqlStatement CancelPendingCountersignItems = new(
+        "workflow.countersign_item.cancel_pending",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = 'cancelled'
+        WHERE ChainId = @ChainId
+          AND StatusKey IN ('pending', 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>完成加签链。</summary>
+    public static readonly SqlStatement CompleteCountersignChain = new(
+        "workflow.countersign_chain.complete",
+        """
+        UPDATE fn_workflow_countersign_chain
+        SET StatusKey = 'completed'
+        WHERE Id = @Id
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>查询加签链中下一个待激活的加签项。</summary>
+    public static readonly SqlStatement FindNextPendingCountersignItem = new(
+        "workflow.countersign_item.find_next_pending",
+        """
+        SELECT TOP (1) item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey
+        FROM fn_workflow_countersign_item AS item
+        WHERE item.ChainId = @ChainId
+          AND item.StatusKey = 'pending'
+        ORDER BY item.SequenceNo
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>查询加签链中下一个待激活的加签项（MySQL）。</summary>
+    public static readonly SqlStatement FindNextPendingCountersignItemMySql = new(
+        "workflow.countersign_item.find_next_pending_mysql",
+        """
+        SELECT item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey
+        FROM fn_workflow_countersign_item AS item
+        WHERE item.ChainId = @ChainId
+          AND item.StatusKey = 'pending'
+        ORDER BY item.SequenceNo
+        LIMIT 1
+        """,
+        SqlDataScope.Global);
 }

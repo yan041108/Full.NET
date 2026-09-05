@@ -41,6 +41,43 @@ internal sealed record WorkflowTodoReturnAuditDetail(
     Guid TargetStepId,
     string TargetNodeKey);
 
+/// <summary>对活动待办发起前加签或后加签的请求。</summary>
+/// <param name="DirectionKey">加签方向，before 或 after。</param>
+/// <param name="AssigneeUserIds">按顺序排列的加签办理人，最多 10 人。</param>
+/// <param name="ExpectedRevision">当前待办期望修订号。</param>
+/// <param name="Comment">可选加签说明。</param>
+/// <param name="IdempotencyKey">调用方生成的幂等键。</param>
+internal sealed record CountersignWorkflowTodoRequest(
+    string DirectionKey,
+    IReadOnlyList<Guid> AssigneeUserIds,
+    long ExpectedRevision,
+    string? Comment,
+    string IdempotencyKey);
+
+/// <summary>取消活动加签链的请求。</summary>
+/// <param name="ExpectedRevision">当前待办期望修订号。</param>
+/// <param name="Comment">可选取消原因。</param>
+/// <param name="IdempotencyKey">调用方生成的幂等键。</param>
+internal sealed record CancelWorkflowTodoCountersignRequest(
+    long ExpectedRevision,
+    string? Comment,
+    string IdempotencyKey);
+
+/// <summary>加签链及有序加签项的只读响应。</summary>
+internal sealed record WorkflowTodoCountersignChainResponse(
+    Guid ChainId,
+    string DirectionKey,
+    string StatusKey,
+    IReadOnlyList<WorkflowTodoCountersignItemResponse> Items);
+
+/// <summary>单个加签项的只读响应。</summary>
+internal sealed record WorkflowTodoCountersignItemResponse(
+    Guid ItemId,
+    int SequenceNo,
+    Guid AssigneeUserId,
+    string StatusKey,
+    Guid? TodoId);
+
 internal sealed record WorkflowTodoResponse(
     Guid Id,
     Guid InstanceId,

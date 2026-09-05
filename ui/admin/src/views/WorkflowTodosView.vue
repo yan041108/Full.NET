@@ -7,7 +7,10 @@ import {
 } from '@fullnet/client-contracts';
 import {
   approveWorkflowTodo,
+  cancelWorkflowTodoCountersign,
+  countersignWorkflowTodo,
   getWorkflowTodo,
+  getWorkflowTodoCountersignChain,
   listWorkflowTodoReturnTargets,
   listMyWorkflowTodos,
   rejectWorkflowTodo,
@@ -15,8 +18,10 @@ import {
   type WorkflowSubmission,
   type WorkflowTodoDetail,
   type WorkflowTodoResponse,
-  type WorkflowTodoReturnTargetResponse
+  type WorkflowTodoReturnTargetResponse,
+  type WorkflowTodoCountersignChain
 } from '../api/workflow-todos';
+import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { usePermission } from '../auth/permission';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -32,6 +37,10 @@ const fieldPatch = ref<WorkflowSubmission>({});
 const comment = ref('');
 const returnTargets = ref<WorkflowTodoReturnTargetResponse[]>([]);
 const returnTargetStepId = ref('');
+const countersignDirection = ref<'before' | 'after'>('before');
+const countersignAssigneeIds = ref<string[]>([]);
+const countersignCandidates = ref<Array<{ id: string; label: string }>>([]);
+const countersignChain = ref<WorkflowTodoCountersignChain>();
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
@@ -46,10 +55,84 @@ const requiredFieldsReady = computed(() => {
     policy !== 'required' || hasValue(merged[key]));
 });
 const canReturn = computed(() => can('workflow.todos.return'));
+const canCountersign = computed(() => can('workflow.todos.countersign'));
 const returnReady = computed(() =>
   requiredFieldsReady.value &&
   returnTargetStepId.value.length > 0 &&
   comment.value.trim().length > 0);
+
+async function loadCountersignContext(todoId: string): Promise<void> {
+  if (!canCountersign.value) {
+    countersignChain.value = undefined;
+    countersignCandidates.value = [];
+    return;
+  }
+
+  const [candidates, chain] = await Promise.all([
+    listWorkflowRecipientCandidates(1, 100).then(result =>
+      result.items.map(item => ({
+        id: item.id,
+        label: item.displayName || item.username
+      }))),
+    getWorkflowTodoCountersignChain(todoId).catch(() => undefined)
+  ]);
+  countersignCandidates.value = candidates;
+  countersignChain.value = chain;
+  countersignAssigneeIds.value = [];
+  countersignDirection.value = 'before';
+}
+
+async function submitCountersign(): Promise<void> {
+  const detail = selected.value;
+  if (acting.value || detail === undefined || countersignAssigneeIds.value.length === 0) {
+    return;
+  }
+
+  acting.value = true;
+  problem.value = undefined;
+  try {
+    await countersignWorkflowTodo(
+      detail.id,
+      countersignDirection.value,
+      countersignAssigneeIds.value,
+      detail.revision,
+      comment.value.trim() || null,
+      createIdempotencyKey()
+    );
+    ElMessage.success(t('workflowTodos.countersignSuccess'));
+    closeDetail();
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'workflowTodos.operationFailed');
+  } finally {
+    acting.value = false;
+  }
+}
+
+async function cancelCountersign(): Promise<void> {
+  const detail = selected.value;
+  if (acting.value || detail === undefined || countersignChain.value === undefined) {
+    return;
+  }
+
+  acting.value = true;
+  problem.value = undefined;
+  try {
+    await cancelWorkflowTodoCountersign(
+      detail.id,
+      detail.revision,
+      comment.value.trim() || null,
+      createIdempotencyKey()
+    );
+    ElMessage.success(t('workflowTodos.countersignCancelSuccess'));
+    closeDetail();
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'workflowTodos.operationFailed');
+  } finally {
+    acting.value = false;
+  }
+}
 
 onMounted(load);
 onBeforeUnmount(() => loadController?.abort());
@@ -83,6 +166,7 @@ async function openTodo(todo: WorkflowTodoResponse): Promise<void> {
     ]);
     selected.value = detail;
     returnTargets.value = targets;
+    await loadCountersignContext(todo.id);
     fieldPatch.value = {};
     comment.value = '';
     returnTargetStepId.value = '';
@@ -176,6 +260,9 @@ function closeDetail(): void {
   comment.value = '';
   returnTargets.value = [];
   returnTargetStepId.value = '';
+  countersignChain.value = undefined;
+  countersignAssigneeIds.value = [];
+  countersignCandidates.value = [];
 }
 
 function hasValue(value: unknown): boolean {
@@ -297,6 +384,62 @@ function toProblem(
             </option>
           </select>
         </label>
+
+        <PermissionGate code="workflow.todos.countersign">
+          <div v-if="countersignChain" class="workflow-todos__countersign-chain">
+            <strong>{{ t('workflowTodos.countersignChain') }}</strong>
+            <ol>
+              <li
+                v-for="item in countersignChain.items"
+                :key="item.itemId"
+                translate="no"
+              >
+                #{{ item.sequenceNo }} · {{ item.assigneeUserId }} · {{ item.statusKey }}
+              </li>
+            </ol>
+            <el-button
+              data-testid="workflow-todo-countersign-cancel"
+              :loading="acting"
+              @click="cancelCountersign"
+            >
+              {{ t('workflowTodos.countersignCancel') }}
+            </el-button>
+          </div>
+          <div v-else class="workflow-todos__countersign">
+            <label>
+              <span>{{ t('workflowTodos.countersignDirection') }}</span>
+              <select v-model="countersignDirection" data-testid="workflow-todo-countersign-direction">
+                <option value="before">{{ t('workflowTodos.countersignBefore') }}</option>
+                <option value="after">{{ t('workflowTodos.countersignAfter') }}</option>
+              </select>
+            </label>
+            <label>
+              <span>{{ t('workflowTodos.countersignAssignees') }}</span>
+              <select
+                v-model="countersignAssigneeIds"
+                data-testid="workflow-todo-countersign-assignees"
+                multiple
+                :disabled="acting || countersignCandidates.length === 0"
+              >
+                <option
+                  v-for="candidate in countersignCandidates"
+                  :key="candidate.id"
+                  :value="candidate.id"
+                >
+                  {{ candidate.label }}
+                </option>
+              </select>
+            </label>
+            <el-button
+              data-testid="workflow-todo-countersign-submit"
+              :loading="acting"
+              :disabled="countersignAssigneeIds.length === 0"
+              @click="submitCountersign"
+            >
+              {{ t('workflowTodos.countersign') }}
+            </el-button>
+          </div>
+        </PermissionGate>
 
         <div class="workflow-todos__decision-bar">
           <el-button :disabled="acting" @click="closeDetail">

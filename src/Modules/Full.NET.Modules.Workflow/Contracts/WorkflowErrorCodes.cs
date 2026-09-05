@@ -57,6 +57,14 @@ public static class WorkflowErrorCodes
     public const string RecoveryRetryInvalid = Prefix + "recovery.retry_invalid";
     /// <summary>源条件仍在，对账不能关闭任务。</summary>
     public const string RecoveryReconcileInvalid = Prefix + "recovery.reconcile_invalid";
+    /// <summary>加签办理人无效、重复或包含当前办理人。</summary>
+    public const string TodoCountersignAssigneeInvalid = Prefix + "todo.countersign_assignee_invalid";
+    /// <summary>加签方向键不受支持。</summary>
+    public const string TodoCountersignDirectionInvalid = Prefix + "todo.countersign_direction_invalid";
+    /// <summary>当前待办已存在活动加签链。</summary>
+    public const string TodoCountersignChainActive = Prefix + "todo.countersign_chain_active";
+    /// <summary>找不到可取消的活动加签链。</summary>
+    public const string TodoCountersignChainNotFound = Prefix + "todo.countersign_chain_not_found";
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -106,5 +114,9 @@ public static class WorkflowErrorCodes
         RecoveryNotFound,
         RecoveryRetryInvalid,
         RecoveryReconcileInvalid,
+        TodoCountersignAssigneeInvalid,
+        TodoCountersignDirectionInvalid,
+        TodoCountersignChainActive,
+        TodoCountersignChainNotFound,
     ]);
 }

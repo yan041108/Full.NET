@@ -242,7 +242,8 @@ public sealed class WorkflowTodoReturnServiceTests
             query, command, new TrackingTransaction(), tenant, clock, ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
-            new WorkflowNotificationOutboxPublisher(outbox));
+            new WorkflowNotificationOutboxPublisher(outbox),
+            Substitute.For<WorkflowTodoCountersignService>());
         return new ReturnFixture(service, query, command, outbox, todoId, resolvedActorId);
     }
 

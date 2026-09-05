@@ -283,3 +283,37 @@ internal sealed record WorkflowRecoveryScanCandidate(
     string TenantScopeKey,
     Guid InstanceId,
     Guid? StepId);
+
+/// <summary>加签链持久化投影。</summary>
+internal sealed record WorkflowCountersignChainRecord(
+    Guid Id,
+    Guid InstanceId,
+    Guid StepId,
+    Guid OriginTodoId,
+    string DirectionKey,
+    string StatusKey,
+    Guid CreatedByUserId,
+    DateTimeOffset CreatedAtUtc);
+
+/// <summary>加签项列表投影。</summary>
+internal sealed record WorkflowCountersignItemRecord(
+    Guid Id,
+    Guid ChainId,
+    int SequenceNo,
+    Guid AssigneeUserId,
+    Guid? TodoId,
+    string StatusKey);
+
+/// <summary>办理动作使用的加签项上下文。</summary>
+internal sealed record WorkflowCountersignItemContextRecord(
+    Guid Id,
+    Guid ChainId,
+    int SequenceNo,
+    Guid AssigneeUserId,
+    Guid? TodoId,
+    string StatusKey,
+    string DirectionKey,
+    Guid OriginTodoId,
+    Guid InstanceId,
+    Guid StepId,
+    string ChainStatusKey);

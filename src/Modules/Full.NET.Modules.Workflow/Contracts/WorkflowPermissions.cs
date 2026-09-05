@@ -39,6 +39,8 @@ public static class WorkflowPermissions
     public const string TodosReject = "workflow.todos.reject";
     /// <summary>把本人工作流待办退回到合法历史审批节点。</summary>
     public const string TodosReturn = "workflow.todos.return";
+    /// <summary>对本人活动待办发起前加签或后加签。</summary>
+    public const string TodosCountersign = "workflow.todos.countersign";
     /// <summary>查询本人工作流抄送。</summary>
     public const string CcRead = "workflow.cc.read";
     /// <summary>标记本人工作流抄送已读。</summary>
@@ -71,6 +73,7 @@ public static class WorkflowPermissions
         TodosApprove,
         TodosReject,
         TodosReturn,
+        TodosCountersign,
         CcRead,
         CcMarkRead,
         RecoveryTasksRead,
