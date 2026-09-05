@@ -283,6 +283,11 @@ export function createAppRouter(
         path: '/workflow/instances',
         component: () => import('../views/WorkflowInstancesView.vue')
       },
+      {
+        name: 'workflow-recovery-tasks',
+        path: '/workflow/recovery-tasks',
+        component: () => import('../views/WorkflowRecoveryTasksView.vue')
+      },
       { path: '/403', component: loadStatusView, props: { code: '403' } },
       { path: '/404', component: loadStatusView, props: { code: '404' } },
       { path: '/500', component: loadStatusView, props: { code: '500' } },

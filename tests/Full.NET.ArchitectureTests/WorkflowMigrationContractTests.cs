@@ -60,6 +60,30 @@ public sealed partial class WorkflowMigrationContractTests
         StringAssert.Contains(mySql, "占用中的实例业务唯一键");
     }
 
+    /// <summary>110 必须成对新增恢复任务表，并用占用键保证未关闭任务唯一。</summary>
+    [TestMethod]
+    public void Workflow_110_migrations_publish_recovery_task_occupancy_contract()
+    {
+        var root = ArchitectureRepositoryRoot.Find();
+        var sqlServer = File.ReadAllText(Path.Combine(
+            root, "src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Migrations",
+            "SqlServer", "110_WorkflowRecoveryTask.sql"));
+        var mySql = File.ReadAllText(Path.Combine(
+            root, "src", "BuildingBlocks", "Full.NET.Migrations.DbUp", "Migrations",
+            "MySql", "110_WorkflowRecoveryTask.sql"));
+
+        StringAssert.Contains(sqlServer, "fn_workflow_recovery_task");
+        StringAssert.Contains(mySql, "fn_workflow_recovery_task");
+        StringAssert.Contains(sqlServer, "UX_fn_workflow_recovery_task_OpenOccupancy");
+        StringAssert.Contains(mySql, "UX_fn_workflow_recovery_task_OpenOccupancy");
+        StringAssert.Contains(sqlServer, "LeaseGeneration");
+        StringAssert.Contains(mySql, "LeaseGeneration");
+        StringAssert.Contains(sqlServer, "pending', 'failed', 'dead_lettered");
+        StringAssert.Contains(mySql, "pending', 'failed', 'dead_lettered");
+        StringAssert.Contains(sqlServer, "工作流恢复任务表");
+        StringAssert.Contains(mySql, "工作流恢复任务表");
+    }
+
     [TestMethod]
     public void Workflow_102_migrations_do_not_reference_foreign_module_tables()
     {

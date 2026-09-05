@@ -37,6 +37,7 @@ public sealed class WorkflowAuthorizationContributorTests
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.CcRead,
+                WorkflowPermissions.RecoveryTasksRead,
             },
             catalog.Navigation.Select(item => item.RequiredPermission).ToArray());
         CollectionAssert.AreEquivalent(
@@ -47,6 +48,7 @@ public sealed class WorkflowAuthorizationContributorTests
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.CcRead,
+                WorkflowPermissions.RecoveryTasksRead,
             ]).ToArray(),
             catalog.Actions.Select(item => item.PermissionCode).ToArray());
     }

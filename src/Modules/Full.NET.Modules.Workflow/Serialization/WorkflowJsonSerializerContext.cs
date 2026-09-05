@@ -6,6 +6,8 @@ using Full.NET.Modules.Workflow.Features.ManageForms;
 using Full.NET.Modules.Workflow.Features.ManageInstances;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Full.NET.Modules.Workflow.Features.ManageMyCc;
+using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
+using Full.NET.Abstractions.Results;
 
 namespace Full.NET.Modules.Workflow.Serialization;
 
@@ -52,6 +54,10 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowCcResponse))]
 [JsonSerializable(typeof(WorkflowCcResponse[]))]
 [JsonSerializable(typeof(WorkflowCcReadResponse))]
+[JsonSerializable(typeof(WorkflowRecoveryTaskResponse))]
+[JsonSerializable(typeof(RetryWorkflowRecoveryTaskRequest))]
+[JsonSerializable(typeof(ReconcileWorkflowRecoveryTaskRequest))]
+[JsonSerializable(typeof(PagedResult<WorkflowRecoveryTaskResponse>))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

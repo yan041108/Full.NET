@@ -212,6 +212,7 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PagedResultOfWorkflowRecoveryTaskResponse,
   PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
@@ -224,6 +225,7 @@ import type {
   PublishWorkflowFormRequest,
   ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
+  ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
@@ -233,6 +235,7 @@ import type {
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
+  RetryWorkflowRecoveryTaskRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -301,6 +304,7 @@ import type {
   WorkflowNodeTypeResponse,
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
+  WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
   WorkflowTodoRuntimeResponse
@@ -2616,6 +2620,17 @@ function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTen
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): PagedResultOfWorkflowRecoveryTaskResponse {
+  if (!(isPagedResultOfWorkflowRecoveryTaskResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_workflow_recovery_task_response');
+  }
+  return value;
+}
+
+function isPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): value is PagedResultOfWorkflowRecoveryTaskResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecoveryTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowInstanceRequest {
   if (!(isPauseWorkflowInstanceRequest(value))) {
     throw new Error('client.invalid_pause_workflow_instance_request');
@@ -2748,6 +2763,17 @@ function isRecipientEndpointResponse(value: unknown): value is RecipientEndpoint
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointKindKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["maskedValue"] === 'string') && (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["verificationStatusKey"] === 'string');
 }
 
+export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): ReconcileWorkflowRecoveryTaskRequest {
+  if (!(isReconcileWorkflowRecoveryTaskRequest(value))) {
+    throw new Error('client.invalid_reconcile_workflow_recovery_task_request');
+  }
+  return value;
+}
+
+function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is ReconcileWorkflowRecoveryTaskRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
 export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkflowInstanceRequest {
   if (!(isRecoverWorkflowInstanceRequest(value))) {
     throw new Error('client.invalid_recover_workflow_instance_request');
@@ -2845,6 +2871,17 @@ export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotif
 
 function isRetryNotificationDeliveryRequest(value: unknown): value is RetryNotificationDeliveryRequest {
   return isRecord(value) && (typeof value["reason"] === 'string') && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"]));
+}
+
+export function readRetryWorkflowRecoveryTaskRequest(value: unknown): RetryWorkflowRecoveryTaskRequest {
+  if (!(isRetryWorkflowRecoveryTaskRequest(value))) {
+    throw new Error('client.invalid_retry_workflow_recovery_task_request');
+  }
+  return value;
+}
+
+function isRetryWorkflowRecoveryTaskRequest(value: unknown): value is RetryWorkflowRecoveryTaskRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
 }
 
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
@@ -3593,6 +3630,17 @@ export function readWorkflowRecipientCandidateResponse(value: unknown): Workflow
 
 function isWorkflowRecipientCandidateResponse(value: unknown): value is WorkflowRecipientCandidateResponse {
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["username"] === 'string');
+}
+
+export function readWorkflowRecoveryTaskResponse(value: unknown): WorkflowRecoveryTaskResponse {
+  if (!(isWorkflowRecoveryTaskResponse(value))) {
+    throw new Error('client.invalid_workflow_recovery_task_response');
+  }
+  return value;
+}
+
+function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecoveryTaskResponse {
+  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["kindKey"] === 'string') && ((value["lastError"] === null) || (typeof value["lastError"] === 'string')) && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (typeof value["leaseGeneration"] === 'number' && Number.isInteger(value["leaseGeneration"])) && ((value["leaseOwnerKey"] === null) || (typeof value["leaseOwnerKey"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["updatedAtUtc"] === 'string');
 }
 
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {

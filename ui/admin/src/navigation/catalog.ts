@@ -231,6 +231,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
   ['workflow-instances', {
     titleKey: 'navigation.workflowInstances.title',
     captionKey: 'navigation.workflowInstances.caption'
+  }],
+  ['workflow-recovery-tasks', {
+    titleKey: 'navigation.workflowRecoveryTasks.title',
+    captionKey: 'navigation.workflowRecoveryTasks.caption'
   }]
 ]);
 

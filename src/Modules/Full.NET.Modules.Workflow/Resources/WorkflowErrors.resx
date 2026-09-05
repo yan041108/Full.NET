@@ -45,4 +45,7 @@
   <data name="workflow.todo.forbidden" xml:space="preserve"><value>无权处理该工作流待办。</value></data>
   <data name="workflow.revision.conflict" xml:space="preserve"><value>工作流修订版本冲突。</value></data>
   <data name="workflow.transition.invalid" xml:space="preserve"><value>工作流状态转换无效。</value></data>
+  <data name="workflow.recovery.not_found" xml:space="preserve"><value>工作流恢复任务不存在或不属于当前作用域。</value></data>
+  <data name="workflow.recovery.retry_invalid" xml:space="preserve"><value>工作流恢复任务不能重试。</value></data>
+  <data name="workflow.recovery.reconcile_invalid" xml:space="preserve"><value>工作流恢复任务不能对账。</value></data>
 </root>

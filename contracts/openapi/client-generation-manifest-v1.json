@@ -146,6 +146,30 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowListRecoveryTasks",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetRecoveryTask",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRetryRecoveryTask",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReconcileRecoveryTask",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListMyTodos",
       "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",

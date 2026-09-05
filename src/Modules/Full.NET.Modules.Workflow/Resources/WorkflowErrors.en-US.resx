@@ -45,4 +45,7 @@
   <data name="workflow.todo.forbidden" xml:space="preserve"><value>You are not allowed to act on this workflow todo.</value></data>
   <data name="workflow.revision.conflict" xml:space="preserve"><value>The workflow revision conflicts with the request.</value></data>
   <data name="workflow.transition.invalid" xml:space="preserve"><value>The workflow state transition is invalid.</value></data>
+  <data name="workflow.recovery.not_found" xml:space="preserve"><value>The workflow recovery task was not found in the current scope.</value></data>
+  <data name="workflow.recovery.retry_invalid" xml:space="preserve"><value>The workflow recovery task cannot be retried.</value></data>
+  <data name="workflow.recovery.reconcile_invalid" xml:space="preserve"><value>The workflow recovery task cannot be reconciled.</value></data>
 </root>

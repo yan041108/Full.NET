@@ -540,6 +540,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "routePrefixes": [
+        "/api/v1/workflow/recovery-tasks"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/workflow-form-draft.ts",
         "packages/client-contracts/src/workflow-todos.ts"
       ],
@@ -606,6 +616,7 @@
     { "apiModule": "ui/admin/src/api/workflow-todos.ts", "consumers": ["ui/admin/src/views/WorkflowTodosView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-runtime.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-instances.ts", "consumers": ["ui/admin/src/views/WorkflowInstancesView.vue"] },
+    { "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts", "consumers": ["ui/admin/src/views/WorkflowRecoveryTasksView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-forms.ts", "consumers": ["ui/admin/src/views/WorkflowFormsView.vue"] }
   ]
 }

@@ -41,6 +41,12 @@ public static class WorkflowPermissions
     public const string CcRead = "workflow.cc.read";
     /// <summary>标记本人工作流抄送已读。</summary>
     public const string CcMarkRead = "workflow.cc.mark_read";
+    /// <summary>查询工作流恢复任务。</summary>
+    public const string RecoveryTasksRead = "workflow.recovery_tasks.read";
+    /// <summary>人工重试工作流恢复任务。</summary>
+    public const string RecoveryTasksRetry = "workflow.recovery_tasks.retry";
+    /// <summary>对账并收敛工作流恢复任务。</summary>
+    public const string RecoveryTasksReconcile = "workflow.recovery_tasks.reconcile";
 
     /// <summary>获取当前模块全部精确权限码，供授权目录与测试枚举。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
@@ -64,5 +70,8 @@ public static class WorkflowPermissions
         TodosReject,
         CcRead,
         CcMarkRead,
+        RecoveryTasksRead,
+        RecoveryTasksRetry,
+        RecoveryTasksReconcile,
     ]);
 }

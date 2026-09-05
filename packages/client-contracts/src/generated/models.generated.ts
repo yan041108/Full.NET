@@ -1749,6 +1749,13 @@ export interface PagedResultOfTenantSummary {
   readonly total: number;
 }
 
+export interface PagedResultOfWorkflowRecoveryTaskResponse {
+  readonly items: Array<WorkflowRecoveryTaskResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PauseWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
@@ -1822,6 +1829,12 @@ export interface RecipientEndpointResponse {
   readonly verificationStatusKey: string;
 }
 
+export interface ReconcileWorkflowRecoveryTaskRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface RecoverWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
@@ -1865,6 +1878,12 @@ export interface ResumeWorkflowInstanceRequest {
 export interface RetryNotificationDeliveryRequest {
   readonly reason: string;
   readonly revision: number;
+}
+
+export interface RetryWorkflowRecoveryTaskRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
 }
 
 export interface RevokeSuperAdministratorRequest {
@@ -2380,6 +2399,23 @@ export interface WorkflowRecipientCandidateResponse {
   readonly displayName: string;
   readonly id: string;
   readonly username: string;
+}
+
+export interface WorkflowRecoveryTaskResponse {
+  readonly attemptCount: number;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly kindKey: string;
+  readonly lastError: null | string;
+  readonly leaseExpiresAtUtc: null | string;
+  readonly leaseGeneration: number;
+  readonly leaseOwnerKey: null | string;
+  readonly nextAttemptAtUtc: null | string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly stepId: null | string;
+  readonly updatedAtUtc: string;
 }
 
 export interface WorkflowTodoDetailResponse {

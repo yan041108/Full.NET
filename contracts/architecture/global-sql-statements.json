@@ -2850,6 +2850,226 @@
         "fn_workflow_instance",
         "TenantScopeKey = @TenantScopeKey"
       ]
+    },
+    {
+      "statementName": "workflow.recovery.scan_expired_leases",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanExpiredLeases",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Recovery Worker 必须扫描全部作用域的过期租约；该语句不加当前租户过滤，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@Now"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.scan_stuck_instances",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanStuckInstances",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Recovery Worker 必须扫描全部作用域的卡住实例；该语句不加当前租户过滤，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "fn_workflow_todo"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.scan_incomplete_steps",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ScanIncompleteSteps",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Recovery Worker 必须扫描全部作用域缺少活动待办的人工步骤；该语句不加当前租户过滤，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "human.approval"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.insert_open_task",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.InsertOpenTask",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "插入未关闭恢复任务时必须沿用扫描候选上的 TenantScopeKey，并以占用键去重，禁止调用方自行声明作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.claim.sql_server",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ClaimTasksSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 领取必须跨作用域竞争到期任务；SQL Server 使用 UPDLOCK READPAST，管理查询不得复用该语句。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "@BatchSize"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.select_claimable_ids.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.SelectClaimableTaskIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 领取必须跨作用域竞争到期任务；MySQL 使用 FOR UPDATE SKIP LOCKED，管理查询不得复用该语句。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "@Now"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.claim_by_ids.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ClaimTasksByIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 领取只能更新本轮 SKIP LOCKED 选出的标识集合，不得扩大为当前租户过滤。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "@LeaseOwnerKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.select_by_lease",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.SelectTasksByLease",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "回读本轮租约持有的任务只按 LeaseOwnerKey 定位，避免把 Worker 领取收窄到单一租户。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "@LeaseOwnerKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.renew_lease",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.RenewTaskLease",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "续租必须同时匹配任务标识、租约持有者和世代，防止过期后被其他 Worker 抢走仍写入。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "LeaseGeneration = @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.complete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.CompleteTask",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "完成态提交必须匹配本轮租约持有者与世代，丢失所有权时不得覆盖并发领取结果。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "LeaseGeneration = @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.reclaim_instance_lease",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ReclaimInstanceLease",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "回收实例执行租约只针对已过期或空闲的 active 实例，禁止按调用方声明的租户改写运行中租约。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.clear_instance_lease",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ClearInstanceLease",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "清理实例租约必须限定本轮持有者或已过期租约，避免清空仍由其他执行者持有的活动租约。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "Id = @Id"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.find_active_todo_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.FindActiveTodoByStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按步骤判断未完成人工节点时仍必须携带任务上的 TenantScopeKey，禁止跨作用域读取待办。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.FindTaskById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复任务管理读取必须限制在可信上下文构造的 TenantScopeKey 内。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.count_for_scope",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.CountTasksForScope",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复任务分页计数必须限制在可信上下文构造的 TenantScopeKey 内。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ListTasksForScopeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复任务分页列表必须限制在可信上下文构造的 TenantScopeKey 内。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.ListTasksForScopeMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复任务分页列表必须限制在可信上下文构造的 TenantScopeKey 内。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.requeue",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.RequeueTask",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "人工重试必须同时匹配当前作用域与任务修订号，禁止跨租户或过期修订覆盖。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.mark_succeeded",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.MarkTaskSucceeded",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "对账成功关闭必须同时匹配当前作用域与任务修订号。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.recovery.mark_cancelled",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowRecoverySql.MarkTaskCancelled",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowRecoverySql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "对账取消关闭必须同时匹配当前作用域与任务修订号。",
+      "requiredSqlFragments": [
+        "fn_workflow_recovery_task",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     }
   ]
 }

@@ -179,6 +179,25 @@
         "StatusKey": "待办状态键",
         "StepId": "流程步骤标识"
       }
+    },
+    "fn_workflow_recovery_task": {
+      "comment": "工作流恢复任务表",
+      "columns": {
+        "AttemptCount": "已尝试次数",
+        "InstanceId": "流程实例标识",
+        "KindKey": "恢复种类键",
+        "LastError": "最后错误摘要",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseGeneration": "租约世代",
+        "LeaseOwnerKey": "执行租约持有者键",
+        "NextAttemptAtUtc": "下次尝试时间(UTC)",
+        "OpenOccupancyKey": "未关闭恢复任务占用键",
+        "Revision": "修订号",
+        "ScopeKey": "作用域键",
+        "StatusKey": "恢复任务状态键",
+        "StepId": "流程步骤标识",
+        "TenantScopeKey": "租户作用域唯一键"
+      }
     }
   }
 }

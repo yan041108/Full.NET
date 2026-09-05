@@ -47,6 +47,12 @@ public static class WorkflowErrorCodes
     public const string CcNotFound = Prefix + "cc.not_found";
     public const string RevisionConflict = Prefix + "revision.conflict";
     public const string InvalidTransition = Prefix + "transition.invalid";
+    /// <summary>当前作用域内找不到恢复任务。</summary>
+    public const string RecoveryNotFound = Prefix + "recovery.not_found";
+    /// <summary>任务状态不允许人工重试。</summary>
+    public const string RecoveryRetryInvalid = Prefix + "recovery.retry_invalid";
+    /// <summary>源条件仍在，对账不能关闭任务。</summary>
+    public const string RecoveryReconcileInvalid = Prefix + "recovery.reconcile_invalid";
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -91,5 +97,8 @@ public static class WorkflowErrorCodes
         CcNotFound,
         RevisionConflict,
         InvalidTransition,
+        RecoveryNotFound,
+        RecoveryRetryInvalid,
+        RecoveryReconcileInvalid,
     ]);
 }

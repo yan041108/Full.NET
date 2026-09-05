@@ -34,6 +34,9 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Permission(WorkflowPermissions.TodosReject, "拒绝本人工作流待办"),
         Permission(WorkflowPermissions.CcRead, "查询本人工作流抄送"),
         Permission(WorkflowPermissions.CcMarkRead, "标记本人工作流抄送已读"),
+        Permission(WorkflowPermissions.RecoveryTasksRead, "查询工作流恢复任务"),
+        Permission(WorkflowPermissions.RecoveryTasksRetry, "人工重试工作流恢复任务"),
+        Permission(WorkflowPermissions.RecoveryTasksReconcile, "对账工作流恢复任务"),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -43,6 +46,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         NavigationItem("workflow-instances", "/workflow/instances", "工作流实例", 30, WorkflowPermissions.InstancesRead),
         NavigationItem("workflow-todos", "/workflow/todos", "我的待办", 40, WorkflowPermissions.TodosRead),
         NavigationItem("workflow-cc", "/workflow/cc", "我的抄送", 50, WorkflowPermissions.CcRead),
+        NavigationItem("workflow-recovery-tasks", "/workflow/recovery-tasks", "恢复任务", 60, WorkflowPermissions.RecoveryTasksRead),
     ];
 
     /// <summary>获取实例页上的精确操作，暂停、恢复与强制恢复各自独立授权。</summary>
@@ -62,6 +66,8 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.todos.approve", "workflow-todos", WorkflowPermissions.TodosApprove, "同意待办", "approve", 10),
         Action("workflow.todos.reject", "workflow-todos", WorkflowPermissions.TodosReject, "拒绝待办", "reject", 20),
         Action("workflow.cc.mark-read", "workflow-cc", WorkflowPermissions.CcMarkRead, "标记已读", "mark-read", 10),
+        Action("workflow.recovery_tasks.retry", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksRetry, "重试恢复任务", "retry", 10),
+        Action("workflow.recovery_tasks.reconcile", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksReconcile, "对账恢复任务", "reconcile", 20),
     ];
 
     private static PermissionDefinition Permission(string code, string name) =>

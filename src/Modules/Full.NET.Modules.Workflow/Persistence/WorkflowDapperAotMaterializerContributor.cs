@@ -26,6 +26,8 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowActionReceiptRecord>(ReadActionReceipt);
         registrar.Register<WorkflowExecutionLogRecord>(ReadExecutionLog);
         registrar.Register<WorkflowCcRecord>(ReadCc);
+        registrar.Register<WorkflowRecoveryTaskRecord>(ReadRecoveryTask);
+        registrar.Register<WorkflowRecoveryScanCandidate>(ReadRecoveryScanCandidate);
     }
 
     private static WorkflowDefinitionRecord ReadDefinition(DbDataReader reader) =>
@@ -197,5 +199,39 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetString(6),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8));
+
+    /// <summary>按显式 SQL 投影顺序物化恢复任务。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的恢复任务投影。</returns>
+    private static WorkflowRecoveryTaskRecord ReadRecoveryTask(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetGuid(4),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 5),
+            reader.GetString(6),
+            reader.GetString(7),
+            reader.GetInt32(8),
+            reader.GetInt64(9),
+            AotDataReaderExtensions.ReadNullableString(reader, 10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            reader.GetInt32(12),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13),
+            AotDataReaderExtensions.ReadNullableString(reader, 14),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 16));
+
+    /// <summary>按扫描 SQL 投影顺序物化恢复候选。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的扫描候选投影。</returns>
+    private static WorkflowRecoveryScanCandidate ReadRecoveryScanCandidate(DbDataReader reader) =>
+        new(
+            AotDataReaderExtensions.ReadNullableGuid(reader, 0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetGuid(3),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 4));
 }
 #endif

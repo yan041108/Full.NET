@@ -12,16 +12,22 @@ using Full.NET.Modules.Workflow.Features.ManageInstances;
 using TodoEndpoint = Full.NET.Modules.Workflow.Features.ManageMyTodos.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Execution;
 using CcEndpoint = Full.NET.Modules.Workflow.Features.ManageMyCc.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageMyCc;
+using RecoveryEndpoint = Full.NET.Modules.Workflow.Features.ManageRecoveryTasks.Endpoint;
+using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
+using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Time;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Workflow;
 
-/// <summary>提供工作流定义、表单、实例与待办的静态闭包模块入口。</summary>
+/// <summary>提供工作流定义、表单、实例、待办和恢复 Worker 的静态闭包模块入口。</summary>
 public sealed class WorkflowModule : IFullNetModule
 {
     /// <summary>获取模块稳定名称。</summary>
@@ -50,6 +56,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowRecipientCandidateQueryService>();
         services.AddScoped<WorkflowInstanceManagementService>();
         services.AddScoped<WorkflowInstanceRecoveryService>();
+        services.AddScoped<WorkflowRecoveryTaskService>();
         services.AddScoped<WorkflowTodoManagementService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowAutomaticTransitionWriter>();
@@ -62,7 +69,7 @@ public sealed class WorkflowModule : IFullNetModule
 #endif
     }
 
-    /// <summary>映射工作流表单、定义、实例、待办和抄送端点。</summary>
+    /// <summary>映射工作流表单、定义、实例、待办、抄送和恢复任务端点。</summary>
     /// <param name="endpoints">应用端点路由构建器。</param>
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
@@ -73,5 +80,32 @@ public sealed class WorkflowModule : IFullNetModule
         InstanceEndpoint.Map(endpoints);
         TodoEndpoint.Map(endpoints);
         CcEndpoint.Map(endpoints);
+        RecoveryEndpoint.Map(endpoints);
+    }
+
+    /// <summary>只在 Worker 注册恢复扫描与领取循环，避免 API 进程启动全局扫描。</summary>
+    /// <param name="services">Worker 宿主服务集合。</param>
+    /// <param name="configuration">Worker 只读配置根。</param>
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+#if FULLNET_AOT_COMPILE
+        new Persistence.WorkflowDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        // BindConfiguration 使用配置绑定源生成器，避免 Worker Native AOT 在启动时反射扫描选项类型。
+        services.AddOptions<WorkflowRecoveryWorkerOptions>()
+            .BindConfiguration(WorkflowRecoveryWorkerOptions.SectionName)
+            .ValidateOnStart();
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<
+                IValidateOptions<WorkflowRecoveryWorkerOptions>,
+                WorkflowRecoveryWorkerOptionsValidator>());
+        services.AddScoped<WorkflowRecoveryScanner>();
+        services.AddScoped<WorkflowRecoveryBatchProcessor>();
+        services.AddHostedService<WorkflowRecoveryHostedProcessor>();
     }
 }

@@ -147,6 +147,7 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 | `fn_workflow_action_record` | 追加式同意、拒绝、取消和系统动作；保存稳定 ActionKey、主体、Revision 和意见摘要，不以 Todo 字符串代替历史 |
 | `fn_workflow_execution_log` | 追加式状态迁移摘要、关联步骤、幂等键；不保存 Secret 或完整敏感表单 |
 | `fn_workflow_domain_audit` | 模块自有 B0 领域审计；与发布、审批、取消和强制恢复状态同事务写入，失败回滚 |
+| `fn_workflow_recovery_task` | Worker 扫描卡住实例、未完成步骤和过期租约后写入的恢复任务；租约、世代、重试与死信占用键由本表表达 |
 
 实例表通过等价双库约束保证同一 `(Scope, BusinessType, BusinessId)` 最多一个 Active；历史终态实例可并存。具体唯一键与状态投影必须在迁移 RED 测试中证明 SQL Server/MySQL 等价，不使用跨库不一致的过滤索引假设。
 
@@ -188,8 +189,13 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 | `workflow.todos.read` | 我的待办页面 |
 | `workflow.todos.approve` | 同意本人待办 |
 | `workflow.todos.reject` | 拒绝本人待办 |
+| `workflow.cc.read` | 我的抄送页面 |
+| `workflow.cc.mark_read` | 标记本人抄送已读 |
+| `workflow.recovery_tasks.read` | 恢复任务页面 |
+| `workflow.recovery_tasks.retry` | 人工重试恢复任务 |
+| `workflow.recovery_tasks.reconcile` | 对账关闭恢复任务 |
 
-页面和操作同时受权限与资源授权保护。`workflow.todos.approve/reject` 不能授权用户办理他人的 Todo；实例详情还必须校验作用域、数据范围和关联主体。无权限时 Vue 不创建入口，直接 API 返回 403。发布、取消、暂停、恢复、审批、改派和强制恢复写 B0 审计；显示文本不作为审计机器码。
+页面和操作同时受权限与资源授权保护。`workflow.todos.approve/reject` 不能授权用户办理他人的 Todo；实例详情还必须校验作用域、数据范围和关联主体。无权限时 Vue 不创建入口，直接 API 返回 403。发布、取消、暂停、恢复、审批、改派、强制恢复、恢复任务重试和对账写 B0 审计；显示文本不作为审计机器码。Recovery Worker 扫描与领取是全局后台循环，只允许注册在 Worker `AddBackgroundServices`；管理查询必须携带可信 `TenantScopeKey`。
 
 ## 11. API 与序列化边界
 
@@ -201,6 +207,7 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 - 实例：`POST /instances`、`GET /instances/{id}`、`POST /instances/{id}/pause`、`POST /instances/{id}/resume`、`POST /instances/{id}/recover`、`POST /instances/{id}/cancel`
 - 待办：`GET /todos/mine`、`GET /todos/{id}`、`POST /todos/{id}/approve`、`POST /todos/{id}/reject`
 - 轨迹：`GET /instances/{id}/execution-logs`
+- 恢复任务：`GET /recovery-tasks`、`GET /recovery-tasks/{id}`、`POST /recovery-tasks/{id}/retry`、`POST /recovery-tasks/{id}/reconcile`
 
 客户端 TenantId、AssigneeUserId、FormJson、NodeType 能力状态和字段权限均不是可信授权输入。公开 DTO 和闭合泛型 DI 必须进入 Host.Api Native AOT 静态闭包；禁止运行时反射式多态。
 

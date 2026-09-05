@@ -11,6 +11,8 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Workflow;
@@ -518,6 +520,7 @@ internal static class WorkflowRuntimeApiAssertions
         CollectionAssert.Contains(
             new[] { "completed", "rejected" },
             concurrentResult.RootElement.GetProperty("statusKey").GetString());
+        await VerifyRecoveryTasksAsync(factory, client, identity, versions, cancellationToken);
     }
 
     /// <summary>
@@ -1949,6 +1952,172 @@ internal static class WorkflowRuntimeApiAssertions
             await cancelSuspended.Content.ReadAsStringAsync(cancellationToken));
     }
 
+    /// <summary>验收恢复任务查询、作用域隔离、人工重试、对账和精确权限。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="client">已指向 Host 的 HTTP 客户端。</param>
+    /// <param name="identity">具备启动实例权限的宿主身份。</param>
+    /// <param name="versions">已发布的运行时定义与表单版本。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    private static async Task VerifyRecoveryTasksAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        HostTestIdentity identity,
+        PublishedRuntimeAssets versions,
+        CancellationToken cancellationToken)
+    {
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "annual leave" },
+                idempotencyKey = $"recovery-start-{Guid.NewGuid():N}",
+            }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode, await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+        var reader = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-reader-{Guid.NewGuid():N}",
+            [WorkflowPermissions.InstancesRead],
+            cancellationToken);
+        using var forbidden = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/recovery-tasks", reader.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var operatorIdentity = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-operator-{Guid.NewGuid():N}",
+            [
+                WorkflowPermissions.RecoveryTasksRead,
+                WorkflowPermissions.RecoveryTasksRetry,
+                WorkflowPermissions.RecoveryTasksReconcile,
+            ],
+            cancellationToken);
+        var retryDenied = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-noretry-{Guid.NewGuid():N}",
+            [WorkflowPermissions.RecoveryTasksRead],
+            cancellationToken);
+
+        var taskId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.workflow.recovery.close_todo",
+                        """
+                        UPDATE fn_workflow_todo
+                        SET StatusKey = 'completed',
+                            CompletedAtUtc = @Now,
+                            ResultActionKey = 'system'
+                        WHERE Id = @TodoId
+                        """,
+                        SqlDataScope.Global),
+                    WorkflowSqlParameters.Create(("TodoId", todoId), ("Now", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await command.ExecuteAsync(
+                    WorkflowRecoverySql.InsertOpenTask,
+                    WorkflowSqlParameters.Create(
+                        ("Id", taskId),
+                        ("TenantId", null),
+                        ("ScopeKey", "host"),
+                        ("TenantScopeKey", "host"),
+                        ("InstanceId", instanceId),
+                        ("StepId", null),
+                        ("KindKey", WorkflowRecoveryKinds.StuckInstance),
+                        ("CreatedAtUtc", now),
+                        ("UpdatedAtUtc", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.workflow.recovery.mark_failed",
+                        """
+                        UPDATE fn_workflow_recovery_task
+                        SET StatusKey = 'failed',
+                            AttemptCount = 2,
+                            Revision = 2,
+                            UpdatedAtUtc = @Now
+                        WHERE Id = @Id
+                        """,
+                        SqlDataScope.Global),
+                    WorkflowSqlParameters.Create(("Id", taskId), ("Now", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        using var listed = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/recovery-tasks", operatorIdentity.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listed.StatusCode, await listed.Content.ReadAsStringAsync(cancellationToken));
+        using var listedDocument = JsonDocument.Parse(await listed.Content.ReadAsStringAsync(cancellationToken));
+        Assert.IsTrue(
+            listedDocument.RootElement.GetProperty("items").EnumerateArray()
+                .Any(item => item.GetProperty("id").GetGuid() == taskId));
+
+        using var foreign = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/recovery-tasks/{Guid.CreateVersion7():D}", operatorIdentity.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, foreign.StatusCode);
+
+        using var retryForbidden = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                retryDenied.AccessToken,
+                new { expectedRevision = 2, reason = "卡住", idempotencyKey = $"retry-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, retryForbidden.StatusCode);
+
+        using var stale = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = 1, reason = "卡住", idempotencyKey = $"retry-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, stale.StatusCode);
+
+        var retryKey = $"retry-{Guid.NewGuid():N}";
+        using var retried = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住待办", idempotencyKey = retryKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retried.StatusCode, await retried.Content.ReadAsStringAsync(cancellationToken));
+        using var retriedDocument = JsonDocument.Parse(await retried.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("pending", retriedDocument.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(0, retriedDocument.RootElement.GetProperty("attemptCount").GetInt32());
+
+        using var replay = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住待办", idempotencyKey = retryKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, replay.StatusCode, await replay.Content.ReadAsStringAsync(cancellationToken));
+
+        using var reconcileInvalid = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/reconcile",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = retriedDocument.RootElement.GetProperty("revision").GetInt64(), reason = (string?)null, idempotencyKey = $"rec-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.BadRequest,
+            reconcileInvalid.StatusCode,
+            "实例仍卡住时对账必须拒绝，避免静默关闭未修复任务。");
+    }
+
     private static async Task VerifyOpenApiAsync(HttpClient client, CancellationToken cancellationToken)
     {
         using var response = await client.GetAsync("/openapi/v1.json", cancellationToken);
@@ -1993,6 +2162,18 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/cc/{ccId}/read", HttpMethod.Post,
             "workflowMarkCcRead", "WorkflowCc", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks", HttpMethod.Get,
+            "workflowListRecoveryTasks", "WorkflowRecoveryTasks", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks/{taskId}", HttpMethod.Get,
+            "workflowGetRecoveryTask", "WorkflowRecoveryTasks", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks/{taskId}/retry", HttpMethod.Post,
+            "workflowRetryRecoveryTask", "WorkflowRecoveryTasks", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks/{taskId}/reconcile", HttpMethod.Post,
+            "workflowReconcileRecoveryTask", "WorkflowRecoveryTasks", 200, "application/json", "application/json");
     }
 
     /// <summary>验证指定实例的 Workflow 提醒事件只写入一次事务 Outbox。</summary>

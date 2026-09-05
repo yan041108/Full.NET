@@ -166,3 +166,53 @@ internal sealed record WorkflowCcRecord(
     string BusinessId,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? ReadAtUtc);
+
+/// <summary>恢复任务投影；列顺序必须与 WorkflowRecoverySql 的显式 SELECT 一致。</summary>
+/// <param name="Id">恢复任务标识。</param>
+/// <param name="TenantId">租户标识；宿主作用域为空。</param>
+/// <param name="ScopeKey">作用域键，host 或 tenant。</param>
+/// <param name="TenantScopeKey">可信租户作用域键。</param>
+/// <param name="InstanceId">关联工作流实例标识。</param>
+/// <param name="StepId">关联步骤标识；实例级任务为空。</param>
+/// <param name="KindKey">恢复种类键。</param>
+/// <param name="StatusKey">恢复任务状态键。</param>
+/// <param name="AttemptCount">已尝试次数。</param>
+/// <param name="Revision">任务修订号。</param>
+/// <param name="LeaseOwnerKey">当前租约持有者；空闲时为空。</param>
+/// <param name="LeaseExpiresAtUtc">租约过期时间。</param>
+/// <param name="LeaseGeneration">租约世代。</param>
+/// <param name="NextAttemptAtUtc">下次允许领取时间。</param>
+/// <param name="LastError">最后错误摘要。</param>
+/// <param name="CreatedAtUtc">创建时间。</param>
+/// <param name="UpdatedAtUtc">最近更新时间。</param>
+internal sealed record WorkflowRecoveryTaskRecord(
+    Guid Id,
+    Guid? TenantId,
+    string ScopeKey,
+    string TenantScopeKey,
+    Guid InstanceId,
+    Guid? StepId,
+    string KindKey,
+    string StatusKey,
+    int AttemptCount,
+    long Revision,
+    string? LeaseOwnerKey,
+    DateTimeOffset? LeaseExpiresAtUtc,
+    int LeaseGeneration,
+    DateTimeOffset? NextAttemptAtUtc,
+    string? LastError,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
+
+/// <summary>扫描器候选；Worker 按种类补齐未关闭恢复任务。</summary>
+/// <param name="TenantId">租户标识；宿主作用域为空。</param>
+/// <param name="ScopeKey">作用域键，host 或 tenant。</param>
+/// <param name="TenantScopeKey">可信租户作用域键。</param>
+/// <param name="InstanceId">关联工作流实例标识。</param>
+/// <param name="StepId">未完成步骤标识；实例级扫描为空。</param>
+internal sealed record WorkflowRecoveryScanCandidate(
+    Guid? TenantId,
+    string ScopeKey,
+    string TenantScopeKey,
+    Guid InstanceId,
+    Guid? StepId);

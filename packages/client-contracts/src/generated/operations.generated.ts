@@ -213,6 +213,7 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PagedResultOfWorkflowRecoveryTaskResponse,
   PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
@@ -225,6 +226,7 @@ import type {
   PublishWorkflowFormRequest,
   ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
+  ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
@@ -234,6 +236,7 @@ import type {
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
+  RetryWorkflowRecoveryTaskRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -302,6 +305,7 @@ import type {
   WorkflowNodeTypeResponse,
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
+  WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
   WorkflowTodoRuntimeResponse
@@ -422,6 +426,7 @@ import {
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
+  readPagedResultOfWorkflowRecoveryTaskResponse,
   readRecipientEndpointResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
@@ -454,6 +459,7 @@ import {
   readWorkflowListMyTodosResponse,
   readWorkflowNodeTypeCatalogResponse,
   readWorkflowRecipientCandidatePageResponse,
+  readWorkflowRecoveryTaskResponse,
   readWorkflowTodoDetailResponse,
   readWorkflowTodoRuntimeResponse
 } from './guards.generated.js';
@@ -6547,6 +6553,24 @@ export async function workflowGetNodeTypeCatalog(
   return readWorkflowNodeTypeCatalogResponse(value);
 }
 
+export interface WorkflowGetRecoveryTaskParameters {
+  readonly taskId: string;
+}
+
+export async function workflowGetRecoveryTask(
+  http: HttpClient,
+  parameters: WorkflowGetRecoveryTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecoveryTaskResponse> {
+  const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecoveryTaskResponse(value);
+}
+
 export interface WorkflowGetTodoParameters {
   readonly todoId: string;
 }
@@ -6717,6 +6741,32 @@ export async function workflowListRecipientCandidates(
   return readWorkflowRecipientCandidatePageResponse(value);
 }
 
+export interface WorkflowListRecoveryTasksParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListRecoveryTasks(
+  http: HttpClient,
+  parameters: WorkflowListRecoveryTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfWorkflowRecoveryTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/recovery-tasks` : `/api/v1/workflow/recovery-tasks?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfWorkflowRecoveryTaskResponse(value);
+}
+
 export interface WorkflowMarkCcReadParameters {
   readonly ccId: string;
 }
@@ -6827,6 +6877,29 @@ export async function workflowReassignInstance(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowReconcileRecoveryTaskParameters {
+  readonly taskId: string;
+  readonly body: ReconcileWorkflowRecoveryTaskRequest;
+}
+
+export async function workflowReconcileRecoveryTask(
+  http: HttpClient,
+  parameters: WorkflowReconcileRecoveryTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecoveryTaskResponse> {
+  const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}/reconcile`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecoveryTaskResponse(value);
+}
+
 export interface WorkflowRecoverInstanceParameters {
   readonly instanceId: string;
   readonly body: RecoverWorkflowInstanceRequest;
@@ -6894,6 +6967,29 @@ export async function workflowResumeInstance(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowRetryRecoveryTaskParameters {
+  readonly taskId: string;
+  readonly body: RetryWorkflowRecoveryTaskRequest;
+}
+
+export async function workflowRetryRecoveryTask(
+  http: HttpClient,
+  parameters: WorkflowRetryRecoveryTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecoveryTaskResponse> {
+  const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}/retry`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecoveryTaskResponse(value);
 }
 
 export interface WorkflowStartInstanceParameters {
