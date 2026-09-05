@@ -111,6 +111,10 @@ internal sealed class IdentityAuthorizationContributor
             "查看 Host 用户证件号明文",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityUserManagementPermissions.UnlockLogin,
+            "解除 Host 用户登录锁定",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityRoleFieldGrantPermissions.Read,
             "读取角色字段授权",
             AuthorizationScope.Host),
@@ -316,6 +320,13 @@ internal sealed class IdentityAuthorizationContributor
             "启用用户",
             "enable",
             70),
+        new AuthorizationActionDefinition(
+            "identity.users.unlock-login",
+            "users",
+            IdentityUserManagementPermissions.UnlockLogin,
+            "解除登录锁定",
+            "unlock-login",
+            75),
         new AuthorizationActionDefinition(
             "identity.users.export",
             "users",

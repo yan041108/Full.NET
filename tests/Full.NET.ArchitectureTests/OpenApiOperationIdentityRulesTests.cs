@@ -197,6 +197,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/identity/users/{userId}/disable", "identityDisableHostUser", IdentityHostUsersTag),
         new("POST", "/api/v1/identity/users/{userId}/enable", "identityEnableHostUser", IdentityHostUsersTag),
         new("POST", "/api/v1/identity/users/{userId}/reset-password", "identityResetHostUserPassword", IdentityHostUsersTag),
+        new("POST", "/api/v1/identity/users/{userId}/unlock-login", "identityUnlockHostUserLogin", IdentityHostUsersTag),
         new("GET", "/api/v1/identity/users/{userId}/roles", "identityGetHostUserRoles", IdentityHostUsersTag),
         new("PUT", "/api/v1/identity/users/{userId}/roles", "identityReplaceHostUserRoles", IdentityHostUsersTag),
         new("POST", "/api/v1/identity/users/{userId}/reveal-profile-fields", "identityRevealHostUserProfileFields", IdentityHostUsersTag),

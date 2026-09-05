@@ -441,6 +441,35 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.ResetPassword);
 
+        group.MapPost("/{userId:guid}/unlock-login", async (
+            Guid userId,
+            HostUserLoginLockoutUnlockService unlockService,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await unlockService.UnlockAsync(
+                    actorUserId,
+                    userId,
+                    httpContext.Connection.RemoteIpAddress?.ToString(),
+                    httpContext.Request.Headers.UserAgent.ToString(),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityUnlockHostUserLogin")
+        .Produces<HostUserResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.UnlockLogin);
+
         group.MapGet("/{userId:guid}/roles", async (
             Guid userId,
             HostUserRolesService service,

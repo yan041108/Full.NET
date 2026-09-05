@@ -398,6 +398,8 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserSensitiveFieldRevealService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostUserLoginLockoutUnlockService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserRolesService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleManagementService>(

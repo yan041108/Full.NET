@@ -303,6 +303,22 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ClearHostUserLoginLockout = new(
+        "identity.clear_host_user_login_lockout",
+        """
+        UPDATE fn_identity_user
+        SET FailedLoginCount = 0,
+            LockoutEndUtc = NULL,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+          AND (FailedLoginCount > 0 OR LockoutEndUtc IS NOT NULL)
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement UpdateHostUserDisplayName = new(
         "identity.update_host_user_display_name",
         """

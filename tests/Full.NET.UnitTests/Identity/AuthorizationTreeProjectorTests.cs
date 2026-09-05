@@ -149,6 +149,7 @@ public sealed class AuthorizationTreeProjectorTests
                 "identity.users.reset_password",
                 "identity.users.disable",
                 "identity.users.enable",
+                "identity.users.unlock_login",
                 "identity.users.export",
                 "identity.users.import",
                 "identity.users.reveal_phone_number",

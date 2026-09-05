@@ -38,6 +38,9 @@ public static class IdentityUserManagementPermissions
     /// <summary>查看 Host 用户证件号明文。</summary>
     public const string RevealIdCardNumber = "identity.users.reveal_id_card_number";
 
+    /// <summary>解除 Host 用户登录锁定；不得用于启用已禁用用户。</summary>
+    public const string UnlockLogin = "identity.users.unlock_login";
+
     /// <summary>迁移 054 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.users.write";
 }

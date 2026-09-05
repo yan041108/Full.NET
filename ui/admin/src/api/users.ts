@@ -183,6 +183,18 @@ export async function resetHostUserPassword(
   );
 }
 
+/** 解除 Host 用户登录锁定；不会启用已禁用账号。 */
+export async function unlockHostUserLogin(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostUser> {
+  return http.request<HostUser>({
+    method: 'POST',
+    path: `/api/v1/identity/users/${id}/unlock-login`,
+    signal
+  });
+}
+
 /** 查询 Host 用户当前角色集合。 */
 export async function getHostUserRoles(
   id: string,

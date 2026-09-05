@@ -68,6 +68,7 @@ import {
   replaceHostUserRoles,
   resetHostUserPassword,
   revealHostUserProfileFields,
+  unlockHostUserLogin,
   updateHostUser
 } from '../api/users';
 import {
@@ -335,6 +336,21 @@ const canManageOrganizations = computed(() =>
   || canReadUserPositions.value
   || canManageUserPositions.value
   || canViewHostOrgFromDirectory.value);
+
+function isUserLoginLocked(user: HostUser): boolean {
+  const failedLoginCount = user.projectedFields?.failedLoginCount ?? 0;
+  const lockoutEndUtc = user.projectedFields?.lockoutEndUtc;
+  if (failedLoginCount > 0) {
+    return true;
+  }
+
+  if (!lockoutEndUtc) {
+    return false;
+  }
+
+  const lockoutEnd = new Date(lockoutEndUtc);
+  return !Number.isNaN(lockoutEnd.getTime()) && lockoutEnd.getTime() > Date.now();
+}
 
 function hasEffectiveField(fieldKey: string, user?: HostUser | null): boolean {
   if (
@@ -1588,6 +1604,35 @@ async function enable(user: HostUser): Promise<void> {
   }
 }
 
+async function unlockLogin(user: HostUser): Promise<void> {
+  if (changing.value || !user.isActive || !isUserLoginLocked(user)) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('users.confirmUnlockLogin', { name: user.username }),
+      t('users.unlockLogin'),
+      {
+        type: 'warning',
+        confirmButtonText: t('users.unlockLogin'),
+        cancelButtonText: t('hostDocumentItems.cancel')
+      }
+    );
+    changing.value = true;
+    await unlockHostUserLogin(user.id);
+    ElMessage.success(t('users.unlockLoginSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -2224,6 +2269,20 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                         :title="t('users.resetPassword')"
                   @click="resetPassword(row as UserRow)"
                       />
+                    </PermissionGate>
+                    <PermissionGate
+                      v-if="row.isActive && isUserLoginLocked(row as UserRow)"
+                      code="identity.users.unlock_login"
+                    >
+                      <el-button
+                        link
+                        type="warning"
+                        data-testid="users-action-unlock-login"
+                        :title="t('users.unlockLogin')"
+                        @click="unlockLogin(row as UserRow)"
+                      >
+                        {{ t('users.unlockLogin') }}
+                      </el-button>
                     </PermissionGate>
                     <PermissionGate
                       v-if="row.isActive"

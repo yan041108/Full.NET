@@ -43,6 +43,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostUserQueryService>();
         services.TryAddScoped<HostUserManagementService>();
         services.TryAddScoped<HostUserSensitiveFieldRevealService>();
+        services.TryAddScoped<HostUserLoginLockoutUnlockService>();
         services.TryAddScoped<HostUserRolesService>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();

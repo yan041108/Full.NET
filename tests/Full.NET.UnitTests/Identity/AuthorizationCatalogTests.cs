@@ -64,6 +64,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.users.reset_password",
                 "identity.users.reveal_id_card_number",
                 "identity.users.reveal_phone_number",
+                "identity.users.unlock_login",
                 "identity.users.update",
                 "platform.dashboard.read",
                 "tenancy.host_tenants.read",
@@ -165,6 +166,7 @@ public sealed class AuthorizationCatalogTests
             ["import"] = "identity.users.import",
             ["reveal-phone-number"] = "identity.users.reveal_phone_number",
             ["reveal-id-card-number"] = "identity.users.reveal_id_card_number",
+            ["unlock-login"] = "identity.users.unlock_login",
         };
 
         var usersActions = catalog.Actions

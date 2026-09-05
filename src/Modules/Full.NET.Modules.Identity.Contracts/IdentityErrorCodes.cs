@@ -102,6 +102,12 @@ public static class IdentityErrorCodes
     /// <summary>目标 Host 用户不存在。</summary>
     public const string UserNotFound = "identity.users.not_found";
 
+    /// <summary>目标 Host 用户当前不存在可解除的登录锁定状态。</summary>
+    public const string LoginNotLocked = "identity.users.login_not_locked";
+
+    /// <summary>已禁用用户须通过启用操作恢复，禁止借解锁间接启用。</summary>
+    public const string UnlockInactiveUserRejected = "identity.users.unlock_inactive_user_rejected";
+
     /// <summary>导入行试图授予超级管理员，已拒绝。</summary>
     public const string SuperAdministratorImportRejected =
         "identity.users.super_administrator_import_rejected";
@@ -283,6 +289,8 @@ public static class IdentityErrorCodes
         MfaTotpNotEnrolled,
         UsernameExists,
         UserNotFound,
+        LoginNotLocked,
+        UnlockInactiveUserRejected,
         SuperAdministratorImportRejected,
         RoleCodeExists,
         RoleNotFound,
