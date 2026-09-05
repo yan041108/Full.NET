@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
@@ -46,7 +47,16 @@ internal sealed class NotificationTemplateService(
                     ("PageSize", pageSize)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var items = rows.Select(MapListRecord).ToArray();
+        var localeStatesByKey = await LoadLocaleStatesByKeyAsync(
+                scope,
+                rows.Select(row => row.TemplateKey).Distinct(StringComparer.Ordinal),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var items = rows
+            .Select(row => MapListRecord(
+                row,
+                localeStatesByKey.GetValueOrDefault(row.TemplateKey, Array.Empty<NotificationTemplateLocaleStateRecord>())))
+            .ToArray();
 
         return Result<PagedResult<NotificationTemplateResponse>>.Success(
             new PagedResult<NotificationTemplateResponse>(items, page, pageSize, total));
@@ -121,6 +131,20 @@ internal sealed class NotificationTemplateService(
             return Result<NotificationTemplateResponse>.Failure(draft.Error!);
         }
 
+        var localeTag = NotificationTemplateLocaleResolver.NormalizeLocaleTag(
+            request.LocaleTag ?? LocaleCatalog.DefaultLocale);
+        if (!localeTag.IsSuccess)
+        {
+            return Result<NotificationTemplateResponse>.Failure(localeTag.Error!);
+        }
+
+        var defaultLocaleTag = NotificationTemplateLocaleResolver.NormalizeLocaleTag(
+            request.DefaultLocaleTag ?? localeTag.Value!);
+        if (!defaultLocaleTag.IsSuccess)
+        {
+            return Result<NotificationTemplateResponse>.Failure(defaultLocaleTag.Error!);
+        }
+
         var scope = NotificationInboxScope.Resolve(currentTenant);
         var now = clock.UtcNow;
         var templateId = idGenerator.NewId();
@@ -133,6 +157,8 @@ internal sealed class NotificationTemplateService(
                     ("Id", templateId),
                     ("TenantScopeKey", scope.TenantScopeKey),
                     ("TemplateKey", key.Value!),
+                    ("LocaleTag", localeTag.Value!),
+                    ("DefaultLocaleTag", defaultLocaleTag.Value!),
                     ("ChannelKey", channel.Value!),
                     ("ContentCategoryKey", category.Value!),
                     ("DraftSubject", draft.Value!.Subject),
@@ -223,6 +249,7 @@ internal sealed class NotificationTemplateService(
         }
 
         var contentHash = NotificationTemplateCompiler.ComputeContentHash(
+            existing.LocaleTag,
             draft.Value!.Subject,
             draft.Value.BodyJson,
             draft.Value.ParameterSchemaJson,
@@ -247,6 +274,7 @@ internal sealed class NotificationTemplateService(
                     NotificationPlatformSqlParameters.Create(
                         ("Id", versionId),
                         ("TemplateId", templateId),
+                        ("LocaleTag", existing.LocaleTag),
                         ("VersionNumber", nextNumber),
                         ("SchemaVersion", NotificationTemplateCompiler.SchemaVersion),
                         ("Subject", draft.Value.Subject),
@@ -319,9 +347,23 @@ internal sealed class NotificationTemplateService(
                 .ConfigureAwait(false);
         }
 
+        var localeStates = await queryExecutor.QueryAsync<NotificationTemplateLocaleStateRecord>(
+                NotificationPlatformSql.ListTemplateLocalesByKey,
+                NotificationPlatformSqlParameters.Create(
+                    ("TenantScopeKey", record.TenantScopeKey),
+                    ("TemplateKey", record.TemplateKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var publishedLocaleTags = localeStates
+            .Where(state => state.LatestPublishedVersionId is not null)
+            .Select(state => state.LocaleTag)
+            .ToArray();
+
         return new NotificationTemplateResponse(
             record.Id,
             record.TemplateKey,
+            record.LocaleTag,
+            record.DefaultLocaleTag,
             record.ChannelKey,
             record.ContentCategoryKey,
             record.DraftSubject,
@@ -332,15 +374,47 @@ internal sealed class NotificationTemplateService(
             version?.VersionNumber,
             version?.ContentHash,
             version?.ContentClassificationKey,
+            publishedLocaleTags,
+            NotificationTemplateLocaleResolver.MissingSupportedLocales(publishedLocaleTags),
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);
     }
 
-    private static NotificationTemplateResponse MapListRecord(NotificationTemplateListRecord record) =>
-        new(
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<NotificationTemplateLocaleStateRecord>>> LoadLocaleStatesByKeyAsync(
+        NotificationInboxScope scope,
+        IEnumerable<string> templateKeys,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, IReadOnlyList<NotificationTemplateLocaleStateRecord>>(StringComparer.Ordinal);
+        foreach (var templateKey in templateKeys)
+        {
+            var states = await queryExecutor.QueryAsync<NotificationTemplateLocaleStateRecord>(
+                    NotificationPlatformSql.ListTemplateLocalesByKey,
+                    NotificationPlatformSqlParameters.Create(
+                        ("TenantScopeKey", scope.TenantScopeKey),
+                        ("TemplateKey", templateKey)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            result[templateKey] = states.ToArray();
+        }
+
+        return result;
+    }
+
+    private static NotificationTemplateResponse MapListRecord(
+        NotificationTemplateListRecord record,
+        IReadOnlyList<NotificationTemplateLocaleStateRecord> localeStates)
+    {
+        var publishedLocaleTags = localeStates
+            .Where(state => state.LatestPublishedVersionId is not null)
+            .Select(state => state.LocaleTag)
+            .ToArray();
+        return new NotificationTemplateResponse(
             record.Id,
             record.TemplateKey,
+            record.LocaleTag,
+            record.DefaultLocaleTag,
             record.ChannelKey,
             record.ContentCategoryKey,
             record.DraftSubject,
@@ -351,9 +425,12 @@ internal sealed class NotificationTemplateService(
             record.LatestPublishedVersionNumber,
             record.LatestContentHash,
             record.LatestContentClassificationKey,
+            publishedLocaleTags,
+            NotificationTemplateLocaleResolver.MissingSupportedLocales(publishedLocaleTags),
             record.CreatedAtUtc,
             record.UpdatedAtUtc,
             record.Version);
+    }
 
     private SqlStatement ResolveListStatement() =>
         databaseOptions.Value.Provider switch

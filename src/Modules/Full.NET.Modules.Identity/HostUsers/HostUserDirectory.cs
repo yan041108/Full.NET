@@ -32,7 +32,8 @@ internal sealed class HostUserDirectory(IQueryExecutor queryExecutor)
             record => new HostUserDirectoryEntry(
                 record.Id,
                 record.Username,
-                record.DisplayName));
+                record.DisplayName,
+                record.PreferredLocale));
     }
 
     public async Task<HostUserDirectoryEntry?> FindActiveHostUserAsync(
@@ -46,6 +47,10 @@ internal sealed class HostUserDirectory(IQueryExecutor queryExecutor)
             .ConfigureAwait(false);
         return record is null || !record.IsActive
             ? null
-            : new HostUserDirectoryEntry(record.Id, record.Username, record.DisplayName);
+            : new HostUserDirectoryEntry(
+                record.Id,
+                record.Username,
+                record.DisplayName,
+                record.PreferredLocale);
     }
 }

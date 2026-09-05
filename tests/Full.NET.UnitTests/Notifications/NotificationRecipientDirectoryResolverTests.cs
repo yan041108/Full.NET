@@ -1,3 +1,4 @@
+using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Features;
@@ -20,8 +21,8 @@ public sealed class NotificationRecipientDirectoryResolverTests
                 Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, HostUserDirectoryEntry>
             {
-                [first] = new(first, "first", "第一位用户"),
-                [second] = new(second, "second", "第二位用户"),
+                [first] = new(first, "first", "第一位用户", LocaleCatalog.English),
+                [second] = new(second, "second", "第二位用户", LocaleCatalog.Chinese),
             });
         var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
         var service = new NotificationRecipientDirectoryResolver(hostUsers, tenantUsers);
@@ -32,7 +33,10 @@ public sealed class NotificationRecipientDirectoryResolverTests
             CancellationToken.None);
 
         Assert.IsTrue(result.IsSuccess);
-        CollectionAssert.AreEqual(new[] { first, second }, result.Value!.ToArray());
+        Assert.AreEqual(first, result.Value![0].UserId);
+        Assert.AreEqual(LocaleCatalog.English, result.Value[0].PreferredLocale);
+        Assert.AreEqual(second, result.Value[1].UserId);
+        Assert.AreEqual(LocaleCatalog.Chinese, result.Value[1].PreferredLocale);
         await hostUsers.Received(1).FindActiveHostUsersAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids =>
                 ids != null && ids.SequenceEqual(new[] { first, second })),
@@ -53,7 +57,7 @@ public sealed class NotificationRecipientDirectoryResolverTests
                 Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>
             {
-                [userId] = new(userId, "tenant-user", "租户用户"),
+                [userId] = new(userId, "tenant-user", "租户用户", LocaleCatalog.English),
             });
         var service = new NotificationRecipientDirectoryResolver(hostUsers, tenantUsers);
 
@@ -63,7 +67,9 @@ public sealed class NotificationRecipientDirectoryResolverTests
             CancellationToken.None);
 
         Assert.IsTrue(result.IsSuccess);
-        CollectionAssert.AreEqual(new[] { userId }, result.Value!.ToArray());
+        var resolved = result.Value!;
+        Assert.AreEqual(userId, resolved.Single().UserId);
+        Assert.AreEqual(LocaleCatalog.English, resolved.Single().PreferredLocale);
         await tenantUsers.Received(1).FindActiveTenantUsersAsync(
             Arg.Is<IReadOnlyCollection<Guid>>(ids =>
                 ids != null && ids.SequenceEqual(new[] { userId })),

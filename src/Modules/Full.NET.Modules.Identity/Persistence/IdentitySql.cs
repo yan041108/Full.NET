@@ -56,7 +56,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListActiveHostUserSelectionsSqlServer = new(
         "identity.list_active_host_user_selections.sql_server",
         """
-        SELECT Id, Username, DisplayName
+        SELECT Id, Username, DisplayName, PreferredLocale
         FROM fn_identity_user
         WHERE ScopeKey = 'host'
           AND TenantId IS NULL
@@ -69,7 +69,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListActiveHostUserSelectionsMySql = new(
         "identity.list_active_host_user_selections.my_sql",
         """
-        SELECT Id, Username, DisplayName
+        SELECT Id, Username, DisplayName, PreferredLocale
         FROM fn_identity_user
         WHERE ScopeKey = 'host'
           AND TenantId IS NULL
@@ -82,7 +82,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListActiveHostUserSelectionsByIds = new(
         "identity.list_active_host_user_selections_by_ids",
         """
-        SELECT Id, Username, DisplayName
+        SELECT Id, Username, DisplayName, PreferredLocale
         FROM fn_identity_user
         WHERE Id IN @UserIds
           AND ScopeKey = 'host'
@@ -127,7 +127,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListActiveTenantUserSelectionsSqlServer = new(
         "identity.list_active_tenant_user_selections.sql_server",
         """
-        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName
+        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName, identityUser.PreferredLocale
         FROM fn_identity_user AS identityUser
         WHERE identityUser.IsActive = 1
           AND
@@ -160,7 +160,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListActiveTenantUserSelectionsMySql = new(
         "identity.list_active_tenant_user_selections.my_sql",
         """
-        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName
+        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName, identityUser.PreferredLocale
         FROM fn_identity_user AS identityUser
         WHERE identityUser.IsActive = 1
           AND
@@ -193,7 +193,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListActiveTenantUserSelectionsByIds = new(
         "identity.list_active_tenant_user_selections_by_ids",
         """
-        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName
+        SELECT identityUser.Id, identityUser.Username, identityUser.DisplayName, identityUser.PreferredLocale
         FROM fn_identity_user AS identityUser
         WHERE identityUser.Id IN @UserIds
           AND identityUser.IsActive = 1

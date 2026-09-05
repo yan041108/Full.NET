@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
@@ -102,6 +103,8 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
                     ("TenantId", scope.TenantId),
                     ("TenantScopeKey", scope.TenantScopeKey),
                     ("TemplateKey", definition.TemplateKey),
+                    ("LocaleTag", LocaleCatalog.DefaultLocale),
+                    ("DefaultLocaleTag", LocaleCatalog.DefaultLocale),
                     ("ChannelKey", NotificationTemplateCompiler.InboxChannelKey),
                     ("ContentCategoryKey", "transactional"),
                     ("DraftSubject", draft.Value!.Subject),
@@ -123,6 +126,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         const string classification = "c1";
         var versionId = idGenerator.NewId();
         var contentHash = NotificationTemplateCompiler.ComputeContentHash(
+            LocaleCatalog.DefaultLocale,
             draft.Value.Subject,
             draft.Value.BodyJson,
             draft.Value.ParameterSchemaJson,
@@ -132,6 +136,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
                 NotificationPlatformSqlParameters.Create(
                     ("Id", versionId),
                     ("TemplateId", templateId),
+                    ("LocaleTag", LocaleCatalog.DefaultLocale),
                     ("VersionNumber", 1),
                     ("SchemaVersion", NotificationTemplateCompiler.SchemaVersion),
                     ("Subject", draft.Value.Subject),
@@ -178,9 +183,10 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         string templateKey,
         CancellationToken cancellationToken) =>
         queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
-            NotificationPlatformSql.FindTemplateByKey,
+            NotificationPlatformSql.FindTemplateByKeyAndLocale,
             NotificationPlatformSqlParameters.Create(
                 ("TenantScopeKey", scope.TenantScopeKey),
-                ("TemplateKey", templateKey)),
+                ("TemplateKey", templateKey),
+                ("LocaleTag", LocaleCatalog.DefaultLocale)),
             cancellationToken);
 }

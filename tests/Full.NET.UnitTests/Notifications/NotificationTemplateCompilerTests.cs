@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Full.NET.Localization;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 
@@ -48,11 +49,13 @@ public sealed class NotificationTemplateCompilerTests
                 [new NotificationTemplateParameterDefinition("orderNo", "string", true, 32)]));
         Assert.IsTrue(draft.IsSuccess);
         var first = NotificationTemplateCompiler.ComputeContentHash(
+            LocaleCatalog.DefaultLocale,
             draft.Value!.Subject,
             draft.Value.BodyJson,
             draft.Value.ParameterSchemaJson,
             "c0");
         var second = NotificationTemplateCompiler.ComputeContentHash(
+            LocaleCatalog.DefaultLocale,
             draft.Value.Subject,
             draft.Value.BodyJson,
             draft.Value.ParameterSchemaJson,
@@ -62,10 +65,11 @@ public sealed class NotificationTemplateCompilerTests
         Assert.AreNotEqual(
             first,
             NotificationTemplateCompiler.ComputeContentHash(
+                LocaleCatalog.English,
                 draft.Value.Subject,
                 draft.Value.BodyJson,
                 draft.Value.ParameterSchemaJson,
-                "s2"));
+                "c0"));
     }
 
     [TestMethod]

@@ -658,13 +658,14 @@ public sealed class NativeAotStaticBindingRulesTests
             ExtractSelectProjection(platformSqlSource, "FindIntentById"),
             "Intent SQL 投影顺序必须与物化器一致。");
         const string templateProjection =
-            "Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey, "
+            "Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, LocaleTag, DefaultLocaleTag, ChannelKey, "
             + "ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson, "
             + "DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version";
         foreach (var statement in new[]
                  {
                      "FindTemplateById",
                      "FindTemplateByKey",
+                     "FindTemplateByKeyAndLocale",
                  })
         {
             Assert.AreEqual(
@@ -674,8 +675,8 @@ public sealed class NativeAotStaticBindingRulesTests
         }
 
         const string templateListProjection =
-            "t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.ChannelKey, "
-            + "t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson, "
+            "t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.LocaleTag, t.DefaultLocaleTag, "
+            + "t.ChannelKey, t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson, "
             + "t.DraftRevision, t.LatestPublishedVersionId, "
             + "v.VersionNumber AS LatestPublishedVersionNumber, v.ContentHash AS LatestContentHash, "
             + "v.ContentClassificationKey AS LatestContentClassificationKey, "
@@ -689,7 +690,7 @@ public sealed class NativeAotStaticBindingRulesTests
         }
 
         const string templateVersionProjection =
-            "Id, TemplateId, VersionNumber, SchemaVersion, Subject, BodyJson, "
+            "Id, TemplateId, LocaleTag, VersionNumber, SchemaVersion, Subject, BodyJson, "
             + "ParameterSchemaJson, ContentClassificationKey, ContentHash, PublishedById, PublishedAtUtc";
         foreach (var statement in new[] { "FindTemplateVersionById", "FindTemplateVersionByHash" })
         {
@@ -698,6 +699,11 @@ public sealed class NativeAotStaticBindingRulesTests
                 ExtractSelectProjection(platformSqlSource, statement),
                 $"TemplateVersion SQL 投影顺序必须一致：{statement}");
         }
+
+        Assert.AreEqual(
+            "Id, LocaleTag, DefaultLocaleTag, LatestPublishedVersionId",
+            ExtractSelectProjection(platformSqlSource, "ListTemplateLocalesByKey"),
+            "Template locale state 投影必须与物化器一致。");
 
         Assert.AreEqual(
             "Id, TenantId, ScopeKey, TenantScopeKey, ProducerKey, SceneKey, IdempotencyKey, "

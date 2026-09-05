@@ -15,41 +15,73 @@ internal sealed class NotificationRecipientDirectoryResolver(
     /// <param name="scope">由请求上下文或消息 Envelope 构造的可信通知作用域。</param>
     /// <param name="recipients">已规范化且仅包含用户类型的收件人。</param>
     /// <param name="cancellationToken">取消当前目录查询的令牌。</param>
-    /// <returns>保持输入顺序的活动用户标识，或精确的收件人不存在错误。</returns>
-    public async Task<Result<IReadOnlyList<Guid>>> ResolveAsync(
+    /// <returns>保持输入顺序的已校验收件人及其偏好语言，或精确的收件人不存在错误。</returns>
+    public async Task<Result<IReadOnlyList<ResolvedNotificationRecipient>>> ResolveAsync(
         NotificationInboxScope scope,
         IReadOnlyCollection<NotificationRecipientInput> recipients,
         CancellationToken cancellationToken)
     {
-        var userIds = recipients
-            .Select(recipient => Guid.Parse(recipient.RecipientKey))
-            .ToArray();
-
-        IReadOnlySet<Guid> activeUserIds;
+        var resolved = new List<ResolvedNotificationRecipient>(recipients.Count);
         if (scope.IsHost)
         {
+            var userIds = recipients
+                .Select(recipient => Guid.Parse(recipient.RecipientKey))
+                .ToArray();
             var directory = await hostUsers
                 .FindActiveHostUsersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
-            activeUserIds = directory.Keys.ToHashSet();
+            foreach (var recipient in recipients)
+            {
+                var userId = Guid.Parse(recipient.RecipientKey);
+                if (!directory.TryGetValue(userId, out var entry))
+                {
+                    return Result<IReadOnlyList<ResolvedNotificationRecipient>>.Failure(RecipientNotFound());
+                }
+
+                resolved.Add(new ResolvedNotificationRecipient(
+                    recipient,
+                    userId,
+                    entry.PreferredLocale));
+            }
         }
         else
         {
+            var userIds = recipients
+                .Select(recipient => Guid.Parse(recipient.RecipientKey))
+                .ToArray();
             var directory = await tenantUsers
                 .FindActiveTenantUsersAsync(userIds, cancellationToken)
                 .ConfigureAwait(false);
-            activeUserIds = directory.Keys.ToHashSet();
+            foreach (var recipient in recipients)
+            {
+                var userId = Guid.Parse(recipient.RecipientKey);
+                if (!directory.TryGetValue(userId, out var entry))
+                {
+                    return Result<IReadOnlyList<ResolvedNotificationRecipient>>.Failure(RecipientNotFound());
+                }
+
+                resolved.Add(new ResolvedNotificationRecipient(
+                    recipient,
+                    userId,
+                    entry.PreferredLocale));
+            }
         }
 
-        // 必须校验完整请求集合，禁止把跨租户、停用或不存在用户静默裁剪后继续投递。
-        if (userIds.Any(userId => !activeUserIds.Contains(userId)))
-        {
-            return Result<IReadOnlyList<Guid>>.Failure(new Error(
-                NotificationsErrorCodes.InboxRecipientNotFound,
-                "The recipient user was not found.",
-                ErrorType.NotFound));
-        }
-
-        return Result<IReadOnlyList<Guid>>.Success(userIds);
+        return Result<IReadOnlyList<ResolvedNotificationRecipient>>.Success(resolved);
     }
+
+    private static Error RecipientNotFound() =>
+        new(
+            NotificationsErrorCodes.InboxRecipientNotFound,
+            "The recipient user was not found.",
+            ErrorType.NotFound);
 }
+
+/// <summary>已校验的收件人及其偏好语言，供模板选择与 Inbox 投影使用。</summary>
+/// <param name="Input">规范化后的收件人输入。</param>
+/// <param name="UserId">活动用户标识。</param>
+/// <param name="PreferredLocale">规范 BCP 47 偏好语言。</param>
+internal sealed record ResolvedNotificationRecipient(
+    NotificationRecipientInput Input,
+    Guid UserId,
+    string PreferredLocale);

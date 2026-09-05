@@ -22,7 +22,9 @@ public sealed record CreateNotificationTemplateRequest(
     string ContentCategoryKey,
     string DraftSubject,
     NotificationTemplateBody DraftBody,
-    NotificationTemplateParameterSchema ParameterSchema);
+    NotificationTemplateParameterSchema ParameterSchema,
+    string? LocaleTag = null,
+    string? DefaultLocaleTag = null);
 
 /// <summary>更新草稿；<c>Version</c> 为模板行 CAS 期望值。</summary>
 public sealed record UpdateNotificationTemplateRequest(
@@ -40,6 +42,8 @@ public sealed record PublishNotificationTemplateRequest(
 public sealed record NotificationTemplateResponse(
     Guid Id,
     string TemplateKey,
+    string LocaleTag,
+    string DefaultLocaleTag,
     string ChannelKey,
     string ContentCategoryKey,
     string DraftSubject,
@@ -50,6 +54,8 @@ public sealed record NotificationTemplateResponse(
     int? LatestPublishedVersionNumber,
     string? LatestContentHash,
     string? LatestContentClassificationKey,
+    IReadOnlyList<string> PublishedLocaleTags,
+    IReadOnlyList<string> MissingLocaleTags,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
     long Version);

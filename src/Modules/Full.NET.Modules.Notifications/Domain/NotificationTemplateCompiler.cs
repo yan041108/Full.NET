@@ -211,12 +211,13 @@ internal static partial class NotificationTemplateCompiler
     }
 
     public static string ComputeContentHash(
+        string localeTag,
         string subject,
         string bodyJson,
         string parameterSchemaJson,
         string contentClassificationKey)
     {
-        var payload = $"{SchemaVersion}\n{subject}\n{bodyJson}\n{parameterSchemaJson}\n{contentClassificationKey}";
+        var payload = $"{SchemaVersion}\n{localeTag}\n{subject}\n{bodyJson}\n{parameterSchemaJson}\n{contentClassificationKey}";
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }

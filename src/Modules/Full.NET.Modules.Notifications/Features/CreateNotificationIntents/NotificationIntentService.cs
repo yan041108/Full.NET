@@ -4,9 +4,11 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
+using Full.NET.Modules.Notifications.Features.ManageTemplates;
 using Full.NET.Modules.Notifications.Features.ProjectInboxFromIntent;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
@@ -27,6 +29,7 @@ internal sealed class NotificationIntentService(
     ICommandTransaction transaction,
     IOutboxWriter outboxWriter,
     NotificationRecipientDirectoryResolver recipientDirectory,
+    NotificationTemplateSelector templateSelector,
     ICurrentTenant currentTenant,
     InboxIntentProjectionService inboxProjection,
     NotificationRealtimeDelivery realtimeDelivery,
@@ -129,41 +132,20 @@ internal sealed class NotificationIntentService(
             return Result<PreparedIntent>.Failure(recipients.Error!);
         }
 
-        var template = await queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
-                NotificationPlatformSql.FindTemplateByKey,
-                NotificationPlatformSqlParameters.Create(
-                    ("TenantScopeKey", scope.TenantScopeKey),
-                    ("TemplateKey", templateKey.Value!)),
+        var templateSelection = await templateSelector
+            .ResolvePublishedAsync(
+                scope,
+                templateKey.Value!,
+                LocaleCatalog.DefaultLocale,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (template is null)
+        if (!templateSelection.IsSuccess)
         {
-            return Result<PreparedIntent>.Failure(new Error(
-                NotificationsErrorCodes.TemplateNotFound,
-                "The notification template was not found.",
-                ErrorType.NotFound));
+            return Result<PreparedIntent>.Failure(templateSelection.Error!);
         }
 
-        if (template.LatestPublishedVersionId is not { } versionId)
-        {
-            return Result<PreparedIntent>.Failure(new Error(
-                NotificationsErrorCodes.TemplateNotPublished,
-                "The notification template has not been published.",
-                ErrorType.BusinessRule));
-        }
-
-        var version = await queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateVersionRecord>(
-                NotificationPlatformSql.FindTemplateVersionById,
-                NotificationPlatformSqlParameters.Create(("Id", versionId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (version is null)
-        {
-            return Result<PreparedIntent>.Failure(new Error(
-                NotificationsErrorCodes.TemplateNotPublished,
-                "The notification template has not been published.",
-                ErrorType.BusinessRule));
-        }
+        var template = templateSelection.Value!.Template;
+        var version = templateSelection.Value.Version;
 
         var schema = NotificationTemplateCompiler.NormalizeSchema(
             DeserializeSchema(version.ParameterSchemaJson));
@@ -180,15 +162,6 @@ internal sealed class NotificationIntentService(
             return Result<PreparedIntent>.Failure(snapshot.Error!);
         }
 
-        var rendered = NotificationTemplateCompiler.Render(
-            version.Subject,
-            version.BodyJson,
-            snapshot.Value!);
-        if (!rendered.IsSuccess)
-        {
-            return Result<PreparedIntent>.Failure(rendered.Error!);
-        }
-
         var normalizedRecipients = recipients.Value!;
         var recipientUsers = await recipientDirectory
             .ResolveAsync(scope, normalizedRecipients, cancellationToken)
@@ -198,11 +171,7 @@ internal sealed class NotificationIntentService(
             return Result<PreparedIntent>.Failure(recipientUsers.Error!);
         }
 
-        var resolved = normalizedRecipients
-            .Zip(
-                recipientUsers.Value!,
-                static (recipient, userId) => new ResolvedRecipient(recipient, userId))
-            .ToArray();
+        var resolved = recipientUsers.Value!;
 
         var route = await ResolveRouteAsync(scope, producer.Value!, scene.Value!, template.ChannelKey, cancellationToken)
             .ConfigureAwait(false);
@@ -218,7 +187,6 @@ internal sealed class NotificationIntentService(
             template,
             version,
             snapshot.Value!,
-            rendered.Value!,
             normalizedRecipients,
             resolved,
             route.Value!));
@@ -341,13 +309,34 @@ internal sealed class NotificationIntentService(
         {
             foreach (var recipient in prepared.ResolvedRecipients)
             {
+                var selected = await templateSelector
+                    .ResolvePublishedAsync(
+                        scope,
+                        prepared.Template.TemplateKey,
+                        recipient.PreferredLocale,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!selected.IsSuccess)
+                {
+                    return Result<NotificationIntentCreateResult>.Failure(selected.Error!);
+                }
+
+                var rendered = NotificationTemplateCompiler.Render(
+                    selected.Value!.Version.Subject,
+                    selected.Value.Version.BodyJson,
+                    prepared.ParameterSnapshotJson);
+                if (!rendered.IsSuccess)
+                {
+                    return Result<NotificationIntentCreateResult>.Failure(rendered.Error!);
+                }
+
                 var projected = await inboxProjection.ProjectInAmbientTransactionAsync(
                         scope,
                         actorUserId,
                         record.Id,
                         recipient.UserId,
-                        prepared.Rendered.Title,
-                        prepared.Rendered.Content,
+                        rendered.Value!.Title,
+                        rendered.Value.Content,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (!projected.IsSuccess)
@@ -685,12 +674,9 @@ internal sealed class NotificationIntentService(
         NotificationTemplateRecord Template,
         NotificationTemplateVersionRecord Version,
         string ParameterSnapshotJson,
-        RenderedNotification Rendered,
         IReadOnlyList<NotificationRecipientInput> Recipients,
-        IReadOnlyList<ResolvedRecipient> ResolvedRecipients,
+        IReadOnlyList<ResolvedNotificationRecipient> ResolvedRecipients,
         ResolvedRoute Route);
-
-    private sealed record ResolvedRecipient(NotificationRecipientInput Input, Guid UserId);
 
     private sealed record ResolvedRoute(
         Guid? BindingVersionId,

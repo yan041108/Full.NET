@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Notifications.Features;
 using Full.NET.Modules.Notifications.Features.ProjectWorkflowNotifications;
 using Full.NET.Modules.Notifications.Persistence;
@@ -39,7 +40,7 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         var tenantId = Guid.CreateVersion7();
         var actorUserId = Guid.CreateVersion7();
         query.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
-                NotificationPlatformSql.FindTemplateByKey,
+                NotificationPlatformSql.FindTemplateByKeyAndLocale,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns((NotificationTemplateRecord?)null);
@@ -96,7 +97,7 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
         query.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
-                NotificationPlatformSql.FindTemplateByKey,
+                NotificationPlatformSql.FindTemplateByKeyAndLocale,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(CreateTemplate(Guid.CreateVersion7()));
@@ -126,7 +127,7 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
         query.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
-                NotificationPlatformSql.FindTemplateByKey,
+                NotificationPlatformSql.FindTemplateByKeyAndLocale,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(CreateTemplate(null));
@@ -156,7 +157,7 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
         query.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
-                NotificationPlatformSql.FindTemplateByKey,
+                NotificationPlatformSql.FindTemplateByKeyAndLocale,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns((NotificationTemplateRecord?)null, CreateTemplate(Guid.CreateVersion7()));
@@ -190,6 +191,8 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
             "tenant",
             $"tenant:{Guid.CreateVersion7():N}",
             "workflow.instance.completed",
+            LocaleCatalog.DefaultLocale,
+            LocaleCatalog.DefaultLocale,
             "inbox",
             "transactional",
             "标题",

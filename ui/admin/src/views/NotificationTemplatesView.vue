@@ -36,6 +36,8 @@ const pageSize = ref(20);
 const total = ref(0);
 const selectedId = ref<string>();
 const templateKey = ref('');
+const localeTag = ref('zh-CN');
+const defaultLocaleTag = ref('zh-CN');
 const channelKey = ref('inbox');
 const contentCategoryKey = ref('transactional');
 const draftSubject = ref('');
@@ -52,6 +54,7 @@ const problem = ref<FullNetProblemDetails>();
 const canCreate = computed(() => session.can('notifications.templates.create'));
 const canUpdate = computed(() => session.can('notifications.templates.update'));
 const canPublish = computed(() => session.can('notifications.templates.publish'));
+const localeOptions = ['zh-CN', 'en-US'] as const;
 const selected = computed(() => items.value.find(item => item.id === selectedId.value));
 const showForm = computed(() => selected.value ? (canUpdate.value || canPublish.value) : canCreate.value);
 
@@ -84,6 +87,8 @@ async function load(): Promise<void> {
 function selectItem(item: NotificationTemplateResponse): void {
   selectedId.value = item.id;
   templateKey.value = item.templateKey;
+  localeTag.value = item.localeTag;
+  defaultLocaleTag.value = item.defaultLocaleTag;
   channelKey.value = item.channelKey;
   contentCategoryKey.value = item.contentCategoryKey;
   draftSubject.value = item.draftSubject;
@@ -94,6 +99,8 @@ function selectItem(item: NotificationTemplateResponse): void {
 function resetCreateForm(): void {
   selectedId.value = undefined;
   templateKey.value = '';
+  localeTag.value = 'zh-CN';
+  defaultLocaleTag.value = 'zh-CN';
   channelKey.value = 'inbox';
   contentCategoryKey.value = 'transactional';
   draftSubject.value = '';
@@ -132,6 +139,8 @@ async function createItem(): Promise<void> {
   try {
     const saved = await createNotificationTemplate({
       templateKey: templateKey.value.trim(),
+      localeTag: localeTag.value,
+      defaultLocaleTag: defaultLocaleTag.value,
       channelKey: channelKey.value,
       contentCategoryKey: contentCategoryKey.value,
       draftSubject: draftSubject.value.trim(),
@@ -252,6 +261,18 @@ function toProblem(
           <ElInput v-model="templateKey" data-testid="notification-templates-key" :disabled="!!selected" maxlength="128" />
         </label>
         <label>
+          <span>{{ t('notificationTemplates.fieldLocale') }}</span>
+          <ElSelect v-model="localeTag" data-testid="notification-templates-locale" :disabled="!!selected">
+            <ElOption v-for="option in localeOptions" :key="option" :label="option" :value="option" />
+          </ElSelect>
+        </label>
+        <label v-if="!selected">
+          <span>{{ t('notificationTemplates.fieldDefaultLocale') }}</span>
+          <ElSelect v-model="defaultLocaleTag" data-testid="notification-templates-default-locale">
+            <ElOption v-for="option in localeOptions" :key="option" :label="option" :value="option" />
+          </ElSelect>
+        </label>
+        <label>
           <span>{{ t('notificationTemplates.fieldChannel') }}</span>
           <ElSelect v-model="channelKey" data-testid="notification-templates-channel" :disabled="!!selected">
             <ElOption v-for="option in channelOptions" :key="option" :label="option" :value="option" />
@@ -296,6 +317,35 @@ function toProblem(
             <ElOption label="s2" value="s2" />
           </ElSelect>
         </label>
+        <div
+          v-if="selected && (selected.publishedLocaleTags.length || selected.missingLocaleTags.length)"
+          class="notification-templates-locale-hints"
+          data-testid="notification-templates-locale-hints"
+        >
+          <p v-if="selected.publishedLocaleTags.length">
+            <strong>{{ t('notificationTemplates.publishedLocales') }}:</strong>
+            <ElTag
+              v-for="tag in selected.publishedLocaleTags"
+              :key="tag"
+              data-testid="notification-templates-published-locale"
+              type="success"
+            >
+              {{ tag }}
+            </ElTag>
+          </p>
+          <p v-if="selected.missingLocaleTags.length">
+            <strong>{{ t('notificationTemplates.missingLocales') }}:</strong>
+            <ElTag
+              v-for="tag in selected.missingLocaleTags"
+              :key="tag"
+              data-testid="notification-templates-missing-locale"
+              type="warning"
+            >
+              {{ tag }}
+            </ElTag>
+            <span class="art-muted">{{ t('notificationTemplates.missingLocalesHint') }}</span>
+          </p>
+        </div>
         <div class="art-form-actions">
           <PermissionGate code="notifications.templates.create">
             <ElButton v-if="!selected" data-testid="notification-templates-create" type="primary" :disabled="changing" @click="createItem">
@@ -328,6 +378,7 @@ function toProblem(
         <li v-for="item in items" :key="item.id">
           <button type="button" data-testid="notification-templates-load" :class="{ 'is-active': selectedId === item.id }" @click="selectItem(item)">
             <strong>{{ item.templateKey }}</strong>
+            <ElTag data-testid="notification-templates-locale-tag">{{ item.localeTag }}</ElTag>
             <span class="art-muted">{{ item.channelKey }}</span>
             <ElTag>{{ item.contentCategoryKey }}</ElTag>
             <ElTag
@@ -359,5 +410,13 @@ function toProblem(
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.notification-templates-locale-hints p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 8px;
 }
 </style>

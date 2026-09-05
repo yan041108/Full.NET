@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="MemoryPack" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
   </ItemGroup>
 
 </Project>

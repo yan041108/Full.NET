@@ -25448,8 +25448,20 @@
           "draftBody": {
             "$ref": "#/components/schemas/NotificationTemplateBody"
           },
+          "defaultLocaleTag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "draftSubject": {
             "type": "string"
+          },
+          "localeTag": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "parameterSchema": {
             "$ref": "#/components/schemas/NotificationTemplateParameterSchema"
@@ -29804,6 +29816,24 @@
               "string"
             ]
           },
+          "defaultLocaleTag": {
+            "type": "string"
+          },
+          "localeTag": {
+            "type": "string"
+          },
+          "missingLocaleTags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "publishedLocaleTags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "templateKey": {
             "type": "string"
           },
@@ -29826,6 +29856,8 @@
         "required": [
           "id",
           "templateKey",
+          "localeTag",
+          "defaultLocaleTag",
           "channelKey",
           "contentCategoryKey",
           "draftSubject",
@@ -29836,6 +29868,8 @@
           "latestPublishedVersionNumber",
           "latestContentHash",
           "latestContentClassificationKey",
+          "publishedLocaleTags",
+          "missingLocaleTags",
           "createdAtUtc",
           "updatedAtUtc",
           "version"

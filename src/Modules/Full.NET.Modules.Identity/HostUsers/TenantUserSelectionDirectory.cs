@@ -89,7 +89,7 @@ internal sealed class TenantUserSelectionDirectory(
     /// <param name="record">Identity 内部用户目录投影。</param>
     /// <returns>Tenant 用户候选投影。</returns>
     private static TenantUserDirectoryEntry Map(HostUserDirectoryRecord record) =>
-        new(record.Id, record.Username, record.DisplayName);
+        new(record.Id, record.Username, record.DisplayName, record.PreferredLocale);
 
     /// <summary>从可信上下文解析 TenantId 与规范作用域键。</summary>
     /// <returns>当前 Tenant 的强类型作用域。</returns>

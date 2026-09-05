@@ -12,7 +12,7 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement FindTemplateById = new(
         "notifications.platform.template.find_by_id",
         """
-        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey,
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, LocaleTag, DefaultLocaleTag, ChannelKey,
                ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson,
                DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_notifications_template
@@ -24,12 +24,36 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement FindTemplateByKey = new(
         "notifications.platform.template.find_by_key",
         """
-        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey,
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, LocaleTag, DefaultLocaleTag, ChannelKey,
                ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson,
                DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_notifications_template
         WHERE TenantScopeKey = @TenantScopeKey
           AND TemplateKey = @TemplateKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement FindTemplateByKeyAndLocale = new(
+        "notifications.platform.template.find_by_key_and_locale",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, LocaleTag, DefaultLocaleTag, ChannelKey,
+               ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson,
+               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_notifications_template
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND TemplateKey = @TemplateKey
+          AND LocaleTag = @LocaleTag
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListTemplateLocalesByKey = new(
+        "notifications.platform.template.list_locales_by_key",
+        """
+        SELECT Id, LocaleTag, DefaultLocaleTag, LatestPublishedVersionId
+        FROM fn_notifications_template
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND TemplateKey = @TemplateKey
+        ORDER BY LocaleTag, Id
         """,
         SqlDataScope.Global);
 
@@ -45,8 +69,8 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement ListForScopeSqlServer = new(
         "notifications.platform.template.list_for_scope.sql_server",
         """
-        SELECT t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.ChannelKey,
-               t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson,
+        SELECT t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.LocaleTag, t.DefaultLocaleTag,
+               t.ChannelKey, t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson,
                t.DraftRevision, t.LatestPublishedVersionId,
                v.VersionNumber AS LatestPublishedVersionNumber,
                v.ContentHash AS LatestContentHash,
@@ -63,8 +87,8 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement ListForScopeMySql = new(
         "notifications.platform.template.list_for_scope.mysql",
         """
-        SELECT t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.ChannelKey,
-               t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson,
+        SELECT t.Id, t.TenantId, t.ScopeKey, t.TenantScopeKey, t.TemplateKey, t.LocaleTag, t.DefaultLocaleTag,
+               t.ChannelKey, t.ContentCategoryKey, t.DraftSubject, t.DraftBodyJson, t.DraftParameterSchemaJson,
                t.DraftRevision, t.LatestPublishedVersionId,
                v.VersionNumber AS LatestPublishedVersionNumber,
                v.ContentHash AS LatestContentHash,
@@ -82,17 +106,18 @@ internal static class NotificationPlatformSql
         "notifications.platform.template.insert_host",
         """
         INSERT INTO fn_notifications_template
-            (Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey, ContentCategoryKey,
-             DraftSubject, DraftBodyJson, DraftParameterSchemaJson, DraftRevision,
+            (Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, LocaleTag, DefaultLocaleTag, ChannelKey,
+             ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson, DraftRevision,
              LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version)
-        SELECT @Id, NULL, 'host', 'host', @TemplateKey, @ChannelKey, @ContentCategoryKey,
-               @DraftSubject, @DraftBodyJson, @DraftParameterSchemaJson, 1,
+        SELECT @Id, NULL, 'host', 'host', @TemplateKey, @LocaleTag, @DefaultLocaleTag, @ChannelKey,
+               @ContentCategoryKey, @DraftSubject, @DraftBodyJson, @DraftParameterSchemaJson, 1,
                NULL, @CreatedById, @CreatedAtUtc, NULL, 1
         WHERE NOT EXISTS (
             SELECT 1
             FROM fn_notifications_template
             WHERE TenantScopeKey = 'host'
-              AND TemplateKey = @TemplateKey)
+              AND TemplateKey = @TemplateKey
+              AND LocaleTag = @LocaleTag)
         """,
         SqlDataScope.HostOnly);
 
@@ -100,18 +125,19 @@ internal static class NotificationPlatformSql
         "notifications.platform.template.insert_tenant",
         """
         INSERT INTO fn_notifications_template
-            (Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, ChannelKey, ContentCategoryKey,
-             DraftSubject, DraftBodyJson, DraftParameterSchemaJson, DraftRevision,
+            (Id, TenantId, ScopeKey, TenantScopeKey, TemplateKey, LocaleTag, DefaultLocaleTag, ChannelKey,
+             ContentCategoryKey, DraftSubject, DraftBodyJson, DraftParameterSchemaJson, DraftRevision,
              LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version)
-        SELECT @Id, @TenantId, 'tenant', @TenantScopeKey, @TemplateKey, @ChannelKey, @ContentCategoryKey,
-               @DraftSubject, @DraftBodyJson, @DraftParameterSchemaJson, 1,
+        SELECT @Id, @TenantId, 'tenant', @TenantScopeKey, @TemplateKey, @LocaleTag, @DefaultLocaleTag,
+               @ChannelKey, @ContentCategoryKey, @DraftSubject, @DraftBodyJson, @DraftParameterSchemaJson, 1,
                NULL, @CreatedById, @CreatedAtUtc, NULL, 1
         WHERE NOT EXISTS (
             SELECT 1
             FROM fn_notifications_template
             WHERE TenantScopeKey = @TenantScopeKey
               AND TenantId = @TenantId
-              AND TemplateKey = @TemplateKey)
+              AND TemplateKey = @TemplateKey
+              AND LocaleTag = @LocaleTag)
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
@@ -148,7 +174,7 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement FindTemplateVersionById = new(
         "notifications.platform.template_version.find_by_id",
         """
-        SELECT Id, TemplateId, VersionNumber, SchemaVersion, Subject, BodyJson,
+        SELECT Id, TemplateId, LocaleTag, VersionNumber, SchemaVersion, Subject, BodyJson,
                ParameterSchemaJson, ContentClassificationKey, ContentHash, PublishedById, PublishedAtUtc
         FROM fn_notifications_template_version
         WHERE Id = @Id
@@ -158,7 +184,7 @@ internal static class NotificationPlatformSql
     public static readonly SqlStatement FindTemplateVersionByHash = new(
         "notifications.platform.template_version.find_by_hash",
         """
-        SELECT Id, TemplateId, VersionNumber, SchemaVersion, Subject, BodyJson,
+        SELECT Id, TemplateId, LocaleTag, VersionNumber, SchemaVersion, Subject, BodyJson,
                ParameterSchemaJson, ContentClassificationKey, ContentHash, PublishedById, PublishedAtUtc
         FROM fn_notifications_template_version
         WHERE TemplateId = @TemplateId
@@ -179,9 +205,9 @@ internal static class NotificationPlatformSql
         "notifications.platform.template_version.insert",
         """
         INSERT INTO fn_notifications_template_version
-            (Id, TemplateId, VersionNumber, SchemaVersion, Subject, BodyJson,
+            (Id, TemplateId, LocaleTag, VersionNumber, SchemaVersion, Subject, BodyJson,
              ParameterSchemaJson, ContentClassificationKey, ContentHash, PublishedById, PublishedAtUtc)
-        SELECT @Id, @TemplateId, @VersionNumber, @SchemaVersion, @Subject, @BodyJson,
+        SELECT @Id, @TemplateId, @LocaleTag, @VersionNumber, @SchemaVersion, @Subject, @BodyJson,
                @ParameterSchemaJson, @ContentClassificationKey, @ContentHash, @PublishedById, @PublishedAtUtc
         WHERE NOT EXISTS (
             SELECT 1

@@ -513,8 +513,10 @@ export interface CreateNotificationProviderProfileRequest {
 export interface CreateNotificationTemplateRequest {
   readonly channelKey: string;
   readonly contentCategoryKey: string;
+  readonly defaultLocaleTag?: null | string;
   readonly draftBody: NotificationTemplateBody;
   readonly draftSubject: string;
+  readonly localeTag?: null | string;
   readonly parameterSchema: NotificationTemplateParameterSchema;
   readonly templateKey: string;
 }
@@ -1394,6 +1396,7 @@ export interface NotificationTemplateResponse {
   readonly channelKey: string;
   readonly contentCategoryKey: string;
   readonly createdAtUtc: string;
+  readonly defaultLocaleTag: string;
   readonly draftBodyJson: string;
   readonly draftParameterSchemaJson: string;
   readonly draftRevision: number;
@@ -1403,6 +1406,9 @@ export interface NotificationTemplateResponse {
   readonly latestContentHash: null | string;
   readonly latestPublishedVersionId: null | string;
   readonly latestPublishedVersionNumber: null | number;
+  readonly localeTag: string;
+  readonly missingLocaleTags: Array<string>;
+  readonly publishedLocaleTags: Array<string>;
   readonly templateKey: string;
   readonly updatedAtUtc: null | string;
   readonly version: number;

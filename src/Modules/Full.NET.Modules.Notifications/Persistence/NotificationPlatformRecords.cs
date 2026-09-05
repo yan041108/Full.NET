@@ -7,6 +7,8 @@ internal sealed record NotificationTemplateRecord(
     string ScopeKey,
     string TenantScopeKey,
     string TemplateKey,
+    string LocaleTag,
+    string DefaultLocaleTag,
     string ChannelKey,
     string ContentCategoryKey,
     string DraftSubject,
@@ -19,6 +21,13 @@ internal sealed record NotificationTemplateRecord(
     DateTimeOffset? UpdatedAtUtc,
     long Version);
 
+/// <summary>同一模板键下的语言变体摘要，用于发布选择与缺失提示。</summary>
+internal sealed record NotificationTemplateLocaleStateRecord(
+    Guid Id,
+    string LocaleTag,
+    string DefaultLocaleTag,
+    Guid? LatestPublishedVersionId);
+
 /// <summary>通知模板列表投影，一次查询携带最新发布版本摘要，避免逐行补查。</summary>
 internal sealed record NotificationTemplateListRecord(
     Guid Id,
@@ -26,6 +35,8 @@ internal sealed record NotificationTemplateListRecord(
     string ScopeKey,
     string TenantScopeKey,
     string TemplateKey,
+    string LocaleTag,
+    string DefaultLocaleTag,
     string ChannelKey,
     string ContentCategoryKey,
     string DraftSubject,
@@ -45,6 +56,7 @@ internal sealed record NotificationTemplateListRecord(
 internal sealed record NotificationTemplateVersionRecord(
     Guid Id,
     Guid TemplateId,
+    string LocaleTag,
     int VersionNumber,
     int SchemaVersion,
     string Subject,

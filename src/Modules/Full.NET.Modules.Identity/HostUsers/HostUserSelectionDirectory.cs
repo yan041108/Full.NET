@@ -48,7 +48,8 @@ internal sealed class HostUserSelectionDirectory(
             .Select(record => new HostUserDirectoryEntry(
                 record.Id,
                 record.Username,
-                record.DisplayName))
+                record.DisplayName,
+                record.PreferredLocale))
             .ToArray();
 
         return new PagedResult<HostUserDirectoryEntry>(
@@ -83,6 +84,7 @@ internal sealed class HostUserSelectionDirectory(
             record => new HostUserDirectoryEntry(
                 record.Id,
                 record.Username,
-                record.DisplayName));
+                record.DisplayName,
+                record.PreferredLocale));
     }
 }
