@@ -32,7 +32,8 @@ internal sealed class WorkflowDefinitionManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IHostUserBatchSelectionDirectory hostUserDirectory,
-    ITenantUserSelectionDirectory tenantUserDirectory)
+    ITenantUserSelectionDirectory tenantUserDirectory,
+    WorkflowAssigneePublishValidator assigneePublishValidator)
 {
     public async Task<Result<IReadOnlyList<WorkflowDefinitionResponse>>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -273,6 +274,27 @@ internal sealed class WorkflowDefinitionManagementService(
             return Failure<WorkflowDefinitionVersionResponse>(
                 WorkflowErrorCodes.DefinitionCcRecipientsInvalid,
                 ErrorType.Validation);
+        }
+
+        foreach (var node in model.Nodes.Where(item => item.NodeTypeKey == "human.approval"))
+        {
+            if (!WorkflowAssigneePolicy.TryRead(node.Config, out var assigneePolicy))
+            {
+                return Failure<WorkflowDefinitionVersionResponse>(
+                    WorkflowErrorCodes.DefinitionAssigneePolicyInvalid,
+                    ErrorType.Validation);
+            }
+
+            foreach (var source in assigneePolicy!.Sources)
+            {
+                if (!WorkflowAssigneePublishValidator.IsScopeCompatible(source.ResolverKindKey, scope) ||
+                    !await assigneePublishValidator.ValidateSourceAsync(source, scope, token).ConfigureAwait(false))
+                {
+                    return Failure<WorkflowDefinitionVersionResponse>(
+                        WorkflowErrorCodes.DefinitionAssigneePolicyInvalid,
+                        ErrorType.Validation);
+                }
+            }
         }
 
         return await transaction.ExecuteResultAsync(

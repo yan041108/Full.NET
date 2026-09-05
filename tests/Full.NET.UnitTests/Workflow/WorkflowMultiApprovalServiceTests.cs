@@ -191,6 +191,7 @@ public sealed class WorkflowMultiApprovalServiceTests
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
+            WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,
             WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant));
         return new ApprovalFixture(service, query, command, outbox, todoId, actorId);

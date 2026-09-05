@@ -276,6 +276,7 @@ public sealed class WorkflowInstanceManagementServiceTests
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
+            WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher);
     }
 

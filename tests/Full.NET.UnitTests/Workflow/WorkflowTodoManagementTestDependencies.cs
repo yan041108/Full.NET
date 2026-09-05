@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Microsoft.Extensions.Options;
@@ -40,6 +41,53 @@ internal static class WorkflowTodoManagementTestDependencies
             Substitute.For<ITenantUserSelectionDirectory>(),
             new WorkflowNotificationOutboxPublisher(outbox),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter));
+    }
+
+    /// <summary>创建默认回落到发起人语义的办理人协调器，供实例与待办测试复用。</summary>
+    /// <param name="hostUsers">可选 Host 用户目录替身。</param>
+    /// <param name="tenantUsers">可选 Tenant 用户目录替身。</param>
+    /// <returns>可直接注入实例或待办管理服务的协调器。</returns>
+    internal static WorkflowApprovalAssigneeCoordinator CreateAssigneeCoordinator(
+        IHostUserBatchSelectionDirectory? hostUsers = null,
+        ITenantUserSelectionDirectory? tenantUsers = null)
+    {
+        var roleDirectory = Substitute.For<IWorkflowRoleMemberDirectory>();
+        var unitDirectory = Substitute.For<IWorkflowUnitLeaderDirectory>();
+        return new WorkflowApprovalAssigneeCoordinator(
+            new WorkflowAssigneeResolver(
+                hostUsers ?? Substitute.For<IHostUserBatchSelectionDirectory>(),
+                tenantUsers ?? Substitute.For<ITenantUserSelectionDirectory>(),
+                roleDirectory,
+                unitDirectory));
+    }
+
+    /// <summary>创建默认放行的发布期办理人校验器，供定义发布测试复用。</summary>
+    /// <returns>所有来源均返回有效的校验器。</returns>
+    internal static WorkflowAssigneePublishValidator CreateAssigneePublishValidator()
+    {
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        var roleDirectory = Substitute.For<IWorkflowRoleMemberDirectory>();
+        var unitDirectory = Substitute.For<IWorkflowUnitLeaderDirectory>();
+        hostUsers.FindActiveHostUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
+                .ToDictionary(userId => userId, userId => new HostUserDirectoryEntry(userId, "user", "User")));
+        tenantUsers.FindActiveTenantUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
+                .ToDictionary(userId => userId, userId => new TenantUserDirectoryEntry(userId, "user", "User")));
+        roleDirectory.FindActiveRolesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
+                .ToDictionary(roleId => roleId, roleId => new WorkflowRoleDirectoryEntry(roleId, "role", "Role")));
+        roleDirectory.FindActiveMemberUserIdsByRoleIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
+                .ToDictionary(roleId => roleId, _ => (IReadOnlyList<Guid>)[Guid.CreateVersion7()]));
+        unitDirectory.FindActiveUnitsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
+                .ToDictionary(unitId => unitId, unitId => new WorkflowOrganizationUnitDirectoryEntry(unitId, "unit", "Unit")));
+        unitDirectory.FindActiveUnitLeaderUserIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
+                .ToDictionary(unitId => unitId, _ => Guid.CreateVersion7()));
+        return new WorkflowAssigneePublishValidator(hostUsers, tenantUsers, roleDirectory, unitDirectory);
     }
 
     private sealed class PassthroughTransaction : ICommandTransaction

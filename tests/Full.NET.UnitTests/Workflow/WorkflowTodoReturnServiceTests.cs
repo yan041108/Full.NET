@@ -245,6 +245,7 @@ public sealed class WorkflowTodoReturnServiceTests
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
+            WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,
             WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant));
         return new ReturnFixture(service, query, command, outbox, todoId, resolvedActorId);

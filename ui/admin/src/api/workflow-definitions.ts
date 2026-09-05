@@ -14,6 +14,20 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+export interface WorkflowRoleCandidatePageResponse {
+  readonly items: ReadonlyArray<{ readonly id: string; readonly code: string; readonly name: string }>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface WorkflowOrganizationUnitCandidatePageResponse {
+  readonly items: ReadonlyArray<{ readonly id: string; readonly code: string; readonly name: string }>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 /** 读取单个工作流定义详情。 */
 export async function getWorkflowDefinition(
   definitionId: string,
@@ -36,6 +50,34 @@ export async function listWorkflowRecipientCandidates(
   signal?: AbortSignal
 ): Promise<WorkflowRecipientCandidatePageResponse> {
   return workflowListRecipientCandidates(http, { page, pageSize }, signal);
+}
+
+/** 分页读取定义编辑器可选择的办理人角色。 */
+export async function listWorkflowRoleCandidates(
+  page = 1,
+  pageSize = 50,
+  signal?: AbortSignal
+): Promise<WorkflowRoleCandidatePageResponse> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  return http.request<WorkflowRoleCandidatePageResponse>(
+    `/api/v1/workflow/definitions/role-candidates?${query.toString()}`,
+    undefined,
+    signal
+  );
+}
+
+/** 分页读取定义编辑器可选择的机构单元。 */
+export async function listWorkflowOrganizationUnitCandidates(
+  page = 1,
+  pageSize = 50,
+  signal?: AbortSignal
+): Promise<WorkflowOrganizationUnitCandidatePageResponse> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  return http.request<WorkflowOrganizationUnitCandidatePageResponse>(
+    `/api/v1/workflow/definitions/organization-unit-candidates?${query.toString()}`,
+    undefined,
+    signal
+  );
 }
 
 /** 创建工作流定义草稿。 */

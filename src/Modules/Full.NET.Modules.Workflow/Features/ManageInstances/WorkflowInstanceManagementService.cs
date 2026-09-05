@@ -36,6 +36,7 @@ internal sealed class WorkflowInstanceManagementService(
     IOptions<DatabaseOptions> databaseOptions,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter,
     WorkflowApprovalActivationWriter approvalActivationWriter,
+    WorkflowApprovalAssigneeCoordinator approvalAssigneeCoordinator,
     WorkflowNotificationOutboxPublisher notificationPublisher)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
@@ -106,12 +107,23 @@ internal sealed class WorkflowInstanceManagementService(
                     1L,
                     now,
                     token).ConfigureAwait(false);
+                var assignees = await approvalAssigneeCoordinator.ResolveAsync(
+                    startTransition.AssigneePolicy,
+                    startTransition.ApprovalPolicy,
+                    scope,
+                    actorUserId,
+                    token).ConfigureAwait(false);
+                if (!assignees.IsSuccess)
+                {
+                    return Result<WorkflowInstanceResponse>.Failure(assignees.Error!);
+                }
+
                 var activation = await approvalActivationWriter.WriteAsync(
                     instanceId,
                     scope.TenantScopeKey,
                     approvalNodeKey,
-                    startTransition.ApprovalPolicy,
-                    actorUserId,
+                    assignees.Value!.ApprovalPolicy,
+                    assignees.Value.FallbackAssigneeUserId,
                     approvalExecutionSequence,
                     now,
                     startTransition.TimeoutPolicy,

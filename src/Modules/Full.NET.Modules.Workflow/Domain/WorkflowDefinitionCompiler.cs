@@ -71,6 +71,18 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid);
         }
 
+        // 办理人解析策略决定节点激活时的可信办理人集合，发布前必须闭合结构与来源键。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "human.approval" &&
+                !WorkflowAssigneePolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node =>
+                node.NodeTypeKey != "human.approval" &&
+                node.Config.ValueKind == JsonValueKind.Object &&
+                node.Config.TryGetProperty("assigneePolicy", out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid);
+        }
+
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeKeyDuplicate);

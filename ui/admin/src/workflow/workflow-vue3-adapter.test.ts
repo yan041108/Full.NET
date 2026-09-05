@@ -293,6 +293,24 @@ describe('Workflow-Vue3 定义适配器', () => {
       ]
     })).toThrow('client.unsupported_workflow_node_configuration');
   });
+
+  it('审批节点办理人策略在设计树与服务端草稿之间保持闭合', () => {
+    const roleId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002';
+    const tree = {
+      id: 'start', type: 0, childNode: {
+        id: 'approve', type: 1,
+        assigneePolicy: {
+          sources: [{ resolverKindKey: 'role_members', roleIds: [roleId] }]
+        },
+        childNode: null
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'approve')?.config).toMatchObject({
+      assigneePolicy: { sources: [{ resolverKindKey: 'role_members', roleIds: [roleId] }] }
+    });
+  });
 });
 
 function node(

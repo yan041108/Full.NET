@@ -34,7 +34,7 @@ public sealed class WorkflowModule : IFullNetModule
     public string Name => "Workflow";
 
     /// <summary>获取 Workflow 运行与可靠通知投影所需的模块依赖。</summary>
-    public IReadOnlyCollection<string> Dependencies => ["Identity", "Notifications"];
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "Notifications", "Organization"];
 
     /// <summary>注册工作流定义、运行时、抄送及 AOT 静态闭包服务。</summary>
     /// <param name="services">应用依赖注入服务集合。</param>
@@ -54,6 +54,11 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowFormManagementService>();
         services.AddScoped<WorkflowDefinitionManagementService>();
         services.AddScoped<WorkflowRecipientCandidateQueryService>();
+        services.AddScoped<WorkflowRoleCandidateQueryService>();
+        services.AddScoped<WorkflowOrganizationUnitCandidateQueryService>();
+        services.AddScoped<WorkflowAssigneeResolver>();
+        services.AddScoped<WorkflowAssigneePublishValidator>();
+        services.AddScoped<WorkflowApprovalAssigneeCoordinator>();
         services.AddScoped<WorkflowInstanceManagementService>();
         services.AddScoped<WorkflowInstanceRecoveryService>();
         services.AddScoped<WorkflowRecoveryTaskService>();

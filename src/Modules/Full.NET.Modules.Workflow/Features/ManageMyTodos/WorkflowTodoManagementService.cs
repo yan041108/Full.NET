@@ -8,6 +8,7 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Features.ManageInstances;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
@@ -26,6 +27,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="databaseOptions">数据库提供程序配置。</param>
 /// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
 /// <param name="approvalActivationWriter">人工审批等待点激活写入器。</param>
+/// <param name="approvalAssigneeCoordinator">办理人解析协调器。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 internal sealed class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
@@ -37,6 +39,7 @@ internal sealed class WorkflowTodoManagementService(
     IOptions<DatabaseOptions> databaseOptions,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter,
     WorkflowApprovalActivationWriter approvalActivationWriter,
+    WorkflowApprovalAssigneeCoordinator approvalAssigneeCoordinator,
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowTodoCountersignService countersignService)
 {
@@ -512,19 +515,19 @@ internal sealed class WorkflowTodoManagementService(
             : 0;
         if (advancesToNextApproval)
         {
-            var activation = await approvalActivationWriter.WriteAsync(
-                instance.Id,
-                scope.TenantScopeKey,
-                transition.NextApprovalNodeKey!,
-                transition.ApprovalPolicy,
-                actorUserId,
+            var activationResult = await ActivateNextApprovalAsync(
+                instance,
+                scope,
+                transition,
                 approvalExecutionSequence,
                 now,
-                transition.TimeoutPolicy,
-                instance.BusinessType,
-                instance.BusinessId,
                 token).ConfigureAwait(false);
-            nextTodoId = activation.FirstTodoId;
+            if (!activationResult.IsSuccess)
+            {
+                return Result<WorkflowInstanceResponse>.Failure(activationResult.Error!);
+            }
+
+            nextTodoId = activationResult.Value;
         }
 
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
@@ -723,12 +726,19 @@ internal sealed class WorkflowTodoManagementService(
             var approvalExecutionSequence = await automaticTransitionWriter.WriteAsync(
                 instance.Id, scope.TenantScopeKey, transition.AutomaticNodes,
                 nextExecutionSequence, now, token).ConfigureAwait(false);
-            var activation = await approvalActivationWriter.WriteAsync(
-                instance.Id, scope.TenantScopeKey, transition.NextApprovalNodeKey!,
-                transition.ApprovalPolicy, actorUserId, approvalExecutionSequence, now,
-                transition.TimeoutPolicy, instance.BusinessType, instance.BusinessId, token)
-                .ConfigureAwait(false);
-            nextTodoId = activation.FirstTodoId;
+            var activationResult = await ActivateNextApprovalAsync(
+                instance,
+                scope,
+                transition,
+                approvalExecutionSequence,
+                now,
+                token).ConfigureAwait(false);
+            if (!activationResult.IsSuccess)
+            {
+                return Failure(activationResult.Error!.Code, activationResult.Error.Type);
+            }
+
+            nextTodoId = activationResult.Value;
         }
 
         await commandExecutor.ExecuteAsync(
@@ -1135,6 +1145,49 @@ internal sealed class WorkflowTodoManagementService(
 
     private static string HashUtf8(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    /// <summary>解析下一审批节点办理人并写入步骤、席位与待办。</summary>
+    /// <param name="instance">当前实例。</param>
+    /// <param name="scope">可信作用域。</param>
+    /// <param name="transition">解析得到的下一迁移。</param>
+    /// <param name="approvalExecutionSequence">审批步骤执行序号。</param>
+    /// <param name="now">当前 UTC 时间。</param>
+    /// <param name="token">取消令牌。</param>
+    /// <returns>首个新待办标识；解析或写入失败时返回错误。</returns>
+    private async Task<Result<Guid>> ActivateNextApprovalAsync(
+        WorkflowInstanceRecord instance,
+        WorkflowManagementScope scope,
+        WorkflowApprovalTransition transition,
+        long approvalExecutionSequence,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        var assignees = await approvalAssigneeCoordinator.ResolveAsync(
+                transition.AssigneePolicy,
+                transition.ApprovalPolicy,
+                scope,
+                instance.StartedById,
+                token)
+            .ConfigureAwait(false);
+        if (!assignees.IsSuccess)
+        {
+            return Result<Guid>.Failure(assignees.Error!);
+        }
+
+        var activation = await approvalActivationWriter.WriteAsync(
+            instance.Id,
+            scope.TenantScopeKey,
+            transition.NextApprovalNodeKey!,
+            assignees.Value!.ApprovalPolicy,
+            assignees.Value.FallbackAssigneeUserId,
+            approvalExecutionSequence,
+            now,
+            transition.TimeoutPolicy,
+            instance.BusinessType,
+            instance.BusinessId,
+            token).ConfigureAwait(false);
+        return Result<Guid>.Success(activation.FirstTodoId);
+    }
 
     private static WorkflowInstanceResponse Map(
         WorkflowInstanceRecord instance,

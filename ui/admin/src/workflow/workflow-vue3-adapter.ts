@@ -327,6 +327,10 @@ function readClosedNodeConfig(
       result.approvalPolicy = readApprovalPolicy(value);
       continue;
     }
+    if (key === 'assigneePolicy' && nodeTypeKey === 'human.approval') {
+      result.assigneePolicy = readAssigneePolicy(value);
+      continue;
+    }
     if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
       result.recipientUserIds = readRecipientUserIds(value);
       continue;
@@ -358,6 +362,10 @@ function readClosedTargetConfig(
       result.approvalPolicy = readApprovalPolicy(value);
       continue;
     }
+    if (key === 'assigneePolicy' && nodeTypeKey === 'human.approval') {
+      result.assigneePolicy = readAssigneePolicy(value);
+      continue;
+    }
     if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
       result.recipientUserIds = readRecipientUserIds(value);
       continue;
@@ -383,6 +391,46 @@ function readRecipientUserIds(
     throw new Error(errorCode);
   }
   return normalized;
+}
+
+/** 验证办理人解析闭合配置，默认发起人语义允许省略整个策略对象。 */
+function readAssigneePolicy(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || !Array.isArray(value.sources) || value.sources.length < 1 || value.sources.length > 8) {
+    throw new Error('client.invalid_workflow_assignee_policy');
+  }
+  const sources = value.sources.map(readAssigneeSource);
+  return { sources };
+}
+
+/** 验证单条办理人来源配置。 */
+function readAssigneeSource(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || typeof value.resolverKindKey !== 'string') {
+    throw new Error('client.invalid_workflow_assignee_policy');
+  }
+  switch (value.resolverKindKey) {
+    case 'specified_users':
+      return {
+        resolverKindKey: value.resolverKindKey,
+        userIds: readRecipientUserIds(value.userIds, 'client.invalid_workflow_assignee_policy')
+      };
+    case 'role_members': {
+      const roleIds = readRecipientUserIds(value.roleIds, 'client.invalid_workflow_assignee_policy');
+      if (roleIds.length < 1 || roleIds.length > 5) throw new Error('client.invalid_workflow_assignee_policy');
+      return { resolverKindKey: value.resolverKindKey, roleIds };
+    }
+    case 'organization_unit_leader': {
+      const unitId = typeof value.unitId === 'string' && userIdPattern.test(value.unitId)
+        ? value.unitId.toLowerCase()
+        : null;
+      if (unitId === null) throw new Error('client.invalid_workflow_assignee_policy');
+      return { resolverKindKey: value.resolverKindKey, unitId };
+    }
+    case 'initiator':
+    case 'initiator_primary_unit_leader':
+      return { resolverKindKey: value.resolverKindKey };
+    default:
+      throw new Error('client.invalid_workflow_assignee_policy');
+  }
 }
 
 /** 验证多人审批闭合配置，防止设计器把展示字段或未知模式写入发布草稿。 */

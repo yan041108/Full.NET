@@ -3,7 +3,7 @@ import { computed, nextTick, provide, ref, watch } from 'vue';
 import type { WorkflowDefinitionDraft, WorkflowFormField } from '@fullnet/client-contracts';
 import type { WorkflowRecipientCandidateResponse } from '@fullnet/client-contracts';
 import { ElButton, ElDrawer, ElInput, ElInputNumber, ElOption, ElSelect, ElSwitch } from 'element-plus';
-import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
+import { listWorkflowOrganizationUnitCandidates, listWorkflowRecipientCandidates, listWorkflowRoleCandidates } from '../api/workflow-definitions';
 import { useAdminI18n } from '../i18n/adminI18n';
 import NodeWrap from './vendor/workflow-vue3/src/components/nodeWrap.vue';
 import { useStore } from './vendor/workflow-vue3/src/stores/index.js';
@@ -42,6 +42,14 @@ const timeoutEscalationRecipientUserId = ref('');
 const approvalModeKey = ref<'single' | 'all' | 'any' | 'nOfM'>('single');
 const approvalApproverUserIds = ref<string[]>([]);
 const approvalRequiredApprovals = ref(2);
+const assigneeSourceKind = ref<'initiator' | 'specified_users' | 'role_members' | 'organization_unit_leader' | 'initiator_primary_unit_leader'>('initiator');
+const assigneeUserIds = ref<string[]>([]);
+const assigneeRoleIds = ref<string[]>([]);
+const assigneeUnitId = ref('');
+const roleCandidates = ref<Array<{ id: string; code: string; name: string }>>([]);
+const organizationUnitCandidates = ref<Array<{ id: string; code: string; name: string }>>([]);
+const roleCandidatesLoading = ref(false);
+const organizationUnitCandidatesLoading = ref(false);
 const gatewayCondition = ref<WorkflowVue3Node>();
 const gatewayFieldKey = ref('');
 const gatewayOperator = ref('equals');
@@ -142,7 +150,31 @@ watch(() => store.approverDrawer, visible => {
       (value): value is string => typeof value === 'string')
     : [];
   approvalRequiredApprovals.value = readInteger(configuredApproval?.requiredApprovals, 2);
+  const configuredAssignee = isRecord(envelope.value?.assigneePolicy)
+    ? envelope.value?.assigneePolicy as Record<string, unknown>
+    : undefined;
+  const firstSource = Array.isArray(configuredAssignee?.sources) && isRecord(configuredAssignee?.sources[0])
+    ? configuredAssignee?.sources[0] as Record<string, unknown>
+    : undefined;
+  const resolverKind = typeof firstSource?.resolverKindKey === 'string'
+    ? firstSource.resolverKindKey
+    : 'initiator';
+  assigneeSourceKind.value = resolverKind === 'specified_users'
+    || resolverKind === 'role_members'
+    || resolverKind === 'organization_unit_leader'
+    || resolverKind === 'initiator_primary_unit_leader'
+    ? resolverKind
+    : 'initiator';
+  assigneeUserIds.value = Array.isArray(firstSource?.userIds)
+    ? firstSource.userIds.filter((value): value is string => typeof value === 'string')
+    : [];
+  assigneeRoleIds.value = Array.isArray(firstSource?.roleIds)
+    ? firstSource.roleIds.filter((value): value is string => typeof value === 'string')
+    : [];
+  assigneeUnitId.value = typeof firstSource?.unitId === 'string' ? firstSource.unitId : '';
   void loadCcCandidates();
+  void loadRoleCandidates();
+  void loadOrganizationUnitCandidates();
 });
 
 watch(() => store.conditionDrawer, visible => {
@@ -170,6 +202,30 @@ async function loadCcCandidates(): Promise<void> {
     ccCandidates.value = result.items;
   } finally {
     ccCandidatesLoading.value = false;
+  }
+}
+
+/** 加载办理人角色候选。 */
+async function loadRoleCandidates(): Promise<void> {
+  if (roleCandidatesLoading.value || roleCandidates.value.length > 0) return;
+  roleCandidatesLoading.value = true;
+  try {
+    const result = await listWorkflowRoleCandidates(1, 100);
+    roleCandidates.value = result.items;
+  } finally {
+    roleCandidatesLoading.value = false;
+  }
+}
+
+/** 加载机构单元候选。 */
+async function loadOrganizationUnitCandidates(): Promise<void> {
+  if (organizationUnitCandidatesLoading.value || organizationUnitCandidates.value.length > 0) return;
+  organizationUnitCandidatesLoading.value = true;
+  try {
+    const result = await listWorkflowOrganizationUnitCandidates(1, 100);
+    organizationUnitCandidates.value = result.items;
+  } finally {
+    organizationUnitCandidatesLoading.value = false;
   }
 }
 
@@ -210,6 +266,31 @@ function closeCcRecipients(): void {
 function saveApprovalConfiguration(): void {
   const envelope = store.approverConfig1 as { value?: WorkflowVue3Node; id?: number | string };
   const value = { ...envelope.value };
+  if (assigneeSourceKind.value === 'initiator') {
+    delete value.assigneePolicy;
+  } else if (assigneeSourceKind.value === 'specified_users') {
+    const userIds = [...new Set(assigneeUserIds.value)];
+    if (userIds.length < 1 || userIds.length > 20) {
+      emit('validation-error', 'client.invalid_workflow_assignee_policy');
+      return;
+    }
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'specified_users', userIds }] };
+  } else if (assigneeSourceKind.value === 'role_members') {
+    const roleIds = [...new Set(assigneeRoleIds.value)];
+    if (roleIds.length < 1 || roleIds.length > 5) {
+      emit('validation-error', 'client.invalid_workflow_assignee_policy');
+      return;
+    }
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'role_members', roleIds }] };
+  } else if (assigneeSourceKind.value === 'organization_unit_leader') {
+    if (!assigneeUnitId.value) {
+      emit('validation-error', 'client.invalid_workflow_assignee_policy');
+      return;
+    }
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'organization_unit_leader', unitId: assigneeUnitId.value }] };
+  } else {
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'initiator_primary_unit_leader' }] };
+  }
   if (approvalModeKey.value === 'single') {
     delete value.approvalPolicy;
   } else {
@@ -396,6 +477,34 @@ defineExpose({ readDraft });
     @close="closeApprovalConfiguration"
   >
     <div class="workflow-timeout-form">
+      <label>
+        <span>办理人来源</span>
+        <el-select v-model="assigneeSourceKind" data-testid="workflow-assignee-source-kind">
+          <el-option label="流程发起人" value="initiator" />
+          <el-option label="指定用户" value="specified_users" />
+          <el-option label="角色成员" value="role_members" />
+          <el-option label="机构负责人" value="organization_unit_leader" />
+          <el-option label="发起人主部门负责人" value="initiator_primary_unit_leader" />
+        </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'specified_users'">
+        <span>指定用户</span>
+        <el-select v-model="assigneeUserIds" multiple filterable :multiple-limit="20" :loading="ccCandidatesLoading" data-testid="workflow-assignee-users">
+          <el-option v-for="candidate in ccCandidates" :key="candidate.id" :label="`${candidate.displayName} (${candidate.username})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'role_members'">
+        <span>角色</span>
+        <el-select v-model="assigneeRoleIds" multiple filterable :multiple-limit="5" :loading="roleCandidatesLoading" data-testid="workflow-assignee-roles">
+          <el-option v-for="candidate in roleCandidates" :key="candidate.id" :label="`${candidate.name} (${candidate.code})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'organization_unit_leader'">
+        <span>机构单元</span>
+        <el-select v-model="assigneeUnitId" filterable :loading="organizationUnitCandidatesLoading" data-testid="workflow-assignee-unit">
+          <el-option v-for="candidate in organizationUnitCandidates" :key="candidate.id" :label="`${candidate.name} (${candidate.code})`" :value="candidate.id" />
+        </el-select>
+      </label>
       <label>
         <span>{{ t('workflowDesigner.approval.mode') }}</span>
         <el-select v-model="approvalModeKey" data-testid="workflow-approval-mode">
