@@ -8,6 +8,12 @@ public static class WorkflowNotificationIntegrationEventTypes
     /// <summary>待办已到达受信办理人。</summary>
     public const string TodoAssigned = "fullnet.workflow.todo.assigned";
 
+    /// <summary>逾期待办需要向当前办理人发送催办。</summary>
+    public const string TodoReminderRequested = "fullnet.workflow.todo.reminded";
+
+    /// <summary>逾期待办需要向发布版本中固定接收人发送升级通知。</summary>
+    public const string TodoEscalationRequested = "fullnet.workflow.todo.escalated";
+
     /// <summary>工作流实例已完成。</summary>
     public const string InstanceCompleted = "fullnet.workflow.instance.completed";
 
@@ -27,6 +33,40 @@ public static class WorkflowNotificationIntegrationEventTypes
 /// <param name="OccurredAtUtc">待办到达时间（UTC）。</param>
 [MemoryPackable]
 public partial record WorkflowTodoAssignedIntegrationEvent(
+    Guid InstanceId,
+    Guid TodoId,
+    Guid RecipientUserId,
+    string BusinessType,
+    string BusinessId,
+    DateTimeOffset OccurredAtUtc);
+
+/// <summary>表示某次逾期待办催办信号已与计数原子提交。</summary>
+/// <param name="InstanceId">工作流实例稳定标识。</param>
+/// <param name="TodoId">逾期待办稳定标识。</param>
+/// <param name="RecipientUserId">信号提交时的当前办理人。</param>
+/// <param name="BusinessType">稳定业务类型。</param>
+/// <param name="BusinessId">稳定业务标识。</param>
+/// <param name="ReminderSequence">从一开始单调递增的催办序号。</param>
+/// <param name="OccurredAtUtc">信号提交时间（UTC）。</param>
+[MemoryPackable]
+public partial record WorkflowTodoReminderRequestedIntegrationEvent(
+    Guid InstanceId,
+    Guid TodoId,
+    Guid RecipientUserId,
+    string BusinessType,
+    string BusinessId,
+    int ReminderSequence,
+    DateTimeOffset OccurredAtUtc);
+
+/// <summary>表示某个逾期待办的升级信号已与状态原子提交。</summary>
+/// <param name="InstanceId">工作流实例稳定标识。</param>
+/// <param name="TodoId">逾期待办稳定标识。</param>
+/// <param name="RecipientUserId">发布版本中固化的升级通知接收人。</param>
+/// <param name="BusinessType">稳定业务类型。</param>
+/// <param name="BusinessId">稳定业务标识。</param>
+/// <param name="OccurredAtUtc">信号提交时间（UTC）。</param>
+[MemoryPackable]
+public partial record WorkflowTodoEscalationRequestedIntegrationEvent(
     Guid InstanceId,
     Guid TodoId,
     Guid RecipientUserId,

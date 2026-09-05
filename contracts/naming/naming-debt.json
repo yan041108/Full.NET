@@ -5,6 +5,20 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/111_WorkflowTodoTimeoutPolicy.sql",
+      "reason": "111 使用 INFORMATION_SCHEMA、存储过程与固定 PREPARE 语句幂等补齐待办超时列、计数约束和扫描索引；对象名、列名和 DDL 均为脚本内常量，并由双库迁移与恢复验证覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/111_WorkflowTodoTimeoutPolicy.sql",
+      "reason": "111 的条件存储过程和约束 DDL 尚不能由静态扫描器完整解析；所有结构标识均为固定常量，并由双库迁移与恢复验证覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/110_WorkflowRecoveryTask.sql",
       "reason": "110 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等补齐恢复任务占用唯一约束和领取索引；对象名、列名和 DDL 均为脚本内常量，并由双库迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"

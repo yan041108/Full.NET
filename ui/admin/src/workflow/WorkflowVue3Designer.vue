@@ -2,8 +2,9 @@
 import { computed, nextTick, provide, ref, watch } from 'vue';
 import type { WorkflowDefinitionDraft, WorkflowFormField } from '@fullnet/client-contracts';
 import type { WorkflowRecipientCandidateResponse } from '@fullnet/client-contracts';
-import { ElButton, ElDrawer, ElInput, ElOption, ElSelect } from 'element-plus';
+import { ElButton, ElDrawer, ElInput, ElInputNumber, ElOption, ElSelect, ElSwitch } from 'element-plus';
 import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
+import { useAdminI18n } from '../i18n/adminI18n';
 import NodeWrap from './vendor/workflow-vue3/src/components/nodeWrap.vue';
 import { useStore } from './vendor/workflow-vue3/src/stores/index.js';
 import type { WorkflowVue3Node } from './workflow-vue3-adapter';
@@ -27,9 +28,17 @@ const emit = defineEmits<{
   'validation-error': [code: string];
 }>();
 const store = useStore();
+const { t } = useAdminI18n();
 const ccCandidates = ref<WorkflowRecipientCandidateResponse[]>([]);
 const ccRecipientUserIds = ref<string[]>([]);
 const ccCandidatesLoading = ref(false);
+const timeoutEnabled = ref(false);
+const timeoutDueMinutes = ref(1440);
+const timeoutReminderIntervalMinutes = ref(60);
+const timeoutMaxReminderCount = ref(3);
+const timeoutEscalationEnabled = ref(false);
+const timeoutEscalationMinutes = ref(2880);
+const timeoutEscalationRecipientUserId = ref('');
 const gatewayCondition = ref<WorkflowVue3Node>();
 const gatewayFieldKey = ref('');
 const gatewayOperator = ref('equals');
@@ -103,6 +112,24 @@ watch(() => store.copyerDrawer, visible => {
   void loadCcCandidates();
 });
 
+watch(() => store.approverDrawer, visible => {
+  if (!visible) return;
+  const envelope = store.approverConfig1 as { value?: WorkflowVue3Node };
+  const configuredPolicy = envelope.value?.timeoutPolicy;
+  const policy: Record<string, unknown> | undefined = isRecord(configuredPolicy)
+    ? configuredPolicy : undefined;
+  timeoutEnabled.value = policy !== undefined;
+  timeoutDueMinutes.value = readInteger(policy?.dueAfterMinutes, 1440);
+  timeoutReminderIntervalMinutes.value = readInteger(policy?.reminderIntervalMinutes, 60);
+  timeoutMaxReminderCount.value = readInteger(policy?.maxReminderCount, 3);
+  timeoutEscalationEnabled.value = policy?.escalationAfterMinutes !== undefined;
+  timeoutEscalationMinutes.value = readInteger(policy?.escalationAfterMinutes, 2880);
+  timeoutEscalationRecipientUserId.value = typeof policy?.escalationRecipientUserId === 'string'
+    ? policy.escalationRecipientUserId
+    : '';
+  void loadCcCandidates();
+});
+
 watch(() => store.conditionDrawer, visible => {
   if (!visible) return;
   const envelope = store.conditionsConfig1 as { value?: WorkflowVue3Node };
@@ -162,6 +189,52 @@ function saveCcRecipients(): void {
 /** 关闭抄送配置抽屉并丢弃本次未保存选择。 */
 function closeCcRecipients(): void {
   store.setCopyer(false);
+}
+
+/** 保存审批节点超时策略；关闭策略时从节点中移除配置，历史发布版本不受影响。 */
+function saveTimeoutPolicy(): void {
+  const envelope = store.approverConfig1 as { value?: WorkflowVue3Node; id?: number | string };
+  const value = { ...envelope.value };
+  if (!timeoutEnabled.value) {
+    delete value.timeoutPolicy;
+  } else {
+    const escalationValid = !timeoutEscalationEnabled.value ||
+      (timeoutEscalationMinutes.value >= timeoutDueMinutes.value &&
+        timeoutEscalationRecipientUserId.value.length > 0);
+    if (timeoutDueMinutes.value < 1 || timeoutReminderIntervalMinutes.value < 1 ||
+      timeoutMaxReminderCount.value < 0 ||
+      (timeoutMaxReminderCount.value === 0 && !timeoutEscalationEnabled.value) ||
+      !escalationValid) {
+      emit('validation-error', 'client.invalid_workflow_timeout_policy');
+      return;
+    }
+    value.timeoutPolicy = {
+      dueAfterMinutes: timeoutDueMinutes.value,
+      reminderIntervalMinutes: timeoutReminderIntervalMinutes.value,
+      maxReminderCount: timeoutMaxReminderCount.value,
+      ...(timeoutEscalationEnabled.value ? {
+        escalationAfterMinutes: timeoutEscalationMinutes.value,
+        escalationRecipientUserId: timeoutEscalationRecipientUserId.value
+      } : {})
+    };
+  }
+  store.setApproverConfig({ ...envelope, flag: true, value });
+  store.setApprover(false);
+}
+
+/** 关闭审批超时配置并丢弃未保存输入。 */
+function closeTimeoutPolicy(): void {
+  store.setApprover(false);
+}
+
+/** 从不可信设计器配置读取整数，非法值回落到安全默认值。 */
+function readInteger(value: unknown, fallback: number): number {
+  return Number.isInteger(value) ? Number(value) : fallback;
+}
+
+/** 识别普通对象，避免把数组或空值当成策略配置。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** 保存排他网关的单字段闭合条件，值类型严格跟随已发布表单字段。 */
@@ -285,6 +358,35 @@ defineExpose({ readDraft });
     </template>
   </el-drawer>
   <el-drawer
+    :model-value="store.approverDrawer"
+    :title="t('workflowDesigner.timeout.title')"
+    size="min(560px, 94vw)"
+    @close="closeTimeoutPolicy"
+  >
+    <div class="workflow-timeout-form">
+      <label><span>{{ t('workflowDesigner.timeout.enabled') }}</span><el-switch v-model="timeoutEnabled" data-testid="workflow-timeout-enabled" /></label>
+      <template v-if="timeoutEnabled">
+        <label><span>{{ t('workflowDesigner.timeout.dueMinutes') }}</span><el-input-number v-model="timeoutDueMinutes" :min="1" :max="525600" data-testid="workflow-timeout-due" /></label>
+        <label><span>{{ t('workflowDesigner.timeout.reminderIntervalMinutes') }}</span><el-input-number v-model="timeoutReminderIntervalMinutes" :min="1" :max="43200" /></label>
+        <label><span>{{ t('workflowDesigner.timeout.maxReminderCount') }}</span><el-input-number v-model="timeoutMaxReminderCount" :min="0" :max="100" data-testid="workflow-timeout-reminder-count" /></label>
+        <label><span>{{ t('workflowDesigner.timeout.escalationEnabled') }}</span><el-switch v-model="timeoutEscalationEnabled" data-testid="workflow-timeout-escalation-enabled" /></label>
+        <template v-if="timeoutEscalationEnabled">
+          <label><span>{{ t('workflowDesigner.timeout.escalationMinutes') }}</span><el-input-number v-model="timeoutEscalationMinutes" :min="timeoutDueMinutes" :max="525600" /></label>
+          <label>
+            <span>{{ t('workflowDesigner.timeout.escalationRecipient') }}</span>
+            <el-select v-model="timeoutEscalationRecipientUserId" filterable data-testid="workflow-timeout-escalation-recipient">
+              <el-option v-for="candidate in ccCandidates" :key="candidate.id" :label="`${candidate.displayName} (${candidate.username})`" :value="candidate.id" />
+            </el-select>
+          </label>
+        </template>
+      </template>
+    </div>
+    <template #footer>
+      <el-button @click="closeTimeoutPolicy">{{ t('workflowDesigner.timeout.cancel') }}</el-button>
+      <el-button type="primary" data-testid="workflow-timeout-save" @click="saveTimeoutPolicy">{{ t('workflowDesigner.timeout.confirm') }}</el-button>
+    </template>
+  </el-drawer>
+  <el-drawer
     :model-value="store.conditionDrawer"
     title="配置分支条件"
     size="min(520px, 94vw)"
@@ -331,4 +433,6 @@ defineExpose({ readDraft });
 .workflow-vue3-adapter__canvas.is-disabled { pointer-events: none; opacity: 0.72; }
 .workflow-gateway-form { display: grid; gap: 18px; }
 .workflow-gateway-form label { display: grid; gap: 8px; }
+.workflow-timeout-form { display: grid; gap: 18px; }
+.workflow-timeout-form label { display: grid; gap: 8px; }
 </style>

@@ -17,6 +17,8 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
     [DataRow("workflow.instance.completed")]
     [DataRow("workflow.instance.rejected")]
     [DataRow("workflow.instance.cancelled")]
+    [DataRow("workflow.todo.reminder")]
+    [DataRow("workflow.todo.escalation")]
     public void Catalog_contains_each_workflow_projection_template(string templateKey)
     {
         var found = WorkflowNotificationTemplateCatalog.TryGet(templateKey, out var definition);

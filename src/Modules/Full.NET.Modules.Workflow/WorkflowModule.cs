@@ -107,5 +107,9 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowRecoveryScanner>();
         services.AddScoped<WorkflowRecoveryBatchProcessor>();
         services.AddHostedService<WorkflowRecoveryHostedProcessor>();
+        services.AddScoped<WorkflowNotificationOutboxPublisher>();
+        services.AddSingleton<WorkflowTodoTimeoutScanCursor>();
+        services.AddScoped<WorkflowTodoTimeoutProcessor>();
+        services.AddHostedService<WorkflowTodoTimeoutHostedProcessor>();
     }
 }

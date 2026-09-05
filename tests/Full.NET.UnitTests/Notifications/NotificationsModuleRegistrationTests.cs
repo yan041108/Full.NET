@@ -35,6 +35,8 @@ public sealed class NotificationsModuleRegistrationTests
                 typeof(InboxMessageReceivedRealtimeHandler),
                 typeof(InboxReadStateChangedRealtimeHandler),
                 typeof(WorkflowTodoAssignedIntegrationEventHandler),
+                typeof(WorkflowTodoReminderRequestedIntegrationEventHandler),
+                typeof(WorkflowTodoEscalationRequestedIntegrationEventHandler),
                 typeof(WorkflowInstanceCompletedIntegrationEventHandler),
                 typeof(WorkflowInstanceRejectedIntegrationEventHandler),
                 typeof(WorkflowInstanceCancelledIntegrationEventHandler),

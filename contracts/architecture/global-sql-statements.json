@@ -3070,6 +3070,65 @@
         "fn_workflow_recovery_task",
         "TenantScopeKey = @TenantScopeKey"
       ]
+    },
+    {
+      "statementName": "workflow.todo.find_active_timeout_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveTodoTimeoutByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例详情只允许读取当前可信 TenantScopeKey 内的活动待办超时摘要，禁止凭实例标识跨作用域读取。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "instance.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_timeout.scan_due.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTimeoutSql.ScanDueMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTimeoutSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow Worker 必须跨 Host 与租户有界扫描到期信号；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "todo.NextTimeoutSignalAtUtc <= @Now",
+        "LIMIT @Take"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_timeout.scan_due.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTimeoutSql.ScanDueSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTimeoutSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow Worker 必须跨 Host 与租户有界扫描到期信号；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "todo.NextTimeoutSignalAtUtc <= @Now",
+        "TOP (@Take)"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_timeout.commit_reminder",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTimeoutSql.CommitReminder",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTimeoutSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "催办提交必须同时校验当前可信 TenantScopeKey、待办修订号与预期调度时间，避免跨租户写入或并发重复发布。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "NextTimeoutSignalAtUtc = @ExpectedSignalAtUtc"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_timeout.commit_escalation",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowTodoTimeoutSql.CommitEscalation",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowTodoTimeoutSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "升级提交必须同时校验当前可信 TenantScopeKey、待办修订号与预期调度时间，并原子关闭后续信号。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "EscalatedAtUtc IS NULL"
+      ]
     }
   ]
 }

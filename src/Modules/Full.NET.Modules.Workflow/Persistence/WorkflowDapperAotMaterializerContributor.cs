@@ -28,6 +28,8 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowCcRecord>(ReadCc);
         registrar.Register<WorkflowRecoveryTaskRecord>(ReadRecoveryTask);
         registrar.Register<WorkflowRecoveryScanCandidate>(ReadRecoveryScanCandidate);
+        registrar.Register<WorkflowTodoTimeoutCandidateRecord>(ReadTodoTimeoutCandidate);
+        registrar.Register<WorkflowTodoTimeoutSummaryRecord>(ReadTodoTimeoutSummary);
     }
 
     private static WorkflowDefinitionRecord ReadDefinition(DbDataReader reader) =>
@@ -233,5 +235,29 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetString(2),
             reader.GetGuid(3),
             AotDataReaderExtensions.ReadNullableGuid(reader, 4));
+
+    /// <summary>按超时扫描投影顺序物化候选。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的超时候选。</returns>
+    private static WorkflowTodoTimeoutCandidateRecord ReadTodoTimeoutCandidate(DbDataReader reader) =>
+        new(
+            AotDataReaderExtensions.ReadNullableGuid(reader, 0), reader.GetString(1),
+            reader.GetString(2), reader.GetGuid(3), reader.GetGuid(4), reader.GetGuid(5),
+            reader.GetGuid(6), reader.GetString(7), reader.GetString(8), reader.GetInt64(9),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            reader.GetInt32(12), reader.GetInt32(13), reader.GetInt32(14),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 15),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 17));
+
+    /// <summary>按实例详情投影顺序物化待办超时摘要。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的超时摘要。</returns>
+    private static WorkflowTodoTimeoutSummaryRecord ReadTodoTimeoutSummary(DbDataReader reader) =>
+        new(reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 1),
+            reader.GetInt32(2),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 3));
 }
 #endif

@@ -40,6 +40,48 @@ internal sealed class WorkflowNotificationOutboxPublisher(IOutboxWriter outboxWr
             CreateMetadata(instanceId),
             cancellationToken);
 
+    /// <summary>发布逾期待办催办事实。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="todoId">待办标识。</param>
+    /// <param name="recipientUserId">当前办理人标识。</param>
+    /// <param name="businessType">稳定业务类型。</param>
+    /// <param name="businessId">稳定业务标识。</param>
+    /// <param name="reminderSequence">催办序号。</param>
+    /// <param name="occurredAtUtc">发生时间（UTC）。</param>
+    /// <param name="cancellationToken">取消事务写入的令牌。</param>
+    public Task PublishTodoReminderAsync(
+        Guid instanceId, Guid todoId, Guid recipientUserId,
+        string businessType, string businessId, int reminderSequence,
+        DateTimeOffset occurredAtUtc, CancellationToken cancellationToken = default) =>
+        outboxWriter.AddAsync(
+            WorkflowNotificationIntegrationEventTypes.TodoReminderRequested,
+            SchemaVersion,
+            new WorkflowTodoReminderRequestedIntegrationEvent(
+                instanceId, todoId, recipientUserId, businessType, businessId,
+                reminderSequence, occurredAtUtc),
+            CreateMetadata(instanceId),
+            cancellationToken);
+
+    /// <summary>发布逾期待办升级事实。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="todoId">待办标识。</param>
+    /// <param name="recipientUserId">固定升级接收人标识。</param>
+    /// <param name="businessType">稳定业务类型。</param>
+    /// <param name="businessId">稳定业务标识。</param>
+    /// <param name="occurredAtUtc">发生时间（UTC）。</param>
+    /// <param name="cancellationToken">取消事务写入的令牌。</param>
+    public Task PublishTodoEscalationAsync(
+        Guid instanceId, Guid todoId, Guid recipientUserId,
+        string businessType, string businessId, DateTimeOffset occurredAtUtc,
+        CancellationToken cancellationToken = default) =>
+        outboxWriter.AddAsync(
+            WorkflowNotificationIntegrationEventTypes.TodoEscalationRequested,
+            SchemaVersion,
+            new WorkflowTodoEscalationRequestedIntegrationEvent(
+                instanceId, todoId, recipientUserId, businessType, businessId, occurredAtUtc),
+            CreateMetadata(instanceId),
+            cancellationToken);
+
     /// <summary>发布工作流实例已完成事实。</summary>
     /// <param name="instanceId">工作流实例标识。</param>
     /// <param name="recipientUserId">流程发起人标识。</param>

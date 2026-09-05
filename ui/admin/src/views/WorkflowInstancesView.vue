@@ -32,6 +32,16 @@ const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
+const timeoutStatusKeys = new Set(['scheduled', 'overdue', 'escalated', 'not_configured']);
+
+/** 把服务端稳定机器码映射为当前语言文案，未知值安全回落为未配置。 */
+function timeoutStatusLabel(statusKey: string | undefined): string {
+  const normalized = statusKey !== undefined && timeoutStatusKeys.has(statusKey)
+    ? statusKey
+    : 'not_configured';
+  return t(`workflowInstances.timeoutStatus.${normalized}` as MessageKey);
+}
+
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
 const mutating = computed(() =>
   cancelling.value || pausing.value || resuming.value || recovering.value
@@ -375,6 +385,19 @@ function toProblem(error: unknown): FullNetProblemDetails {
         <article>
           <span>{{ t('workflowInstances.activeTodo') }}</span>
           <code translate="no">{{ instance.activeTodoId ?? t('workflowInstances.none') }}</code>
+        </article>
+        <article data-testid="workflow-instance-timeout-status">
+          <span>{{ t('workflowInstances.timeoutStatus') }}</span>
+          <strong>{{ timeoutStatusLabel(instance.timeoutStatusKey) }}</strong>
+          <time v-if="instance.dueAtUtc" :datetime="instance.dueAtUtc">{{ instance.dueAtUtc }}</time>
+        </article>
+        <article>
+          <span>{{ t('workflowInstances.reminderCount') }}</span>
+          <strong translate="no">{{ instance.reminderCount ?? 0 }}</strong>
+        </article>
+        <article v-if="instance.escalatedAtUtc">
+          <span>{{ t('workflowInstances.escalatedAt') }}</span>
+          <time :datetime="instance.escalatedAtUtc">{{ instance.escalatedAtUtc }}</time>
         </article>
       </section>
 

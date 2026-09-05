@@ -318,6 +318,11 @@ function readClosedNodeConfig(
       result.fieldPolicies = cloneJson(value);
       continue;
     }
+    if (key === 'timeoutPolicy' && nodeTypeKey === 'human.approval') {
+      assertTimeoutPolicy(value);
+      result.timeoutPolicy = cloneJson(value);
+      continue;
+    }
     if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
       result.recipientUserIds = readRecipientUserIds(value);
       continue;
@@ -338,6 +343,11 @@ function readClosedTargetConfig(
     if (key === 'fieldPolicies' && nodeTypeKey === 'human.approval') {
       assertFieldPolicies(value);
       result.fieldPolicies = cloneJson(value);
+      continue;
+    }
+    if (key === 'timeoutPolicy' && nodeTypeKey === 'human.approval') {
+      assertTimeoutPolicy(value);
+      result.timeoutPolicy = cloneJson(value);
       continue;
     }
     if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
@@ -370,6 +380,31 @@ function assertFieldPolicies(value: unknown): asserts value is Record<string, st
     !stableKeyPattern.test(fieldKey)
     || !['hidden', 'readOnly', 'editable', 'required'].includes(String(policy)))) {
     throw new Error('client.invalid_workflow_definition_draft');
+  }
+}
+
+/** 校验审批节点的闭合超时策略，客户端仅做结构前置检查，服务端仍是权威边界。 */
+function assertTimeoutPolicy(value: unknown): asserts value is Record<string, unknown> {
+  if (!isRecord(value)) throw new Error('client.invalid_workflow_timeout_policy');
+  const allowed = new Set([
+    'dueAfterMinutes', 'reminderIntervalMinutes', 'maxReminderCount',
+    'escalationAfterMinutes', 'escalationRecipientUserId'
+  ]);
+  const due = value.dueAfterMinutes;
+  const interval = value.reminderIntervalMinutes;
+  const count = value.maxReminderCount;
+  const escalation = value.escalationAfterMinutes;
+  const recipient = value.escalationRecipientUserId;
+  const hasEscalation = escalation !== undefined || recipient !== undefined;
+  if (Object.keys(value).some(key => !allowed.has(key))
+    || !Number.isInteger(due) || Number(due) < 1 || Number(due) > 525_600
+    || !Number.isInteger(interval) || Number(interval) < 1 || Number(interval) > 43_200
+    || !Number.isInteger(count) || Number(count) < 0 || Number(count) > 100
+    || (Number(count) === 0 && !hasEscalation)
+    || (hasEscalation && (!Number.isInteger(escalation)
+      || Number(escalation) < Number(due) || Number(escalation) > 525_600
+      || typeof recipient !== 'string' || !userIdPattern.test(recipient)))) {
+    throw new Error('client.invalid_workflow_timeout_policy');
   }
 }
 

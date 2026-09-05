@@ -32,6 +32,7 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Settings/Features/ManageDiagnosticPolicy/DiagnosticPolicyStore.cs",
         "src/Modules/Full.NET.Modules.Tenancy/TenancyModule.cs",
         "src/Modules/Full.NET.Modules.Tenancy/TenantResolutionMiddleware.cs",
+        "src/Modules/Full.NET.Modules.Workflow/Execution/WorkflowTodoTimeoutProcessor.cs",
     ];
 
     [TestMethod]

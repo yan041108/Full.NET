@@ -8,6 +8,38 @@ import {
 describe('Workflow-Vue3 定义适配器', () => {
   const financeUserId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001';
 
+  it('审批节点超时策略在设计树与服务端草稿之间保持闭合往返', () => {
+    const tree = {
+      id: 'start', type: 0, nodeName: '发起人', childNode: {
+        id: 'approve', type: 1, nodeName: '审批人',
+        timeoutPolicy: {
+          dueAfterMinutes: 60,
+          reminderIntervalMinutes: 15,
+          maxReminderCount: 2,
+          escalationAfterMinutes: 120,
+          escalationRecipientUserId: financeUserId
+        },
+        childNode: null
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'approve')?.config).toMatchObject({
+      timeoutPolicy: { dueAfterMinutes: 60, maxReminderCount: 2 }
+    });
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+  });
+
+  it('拒绝审批节点开放式或非法超时配置', () => {
+    expect(() => fromWorkflowVue3Tree({
+      id: 'start', type: 0, childNode: {
+        id: 'approve', type: 1,
+        timeoutPolicy: { dueAfterMinutes: 0, script: 'alert(1)' },
+        childNode: null
+      }
+    })).toThrow();
+  });
+
   it('把线性审批树转换成服务端权威节点并补齐显式结束节点', () => {
     const draft = fromWorkflowVue3Tree({
       id: 'start',

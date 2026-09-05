@@ -167,6 +167,48 @@ public sealed class WorkflowDefinitionCompilerTests
         Assert.IsNotNull(result.Value?.CanonicalJson);
     }
 
+    /// <summary>发布时应把审批节点的闭合超时策略写入不可变规范定义。</summary>
+    [TestMethod]
+    public void Compile_materializes_closed_todo_timeout_policy()
+    {
+        var escalationRecipient = Guid.CreateVersion7();
+        var result = CompileValid(JsonSerializer.Serialize(new
+        {
+            nextNodeKeys = new[] { "end" },
+            timeoutPolicy = new
+            {
+                dueAfterMinutes = 60,
+                reminderIntervalMinutes = 15,
+                maxReminderCount = 2,
+                escalationAfterMinutes = 120,
+                escalationRecipientUserId = escalationRecipient,
+            },
+        }));
+
+        Assert.IsTrue(result.IsSuccess);
+        using var document = JsonDocument.Parse(result.Value!.CanonicalJson);
+        var policy = document.RootElement.GetProperty("nodes").EnumerateArray()
+            .Single(node => node.GetProperty("nodeKey").GetString() == "approve")
+            .GetProperty("config").GetProperty("timeoutPolicy");
+        Assert.AreEqual(60, policy.GetProperty("dueAfterMinutes").GetInt32());
+        Assert.AreEqual(2, policy.GetProperty("maxReminderCount").GetInt32());
+        Assert.AreEqual(escalationRecipient.ToString("D"),
+            policy.GetProperty("escalationRecipientUserId").GetString());
+    }
+
+    /// <summary>非法或开放式策略必须在发布边界失败关闭。</summary>
+    [TestMethod]
+    [DataRow("{\"dueAfterMinutes\":0,\"reminderIntervalMinutes\":15,\"maxReminderCount\":1}")]
+    [DataRow("{\"dueAfterMinutes\":60,\"reminderIntervalMinutes\":15,\"maxReminderCount\":1,\"unknown\":true}")]
+    [DataRow("{\"dueAfterMinutes\":60,\"reminderIntervalMinutes\":15,\"maxReminderCount\":1,\"escalationAfterMinutes\":30,\"escalationRecipientUserId\":\"not-a-guid\"}")]
+    public void Compile_rejects_invalid_todo_timeout_policy(string policyJson)
+    {
+        var result = CompileValid($"{{\"nextNodeKeys\":[\"end\"],\"timeoutPolicy\":{policyJson}}}");
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionTimeoutPolicyInvalid, result.ErrorCode);
+    }
+
     [TestMethod]
     [DataRow("{\"nextNodeKeys\":[\"end\"],\"fieldPolicies\":{\"missing\":\"editable\"}}")]
     [DataRow("{\"nextNodeKeys\":[\"end\"],\"fieldPolicies\":{\"reason\":\"ownerOnly\"}}")]

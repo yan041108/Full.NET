@@ -97,6 +97,56 @@ internal sealed record WorkflowTodoRecord(
     string? ResultActionKey,
     long Revision);
 
+/// <summary>后台超时扫描使用的有界待办投影。</summary>
+/// <param name="TenantId">租户标识；Host 作用域为空。</param>
+/// <param name="ScopeKey">作用域键。</param>
+/// <param name="TenantScopeKey">可信作用域唯一键。</param>
+/// <param name="InstanceId">实例标识。</param>
+/// <param name="TodoId">待办标识。</param>
+/// <param name="StepId">步骤标识。</param>
+/// <param name="AssigneeUserId">扫描时的当前办理人。</param>
+/// <param name="BusinessType">稳定业务类型。</param>
+/// <param name="BusinessId">稳定业务标识。</param>
+/// <param name="Revision">待办修订号。</param>
+/// <param name="NextReminderAtUtc">下一催办时间。</param>
+/// <param name="EscalateAtUtc">升级时间。</param>
+/// <param name="ReminderIntervalMinutes">催办间隔。</param>
+/// <param name="MaxReminderCount">最大催办次数。</param>
+/// <param name="ReminderCount">已发送催办次数。</param>
+/// <param name="EscalationRecipientUserId">固定升级接收人。</param>
+/// <param name="EscalatedAtUtc">已升级时间。</param>
+/// <param name="NextTimeoutSignalAtUtc">本次扫描命中的调度时间。</param>
+internal sealed record WorkflowTodoTimeoutCandidateRecord(
+    Guid? TenantId,
+    string ScopeKey,
+    string TenantScopeKey,
+    Guid InstanceId,
+    Guid TodoId,
+    Guid StepId,
+    Guid AssigneeUserId,
+    string BusinessType,
+    string BusinessId,
+    long Revision,
+    DateTimeOffset? NextReminderAtUtc,
+    DateTimeOffset? EscalateAtUtc,
+    int ReminderIntervalMinutes,
+    int MaxReminderCount,
+    int ReminderCount,
+    Guid? EscalationRecipientUserId,
+    DateTimeOffset? EscalatedAtUtc,
+    DateTimeOffset NextTimeoutSignalAtUtc);
+
+/// <summary>实例详情页使用的活动待办超时摘要。</summary>
+/// <param name="Id">活动待办标识。</param>
+/// <param name="DueAtUtc">截止时间。</param>
+/// <param name="ReminderCount">已发送催办次数。</param>
+/// <param name="EscalatedAtUtc">已升级时间。</param>
+internal sealed record WorkflowTodoTimeoutSummaryRecord(
+    Guid Id,
+    DateTimeOffset? DueAtUtc,
+    int ReminderCount,
+    DateTimeOffset? EscalatedAtUtc);
+
 /// <summary>取消实例时同时携带活动待办与步骤修订号，保证三类状态在同一乐观锁事务内关闭。</summary>
 internal sealed record WorkflowActiveWorkRecord(
     Guid TodoId,

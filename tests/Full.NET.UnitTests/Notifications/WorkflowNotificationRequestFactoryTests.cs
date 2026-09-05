@@ -58,4 +58,28 @@ public sealed class WorkflowNotificationRequestFactoryTests
         Assert.IsFalse(completed.Parameters.TryGetProperty("todoId", out _));
         Assert.AreEqual(3, completed.Parameters.EnumerateObject().Count());
     }
+
+    /// <summary>超时信号必须保留待办深链，并选择各自的模板和收件人。</summary>
+    [TestMethod]
+    public void Timeout_signals_map_to_distinct_scenes_with_todo_deep_link()
+    {
+        var instanceId = Guid.CreateVersion7();
+        var todoId = Guid.CreateVersion7();
+        var reminderRecipient = Guid.CreateVersion7();
+        var escalationRecipient = Guid.CreateVersion7();
+        var occurredAtUtc = DateTimeOffset.Parse("2026-09-05T03:00:00Z");
+        var reminder = WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(),
+            new WorkflowTodoReminderRequestedIntegrationEvent(instanceId, todoId,
+                reminderRecipient, "contract", "C-003", 2, occurredAtUtc));
+        var escalation = WorkflowNotificationRequestFactory.Create(Guid.CreateVersion7(),
+            new WorkflowTodoEscalationRequestedIntegrationEvent(instanceId, todoId,
+                escalationRecipient, "contract", "C-003", occurredAtUtc));
+
+        Assert.AreEqual("workflow.todo.reminder", reminder.SceneKey);
+        Assert.AreEqual("workflow.todo.escalation", escalation.SceneKey);
+        Assert.AreEqual(reminderRecipient.ToString("N"), reminder.Recipients[0].RecipientKey);
+        Assert.AreEqual(escalationRecipient.ToString("N"), escalation.Recipients[0].RecipientKey);
+        Assert.AreEqual(todoId.ToString("D"), reminder.Parameters.GetProperty("todoId").GetString());
+        Assert.AreEqual(2, reminder.Parameters.GetProperty("reminderSequence").GetInt32());
+    }
 }

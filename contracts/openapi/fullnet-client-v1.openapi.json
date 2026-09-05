@@ -34340,6 +34340,20 @@
             "format": "uuid",
             "type": "string"
           },
+          "dueAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "escalatedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "formVersionId": {
             "format": "uuid",
             "type": "string"
@@ -34347,6 +34361,15 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "reminderCount": {
+            "default": 0,
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
           },
           "revision": {
             "format": "int64",
@@ -34361,6 +34384,10 @@
             "type": "string"
           },
           "statusKey": {
+            "type": "string"
+          },
+          "timeoutStatusKey": {
+            "default": "not_configured",
             "type": "string"
           }
         },

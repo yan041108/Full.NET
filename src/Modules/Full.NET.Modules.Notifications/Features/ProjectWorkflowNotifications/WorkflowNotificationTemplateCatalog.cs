@@ -13,6 +13,17 @@ internal static class WorkflowNotificationTemplateCatalog
                 "您有新的审批待办",
                 "业务 {businessType}（{businessId}）有新的审批待办，请及时处理。",
                 includeTodoId: true),
+            ["workflow.todo.reminder"] = Create(
+                "workflow.todo.reminder",
+                "审批待办催办",
+                "业务 {businessType}（{businessId}）的审批待办已逾期，请及时处理。",
+                includeTodoId: true,
+                includeReminderSequence: true),
+            ["workflow.todo.escalation"] = Create(
+                "workflow.todo.escalation",
+                "审批待办升级提醒",
+                "业务 {businessType}（{businessId}）的审批待办已达到升级时限。",
+                includeTodoId: true),
             ["workflow.instance.completed"] = Create(
                 "workflow.instance.completed",
                 "审批已完成",
@@ -49,7 +60,8 @@ internal static class WorkflowNotificationTemplateCatalog
         string templateKey,
         string subject,
         string body,
-        bool includeTodoId)
+        bool includeTodoId,
+        bool includeReminderSequence = false)
     {
         var parameters = new List<NotificationTemplateParameterDefinition>
         {
@@ -60,6 +72,11 @@ internal static class WorkflowNotificationTemplateCatalog
         if (includeTodoId)
         {
             parameters.Add(new NotificationTemplateParameterDefinition("todoId", "string", true, 36));
+        }
+
+        if (includeReminderSequence)
+        {
+            parameters.Add(new NotificationTemplateParameterDefinition("reminderSequence", "integer", true, null));
         }
 
         return new WorkflowNotificationTemplateDefinition(

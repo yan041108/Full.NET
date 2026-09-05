@@ -177,6 +177,12 @@ public sealed class NotificationsModule : IFullNetModule
             Features.ProjectWorkflowNotifications.WorkflowTodoAssignedIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowTodoReminderRequestedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowTodoEscalationRequestedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
             Features.ProjectWorkflowNotifications.WorkflowInstanceCompletedIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,

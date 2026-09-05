@@ -47,6 +47,18 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
         }
 
+        // 超时策略会直接驱动后台可靠事件，只允许审批节点携带闭合且可执行的时间与接收人配置。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "human.approval" &&
+                !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node =>
+                node.NodeTypeKey != "human.approval" &&
+                node.Config.ValueKind == JsonValueKind.Object &&
+                node.Config.TryGetProperty("timeoutPolicy", out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTimeoutPolicyInvalid);
+        }
+
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeKeyDuplicate);

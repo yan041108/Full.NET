@@ -150,4 +150,28 @@ describe('WorkflowVue3Designer', () => {
     expect(wrapper.find('.branch-wrap').exists()).toBe(true);
     wrapper.unmount();
   });
+
+  it('审批节点提供闭合的超时、催办与升级配置抽屉', async () => {
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        modelValue: {
+          id: 'start', type: 0, nodeName: '发起人', childNode: {
+            id: 'approve', type: 1, nodeName: '审批人', childNode: null
+          }
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click');
+    await nextTick();
+    expect(document.body.querySelector('[data-testid="workflow-timeout-enabled"]')).not.toBeNull();
+    await wrapper.get('[data-testid="workflow-timeout-enabled"] input').setValue(true);
+    await nextTick();
+    expect(document.body.querySelector('[data-testid="workflow-timeout-due"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="workflow-timeout-reminder-count"]')).not.toBeNull();
+    wrapper.unmount();
+  });
 });

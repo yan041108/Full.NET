@@ -67,7 +67,11 @@ describe('WorkflowInstancesView', () => {
       statusKey: 'active',
       revision: 3,
       activeTodoId: '01912345-6789-7abc-8def-0123456789ae',
-      startedAtUtc: '2026-08-30T00:00:00Z'
+      startedAtUtc: '2026-08-30T00:00:00Z',
+      dueAtUtc: '2026-08-30T00:30:00Z',
+      timeoutStatusKey: 'overdue',
+      reminderCount: 2,
+      escalatedAtUtc: null
     });
     vi.mocked(listWorkflowInstanceExecutionLogs).mockReset().mockResolvedValue([
       {
@@ -137,6 +141,9 @@ describe('WorkflowInstancesView', () => {
     );
     expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('PO-001');
     expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('active');
+    expect(wrapper.get('[data-testid="workflow-instance-timeout-status"]').text())
+      .toContain('已逾期');
+    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('2');
     expect(wrapper.findAll('[data-testid="workflow-execution-log"]')).toHaveLength(2);
     expect(wrapper.findAll('[data-testid="workflow-execution-log"]')[0]?.text())
       .toContain('instance.started');

@@ -507,10 +507,14 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_todo
             (Id, InstanceId, StepId, AssigneeUserId, StatusKey, Revision,
-             ArrivedAtUtc, CompletedAtUtc, ResultActionKey)
+             ArrivedAtUtc, CompletedAtUtc, ResultActionKey, DueAtUtc,
+             NextReminderAtUtc, EscalateAtUtc, MaxReminderCount, ReminderIntervalMinutes, ReminderCount,
+             EscalationRecipientUserId, EscalatedAtUtc, NextTimeoutSignalAtUtc)
         VALUES
             (@Id, @InstanceId, @StepId, @AssigneeUserId, 'active', 1,
-             @ArrivedAtUtc, NULL, NULL)
+             @ArrivedAtUtc, NULL, NULL, @DueAtUtc, @NextReminderAtUtc,
+             @EscalateAtUtc, @MaxReminderCount, @ReminderIntervalMinutes, 0, @EscalationRecipientUserId,
+             NULL, @NextTimeoutSignalAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -677,6 +681,19 @@ internal static class WorkflowSql
         SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
                todo.ResultActionKey, todo.Revision
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        WHERE todo.InstanceId = @InstanceId
+          AND todo.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取实例详情所需的活动待办超时摘要。</summary>
+    public static readonly SqlStatement FindActiveTodoTimeoutByInstance = new(
+        "workflow.todo.find_active_timeout_by_instance",
+        """
+        SELECT todo.Id, todo.DueAtUtc, todo.ReminderCount, todo.EscalatedAtUtc
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
         WHERE todo.InstanceId = @InstanceId

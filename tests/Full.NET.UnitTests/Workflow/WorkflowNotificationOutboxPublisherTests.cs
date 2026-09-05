@@ -85,6 +85,35 @@ public sealed class WorkflowNotificationOutboxPublisherTests
             TestContext.CancellationToken);
     }
 
+    /// <summary>催办与升级必须使用不同事件类型，并携带稳定信号序号。</summary>
+    [TestMethod]
+    public async Task Timeout_signals_are_published_with_distinct_recipients_and_sequence()
+    {
+        var outbox = Substitute.For<IOutboxWriter>();
+        var publisher = new WorkflowNotificationOutboxPublisher(outbox);
+        var instanceId = Guid.CreateVersion7();
+        var todoId = Guid.CreateVersion7();
+        var assigneeId = Guid.CreateVersion7();
+        var escalationId = Guid.CreateVersion7();
+        var occurredAtUtc = DateTimeOffset.Parse("2026-09-05T03:00:00Z");
+
+        await publisher.PublishTodoReminderAsync(instanceId, todoId, assigneeId,
+            "contract", "C-003", 2, occurredAtUtc, TestContext.CancellationToken);
+        await publisher.PublishTodoEscalationAsync(instanceId, todoId, escalationId,
+            "contract", "C-003", occurredAtUtc, TestContext.CancellationToken);
+
+        await outbox.Received(1).AddAsync(
+            WorkflowNotificationIntegrationEventTypes.TodoReminderRequested, 1,
+            Arg.Is<WorkflowTodoReminderRequestedIntegrationEvent>(value =>
+                value != null && value.RecipientUserId == assigneeId && value.ReminderSequence == 2),
+            Arg.Any<IntegrationEventMetadata>(), TestContext.CancellationToken);
+        await outbox.Received(1).AddAsync(
+            WorkflowNotificationIntegrationEventTypes.TodoEscalationRequested, 1,
+            Arg.Is<WorkflowTodoEscalationRequestedIntegrationEvent>(value =>
+                value != null && value.RecipientUserId == escalationId),
+            Arg.Any<IntegrationEventMetadata>(), TestContext.CancellationToken);
+    }
+
     /// <summary>获取由 MSTest 注入的当前测试上下文。</summary>
     public TestContext TestContext { get; set; } = null!;
 }

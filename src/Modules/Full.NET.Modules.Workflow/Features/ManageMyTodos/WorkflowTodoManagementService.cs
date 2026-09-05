@@ -333,6 +333,7 @@ internal sealed class WorkflowTodoManagementService(
 
         if (advancesToNextApproval)
         {
+            var timeoutSchedule = WorkflowTodoTimeoutSchedule.Create(now, transition.TimeoutPolicy);
             // 审批人解析器尚未开放前沿用当前办理人，避免从设计器的非权威展示字段推导身份。
             await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
                 WorkflowSqlParameters.Create(("Id", nextStepId), ("InstanceId", instance.Id),
@@ -341,7 +342,13 @@ internal sealed class WorkflowTodoManagementService(
             await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
                 WorkflowSqlParameters.Create(("Id", nextTodoId), ("InstanceId", instance.Id),
                     ("StepId", nextStepId), ("AssigneeUserId", actorUserId),
-                    ("ArrivedAtUtc", now)), token).ConfigureAwait(false);
+                    ("ArrivedAtUtc", now), ("DueAtUtc", timeoutSchedule.DueAtUtc),
+                    ("NextReminderAtUtc", timeoutSchedule.NextReminderAtUtc),
+                    ("EscalateAtUtc", timeoutSchedule.EscalateAtUtc),
+                    ("MaxReminderCount", timeoutSchedule.MaxReminderCount),
+                    ("ReminderIntervalMinutes", timeoutSchedule.ReminderIntervalMinutes),
+                    ("EscalationRecipientUserId", timeoutSchedule.EscalationRecipientUserId),
+                    ("NextTimeoutSignalAtUtc", timeoutSchedule.NextTimeoutSignalAtUtc)), token).ConfigureAwait(false);
         }
 
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,

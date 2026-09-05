@@ -52,6 +52,20 @@ internal sealed record ReassignWorkflowInstanceRequest(
     string? Reason,
     string IdempotencyKey);
 
+/// <summary>工作流实例详情与当前活动待办的超时摘要。</summary>
+/// <param name="Id">实例标识。</param>
+/// <param name="DefinitionVersionId">发布定义版本标识。</param>
+/// <param name="FormVersionId">发布表单版本标识。</param>
+/// <param name="BusinessType">稳定业务类型。</param>
+/// <param name="BusinessId">稳定业务标识。</param>
+/// <param name="StatusKey">实例状态机器键。</param>
+/// <param name="Revision">实例乐观并发修订号。</param>
+/// <param name="ActiveTodoId">当前活动待办标识。</param>
+/// <param name="StartedAtUtc">实例发起时间（UTC）。</param>
+/// <param name="DueAtUtc">当前活动待办逾期时间（UTC）。</param>
+/// <param name="TimeoutStatusKey">超时状态机器键。</param>
+/// <param name="ReminderCount">已原子提交的催办次数。</param>
+/// <param name="EscalatedAtUtc">升级通知提交时间（UTC）。</param>
 internal sealed record WorkflowInstanceResponse(
     Guid Id,
     Guid DefinitionVersionId,
@@ -61,7 +75,11 @@ internal sealed record WorkflowInstanceResponse(
     string StatusKey,
     long Revision,
     Guid? ActiveTodoId,
-    DateTimeOffset StartedAtUtc);
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset? DueAtUtc = null,
+    string TimeoutStatusKey = "not_configured",
+    int ReminderCount = 0,
+    DateTimeOffset? EscalatedAtUtc = null);
 
 internal sealed record WorkflowExecutionLogResponse(
     Guid Id,

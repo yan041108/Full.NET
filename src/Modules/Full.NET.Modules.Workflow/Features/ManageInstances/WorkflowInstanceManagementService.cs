@@ -86,6 +86,7 @@ internal sealed class WorkflowInstanceManagementService(
         var stepId = idGenerator.NewId();
         var todoId = idGenerator.NewId();
         var now = clock.UtcNow;
+        var timeoutSchedule = WorkflowTodoTimeoutSchedule.Create(now, startTransition.TimeoutPolicy);
         var requestHash = HashStartRequest(request);
         try
         {
@@ -105,7 +106,14 @@ internal sealed class WorkflowInstanceManagementService(
                         ("StartedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
                     Parameters(("Id", todoId), ("InstanceId", instanceId), ("StepId", stepId),
-                        ("AssigneeUserId", actorUserId), ("ArrivedAtUtc", now)), token).ConfigureAwait(false);
+                        ("AssigneeUserId", actorUserId), ("ArrivedAtUtc", now),
+                        ("DueAtUtc", timeoutSchedule.DueAtUtc),
+                        ("NextReminderAtUtc", timeoutSchedule.NextReminderAtUtc),
+                        ("EscalateAtUtc", timeoutSchedule.EscalateAtUtc),
+                        ("MaxReminderCount", timeoutSchedule.MaxReminderCount),
+                        ("ReminderIntervalMinutes", timeoutSchedule.ReminderIntervalMinutes),
+                        ("EscalationRecipientUserId", timeoutSchedule.EscalationRecipientUserId),
+                        ("NextTimeoutSignalAtUtc", timeoutSchedule.NextTimeoutSignalAtUtc)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertFormSubmission,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("FormVersionId", asset.FormVersionId),
@@ -321,14 +329,20 @@ internal sealed class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
         }
 
-        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
-            WorkflowSql.FindActiveTodoByInstance,
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoTimeoutSummaryRecord>(
+            WorkflowSql.FindActiveTodoTimeoutByInstance,
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
+        var timeoutStatus = todo?.EscalatedAtUtc is not null
+            ? "escalated"
+            : todo?.DueAtUtc is { } due && due <= clock.UtcNow ? "overdue"
+            : todo?.DueAtUtc is not null ? "scheduled"
+            : "not_configured";
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, instance.StatusKey,
-            instance.Revision, todo?.Id, instance.StartedAtUtc));
+            instance.Revision, todo?.Id, instance.StartedAtUtc, todo?.DueAtUtc,
+            timeoutStatus, todo?.ReminderCount ?? 0, todo?.EscalatedAtUtc));
     }
 
     public async Task<Result<IReadOnlyList<WorkflowExecutionLogResponse>>> ListExecutionLogsAsync(

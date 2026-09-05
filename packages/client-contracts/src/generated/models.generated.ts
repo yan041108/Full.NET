@@ -2359,11 +2359,15 @@ export interface WorkflowInstanceResponse {
   readonly businessId: string;
   readonly businessType: string;
   readonly definitionVersionId: string;
+  readonly dueAtUtc?: null | string;
+  readonly escalatedAtUtc?: null | string;
   readonly formVersionId: string;
   readonly id: string;
+  readonly reminderCount?: number;
   readonly revision: number;
   readonly startedAtUtc: string;
   readonly statusKey: string;
+  readonly timeoutStatusKey?: string;
 }
 
 export interface WorkflowNodeDraft {
