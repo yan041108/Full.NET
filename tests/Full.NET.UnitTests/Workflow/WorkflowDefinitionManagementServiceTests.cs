@@ -49,7 +49,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
             .Returns((WorkflowFormVersionRecord?)null);
 
         var service = new WorkflowDefinitionManagementService(
-            query, command, new ImmediateTransaction(), tenant, clock, ids, users, tenantUsers);
+            query, command, new ImmediateTransaction(), tenant, clock, ids, users, tenantUsers,
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator());
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -106,7 +107,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
             });
 
         var service = new WorkflowDefinitionManagementService(
-            query, command, transaction, tenant, clock, ids, users, tenantUsers);
+            query, command, transaction, tenant, clock, ids, users, tenantUsers,
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator());
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));
@@ -166,7 +168,8 @@ public sealed class WorkflowDefinitionManagementServiceTests
             });
 
         var service = new WorkflowDefinitionManagementService(
-            query, command, transaction, tenant, clock, ids, hostUsers, tenantUsers);
+            query, command, transaction, tenant, clock, ids, hostUsers, tenantUsers,
+            WorkflowTodoManagementTestDependencies.CreateAssigneePublishValidator());
 
         var result = await service.PublishAsync(
             definitionId, actorId, new PublishWorkflowDefinitionRequest(1, formVersionId));

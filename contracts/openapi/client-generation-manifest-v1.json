@@ -116,9 +116,57 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowPauseInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowResumeInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRecoverInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReassignInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListInstanceExecutionLogs",
       "apiModule": "ui/admin/src/api/workflow-instances.ts",
       "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListRecoveryTasks",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowGetRecoveryTask",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRetryRecoveryTask",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReconcileRecoveryTask",
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "generatedGroup": "workflow-recovery-tasks",
       "status": "generated"
     },
     {
@@ -147,6 +195,18 @@
     },
     {
       "operationId": "workflowRejectTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListTodoReturnTargets",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReturnTodo",
       "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",
       "status": "generated"
@@ -1733,6 +1793,30 @@
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsListRequests",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsCreateRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsGetRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsCancelRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
       "status": "generated"
     }
   ]

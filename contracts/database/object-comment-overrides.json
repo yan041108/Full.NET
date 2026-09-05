@@ -141,7 +141,7 @@
     "fn_workflow_instance": {
       "comment": "工作流实例表",
       "columns": {
-        "ActiveBusinessKey": "活动实例业务唯一键",
+        "ActiveBusinessKey": "占用中的实例业务唯一键",
         "BusinessId": "业务对象标识",
         "BusinessType": "业务对象类型",
         "CancellationReason": "取消原因",
@@ -173,11 +173,40 @@
       "columns": {
         "ArrivedAtUtc": "待办到达时间(UTC)",
         "AssigneeUserId": "待办处理人标识",
+        "DueAtUtc": "待办逾期时间(UTC)",
+        "EscalateAtUtc": "升级通知时间(UTC)",
+        "EscalatedAtUtc": "已升级时间(UTC)",
+        "EscalationRecipientUserId": "固定升级通知接收人标识",
         "InstanceId": "流程实例标识",
+        "LastReminderAtUtc": "最后催办时间(UTC)",
+        "MaxReminderCount": "最大催办次数",
+        "NextReminderAtUtc": "下一催办时间(UTC)",
+        "NextTimeoutSignalAtUtc": "下一超时信号时间(UTC)",
+        "ReminderCount": "已发送催办次数",
+        "ReminderIntervalMinutes": "催办间隔分钟数",
         "ResultActionKey": "处理结果动作键",
         "Revision": "待办修订号",
         "StatusKey": "待办状态键",
         "StepId": "流程步骤标识"
+      }
+    },
+    "fn_workflow_recovery_task": {
+      "comment": "工作流恢复任务表",
+      "columns": {
+        "AttemptCount": "已尝试次数",
+        "InstanceId": "流程实例标识",
+        "KindKey": "恢复种类键",
+        "LastError": "最后错误摘要",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseGeneration": "租约世代",
+        "LeaseOwnerKey": "执行租约持有者键",
+        "NextAttemptAtUtc": "下次尝试时间(UTC)",
+        "OpenOccupancyKey": "未关闭恢复任务占用键",
+        "Revision": "修订号",
+        "ScopeKey": "作用域键",
+        "StatusKey": "恢复任务状态键",
+        "StepId": "流程步骤标识",
+        "TenantScopeKey": "租户作用域唯一键"
       }
     }
   }

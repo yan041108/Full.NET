@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox } from 'element-plus';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails
@@ -9,6 +10,9 @@ import {
   cancelWorkflowInstance,
   getWorkflowInstance,
   listWorkflowInstanceExecutionLogs,
+  pauseWorkflowInstance,
+  recoverWorkflowInstance,
+  resumeWorkflowInstance,
   type WorkflowExecutionLogResponse,
   type WorkflowInstanceResponse
 } from '../api/workflow-instances';
@@ -20,16 +24,99 @@ const session = useSessionStore();
 const instanceId = ref('');
 const loading = ref(false);
 const cancelling = ref(false);
+const pausing = ref(false);
+const resuming = ref(false);
+const recovering = ref(false);
 const instance = ref<WorkflowInstanceResponse>();
 const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
+/** 把执行轨迹迁移键映射为可读标签，并行网关使用专用文案。 */
+function transitionLabel(transitionKey: string): string {
+  if (transitionKey === 'node.gateway.parallel.fork') {
+    return t('workflowInstances.parallelFork');
+  }
+  if (transitionKey === 'node.gateway.parallel.join') {
+    return t('workflowInstances.parallelJoin');
+  }
+  if (transitionKey === 'node.gateway.inclusive.fork') {
+    return t('workflowInstances.inclusiveFork');
+  }
+  if (transitionKey === 'node.gateway.inclusive.join') {
+    return t('workflowInstances.inclusiveJoin');
+  }
+  return transitionKey;
+}
+
+type WorkflowGatewayJoinBranch = { branchKey: string; arrivedAtUtc?: string | null };
+type WorkflowGatewayJoin = {
+  id: string;
+  gatewayTypeKey: string;
+  forkNodeKey: string;
+  joinNodeKey: string;
+  requiredBranchCount: number;
+  arrivedBranchCount: number;
+  statusKey: string;
+  branches: WorkflowGatewayJoinBranch[];
+};
+type WorkflowInstanceDetail = WorkflowInstanceResponse & { gatewayJoins?: WorkflowGatewayJoin[] | null };
+
+const gatewayJoins = computed(() => (instance.value as WorkflowInstanceDetail | undefined)?.gatewayJoins ?? []);
+
+/** 把服务端稳定机器码映射为当前语言文案，未知值安全回落为未配置。 */
+function timeoutStatusLabel(statusKey: string | undefined): string {
+  const normalized = statusKey !== undefined && timeoutStatusKeys.has(statusKey)
+    ? statusKey
+    : 'not_configured';
+  return t(`workflowInstances.timeoutStatus.${normalized}` as MessageKey);
+}
+
+/** 把多人审批模式键映射为设计器同源文案。 */
+function approvalModeLabel(modeKey: string): string {
+  switch (modeKey) {
+    case 'all': return t('workflowDesigner.approval.all');
+    case 'any': return t('workflowDesigner.approval.any');
+    case 'nOfM': return t('workflowDesigner.approval.nOfM');
+    default: return modeKey;
+  }
+}
+
+const showApprovalProgress = computed(() => {
+  const current = instance.value;
+  if (current?.approvalModeKey === undefined || current.approvalModeKey === null) {
+    return false;
+  }
+
+  const approved = current.approvedCount ?? 0;
+  const rejected = current.rejectedCount ?? 0;
+  const pending = current.pendingCount ?? 0;
+  return approved + rejected + pending > 1;
+});
+
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
+const mutating = computed(() =>
+  cancelling.value || pausing.value || resuming.value || recovering.value
+);
 const canCancel = computed(() =>
-  instance.value?.statusKey === 'active' &&
+  (instance.value?.statusKey === 'active' || instance.value?.statusKey === 'suspended') &&
   session.can('workflow.instances.cancel') &&
-  !cancelling.value
+  !mutating.value
+);
+const canPause = computed(() =>
+  instance.value?.statusKey === 'active' &&
+  session.can('workflow.instances.pause') &&
+  !mutating.value
+);
+const canResume = computed(() =>
+  instance.value?.statusKey === 'suspended' &&
+  session.can('workflow.instances.resume') &&
+  !mutating.value
+);
+const canRecover = computed(() =>
+  instance.value?.statusKey === 'suspended' &&
+  session.can('workflow.instances.recover') &&
+  !mutating.value
 );
 
 onBeforeUnmount(() => loadController?.abort());
@@ -85,21 +172,139 @@ async function cancelInstance(): Promise<void> {
       }
     );
     cancelling.value = true;
-    problem.value = undefined;
-    instance.value = await cancelWorkflowInstance(current.id, {
-      expectedRevision: current.revision,
-      reason: null,
-      idempotencyKey: `cancel-${crypto.randomUUID()}`
-    });
-    executionLogs.value = await listWorkflowInstanceExecutionLogs(current.id);
-    ElMessage.success(t('workflowInstances.cancelSuccess'));
+    await mutateInstance(
+      current.id,
+      () => cancelWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: null,
+        idempotencyKey: `cancel-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.cancelSuccess'
+    );
   } catch (error: unknown) {
-    if (error !== 'cancel' && error !== 'close') {
-      problem.value = toProblem(error);
-    }
+    captureActionError(error);
   } finally {
     cancelling.value = false;
   }
+}
+
+async function pauseInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canPause.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('workflowInstances.pauseConfirm'),
+      t('workflowInstances.pauseTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('workflowInstances.pause'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    pausing.value = true;
+    await mutateInstance(
+      current.id,
+      () => pauseWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: null,
+        idempotencyKey: `pause-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.pauseSuccess'
+    );
+  } catch (error: unknown) {
+    captureActionError(error);
+  } finally {
+    pausing.value = false;
+  }
+}
+
+async function resumeInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canResume.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('workflowInstances.resumeConfirm'),
+      t('workflowInstances.resumeTitle'),
+      {
+        confirmButtonText: t('workflowInstances.resume'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    resuming.value = true;
+    await mutateInstance(
+      current.id,
+      () => resumeWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: null,
+        idempotencyKey: `resume-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.resumeSuccess'
+    );
+  } catch (error: unknown) {
+    captureActionError(error);
+  } finally {
+    resuming.value = false;
+  }
+}
+
+async function recoverInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canRecover.value) {
+    return;
+  }
+
+  try {
+    const prompt = await ElMessageBox.prompt(
+      t('workflowInstances.recoverConfirm'),
+      t('workflowInstances.recoverTitle'),
+      {
+        inputType: 'textarea',
+        inputValidator: (value: string) =>
+          (value ?? '').trim().length > 0 || t('workflowInstances.recoverReasonRequired'),
+        confirmButtonText: t('workflowInstances.recover'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    recovering.value = true;
+    await mutateInstance(
+      current.id,
+      () => recoverWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: prompt.value.trim(),
+        idempotencyKey: `recover-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.recoverSuccess'
+    );
+  } catch (error: unknown) {
+    captureActionError(error);
+  } finally {
+    recovering.value = false;
+  }
+}
+
+async function mutateInstance(
+  currentId: string,
+  submit: () => Promise<WorkflowInstanceResponse>,
+  successKey: MessageKey
+): Promise<void> {
+  problem.value = undefined;
+  instance.value = await submit();
+  executionLogs.value = await listWorkflowInstanceExecutionLogs(currentId);
+  ElMessage.success(t(successKey));
+}
+
+function captureActionError(error: unknown): void {
+  if (error === 'cancel' || error === 'close') {
+    return;
+  }
+
+  problem.value = toProblem(error);
 }
 
 function toProblem(error: unknown): FullNetProblemDetails {
@@ -121,16 +326,47 @@ function toProblem(error: unknown): FullNetProblemDetails {
         <h1 data-route-heading tabindex="-1">{{ t('workflowInstances.title') }}</h1>
         <p>{{ t('workflowInstances.caption') }}</p>
       </div>
-      <el-button
-        v-if="canCancel"
-        type="danger"
-        plain
-        data-testid="workflow-instance-cancel"
-        :loading="cancelling"
-        @click="cancelInstance"
-      >
-        {{ t('workflowInstances.cancel') }}
-      </el-button>
+      <div class="workflow-instances__actions">
+        <el-button
+          v-if="canPause"
+          type="warning"
+          plain
+          data-testid="workflow-instance-pause"
+          :loading="pausing"
+          @click="pauseInstance"
+        >
+          {{ t('workflowInstances.pause') }}
+        </el-button>
+        <el-button
+          v-if="canResume"
+          type="primary"
+          plain
+          data-testid="workflow-instance-resume"
+          :loading="resuming"
+          @click="resumeInstance"
+        >
+          {{ t('workflowInstances.resume') }}
+        </el-button>
+        <el-button
+          v-if="canRecover"
+          type="warning"
+          data-testid="workflow-instance-recover"
+          :loading="recovering"
+          @click="recoverInstance"
+        >
+          {{ t('workflowInstances.recover') }}
+        </el-button>
+        <el-button
+          v-if="canCancel"
+          type="danger"
+          plain
+          data-testid="workflow-instance-cancel"
+          :loading="cancelling"
+          @click="cancelInstance"
+        >
+          {{ t('workflowInstances.cancel') }}
+        </el-button>
+      </div>
     </header>
 
     <el-card shadow="never" class="workflow-instances__search-card">
@@ -164,6 +400,15 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
+      <el-button
+        v-if="problem.status === 409"
+        text
+        type="primary"
+        data-testid="workflow-instance-conflict-refresh"
+        @click="load"
+      >
+        {{ t('workflowInstances.conflictRefresh') }}
+      </el-button>
     </div>
 
     <template v-if="instance">
@@ -193,7 +438,62 @@ function toProblem(error: unknown): FullNetProblemDetails {
           <span>{{ t('workflowInstances.activeTodo') }}</span>
           <code translate="no">{{ instance.activeTodoId ?? t('workflowInstances.none') }}</code>
         </article>
+        <article data-testid="workflow-instance-timeout-status">
+          <span>{{ t('workflowInstances.timeoutStatus') }}</span>
+          <strong>{{ timeoutStatusLabel(instance.timeoutStatusKey) }}</strong>
+          <time v-if="instance.dueAtUtc" :datetime="instance.dueAtUtc">{{ instance.dueAtUtc }}</time>
+        </article>
+        <article>
+          <span>{{ t('workflowInstances.reminderCount') }}</span>
+          <strong translate="no">{{ instance.reminderCount ?? 0 }}</strong>
+        </article>
+        <article v-if="instance.escalatedAtUtc">
+          <span>{{ t('workflowInstances.escalatedAt') }}</span>
+          <time :datetime="instance.escalatedAtUtc">{{ instance.escalatedAtUtc }}</time>
+        </article>
+        <article
+          v-if="showApprovalProgress"
+          class="workflow-instances__approval-progress"
+          data-testid="workflow-instance-approval-progress"
+        >
+          <span>{{ t('workflowInstances.approvalProgressTitle') }}</span>
+          <strong>{{ approvalModeLabel(instance.approvalModeKey ?? '') }}</strong>
+          <span>{{ t('workflowTodos.approvalProgress', {
+            approved: instance.approvedCount ?? 0,
+            rejected: instance.rejectedCount ?? 0,
+            pending: instance.pendingCount ?? 0,
+            required: instance.requiredApprovalCount ?? 0
+          }) }}</span>
+          <code v-if="instance.activeNodeKey" translate="no">{{ instance.activeNodeKey }}</code>
+        </article>
       </section>
+
+      <el-card
+        v-if="gatewayJoins.length > 0"
+        shadow="never"
+        class="workflow-instances__timeline-card"
+        data-testid="workflow-instance-gateway-joins"
+      >
+        <template #header>
+          <h2>{{ t('workflowInstances.gatewayJoinsTitle') }}</h2>
+        </template>
+        <ul class="workflow-instances__timeline">
+          <li v-for="join in gatewayJoins" :key="join.id">
+            <strong translate="no">{{ join.gatewayTypeKey }} · {{ join.forkNodeKey }} → {{ join.joinNodeKey }}</strong>
+            <span>{{ t('workflowInstances.gatewayJoinProgress', {
+              arrived: join.arrivedBranchCount,
+              required: join.requiredBranchCount,
+              status: join.statusKey
+            }) }}</span>
+            <ul v-if="join.branches.length > 0">
+              <li v-for="branch in join.branches" :key="branch.branchKey">
+                <code translate="no">{{ branch.branchKey }}</code>
+                <time v-if="branch.arrivedAtUtc" :datetime="branch.arrivedAtUtc">{{ branch.arrivedAtUtc }}</time>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </el-card>
 
       <el-card shadow="never" class="workflow-instances__timeline-card">
         <template #header>
@@ -218,7 +518,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
             <span class="workflow-instances__marker" aria-hidden="true"></span>
             <div class="workflow-instances__event">
               <div class="workflow-instances__event-heading">
-                <strong translate="no">{{ log.transitionKey }}</strong>
+                <strong translate="no">{{ transitionLabel(log.transitionKey) }}</strong>
                 <time :datetime="log.createdAtUtc">{{ log.createdAtUtc }}</time>
               </div>
               <div class="workflow-instances__transition">
@@ -263,6 +563,13 @@ function toProblem(error: unknown): FullNetProblemDetails {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.workflow-instances__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .workflow-instances__header p,

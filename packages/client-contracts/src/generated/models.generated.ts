@@ -104,6 +104,10 @@ export interface BeginTotpEnrollmentResponse {
   readonly sharedSecretBase32: string;
 }
 
+export interface CancelDataApprovalRequestBody {
+  readonly idempotencyKey: string;
+}
+
 export interface CancelWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
@@ -356,6 +360,14 @@ export interface CreateConfigEntryRequest {
   readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
 }
 
+export interface CreateDataApprovalRequestBody {
+  readonly idempotencyKey: string;
+  readonly proposedChangeJson: string;
+  readonly scenarioKey: string;
+  readonly targetEntityId: string;
+  readonly workflowDefinitionKey: string;
+}
+
 export interface CreateDictItemRequest {
   readonly color: null | string;
   readonly displayOrder: number;
@@ -513,8 +525,10 @@ export interface CreateNotificationProviderProfileRequest {
 export interface CreateNotificationTemplateRequest {
   readonly channelKey: string;
   readonly contentCategoryKey: string;
+  readonly defaultLocaleTag?: null | string;
   readonly draftBody: NotificationTemplateBody;
   readonly draftSubject: string;
+  readonly localeTag?: null | string;
   readonly parameterSchema: NotificationTemplateParameterSchema;
   readonly templateKey: string;
 }
@@ -585,6 +599,22 @@ export interface CurrentUserResponse {
   readonly sessionId: string;
   readonly tenantId: null | string;
   readonly username: string;
+}
+
+export interface DataApprovalRequestResponse {
+  readonly afterSnapshotJson: string;
+  readonly beforeSnapshotJson?: string | null;
+  readonly id: string;
+  readonly resolvedAtUtc?: string | null;
+  readonly scenarioKey: string;
+  readonly statusKey: string;
+  readonly submittedAtUtc: string;
+  readonly submittedByUserId: string;
+  readonly targetEntityId: string;
+  readonly version: number;
+  readonly workflowDefinitionVersionId: string;
+  readonly workflowInstanceId?: string | null;
+  readonly workflowRevision?: number | null;
 }
 
 export interface DeleteCodeGenerationTemplateRequest {
@@ -1315,6 +1345,17 @@ export interface NotificationDeliveryAttemptResponse {
   readonly statusKey: string;
 }
 
+export interface NotificationDeliveryReceiptResponse {
+  readonly externalStatusKey: string;
+  readonly id: string;
+  readonly mappedStatusKey: string;
+  readonly processedAtUtc: null | string;
+  readonly processStatusKey: string;
+  readonly providerMessageId: null | string;
+  readonly providerTypeKey: string;
+  readonly receivedAtUtc: string;
+}
+
 export interface NotificationDeliveryResponse {
   readonly attempts: Array<NotificationDeliveryAttemptResponse>;
   readonly bindingVersionId: null | string;
@@ -1324,6 +1365,7 @@ export interface NotificationDeliveryResponse {
   readonly intentId: string;
   readonly nextAttemptAtUtc: null | string;
   readonly providerProfileVersionId: null | string;
+  readonly receipts: Array<NotificationDeliveryReceiptResponse>;
   readonly recipientId: string;
   readonly revision: number;
   readonly statusKey: string;
@@ -1382,6 +1424,7 @@ export interface NotificationTemplateResponse {
   readonly channelKey: string;
   readonly contentCategoryKey: string;
   readonly createdAtUtc: string;
+  readonly defaultLocaleTag: string;
   readonly draftBodyJson: string;
   readonly draftParameterSchemaJson: string;
   readonly draftRevision: number;
@@ -1391,6 +1434,9 @@ export interface NotificationTemplateResponse {
   readonly latestContentHash: null | string;
   readonly latestPublishedVersionId: null | string;
   readonly latestPublishedVersionNumber: null | number;
+  readonly localeTag: string;
+  readonly missingLocaleTags: Array<string>;
+  readonly publishedLocaleTags: Array<string>;
   readonly templateKey: string;
   readonly updatedAtUtc: null | string;
   readonly version: number;
@@ -1527,6 +1573,13 @@ export interface PagedResultOfCodeGenerationTemplateResponse {
 
 export interface PagedResultOfConfigEntryResponse {
   readonly items: Array<ConfigEntryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfDataApprovalRequestResponse {
+  readonly items: Array<DataApprovalRequestResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -1749,6 +1802,19 @@ export interface PagedResultOfTenantSummary {
   readonly total: number;
 }
 
+export interface PagedResultOfWorkflowRecoveryTaskResponse {
+  readonly items: Array<WorkflowRecoveryTaskResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PauseWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface PreviewSerialNumberRequest {
   readonly atUtc: string;
   readonly pattern: string;
@@ -1799,6 +1865,13 @@ export interface PublishWorkflowFormRequest {
   readonly expectedRevision: number;
 }
 
+export interface ReassignWorkflowInstanceRequest {
+  readonly assigneeUserId: string;
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface RecipientEndpointResponse {
   readonly createdAtUtc: string;
   readonly endpointKindKey: string;
@@ -1807,6 +1880,18 @@ export interface RecipientEndpointResponse {
   readonly providerProfileVersionId: string;
   readonly userId: string;
   readonly verificationStatusKey: string;
+}
+
+export interface ReconcileWorkflowRecoveryTaskRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
+export interface RecoverWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
 }
 
 export interface ReplaceHostRoleFieldGrantsRequest {
@@ -1837,9 +1922,29 @@ export interface RestoreHostDocumentItemRequest {
   readonly version: number;
 }
 
+export interface ResumeWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface RetryNotificationDeliveryRequest {
   readonly reason: string;
   readonly revision: number;
+}
+
+export interface RetryWorkflowRecoveryTaskRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
+}
+
+export interface ReturnWorkflowTodoRequest {
+  readonly comment: string;
+  readonly expectedRevision: number;
+  readonly fieldPatch: JsonElement;
+  readonly idempotencyKey: string;
+  readonly targetStepId: string;
 }
 
 export interface RevokeSuperAdministratorRequest {
@@ -2311,15 +2416,25 @@ export interface WorkflowFormVersionResponse {
 }
 
 export interface WorkflowInstanceResponse {
+  readonly activeNodeKey?: null | string;
   readonly activeTodoId: null | string;
+  readonly approvalModeKey?: null | string;
+  readonly approvedCount?: number | null;
   readonly businessId: string;
   readonly businessType: string;
   readonly definitionVersionId: string;
+  readonly dueAtUtc?: null | string;
+  readonly escalatedAtUtc?: null | string;
   readonly formVersionId: string;
   readonly id: string;
+  readonly pendingCount?: number | null;
+  readonly rejectedCount?: number | null;
+  readonly reminderCount?: number;
+  readonly requiredApprovalCount?: number | null;
   readonly revision: number;
   readonly startedAtUtc: string;
   readonly statusKey: string;
+  readonly timeoutStatusKey?: string;
 }
 
 export interface WorkflowNodeDraft {
@@ -2357,13 +2472,35 @@ export interface WorkflowRecipientCandidateResponse {
   readonly username: string;
 }
 
+export interface WorkflowRecoveryTaskResponse {
+  readonly attemptCount: number;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly kindKey: string;
+  readonly lastError: null | string;
+  readonly leaseExpiresAtUtc: null | string;
+  readonly leaseGeneration: number;
+  readonly leaseOwnerKey: null | string;
+  readonly nextAttemptAtUtc: null | string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly stepId: null | string;
+  readonly updatedAtUtc: string;
+}
+
 export interface WorkflowTodoDetailResponse {
+  readonly approvalModeKey: string;
+  readonly approvedCount: number;
   readonly assigneeUserId: string;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
   readonly formSchema: JsonElement;
   readonly formVersionId: string;
   readonly id: string;
   readonly instanceId: string;
+  readonly pendingCount: number;
+  readonly rejectedCount: number;
+  readonly requiredApprovalCount: number;
   readonly revision: number;
   readonly statusKey: string;
   readonly stepId: string;
@@ -2383,7 +2520,16 @@ export interface WorkflowTodoResponse {
   readonly stepId: string;
 }
 
+export interface WorkflowTodoReturnTargetResponse {
+  readonly assigneeUserId: string;
+  readonly completedAtUtc: string;
+  readonly nodeKey: string;
+  readonly stepId: string;
+}
+
 export interface WorkflowTodoRuntimeResponse {
+  readonly approvalModeKey: string;
+  readonly approvedCount: number;
   readonly assigneeUserId: string;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
   readonly formSchema: JsonElement;
@@ -2391,6 +2537,9 @@ export interface WorkflowTodoRuntimeResponse {
   readonly formVersionId: string;
   readonly id: string;
   readonly instanceId: string;
+  readonly pendingCount: number;
+  readonly rejectedCount: number;
+  readonly requiredApprovalCount: number;
   readonly revision: number;
   readonly statusKey: string;
   readonly stepId: string;

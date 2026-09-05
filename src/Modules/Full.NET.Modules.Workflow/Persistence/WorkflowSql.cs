@@ -324,6 +324,9 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>
+    /// 查找当前作用域内仍占用业务键的实例；暂停与运行同等占用，避免恢复时撞唯一约束。
+    /// </summary>
     public static readonly SqlStatement FindActiveInstanceByBusinessKey = new(
         "workflow.instance.find_active_by_business_key",
         """
@@ -335,7 +338,7 @@ internal static class WorkflowSql
         WHERE TenantScopeKey = @TenantScopeKey
           AND BusinessType = @BusinessType
           AND BusinessId = @BusinessId
-          AND StatusKey = 'active'
+          AND StatusKey IN ('active', 'suspended')
         """,
         SqlDataScope.Global);
 
@@ -377,10 +380,27 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
-             NULL, 0, 1, @StartedAtUtc, NULL)
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入携带单人或多人审批门槛快照的人工步骤。</summary>
+    public static readonly SqlStatement InsertApprovalStep = new(
+        "workflow.approval_step.insert",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence,
+             ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
+             StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+             NULL, 0, 1, @ExecutionSequence,
+             @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
+             @StartedAtUtc, NULL)
         """,
         SqlDataScope.Global);
 
@@ -390,10 +410,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'notify.cc', 'completed', NULL,
-             NULL, 0, 1, @StartedAtUtc, @CompletedAtUtc)
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -403,10 +423,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'gateway.exclusive', 'completed', NULL,
-             NULL, 0, 1, @StartedAtUtc, @CompletedAtUtc)
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -504,10 +524,27 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_todo
             (Id, InstanceId, StepId, AssigneeUserId, StatusKey, Revision,
-             ArrivedAtUtc, CompletedAtUtc, ResultActionKey)
+             ArrivedAtUtc, CompletedAtUtc, ResultActionKey, DueAtUtc,
+             NextReminderAtUtc, EscalateAtUtc, MaxReminderCount, ReminderIntervalMinutes, ReminderCount,
+             EscalationRecipientUserId, EscalatedAtUtc, NextTimeoutSignalAtUtc)
         VALUES
             (@Id, @InstanceId, @StepId, @AssigneeUserId, 'active', 1,
-             @ArrivedAtUtc, NULL, NULL)
+             @ArrivedAtUtc, NULL, NULL, @DueAtUtc, @NextReminderAtUtc,
+             @EscalateAtUtc, @MaxReminderCount, @ReminderIntervalMinutes, 0, @EscalationRecipientUserId,
+             NULL, @NextTimeoutSignalAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入节点激活时固化的一人一票审批席位。</summary>
+    public static readonly SqlStatement InsertApprovalSlot = new(
+        "workflow.approval_slot.insert",
+        """
+        INSERT INTO fn_workflow_approval_slot
+            (Id, InstanceId, StepId, TodoId, AssigneeUserId, DecisionKey,
+             Revision, CreatedAtUtc, DecidedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @TodoId, @AssigneeUserId, NULL,
+             1, @CreatedAtUtc, NULL)
         """,
         SqlDataScope.Global);
 
@@ -562,6 +599,21 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>写入多人审批动作及其确定性响应快照，避免后续票数变化污染幂等回放。</summary>
+    public static readonly SqlStatement InsertApprovalActionRecord = new(
+        "workflow.approval_action_record.insert",
+        """
+        INSERT INTO fn_workflow_action_record
+            (Id, InstanceId, StepId, TodoId, ActionKey, ActorUserId,
+             InstanceRevision, IdempotencyKey, CommentSummary, CreatedAtUtc,
+             ResultStatusKey, ResultTodoId)
+        VALUES
+            (@Id, @InstanceId, @StepId, @TodoId, @ActionKey, @ActorUserId,
+             @InstanceRevision, @IdempotencyKey, @CommentSummary, @CreatedAtUtc,
+             @ResultStatusKey, @ResultTodoId)
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertExecutionLog = new(
         "workflow.execution_log.insert",
         """
@@ -578,11 +630,20 @@ internal static class WorkflowSql
         "workflow.action_record.find_receipt",
         """
         SELECT action.ActionKey, action.ActorUserId, action.InstanceRevision,
-               action.IdempotencyKey, log.Summary AS RequestHash
+               action.IdempotencyKey, log.Summary AS RequestHash,
+               COALESCE(action.ResultTodoId, result_todo.Id) AS ResultTodoId,
+               action.ResultStatusKey
         FROM fn_workflow_action_record AS action
         LEFT JOIN fn_workflow_execution_log AS log
-          ON log.InstanceId = action.InstanceId
+         ON log.InstanceId = action.InstanceId
          AND log.IdempotencyKey = action.IdempotencyKey
+         AND log.TransitionKey <> 'step.reactivated'
+        LEFT JOIN fn_workflow_execution_log AS result_log
+          ON result_log.InstanceId = action.InstanceId
+         AND result_log.IdempotencyKey = action.IdempotencyKey
+         AND result_log.TransitionKey = 'step.reactivated'
+        LEFT JOIN fn_workflow_todo AS result_todo
+          ON result_todo.StepId = result_log.StepId
         WHERE action.InstanceId = @InstanceId
           AND action.IdempotencyKey = @IdempotencyKey
         """,
@@ -617,6 +678,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>列出当前用户在运行中实例上的活动待办；暂停实例不得出现在我的待办。</summary>
     public static readonly SqlStatement ListMineSqlServer = new(
         "workflow.todo.list_mine.sqlserver",
         """
@@ -628,10 +690,12 @@ internal static class WorkflowSql
         WHERE instance.TenantScopeKey = @TenantScopeKey
           AND todo.AssigneeUserId = @AssigneeUserId
           AND todo.StatusKey = 'active'
+          AND instance.StatusKey = 'active'
         ORDER BY todo.ArrivedAtUtc DESC, todo.Id DESC
         """,
         SqlDataScope.Global);
 
+    /// <summary>列出当前用户在运行中实例上的活动待办；暂停实例不得出现在我的待办。</summary>
     public static readonly SqlStatement ListMineMySql = new(
         "workflow.todo.list_mine.mysql",
         """
@@ -643,6 +707,7 @@ internal static class WorkflowSql
         WHERE instance.TenantScopeKey = @TenantScopeKey
           AND todo.AssigneeUserId = @AssigneeUserId
           AND todo.StatusKey = 'active'
+          AND instance.StatusKey = 'active'
         ORDER BY todo.ArrivedAtUtc DESC, todo.Id DESC
         LIMIT @Take
         """,
@@ -653,13 +718,146 @@ internal static class WorkflowSql
         """
         SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
-               todo.ResultActionKey, todo.Revision, step.NodeKey
+               todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision,
+               step.ApprovalModeKey, step.RequiredApprovalCount, step.ApprovalSlotCount,
+               step.ParallelJoinId, step.ParallelBranchKey, parallelJoin.JoinNodeKey
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
         INNER JOIN fn_workflow_step AS step
             ON step.Id = todo.StepId
+        LEFT JOIN fn_workflow_parallel_join AS parallelJoin
+            ON parallelJoin.Id = step.ParallelJoinId
         WHERE todo.Id = @Id
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信实例内读取当前待办尚未决定的审批席位。</summary>
+    public static readonly SqlStatement FindApprovalSlotByTodo = new(
+        "workflow.approval_slot.find_by_todo",
+        """
+        SELECT slot.Id, slot.Revision
+        FROM fn_workflow_approval_slot AS slot
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = slot.InstanceId
+        WHERE slot.TodoId = @TodoId
+          AND slot.AssigneeUserId = @AssigneeUserId
+          AND slot.DecisionKey IS NULL
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信实例内读取待改派 Todo 对应的审批席位；旧单人步骤没有席位并返回空。</summary>
+    public static readonly SqlStatement FindApprovalSlotForReassignment = new(
+        "workflow.approval_slot.find_for_reassignment",
+        """
+        SELECT slot.Id, slot.Revision
+        FROM fn_workflow_approval_slot AS slot
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = slot.InstanceId
+        WHERE slot.TodoId = @TodoId
+          AND slot.DecisionKey IS NULL
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信实例内检查目标用户是否已经持有同一步骤的审批席位。</summary>
+    public static readonly SqlStatement FindApprovalSlotByStepAssignee = new(
+        "workflow.approval_slot.find_by_step_assignee",
+        """
+        SELECT slot.Id, slot.Revision
+        FROM fn_workflow_approval_slot AS slot
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = slot.InstanceId
+        WHERE slot.StepId = @StepId
+          AND slot.AssigneeUserId = @AssigneeUserId
+          AND slot.Id <> @ExcludedSlotId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按步骤聚合已持久化票数，作为收敛判断的唯一权威。</summary>
+    public static readonly SqlStatement FindApprovalTallyByStep = new(
+        "workflow.approval_slot.find_tally_by_step",
+        """
+        SELECT
+            SUM(CASE WHEN DecisionKey = 'approve' THEN 1 ELSE 0 END) AS ApprovedCount,
+            SUM(CASE WHEN DecisionKey = 'reject' THEN 1 ELSE 0 END) AS RejectedCount,
+            SUM(CASE WHEN DecisionKey IS NULL THEN 1 ELSE 0 END) AS PendingCount
+        FROM fn_workflow_approval_slot
+        WHERE StepId = @StepId
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在实例级 CAS 成功后分配下一步骤执行序号；同一事务内不存在并发写入者。</summary>
+    public static readonly SqlStatement FindNextStepExecutionSequence = new(
+        "workflow.step.find_next_execution_sequence",
+        """
+        SELECT COALESCE(MAX(ExecutionSequence), 0) + 1
+        FROM fn_workflow_step
+        WHERE InstanceId = @InstanceId
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按最近完成顺序列出当前有效链上的可退回人工审批步骤。</summary>
+    public static readonly SqlStatement ListTodoReturnTargetsSqlServer = new(
+        "workflow.todo_return_target.list.sqlserver",
+        """
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+               step.ExecutionSequence,
+               step.StartedAtUtc, step.CompletedAtUtc
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        WHERE step.InstanceId = @InstanceId
+          AND step.NodeTypeKey = 'human.approval'
+          AND step.StatusKey = 'completed'
+          AND step.ExecutionSequence IS NOT NULL
+          AND step.AssignedUserId IS NOT NULL
+          AND step.CompletedAtUtc IS NOT NULL
+          AND instance.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        ORDER BY step.ExecutionSequence DESC, step.Id DESC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按最近完成顺序列出当前有效链上的可退回人工审批步骤。</summary>
+    public static readonly SqlStatement ListTodoReturnTargetsMySql = new(
+        "workflow.todo_return_target.list.mysql",
+        """
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+               step.ExecutionSequence,
+               step.StartedAtUtc, step.CompletedAtUtc
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        WHERE step.InstanceId = @InstanceId
+          AND step.NodeTypeKey = 'human.approval'
+          AND step.StatusKey = 'completed'
+          AND step.ExecutionSequence IS NOT NULL
+          AND step.AssignedUserId IS NOT NULL
+          AND step.CompletedAtUtc IS NOT NULL
+          AND instance.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        ORDER BY step.ExecutionSequence DESC, step.Id DESC
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>提交退回时在可信实例内重新锁定一个有效人工审批目标。</summary>
+    public static readonly SqlStatement FindTodoReturnTarget = new(
+        "workflow.todo_return_target.find",
+        """
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+               step.ExecutionSequence,
+               step.StartedAtUtc, step.CompletedAtUtc
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        WHERE step.Id = @TargetStepId
+          AND step.InstanceId = @InstanceId
+          AND step.NodeTypeKey = 'human.approval'
+          AND step.StatusKey = 'completed'
+          AND step.ExecutionSequence IS NOT NULL
+          AND step.AssignedUserId IS NOT NULL
+          AND step.CompletedAtUtc IS NOT NULL
+          AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
@@ -675,9 +873,55 @@ internal static class WorkflowSql
         WHERE todo.InstanceId = @InstanceId
           AND todo.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS earlier
+              WHERE earlier.InstanceId = todo.InstanceId
+                AND earlier.StatusKey = 'active'
+                AND earlier.Id < todo.Id)
         """,
         SqlDataScope.Global);
 
+    /// <summary>读取实例当前活动多人审批步骤的权威票数进度。</summary>
+    public static readonly SqlStatement FindActiveStepApprovalProgressByInstance = new(
+        "workflow.instance.find_active_step_approval_progress",
+        """
+        SELECT step.NodeKey,
+               step.ApprovalModeKey,
+               step.RequiredApprovalCount,
+               COALESCE(SUM(CASE WHEN slot.DecisionKey = 'approve' THEN 1 ELSE 0 END), 0) AS ApprovedCount,
+               COALESCE(SUM(CASE WHEN slot.DecisionKey = 'reject' THEN 1 ELSE 0 END), 0) AS RejectedCount,
+               COALESCE(SUM(CASE WHEN slot.DecisionKey IS NULL THEN 1 ELSE 0 END), 0) AS PendingCount
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        LEFT JOIN fn_workflow_approval_slot AS slot ON slot.StepId = step.Id
+        WHERE step.InstanceId = @InstanceId
+          AND step.StatusKey = 'active'
+          AND step.ApprovalModeKey IS NOT NULL
+          AND step.ApprovalModeKey <> 'single'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        GROUP BY step.NodeKey, step.ApprovalModeKey, step.RequiredApprovalCount
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取实例详情所需的活动待办超时摘要。</summary>
+    public static readonly SqlStatement FindActiveTodoTimeoutByInstance = new(
+        "workflow.todo.find_active_timeout_by_instance",
+        """
+        SELECT todo.Id, todo.DueAtUtc, todo.ReminderCount, todo.EscalatedAtUtc
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        WHERE todo.InstanceId = @InstanceId
+          AND todo.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS earlier
+              WHERE earlier.InstanceId = todo.InstanceId
+                AND earlier.StatusKey = 'active'
+                AND earlier.Id < todo.Id)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取运行或暂停实例上仍活动的步骤与待办，供生命周期转换保留原节点。</summary>
     public static readonly SqlStatement FindActiveWorkByInstance = new(
         "workflow.instance.find_active_work",
         """
@@ -689,8 +933,13 @@ internal static class WorkflowSql
         WHERE todo.InstanceId = @InstanceId
           AND todo.StatusKey = 'active'
           AND step.StatusKey = 'active'
-          AND instance.StatusKey = 'active'
+          AND instance.StatusKey IN ('active', 'suspended')
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS earlier
+              WHERE earlier.InstanceId = todo.InstanceId
+                AND earlier.StatusKey = 'active'
+                AND earlier.Id < todo.Id)
         """,
         SqlDataScope.Global);
 
@@ -750,6 +999,91 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>以席位修订号保护一人一票决定，防止同一办理人重复投票。</summary>
+    public static readonly SqlStatement DecideApprovalSlotWithRevision = new(
+        "workflow.approval_slot.decide_with_revision",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET DecisionKey = @DecisionKey,
+            DecidedAtUtc = @DecidedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND StepId = @StepId
+          AND TodoId = @TodoId
+          AND AssigneeUserId = @AssigneeUserId
+          AND DecisionKey IS NULL
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>步骤尚未收敛时仅推进修订号，序列化同一步骤的并发投票。</summary>
+    public static readonly SqlStatement AdvanceApprovalStepWithRevision = new(
+        "workflow.approval_step.advance_with_revision",
+        """
+        UPDATE fn_workflow_step
+        SET Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>步骤收敛后关闭尚未投票的其他个人待办。</summary>
+    public static readonly SqlStatement CancelPendingApprovalTodosByStep = new(
+        "workflow.approval_todo.cancel_pending_by_step",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            ResultActionKey = 'cancel',
+            Revision = Revision + 1
+        WHERE StepId = @StepId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>步骤收敛后取消尚未投票的审批席位，保证票数事实不再变化。</summary>
+    public static readonly SqlStatement CancelPendingApprovalSlotsByStep = new(
+        "workflow.approval_slot.cancel_pending_by_step",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET DecisionKey = 'cancelled',
+            DecidedAtUtc = @DecidedAtUtc,
+            Revision = Revision + 1
+        WHERE StepId = @StepId
+          AND DecisionKey IS NULL
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>把发起退回的当前活动步骤关闭为 returned。</summary>
+    public static readonly SqlStatement ReturnStepWithRevision = new(
+        "workflow.step.return_with_revision",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = 'returned',
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>从目标开始失效旧执行链，避免旧目标完成记录与新步骤尝试重复成为候选。</summary>
+    public static readonly SqlStatement RollBackCompletedStepsFromTarget = new(
+        "workflow.step.rollback_completed_from_target",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = 'rolled_back',
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'completed'
+          AND ExecutionSequence >= @TargetExecutionSequence
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement CompleteInstanceWithRevision = new(
         "workflow.instance.complete_with_revision",
         """
@@ -773,6 +1107,55 @@ internal static class WorkflowSql
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
           AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在租户作用域和待办修订号保护下改派活动待办。</summary>
+    public static readonly SqlStatement ReassignTodoWithRevision = new(
+        "workflow.todo.reassign_with_revision",
+        """
+        UPDATE fn_workflow_todo
+        SET AssigneeUserId = @AssigneeUserId,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND AssigneeUserId = @ExpectedAssigneeUserId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.StatusKey = 'active'
+                AND instance.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>以实例行为锁串行多人审批和生命周期动作，但不提前改变对外修订号。</summary>
+    public static readonly SqlStatement LockInstanceForMultiApproval = new(
+        "workflow.instance.lock_for_multi_approval",
+        """
+        UPDATE fn_workflow_instance
+        SET Revision = Revision
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey IN ('active', 'suspended')
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>同步改派尚未投票的审批席位，保持 Todo 办理人与一人一票身份一致。</summary>
+    public static readonly SqlStatement ReassignApprovalSlotWithRevision = new(
+        "workflow.approval_slot.reassign_with_revision",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET AssigneeUserId = @AssigneeUserId,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TodoId = @TodoId
+          AND AssigneeUserId = @ExpectedAssigneeUserId
+          AND DecisionKey IS NULL
           AND Revision = @Revision
         """,
         SqlDataScope.Global);
@@ -811,6 +1194,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>取消运行中或已暂停实例，并释放执行租约；终态不得命中。</summary>
     public static readonly SqlStatement CancelInstanceWithRevision = new(
         "workflow.instance.cancel_with_revision",
         """
@@ -824,8 +1208,387 @@ internal static class WorkflowSql
             Revision = Revision + 1
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey IN ('active', 'suspended')
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 把运行中的实例暂停并释放租约；步骤和待办保持活动以便恢复后继续。
+    /// </summary>
+    public static readonly SqlStatement SuspendInstanceWithRevision = new(
+        "workflow.instance.suspend_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET StatusKey = 'suspended',
+            LeaseOwnerKey = NULL,
+            LeaseExpiresAtUtc = NULL,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
           AND StatusKey = 'active'
           AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 把已暂停实例恢复为运行中，并从原活动节点继续，不得新建步骤或待办。
+    /// </summary>
+    public static readonly SqlStatement ResumeInstanceWithRevision = new(
+        "workflow.instance.resume_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET StatusKey = 'active',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey = 'suspended'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>查询原待办上的活动加签链。</summary>
+    public static readonly SqlStatement FindActiveCountersignChainByOriginTodo = new(
+        "workflow.countersign_chain.find_active_by_origin_todo",
+        """
+        SELECT chain.Id, chain.InstanceId, chain.StepId, chain.OriginTodoId,
+               chain.DirectionKey, chain.StatusKey, chain.CreatedByUserId, chain.CreatedAtUtc
+        FROM fn_workflow_countersign_chain AS chain
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = chain.InstanceId
+        WHERE chain.OriginTodoId = @OriginTodoId
+          AND chain.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按待办标识查询所属加签项。</summary>
+    public static readonly SqlStatement FindCountersignItemByTodoId = new(
+        "workflow.countersign_item.find_by_todo",
+        """
+        SELECT item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey, chain.DirectionKey, chain.OriginTodoId,
+               chain.InstanceId, chain.StepId, chain.StatusKey AS ChainStatusKey
+        FROM fn_workflow_countersign_item AS item
+        INNER JOIN fn_workflow_countersign_chain AS chain ON chain.Id = item.ChainId
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = chain.InstanceId
+        WHERE item.TodoId = @TodoId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>列出加签链的全部有序加签项。</summary>
+    public static readonly SqlStatement ListCountersignItemsByChain = new(
+        "workflow.countersign_item.list_by_chain",
+        """
+        SELECT item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey
+        FROM fn_workflow_countersign_item AS item
+        WHERE item.ChainId = @ChainId
+        ORDER BY item.SequenceNo
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>插入新的加签链。</summary>
+    public static readonly SqlStatement InsertCountersignChain = new(
+        "workflow.countersign_chain.insert",
+        """
+        INSERT INTO fn_workflow_countersign_chain
+            (Id, InstanceId, StepId, OriginTodoId, DirectionKey, StatusKey,
+             CreatedByUserId, CreatedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @OriginTodoId, @DirectionKey, 'active',
+             @CreatedByUserId, @CreatedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>插入新的加签项。</summary>
+    public static readonly SqlStatement InsertCountersignItem = new(
+        "workflow.countersign_item.insert",
+        """
+        INSERT INTO fn_workflow_countersign_item
+            (Id, ChainId, SequenceNo, AssigneeUserId, TodoId, StatusKey)
+        VALUES
+            (@Id, @ChainId, @SequenceNo, @AssigneeUserId, @TodoId, @StatusKey)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>把原办理人待办挂起为等待前加签。</summary>
+    public static readonly SqlStatement SuspendOriginTodoForBeforeCountersign = new(
+        "workflow.todo.suspend_for_before_countersign",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'awaiting_before_countersign',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND AssigneeUserId = @AssigneeUserId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.TenantScopeKey = @TenantScopeKey
+                AND instance.StatusKey = 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>前加签完成后恢复原始办理人待办。</summary>
+    public static readonly SqlStatement ReactivateOriginTodoAfterBeforeCountersign = new(
+        "workflow.todo.reactivate_after_before_countersign",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'active',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND StatusKey = 'awaiting_before_countersign'
+          AND EXISTS (
+              SELECT 1
+              FROM fn_workflow_instance AS instance
+              WHERE instance.Id = fn_workflow_todo.InstanceId
+                AND instance.TenantScopeKey = @TenantScopeKey
+                AND instance.StatusKey = 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>更新加签项状态并关联待办。</summary>
+    public static readonly SqlStatement ActivateCountersignItem = new(
+        "workflow.countersign_item.activate",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = @StatusKey,
+            TodoId = @TodoId
+        WHERE Id = @Id
+          AND ChainId = @ChainId
+          AND StatusKey = 'pending'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>完成加签项。</summary>
+    public static readonly SqlStatement CompleteCountersignItem = new(
+        "workflow.countersign_item.complete",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = 'completed'
+        WHERE Id = @Id
+          AND ChainId = @ChainId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>取消加签链。</summary>
+    public static readonly SqlStatement CancelCountersignChain = new(
+        "workflow.countersign_chain.cancel",
+        """
+        UPDATE fn_workflow_countersign_chain
+        SET StatusKey = 'cancelled'
+        WHERE Id = @Id
+          AND OriginTodoId = @OriginTodoId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>取消加签链下仍未完成的加签项。</summary>
+    public static readonly SqlStatement CancelPendingCountersignItems = new(
+        "workflow.countersign_item.cancel_pending",
+        """
+        UPDATE fn_workflow_countersign_item
+        SET StatusKey = 'cancelled'
+        WHERE ChainId = @ChainId
+          AND StatusKey IN ('pending', 'active')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>完成加签链。</summary>
+    public static readonly SqlStatement CompleteCountersignChain = new(
+        "workflow.countersign_chain.complete",
+        """
+        UPDATE fn_workflow_countersign_chain
+        SET StatusKey = 'completed'
+        WHERE Id = @Id
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>查询加签链中下一个待激活的加签项。</summary>
+    public static readonly SqlStatement FindNextPendingCountersignItem = new(
+        "workflow.countersign_item.find_next_pending",
+        """
+        SELECT TOP (1) item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey
+        FROM fn_workflow_countersign_item AS item
+        WHERE item.ChainId = @ChainId
+          AND item.StatusKey = 'pending'
+        ORDER BY item.SequenceNo
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>查询加签链中下一个待激活的加签项（MySQL）。</summary>
+    public static readonly SqlStatement FindNextPendingCountersignItemMySql = new(
+        "workflow.countersign_item.find_next_pending_mysql",
+        """
+        SELECT item.Id, item.ChainId, item.SequenceNo, item.AssigneeUserId,
+               item.TodoId, item.StatusKey
+        FROM fn_workflow_countersign_item AS item
+        WHERE item.ChainId = @ChainId
+          AND item.StatusKey = 'pending'
+        ORDER BY item.SequenceNo
+        LIMIT 1
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入并行汇合状态记录。</summary>
+    public static readonly SqlStatement InsertParallelJoin = new(
+        "workflow.parallel_join.insert",
+        """
+        INSERT INTO fn_workflow_parallel_join
+            (Id, InstanceId, ForkNodeKey, JoinNodeKey, GatewayTypeKey, RequiredBranchCount,
+             ArrivedBranchCount, StatusKey, Revision, CreatedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @ForkNodeKey, @JoinNodeKey, @GatewayTypeKey, @RequiredBranchCount,
+             0, 'waiting', 1, @CreatedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>幂等写入并行分支到达事实。</summary>
+    public static readonly SqlStatement InsertParallelBranchArrival = new(
+        "workflow.parallel_branch_arrival.insert",
+        """
+        INSERT INTO fn_workflow_parallel_branch_arrival
+            (Id, ParallelJoinId, BranchKey, ArrivedAtUtc)
+        VALUES
+            (@Id, @ParallelJoinId, @BranchKey, @ArrivedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>原子递增汇合到达分支数，并在全部到达时完成汇合。</summary>
+    public static readonly SqlStatement IncrementParallelJoinArrival = new(
+        "workflow.parallel_join.increment_arrival",
+        """
+        UPDATE fn_workflow_parallel_join
+        SET ArrivedBranchCount = ArrivedBranchCount + 1,
+            Revision = Revision + 1,
+            StatusKey = CASE
+                WHEN ArrivedBranchCount + 1 >= RequiredBranchCount THEN 'completed'
+                ELSE StatusKey END,
+            CompletedAtUtc = CASE
+                WHEN ArrivedBranchCount + 1 >= RequiredBranchCount THEN @CompletedAtUtc
+                ELSE CompletedAtUtc END
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'waiting'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取实例上的并行汇合状态。</summary>
+    public static readonly SqlStatement FindParallelJoinById = new(
+        "workflow.parallel_join.find_by_id",
+        """
+        SELECT joinState.Id, joinState.InstanceId, joinState.ForkNodeKey, joinState.JoinNodeKey,
+               joinState.GatewayTypeKey, joinState.RequiredBranchCount, joinState.ArrivedBranchCount,
+               joinState.StatusKey, joinState.Revision, joinState.CreatedAtUtc, joinState.CompletedAtUtc
+        FROM fn_workflow_parallel_join AS joinState
+        WHERE joinState.Id = @Id
+          AND joinState.InstanceId = @InstanceId
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>列出实例上的并行汇合状态及分支到达情况。</summary>
+    public static readonly SqlStatement ListParallelJoinsByInstance = new(
+        "workflow.parallel_join.list_by_instance",
+        """
+        SELECT joinState.Id, joinState.ForkNodeKey, joinState.JoinNodeKey, joinState.GatewayTypeKey,
+               joinState.RequiredBranchCount, joinState.ArrivedBranchCount, joinState.StatusKey,
+               arrival.BranchKey, arrival.ArrivedAtUtc
+        FROM fn_workflow_parallel_join AS joinState
+        LEFT JOIN fn_workflow_parallel_branch_arrival AS arrival
+            ON arrival.ParallelJoinId = joinState.Id
+        WHERE joinState.InstanceId = @InstanceId
+        ORDER BY joinState.CreatedAtUtc, arrival.BranchKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>取消实例上仍在等待的并行汇合状态。</summary>
+    public static readonly SqlStatement CancelWaitingParallelJoinsByInstance = new(
+        "workflow.parallel_join.cancel_waiting_by_instance",
+        """
+        UPDATE fn_workflow_parallel_join
+        SET StatusKey = 'cancelled',
+            Revision = Revision + 1,
+            CompletedAtUtc = @CompletedAtUtc
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'waiting'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入已经同步完成的并行网关步骤。</summary>
+    public static readonly SqlStatement InsertCompletedParallelGatewayStep = new(
+        "workflow.step.insert_completed_parallel_gateway",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence,
+             ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'gateway.parallel', 'completed', NULL,
+             NULL, 0, 1, @ExecutionSequence,
+             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, @CompletedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入携带并行上下文的人工审批步骤。</summary>
+    public static readonly SqlStatement InsertParallelApprovalStep = new(
+        "workflow.parallel_approval_step.insert",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence,
+             ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
+             ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+             NULL, 0, 1, @ExecutionSequence,
+             @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
+             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按实例和汇合节点键查找仍在等待的并行汇合状态。</summary>
+    public static readonly SqlStatement FindWaitingParallelJoinByInstanceAndJoinNode = new(
+        "workflow.parallel_join.find_waiting_by_instance_and_join_node",
+        """
+        SELECT joinState.Id
+        FROM fn_workflow_parallel_join AS joinState
+        WHERE joinState.InstanceId = @InstanceId
+          AND joinState.JoinNodeKey = @JoinNodeKey
+          AND joinState.StatusKey = 'waiting'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>关闭实例上全部活动待办，供并行分支驳回或取消时收敛兄弟分支。</summary>
+    public static readonly SqlStatement CancelAllActiveTodosByInstance = new(
+        "workflow.todo.cancel_all_active_by_instance",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            ResultActionKey = @ResultActionKey,
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>关闭实例上全部活动步骤，供并行分支驳回或取消时收敛兄弟分支。</summary>
+    public static readonly SqlStatement CancelAllActiveStepsByInstance = new(
+        "workflow.step.cancel_all_active_by_instance",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = @StatusKey,
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'active'
         """,
         SqlDataScope.Global);
 }

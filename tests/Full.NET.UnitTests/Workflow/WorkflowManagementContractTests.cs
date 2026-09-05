@@ -86,4 +86,36 @@ public sealed class WorkflowManagementContractTests
         StringAssert.Contains(WorkflowSql.IsInstanceParticipant.Text, "fn_workflow_cc");
         StringAssert.Contains(WorkflowSql.IsInstanceParticipant.Text, "RecipientUserId");
     }
+
+    /// <summary>退回请求必须显式携带目标步骤与并发修订号，禁止把实例或租户作用域交给客户端。</summary>
+    [TestMethod]
+    public void Todo_return_request_exposes_only_client_owned_fields()
+    {
+        var requestType = WorkflowAssembly.GetType(
+            "Full.NET.Modules.Workflow.Features.ManageMyTodos.ReturnWorkflowTodoRequest",
+            throwOnError: false);
+
+        Assert.IsNotNull(requestType, "Missing todo return request contract.");
+        var propertyNames = requestType.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        CollectionAssert.IsSubsetOf(
+            new[] { "TargetStepId", "ExpectedRevision", "FieldPatch", "Comment", "IdempotencyKey" },
+            propertyNames.ToArray());
+        Assert.HasCount(5, propertyNames);
+        Assert.IsFalse(propertyNames.Contains("InstanceId"));
+        Assert.IsFalse(propertyNames.Contains("TenantScopeKey"));
+    }
+
+    /// <summary>合法目标查询必须只选择同实例当前有效链上的已完成人工审批步骤。</summary>
+    [TestMethod]
+    public void Todo_return_target_sql_fails_closed_for_automatic_and_rolled_back_steps()
+    {
+        StringAssert.Contains(WorkflowSql.ListTodoReturnTargetsSqlServer.Text, "step.InstanceId = @InstanceId");
+        StringAssert.Contains(WorkflowSql.ListTodoReturnTargetsSqlServer.Text, "step.NodeTypeKey = 'human.approval'");
+        StringAssert.Contains(WorkflowSql.ListTodoReturnTargetsSqlServer.Text, "step.StatusKey = 'completed'");
+        StringAssert.Contains(WorkflowSql.FindTodoReturnTarget.Text, "step.Id = @TargetStepId");
+        StringAssert.Contains(WorkflowSql.FindTodoReturnTarget.Text, "step.InstanceId = @InstanceId");
+    }
 }

@@ -5,7 +5,7 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class WorkflowModuleArchitectureTests
 {
-    /// <summary>验证 Workflow 只引用批准的 Building Block 与 Identity Contract。</summary>
+    /// <summary>验证 Workflow 只引用批准的 Building Block、Identity Contract 与自身稳定契约。</summary>
     [TestMethod]
     public void Workflow_module_references_only_approved_building_blocks_and_identity_contracts()
     {
@@ -32,6 +32,7 @@ public sealed class WorkflowModuleArchitectureTests
                 "Full.NET.Hosting",
                 "Full.NET.Modularity",
                 "Full.NET.Modules.Identity.Contracts",
+                "Full.NET.Modules.Workflow.Contracts",
             },
             references);
         Assert.IsFalse(document.Descendants("PackageReference").Any());

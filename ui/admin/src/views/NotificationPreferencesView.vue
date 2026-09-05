@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
@@ -39,9 +39,12 @@ const saving = ref(false);
 const deletingId = ref<string>();
 const pendingDeleteId = ref<string>();
 const verificationCodes = ref<Record<string, string>>({});
+const resendAvailableAt = ref<Record<string, string>>({});
+const clockNow = ref(Date.now());
 const verifyingId = ref<string>();
 const sendingId = ref<string>();
 const errorMessage = ref<string>();
+let resendClockTimer: ReturnType<typeof setInterval> | undefined;
 const canUpdate = computed(() => session.can('notifications.preferences.update'));
 const availableProfiles = computed(() => profiles.value.filter(profile =>
   profile.providerTypeKey === 'email.smtp'
@@ -49,7 +52,18 @@ const availableProfiles = computed(() => profiles.value.filter(profile =>
   && profile.latestPublishedVersionId !== null
 ));
 
-onMounted(load);
+onMounted(() => {
+  resendClockTimer = setInterval(() => {
+    clockNow.value = Date.now();
+  }, 1000);
+  void load();
+});
+
+onUnmounted(() => {
+  if (resendClockTimer) {
+    clearInterval(resendClockTimer);
+  }
+});
 
 /** 同时加载可用邮件 Profile 与本人端点，任何失败都不伪造空成功状态。 */
 async function load(): Promise<void> {
@@ -122,14 +136,41 @@ async function removeEndpoint(endpointId: string): Promise<void> {
   }
 }
 
+/** 计算指定端点距离允许重发还剩多少秒；未进入冷却时返回 0。 */
+function resendRemainingSeconds(endpointId: string): number {
+  const availableAt = resendAvailableAt.value[endpointId];
+  if (!availableAt) {
+    return 0;
+  }
+  const remaining = Math.ceil((Date.parse(availableAt) - clockNow.value) / 1000);
+  return Math.max(0, remaining);
+}
+
+/** 发送按钮在冷却窗口内禁用，避免客户端绕过服务端 1 分钟限流。 */
+function isResendCooldown(endpointId: string): boolean {
+  return resendRemainingSeconds(endpointId) > 0;
+}
+
+/** 首次发送与冷却结束后的重发使用不同文案，冷却中展示倒计时。 */
+function sendCodeLabel(endpointId: string): string {
+  const remaining = resendRemainingSeconds(endpointId);
+  if (remaining > 0) {
+    return t('notificationPreferences.resendCountdown', { seconds: remaining });
+  }
+  return resendAvailableAt.value[endpointId]
+    ? t('notificationPreferences.resendCode')
+    : t('notificationPreferences.sendCode');
+}
+
 async function sendVerification(endpointId: string): Promise<void> {
-  if (sendingId.value || !canUpdate.value) {
+  if (sendingId.value || isResendCooldown(endpointId) || !canUpdate.value) {
     return;
   }
   sendingId.value = endpointId;
   errorMessage.value = undefined;
   try {
-    await sendMyRecipientEndpointVerification(endpointId);
+    const response = await sendMyRecipientEndpointVerification(endpointId);
+    resendAvailableAt.value[endpointId] = response.resendAvailableAtUtc;
     ElMessage.success(t('notificationPreferences.sendCodeSuccess'));
   } catch {
     errorMessage.value = t('notificationPreferences.operationFailed');
@@ -151,6 +192,7 @@ async function verifyEndpoint(endpointId: string): Promise<void> {
       item.id === endpointId ? verified : item
     );
     verificationCodes.value[endpointId] = '';
+    delete resendAvailableAt.value[endpointId];
     ElMessage.success(t('notificationPreferences.verifySuccess'));
   } catch {
     errorMessage.value = t('notificationPreferences.operationFailed');
@@ -293,10 +335,11 @@ function profileLabel(profileVersionId: string): string {
               />
               <ElButton
                 :loading="sendingId === endpoint.id"
+                :disabled="isResendCooldown(endpoint.id)"
                 data-testid="notification-preferences-send-code"
                 @click="sendVerification(endpoint.id)"
               >
-                {{ t('notificationPreferences.sendCode') }}
+                {{ sendCodeLabel(endpoint.id) }}
               </ElButton>
               <ElButton
                 type="primary"

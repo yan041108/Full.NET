@@ -2,6 +2,17 @@
   "schemaVersion": 1,
   "items": [
     {
+      "ruleId": "FNSAFETY003",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/109_WorkflowSuspendedInstanceOccupancy.sql",
+      "line": 19,
+      "actual": "DROP COLUMN",
+      "reason": "109 仅在旧计算列定义不含 suspended 时删除并按新表达式立即重建；由 Workflow 暂停占用双库部分恢复测试覆盖。",
+      "risk": "计算列短暂移除会同步移除其索引，迁移失败时需重跑 109；执行前必须确认实例表备份可恢复。",
+      "backupVerified": true,
+      "reviewer": "workflow-timeout-escalation-followup",
+      "removalMilestone": "M1.0"
+    },
+    {
       "ruleId": "FNSAFETY001",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/008_UuidBinaryExpand.sql",
       "line": 16,

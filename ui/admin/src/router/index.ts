@@ -234,6 +234,11 @@ export function createAppRouter(
         component: () => import('../views/SerialNumberRulesView.vue')
       },
       {
+        name: 'data-approval-requests',
+        path: '/data-approvals/requests',
+        component: () => import('../views/DataApprovalRequestsView.vue')
+      },
+      {
         name: 'observability-log-files',
         path: '/observability/log-files',
         component: () => import('../views/ObservabilityLogFilesView.vue')
@@ -282,6 +287,11 @@ export function createAppRouter(
         name: 'workflow-instances',
         path: '/workflow/instances',
         component: () => import('../views/WorkflowInstancesView.vue')
+      },
+      {
+        name: 'workflow-recovery-tasks',
+        path: '/workflow/recovery-tasks',
+        component: () => import('../views/WorkflowRecoveryTasksView.vue')
       },
       { path: '/403', component: loadStatusView, props: { code: '403' } },
       { path: '/404', component: loadStatusView, props: { code: '404' } },

@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 288);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 288);
+  assert.equal(manifest.entries.length, 298);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 298);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -279,6 +279,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'workflow-definitions',
       'workflow-forms',
       'workflow-instances',
+      'workflow-recovery-tasks',
       'workflow-todos'
     ]
   );
@@ -288,7 +289,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    288
+    298
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

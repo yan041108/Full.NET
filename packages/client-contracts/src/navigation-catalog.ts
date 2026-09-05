@@ -280,6 +280,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/workflow/instances'
   },
   {
+    componentKey: 'workflow-recovery-tasks',
+    routeName: 'workflow-recovery-tasks',
+    path: '/workflow/recovery-tasks'
+  },
+  {
     componentKey: 'layout',
     routeName: 'layout',
     path: '/'

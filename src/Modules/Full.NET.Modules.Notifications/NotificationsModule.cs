@@ -25,6 +25,7 @@ namespace Full.NET.Modules.Notifications;
 /// </summary>
 /// <remarks>
 /// 模块依赖 Identity 解析用户目录，并依赖 Organization 校验机构受众；Host 与 Tenant 站内信共用一张表，作用域只来自受信会话。
+/// Workflow 只作为可选事件生产者；未启用 Workflow 时通知中心仍可独立提供公告、站内信和渠道投递。
 /// Delivery HostedService 只在 Worker 的 <see cref="AddBackgroundServices"/> 注册，避免 API 进程启动领取循环。
 /// </remarks>
 public sealed class NotificationsModule : IFullNetModule
@@ -45,6 +46,9 @@ public sealed class NotificationsModule : IFullNetModule
 
     /// <summary>获取通知中心运行所需的模块依赖。</summary>
     public IReadOnlyCollection<string> Dependencies => ["Identity", "Organization"];
+
+    /// <summary>获取仅用于异步提醒投影的可选事件生产者模块。</summary>
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
 
     public void AddServices(
         IServiceCollection services,
@@ -76,6 +80,7 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.SendTenantInboxMessages.TenantInboxMessageService>();
         services.TryAddScoped<Features.ProjectInboxFromIntent.InboxIntentProjectionService>();
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateService>();
+        services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
         services.TryAddScoped<Features.ManageProviderProfiles.NotificationProviderProfileService>();
         services.TryAddScoped<Features.ManageBindings.NotificationBindingService>();
@@ -164,11 +169,20 @@ public sealed class NotificationsModule : IFullNetModule
     {
         services.TryAddSingleton<Providers.INotificationProviderTypeCatalog, Providers.NotificationProviderTypeCatalog>();
         services.TryAddScoped<Features.ProjectInboxFromIntent.InboxIntentProjectionService>();
+        services.TryAddScoped<Features.CreateNotificationIntents.NotificationRecipientDirectoryResolver>();
+        services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
+        services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationTemplateProvisioner>();
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationProjectionService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             Features.ProjectWorkflowNotifications.WorkflowTodoAssignedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowTodoReminderRequestedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            Features.ProjectWorkflowNotifications.WorkflowTodoEscalationRequestedIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             Features.ProjectWorkflowNotifications.WorkflowInstanceCompletedIntegrationEventHandler>());

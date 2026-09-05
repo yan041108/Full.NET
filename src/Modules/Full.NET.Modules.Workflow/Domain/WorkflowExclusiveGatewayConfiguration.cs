@@ -72,6 +72,17 @@ internal static class WorkflowExclusiveGatewayConfiguration
         return true;
     }
 
+    /// <summary>读取单个带闭合条件的网关分支，供排他与包容网关复用。</summary>
+    /// <param name="element">分支 JSON。</param>
+    /// <param name="fields">可选的表单字段索引。</param>
+    /// <param name="branch">解析后的分支。</param>
+    /// <returns>分支键、目标和条件均有效时返回 <see langword="true"/>。</returns>
+    internal static bool TryReadConditionalBranch(
+        JsonElement element,
+        IReadOnlyDictionary<string, WorkflowFormField>? fields,
+        out WorkflowExclusiveGatewayBranch? branch) =>
+        TryReadBranch(element, fields, out branch);
+
     /// <summary>读取单个有序分支。</summary>
     /// <param name="element">分支 JSON。</param>
     /// <param name="fields">可选的表单字段索引。</param>

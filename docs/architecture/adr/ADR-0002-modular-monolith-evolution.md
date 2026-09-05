@@ -58,6 +58,7 @@ Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的�
 
 1. **编译闭包**：[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 的 Composition 项目引用全部 12 个官方模块实现，保证 Admin.NET 对标、集成测试与 Architecture 扫描的完整闭包；这不是“第二个精简解决方案”。
 2. **运行时裁剪**：通过 `FullNet:Modules:Preset`（`Full` 默认 / `Minimal` 快速底座 / `Platform` 平台底座 / `Content` 内容底座）或 `FullNet:Modules:Enabled` 显式列表，控制 Api/Worker/Migrator **注册** 哪些模块；未启用模块不得暴露生产 HTTP Endpoint（Architecture 门禁验证）。
+   - `Dependencies` 表示启用集必须闭合的运行时依赖；`OptionalContractDependencies` 只允许登记“生产者缺失时可安全退化为无事件输入”的事件消费或最小只读契约，不得用于同步服务解析、跨模块数据库访问或绕开运行时依赖校验。
 3. **预设模块集**：
    - `Minimal` = Identity + Tenancy + Settings + Organization
    - `Platform` = Minimal + Auditing + Notifications + Jobs + Messaging

@@ -10,6 +10,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
+using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Serialization;
 using Microsoft.Extensions.Options;
 
@@ -24,7 +25,10 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
 /// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
+/// <param name="approvalActivationWriter">人工审批等待点激活写入器。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
+/// <param name="transitionExecutor">审批迁移执行器。</param>
+/// <param name="parallelJoinCoordinator">并行汇合状态协调器。</param>
 internal sealed class WorkflowInstanceManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -34,7 +38,11 @@ internal sealed class WorkflowInstanceManagementService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter,
-    WorkflowNotificationOutboxPublisher notificationPublisher)
+    WorkflowApprovalActivationWriter approvalActivationWriter,
+    WorkflowApprovalAssigneeCoordinator approvalAssigneeCoordinator,
+    WorkflowNotificationOutboxPublisher notificationPublisher,
+    WorkflowApprovalTransitionExecutor transitionExecutor,
+    WorkflowParallelJoinCoordinator parallelJoinCoordinator)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
     /// <param name="actorUserId">发起人的稳定用户标识。</param>
@@ -76,15 +84,19 @@ internal sealed class WorkflowInstanceManagementService(
 
         var initialValues = request.InitialValues.EnumerateObject()
             .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
-        if (!runtimePlan!.TryResolveStart(initialValues, out var startTransition) ||
-            startTransition.NextApprovalNodeKey is not { } approvalNodeKey)
+        if (!runtimePlan!.TryResolveStart(initialValues, out var startTransition))
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var requiresApprovalActivation = startTransition.ParallelFork is null &&
+            startTransition.NextApprovalNodeKey is null;
+        if (requiresApprovalActivation)
         {
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
         var instanceId = idGenerator.NewId();
-        var stepId = idGenerator.NewId();
-        var todoId = idGenerator.NewId();
         var now = clock.UtcNow;
         var requestHash = HashStartRequest(request);
         try
@@ -99,13 +111,80 @@ internal sealed class WorkflowInstanceManagementService(
                         ("BusinessType", request.BusinessType.Trim()),
                         ("BusinessId", request.BusinessId.Trim()),
                         ("StartedById", actorUserId), ("StartedAtUtc", now)), token).ConfigureAwait(false);
-                await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
-                    Parameters(("Id", stepId), ("InstanceId", instanceId),
-                        ("NodeKey", approvalNodeKey), ("AssignedUserId", actorUserId),
-                        ("StartedAtUtc", now)), token).ConfigureAwait(false);
-                await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
-                    Parameters(("Id", todoId), ("InstanceId", instanceId), ("StepId", stepId),
-                        ("AssigneeUserId", actorUserId), ("ArrivedAtUtc", now)), token).ConfigureAwait(false);
+                var approvalExecutionSequence = 1L;
+                Guid firstTodoId;
+                Guid firstStepId;
+                if (startTransition.ParallelFork is not null)
+                {
+                    var execution = await transitionExecutor.ExecuteAsync(
+                        new WorkflowInstanceRecord(
+                            instanceId, scope.TenantId, scope.ScopeKey, scope.TenantScopeKey,
+                            asset.DefinitionVersionId, asset.FormVersionId,
+                            request.BusinessType.Trim(), request.BusinessId.Trim(),
+                            "active", 1, actorUserId, now,
+                            null, null, null, null, null, null),
+                        scope,
+                        runtimePlan,
+                        startTransition,
+                        initialValues,
+                        approvalExecutionSequence,
+                        now,
+                        actorUserId,
+                        cancellationToken: token).ConfigureAwait(false);
+                    if (!execution.IsSuccess || execution.Value?.FirstTodoId is not { } parallelFirstTodoId)
+                    {
+                        return Result<WorkflowInstanceResponse>.Failure(
+                            execution.Error ?? WorkflowTransitionExecutionErrors.InvalidTransition());
+                    }
+
+                    firstTodoId = parallelFirstTodoId;
+                    var activeTodo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+                        WorkflowSql.FindActiveTodoByInstance,
+                        Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+                        token).ConfigureAwait(false);
+                    if (activeTodo is null)
+                    {
+                        return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+                    }
+
+                    firstStepId = activeTodo.StepId;
+                }
+                else
+                {
+                    approvalExecutionSequence = await automaticTransitionWriter.WriteAsync(
+                        instanceId,
+                        scope.TenantScopeKey,
+                        startTransition.AutomaticNodes,
+                        1L,
+                        now,
+                        token).ConfigureAwait(false);
+                    var assignees = await approvalAssigneeCoordinator.ResolveAsync(
+                        startTransition.AssigneePolicy,
+                        startTransition.ApprovalPolicy,
+                        scope,
+                        actorUserId,
+                        token).ConfigureAwait(false);
+                    if (!assignees.IsSuccess)
+                    {
+                        return Result<WorkflowInstanceResponse>.Failure(assignees.Error!);
+                    }
+
+                    var approvalNodeKey = startTransition.NextApprovalNodeKey!;
+                    var activation = await approvalActivationWriter.WriteAsync(
+                        instanceId,
+                        scope.TenantScopeKey,
+                        approvalNodeKey,
+                        assignees.Value!.ApprovalPolicy,
+                        assignees.Value.FallbackAssigneeUserId,
+                        approvalExecutionSequence,
+                        now,
+                        startTransition.TimeoutPolicy,
+                        request.BusinessType.Trim(),
+                        request.BusinessId.Trim(),
+                        token).ConfigureAwait(false);
+                    firstTodoId = activation.FirstTodoId;
+                    firstStepId = activation.StepId;
+                }
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertFormSubmission,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("FormVersionId", asset.FormVersionId),
@@ -113,22 +192,16 @@ internal sealed class WorkflowInstanceManagementService(
                         ("UpdatedById", actorUserId), ("UpdatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
-                        ("StepId", stepId), ("TodoId", todoId), ("ActionKey", "start"),
+                        ("StepId", firstStepId), ("TodoId", firstTodoId), ("ActionKey", "start"),
                         ("ActorUserId", actorUserId), ("InstanceRevision", 1L),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("CommentSummary", null), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
-                        ("StepId", stepId), ("TransitionKey", "instance.start"),
+                        ("StepId", firstStepId), ("TransitionKey", "instance.start"),
                         ("FromStatusKey", null), ("ToStatusKey", "active"),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
-                await automaticTransitionWriter.WriteAsync(
-                    instanceId,
-                    scope.TenantScopeKey,
-                    startTransition.AutomaticNodes,
-                    now,
-                    token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
                     Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
@@ -138,20 +211,10 @@ internal sealed class WorkflowInstanceManagementService(
                         ("DetailJson", $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}"),
                         ("CreatedAtUtc", now)), token).ConfigureAwait(false);
 
-                // 待办提醒必须与待办本身同事务写入 Outbox；下游失败不得反向影响本事务。
-                await notificationPublisher.PublishTodoAssignedAsync(
-                    instanceId,
-                    todoId,
-                    actorUserId,
-                    request.BusinessType.Trim(),
-                    request.BusinessId.Trim(),
-                    now,
-                    token).ConfigureAwait(false);
-
                 return Result<WorkflowInstanceResponse>.Success(new(
                     instanceId, asset.DefinitionVersionId, asset.FormVersionId,
                     request.BusinessType.Trim(), request.BusinessId.Trim(), "active", 1,
-                    todoId, now));
+                    firstTodoId, now));
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -161,6 +224,12 @@ internal sealed class WorkflowInstanceManagementService(
         }
     }
 
+    /// <summary>取消当前作用域内的运行中或已暂停实例。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行取消的用户标识。</param>
+    /// <param name="request">修订号、原因和幂等键。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>取消后的实例快照或稳定业务错误。</returns>
     public async Task<Result<WorkflowInstanceResponse>> CancelAsync(
         Guid instanceId,
         Guid actorUserId,
@@ -191,6 +260,110 @@ internal sealed class WorkflowInstanceManagementService(
         }
     }
 
+    /// <summary>暂停当前作用域内的运行中实例，并保留原活动节点。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行暂停的用户标识。</param>
+    /// <param name="request">修订号、可选原因和幂等键。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>暂停后的实例快照或稳定业务错误。</returns>
+    public Task<Result<WorkflowInstanceResponse>> PauseAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        PauseWorkflowInstanceRequest request,
+        CancellationToken cancellationToken = default) =>
+        TransitionLifecycleAsync(
+            instanceId,
+            actorUserId,
+            request.ExpectedRevision,
+            request.Reason,
+            request.IdempotencyKey,
+            "pause",
+            "instance.pause",
+            requiredStatus: "active",
+            nextStatus: "suspended",
+            requireReason: false,
+            cancellationToken);
+
+    /// <summary>把已暂停实例恢复到原活动节点，不得重复创建待办或通知。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行恢复的用户标识。</param>
+    /// <param name="request">修订号、可选原因和幂等键。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>恢复后的实例快照或稳定业务错误。</returns>
+    public Task<Result<WorkflowInstanceResponse>> ResumeAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        ResumeWorkflowInstanceRequest request,
+        CancellationToken cancellationToken = default) =>
+        TransitionLifecycleAsync(
+            instanceId,
+            actorUserId,
+            request.ExpectedRevision,
+            request.Reason,
+            request.IdempotencyKey,
+            "resume",
+            "instance.resume",
+            requiredStatus: "suspended",
+            nextStatus: "active",
+            requireReason: false,
+            cancellationToken);
+
+    /// <summary>在单一事务内按闭合状态机切换暂停或恢复，失败 Result 必须回滚。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">操作人标识。</param>
+    /// <param name="expectedRevision">客户端最后读取的实例修订号。</param>
+    /// <param name="reason">可选原因。</param>
+    /// <param name="idempotencyKey">幂等键。</param>
+    /// <param name="actionKey">稳定动作键。</param>
+    /// <param name="transitionKey">执行轨迹迁移键。</param>
+    /// <param name="requiredStatus">当前必须处于的实例状态。</param>
+    /// <param name="nextStatus">成功后的实例状态。</param>
+    /// <param name="requireReason">是否要求非空原因。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>转换后的实例快照或稳定业务错误。</returns>
+    private async Task<Result<WorkflowInstanceResponse>> TransitionLifecycleAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        long expectedRevision,
+        string? reason,
+        string idempotencyKey,
+        string actionKey,
+        string transitionKey,
+        string requiredStatus,
+        string nextStatus,
+        bool requireReason,
+        CancellationToken cancellationToken)
+    {
+        var request = new PauseWorkflowInstanceRequest(expectedRevision, reason, idempotencyKey);
+        if (instanceId == Guid.Empty || actorUserId == Guid.Empty ||
+            !IsValid(request, requireReason))
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var requestHash = HashLifecycleRequest(expectedRevision, reason);
+        try
+        {
+            var result = await transaction.ExecuteResultAsync(
+                token => TransitionLifecycleCoreAsync(
+                    instanceId, actorUserId, expectedRevision, reason, idempotencyKey.Trim(),
+                    actionKey, transitionKey, requiredStatus, nextStatus, requestHash, scope, token),
+                cancellationToken).ConfigureAwait(false);
+            return !result.IsSuccess && result.Error?.Code == WorkflowErrorCodes.RevisionConflict
+                ? await ResolveLifecycleReplayAsync(
+                    instanceId, actorUserId, idempotencyKey.Trim(), actionKey, requestHash, scope,
+                    cancellationToken).ConfigureAwait(false)
+                : result;
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return await ResolveLifecycleReplayAsync(
+                instanceId, actorUserId, idempotencyKey.Trim(), actionKey, requestHash, scope,
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     public async Task<Result<WorkflowInstanceResponse>> GetAsync(
         Guid instanceId,
         Guid actorUserId,
@@ -211,14 +384,53 @@ internal sealed class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
         }
 
-        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
-            WorkflowSql.FindActiveTodoByInstance,
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoTimeoutSummaryRecord>(
+            WorkflowSql.FindActiveTodoTimeoutByInstance,
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
+        var timeoutStatus = todo?.EscalatedAtUtc is not null
+            ? "escalated"
+            : todo?.DueAtUtc is { } due && due <= clock.UtcNow ? "overdue"
+            : todo?.DueAtUtc is not null ? "scheduled"
+            : "not_configured";
+        var approvalProgress = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceApprovalProgressRecord>(
+            WorkflowSql.FindActiveStepApprovalProgressByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        var joinRows = await queryExecutor.QueryAsync<WorkflowParallelJoinStatusRecord>(
+            WorkflowSql.ListParallelJoinsByInstance,
+            Parameters(("InstanceId", instanceId)),
+            cancellationToken).ConfigureAwait(false);
+        var gatewayJoins = joinRows
+            .GroupBy(row => row.Id)
+            .Select(group =>
+            {
+                var first = group.First();
+                return new WorkflowGatewayJoinResponse(
+                    first.Id,
+                    first.GatewayTypeKey,
+                    first.ForkNodeKey,
+                    first.JoinNodeKey,
+                    first.RequiredBranchCount,
+                    first.ArrivedBranchCount,
+                    first.StatusKey,
+                    group.Where(row => row.BranchKey is not null)
+                        .Select(row => new WorkflowGatewayJoinBranchResponse(row.BranchKey!, row.ArrivedAtUtc))
+                        .ToArray());
+            })
+            .ToArray();
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, instance.StatusKey,
-            instance.Revision, todo?.Id, instance.StartedAtUtc));
+            instance.Revision, todo?.Id, instance.StartedAtUtc, todo?.DueAtUtc,
+            timeoutStatus, todo?.ReminderCount ?? 0, todo?.EscalatedAtUtc,
+            approvalProgress?.NodeKey,
+            approvalProgress?.ApprovalModeKey,
+            approvalProgress?.RequiredApprovalCount,
+            approvalProgress?.ApprovedCount,
+            approvalProgress?.RejectedCount,
+            approvalProgress?.PendingCount,
+            gatewayJoins));
     }
 
     public async Task<Result<IReadOnlyList<WorkflowExecutionLogResponse>>> ListExecutionLogsAsync(
@@ -273,6 +485,217 @@ internal sealed class WorkflowInstanceManagementService(
         request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 } &&
         request.Reason?.Trim() is not { Length: > 512 };
 
+    /// <summary>校验暂停或恢复请求的修订号、幂等键和原因长度。</summary>
+    /// <param name="request">暂停形状的请求。</param>
+    /// <param name="requireReason">强制恢复时要求非空原因。</param>
+    /// <returns>边界条件全部满足时返回 <see langword="true"/>。</returns>
+    private static bool IsValid(PauseWorkflowInstanceRequest request, bool requireReason)
+    {
+        if (request.ExpectedRevision < 1 ||
+            request.IdempotencyKey.Trim() is not { Length: >= 1 and <= 128 } ||
+            request.Reason?.Trim() is { Length: > 512 })
+        {
+            return false;
+        }
+
+        return !requireReason || request.Reason?.Trim() is { Length: > 0 };
+    }
+
+    /// <summary>在本地事务内把实例从运行切换为暂停或反向恢复，并追加回执、轨迹和审计。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">操作人标识。</param>
+    /// <param name="expectedRevision">期望的当前修订号。</param>
+    /// <param name="reason">可选原因。</param>
+    /// <param name="idempotencyKey">规范化幂等键。</param>
+    /// <param name="actionKey">稳定动作键。</param>
+    /// <param name="transitionKey">执行轨迹迁移键。</param>
+    /// <param name="requiredStatus">当前必须处于的实例状态。</param>
+    /// <param name="nextStatus">成功后的实例状态。</param>
+    /// <param name="requestHash">规范请求摘要。</param>
+    /// <param name="scope">可信工作流作用域。</param>
+    /// <param name="token">取消当前事务操作的令牌。</param>
+    /// <returns>转换后的实例快照或导致回滚的失败结果。</returns>
+    private async Task<Result<WorkflowInstanceResponse>> TransitionLifecycleCoreAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        long expectedRevision,
+        string? reason,
+        string idempotencyKey,
+        string actionKey,
+        string transitionKey,
+        string requiredStatus,
+        string nextStatus,
+        string requestHash,
+        WorkflowManagementScope scope,
+        CancellationToken token)
+    {
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            token).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        if (!await CanReadAsync(instance, actorUserId, scope, token).ConfigureAwait(false))
+        {
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+        }
+
+        var receipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+            WorkflowSql.FindActionReceipt,
+            Parameters(("InstanceId", instanceId), ("IdempotencyKey", idempotencyKey)),
+            token).ConfigureAwait(false);
+        if (receipt is not null)
+        {
+            if (receipt.ActionKey != actionKey || receipt.ActorUserId != actorUserId ||
+                receipt.RequestHash != requestHash)
+            {
+                return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
+
+            var replayTodo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+                WorkflowSql.FindActiveTodoByInstance,
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+                token).ConfigureAwait(false);
+            return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, replayTodo?.Id));
+        }
+
+        if (instance.StatusKey is "completed" or "rejected" or "cancelled")
+        {
+            return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);
+        }
+
+        if (instance.StatusKey != requiredStatus)
+        {
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+        }
+
+        if (instance.Revision != expectedRevision)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var activeWork = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(
+            WorkflowSql.FindActiveWorkByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            token).ConfigureAwait(false);
+        if (activeWork is null)
+        {
+            return Failure(WorkflowErrorCodes.TodoNotActive, ErrorType.Conflict);
+        }
+
+        var statement = requiredStatus == "active"
+            ? WorkflowSql.SuspendInstanceWithRevision
+            : WorkflowSql.ResumeInstanceWithRevision;
+        var instanceUpdated = await commandExecutor.ExecuteAsync(
+            statement,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                ("Revision", expectedRevision)), token).ConfigureAwait(false);
+        if (instanceUpdated != 1)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var now = clock.UtcNow;
+        var normalizedReason = NormalizeReason(reason);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                ("StepId", activeWork.StepId), ("TodoId", activeWork.TodoId),
+                ("ActionKey", actionKey), ("ActorUserId", actorUserId),
+                ("InstanceRevision", expectedRevision + 1),
+                ("IdempotencyKey", idempotencyKey),
+                ("CommentSummary", normalizedReason), ("CreatedAtUtc", now)),
+            token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
+            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                ("StepId", activeWork.StepId), ("TransitionKey", transitionKey),
+                ("FromStatusKey", requiredStatus), ("ToStatusKey", nextStatus),
+                ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
+                ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
+            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
+                ("OperationKey", transitionKey), ("ActorUserId", actorUserId),
+                ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
+                ("OutcomeKey", "succeeded"),
+                ("DetailJson", $"{{\"previousRevision\":{expectedRevision}}}"),
+                ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+        return Result<WorkflowInstanceResponse>.Success(new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, nextStatus,
+            expectedRevision + 1, activeWork.TodoId, instance.StartedAtUtc));
+    }
+
+    /// <summary>在并发冲突后读取已提交回执，判断是否为同语义重放。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">操作人标识。</param>
+    /// <param name="idempotencyKey">规范化幂等键。</param>
+    /// <param name="actionKey">期望的动作键。</param>
+    /// <param name="requestHash">规范请求摘要。</param>
+    /// <param name="scope">可信工作流作用域。</param>
+    /// <param name="cancellationToken">取消当前查询的令牌。</param>
+    /// <returns>匹配回执对应的当前实例快照，否则返回修订冲突。</returns>
+    private async Task<Result<WorkflowInstanceResponse>> ResolveLifecycleReplayAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        string idempotencyKey,
+        string actionKey,
+        string requestHash,
+        WorkflowManagementScope scope,
+        CancellationToken cancellationToken)
+    {
+        var instance = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+            WorkflowSql.FindInstanceById,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        if (!await CanReadAsync(instance, actorUserId, scope, cancellationToken).ConfigureAwait(false))
+        {
+            return Failure(WorkflowErrorCodes.InstanceForbidden, ErrorType.Forbidden);
+        }
+
+        var receipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+            WorkflowSql.FindActionReceipt,
+            Parameters(("InstanceId", instanceId), ("IdempotencyKey", idempotencyKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (receipt?.ActionKey != actionKey || receipt.ActorUserId != actorUserId ||
+            receipt.RequestHash != requestHash)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var todo = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
+            WorkflowSql.FindActiveTodoByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, todo?.Id));
+    }
+
+    /// <summary>生成与传输格式无关的暂停或恢复请求摘要。</summary>
+    /// <param name="expectedRevision">期望修订号。</param>
+    /// <param name="reason">可选原因。</param>
+    /// <returns>小写十六进制 SHA-256 摘要。</returns>
+    private static string HashLifecycleRequest(long expectedRevision, string? reason)
+    {
+        var value = $"{expectedRevision}\n{NormalizeReason(reason)}";
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    }
+
+    /// <summary>在事务内取消运行中或已暂停实例，并关闭仍活动的步骤与待办。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行取消的用户标识。</param>
+    /// <param name="request">已通过边界校验的取消请求。</param>
+    /// <param name="scope">可信工作流作用域。</param>
+    /// <param name="requestHash">规范请求摘要。</param>
+    /// <param name="token">取消当前事务操作的令牌。</param>
+    /// <returns>取消后的实例快照或导致回滚的失败结果。</returns>
     private async Task<Result<WorkflowInstanceResponse>> CancelCoreAsync(
         Guid instanceId,
         Guid actorUserId,
@@ -308,7 +731,7 @@ internal sealed class WorkflowInstanceManagementService(
                 : Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
-        if (instance.StatusKey != "active")
+        if (instance.StatusKey is not ("active" or "suspended"))
         {
             return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);
         }
@@ -327,12 +750,37 @@ internal sealed class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
+        var approvalSlot = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+            WorkflowSql.FindApprovalSlotForReassignment,
+            Parameters(("TodoId", activeWork.TodoId), ("TenantScopeKey", scope.TenantScopeKey)),
+            token).ConfigureAwait(false);
+        if (approvalSlot is not null)
+        {
+            var instanceLocked = await commandExecutor.ExecuteAsync(
+                WorkflowSql.LockInstanceForMultiApproval,
+                Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                    ("Revision", request.ExpectedRevision)), token).ConfigureAwait(false);
+            if (instanceLocked != 1)
+            {
+                return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
+        }
+
         var now = clock.UtcNow;
         var todoUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CancelTodoWithRevision,
             Parameters(("Id", activeWork.TodoId), ("InstanceId", instanceId),
                 ("TenantScopeKey", scope.TenantScopeKey), ("CompletedAtUtc", now),
                 ("Revision", activeWork.TodoRevision)), token).ConfigureAwait(false);
+        // 多人审批只把最早活动待办作为生命周期动作锚点，其余同步骤席位必须同事务关闭。
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelPendingApprovalTodosByStep,
+            Parameters(("StepId", activeWork.StepId), ("CompletedAtUtc", now)), token)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelPendingApprovalSlotsByStep,
+            Parameters(("StepId", activeWork.StepId), ("DecidedAtUtc", now)), token)
+            .ConfigureAwait(false);
         var stepUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CancelStepWithRevision,
             Parameters(("Id", activeWork.StepId), ("InstanceId", instanceId),
@@ -347,6 +795,18 @@ internal sealed class WorkflowInstanceManagementService(
         {
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
+
+        // 并行分叉可能同时存在多个活动待办与步骤，锚点关闭后仍需收敛兄弟分支与等待汇合。
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelAllActiveTodosByInstance,
+            Parameters(("InstanceId", instanceId), ("CompletedAtUtc", now),
+                ("ResultActionKey", "cancelled")), token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelAllActiveStepsByInstance,
+            Parameters(("InstanceId", instanceId), ("StatusKey", "cancelled"),
+                ("CompletedAtUtc", now)), token).ConfigureAwait(false);
+        await parallelJoinCoordinator.CancelWaitingJoinsAsync(instanceId, now, token)
+            .ConfigureAwait(false);
 
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
             Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),

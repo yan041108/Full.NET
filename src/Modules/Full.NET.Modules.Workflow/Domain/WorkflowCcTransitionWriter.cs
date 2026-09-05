@@ -17,18 +17,21 @@ internal sealed class WorkflowCcTransitionWriter(
     /// <param name="instanceId">工作流实例标识。</param>
     /// <param name="tenantScopeKey">可信租户作用域键。</param>
     /// <param name="ccNodes">经过编译器验证的有序抄送节点。</param>
+    /// <param name="nextExecutionSequence">首个抄送步骤可用的实例内单调执行序号。</param>
     /// <param name="occurredAtUtc">统一业务发生时间。</param>
     /// <param name="cancellationToken">调用方本地事务取消令牌。</param>
-    public async Task WriteAsync(
+    /// <returns>全部抄送步骤写入后，下一个步骤可用的执行序号。</returns>
+    public async Task<long> WriteAsync(
         Guid instanceId,
         string tenantScopeKey,
         IReadOnlyList<WorkflowCcRuntimeNode> ccNodes,
+        long nextExecutionSequence,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken = default)
     {
         if (ccNodes.Count == 0)
         {
-            return;
+            return nextExecutionSequence;
         }
 
         var knownRecipients = await LoadKnownRecipientsAsync(
@@ -38,13 +41,17 @@ internal sealed class WorkflowCcTransitionWriter(
 
         foreach (var node in ccNodes)
         {
+            var executionSequence = nextExecutionSequence++;
             await WriteNodeAsync(
                 instanceId,
                 node,
                 knownRecipients,
+                executionSequence,
                 occurredAtUtc,
                 cancellationToken).ConfigureAwait(false);
         }
+
+        return nextExecutionSequence;
     }
 
     /// <summary>一次读取实例已知抄送人，供混合自动节点迁移复用。</summary>
@@ -70,12 +77,14 @@ internal sealed class WorkflowCcTransitionWriter(
     /// <param name="instanceId">工作流实例标识。</param>
     /// <param name="node">经过编译器验证的抄送节点。</param>
     /// <param name="knownRecipients">同一实例已经知会的用户集合。</param>
+    /// <param name="executionSequence">本次实例迁移的单调执行序号。</param>
     /// <param name="occurredAtUtc">统一业务发生时间。</param>
     /// <param name="cancellationToken">调用方本地事务取消令牌。</param>
     internal async Task WriteNodeAsync(
         Guid instanceId,
         WorkflowCcRuntimeNode node,
         ISet<Guid> knownRecipients,
+        long executionSequence,
         DateTimeOffset occurredAtUtc,
         CancellationToken cancellationToken)
     {
@@ -86,6 +95,7 @@ internal sealed class WorkflowCcTransitionWriter(
                 ("Id", stepId),
                 ("InstanceId", instanceId),
                 ("NodeKey", node.NodeKey),
+                ("ExecutionSequence", executionSequence),
                 ("StartedAtUtc", occurredAtUtc),
                 ("CompletedAtUtc", occurredAtUtc)),
             cancellationToken).ConfigureAwait(false);

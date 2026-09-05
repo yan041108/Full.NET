@@ -7,24 +7,40 @@ import {
 } from '@fullnet/client-contracts';
 import {
   approveWorkflowTodo,
+  cancelWorkflowTodoCountersign,
+  countersignWorkflowTodo,
   getWorkflowTodo,
+  getWorkflowTodoCountersignChain,
+  listWorkflowTodoReturnTargets,
   listMyWorkflowTodos,
   rejectWorkflowTodo,
+  returnWorkflowTodo,
   type WorkflowSubmission,
   type WorkflowTodoDetail,
-  type WorkflowTodoResponse
+  type WorkflowTodoResponse,
+  type WorkflowTodoReturnTargetResponse,
+  type WorkflowTodoCountersignChain
 } from '../api/workflow-todos';
+import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { usePermission } from '../auth/permission';
 import PermissionGate from '../components/PermissionGate.vue';
 import WorkflowFormRenderer from '../workflow/WorkflowFormRenderer.vue';
 
 const { t } = useAdminI18n();
+const { can } = usePermission();
 const loading = ref(false);
 const acting = ref(false);
 const todos = ref<WorkflowTodoResponse[]>([]);
 const selected = ref<WorkflowTodoDetail>();
 const fieldPatch = ref<WorkflowSubmission>({});
 const comment = ref('');
+const returnTargets = ref<WorkflowTodoReturnTargetResponse[]>([]);
+const returnTargetStepId = ref('');
+const countersignDirection = ref<'before' | 'after'>('before');
+const countersignAssigneeIds = ref<string[]>([]);
+const countersignCandidates = ref<Array<{ id: string; label: string }>>([]);
+const countersignChain = ref<WorkflowTodoCountersignChain>();
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
@@ -38,6 +54,85 @@ const requiredFieldsReady = computed(() => {
   return Object.entries(detail.fieldPolicies).every(([key, policy]) =>
     policy !== 'required' || hasValue(merged[key]));
 });
+const canReturn = computed(() => can('workflow.todos.return'));
+const canCountersign = computed(() => can('workflow.todos.countersign'));
+const returnReady = computed(() =>
+  requiredFieldsReady.value &&
+  returnTargetStepId.value.length > 0 &&
+  comment.value.trim().length > 0);
+
+async function loadCountersignContext(todoId: string): Promise<void> {
+  if (!canCountersign.value) {
+    countersignChain.value = undefined;
+    countersignCandidates.value = [];
+    return;
+  }
+
+  const [candidates, chain] = await Promise.all([
+    listWorkflowRecipientCandidates(1, 100).then(result =>
+      result.items.map(item => ({
+        id: item.id,
+        label: item.displayName || item.username
+      }))),
+    getWorkflowTodoCountersignChain(todoId).catch(() => undefined)
+  ]);
+  countersignCandidates.value = candidates;
+  countersignChain.value = chain;
+  countersignAssigneeIds.value = [];
+  countersignDirection.value = 'before';
+}
+
+async function submitCountersign(): Promise<void> {
+  const detail = selected.value;
+  if (acting.value || detail === undefined || countersignAssigneeIds.value.length === 0) {
+    return;
+  }
+
+  acting.value = true;
+  problem.value = undefined;
+  try {
+    await countersignWorkflowTodo(
+      detail.id,
+      countersignDirection.value,
+      countersignAssigneeIds.value,
+      detail.revision,
+      comment.value.trim() || null,
+      createIdempotencyKey()
+    );
+    ElMessage.success(t('workflowTodos.countersignSuccess'));
+    closeDetail();
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'workflowTodos.operationFailed');
+  } finally {
+    acting.value = false;
+  }
+}
+
+async function cancelCountersign(): Promise<void> {
+  const detail = selected.value;
+  if (acting.value || detail === undefined || countersignChain.value === undefined) {
+    return;
+  }
+
+  acting.value = true;
+  problem.value = undefined;
+  try {
+    await cancelWorkflowTodoCountersign(
+      detail.id,
+      detail.revision,
+      comment.value.trim() || null,
+      createIdempotencyKey()
+    );
+    ElMessage.success(t('workflowTodos.countersignCancelSuccess'));
+    closeDetail();
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'workflowTodos.operationFailed');
+  } finally {
+    acting.value = false;
+  }
+}
 
 onMounted(load);
 onBeforeUnmount(() => loadController?.abort());
@@ -65,13 +160,58 @@ async function openTodo(todo: WorkflowTodoResponse): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    selected.value = await getWorkflowTodo(todo.id);
+    const [detail, targets] = await Promise.all([
+      getWorkflowTodo(todo.id),
+      canReturn.value ? listWorkflowTodoReturnTargets(todo.id) : Promise.resolve([])
+    ]);
+    selected.value = detail;
+    returnTargets.value = targets;
+    await loadCountersignContext(todo.id);
     fieldPatch.value = {};
     comment.value = '';
+    returnTargetStepId.value = '';
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowTodos.loadFailed');
   } finally {
     loading.value = false;
+  }
+}
+
+async function returnSelected(): Promise<void> {
+  const detail = selected.value;
+  const reason = comment.value.trim();
+  if (acting.value || detail === undefined || !returnReady.value) {
+    return;
+  }
+
+  acting.value = true;
+  problem.value = undefined;
+  try {
+    await returnWorkflowTodo(
+      detail.id,
+      returnTargetStepId.value,
+      detail.revision,
+      fieldPatch.value,
+      reason,
+      createIdempotencyKey()
+    );
+    ElMessage.success(t('workflowTodos.returnSuccess'));
+    closeDetail();
+    await load();
+  } catch (error: unknown) {
+    const actionProblem = toProblem(error, 'workflowTodos.operationFailed');
+    problem.value = actionProblem;
+    if (actionProblem.status === 409) {
+      closeDetail();
+      try {
+        todos.value = await listMyWorkflowTodos();
+      } catch {
+        // 冲突后必须关闭过期退回动作；刷新失败时保留原始 409。
+      }
+      problem.value = actionProblem;
+    }
+  } finally {
+    acting.value = false;
   }
 }
 
@@ -118,6 +258,11 @@ function closeDetail(): void {
   selected.value = undefined;
   fieldPatch.value = {};
   comment.value = '';
+  returnTargets.value = [];
+  returnTargetStepId.value = '';
+  countersignChain.value = undefined;
+  countersignAssigneeIds.value = [];
+  countersignCandidates.value = [];
 }
 
 function hasValue(value: unknown): boolean {
@@ -134,6 +279,15 @@ function createIdempotencyKey(): string {
   const bytes = new Uint8Array(16);
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+}
+
+function approvalModeLabel(modeKey: string): string {
+  switch (modeKey) {
+    case 'all': return t('workflowDesigner.approval.all');
+    case 'any': return t('workflowDesigner.approval.any');
+    case 'nOfM': return t('workflowDesigner.approval.nOfM');
+    default: return t('workflowDesigner.approval.single');
+  }
 }
 
 function toProblem(
@@ -202,6 +356,19 @@ function toProblem(
       @close="closeDetail"
     >
       <template v-if="selected">
+        <div
+          v-if="selected.approvedCount + selected.rejectedCount + selected.pendingCount > 1"
+          class="workflow-todos__approval-progress"
+          data-testid="workflow-approval-progress"
+        >
+          <strong>{{ approvalModeLabel(selected.approvalModeKey) }}</strong>
+          <span>{{ t('workflowTodos.approvalProgress', {
+            approved: selected.approvedCount,
+            rejected: selected.rejectedCount,
+            pending: selected.pendingCount,
+            required: selected.requiredApprovalCount
+          }) }}</span>
+        </div>
         <WorkflowFormRenderer
           :schema="selected.formSchema"
           :submission="selected.submission"
@@ -211,14 +378,90 @@ function toProblem(
 
         <label class="workflow-todos__comment">
           <span>{{ t('workflowTodos.comment') }}</span>
-          <el-input
+          <textarea
             v-model="comment"
-            type="textarea"
-            :rows="3"
-            maxlength="1000"
+            data-testid="workflow-todo-comment"
+            rows="3"
+            maxlength="512"
             :placeholder="t('workflowTodos.commentPlaceholder')"
-          />
+          ></textarea>
         </label>
+
+        <label v-if="canReturn" class="workflow-todos__return-target">
+          <span>{{ t('workflowTodos.returnTarget') }}</span>
+          <select
+            v-model="returnTargetStepId"
+            data-testid="workflow-todo-return-target"
+            :disabled="acting || returnTargets.length === 0"
+          >
+            <option value="" disabled>{{ t(returnTargets.length === 0
+              ? 'workflowTodos.noReturnTargets'
+              : 'workflowTodos.returnTargetPlaceholder') }}</option>
+            <option
+              v-for="target in returnTargets"
+              :key="target.stepId"
+              :value="target.stepId"
+            >
+              {{ target.nodeKey }} · {{ target.completedAtUtc }}
+            </option>
+          </select>
+        </label>
+
+        <PermissionGate code="workflow.todos.countersign">
+          <div v-if="countersignChain" class="workflow-todos__countersign-chain">
+            <strong>{{ t('workflowTodos.countersignChain') }}</strong>
+            <ol>
+              <li
+                v-for="item in countersignChain.items"
+                :key="item.itemId"
+                translate="no"
+              >
+                #{{ item.sequenceNo }} · {{ item.assigneeUserId }} · {{ item.statusKey }}
+              </li>
+            </ol>
+            <el-button
+              data-testid="workflow-todo-countersign-cancel"
+              :loading="acting"
+              @click="cancelCountersign"
+            >
+              {{ t('workflowTodos.countersignCancel') }}
+            </el-button>
+          </div>
+          <div v-else class="workflow-todos__countersign">
+            <label>
+              <span>{{ t('workflowTodos.countersignDirection') }}</span>
+              <select v-model="countersignDirection" data-testid="workflow-todo-countersign-direction">
+                <option value="before">{{ t('workflowTodos.countersignBefore') }}</option>
+                <option value="after">{{ t('workflowTodos.countersignAfter') }}</option>
+              </select>
+            </label>
+            <label>
+              <span>{{ t('workflowTodos.countersignAssignees') }}</span>
+              <select
+                v-model="countersignAssigneeIds"
+                data-testid="workflow-todo-countersign-assignees"
+                multiple
+                :disabled="acting || countersignCandidates.length === 0"
+              >
+                <option
+                  v-for="candidate in countersignCandidates"
+                  :key="candidate.id"
+                  :value="candidate.id"
+                >
+                  {{ candidate.label }}
+                </option>
+              </select>
+            </label>
+            <el-button
+              data-testid="workflow-todo-countersign-submit"
+              :loading="acting"
+              :disabled="countersignAssigneeIds.length === 0"
+              @click="submitCountersign"
+            >
+              {{ t('workflowTodos.countersign') }}
+            </el-button>
+          </div>
+        </PermissionGate>
 
         <div class="workflow-todos__decision-bar">
           <el-button :disabled="acting" @click="closeDetail">
@@ -247,6 +490,18 @@ function toProblem(
               {{ t('workflowTodos.approve') }}
             </el-button>
           </PermissionGate>
+          <PermissionGate code="workflow.todos.return">
+            <el-button
+              type="warning"
+              plain
+              data-testid="workflow-todo-return"
+              :loading="acting"
+              :disabled="!returnReady"
+              @click="returnSelected"
+            >
+              {{ t('workflowTodos.return') }}
+            </el-button>
+          </PermissionGate>
         </div>
       </template>
     </el-drawer>
@@ -268,6 +523,18 @@ function toProblem(
 .workflow-todos__header p {
   margin: 0.35rem 0 0;
   color: var(--el-text-color-secondary);
+}
+
+.workflow-todos__approval-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
 }
 
 .workflow-todos__table-wrap {
@@ -319,6 +586,30 @@ function toProblem(
   margin-top: 1rem;
   color: var(--el-text-color-regular);
   font-weight: 650;
+}
+
+.workflow-todos__return-target {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  color: var(--el-text-color-regular);
+  font-weight: 650;
+}
+
+.workflow-todos__comment textarea,
+.workflow-todos__return-target select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-blank);
+  font: inherit;
+}
+
+.workflow-todos__comment textarea {
+  resize: vertical;
 }
 
 .workflow-todos__decision-bar {

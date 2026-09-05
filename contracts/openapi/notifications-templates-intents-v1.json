@@ -79,6 +79,8 @@
     "CreateNotificationTemplateRequest": {
       "properties": [
         "templateKey",
+        "localeTag",
+        "defaultLocaleTag",
         "channelKey",
         "contentCategoryKey",
         "draftSubject",
@@ -104,6 +106,8 @@
       "properties": [
         "id",
         "templateKey",
+        "localeTag",
+        "defaultLocaleTag",
         "channelKey",
         "contentCategoryKey",
         "draftSubject",
@@ -114,6 +118,8 @@
         "latestPublishedVersionNumber",
         "latestContentHash",
         "latestContentClassificationKey",
+        "publishedLocaleTags",
+        "missingLocaleTags",
         "createdAtUtc",
         "updatedAtUtc",
         "version"

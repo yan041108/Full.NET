@@ -26,7 +26,12 @@ const validDetail = {
   },
   submission: { summary: '采购审批' },
   fieldPolicies: { summary: 'editable' },
-  submissionRevision: 4
+  submissionRevision: 4,
+  approvalModeKey: 'single',
+  requiredApprovalCount: 1,
+  approvedCount: 0,
+  rejectedCount: 0,
+  pendingCount: 1
 };
 
 describe('workflow todo runtime guards', () => {

@@ -1,23 +1,316 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
+using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
+using Dapper;
 
 namespace Full.NET.IntegrationTests.Workflow;
 
 /// <summary>验收工作流实例启动、表单安全 Patch、Host/Tenant 隔离和本人待办资源边界。</summary>
 internal static class WorkflowRuntimeApiAssertions
 {
+    /// <summary>验收三人 N-of-M 审批的个人待办、票数进度、收敛取消和幂等回放。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    public static async Task VerifyMultiApprovalAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClientForHost("localhost");
+        var first = await factory.CreateHostIdentityAsync(
+            $"workflow-multi-first-{Guid.NewGuid():N}",
+            [
+                WorkflowPermissions.FormsCreate,
+                WorkflowPermissions.FormsPublish,
+                WorkflowPermissions.DefinitionsCreate,
+                WorkflowPermissions.DefinitionsPublish,
+                WorkflowPermissions.InstancesStart,
+                WorkflowPermissions.TodosRead,
+                WorkflowPermissions.TodosApprove,
+            ],
+            cancellationToken);
+        var second = await factory.CreateHostIdentityAsync(
+            $"workflow-multi-second-{Guid.NewGuid():N}",
+            [WorkflowPermissions.TodosRead, WorkflowPermissions.TodosApprove],
+            cancellationToken);
+        var third = await factory.CreateHostIdentityAsync(
+            $"workflow-multi-third-{Guid.NewGuid():N}",
+            [WorkflowPermissions.TodosRead, WorkflowPermissions.TodosApprove],
+            cancellationToken);
+        var assets = await PublishRuntimeAssetsAsync(client, first.AccessToken, cancellationToken);
+        var definitionVersionId = await PublishMultiApprovalDefinitionAsync(
+            client,
+            first.AccessToken,
+            assets.FormVersionId,
+            [first.UserId, second.UserId, third.UserId],
+            cancellationToken);
+
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", first.AccessToken, new
+            {
+                definitionVersionId,
+                businessType = "leave.multi-approval",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "multi approval" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var firstTodoId = await FindActiveTodoAsync(client, first.AccessToken, instanceId, cancellationToken);
+        var secondTodoId = await FindActiveTodoAsync(client, second.AccessToken, instanceId, cancellationToken);
+        var thirdTodoId = await FindActiveTodoAsync(client, third.AccessToken, instanceId, cancellationToken);
+
+        using var initialDetail = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{secondTodoId:D}/runtime", second.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, initialDetail.StatusCode,
+            await initialDetail.Content.ReadAsStringAsync(cancellationToken));
+        using (var detail = JsonDocument.Parse(await initialDetail.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual("nOfM", detail.RootElement.GetProperty("approvalModeKey").GetString());
+            Assert.AreEqual(2, detail.RootElement.GetProperty("requiredApprovalCount").GetInt32());
+            Assert.AreEqual(0, detail.RootElement.GetProperty("approvedCount").GetInt32());
+            Assert.AreEqual(3, detail.RootElement.GetProperty("pendingCount").GetInt32());
+        }
+
+        using var firstApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{firstTodoId:D}/approve", first.AccessToken, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "first" },
+                comment = "first vote",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstApprove.StatusCode,
+            await firstApprove.Content.ReadAsStringAsync(cancellationToken));
+        using (var firstResult = JsonDocument.Parse(await firstApprove.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual("active", firstResult.RootElement.GetProperty("statusKey").GetString());
+            Assert.AreEqual(2, firstResult.RootElement.GetProperty("revision").GetInt64());
+        }
+
+        using var waitingDetail = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{secondTodoId:D}/runtime", second.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, waitingDetail.StatusCode,
+            await waitingDetail.Content.ReadAsStringAsync(cancellationToken));
+        using (var detail = JsonDocument.Parse(await waitingDetail.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual(1, detail.RootElement.GetProperty("approvedCount").GetInt32());
+            Assert.AreEqual(0, detail.RootElement.GetProperty("rejectedCount").GetInt32());
+            Assert.AreEqual(2, detail.RootElement.GetProperty("pendingCount").GetInt32());
+        }
+
+        var secondIdempotencyKey = $"approve-{Guid.NewGuid():N}";
+        var secondBody = new
+        {
+            expectedRevision = 1,
+            fieldPatch = new { decision = "second" },
+            comment = "second vote",
+            idempotencyKey = secondIdempotencyKey,
+        };
+        using var secondApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{secondTodoId:D}/approve", second.AccessToken, secondBody),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondApprove.StatusCode,
+            await secondApprove.Content.ReadAsStringAsync(cancellationToken));
+        using var completed = JsonDocument.Parse(await secondApprove.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("completed", completed.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(3, completed.RootElement.GetProperty("revision").GetInt64());
+
+        using var replay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{secondTodoId:D}/approve", second.AccessToken, secondBody),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, replay.StatusCode,
+            await replay.Content.ReadAsStringAsync(cancellationToken));
+        using (var replayed = JsonDocument.Parse(await replay.Content.ReadAsStringAsync(cancellationToken)))
+        {
+            Assert.AreEqual("completed", replayed.RootElement.GetProperty("statusKey").GetString());
+            Assert.AreEqual(3, replayed.RootElement.GetProperty("revision").GetInt64());
+        }
+
+        await using var connection = CreateConnection(factory);
+        Assert.AreEqual(3, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM fn_workflow_approval_slot WHERE InstanceId = @InstanceId",
+            new { InstanceId = instanceId }));
+        Assert.AreEqual(2, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM fn_workflow_approval_slot WHERE InstanceId = @InstanceId AND DecisionKey = 'approve'",
+            new { InstanceId = instanceId }));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM fn_workflow_approval_slot WHERE InstanceId = @InstanceId AND DecisionKey = 'cancelled'",
+            new { InstanceId = instanceId }));
+        Assert.AreEqual("cancelled", await connection.ExecuteScalarAsync<string>(
+            "SELECT StatusKey FROM fn_workflow_todo WHERE Id = @Id",
+            new { Id = thirdTodoId }));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM fn_workflow_action_record WHERE InstanceId = @InstanceId AND IdempotencyKey = @IdempotencyKey",
+            new { InstanceId = instanceId, IdempotencyKey = secondIdempotencyKey }));
+    }
+
+    /// <summary>验收退回候选、单调执行链、并发幂等回放以及审计和 Outbox 单次提交。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    public static async Task VerifyReturnAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClientForHost("localhost");
+        var identity = await factory.CreateHostIdentityAsync(
+            $"workflow-return-{Guid.NewGuid():N}",
+            [
+                WorkflowPermissions.FormsCreate,
+                WorkflowPermissions.FormsPublish,
+                WorkflowPermissions.DefinitionsCreate,
+                WorkflowPermissions.DefinitionsPublish,
+                WorkflowPermissions.InstancesStart,
+                WorkflowPermissions.TodosApprove,
+                WorkflowPermissions.TodosReturn,
+            ],
+            cancellationToken);
+        var assets = await PublishRuntimeAssetsAsync(client, identity.AccessToken, cancellationToken);
+        var definitionVersionId = await PublishReturnDefinitionAsync(
+            client, identity.AccessToken, assets.FormVersionId, cancellationToken);
+
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId,
+                businessType = "leave.return-integration",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "integration", secret = "classified" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode,
+            await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var firstTodoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var firstApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{firstTodoId:D}/approve", identity.AccessToken, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "first-approved" },
+                comment = "first stage",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstApprove.StatusCode,
+            await firstApprove.Content.ReadAsStringAsync(cancellationToken));
+        using var firstAdvanced = JsonDocument.Parse(await firstApprove.Content.ReadAsStringAsync(cancellationToken));
+        var secondTodoId = firstAdvanced.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var secondApprove = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{secondTodoId:D}/approve", identity.AccessToken, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "second-approved" },
+                comment = "second stage",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondApprove.StatusCode,
+            await secondApprove.Content.ReadAsStringAsync(cancellationToken));
+        using var secondAdvanced = JsonDocument.Parse(await secondApprove.Content.ReadAsStringAsync(cancellationToken));
+        var thirdTodoId = secondAdvanced.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var targetsResponse = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{thirdTodoId:D}/return-targets", identity.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, targetsResponse.StatusCode,
+            await targetsResponse.Content.ReadAsStringAsync(cancellationToken));
+        using var targets = JsonDocument.Parse(await targetsResponse.Content.ReadAsStringAsync(cancellationToken));
+        var targetRows = targets.RootElement.EnumerateArray().ToArray();
+        var firstStepId = targetRows.Single(row => row.GetProperty("nodeKey").GetString() == "first")
+            .GetProperty("stepId").GetGuid();
+        var secondStepId = targetRows.Single(row => row.GetProperty("nodeKey").GetString() == "second")
+            .GetProperty("stepId").GetGuid();
+
+        await using (var connection = CreateConnection(factory))
+        {
+            // 人为制造后创建步骤时间更早的场景，证明旧链失效完全依赖单调执行序号。
+            await connection.ExecuteAsync(
+                "UPDATE fn_workflow_step SET StartedAtUtc = @StartedAtUtc WHERE Id = @Id",
+                new { StartedAtUtc = DateTime.UtcNow.AddYears(-1), Id = secondStepId });
+        }
+
+        var returnIdempotencyKey = $"return-{Guid.NewGuid():N}";
+        var returnBody = new
+        {
+            targetStepId = firstStepId,
+            expectedRevision = 1,
+            fieldPatch = new { decision = "returned" },
+            comment = "return integration",
+            idempotencyKey = returnIdempotencyKey,
+        };
+        var concurrentReturns = await Task.WhenAll(
+            client.SendAsync(AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/todos/{thirdTodoId:D}/return", identity.AccessToken, returnBody), cancellationToken),
+            client.SendAsync(AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/todos/{thirdTodoId:D}/return", identity.AccessToken, returnBody), cancellationToken));
+        using var firstReturn = concurrentReturns[0];
+        using var secondReturn = concurrentReturns[1];
+        Assert.AreEqual(HttpStatusCode.OK, firstReturn.StatusCode,
+            await firstReturn.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(HttpStatusCode.OK, secondReturn.StatusCode,
+            await secondReturn.Content.ReadAsStringAsync(cancellationToken));
+        using var returned = JsonDocument.Parse(await firstReturn.Content.ReadAsStringAsync(cancellationToken));
+        using var replayedReturn = JsonDocument.Parse(await secondReturn.Content.ReadAsStringAsync(cancellationToken));
+        var returnedTodoId = returned.RootElement.GetProperty("activeTodoId").GetGuid();
+        Assert.AreEqual(4, returned.RootElement.GetProperty("revision").GetInt64());
+        Assert.AreEqual(returnedTodoId, replayedReturn.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(4, replayedReturn.RootElement.GetProperty("revision").GetInt64());
+
+        await AssertReturnPersistenceAsync(
+            factory, instanceId, firstStepId, secondStepId, returnIdempotencyKey, cancellationToken);
+        await VerifyWorkflowOutboxAsync<WorkflowTodoAssignedIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.TodoAssigned,
+            value => value.InstanceId == instanceId && value.TodoId == returnedTodoId,
+            cancellationToken);
+
+        using var approveReturned = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{returnedTodoId:D}/approve", identity.AccessToken, new
+            {
+                expectedRevision = 1,
+                fieldPatch = new { decision = "approved-after-return" },
+                comment = "continue after return",
+                idempotencyKey = $"approve-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, approveReturned.StatusCode,
+            await approveReturned.Content.ReadAsStringAsync(cancellationToken));
+
+        using var stableReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{thirdTodoId:D}/return", identity.AccessToken, returnBody),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, stableReplay.StatusCode,
+            await stableReplay.Content.ReadAsStringAsync(cancellationToken));
+        using var stable = JsonDocument.Parse(await stableReplay.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(4, stable.RootElement.GetProperty("revision").GetInt64());
+        Assert.AreEqual(returnedTodoId, stable.RootElement.GetProperty("activeTodoId").GetGuid());
+    }
+
+    /// <summary>验收启动、办理、改派、取消、暂停/恢复以及 OpenAPI operationId。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
     public static async Task VerifyStartAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
@@ -35,6 +328,9 @@ internal static class WorkflowRuntimeApiAssertions
                 WorkflowPermissions.InstancesStart,
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.InstancesCancel,
+                WorkflowPermissions.InstancesPause,
+                WorkflowPermissions.InstancesResume,
+                WorkflowPermissions.InstancesRecover,
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.TodosApprove,
                 WorkflowPermissions.TodosReject,
@@ -158,6 +454,83 @@ internal static class WorkflowRuntimeApiAssertions
                     idempotencyKey = $"approve-{Guid.NewGuid():N}",
                 }), cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var reassignBusinessId = Guid.NewGuid().ToString("N");
+        using var reassignStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = reassignBusinessId,
+                initialValues = new { reason = "assignee unavailable" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, reassignStart.StatusCode,
+            await reassignStart.Content.ReadAsStringAsync(cancellationToken));
+        using var reassignStarted = JsonDocument.Parse(
+            await reassignStart.Content.ReadAsStringAsync(cancellationToken));
+        var reassignInstanceId = reassignStarted.RootElement.GetProperty("id").GetGuid();
+        var reassignTodoId = reassignStarted.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var permissionDeniedReassign = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{reassignInstanceId:D}/reassign", other.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 1,
+                    reason = "missing recovery permission",
+                    idempotencyKey = $"reassign-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedReassign.StatusCode);
+
+        var reassignIdempotencyKey = $"reassign-{Guid.NewGuid():N}";
+        using var reassign = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{reassignInstanceId:D}/reassign", identity.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 1,
+                    reason = "审批人请假",
+                    idempotencyKey = reassignIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reassign.StatusCode,
+            await reassign.Content.ReadAsStringAsync(cancellationToken));
+        using var reassigned = JsonDocument.Parse(await reassign.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(2, reassigned.RootElement.GetProperty("revision").GetInt64());
+        Assert.AreEqual(reassignTodoId, reassigned.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var reassignReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{reassignInstanceId:D}/reassign", identity.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 1,
+                    reason = "审批人请假",
+                    idempotencyKey = reassignIdempotencyKey,
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reassignReplay.StatusCode,
+            await reassignReplay.Content.ReadAsStringAsync(cancellationToken));
+        await VerifyWorkflowOutboxAsync<WorkflowTodoAssignedIntegrationEvent>(
+            factory,
+            WorkflowNotificationIntegrationEventTypes.TodoAssigned,
+            value => value.InstanceId == reassignInstanceId &&
+                     value.TodoId == reassignTodoId &&
+                     value.RecipientUserId == other.UserId,
+            cancellationToken);
+
+        using var reassignedMine = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/todos/mine", other.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, reassignedMine.StatusCode,
+            await reassignedMine.Content.ReadAsStringAsync(cancellationToken));
+        using var reassignedTodos = JsonDocument.Parse(
+            await reassignedMine.Content.ReadAsStringAsync(cancellationToken));
+        Assert.IsTrue(reassignedTodos.RootElement.EnumerateArray().Any(item =>
+            item.GetProperty("id").GetGuid() == reassignTodoId &&
+            item.GetProperty("assigneeUserId").GetGuid() == other.UserId));
 
         await AssertDangerousPatchesRejectedAsync(
             client, identity.AccessToken, todoId, cancellationToken);
@@ -381,6 +754,9 @@ internal static class WorkflowRuntimeApiAssertions
             cancellationLogs.RootElement.EnumerateArray()
                 .Select(item => item.GetProperty("transitionKey").GetString()).ToArray());
 
+        await VerifyPauseResumeRecoverAsync(
+            client, identity, other, versions, cancellationToken);
+
         var concurrentBusinessId = Guid.NewGuid().ToString("N");
         using var concurrentStart = await client.SendAsync(
             AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
@@ -432,6 +808,7 @@ internal static class WorkflowRuntimeApiAssertions
         CollectionAssert.Contains(
             new[] { "completed", "rejected" },
             concurrentResult.RootElement.GetProperty("statusKey").GetString());
+        await VerifyRecoveryTasksAsync(factory, client, identity, versions, cancellationToken);
     }
 
     /// <summary>
@@ -1132,6 +1509,60 @@ internal static class WorkflowRuntimeApiAssertions
         return version.RootElement.GetProperty("id").GetGuid();
     }
 
+    /// <summary>发布包含三个线性人工审批节点的退回测试定义。</summary>
+    /// <param name="client">Host API 客户端。</param>
+    /// <param name="token">具备定义管理权限的访问令牌。</param>
+    /// <param name="formVersionId">绑定的已发布表单版本。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>已发布工作流定义版本标识。</returns>
+    private static async Task<Guid> PublishReturnDefinitionAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        CancellationToken cancellationToken)
+    {
+        var fieldPolicies = new Dictionary<string, string>
+        {
+            ["reason"] = "readOnly",
+            ["secret"] = "hidden",
+            ["decision"] = "required",
+        };
+        using var create = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
+            {
+                definitionKey = $"runtime.return.{Guid.NewGuid():N}",
+                draft = new
+                {
+                    schemaVersion = 1,
+                    nodes = new object[]
+                    {
+                        new { nodeKey = "start", nodeTypeKey = "start", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "first" } } },
+                        new { nodeKey = "first", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "second" }, fieldPolicies } },
+                        new { nodeKey = "second", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "third" }, fieldPolicies } },
+                        new { nodeKey = "third", nodeTypeKey = "human.approval", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "end" }, fieldPolicies } },
+                        new { nodeKey = "end", nodeTypeKey = "end", nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = Array.Empty<string>() } },
+                    },
+                },
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, create.StatusCode,
+            await create.Content.ReadAsStringAsync(cancellationToken));
+        using var definition = JsonDocument.Parse(await create.Content.ReadAsStringAsync(cancellationToken));
+
+        using var publish = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/definitions/{definition.RootElement.GetProperty("id").GetGuid():D}/publish",
+                token, new { expectedRevision = 1, formVersionId }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publish.StatusCode,
+            await publish.Content.ReadAsStringAsync(cancellationToken));
+        using var version = JsonDocument.Parse(await publish.Content.ReadAsStringAsync(cancellationToken));
+        return version.RootElement.GetProperty("id").GetGuid();
+    }
+
     /// <summary>验收审批字段补丁驱动排他网关，并持久化唯一分支执行轨迹。</summary>
     /// <param name="client">已绑定目标数据库提供程序的测试客户端。</param>
     /// <param name="token">具备定义、实例和待办权限的访问令牌。</param>
@@ -1536,6 +1967,106 @@ internal static class WorkflowRuntimeApiAssertions
         return version.RootElement.GetProperty("id").GetGuid();
     }
 
+    /// <summary>从当前办理人的待办列表中查找指定实例的活动待办。</summary>
+    /// <param name="client">API 客户端。</param>
+    /// <param name="token">当前办理人的访问令牌。</param>
+    /// <param name="instanceId">目标实例标识。</param>
+    /// <param name="cancellationToken">取消当前 HTTP 调用的令牌。</param>
+    /// <returns>该办理人在目标实例中的活动待办标识。</returns>
+    private static async Task<Guid> FindActiveTodoAsync(
+        HttpClient client,
+        string token,
+        Guid instanceId,
+        CancellationToken cancellationToken)
+    {
+        using var response = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/todos/mine", token),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode,
+            await response.Content.ReadAsStringAsync(cancellationToken));
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        return document.RootElement.EnumerateArray()
+            .Single(item => item.GetProperty("instanceId").GetGuid() == instanceId &&
+                item.GetProperty("statusKey").GetString() == "active")
+            .GetProperty("id").GetGuid();
+    }
+
+    /// <summary>创建并发布绑定三个活动办理人的 N-of-M 审批定义。</summary>
+    /// <param name="client">API 客户端。</param>
+    /// <param name="token">具备定义创建和发布权限的访问令牌。</param>
+    /// <param name="formVersionId">定义绑定的已发布表单版本。</param>
+    /// <param name="approverUserIds">节点激活时固化的三个办理人标识。</param>
+    /// <param name="cancellationToken">取消当前 HTTP 调用的令牌。</param>
+    /// <returns>已发布的定义版本标识。</returns>
+    private static async Task<Guid> PublishMultiApprovalDefinitionAsync(
+        HttpClient client,
+        string token,
+        Guid formVersionId,
+        IReadOnlyList<Guid> approverUserIds,
+        CancellationToken cancellationToken)
+    {
+        using var create = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/definitions", token, new
+            {
+                definitionKey = $"multi-approval.{Guid.NewGuid():N}",
+                draft = new
+                {
+                    schemaVersion = 1,
+                    nodes = new object[]
+                    {
+                        new
+                        {
+                            nodeKey = "start",
+                            nodeTypeKey = "start",
+                            nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = new[] { "approve" } },
+                        },
+                        new
+                        {
+                            nodeKey = "approve",
+                            nodeTypeKey = "human.approval",
+                            nodeSchemaVersion = 1,
+                            config = new
+                            {
+                                nextNodeKeys = new[] { "end" },
+                                fieldPolicies = new Dictionary<string, string>
+                                {
+                                    ["reason"] = "readOnly",
+                                    ["secret"] = "hidden",
+                                    ["decision"] = "required",
+                                },
+                                approvalPolicy = new
+                                {
+                                    modeKey = "nOfM",
+                                    approverUserIds,
+                                    requiredApprovals = 2,
+                                },
+                            },
+                        },
+                        new
+                        {
+                            nodeKey = "end",
+                            nodeTypeKey = "end",
+                            nodeSchemaVersion = 1,
+                            config = new { nextNodeKeys = Array.Empty<string>() },
+                        },
+                    },
+                },
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, create.StatusCode,
+            await create.Content.ReadAsStringAsync(cancellationToken));
+        using var definition = JsonDocument.Parse(await create.Content.ReadAsStringAsync(cancellationToken));
+        var definitionId = definition.RootElement.GetProperty("id").GetGuid();
+
+        using var publish = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/definitions/{definitionId:D}/publish", token,
+                new { expectedRevision = 1, formVersionId }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publish.StatusCode,
+            await publish.Content.ReadAsStringAsync(cancellationToken));
+        using var version = JsonDocument.Parse(await publish.Content.ReadAsStringAsync(cancellationToken));
+        return version.RootElement.GetProperty("id").GetGuid();
+    }
+
     private static async Task<PublishedRuntimeAssets> PublishRuntimeAssetsAsync(
         HttpClient client,
         string token,
@@ -1635,6 +2166,400 @@ internal static class WorkflowRuntimeApiAssertions
         return new(definitionVersion.RootElement.GetProperty("id").GetGuid(), formVersionId);
     }
 
+    /// <summary>
+    /// 验收暂停、普通恢复和强制恢复的权限、状态拒绝、幂等、冲突和业务占用。
+    /// </summary>
+    /// <param name="client">已指向 Host 的 HTTP 客户端。</param>
+    /// <param name="identity">具备暂停/恢复权限的发起人。</param>
+    /// <param name="other">无暂停权限的旁观者。</param>
+    /// <param name="versions">已发布的定义与表单版本。</param>
+    /// <param name="cancellationToken">取消当前 HTTP 调用的令牌。</param>
+    private static async Task VerifyPauseResumeRecoverAsync(
+        HttpClient client,
+        HostTestIdentity identity,
+        HostTestIdentity other,
+        PublishedRuntimeAssets versions,
+        CancellationToken cancellationToken)
+    {
+        var businessId = Guid.NewGuid().ToString("N");
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId,
+                initialValues = new { reason = "pause occupancy" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode, await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var permissionDeniedPause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", other.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "missing pause permission",
+                    idempotencyKey = $"pause-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedPause.StatusCode);
+
+        var pauseKey = $"pause-{Guid.NewGuid():N}";
+        using var pause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = "等待材料", idempotencyKey = pauseKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pause.StatusCode, await pause.Content.ReadAsStringAsync(cancellationToken));
+        using var paused = JsonDocument.Parse(await pause.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("suspended", paused.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(todoId, paused.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(2, paused.RootElement.GetProperty("revision").GetInt64());
+
+        using var pauseReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = "等待材料", idempotencyKey = pauseKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pauseReplay.StatusCode);
+        using var pauseReplayBody = JsonDocument.Parse(
+            await pauseReplay.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(todoId, pauseReplayBody.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var pauseDigestConflict = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = "不同原因", idempotencyKey = pauseKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, pauseDigestConflict.StatusCode);
+
+        using var stalePause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = null as string, idempotencyKey = $"pause-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, stalePause.StatusCode);
+
+        using var occupancyConflict = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId,
+                initialValues = new { reason = "second occupancy" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, occupancyConflict.StatusCode);
+
+        using var approveWhilePaused = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "approved" },
+                    comment = "paused",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, approveWhilePaused.StatusCode);
+
+        using var reassignWhilePaused = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/reassign", identity.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 2,
+                    reason = "paused",
+                    idempotencyKey = $"reassign-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, reassignWhilePaused.StatusCode);
+
+        using var missingRecoverReason = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "  ", idempotencyKey = $"recover-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, missingRecoverReason.StatusCode);
+
+        using var permissionDeniedRecover = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", other.AccessToken,
+                new { expectedRevision = 2, reason = "强制恢复", idempotencyKey = $"recover-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedRecover.StatusCode);
+
+        var recoverKey = $"recover-{Guid.NewGuid():N}";
+        using var recover = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住后强制恢复", idempotencyKey = recoverKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, recover.StatusCode, await recover.Content.ReadAsStringAsync(cancellationToken));
+        using var recovered = JsonDocument.Parse(await recover.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("active", recovered.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(todoId, recovered.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(3, recovered.RootElement.GetProperty("revision").GetInt64());
+
+        using var recoverReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住后强制恢复", idempotencyKey = recoverKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, recoverReplay.StatusCode);
+        using var recoverReplayBody = JsonDocument.Parse(
+            await recoverReplay.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(todoId, recoverReplayBody.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var recoverDigestConflict = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "另一原因", idempotencyKey = recoverKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, recoverDigestConflict.StatusCode);
+
+        using var secondPause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 3, reason = null as string, idempotencyKey = $"pause-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondPause.StatusCode);
+
+        using var permissionDeniedResume = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", other.AccessToken,
+                new { expectedRevision = 4, reason = null as string, idempotencyKey = $"resume-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedResume.StatusCode);
+
+        var resumeKey = $"resume-{Guid.NewGuid():N}";
+        using var resume = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", identity.AccessToken,
+                new { expectedRevision = 4, reason = null as string, idempotencyKey = resumeKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, resume.StatusCode, await resume.Content.ReadAsStringAsync(cancellationToken));
+        using var resumed = JsonDocument.Parse(await resume.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("active", resumed.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(todoId, resumed.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var resumeReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", identity.AccessToken,
+                new { expectedRevision = 4, reason = null as string, idempotencyKey = resumeKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, resumeReplay.StatusCode);
+
+        using var resumeActive = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", identity.AccessToken,
+                new { expectedRevision = 5, reason = null as string, idempotencyKey = $"resume-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, resumeActive.StatusCode);
+
+        using var recoverActive = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 5, reason = "不应恢复运行中实例", idempotencyKey = $"recover-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, recoverActive.StatusCode);
+
+        using var cancelSuspendedStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "cancel suspended" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, cancelSuspendedStart.StatusCode);
+        using var cancelSuspendedStarted = JsonDocument.Parse(
+            await cancelSuspendedStart.Content.ReadAsStringAsync(cancellationToken));
+        var cancelSuspendedId = cancelSuspendedStarted.RootElement.GetProperty("id").GetGuid();
+        using var pauseForCancel = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelSuspendedId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = null as string, idempotencyKey = $"pause-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pauseForCancel.StatusCode);
+        using var cancelSuspended = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelSuspendedId:D}/cancel", identity.AccessToken,
+                new { expectedRevision = 2, reason = "关闭暂停实例", idempotencyKey = $"cancel-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, cancelSuspended.StatusCode,
+            await cancelSuspended.Content.ReadAsStringAsync(cancellationToken));
+    }
+
+    /// <summary>验收恢复任务查询、作用域隔离、人工重试、对账和精确权限。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="client">已指向 Host 的 HTTP 客户端。</param>
+    /// <param name="identity">具备启动实例权限的宿主身份。</param>
+    /// <param name="versions">已发布的运行时定义与表单版本。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    private static async Task VerifyRecoveryTasksAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        HostTestIdentity identity,
+        PublishedRuntimeAssets versions,
+        CancellationToken cancellationToken)
+    {
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "annual leave" },
+                idempotencyKey = $"recovery-start-{Guid.NewGuid():N}",
+            }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode, await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+        var reader = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-reader-{Guid.NewGuid():N}",
+            [WorkflowPermissions.InstancesRead],
+            cancellationToken);
+        using var forbidden = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/recovery-tasks", reader.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+        var operatorIdentity = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-operator-{Guid.NewGuid():N}",
+            [
+                WorkflowPermissions.RecoveryTasksRead,
+                WorkflowPermissions.RecoveryTasksRetry,
+                WorkflowPermissions.RecoveryTasksReconcile,
+            ],
+            cancellationToken);
+        var retryDenied = await factory.CreateHostIdentityAsync(
+            $"workflow-recovery-noretry-{Guid.NewGuid():N}",
+            [WorkflowPermissions.RecoveryTasksRead],
+            cancellationToken);
+
+        var taskId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var command = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+            await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.workflow.recovery.close_todo",
+                        """
+                        UPDATE fn_workflow_todo
+                        SET StatusKey = 'completed',
+                            CompletedAtUtc = @Now,
+                            ResultActionKey = 'system'
+                        WHERE Id = @TodoId
+                        """,
+                        SqlDataScope.Global),
+                    WorkflowSqlParameters.Create(("TodoId", todoId), ("Now", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await command.ExecuteAsync(
+                    WorkflowRecoverySql.InsertOpenTask,
+                    WorkflowSqlParameters.Create(
+                        ("Id", taskId),
+                        ("TenantId", null),
+                        ("ScopeKey", "host"),
+                        ("TenantScopeKey", "host"),
+                        ("InstanceId", instanceId),
+                        ("StepId", null),
+                        ("KindKey", WorkflowRecoveryKinds.StuckInstance),
+                        ("CreatedAtUtc", now),
+                        ("UpdatedAtUtc", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await command.ExecuteAsync(
+                    new SqlStatement(
+                        "test.workflow.recovery.mark_failed",
+                        """
+                        UPDATE fn_workflow_recovery_task
+                        SET StatusKey = 'failed',
+                            AttemptCount = 2,
+                            Revision = 2,
+                            UpdatedAtUtc = @Now
+                        WHERE Id = @Id
+                        """,
+                        SqlDataScope.Global),
+                    WorkflowSqlParameters.Create(("Id", taskId), ("Now", now)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        using var listed = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/workflow/recovery-tasks", operatorIdentity.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listed.StatusCode, await listed.Content.ReadAsStringAsync(cancellationToken));
+        using var listedDocument = JsonDocument.Parse(await listed.Content.ReadAsStringAsync(cancellationToken));
+        Assert.IsTrue(
+            listedDocument.RootElement.GetProperty("items").EnumerateArray()
+                .Any(item => item.GetProperty("id").GetGuid() == taskId));
+
+        using var foreign = await client.SendAsync(
+            Authorized(HttpMethod.Get, $"/api/v1/workflow/recovery-tasks/{Guid.CreateVersion7():D}", operatorIdentity.AccessToken),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, foreign.StatusCode);
+
+        using var retryForbidden = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                retryDenied.AccessToken,
+                new { expectedRevision = 2, reason = "卡住", idempotencyKey = $"retry-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, retryForbidden.StatusCode);
+
+        using var stale = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = 1, reason = "卡住", idempotencyKey = $"retry-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, stale.StatusCode);
+
+        var retryKey = $"retry-{Guid.NewGuid():N}";
+        using var retried = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住待办", idempotencyKey = retryKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, retried.StatusCode, await retried.Content.ReadAsStringAsync(cancellationToken));
+        using var retriedDocument = JsonDocument.Parse(await retried.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("pending", retriedDocument.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(0, retriedDocument.RootElement.GetProperty("attemptCount").GetInt32());
+
+        using var replay = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/retry",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住待办", idempotencyKey = retryKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, replay.StatusCode, await replay.Content.ReadAsStringAsync(cancellationToken));
+
+        using var reconcileInvalid = await client.SendAsync(
+            AuthorizedJson(
+                HttpMethod.Post,
+                $"/api/v1/workflow/recovery-tasks/{taskId:D}/reconcile",
+                operatorIdentity.AccessToken,
+                new { expectedRevision = retriedDocument.RootElement.GetProperty("revision").GetInt64(), reason = (string?)null, idempotencyKey = $"rec-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.BadRequest,
+            reconcileInvalid.StatusCode,
+            "实例仍卡住时对账必须拒绝，避免静默关闭未修复任务。");
+    }
+
     private static async Task VerifyOpenApiAsync(HttpClient client, CancellationToken cancellationToken)
     {
         using var response = await client.GetAsync("/openapi/v1.json", cancellationToken);
@@ -1646,6 +2571,18 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/instances/{instanceId}/cancel", HttpMethod.Post,
             "workflowCancelInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/pause", HttpMethod.Post,
+            "workflowPauseInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/resume", HttpMethod.Post,
+            "workflowResumeInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/recover", HttpMethod.Post,
+            "workflowRecoverInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/reassign", HttpMethod.Post,
+            "workflowReassignInstance", "WorkflowInstances", 200, "application/json", "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/todos/{todoId}", HttpMethod.Get,
             "workflowGetTodo", "WorkflowTodos", 200, "application/json");
@@ -1667,7 +2604,79 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/cc/{ccId}/read", HttpMethod.Post,
             "workflowMarkCcRead", "WorkflowCc", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks", HttpMethod.Get,
+            "workflowListRecoveryTasks", "WorkflowRecoveryTasks", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks/{taskId}", HttpMethod.Get,
+            "workflowGetRecoveryTask", "WorkflowRecoveryTasks", 200, "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks/{taskId}/retry", HttpMethod.Post,
+            "workflowRetryRecoveryTask", "WorkflowRecoveryTasks", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/recovery-tasks/{taskId}/reconcile", HttpMethod.Post,
+            "workflowReconcileRecoveryTask", "WorkflowRecoveryTasks", 200, "application/json", "application/json");
     }
+
+    /// <summary>验证退回事务只追加一次动作和审计，并按严格序号失效目标及后续旧步骤。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="instanceId">退回实例标识。</param>
+    /// <param name="firstStepId">选中的退回目标步骤。</param>
+    /// <param name="secondStepId">目标之后且时间被回拨的旧步骤。</param>
+    /// <param name="idempotencyKey">并发请求共享的幂等键。</param>
+    /// <param name="cancellationToken">取消当前数据库读取的令牌。</param>
+    private static async Task AssertReturnPersistenceAsync(
+        FullNetApiFactory factory,
+        Guid instanceId,
+        Guid firstStepId,
+        Guid secondStepId,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = CreateConnection(factory);
+        await connection.OpenAsync(cancellationToken);
+        var steps = (await connection.QueryAsync<WorkflowReturnStepState>(
+            """
+            SELECT Id, StatusKey, ExecutionSequence
+            FROM fn_workflow_step
+            WHERE Id IN (@FirstStepId, @SecondStepId)
+            """,
+            new { FirstStepId = firstStepId, SecondStepId = secondStepId })).ToArray();
+        Assert.HasCount(2, steps);
+        Assert.IsTrue(steps.All(step => step.StatusKey == "rolled_back"));
+        Assert.IsTrue(steps.Single(step => step.Id == firstStepId).ExecutionSequence <
+            steps.Single(step => step.Id == secondStepId).ExecutionSequence);
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(1)
+            FROM fn_workflow_action_record
+            WHERE InstanceId = @InstanceId
+              AND ActionKey = 'return'
+              AND IdempotencyKey = @IdempotencyKey
+            """,
+            new { InstanceId = instanceId, IdempotencyKey = idempotencyKey }));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(1)
+            FROM fn_workflow_domain_audit
+            WHERE InstanceId = @InstanceId
+              AND OperationKey = 'todo.return'
+            """,
+            new { InstanceId = instanceId }));
+    }
+
+    /// <summary>按测试工厂的双库配置创建连接，并保持 MySQL UUID 二进制映射一致。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <returns>尚未打开的数据库连接。</returns>
+    private static DbConnection CreateConnection(FullNetApiFactory factory) => factory.Provider switch
+    {
+        DatabaseProvider.SqlServer => new SqlConnection(factory.ConnectionString),
+        DatabaseProvider.MySql => new MySqlConnection(MySqlConnectionStringPolicy.Create(
+            factory.ConnectionString,
+            MySqlGuidStorageMode.Binary16,
+            allowUserVariables: false)),
+        _ => throw new InvalidOperationException($"Unsupported provider '{factory.Provider}'."),
+    };
 
     /// <summary>验证指定实例的 Workflow 提醒事件只写入一次事务 Outbox。</summary>
     /// <typeparam name="TEvent">具体 MemoryPack 提醒事件类型。</typeparam>
@@ -1716,6 +2725,19 @@ internal static class WorkflowRuntimeApiAssertions
     }
 
     private sealed record PublishedRuntimeAssets(Guid DefinitionVersionId, Guid FormVersionId);
+
+    /// <summary>读取退回目标旧步骤状态和严格执行序号的最小投影。</summary>
+    private sealed class WorkflowReturnStepState
+    {
+        /// <summary>获取或设置步骤标识。</summary>
+        public Guid Id { get; set; }
+
+        /// <summary>获取或设置步骤状态机器码。</summary>
+        public string StatusKey { get; set; } = string.Empty;
+
+        /// <summary>获取或设置实例内严格单调执行序号。</summary>
+        public long ExecutionSequence { get; set; }
+    }
 
     /// <summary>读取 Workflow 通知 Outbox 载荷所需的最小投影。</summary>
     private sealed class WorkflowNotificationOutboxRecord

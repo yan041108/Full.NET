@@ -26,6 +26,28 @@ internal static class WorkflowNotificationRequestFactory
             integrationEvent.BusinessId,
             integrationEvent.TodoId);
 
+    /// <summary>把待办催办事件映射为带序号的站内信意图。</summary>
+    /// <param name="messageId">稳定 Outbox 消息标识。</param>
+    /// <param name="integrationEvent">待办催办事件。</param>
+    /// <returns>催办通知意图。</returns>
+    public static CreateNotificationIntentRequest Create(
+        Guid messageId,
+        WorkflowTodoReminderRequestedIntegrationEvent integrationEvent) =>
+        CreateCore(messageId, "workflow.todo.reminder", integrationEvent.RecipientUserId,
+            integrationEvent.InstanceId, integrationEvent.BusinessType, integrationEvent.BusinessId,
+            integrationEvent.TodoId, integrationEvent.ReminderSequence);
+
+    /// <summary>把待办升级事件映射为站内信意图。</summary>
+    /// <param name="messageId">稳定 Outbox 消息标识。</param>
+    /// <param name="integrationEvent">待办升级事件。</param>
+    /// <returns>升级通知意图。</returns>
+    public static CreateNotificationIntentRequest Create(
+        Guid messageId,
+        WorkflowTodoEscalationRequestedIntegrationEvent integrationEvent) =>
+        CreateCore(messageId, "workflow.todo.escalation", integrationEvent.RecipientUserId,
+            integrationEvent.InstanceId, integrationEvent.BusinessType, integrationEvent.BusinessId,
+            integrationEvent.TodoId);
+
     /// <summary>把实例完成事件映射为站内信意图。</summary>
     /// <param name="messageId">稳定 Outbox 消息标识。</param>
     /// <param name="integrationEvent">实例完成事件。</param>
@@ -90,7 +112,8 @@ internal static class WorkflowNotificationRequestFactory
         Guid instanceId,
         string businessType,
         string businessId,
-        Guid? todoId)
+        Guid? todoId,
+        int? reminderSequence = null)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer))
@@ -100,6 +123,11 @@ internal static class WorkflowNotificationRequestFactory
             if (todoId is { } value)
             {
                 writer.WriteString("todoId", value);
+            }
+
+            if (reminderSequence is { } sequence)
+            {
+                writer.WriteNumber("reminderSequence", sequence);
             }
 
             writer.WriteString("businessType", businessType);

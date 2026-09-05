@@ -60,7 +60,20 @@
         "channelKey",
         "statusKey",
         "revision",
-        "attempts"
+        "attempts",
+        "receipts"
+      ]
+    },
+    "NotificationDeliveryReceiptResponse": {
+      "properties": [
+        "id",
+        "providerTypeKey",
+        "providerMessageId",
+        "externalStatusKey",
+        "mappedStatusKey",
+        "processStatusKey",
+        "receivedAtUtc",
+        "processedAtUtc"
       ]
     },
     "NotificationDeliveryResponsePage": {

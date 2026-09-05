@@ -47,6 +47,46 @@ internal sealed record WorkflowRecipientCandidatePageResponse(
     int PageSize,
     long Total);
 
+/// <summary>供工作流设计器选择办理人角色的最小角色投影。</summary>
+/// <param name="Id">稳定角色标识。</param>
+/// <param name="Code">稳定角色编码。</param>
+/// <param name="Name">角色显示名称。</param>
+internal sealed record WorkflowRoleCandidateResponse(
+    Guid Id,
+    string Code,
+    string Name);
+
+/// <summary>工作流办理人角色候选的受控分页结果。</summary>
+/// <param name="Items">当前页候选人。</param>
+/// <param name="Page">从 1 开始的页码。</param>
+/// <param name="PageSize">受控单页数量。</param>
+/// <param name="Total">活动角色总数。</param>
+internal sealed record WorkflowRoleCandidatePageResponse(
+    IReadOnlyList<WorkflowRoleCandidateResponse> Items,
+    int Page,
+    int PageSize,
+    long Total);
+
+/// <summary>供工作流设计器选择机构负责人的最小机构单元投影。</summary>
+/// <param name="Id">稳定机构单元标识。</param>
+/// <param name="Code">稳定机构编码。</param>
+/// <param name="Name">机构显示名称。</param>
+internal sealed record WorkflowOrganizationUnitCandidateResponse(
+    Guid Id,
+    string Code,
+    string Name);
+
+/// <summary>工作流机构单元候选的受控分页结果。</summary>
+/// <param name="Items">当前页候选人。</param>
+/// <param name="Page">从 1 开始的页码。</param>
+/// <param name="PageSize">受控单页数量。</param>
+/// <param name="Total">活动机构单元总数。</param>
+internal sealed record WorkflowOrganizationUnitCandidatePageResponse(
+    IReadOnlyList<WorkflowOrganizationUnitCandidateResponse> Items,
+    int Page,
+    int PageSize,
+    long Total);
+
 internal sealed record WorkflowDefinitionResponse(
     Guid Id,
     string DefinitionKey,

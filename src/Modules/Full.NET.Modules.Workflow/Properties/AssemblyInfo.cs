@@ -1,3 +1,5 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Full.NET.UnitTests")]
+[assembly: InternalsVisibleTo("Full.NET.IntegrationTests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]

@@ -20,6 +20,7 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeSerialNumberRuleStatusRequest,
@@ -51,6 +52,7 @@ import type {
   ConfirmTotpEnrollmentRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
+  CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
   CreateHostAnnouncementRequest,
@@ -79,6 +81,7 @@ import type {
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
   CurrentUserResponse,
+  DataApprovalRequestResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -162,6 +165,7 @@ import type {
   NotificationBindingResponse,
   NotificationBindingTargetInput,
   NotificationDeliveryAttemptResponse,
+  NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
@@ -182,6 +186,7 @@ import type {
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
   PagedResultOfExceptionLogResponse,
@@ -213,6 +218,8 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PagedResultOfWorkflowRecoveryTaskResponse,
+  PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
   ProvisionTenantRequest,
@@ -222,14 +229,20 @@ import type {
   PublishNotificationTemplateRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
+  ReconcileWorkflowRecoveryTaskRequest,
+  RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
+  ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
+  RetryWorkflowRecoveryTaskRequest,
+  ReturnWorkflowTodoRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -298,8 +311,10 @@ import type {
   WorkflowNodeTypeResponse,
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
+  WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
+  WorkflowTodoReturnTargetResponse,
   WorkflowTodoRuntimeResponse
 } from './models.generated.js';
 import {
@@ -318,6 +333,7 @@ import {
   readConfigEntryResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
+  readDataApprovalRequestResponse,
   readDiagnosticPolicyResponse,
   readDictItemResponse,
   readDictTypeResponse,
@@ -387,6 +403,7 @@ import {
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
   readPagedResultOfConfigEntryResponse,
+  readPagedResultOfDataApprovalRequestResponse,
   readPagedResultOfDictItemResponse,
   readPagedResultOfDictTypeResponse,
   readPagedResultOfExceptionLogResponse,
@@ -418,6 +435,7 @@ import {
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
+  readPagedResultOfWorkflowRecoveryTaskResponse,
   readRecipientEndpointResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
@@ -448,8 +466,10 @@ import {
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyCcResponse,
   readWorkflowListMyTodosResponse,
+  readWorkflowListTodoReturnTargetsResponse,
   readWorkflowNodeTypeCatalogResponse,
   readWorkflowRecipientCandidatePageResponse,
+  readWorkflowRecoveryTaskResponse,
   readWorkflowTodoDetailResponse,
   readWorkflowTodoRuntimeResponse
 } from './guards.generated.js';
@@ -1024,6 +1044,103 @@ export async function codeGenerationUpdateTemplate(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readCodeGenerationTemplateResponse(value);
+}
+
+export interface DataApprovalsCancelRequestParameters {
+  readonly requestId: string;
+  readonly body: CancelDataApprovalRequestBody;
+}
+
+export async function dataApprovalsCancelRequest(
+  http: HttpClient,
+  parameters: DataApprovalsCancelRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsCreateRequestParameters {
+  readonly body: CreateDataApprovalRequestBody;
+}
+
+export async function dataApprovalsCreateRequest(
+  http: HttpClient,
+  parameters: DataApprovalsCreateRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsGetRequestParameters {
+  readonly requestId: string;
+}
+
+export async function dataApprovalsGetRequest(
+  http: HttpClient,
+  parameters: DataApprovalsGetRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsListRequestsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly scenarioKey?: string;
+  readonly statusKey?: string;
+}
+
+export async function dataApprovalsListRequests(
+  http: HttpClient,
+  parameters: DataApprovalsListRequestsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfDataApprovalRequestResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.scenarioKey !== undefined) {
+    query.set('scenarioKey', String(parameters.scenarioKey));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  const path = query.size === 0 ? `/api/v1/data-approvals/requests` : `/api/v1/data-approvals/requests?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfDataApprovalRequestResponse(value);
 }
 
 export interface DocumentHostAddItemVersionParameters {
@@ -6543,6 +6660,24 @@ export async function workflowGetNodeTypeCatalog(
   return readWorkflowNodeTypeCatalogResponse(value);
 }
 
+export interface WorkflowGetRecoveryTaskParameters {
+  readonly taskId: string;
+}
+
+export async function workflowGetRecoveryTask(
+  http: HttpClient,
+  parameters: WorkflowGetRecoveryTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecoveryTaskResponse> {
+  const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecoveryTaskResponse(value);
+}
+
 export interface WorkflowGetTodoParameters {
   readonly todoId: string;
 }
@@ -6713,6 +6848,59 @@ export async function workflowListRecipientCandidates(
   return readWorkflowRecipientCandidatePageResponse(value);
 }
 
+export interface WorkflowListRecoveryTasksParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListRecoveryTasks(
+  http: HttpClient,
+  parameters: WorkflowListRecoveryTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfWorkflowRecoveryTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/recovery-tasks` : `/api/v1/workflow/recovery-tasks?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfWorkflowRecoveryTaskResponse(value);
+}
+
+export interface WorkflowListTodoReturnTargetsParameters {
+  readonly todoId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListTodoReturnTargets(
+  http: HttpClient,
+  parameters: WorkflowListTodoReturnTargetsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowTodoReturnTargetResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return-targets` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return-targets?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListTodoReturnTargetsResponse(value);
+}
+
 export interface WorkflowMarkCcReadParameters {
   readonly ccId: string;
 }
@@ -6729,6 +6917,29 @@ export async function workflowMarkCcRead(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowCcReadResponse(value);
+}
+
+export interface WorkflowPauseInstanceParameters {
+  readonly instanceId: string;
+  readonly body: PauseWorkflowInstanceRequest;
+}
+
+export async function workflowPauseInstance(
+  http: HttpClient,
+  parameters: WorkflowPauseInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/pause`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
 }
 
 export interface WorkflowPublishDefinitionParameters {
@@ -6777,6 +6988,75 @@ export async function workflowPublishForm(
   return readWorkflowFormVersionResponse(value);
 }
 
+export interface WorkflowReassignInstanceParameters {
+  readonly instanceId: string;
+  readonly body: ReassignWorkflowInstanceRequest;
+}
+
+export async function workflowReassignInstance(
+  http: HttpClient,
+  parameters: WorkflowReassignInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/reassign`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowReconcileRecoveryTaskParameters {
+  readonly taskId: string;
+  readonly body: ReconcileWorkflowRecoveryTaskRequest;
+}
+
+export async function workflowReconcileRecoveryTask(
+  http: HttpClient,
+  parameters: WorkflowReconcileRecoveryTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecoveryTaskResponse> {
+  const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}/reconcile`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecoveryTaskResponse(value);
+}
+
+export interface WorkflowRecoverInstanceParameters {
+  readonly instanceId: string;
+  readonly body: RecoverWorkflowInstanceRequest;
+}
+
+export async function workflowRecoverInstance(
+  http: HttpClient,
+  parameters: WorkflowRecoverInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/recover`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowRejectTodoParameters {
   readonly todoId: string;
   readonly body: ActWorkflowTodoRequest;
@@ -6789,6 +7069,75 @@ export async function workflowRejectTodo(
   options?: RequestOptions
 ): Promise<WorkflowInstanceResponse> {
   const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/reject`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowResumeInstanceParameters {
+  readonly instanceId: string;
+  readonly body: ResumeWorkflowInstanceRequest;
+}
+
+export async function workflowResumeInstance(
+  http: HttpClient,
+  parameters: WorkflowResumeInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/resume`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowRetryRecoveryTaskParameters {
+  readonly taskId: string;
+  readonly body: RetryWorkflowRecoveryTaskRequest;
+}
+
+export async function workflowRetryRecoveryTask(
+  http: HttpClient,
+  parameters: WorkflowRetryRecoveryTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowRecoveryTaskResponse> {
+  const path = `/api/v1/workflow/recovery-tasks/${encodeURIComponent(String(parameters.taskId))}/retry`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowRecoveryTaskResponse(value);
+}
+
+export interface WorkflowReturnTodoParameters {
+  readonly todoId: string;
+  readonly body: ReturnWorkflowTodoRequest;
+}
+
+export async function workflowReturnTodo(
+  http: HttpClient,
+  parameters: WorkflowReturnTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return`;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

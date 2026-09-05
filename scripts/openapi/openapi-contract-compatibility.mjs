@@ -588,7 +588,9 @@ const approvedOptionalRequestSchemaEvolutions = new Set([
 
 const approvedResponseSchemaEvolutions = new Set([
   'HostAnnouncementResponse',
-  'SerialNumberPreviewResponse'
+  'SerialNumberPreviewResponse',
+  'WorkflowTodoDetailResponse',
+  'WorkflowTodoRuntimeResponse'
 ]);
 
 function isApprovedAdditiveSchemaEvolution(schemaName, baselineSchema, currentSchema) {

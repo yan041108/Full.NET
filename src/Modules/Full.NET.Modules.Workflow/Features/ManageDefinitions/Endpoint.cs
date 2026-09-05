@@ -37,6 +37,40 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
 
+        group.MapGet("/role-candidates", async (
+            int? page,
+            int? pageSize,
+            [FromServices] WorkflowRoleCandidateQueryService service,
+            CancellationToken token) =>
+        {
+            return await service.ListAsync(
+                Math.Max(page ?? 1, 1),
+                Math.Clamp(pageSize ?? 50, 1, 100),
+                token).ConfigureAwait(false);
+        })
+        .WithName("workflowListRoleCandidates")
+        .Produces<WorkflowRoleCandidatePageResponse>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
+
+        group.MapGet("/organization-unit-candidates", async (
+            int? page,
+            int? pageSize,
+            [FromServices] WorkflowOrganizationUnitCandidateQueryService service,
+            CancellationToken token) =>
+        {
+            return await service.ListAsync(
+                Math.Max(page ?? 1, 1),
+                Math.Clamp(pageSize ?? 50, 1, 100),
+                token).ConfigureAwait(false);
+        })
+        .WithName("workflowListOrganizationUnitCandidates")
+        .Produces<WorkflowOrganizationUnitCandidatePageResponse>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
+
         group.MapGet("/", async (WorkflowDefinitionManagementService service, IApiResultMapper mapper,
             HttpContext context, CancellationToken token) => mapper.Map(await service.ListAsync(token).ConfigureAwait(false), context))
             .WithName("workflowListDefinitions")

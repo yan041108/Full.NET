@@ -2,8 +2,9 @@
 import { computed, nextTick, provide, ref, watch } from 'vue';
 import type { WorkflowDefinitionDraft, WorkflowFormField } from '@fullnet/client-contracts';
 import type { WorkflowRecipientCandidateResponse } from '@fullnet/client-contracts';
-import { ElButton, ElDrawer, ElInput, ElOption, ElSelect } from 'element-plus';
-import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
+import { ElButton, ElDrawer, ElInput, ElInputNumber, ElOption, ElSelect, ElSwitch } from 'element-plus';
+import { listWorkflowOrganizationUnitCandidates, listWorkflowRecipientCandidates, listWorkflowRoleCandidates } from '../api/workflow-definitions';
+import { useAdminI18n } from '../i18n/adminI18n';
 import NodeWrap from './vendor/workflow-vue3/src/components/nodeWrap.vue';
 import { useStore } from './vendor/workflow-vue3/src/stores/index.js';
 import type { WorkflowVue3Node } from './workflow-vue3-adapter';
@@ -27,9 +28,28 @@ const emit = defineEmits<{
   'validation-error': [code: string];
 }>();
 const store = useStore();
+const { t } = useAdminI18n();
 const ccCandidates = ref<WorkflowRecipientCandidateResponse[]>([]);
 const ccRecipientUserIds = ref<string[]>([]);
 const ccCandidatesLoading = ref(false);
+const timeoutEnabled = ref(false);
+const timeoutDueMinutes = ref(1440);
+const timeoutReminderIntervalMinutes = ref(60);
+const timeoutMaxReminderCount = ref(3);
+const timeoutEscalationEnabled = ref(false);
+const timeoutEscalationMinutes = ref(2880);
+const timeoutEscalationRecipientUserId = ref('');
+const approvalModeKey = ref<'single' | 'all' | 'any' | 'nOfM'>('single');
+const approvalApproverUserIds = ref<string[]>([]);
+const approvalRequiredApprovals = ref(2);
+const assigneeSourceKind = ref<'initiator' | 'specified_users' | 'role_members' | 'organization_unit_leader' | 'initiator_primary_unit_leader'>('initiator');
+const assigneeUserIds = ref<string[]>([]);
+const assigneeRoleIds = ref<string[]>([]);
+const assigneeUnitId = ref('');
+const roleCandidates = ref<Array<{ id: string; code: string; name: string }>>([]);
+const organizationUnitCandidates = ref<Array<{ id: string; code: string; name: string }>>([]);
+const roleCandidatesLoading = ref(false);
+const organizationUnitCandidatesLoading = ref(false);
 const gatewayCondition = ref<WorkflowVue3Node>();
 const gatewayFieldKey = ref('');
 const gatewayOperator = ref('equals');
@@ -103,6 +123,60 @@ watch(() => store.copyerDrawer, visible => {
   void loadCcCandidates();
 });
 
+watch(() => store.approverDrawer, visible => {
+  if (!visible) return;
+  const envelope = store.approverConfig1 as { value?: WorkflowVue3Node };
+  const configuredPolicy = envelope.value?.timeoutPolicy;
+  const policy: Record<string, unknown> | undefined = isRecord(configuredPolicy)
+    ? configuredPolicy : undefined;
+  timeoutEnabled.value = policy !== undefined;
+  timeoutDueMinutes.value = readInteger(policy?.dueAfterMinutes, 1440);
+  timeoutReminderIntervalMinutes.value = readInteger(policy?.reminderIntervalMinutes, 60);
+  timeoutMaxReminderCount.value = readInteger(policy?.maxReminderCount, 3);
+  timeoutEscalationEnabled.value = policy?.escalationAfterMinutes !== undefined;
+  timeoutEscalationMinutes.value = readInteger(policy?.escalationAfterMinutes, 2880);
+  timeoutEscalationRecipientUserId.value = typeof policy?.escalationRecipientUserId === 'string'
+    ? policy.escalationRecipientUserId
+    : '';
+  const configuredApproval = isRecord(envelope.value?.approvalPolicy)
+    ? envelope.value?.approvalPolicy as Record<string, unknown>
+    : undefined;
+  const configuredMode = configuredApproval?.modeKey;
+  approvalModeKey.value = configuredMode === 'all' || configuredMode === 'any' || configuredMode === 'nOfM'
+    ? configuredMode
+    : 'single';
+  approvalApproverUserIds.value = Array.isArray(configuredApproval?.approverUserIds)
+    ? configuredApproval.approverUserIds.filter(
+      (value): value is string => typeof value === 'string')
+    : [];
+  approvalRequiredApprovals.value = readInteger(configuredApproval?.requiredApprovals, 2);
+  const configuredAssignee = isRecord(envelope.value?.assigneePolicy)
+    ? envelope.value?.assigneePolicy as Record<string, unknown>
+    : undefined;
+  const firstSource = Array.isArray(configuredAssignee?.sources) && isRecord(configuredAssignee?.sources[0])
+    ? configuredAssignee?.sources[0] as Record<string, unknown>
+    : undefined;
+  const resolverKind = typeof firstSource?.resolverKindKey === 'string'
+    ? firstSource.resolverKindKey
+    : 'initiator';
+  assigneeSourceKind.value = resolverKind === 'specified_users'
+    || resolverKind === 'role_members'
+    || resolverKind === 'organization_unit_leader'
+    || resolverKind === 'initiator_primary_unit_leader'
+    ? resolverKind
+    : 'initiator';
+  assigneeUserIds.value = Array.isArray(firstSource?.userIds)
+    ? firstSource.userIds.filter((value): value is string => typeof value === 'string')
+    : [];
+  assigneeRoleIds.value = Array.isArray(firstSource?.roleIds)
+    ? firstSource.roleIds.filter((value): value is string => typeof value === 'string')
+    : [];
+  assigneeUnitId.value = typeof firstSource?.unitId === 'string' ? firstSource.unitId : '';
+  void loadCcCandidates();
+  void loadRoleCandidates();
+  void loadOrganizationUnitCandidates();
+});
+
 watch(() => store.conditionDrawer, visible => {
   if (!visible) return;
   const envelope = store.conditionsConfig1 as { value?: WorkflowVue3Node };
@@ -128,6 +202,30 @@ async function loadCcCandidates(): Promise<void> {
     ccCandidates.value = result.items;
   } finally {
     ccCandidatesLoading.value = false;
+  }
+}
+
+/** 加载办理人角色候选。 */
+async function loadRoleCandidates(): Promise<void> {
+  if (roleCandidatesLoading.value || roleCandidates.value.length > 0) return;
+  roleCandidatesLoading.value = true;
+  try {
+    const result = await listWorkflowRoleCandidates(1, 100);
+    roleCandidates.value = result.items;
+  } finally {
+    roleCandidatesLoading.value = false;
+  }
+}
+
+/** 加载机构单元候选。 */
+async function loadOrganizationUnitCandidates(): Promise<void> {
+  if (organizationUnitCandidatesLoading.value || organizationUnitCandidates.value.length > 0) return;
+  organizationUnitCandidatesLoading.value = true;
+  try {
+    const result = await listWorkflowOrganizationUnitCandidates(1, 100);
+    organizationUnitCandidates.value = result.items;
+  } finally {
+    organizationUnitCandidatesLoading.value = false;
   }
 }
 
@@ -162,6 +260,94 @@ function saveCcRecipients(): void {
 /** 关闭抄送配置抽屉并丢弃本次未保存选择。 */
 function closeCcRecipients(): void {
   store.setCopyer(false);
+}
+
+/** 保存审批参与人、收敛方式及超时策略；发布后由服务端固化为步骤快照。 */
+function saveApprovalConfiguration(): void {
+  const envelope = store.approverConfig1 as { value?: WorkflowVue3Node; id?: number | string };
+  const value = { ...envelope.value };
+  if (assigneeSourceKind.value === 'initiator') {
+    delete value.assigneePolicy;
+  } else if (assigneeSourceKind.value === 'specified_users') {
+    const userIds = [...new Set(assigneeUserIds.value)];
+    if (userIds.length < 1 || userIds.length > 20) {
+      emit('validation-error', 'client.invalid_workflow_assignee_policy');
+      return;
+    }
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'specified_users', userIds }] };
+  } else if (assigneeSourceKind.value === 'role_members') {
+    const roleIds = [...new Set(assigneeRoleIds.value)];
+    if (roleIds.length < 1 || roleIds.length > 5) {
+      emit('validation-error', 'client.invalid_workflow_assignee_policy');
+      return;
+    }
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'role_members', roleIds }] };
+  } else if (assigneeSourceKind.value === 'organization_unit_leader') {
+    if (!assigneeUnitId.value) {
+      emit('validation-error', 'client.invalid_workflow_assignee_policy');
+      return;
+    }
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'organization_unit_leader', unitId: assigneeUnitId.value }] };
+  } else {
+    value.assigneePolicy = { sources: [{ resolverKindKey: 'initiator_primary_unit_leader' }] };
+  }
+  if (approvalModeKey.value === 'single') {
+    delete value.approvalPolicy;
+  } else {
+    const approvers = [...new Set(approvalApproverUserIds.value)];
+    const required = approvalRequiredApprovals.value;
+    if (approvers.length < 2 || approvers.length > 20 ||
+      (approvalModeKey.value === 'nOfM' &&
+        (!Number.isInteger(required) || required <= 1 || required >= approvers.length))) {
+      emit('validation-error', 'client.invalid_workflow_approval_policy');
+      return;
+    }
+    value.approvalPolicy = {
+      modeKey: approvalModeKey.value,
+      approverUserIds: approvers,
+      ...(approvalModeKey.value === 'nOfM' ? { requiredApprovals: required } : {})
+    };
+  }
+  if (!timeoutEnabled.value) {
+    delete value.timeoutPolicy;
+  } else {
+    const escalationValid = !timeoutEscalationEnabled.value ||
+      (timeoutEscalationMinutes.value >= timeoutDueMinutes.value &&
+        timeoutEscalationRecipientUserId.value.length > 0);
+    if (timeoutDueMinutes.value < 1 || timeoutReminderIntervalMinutes.value < 1 ||
+      timeoutMaxReminderCount.value < 0 ||
+      (timeoutMaxReminderCount.value === 0 && !timeoutEscalationEnabled.value) ||
+      !escalationValid) {
+      emit('validation-error', 'client.invalid_workflow_timeout_policy');
+      return;
+    }
+    value.timeoutPolicy = {
+      dueAfterMinutes: timeoutDueMinutes.value,
+      reminderIntervalMinutes: timeoutReminderIntervalMinutes.value,
+      maxReminderCount: timeoutMaxReminderCount.value,
+      ...(timeoutEscalationEnabled.value ? {
+        escalationAfterMinutes: timeoutEscalationMinutes.value,
+        escalationRecipientUserId: timeoutEscalationRecipientUserId.value
+      } : {})
+    };
+  }
+  store.setApproverConfig({ ...envelope, flag: true, value });
+  store.setApprover(false);
+}
+
+/** 关闭审批配置并丢弃未保存输入。 */
+function closeApprovalConfiguration(): void {
+  store.setApprover(false);
+}
+
+/** 从不可信设计器配置读取整数，非法值回落到安全默认值。 */
+function readInteger(value: unknown, fallback: number): number {
+  return Number.isInteger(value) ? Number(value) : fallback;
+}
+
+/** 识别普通对象，避免把数组或空值当成策略配置。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** 保存排他网关的单字段闭合条件，值类型严格跟随已发布表单字段。 */
@@ -285,6 +471,94 @@ defineExpose({ readDraft });
     </template>
   </el-drawer>
   <el-drawer
+    :model-value="store.approverDrawer"
+    :title="t('workflowDesigner.approval.title')"
+    size="min(560px, 94vw)"
+    @close="closeApprovalConfiguration"
+  >
+    <div class="workflow-timeout-form">
+      <label>
+        <span>办理人来源</span>
+        <el-select v-model="assigneeSourceKind" data-testid="workflow-assignee-source-kind">
+          <el-option label="流程发起人" value="initiator" />
+          <el-option label="指定用户" value="specified_users" />
+          <el-option label="角色成员" value="role_members" />
+          <el-option label="机构负责人" value="organization_unit_leader" />
+          <el-option label="发起人主部门负责人" value="initiator_primary_unit_leader" />
+        </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'specified_users'">
+        <span>指定用户</span>
+        <el-select v-model="assigneeUserIds" multiple filterable :multiple-limit="20" :loading="ccCandidatesLoading" data-testid="workflow-assignee-users">
+          <el-option v-for="candidate in ccCandidates" :key="candidate.id" :label="`${candidate.displayName} (${candidate.username})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'role_members'">
+        <span>角色</span>
+        <el-select v-model="assigneeRoleIds" multiple filterable :multiple-limit="5" :loading="roleCandidatesLoading" data-testid="workflow-assignee-roles">
+          <el-option v-for="candidate in roleCandidates" :key="candidate.id" :label="`${candidate.name} (${candidate.code})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'organization_unit_leader'">
+        <span>机构单元</span>
+        <el-select v-model="assigneeUnitId" filterable :loading="organizationUnitCandidatesLoading" data-testid="workflow-assignee-unit">
+          <el-option v-for="candidate in organizationUnitCandidates" :key="candidate.id" :label="`${candidate.name} (${candidate.code})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label>
+        <span>{{ t('workflowDesigner.approval.mode') }}</span>
+        <el-select v-model="approvalModeKey" data-testid="workflow-approval-mode">
+          <el-option :label="t('workflowDesigner.approval.single')" value="single" />
+          <el-option :label="t('workflowDesigner.approval.all')" value="all" />
+          <el-option :label="t('workflowDesigner.approval.any')" value="any" />
+          <el-option :label="t('workflowDesigner.approval.nOfM')" value="nOfM" />
+        </el-select>
+      </label>
+      <label v-if="approvalModeKey !== 'single'">
+        <span>{{ t('workflowDesigner.approval.approvers') }}</span>
+        <el-select
+          v-model="approvalApproverUserIds"
+          multiple
+          filterable
+          :multiple-limit="20"
+          :loading="ccCandidatesLoading"
+          data-testid="workflow-approval-approvers"
+        >
+          <el-option v-for="candidate in ccCandidates" :key="candidate.id" :label="`${candidate.displayName} (${candidate.username})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label v-if="approvalModeKey === 'nOfM'">
+        <span>{{ t('workflowDesigner.approval.required') }}</span>
+        <el-input-number
+          v-model="approvalRequiredApprovals"
+          :min="2"
+          :max="Math.max(2, approvalApproverUserIds.length - 1)"
+          data-testid="workflow-approval-required"
+        />
+      </label>
+      <label><span>{{ t('workflowDesigner.timeout.enabled') }}</span><el-switch v-model="timeoutEnabled" data-testid="workflow-timeout-enabled" /></label>
+      <template v-if="timeoutEnabled">
+        <label><span>{{ t('workflowDesigner.timeout.dueMinutes') }}</span><el-input-number v-model="timeoutDueMinutes" :min="1" :max="525600" data-testid="workflow-timeout-due" /></label>
+        <label><span>{{ t('workflowDesigner.timeout.reminderIntervalMinutes') }}</span><el-input-number v-model="timeoutReminderIntervalMinutes" :min="1" :max="43200" /></label>
+        <label><span>{{ t('workflowDesigner.timeout.maxReminderCount') }}</span><el-input-number v-model="timeoutMaxReminderCount" :min="0" :max="100" data-testid="workflow-timeout-reminder-count" /></label>
+        <label><span>{{ t('workflowDesigner.timeout.escalationEnabled') }}</span><el-switch v-model="timeoutEscalationEnabled" data-testid="workflow-timeout-escalation-enabled" /></label>
+        <template v-if="timeoutEscalationEnabled">
+          <label><span>{{ t('workflowDesigner.timeout.escalationMinutes') }}</span><el-input-number v-model="timeoutEscalationMinutes" :min="timeoutDueMinutes" :max="525600" /></label>
+          <label>
+            <span>{{ t('workflowDesigner.timeout.escalationRecipient') }}</span>
+            <el-select v-model="timeoutEscalationRecipientUserId" filterable data-testid="workflow-timeout-escalation-recipient">
+              <el-option v-for="candidate in ccCandidates" :key="candidate.id" :label="`${candidate.displayName} (${candidate.username})`" :value="candidate.id" />
+            </el-select>
+          </label>
+        </template>
+      </template>
+    </div>
+    <template #footer>
+      <el-button @click="closeApprovalConfiguration">{{ t('workflowDesigner.timeout.cancel') }}</el-button>
+      <el-button type="primary" data-testid="workflow-timeout-save" @click="saveApprovalConfiguration">{{ t('workflowDesigner.timeout.confirm') }}</el-button>
+    </template>
+  </el-drawer>
+  <el-drawer
     :model-value="store.conditionDrawer"
     title="配置分支条件"
     size="min(520px, 94vw)"
@@ -331,4 +605,6 @@ defineExpose({ readDraft });
 .workflow-vue3-adapter__canvas.is-disabled { pointer-events: none; opacity: 0.72; }
 .workflow-gateway-form { display: grid; gap: 18px; }
 .workflow-gateway-form label { display: grid; gap: 8px; }
+.workflow-timeout-form { display: grid; gap: 18px; }
+.workflow-timeout-form label { display: grid; gap: 8px; }
 </style>

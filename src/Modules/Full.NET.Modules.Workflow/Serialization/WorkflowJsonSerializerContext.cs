@@ -6,6 +6,8 @@ using Full.NET.Modules.Workflow.Features.ManageForms;
 using Full.NET.Modules.Workflow.Features.ManageInstances;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Full.NET.Modules.Workflow.Features.ManageMyCc;
+using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
+using Full.NET.Abstractions.Results;
 
 namespace Full.NET.Modules.Workflow.Serialization;
 
@@ -37,17 +39,37 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(WorkflowDefinitionVersionResponse[]))]
 [JsonSerializable(typeof(StartWorkflowInstanceRequest))]
 [JsonSerializable(typeof(CancelWorkflowInstanceRequest))]
+[JsonSerializable(typeof(PauseWorkflowInstanceRequest))]
+[JsonSerializable(typeof(ResumeWorkflowInstanceRequest))]
+[JsonSerializable(typeof(RecoverWorkflowInstanceRequest))]
+[JsonSerializable(typeof(ReassignWorkflowInstanceRequest))]
+[JsonSerializable(typeof(WorkflowGatewayJoinResponse))]
+[JsonSerializable(typeof(WorkflowGatewayJoinBranchResponse))]
 [JsonSerializable(typeof(WorkflowInstanceResponse))]
 [JsonSerializable(typeof(WorkflowTodoResponse))]
 [JsonSerializable(typeof(WorkflowTodoResponse[]))]
 [JsonSerializable(typeof(WorkflowTodoDetailResponse))]
 [JsonSerializable(typeof(WorkflowTodoRuntimeResponse))]
-[JsonSerializable(typeof(ActWorkflowTodoRequest))]
+    [JsonSerializable(typeof(ActWorkflowTodoRequest))]
+    [JsonSerializable(typeof(ReturnWorkflowTodoRequest))]
+    [JsonSerializable(typeof(CountersignWorkflowTodoRequest))]
+    [JsonSerializable(typeof(CancelWorkflowTodoCountersignRequest))]
+    [JsonSerializable(typeof(WorkflowTodoCountersignChainResponse))]
+    [JsonSerializable(typeof(WorkflowTodoCountersignItemResponse))]
+    [JsonSerializable(typeof(WorkflowTodoCountersignItemResponse[]))]
+    [JsonSerializable(typeof(WorkflowTodoReturnTargetResponse))]
+    [JsonSerializable(typeof(WorkflowTodoReturnTargetResponse[]))]
+    [JsonSerializable(typeof(WorkflowTodoReturnAuditDetail))]
+    [JsonSerializable(typeof(WorkflowApprovalAuditDetail))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse))]
 [JsonSerializable(typeof(WorkflowExecutionLogResponse[]))]
 [JsonSerializable(typeof(WorkflowCcResponse))]
 [JsonSerializable(typeof(WorkflowCcResponse[]))]
 [JsonSerializable(typeof(WorkflowCcReadResponse))]
+[JsonSerializable(typeof(WorkflowRecoveryTaskResponse))]
+[JsonSerializable(typeof(RetryWorkflowRecoveryTaskRequest))]
+[JsonSerializable(typeof(ReconcileWorkflowRecoveryTaskRequest))]
+[JsonSerializable(typeof(PagedResult<WorkflowRecoveryTaskResponse>))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;

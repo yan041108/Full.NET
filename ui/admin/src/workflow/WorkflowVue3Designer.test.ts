@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
@@ -6,11 +6,23 @@ import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
 
 vi.mock('../api/workflow-definitions', () => ({
   listWorkflowRecipientCandidates: vi.fn().mockResolvedValue({
-    items: [{
-      id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001',
-      username: 'finance',
-      displayName: '财务'
-    }],
+    items: [
+      {
+        id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001',
+        username: 'finance',
+        displayName: '财务'
+      },
+      {
+        id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002',
+        username: 'manager',
+        displayName: '经理'
+      },
+      {
+        id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d003',
+        username: 'director',
+        displayName: '总监'
+      }
+    ],
     page: 1,
     pageSize: 100,
     total: 1
@@ -148,6 +160,120 @@ describe('WorkflowVue3Designer', () => {
     await nextTick();
 
     expect(wrapper.find('.branch-wrap').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it('审批节点提供闭合的超时、催办与升级配置抽屉', async () => {
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        modelValue: {
+          id: 'start', type: 0, nodeName: '发起人', childNode: {
+            id: 'approve', type: 1, nodeName: '审批人', childNode: null
+          }
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click');
+    await nextTick();
+    expect(document.body.querySelector('[data-testid="workflow-timeout-enabled"]')).not.toBeNull();
+    await wrapper.get('[data-testid="workflow-timeout-enabled"] input').setValue(true);
+    await nextTick();
+    expect(document.body.querySelector('[data-testid="workflow-timeout-due"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="workflow-timeout-reminder-count"]')).not.toBeNull();
+    wrapper.unmount();
+  });
+
+  it('审批抽屉保存合法的 N-of-M 办理人和票数门槛', async () => {
+    const approvers = [
+      '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001',
+      '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002',
+      '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d003'
+    ];
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        modelValue: {
+          id: 'start', type: 0, nodeName: '发起人', childNode: {
+            id: 'approve', type: 1, nodeName: '审批人', childNode: null,
+            settype: 1,
+            nodeUserList: approvers.map((id, index) => ({
+              id,
+              name: ['财务', '经理', '总监'][index],
+              type: 'user'
+            })),
+            approvalPolicy: {
+              modeKey: 'all',
+              approverUserIds: approvers
+            }
+          }
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click');
+    await flushPromises();
+    (wrapper.findComponent('[data-testid="workflow-approval-mode"]') as VueWrapper)
+      .vm.$emit('update:modelValue', 'nOfM');
+    await nextTick();
+    (wrapper.findComponent('[data-testid="workflow-approval-required"]') as VueWrapper)
+      .vm.$emit('update:modelValue', 2);
+    await nextTick();
+    await wrapper.get('[data-testid="workflow-timeout-save"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.emitted('validation-error')).toBeUndefined();
+    const updates = wrapper.emitted('update:modelValue');
+    expect(updates).toBeDefined();
+    const latest = updates!.at(-1)![0] as {
+      childNode?: { approvalPolicy?: Record<string, unknown> }
+    };
+    expect(latest.childNode?.approvalPolicy).toEqual({
+      modeKey: 'nOfM',
+      approverUserIds: approvers,
+      requiredApprovals: 2
+    });
+    wrapper.unmount();
+  });
+
+  it('审批抽屉拒绝只有一个办理人的多人策略并保持开启', async () => {
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        modelValue: {
+          id: 'start', type: 0, nodeName: '发起人', childNode: {
+            id: 'approve', type: 1, nodeName: '审批人', childNode: null,
+            settype: 1,
+            nodeUserList: [{
+              id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001',
+              name: '财务',
+              type: 'user'
+            }],
+            approvalPolicy: {
+              modeKey: 'all',
+              approverUserIds: ['019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001']
+            }
+          }
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-timeout-save"]').trigger('click');
+    await nextTick();
+
+    expect(wrapper.emitted('validation-error')).toEqual([
+      ['client.invalid_workflow_approval_policy']
+    ]);
+    expect(document.body.querySelector('[data-testid="workflow-approval-mode"]')).not.toBeNull();
     wrapper.unmount();
   });
 });

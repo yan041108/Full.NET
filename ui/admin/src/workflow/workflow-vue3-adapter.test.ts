@@ -8,6 +8,63 @@ import {
 describe('Workflow-Vue3 定义适配器', () => {
   const financeUserId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001';
 
+  it('审批节点超时策略在设计树与服务端草稿之间保持闭合往返', () => {
+    const tree = {
+      id: 'start', type: 0, nodeName: '发起人', childNode: {
+        id: 'approve', type: 1, nodeName: '审批人',
+        timeoutPolicy: {
+          dueAfterMinutes: 60,
+          reminderIntervalMinutes: 15,
+          maxReminderCount: 2,
+          escalationAfterMinutes: 120,
+          escalationRecipientUserId: financeUserId
+        },
+        childNode: null
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'approve')?.config).toMatchObject({
+      timeoutPolicy: { dueAfterMinutes: 60, maxReminderCount: 2 }
+    });
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+  });
+
+  it('拒绝审批节点开放式或非法超时配置', () => {
+    expect(() => fromWorkflowVue3Tree({
+      id: 'start', type: 0, childNode: {
+        id: 'approve', type: 1,
+        timeoutPolicy: { dueAfterMinutes: 0, script: 'alert(1)' },
+        childNode: null
+      }
+    })).toThrow();
+  });
+
+  it('多人审批策略在设计树与服务端草稿之间保持闭合往返', () => {
+    const legalUserId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002';
+    const tree = {
+      id: 'start', type: 0, nodeName: '发起人', childNode: {
+        id: 'approve', type: 1, nodeName: '审批人',
+        approvalPolicy: {
+          modeKey: 'nOfM',
+          approverUserIds: [financeUserId, legalUserId],
+          requiredApprovals: 1
+        },
+        childNode: null
+      }
+    };
+
+    expect(() => fromWorkflowVue3Tree(tree)).toThrow('client.invalid_workflow_approval_policy');
+    tree.childNode.approvalPolicy.approverUserIds.push(
+      '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d003');
+    tree.childNode.approvalPolicy.requiredApprovals = 2;
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect((draft.nodes[1]?.config as Record<string, unknown>).approvalPolicy)
+      .toEqual(tree.childNode.approvalPolicy);
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+  });
+
   it('把线性审批树转换成服务端权威节点并补齐显式结束节点', () => {
     const draft = fromWorkflowVue3Tree({
       id: 'start',
@@ -76,6 +133,77 @@ describe('Workflow-Vue3 定义适配器', () => {
           nodeName: '抄送',
           recipientUserIds: [financeUserId]
         }
+      }
+    });
+  });
+
+  it('在 Workflow-Vue3 并行分支树与并行网关 Draft 之间双向转换', () => {
+    const tree = {
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'parallel-fork',
+        type: 12,
+        nodeName: '并行审批',
+        conditionNodes: [
+          {
+            id: 'branch-a',
+            type: 3,
+            branchKey: 'a',
+            childNode: { id: 'approve-a', type: 1, childNode: null }
+          },
+          {
+            id: 'branch-b',
+            type: 3,
+            branchKey: 'b',
+            childNode: { id: 'approve-b', type: 1, childNode: null }
+          }
+        ],
+        childNode: { id: 'after-join', type: 1, childNode: null }
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'parallel-fork')).toMatchObject({
+      nodeKey: 'parallel-fork',
+      nodeTypeKey: 'gateway.parallel',
+      config: {
+        nodeName: '并行审批',
+        gatewayRoleKey: 'fork',
+        joinNodeKey: 'parallel-fork-join',
+        branches: [
+          { branchKey: 'a', nextNodeKey: 'approve-a' },
+          { branchKey: 'b', nextNodeKey: 'approve-b' }
+        ]
+      }
+    });
+    expect(draft.nodes.find(node => node.nodeKey === 'parallel-fork-join')).toMatchObject({
+      nodeKey: 'parallel-fork-join',
+      nodeTypeKey: 'gateway.parallel',
+      config: {
+        gatewayRoleKey: 'join',
+        forkNodeKey: 'parallel-fork',
+        nextNodeKeys: ['after-join']
+      }
+    });
+    expect(toWorkflowVue3Tree(draft)).toMatchObject({
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'parallel-fork',
+        type: 12,
+        nodeName: '并行审批',
+        conditionNodes: [
+          {
+            branchKey: 'a',
+            childNode: { id: 'approve-a', type: 1 }
+          },
+          {
+            branchKey: 'b',
+            childNode: { id: 'approve-b', type: 1 }
+          }
+        ],
+        childNode: { id: 'after-join', type: 1 }
       }
     });
   });
@@ -235,6 +363,24 @@ describe('Workflow-Vue3 定义适配器', () => {
         node('end', 'end', [])
       ]
     })).toThrow('client.unsupported_workflow_node_configuration');
+  });
+
+  it('审批节点办理人策略在设计树与服务端草稿之间保持闭合', () => {
+    const roleId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002';
+    const tree = {
+      id: 'start', type: 0, childNode: {
+        id: 'approve', type: 1,
+        assigneePolicy: {
+          sources: [{ resolverKindKey: 'role_members', roleIds: [roleId] }]
+        },
+        childNode: null
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'approve')?.config).toMatchObject({
+      assigneePolicy: { sources: [{ resolverKindKey: 'role_members', roleIds: [roleId] }] }
+    });
   });
 });
 

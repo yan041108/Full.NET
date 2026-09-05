@@ -49,7 +49,7 @@ internal sealed class NotificationDeliveryService(
         var items = new List<NotificationDeliveryResponse>(rows.Count);
         foreach (var row in rows)
         {
-            items.Add(await MapAsync(row, cancellationToken).ConfigureAwait(false));
+            items.Add(await MapAsync(row, includeReceipts: false, cancellationToken).ConfigureAwait(false));
         }
 
         return Result<PagedResult<NotificationDeliveryResponse>>.Success(
@@ -64,7 +64,7 @@ internal sealed class NotificationDeliveryService(
         return record is null
             ? NotFound()
             : Result<NotificationDeliveryResponse>.Success(
-                await MapAsync(record, cancellationToken).ConfigureAwait(false));
+                await MapAsync(record, includeReceipts: true, cancellationToken).ConfigureAwait(false));
     }
 
     public Task<Result<NotificationDeliveryResponse>> RetryAsync(
@@ -151,6 +151,7 @@ internal sealed class NotificationDeliveryService(
 
     private async Task<NotificationDeliveryResponse> MapAsync(
         NotificationDeliveryRecord record,
+        bool includeReceipts,
         CancellationToken cancellationToken)
     {
         var attempts = await queryExecutor.QueryAsync<NotificationDeliveryAttemptRecord>(
@@ -158,6 +159,26 @@ internal sealed class NotificationDeliveryService(
                 NotificationPlatformSqlParameters.Create(("DeliveryId", record.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
+        IReadOnlyList<NotificationDeliveryReceiptResponse> receipts = [];
+        if (includeReceipts)
+        {
+            var receiptRows = await queryExecutor.QueryAsync<NotificationReceiptRecord>(
+                    NotificationPlatformSql.ListReceiptsByDelivery,
+                    NotificationPlatformSqlParameters.Create(("DeliveryId", record.Id)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            receipts = receiptRows.Select(item => new NotificationDeliveryReceiptResponse(
+                    item.Id,
+                    item.ProviderTypeKey,
+                    item.ProviderMessageId,
+                    item.ExternalStatusKey,
+                    item.MappedStatusKey,
+                    item.ProcessStatusKey,
+                    item.ReceivedAtUtc,
+                    item.ProcessedAtUtc))
+                .ToArray();
+        }
+
         return new NotificationDeliveryResponse(
             record.Id,
             record.IntentId,
@@ -179,7 +200,8 @@ internal sealed class NotificationDeliveryService(
                     item.ErrorCode,
                     item.StartedAtUtc,
                     item.FinishedAtUtc))
-                .ToArray());
+                .ToArray(),
+            receipts);
     }
 
     private static Result<NotificationDeliveryResponse> NotFound() =>

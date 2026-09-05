@@ -52,6 +52,8 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddScoped<SerialNumberPreviewService>();
         services.TryAddScoped<HostSerialRuleService>();
         services.TryAddScoped<ISerialNumberAllocator, SerialNumberAllocator>();
+        services.TryAddScoped<ISerialRuleChangeApprovalSource, Features.DataApprovalBridge.SerialRuleChangeApprovalSource>();
+        services.TryAddScoped<ISerialRuleChangeApprovalApplier, Features.DataApprovalBridge.SerialRuleChangeApprovalApplier>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,

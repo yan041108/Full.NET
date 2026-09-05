@@ -131,7 +131,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         };
 
     private static HostUserDirectoryRecord ReadHostUserDirectoryRecord(DbDataReader reader) =>
-        new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2));
+        new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
 
     private static HostUserListRow ReadHostUserListRow(DbDataReader reader)
     {

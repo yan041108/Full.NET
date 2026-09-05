@@ -12,6 +12,7 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
     public AuthorizationModuleDefinition Module { get; } =
         new("workflow", "工作流", 95);
 
+    /// <summary>获取工作流精确权限目录，包含暂停与普通恢复。</summary>
     public IReadOnlyCollection<PermissionDefinition> Permissions { get; } =
     [
         Permission(WorkflowPermissions.DefinitionsRead, "查询工作流定义与版本"),
@@ -25,12 +26,19 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Permission(WorkflowPermissions.InstancesRead, "查询工作流实例与轨迹"),
         Permission(WorkflowPermissions.InstancesStart, "启动工作流实例"),
         Permission(WorkflowPermissions.InstancesCancel, "取消工作流实例"),
-        Permission(WorkflowPermissions.InstancesRecover, "恢复或改派工作流实例"),
+        Permission(WorkflowPermissions.InstancesPause, "暂停工作流实例"),
+        Permission(WorkflowPermissions.InstancesResume, "恢复已暂停的工作流实例"),
+        Permission(WorkflowPermissions.InstancesRecover, "强制恢复或改派工作流实例"),
         Permission(WorkflowPermissions.TodosRead, "查询本人工作流待办"),
         Permission(WorkflowPermissions.TodosApprove, "同意本人工作流待办"),
         Permission(WorkflowPermissions.TodosReject, "拒绝本人工作流待办"),
+        Permission(WorkflowPermissions.TodosReturn, "退回本人工作流待办"),
+        Permission(WorkflowPermissions.TodosCountersign, "加签本人工作流待办"),
         Permission(WorkflowPermissions.CcRead, "查询本人工作流抄送"),
         Permission(WorkflowPermissions.CcMarkRead, "标记本人工作流抄送已读"),
+        Permission(WorkflowPermissions.RecoveryTasksRead, "查询工作流恢复任务"),
+        Permission(WorkflowPermissions.RecoveryTasksRetry, "人工重试工作流恢复任务"),
+        Permission(WorkflowPermissions.RecoveryTasksReconcile, "对账工作流恢复任务"),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -40,8 +48,10 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         NavigationItem("workflow-instances", "/workflow/instances", "工作流实例", 30, WorkflowPermissions.InstancesRead),
         NavigationItem("workflow-todos", "/workflow/todos", "我的待办", 40, WorkflowPermissions.TodosRead),
         NavigationItem("workflow-cc", "/workflow/cc", "我的抄送", 50, WorkflowPermissions.CcRead),
+        NavigationItem("workflow-recovery-tasks", "/workflow/recovery-tasks", "恢复任务", 60, WorkflowPermissions.RecoveryTasksRead),
     ];
 
+    /// <summary>获取实例页上的精确操作，暂停、恢复与强制恢复各自独立授权。</summary>
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
     [
         Action("workflow.definitions.create", "workflow-definitions", WorkflowPermissions.DefinitionsCreate, "新建定义", "create", 10),
@@ -52,10 +62,16 @@ internal sealed class WorkflowAuthorizationContributor : IAuthorizationCatalogCo
         Action("workflow.forms.publish", "workflow-forms", WorkflowPermissions.FormsPublish, "发布表单", "publish", 30),
         Action("workflow.instances.start", "workflow-instances", WorkflowPermissions.InstancesStart, "启动实例", "start", 10),
         Action("workflow.instances.cancel", "workflow-instances", WorkflowPermissions.InstancesCancel, "取消实例", "cancel", 20),
-        Action("workflow.instances.recover", "workflow-instances", WorkflowPermissions.InstancesRecover, "恢复或改派", "recover", 30),
+        Action("workflow.instances.pause", "workflow-instances", WorkflowPermissions.InstancesPause, "暂停实例", "pause", 25),
+        Action("workflow.instances.resume", "workflow-instances", WorkflowPermissions.InstancesResume, "恢复实例", "resume", 28),
+        Action("workflow.instances.recover", "workflow-instances", WorkflowPermissions.InstancesRecover, "强制恢复或改派", "recover", 30),
         Action("workflow.todos.approve", "workflow-todos", WorkflowPermissions.TodosApprove, "同意待办", "approve", 10),
         Action("workflow.todos.reject", "workflow-todos", WorkflowPermissions.TodosReject, "拒绝待办", "reject", 20),
+        Action("workflow.todos.return", "workflow-todos", WorkflowPermissions.TodosReturn, "退回待办", "return", 30),
+        Action("workflow.todos.countersign", "workflow-todos", WorkflowPermissions.TodosCountersign, "加签待办", "countersign", 40),
         Action("workflow.cc.mark-read", "workflow-cc", WorkflowPermissions.CcMarkRead, "标记已读", "mark-read", 10),
+        Action("workflow.recovery_tasks.retry", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksRetry, "重试恢复任务", "retry", 10),
+        Action("workflow.recovery_tasks.reconcile", "workflow-recovery-tasks", WorkflowPermissions.RecoveryTasksReconcile, "对账恢复任务", "reconcile", 20),
     ];
 
     private static PermissionDefinition Permission(string code, string name) =>

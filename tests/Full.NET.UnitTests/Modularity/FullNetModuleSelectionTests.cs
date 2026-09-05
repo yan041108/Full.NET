@@ -1,6 +1,9 @@
 using Full.NET.Composition;
 using Full.NET.Modules.Document;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Notifications;
+using Full.NET.Modules.Organization;
+using Full.NET.Modules.Tenancy;
 using Microsoft.Extensions.Configuration;
 
 namespace Full.NET.UnitTests.Modularity;
@@ -72,6 +75,24 @@ public sealed class FullNetModuleSelectionTests
                 [new IdentityModule(), new DocumentModule()]));
 
         StringAssert.Contains(exception.Message, "Files");
+    }
+
+    [TestMethod]
+    public void Explicit_enabled_list_may_omit_optional_event_producer_module()
+    {
+        var modules = FullNetModuleSelection.ResolveEnabledModules(
+            CreateConfiguration(new Dictionary<string, string?>
+            {
+                ["FullNet:Modules:Enabled:0"] = "Identity",
+                ["FullNet:Modules:Enabled:1"] = "Tenancy",
+                ["FullNet:Modules:Enabled:2"] = "Organization",
+                ["FullNet:Modules:Enabled:3"] = "Notifications",
+            }),
+            [new IdentityModule(), new TenancyModule(), new OrganizationModule(), new NotificationsModule()]);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Identity", "Tenancy", "Organization", "Notifications" },
+            modules.Select(module => module.Name).ToArray());
     }
 
     private static IConfiguration CreateConfiguration(

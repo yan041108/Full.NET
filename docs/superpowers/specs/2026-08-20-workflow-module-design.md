@@ -11,7 +11,7 @@
 **Admin.NET 映射：** 对标 `Admin.NET.Plugin.WorkFlow` 的定义、发布、实例、审批、待办、抄送与业务联动语义；不复制动态类型扫描、SqlSugar、跨模块直连表结构或旧运行时协议
 
 **批准依据：** [`2026-08-30-unified-notifications-workflow-design-assessment.md`](../../verification/2026-08-30-unified-notifications-workflow-design-assessment.md)
-**实施计划：** [`2026-08-20-workflow-first-vertical-slice.md`](../plans/2026-08-20-workflow-first-vertical-slice.md)、[`2026-08-30-workflow-designer-form-runtime.md`](../plans/2026-08-30-workflow-designer-form-runtime.md)
+**实施计划：** [`2026-08-20-workflow-first-vertical-slice.md`](../plans/2026-08-20-workflow-first-vertical-slice.md)、[`2026-08-30-workflow-designer-form-runtime.md`](../plans/2026-08-30-workflow-designer-form-runtime.md)、[`2026-09-05-workflow-multi-approval.md`](../plans/2026-09-05-workflow-multi-approval.md)
 
 ## 1. 决策摘要
 
@@ -25,10 +25,10 @@ Workflow 拥有流程定义、不可变定义版本、表单定义与版本、�
 
 1. 定义权威格式为规范 JSON；MemoryPack 只用于需要可靠跨进程交付的 Integration Event，不作为定义数据库列格式。
 2. 树形审批 Draft 经服务端编译为单一 Workflow IR；LogicFlow 首版仅可作为同一 IR 的候选只读轨迹视图。
-3. 允许同一业务键保留历史多实例，但同一作用域最多一个 Active 实例；批准后重开必须由业务模块显式发起新实例。
-4. 首版拒绝为终态 `Rejected`；任意节点回退、重走全程和复杂驳回策略后续按版本扩展。
+3. 允许同一业务键保留历史多实例，但同一作用域最多一个占用中的实例（`active` 或 `suspended`）；批准后重开必须由业务模块显式发起新实例。
+4. Reject 保持终态 `Rejected`；已批准的首个退回扩展仅支持当前办理人选择同一实例当前有效执行链上已完成且具有单一办理人快照的人工审批步骤，不等同于重走全程、回原驳回节点或任意节点跳转。已完成多人审批步骤没有唯一回退办理人，本阶段明确不作为退回目标；后续若支持，必须另行定义席位重建和新一轮票数语义。
 5. 定义、实例和表单支持 Host/Tenant 双作用域；首版禁止租户实例引用 Host 定义，也禁止跨租户引用定义、表单、主体或文件。
-6. 首批可执行节点只有发起、单人审批、抄送、排他条件和结束；复杂节点不会因设计器已有 UI 而自动获得发布或执行承诺。
+6. 当前可执行节点只有发起、人工审批（单人及显式活动用户列表的 `all`、`any`、`nOfM`）、抄送、排他条件和结束；复杂节点不会因设计器已有 UI 而自动获得发布或执行承诺。
 7. VForm3 原始 JSON 只作为后台设计输入；服务端发布时单向编译为 `WorkflowFormSchema`。后台使用受控 VForm3 Web Adapter，uni-app 使用 Full.NET 自研轻量渲染器。
 8. 表单能力在只有 Workflow 一个真实消费者时留在 Workflow 主项目内；出现第二个独立消费者后再通过 ADR 评估抽取 Forms 模块。
 9. Workflow Todo 是可办理工作的权威状态；Notifications Inbox 只是提醒与阅读状态。统一工作台只能通过 API/UI 组合，不合表、不跨模块 JOIN。
@@ -40,7 +40,7 @@ Workflow 拥有流程定义、不可变定义版本、表单定义与版本、�
 
 - 定义草稿编辑、校验、规范化和发布不可变版本；运行实例固定绑定启动版本。
 - 表单草稿编译、不可变表单版本、流程版本固定绑定、节点字段策略和服务端权威校验。
-- 人工待办、单人审批、抄送、排他条件、终态拒绝、取消、幂等、并发修订和恢复。
+- 人工待办、单人审批、显式用户会签/或签/N-of-M、抄送、排他条件、终态拒绝、取消、幂等、并发修订和恢复。
 - 精确权限码、Host/Tenant 隔离、资源级授权、B0 领域审计和敏感数据边界。
 - SQL Server/MySQL 成对迁移、部分 DDL 恢复、Integration、Native AOT 与真实栈验证。
 - 与 Notifications、Jobs、Identity、Organization、Files 和业务模块通过明确 Port/事件协作。
@@ -140,13 +140,15 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 | `fn_workflow_form_definition` | 表单稳定标识、作用域和草稿生命周期 |
 | `fn_workflow_form_version` | 不可变 WorkflowFormSchema、WebRenderSchema、Hash、Adapter/组件目录版本和发布审计 |
 | `fn_workflow_instance` | DefinitionVersionId、FormVersionId、业务关联键、状态、修订号、租约和取消信息 |
-| `fn_workflow_step` | NodeKey、NodeTypeKey、状态、指派、截止时间、尝试和并发修订 |
+| `fn_workflow_step` | NodeKey、NodeTypeKey、状态、单人指派或多人审批模式/法定票数/席位总数快照、截止时间、尝试和并发修订 |
 | `fn_workflow_todo` | 步骤、办理主体、状态、到达/完成时间和动作结果；资源级授权权威表 |
+| `fn_workflow_approval_slot` | 多人审批节点激活时固化的一人一票事实；同一步骤的办理人和 Todo 均唯一，决定后不可再次投票 |
 | `fn_workflow_cc` | 只读知会；默认不阻断主路径 |
 | `fn_workflow_form_submission` | 实例表单数据、FormVersionId、修订号和数据分级摘要 |
 | `fn_workflow_action_record` | 追加式同意、拒绝、取消和系统动作；保存稳定 ActionKey、主体、Revision 和意见摘要，不以 Todo 字符串代替历史 |
 | `fn_workflow_execution_log` | 追加式状态迁移摘要、关联步骤、幂等键；不保存 Secret 或完整敏感表单 |
 | `fn_workflow_domain_audit` | 模块自有 B0 领域审计；与发布、审批、取消和强制恢复状态同事务写入，失败回滚 |
+| `fn_workflow_recovery_task` | Worker 扫描卡住实例、未完成步骤和过期租约后写入的恢复任务；租约、世代、重试与死信占用键由本表表达 |
 
 实例表通过等价双库约束保证同一 `(Scope, BusinessType, BusinessId)` 最多一个 Active；历史终态实例可并存。具体唯一键与状态投影必须在迁移 RED 测试中证明 SQL Server/MySQL 等价，不使用跨库不一致的过滤索引假设。
 
@@ -154,7 +156,11 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 
 - Definition Draft 可变；每次 Publish 创建更高 VersionNumber，不可变版本只能新增不能修补。
 - Instance 状态为 `Running / Completed / Rejected / Cancelled / Suspended`；首版 Reject 为终态。
-- Step 状态为 `Pending / Active / Completed / Rejected / Cancelled / TimedOut`；Todo 只能由 Active 走向已办理或关闭。
+- Step 状态为 `Pending / Active / Completed / Rejected / Cancelled / TimedOut / Returned / RolledBack`；Todo 只能由 Active 走向已办理或关闭。
+- 多人审批节点激活时只创建一个 Step，并为 2 至 20 名显式活动用户分别创建 Slot 与 Todo。`all` 的法定票数为 M，`any` 为 1，`nOfM` 必须满足 `1 < N < M`；赞成票达到 N 时批准，赞成票加剩余票不足 N 时提前驳回，收敛后其余未决 Slot/Todo 统一取消。
+- Slot 投票、Step/Instance 推进、动作回执和审计使用同一实例行锁顺序与本地事务；相同办理人、动作、请求摘要和幂等键必须返回首次持久化结果，不能用随后变化的票数重算回放响应。
+- `selected_completed_human_step` 退回策略只接受同实例、`Completed` 且类型为 `human.approval` 的当前有效链步骤。来源步骤记为 `Returned`，目标及其之后的旧完成链记为 `RolledBack` 并永久退出合法候选；目标节点创建新的 Step/Todo 尝试，保留旧记录作为历史，不重新执行中间自动节点。
+- Step 以实例内严格单调 `ExecutionSequence` 表达执行位置，候选按该序号倒序分页，退回失效不得依赖可回拨或被数据库截断的时间戳。升级存量以 ActionRecord 的 `InstanceRevision` 和同事务时间戳关联重建人审与自动节点区间；无法证明顺序的异常行保持空值并从退回能力失败关闭。Expand 迁移保持列可空以兼容滚动期间旧写入，新版本写入必须始终显式分配序号。
 - Start、Todo 动作和恢复命令均要求 IdempotencyKey；写操作携带 ExpectedRevision，重复相同请求返回同一确定结果，冲突返回稳定 ProblemDetails。
 - 表单 Patch、Todo 动作、步骤/实例推进、execution log、模块自有 `fn_workflow_domain_audit` 和必要 Outbox 在同一 Workflow 本地事务提交。事务内禁止调用其他模块或外部 Provider。
 - Worker/API 使用 `LeaseOwner + LeaseUntilUtc + LeaseGeneration`；过期可重领，续租、终态和恢复使用一致锁顺序。失败达到上限进入 Suspended，强制恢复需要独立权限和审计。
@@ -182,12 +188,19 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 | `workflow.instances.read` | 实例、步骤和轨迹页面 |
 | `workflow.instances.start` | 启动实例 |
 | `workflow.instances.cancel` | 取消实例 |
+| `workflow.instances.pause` | 暂停运行中实例 |
+| `workflow.instances.resume` | 普通恢复已暂停实例 |
 | `workflow.instances.recover` | 强制恢复/改派，高权限 |
 | `workflow.todos.read` | 我的待办页面 |
 | `workflow.todos.approve` | 同意本人待办 |
 | `workflow.todos.reject` | 拒绝本人待办 |
+| `workflow.cc.read` | 我的抄送页面 |
+| `workflow.cc.mark_read` | 标记本人抄送已读 |
+| `workflow.recovery_tasks.read` | 恢复任务页面 |
+| `workflow.recovery_tasks.retry` | 人工重试恢复任务 |
+| `workflow.recovery_tasks.reconcile` | 对账关闭恢复任务 |
 
-页面和操作同时受权限与资源授权保护。`workflow.todos.approve/reject` 不能授权用户办理他人的 Todo；实例详情还必须校验作用域、数据范围和关联主体。无权限时 Vue 不创建入口，直接 API 返回 403。发布、取消、审批、改派和强制恢复写 B0 审计；显示文本不作为审计机器码。
+页面和操作同时受权限与资源授权保护。`workflow.todos.approve/reject` 不能授权用户办理他人的 Todo；实例详情还必须校验作用域、数据范围和关联主体。无权限时 Vue 不创建入口，直接 API 返回 403。发布、取消、暂停、恢复、审批、改派、强制恢复、恢复任务重试和对账写 B0 审计；显示文本不作为审计机器码。Recovery Worker 扫描与领取是全局后台循环，只允许注册在 Worker `AddBackgroundServices`；管理查询必须携带可信 `TenantScopeKey`。
 
 ## 11. API 与序列化边界
 
@@ -196,9 +209,10 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 - 定义：`GET/POST /definitions`、`PUT /definitions/{id}/draft`、`POST /definitions/{id}/publish`
 - 表单：`GET/POST /forms`、`PUT /forms/{id}/draft`、`POST /forms/{id}/publish`
 - 版本：`GET /definitions/{id}/versions`、`GET /definition-versions/{versionId}`、`GET /form-versions/{versionId}`
-- 实例：`POST /instances`、`GET /instances/{id}`、`POST /instances/{id}/cancel`
+- 实例：`POST /instances`、`GET /instances/{id}`、`POST /instances/{id}/pause`、`POST /instances/{id}/resume`、`POST /instances/{id}/recover`、`POST /instances/{id}/cancel`
 - 待办：`GET /todos/mine`、`GET /todos/{id}`、`POST /todos/{id}/approve`、`POST /todos/{id}/reject`
 - 轨迹：`GET /instances/{id}/execution-logs`
+- 恢复任务：`GET /recovery-tasks`、`GET /recovery-tasks/{id}`、`POST /recovery-tasks/{id}/retry`、`POST /recovery-tasks/{id}/reconcile`
 
 客户端 TenantId、AssigneeUserId、FormJson、NodeType 能力状态和字段权限均不是可信授权输入。公开 DTO 和闭合泛型 DI 必须进入 Host.Api Native AOT 静态闭包；禁止运行时反射式多态。
 
@@ -216,7 +230,7 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 1. 首切片：定义/表单规范协议、不可变版本、单人审批、Todo、终态拒绝、Vue 受控运行时和双库/AOT 闭环；不含可视化设计器。
 2. 通知联动：Assigned/Completed/Rejected/Cancelled 事件、Notifications Inbox 提醒和重放对账。
 3. 设计器与跨端：Workflow-Vue3 树形设计器、VForm3 表单设计器、Vue Web Adapter、uni-app 轻量渲染器。
-4. 人工审批增强：角色/组织负责人、会签/或签/N-of-M、转办、加签和版本化驳回策略。
+4. 人工审批增强：显式活动用户会签/或签/N-of-M 已进入实现；角色/组织负责人、转办、加签、多人步骤退回和版本化驳回策略仍需独立切片。
 5. 耐久控制流与受控集成：延时、超时、汇聚、子流程、Connector/Business Command；每类能力需独立发布与执行门禁。
 
 Spec 批准不代表实现。能力保持 `Designing/Planned`，只有实施计划的 RED/GREEN、双库、权限、客户端和真实栈证据完成后才能晋级。

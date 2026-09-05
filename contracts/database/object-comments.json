@@ -1273,8 +1273,24 @@
         "IdempotencyKey": "幂等键",
         "InstanceId": "流程实例标识",
         "InstanceRevision": "流程实例修订号",
+        "ResultStatusKey": "Result Status Key",
+        "ResultTodoId": "Result Todo标识",
         "StepId": "流程步骤标识",
         "TodoId": "待办标识"
+      }
+    },
+    "fn_workflow_approval_slot": {
+      "comment": "workflowapproval slot表",
+      "columns": {
+        "AssigneeUserId": "Assignee User标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DecidedAtUtc": "Decided At(UTC)",
+        "DecisionKey": "Decision Key",
+        "Id": "逻辑主键",
+        "InstanceId": "Instance标识",
+        "Revision": "修订号",
+        "StepId": "Step标识",
+        "TodoId": "Todo标识"
       }
     },
     "fn_workflow_cc": {
@@ -1426,20 +1442,47 @@
         "StatusKey": "实例状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "TenantScopeKey": "租户作用域唯一键",
-        "ActiveBusinessKey": "活动实例业务唯一键"
+        "ActiveBusinessKey": "占用中的实例业务唯一键"
+      }
+    },
+    "fn_workflow_recovery_task": {
+      "comment": "工作流恢复任务表",
+      "columns": {
+        "AttemptCount": "已尝试次数",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InstanceId": "流程实例标识",
+        "KindKey": "恢复种类键",
+        "LastError": "最后错误摘要",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseGeneration": "租约世代",
+        "LeaseOwnerKey": "执行租约持有者键",
+        "NextAttemptAtUtc": "下次尝试时间(UTC)",
+        "Revision": "修订号",
+        "ScopeKey": "作用域键",
+        "StatusKey": "恢复任务状态键",
+        "StepId": "流程步骤标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "OpenOccupancyKey": "未关闭恢复任务占用键"
       }
     },
     "fn_workflow_step": {
       "comment": "工作流步骤表",
       "columns": {
+        "ApprovalModeKey": "Approval Mode Key",
+        "ApprovalSlotCount": "Approval Slot Count",
         "AssignedUserId": "当前处理人标识",
         "AttemptCount": "尝试次数",
         "CompletedAtUtc": "完成时间(UTC)",
         "DueAtUtc": "处理截止时间(UTC)",
+        "ExecutionSequence": "Execution Sequence",
         "Id": "逻辑主键",
         "InstanceId": "流程实例标识",
         "NodeKey": "流程节点键",
         "NodeTypeKey": "流程节点类型键",
+        "RequiredApprovalCount": "Required Approval Count",
         "Revision": "步骤修订号",
         "StartedAtUtc": "开始时间(UTC)",
         "StatusKey": "步骤状态键"
@@ -1451,8 +1494,18 @@
         "ArrivedAtUtc": "待办到达时间(UTC)",
         "AssigneeUserId": "待办处理人标识",
         "CompletedAtUtc": "完成时间(UTC)",
+        "DueAtUtc": "待办逾期时间(UTC)",
+        "EscalateAtUtc": "升级通知时间(UTC)",
+        "EscalatedAtUtc": "已升级时间(UTC)",
+        "EscalationRecipientUserId": "固定升级通知接收人标识",
         "Id": "逻辑主键",
         "InstanceId": "流程实例标识",
+        "LastReminderAtUtc": "最后催办时间(UTC)",
+        "MaxReminderCount": "最大催办次数",
+        "NextReminderAtUtc": "下一催办时间(UTC)",
+        "NextTimeoutSignalAtUtc": "下一超时信号时间(UTC)",
+        "ReminderCount": "已发送催办次数",
+        "ReminderIntervalMinutes": "催办间隔分钟数",
         "ResultActionKey": "处理结果动作键",
         "Revision": "待办修订号",
         "StatusKey": "待办状态键",

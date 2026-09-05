@@ -25,6 +25,8 @@ const typesMock = vi.mocked(listNotificationProviderTypes);
 const template = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411201',
   templateKey: 'order.shipped',
+  localeTag: 'zh-CN',
+  defaultLocaleTag: 'zh-CN',
   channelKey: 'inbox',
   contentCategoryKey: 'transactional',
   draftSubject: '已发货',
@@ -35,6 +37,8 @@ const template = {
   latestPublishedVersionNumber: null,
   latestContentHash: null,
   latestContentClassificationKey: null,
+  publishedLocaleTags: [],
+  missingLocaleTags: ['en-US'],
   createdAtUtc: '2026-08-31T00:00:00Z',
   updatedAtUtc: null,
   version: 1
@@ -136,5 +140,59 @@ describe('Vue 通知模板页', () => {
     expect(states).toHaveLength(2);
     expect(states[0].text()).toContain('草稿');
     expect(states[1].text()).toContain('已发布 v2');
+  });
+
+  it('列表展示语言标签并在选中后提示缺失语言', async () => {
+    const wrapper = mountWithPermissions([
+      'notifications.templates.read',
+      'notifications.templates.update'
+    ]);
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="notification-templates-locale-tag"]').text()).toBe('zh-CN');
+    await wrapper.get('[data-testid="notification-templates-load"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="notification-templates-locale-hints"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="notification-templates-missing-locale"]')).toHaveLength(1);
+    expect(wrapper.get('[data-testid="notification-templates-missing-locale"]').text()).toBe('en-US');
+  });
+
+  it('创建草稿时提交所选语言版本', async () => {
+    vi.mocked(createNotificationTemplate).mockResolvedValue({
+      ...template,
+      localeTag: 'en-US',
+      defaultLocaleTag: 'en-US'
+    });
+    const wrapper = mountWithPermissions([
+      'notifications.templates.read',
+      'notifications.templates.create'
+    ]);
+    await flushPromises();
+
+    await wrapper
+      .get('[data-testid="notification-templates-locale"]')
+      .findComponent({ name: 'ElSelect' })
+      .setValue('en-US');
+    await wrapper
+      .get('[data-testid="notification-templates-default-locale"]')
+      .findComponent({ name: 'ElSelect' })
+      .setValue('en-US');
+    await wrapper.get('[data-testid="notification-templates-key"]').setValue('order.shipped.en');
+    await wrapper.get('[data-testid="notification-templates-subject"]').setValue('Shipped');
+    await wrapper.get('[data-testid="notification-templates-body"]').setValue('Your order shipped');
+    await wrapper.get('[data-testid="notification-templates-create"]').trigger('click');
+    await flushPromises();
+
+    expect(createNotificationTemplate).toHaveBeenCalledWith({
+      templateKey: 'order.shipped.en',
+      localeTag: 'en-US',
+      defaultLocaleTag: 'en-US',
+      channelKey: 'inbox',
+      contentCategoryKey: 'transactional',
+      draftSubject: 'Shipped',
+      draftBody: { text: 'Your order shipped' },
+      parameterSchema: { schemaVersion: 1, parameters: [] }
+    });
   });
 });

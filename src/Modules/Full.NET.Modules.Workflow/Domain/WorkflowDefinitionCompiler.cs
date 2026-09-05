@@ -47,6 +47,56 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
         }
 
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.parallel" &&
+                !WorkflowParallelGatewayConfiguration.TryRead(node.Config, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.inclusive" &&
+                !WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, null, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
+        // 超时策略会直接驱动后台可靠事件，只允许审批节点携带闭合且可执行的时间与接收人配置。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "human.approval" &&
+                !WorkflowTodoTimeoutPolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node =>
+                node.NodeTypeKey != "human.approval" &&
+                node.Config.ValueKind == JsonValueKind.Object &&
+                node.Config.TryGetProperty("timeoutPolicy", out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTimeoutPolicyInvalid);
+        }
+
+        // 多人审批配置决定运行时身份和完成门槛，发布前必须收敛为闭合用户集合与确定票数。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "human.approval" &&
+                !WorkflowApprovalPolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node =>
+                node.NodeTypeKey != "human.approval" &&
+                node.Config.ValueKind == JsonValueKind.Object &&
+                node.Config.TryGetProperty("approvalPolicy", out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid);
+        }
+
+        // 办理人解析策略决定节点激活时的可信办理人集合，发布前必须闭合结构与来源键。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "human.approval" &&
+                !WorkflowAssigneePolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node =>
+                node.NodeTypeKey != "human.approval" &&
+                node.Config.ValueKind == JsonValueKind.Object &&
+                node.Config.TryGetProperty("assigneePolicy", out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionAssigneePolicyInvalid);
+        }
+
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeKeyDuplicate);
@@ -117,6 +167,13 @@ internal static class WorkflowDefinitionCompiler
         if (draft.Nodes.Any(node =>
                 node.NodeTypeKey == "gateway.exclusive" &&
                 !WorkflowExclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.inclusive" &&
+                !WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
         }
@@ -262,6 +319,25 @@ internal static class WorkflowDefinitionCompiler
 
     private static string[] ReadNextNodeKeys(WorkflowNodeDraft node)
     {
+        if (node.NodeTypeKey == "gateway.parallel" &&
+            WorkflowParallelGatewayConfiguration.TryRead(node.Config, out var parallel))
+        {
+            return parallel!.Role == WorkflowParallelGatewayRole.Fork
+                ? parallel.Branches.Select(branch => branch.NextNodeKey).ToArray()
+                : parallel.NextNodeKey is { } nextNodeKey ? [nextNodeKey] : [];
+        }
+
+        if (node.NodeTypeKey == "gateway.inclusive" &&
+            WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, null, out var inclusive))
+        {
+            return inclusive!.Role == WorkflowInclusiveGatewayRole.Fork
+                ? inclusive.Branches.Select(branch => branch.NextNodeKey)
+                    .Append(inclusive.DefaultNextNodeKey)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray()
+                : [inclusive.DefaultNextNodeKey];
+        }
+
         if (node.Config.ValueKind != JsonValueKind.Object ||
             !node.Config.TryGetProperty("nextNodeKeys", out var next) ||
             next.ValueKind != JsonValueKind.Array)

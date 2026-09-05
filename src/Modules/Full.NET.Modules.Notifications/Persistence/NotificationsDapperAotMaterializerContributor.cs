@@ -22,6 +22,7 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationTemplateRecord>(ReadTemplate);
         registrar.Register<NotificationTemplateListRecord>(ReadTemplateList);
         registrar.Register<NotificationTemplateVersionRecord>(ReadTemplateVersion);
+        registrar.Register<NotificationTemplateLocaleStateRecord>(ReadTemplateLocaleState);
         registrar.Register<NotificationIntentRecord>(ReadIntent);
         registrar.Register<NotificationRecipientRecord>(ReadRecipient);
         registrar.Register<NotificationDeliveryRecord>(ReadDelivery);
@@ -156,12 +157,13 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetString(7),
             reader.GetString(8),
             reader.GetString(9),
-            AotDataReaderExtensions.ReadInt64(reader, 10),
-            AotDataReaderExtensions.ReadNullableGuid(reader, 11),
-            reader.GetGuid(12),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 13),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
-            AotDataReaderExtensions.ReadInt64(reader, 15));
+            reader.GetString(10),
+            AotDataReaderExtensions.ReadInt64(reader, 11),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 12),
+            reader.GetGuid(13),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 14),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 15),
+            AotDataReaderExtensions.ReadInt64(reader, 16));
 
     private static NotificationTemplateListRecord ReadTemplateList(DbDataReader reader) =>
         new(
@@ -175,29 +177,38 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetString(7),
             reader.GetString(8),
             reader.GetString(9),
-            AotDataReaderExtensions.ReadInt64(reader, 10),
-            AotDataReaderExtensions.ReadNullableGuid(reader, 11),
-            reader.IsDBNull(12) ? null : AotDataReaderExtensions.ReadInt32(reader, 12),
-            reader.IsDBNull(13) ? null : reader.GetString(13),
+            reader.GetString(10),
+            AotDataReaderExtensions.ReadInt64(reader, 11),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 12),
+            reader.IsDBNull(13) ? null : AotDataReaderExtensions.ReadInt32(reader, 13),
             reader.IsDBNull(14) ? null : reader.GetString(14),
-            reader.GetGuid(15),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 16),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 17),
-            AotDataReaderExtensions.ReadInt64(reader, 18));
+            reader.IsDBNull(15) ? null : reader.GetString(15),
+            reader.GetGuid(16),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 17),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18),
+            AotDataReaderExtensions.ReadInt64(reader, 19));
 
     private static NotificationTemplateVersionRecord ReadTemplateVersion(DbDataReader reader) =>
         new(
             reader.GetGuid(0),
             reader.GetGuid(1),
-            AotDataReaderExtensions.ReadInt32(reader, 2),
+            reader.GetString(2),
             AotDataReaderExtensions.ReadInt32(reader, 3),
-            reader.GetString(4),
+            AotDataReaderExtensions.ReadInt32(reader, 4),
             reader.GetString(5),
             reader.GetString(6),
             reader.GetString(7),
             reader.GetString(8),
-            reader.GetGuid(9),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10));
+            reader.GetString(9),
+            reader.GetGuid(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11));
+
+    private static NotificationTemplateLocaleStateRecord ReadTemplateLocaleState(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 3));
 
     private static NotificationIntentRecord ReadIntent(DbDataReader reader) =>
         new(

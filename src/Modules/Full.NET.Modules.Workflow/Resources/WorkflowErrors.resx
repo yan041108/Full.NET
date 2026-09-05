@@ -16,6 +16,9 @@
   <data name="workflow.definition.field_policy_invalid" xml:space="preserve"><value>工作流节点字段策略无效。</value></data>
   <data name="workflow.definition.cc_recipients_invalid" xml:space="preserve"><value>工作流抄送人配置无效或包含非活动用户。</value></data>
   <data name="workflow.definition.gateway_invalid" xml:space="preserve"><value>工作流排他网关配置、字段条件或默认分支无效。</value></data>
+  <data name="workflow.definition.timeout_policy_invalid" xml:space="preserve"><value>审批待办的超时、催办或升级策略无效。</value></data>
+  <data name="workflow.definition.approval_policy_invalid" xml:space="preserve"><value>多人审批模式、办理人或法定票数无效。</value></data>
+  <data name="workflow.definition.assignee_policy_invalid" xml:space="preserve"><value>办理人解析策略、作用域或实体引用无效。</value></data>
   <data name="workflow.cc.not_found" xml:space="preserve"><value>工作流抄送记录不存在或不属于当前用户。</value></data>
   <data name="workflow.definition.topology_unsupported" xml:space="preserve"><value>当前部署尚不支持此工作流拓扑。</value></data>
   <data name="workflow.definition.not_found" xml:space="preserve"><value>工作流定义不存在。</value></data>
@@ -32,6 +35,8 @@
   <data name="workflow.form.not_found" xml:space="preserve"><value>工作流表单不存在。</value></data>
   <data name="workflow.form.key_exists" xml:space="preserve"><value>当前作用域已存在相同表单键。</value></data>
   <data name="workflow.todo.assignee_mismatch" xml:space="preserve"><value>待办不属于当前用户。</value></data>
+  <data name="workflow.todo.assignee_not_found" xml:space="preserve"><value>目标办理人不存在、已停用或不属于当前作用域。</value></data>
+  <data name="workflow.todo.assignee_unchanged" xml:space="preserve"><value>目标办理人与当前办理人相同，无需改派。</value></data>
   <data name="workflow.todo.not_active" xml:space="preserve"><value>待办已不处于可处理状态。</value></data>
   <data name="workflow.instance.terminal" xml:space="preserve"><value>工作流实例已进入终态。</value></data>
   <data name="workflow.instance.forbidden" xml:space="preserve"><value>无权读取该工作流实例。</value></data>
@@ -41,6 +46,14 @@
   <data name="workflow.version.not_published" xml:space="preserve"><value>工作流版本尚未发布。</value></data>
   <data name="workflow.instance.active_exists" xml:space="preserve"><value>相同业务对象已存在活动实例。</value></data>
   <data name="workflow.todo.forbidden" xml:space="preserve"><value>无权处理该工作流待办。</value></data>
+  <data name="workflow.todo.return_target_invalid" xml:space="preserve"><value>退回目标不是当前实例有效执行链上的已完成人工审批步骤。</value></data>
+  <data name="workflow.todo.countersign_assignee_invalid" xml:space="preserve"><value>加签办理人无效、重复或包含当前办理人。</value></data>
+  <data name="workflow.todo.countersign_direction_invalid" xml:space="preserve"><value>加签方向必须是 before 或 after。</value></data>
+  <data name="workflow.todo.countersign_chain_active" xml:space="preserve"><value>当前待办已存在活动加签链。</value></data>
+  <data name="workflow.todo.countersign_chain_not_found" xml:space="preserve"><value>找不到可取消的活动加签链。</value></data>
   <data name="workflow.revision.conflict" xml:space="preserve"><value>工作流修订版本冲突。</value></data>
   <data name="workflow.transition.invalid" xml:space="preserve"><value>工作流状态转换无效。</value></data>
+  <data name="workflow.recovery.not_found" xml:space="preserve"><value>工作流恢复任务不存在或不属于当前作用域。</value></data>
+  <data name="workflow.recovery.retry_invalid" xml:space="preserve"><value>工作流恢复任务不能重试。</value></data>
+  <data name="workflow.recovery.reconcile_invalid" xml:space="preserve"><value>工作流恢复任务不能对账。</value></data>
 </root>

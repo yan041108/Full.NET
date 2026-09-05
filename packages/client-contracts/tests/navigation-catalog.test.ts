@@ -76,6 +76,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'workflow-definitions',
       path: '/workflow/definitions'
     });
+    expect(catalog.localNavigationFor('workflow-recovery-tasks')).toEqual({
+      componentKey: 'workflow-recovery-tasks',
+      routeName: 'workflow-recovery-tasks',
+      path: '/workflow/recovery-tasks'
+    });
     expect(catalog.localNavigationFor('notification-templates')).toEqual({
       componentKey: 'notification-templates',
       routeName: 'notification-templates',

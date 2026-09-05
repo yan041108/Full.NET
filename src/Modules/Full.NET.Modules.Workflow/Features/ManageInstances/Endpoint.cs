@@ -10,6 +10,8 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 
 internal static class Endpoint
 {
+    /// <summary>映射工作流实例启动、暂停、恢复、强制恢复、读取、取消、改派和执行轨迹端点。</summary>
+    /// <param name="endpoints">应用端点路由构建器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/v1/workflow/instances", async (
@@ -65,6 +67,116 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesCancel));
 
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/pause", async (
+            Guid instanceId,
+            PauseWorkflowInstanceRequest request,
+            WorkflowInstanceManagementService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.PauseAsync(instanceId, actorUserId, request, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowPauseInstance")
+        .WithTags("WorkflowInstances")
+        .Produces<WorkflowInstanceResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesPause));
+
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/resume", async (
+            Guid instanceId,
+            ResumeWorkflowInstanceRequest request,
+            WorkflowInstanceManagementService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.ResumeAsync(instanceId, actorUserId, request, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowResumeInstance")
+        .WithTags("WorkflowInstances")
+        .Produces<WorkflowInstanceResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesResume));
+
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/recover", async (
+            Guid instanceId,
+            RecoverWorkflowInstanceRequest request,
+            WorkflowInstanceRecoveryService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.RecoverAsync(instanceId, actorUserId, request, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowRecoverInstance")
+        .WithTags("WorkflowInstances")
+        .Produces<WorkflowInstanceResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRecover));
+
+        endpoints.MapPost("/api/v1/workflow/instances/{instanceId:guid}/reassign", async (
+            Guid instanceId,
+            ReassignWorkflowInstanceRequest request,
+            WorkflowInstanceRecoveryService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.ReassignAsync(instanceId, actorUserId, request, token)
+                    .ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowReassignInstance")
+        .WithTags("WorkflowInstances")
+        .Produces<WorkflowInstanceResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRecover));
+
         endpoints.MapGet("/api/v1/workflow/instances/{instanceId:guid}", async (
             Guid instanceId,
             WorkflowInstanceManagementService service,
@@ -114,6 +226,10 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRead));
     }
 
+    /// <summary>从已认证主体读取稳定用户标识。</summary>
+    /// <param name="context">当前 HTTP 上下文。</param>
+    /// <param name="actorUserId">解析成功后的操作人标识。</param>
+    /// <returns>主体包含有效用户标识时返回 <see langword="true"/>。</returns>
     private static bool TryGetActor(HttpContext context, out Guid actorUserId) =>
         Guid.TryParse(context.User.FindFirst("sub")?.Value, out actorUserId);
 }

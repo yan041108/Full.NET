@@ -19,6 +19,7 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeSerialNumberRuleStatusRequest,
@@ -50,6 +51,7 @@ import type {
   ConfirmTotpEnrollmentRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
+  CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
   CreateHostAnnouncementRequest,
@@ -78,6 +80,7 @@ import type {
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
   CurrentUserResponse,
+  DataApprovalRequestResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -161,6 +164,7 @@ import type {
   NotificationBindingResponse,
   NotificationBindingTargetInput,
   NotificationDeliveryAttemptResponse,
+  NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
@@ -181,6 +185,7 @@ import type {
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
   PagedResultOfExceptionLogResponse,
@@ -212,6 +217,8 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PagedResultOfWorkflowRecoveryTaskResponse,
+  PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
   ProvisionTenantRequest,
@@ -221,14 +228,20 @@ import type {
   PublishNotificationTemplateRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
+  ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
+  ReconcileWorkflowRecoveryTaskRequest,
+  RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
+  ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
+  RetryWorkflowRecoveryTaskRequest,
+  ReturnWorkflowTodoRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -297,8 +310,10 @@ import type {
   WorkflowNodeTypeResponse,
   WorkflowRecipientCandidatePageResponse,
   WorkflowRecipientCandidateResponse,
+  WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
+  WorkflowTodoReturnTargetResponse,
   WorkflowTodoRuntimeResponse
 } from './models.generated.js';
 
@@ -487,6 +502,17 @@ export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnroll
 
 function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnrollmentResponse {
   return isRecord(value) && (typeof value["otpAuthUri"] === 'string') && (typeof value["sharedSecretBase32"] === 'string');
+}
+
+export function readCancelDataApprovalRequestBody(value: unknown): CancelDataApprovalRequestBody {
+  if (!(isCancelDataApprovalRequestBody(value))) {
+    throw new Error('client.invalid_cancel_data_approval_request_body');
+  }
+  return value;
+}
+
+function isCancelDataApprovalRequestBody(value: unknown): value is CancelDataApprovalRequestBody {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string');
 }
 
 export function readCancelWorkflowInstanceRequest(value: unknown): CancelWorkflowInstanceRequest {
@@ -830,6 +856,17 @@ function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryR
   return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
+export function readCreateDataApprovalRequestBody(value: unknown): CreateDataApprovalRequestBody {
+  if (!(isCreateDataApprovalRequestBody(value))) {
+    throw new Error('client.invalid_create_data_approval_request_body');
+  }
+  return value;
+}
+
+function isCreateDataApprovalRequestBody(value: unknown): value is CreateDataApprovalRequestBody {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (typeof value["proposedChangeJson"] === 'string') && (typeof value["scenarioKey"] === 'string') && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["workflowDefinitionKey"] === 'string');
+}
+
 export function readCreateDictItemRequest(value: unknown): CreateDictItemRequest {
   if (!(isCreateDictItemRequest(value))) {
     throw new Error('client.invalid_create_dict_item_request');
@@ -1036,7 +1073,7 @@ export function readCreateNotificationTemplateRequest(value: unknown): CreateNot
 }
 
 function isCreateNotificationTemplateRequest(value: unknown): value is CreateNotificationTemplateRequest {
-  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (isNotificationTemplateBody(value["draftBody"])) && (typeof value["draftSubject"] === 'string') && (isNotificationTemplateParameterSchema(value["parameterSchema"])) && (typeof value["templateKey"] === 'string');
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (value["defaultLocaleTag"] === undefined || ((value["defaultLocaleTag"] === null) || (typeof value["defaultLocaleTag"] === 'string'))) && (isNotificationTemplateBody(value["draftBody"])) && (typeof value["draftSubject"] === 'string') && (value["localeTag"] === undefined || ((value["localeTag"] === null) || (typeof value["localeTag"] === 'string'))) && (isNotificationTemplateParameterSchema(value["parameterSchema"])) && (typeof value["templateKey"] === 'string');
 }
 
 export function readCreateOrganizationPositionLevelRequest(value: unknown): CreateOrganizationPositionLevelRequest {
@@ -1136,6 +1173,17 @@ export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
+}
+
+export function readDataApprovalRequestResponse(value: unknown): DataApprovalRequestResponse {
+  if (!(isDataApprovalRequestResponse(value))) {
+    throw new Error('client.invalid_data_approval_request_response');
+  }
+  return value;
+}
+
+function isDataApprovalRequestResponse(value: unknown): value is DataApprovalRequestResponse {
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (value["beforeSnapshotJson"] === undefined || ((typeof value["beforeSnapshotJson"] === 'string') || (value["beforeSnapshotJson"] === null))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["resolvedAtUtc"] === undefined || ((typeof value["resolvedAtUtc"] === 'string') || (value["resolvedAtUtc"] === null))) && (typeof value["scenarioKey"] === 'string') && (typeof value["statusKey"] === 'string') && (typeof value["submittedAtUtc"] === 'string') && (typeof value["submittedByUserId"] === 'string' && guidPattern.test(value["submittedByUserId"])) && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"])) && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) && (value["workflowInstanceId"] === undefined || ((typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])) || (value["workflowInstanceId"] === null))) && (value["workflowRevision"] === undefined || ((typeof value["workflowRevision"] === 'number' && Number.isInteger(value["workflowRevision"])) || (value["workflowRevision"] === null)));
 }
 
 export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
@@ -2051,6 +2099,17 @@ function isNotificationDeliveryAttemptResponse(value: unknown): value is Notific
   return isRecord(value) && (typeof value["attemptNumber"] === 'number' && Number.isInteger(value["attemptNumber"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && ((value["resultCategoryKey"] === null) || (typeof value["resultCategoryKey"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
 }
 
+export function readNotificationDeliveryReceiptResponse(value: unknown): NotificationDeliveryReceiptResponse {
+  if (!(isNotificationDeliveryReceiptResponse(value))) {
+    throw new Error('client.invalid_notification_delivery_receipt_response');
+  }
+  return value;
+}
+
+function isNotificationDeliveryReceiptResponse(value: unknown): value is NotificationDeliveryReceiptResponse {
+  return isRecord(value) && (typeof value["externalStatusKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["mappedStatusKey"] === 'string') && ((value["processedAtUtc"] === null) || (typeof value["processedAtUtc"] === 'string')) && (typeof value["processStatusKey"] === 'string') && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && (typeof value["providerTypeKey"] === 'string') && (typeof value["receivedAtUtc"] === 'string');
+}
+
 export function readNotificationDeliveryResponse(value: unknown): NotificationDeliveryResponse {
   if (!(isNotificationDeliveryResponse(value))) {
     throw new Error('client.invalid_notification_delivery_response');
@@ -2059,7 +2118,7 @@ export function readNotificationDeliveryResponse(value: unknown): NotificationDe
 }
 
 function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
-  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
 }
 
 export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
@@ -2136,7 +2195,7 @@ export function readNotificationTemplateResponse(value: unknown): NotificationTe
 }
 
 function isNotificationTemplateResponse(value: unknown): value is NotificationTemplateResponse {
-  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["draftBodyJson"] === 'string') && (typeof value["draftParameterSchemaJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["draftSubject"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestContentClassificationKey"] === null) || (typeof value["latestContentClassificationKey"] === 'string')) && ((value["latestContentHash"] === null) || (typeof value["latestContentHash"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isInteger(value["latestPublishedVersionNumber"]))) && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+  return isRecord(value) && (typeof value["channelKey"] === 'string') && (typeof value["contentCategoryKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["defaultLocaleTag"] === 'string') && (typeof value["draftBodyJson"] === 'string') && (typeof value["draftParameterSchemaJson"] === 'string') && (typeof value["draftRevision"] === 'number' && Number.isInteger(value["draftRevision"])) && (typeof value["draftSubject"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["latestContentClassificationKey"] === null) || (typeof value["latestContentClassificationKey"] === 'string')) && ((value["latestContentHash"] === null) || (typeof value["latestContentHash"] === 'string')) && ((value["latestPublishedVersionId"] === null) || (typeof value["latestPublishedVersionId"] === 'string' && guidPattern.test(value["latestPublishedVersionId"]))) && ((value["latestPublishedVersionNumber"] === null) || (typeof value["latestPublishedVersionNumber"] === 'number' && Number.isInteger(value["latestPublishedVersionNumber"]))) && (typeof value["localeTag"] === 'string') && (Array.isArray(value["missingLocaleTags"]) && value["missingLocaleTags"].every(item26 => typeof item26 === 'string')) && (Array.isArray(value["publishedLocaleTags"]) && value["publishedLocaleTags"].every(item28 => typeof item28 === 'string')) && (typeof value["templateKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readOperationLogResponse(value: unknown): OperationLogResponse {
@@ -2269,6 +2328,17 @@ export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResul
 
 function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResultOfConfigEntryResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isConfigEntryResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfDataApprovalRequestResponse(value: unknown): PagedResultOfDataApprovalRequestResponse {
+  if (!(isPagedResultOfDataApprovalRequestResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_data_approval_request_response');
+  }
+  return value;
+}
+
+function isPagedResultOfDataApprovalRequestResponse(value: unknown): value is PagedResultOfDataApprovalRequestResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDataApprovalRequestResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfDictItemResponse(value: unknown): PagedResultOfDictItemResponse {
@@ -2612,6 +2682,28 @@ function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTen
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): PagedResultOfWorkflowRecoveryTaskResponse {
+  if (!(isPagedResultOfWorkflowRecoveryTaskResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_workflow_recovery_task_response');
+  }
+  return value;
+}
+
+function isPagedResultOfWorkflowRecoveryTaskResponse(value: unknown): value is PagedResultOfWorkflowRecoveryTaskResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isWorkflowRecoveryTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowInstanceRequest {
+  if (!(isPauseWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_pause_workflow_instance_request');
+  }
+  return value;
+}
+
+function isPauseWorkflowInstanceRequest(value: unknown): value is PauseWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
 export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
   if (!(isPreviewSerialNumberRequest(value))) {
     throw new Error('client.invalid_preview_serial_number_request');
@@ -2711,6 +2803,17 @@ function isPublishWorkflowFormRequest(value: unknown): value is PublishWorkflowF
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"]));
 }
 
+export function readReassignWorkflowInstanceRequest(value: unknown): ReassignWorkflowInstanceRequest {
+  if (!(isReassignWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_reassign_workflow_instance_request');
+  }
+  return value;
+}
+
+function isReassignWorkflowInstanceRequest(value: unknown): value is ReassignWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
 export function readRecipientEndpointResponse(value: unknown): RecipientEndpointResponse {
   if (!(isRecipientEndpointResponse(value))) {
     throw new Error('client.invalid_recipient_endpoint_response');
@@ -2720,6 +2823,28 @@ export function readRecipientEndpointResponse(value: unknown): RecipientEndpoint
 
 function isRecipientEndpointResponse(value: unknown): value is RecipientEndpointResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointKindKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["maskedValue"] === 'string') && (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["verificationStatusKey"] === 'string');
+}
+
+export function readReconcileWorkflowRecoveryTaskRequest(value: unknown): ReconcileWorkflowRecoveryTaskRequest {
+  if (!(isReconcileWorkflowRecoveryTaskRequest(value))) {
+    throw new Error('client.invalid_reconcile_workflow_recovery_task_request');
+  }
+  return value;
+}
+
+function isReconcileWorkflowRecoveryTaskRequest(value: unknown): value is ReconcileWorkflowRecoveryTaskRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
+export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkflowInstanceRequest {
+  if (!(isRecoverWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_recover_workflow_instance_request');
+  }
+  return value;
+}
+
+function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
 }
 
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
@@ -2788,6 +2913,17 @@ function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostD
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readResumeWorkflowInstanceRequest(value: unknown): ResumeWorkflowInstanceRequest {
+  if (!(isResumeWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_resume_workflow_instance_request');
+  }
+  return value;
+}
+
+function isResumeWorkflowInstanceRequest(value: unknown): value is ResumeWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
 export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotificationDeliveryRequest {
   if (!(isRetryNotificationDeliveryRequest(value))) {
     throw new Error('client.invalid_retry_notification_delivery_request');
@@ -2797,6 +2933,28 @@ export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotif
 
 function isRetryNotificationDeliveryRequest(value: unknown): value is RetryNotificationDeliveryRequest {
   return isRecord(value) && (typeof value["reason"] === 'string') && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"]));
+}
+
+export function readRetryWorkflowRecoveryTaskRequest(value: unknown): RetryWorkflowRecoveryTaskRequest {
+  if (!(isRetryWorkflowRecoveryTaskRequest(value))) {
+    throw new Error('client.invalid_retry_workflow_recovery_task_request');
+  }
+  return value;
+}
+
+function isRetryWorkflowRecoveryTaskRequest(value: unknown): value is RetryWorkflowRecoveryTaskRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
+export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTodoRequest {
+  if (!(isReturnWorkflowTodoRequest(value))) {
+    throw new Error('client.invalid_return_workflow_todo_request');
+  }
+  return value;
+}
+
+function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTodoRequest {
+  return isRecord(value) && (typeof value["comment"] === 'string') && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
 }
 
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
@@ -3489,7 +3647,7 @@ export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceRe
 }
 
 function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
-  return isRecord(value) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
+  return isRecord(value) && (value["activeNodeKey"] === undefined || ((value["activeNodeKey"] === null) || (typeof value["activeNodeKey"] === 'string'))) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (value["approvalModeKey"] === undefined || ((value["approvalModeKey"] === null) || (typeof value["approvalModeKey"] === 'string'))) && (value["approvedCount"] === undefined || ((typeof value["approvedCount"] === 'number' && Number.isInteger(value["approvedCount"])) || (value["approvedCount"] === null))) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["pendingCount"] === undefined || ((typeof value["pendingCount"] === 'number' && Number.isInteger(value["pendingCount"])) || (value["pendingCount"] === null))) && (value["rejectedCount"] === undefined || ((typeof value["rejectedCount"] === 'number' && Number.isInteger(value["rejectedCount"])) || (value["rejectedCount"] === null))) && (value["reminderCount"] === undefined || (typeof value["reminderCount"] === 'number' && Number.isInteger(value["reminderCount"]))) && (value["requiredApprovalCount"] === undefined || ((typeof value["requiredApprovalCount"] === 'number' && Number.isInteger(value["requiredApprovalCount"])) || (value["requiredApprovalCount"] === null))) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string'));
 }
 
 export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {
@@ -3547,6 +3705,17 @@ function isWorkflowRecipientCandidateResponse(value: unknown): value is Workflow
   return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["username"] === 'string');
 }
 
+export function readWorkflowRecoveryTaskResponse(value: unknown): WorkflowRecoveryTaskResponse {
+  if (!(isWorkflowRecoveryTaskResponse(value))) {
+    throw new Error('client.invalid_workflow_recovery_task_response');
+  }
+  return value;
+}
+
+function isWorkflowRecoveryTaskResponse(value: unknown): value is WorkflowRecoveryTaskResponse {
+  return isRecord(value) && (typeof value["attemptCount"] === 'number' && Number.isInteger(value["attemptCount"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["kindKey"] === 'string') && ((value["lastError"] === null) || (typeof value["lastError"] === 'string')) && ((value["leaseExpiresAtUtc"] === null) || (typeof value["leaseExpiresAtUtc"] === 'string')) && (typeof value["leaseGeneration"] === 'number' && Number.isInteger(value["leaseGeneration"])) && ((value["leaseOwnerKey"] === null) || (typeof value["leaseOwnerKey"] === 'string')) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["stepId"] === null) || (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]))) && (typeof value["updatedAtUtc"] === 'string');
+}
+
 export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDetailResponse {
   if (!(isWorkflowTodoDetailResponse(value))) {
     throw new Error('client.invalid_workflow_todo_detail_response');
@@ -3555,7 +3724,7 @@ export function readWorkflowTodoDetailResponse(value: unknown): WorkflowTodoDeta
 }
 
 function isWorkflowTodoDetailResponse(value: unknown): value is WorkflowTodoDetailResponse {
-  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
+  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
 }
 
 export function readWorkflowTodoResponse(value: unknown): WorkflowTodoResponse {
@@ -3569,6 +3738,17 @@ function isWorkflowTodoResponse(value: unknown): value is WorkflowTodoResponse {
   return isRecord(value) && (typeof value["arrivedAtUtc"] === 'string') && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["resultActionKey"] === null) || (typeof value["resultActionKey"] === 'string')) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
 }
 
+export function readWorkflowTodoReturnTargetResponse(value: unknown): WorkflowTodoReturnTargetResponse {
+  if (!(isWorkflowTodoReturnTargetResponse(value))) {
+    throw new Error('client.invalid_workflow_todo_return_target_response');
+  }
+  return value;
+}
+
+function isWorkflowTodoReturnTargetResponse(value: unknown): value is WorkflowTodoReturnTargetResponse {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["completedAtUtc"] === 'string') && (typeof value["nodeKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+}
+
 export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRuntimeResponse {
   if (!(isWorkflowTodoRuntimeResponse(value))) {
     throw new Error('client.invalid_workflow_todo_runtime_response');
@@ -3577,7 +3757,7 @@ export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRun
 }
 
 function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRuntimeResponse {
-  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
+  return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
 }
 
 export function readCodeGenerationListCatalogTablesResponse(value: unknown): Array<CodeGenerationCatalogTableResponse> {
@@ -3837,6 +4017,13 @@ export function readWorkflowListMyTodosResponse(value: unknown): Array<WorkflowT
     throw new Error('client.invalid_workflow_list_my_todos_response');
   }
   return value as Array<WorkflowTodoResponse>;
+}
+
+export function readWorkflowListTodoReturnTargetsResponse(value: unknown): Array<WorkflowTodoReturnTargetResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowTodoReturnTargetResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_todo_return_targets_response');
+  }
+  return value as Array<WorkflowTodoReturnTargetResponse>;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

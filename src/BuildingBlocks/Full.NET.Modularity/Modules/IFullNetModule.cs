@@ -21,6 +21,15 @@ public interface IFullNetModule
     IReadOnlyCollection<string> Dependencies { get; }
 
     /// <summary>
+    /// 获取仅用于消费事件或最小只读契约的可选模块键；可选生产者未启用时，当前模块仍可独立运行。
+    /// </summary>
+    /// <remarks>
+    /// 此集合不能用于同步调用、数据库访问或服务解析，也不参与启用集依赖闭包；
+    /// 只有缺少对方模块时仍能安全退化为无事件输入的集成消费者才可登记。
+    /// </remarks>
+    IReadOnlyCollection<string> OptionalContractDependencies => [];
+
+    /// <summary>
     /// 注册模块在 HTTP 宿主（Host.Api 等）中需要的完整服务集合，包括应用服务、仓储、校验器、事件订阅等。
     /// </summary>
     /// <param name="services">宿主的服务集合，扩展追加注册。</param>

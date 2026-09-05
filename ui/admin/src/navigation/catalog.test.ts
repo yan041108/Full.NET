@@ -101,6 +101,11 @@ describe('Vue 本地导航目录', () => {
       titleKey: 'navigation.workflowInstances.title',
       captionKey: 'navigation.workflowInstances.caption'
     });
+    expect(localNavigationFor('workflow-recovery-tasks')).toMatchObject({
+      path: '/workflow/recovery-tasks',
+      titleKey: 'navigation.workflowRecoveryTasks.title',
+      captionKey: 'navigation.workflowRecoveryTasks.caption'
+    });
     expect(localNavigationFor('notification-templates')).toMatchObject({
       path: '/notifications/templates',
       titleKey: 'navigation.notificationTemplates.title',

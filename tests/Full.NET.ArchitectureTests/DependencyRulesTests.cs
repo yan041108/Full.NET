@@ -56,23 +56,40 @@ public sealed class DependencyRulesTests
 
     // 业务模块的全部程序集：Core（含跨模块契约）与 .Http 承载面都必须遵守数据与基础设施边界。
     private static readonly Assembly[] BusinessModuleAssemblies =
-    [
-        typeof(IdentityModule).Assembly,
-        typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
-        typeof(TenancyModule).Assembly,
-        typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
-        typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
-        typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
-        typeof(SettingsModule).Assembly,
-        typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
-        typeof(AuditingModule).Assembly,
-        typeof(FilesModule).Assembly,
-        typeof(Full.NET.Modules.Files.Contracts.FilesErrorCodes).Assembly,
-        typeof(DocumentModule).Assembly,
-        typeof(SerialNumbersModule).Assembly,
-        typeof(ObservabilityAdminModule).Assembly,
-        typeof(WorkflowModule).Assembly,
-    ];
+        ProductionAssemblies.BusinessModules;
+
+    [TestMethod]
+    public void Production_business_module_assembly_catalog_matches_official_module_projects()
+    {
+        var root = FindRepositoryRoot();
+        const string prefix = "Full.NET.Modules.";
+        var expected = Directory
+            .EnumerateFiles(Path.Combine(root, "src", "Modules"), "*.csproj", SearchOption.AllDirectories)
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(name => name is not null
+                && name.StartsWith(prefix, StringComparison.Ordinal)
+                && !name[prefix.Length..].Contains('.', StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var actual = BusinessModuleAssemblies
+            .Select(assembly => assembly.GetName().Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        var actualModuleNames = BusinessModuleAssemblies
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => !type.IsAbstract
+                && typeof(Full.NET.Modularity.Modules.IFullNetModule).IsAssignableFrom(type))
+            .Select(type => ((Full.NET.Modularity.Modules.IFullNetModule)Activator.CreateInstance(type)!).Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        CollectionAssert.AreEqual(expected, actual);
+        CollectionAssert.AreEqual(
+            Full.NET.Composition.FullNetModuleSelection.OfficialModuleNames
+                .Order(StringComparer.Ordinal)
+                .ToArray(),
+            actualModuleNames);
+    }
 
     [TestMethod]
     public void BuildingBlocks_DoNotDependOnModules()
@@ -169,19 +186,12 @@ public sealed class DependencyRulesTests
     [TestMethod]
     public void Production_module_contract_references_are_declared_dependencies()
     {
-        Full.NET.Modularity.Modules.IFullNetModule[] modules =
-        [
-            new IdentityModule(),
-            new AuditingModule(),
-            new FilesModule(),
-            new Full.NET.Modules.Notifications.NotificationsModule(),
-            new Full.NET.Modules.Jobs.JobsModule(),
-            new Full.NET.Modules.Messaging.MessagingModule(),
-            new TenancyModule(),
-            new Full.NET.Modules.Organization.OrganizationModule(),
-            new SettingsModule(),
-            new SerialNumbersModule(),
-        ];
+        var modules = BusinessModuleAssemblies
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => !type.IsAbstract
+                && typeof(Full.NET.Modularity.Modules.IFullNetModule).IsAssignableFrom(type))
+            .Select(type => (Full.NET.Modularity.Modules.IFullNetModule)Activator.CreateInstance(type)!)
+            .ToArray();
         var root = FindRepositoryRoot();
         var moduleByName = modules.ToDictionary(
             module => module.Name,
@@ -216,12 +226,15 @@ public sealed class DependencyRulesTests
                         && !module.Dependencies.Contains(
                             dependency,
                             StringComparer.Ordinal)
+                        && !module.OptionalContractDependencies.Contains(
+                            dependency,
+                            StringComparer.Ordinal)
                         && !HasReverseModuleDependency(
                             module.Name,
                             dependency,
                             moduleByName))
                     .Select(dependency =>
-                        $"{module.Name} references {dependency}.Contracts without declaring {dependency}");
+                        $"{module.Name} references {dependency}.Contracts without declaring required or optional {dependency}");
             })
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
@@ -1029,7 +1042,7 @@ public sealed class DependencyRulesTests
         var module = new WorkflowModule();
 
         CollectionAssert.AreEquivalent(
-            new[] { "Identity" },
+            new[] { "Identity", "Notifications" },
             module.Dependencies.ToArray());
     }
 
@@ -1393,6 +1406,27 @@ public sealed class DependencyRulesTests
 
 internal static class ProductionAssemblies
 {
+    /// <summary>
+    /// 获取全部官方业务模块实现程序集；架构门禁必须复用该集合，禁止各测试维护局部补丁清单。
+    /// </summary>
+    internal static readonly Assembly[] BusinessModules =
+    [
+        typeof(IdentityModule).Assembly,
+        typeof(TenancyModule).Assembly,
+        typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
+        typeof(SettingsModule).Assembly,
+        typeof(AuditingModule).Assembly,
+        typeof(FilesModule).Assembly,
+        typeof(DocumentModule).Assembly,
+        typeof(Full.NET.Modules.Notifications.NotificationsModule).Assembly,
+        typeof(Full.NET.Modules.Jobs.JobsModule).Assembly,
+        typeof(Full.NET.Modules.Messaging.MessagingModule).Assembly,
+        typeof(Full.NET.Modules.CodeGeneration.CodeGenerationModule).Assembly,
+        typeof(SerialNumbersModule).Assembly,
+        typeof(ObservabilityAdminModule).Assembly,
+        typeof(WorkflowModule).Assembly,
+    ];
+
     public static readonly Assembly DataDapper =
         typeof(Full.NET.Data.Dapper.ServiceCollectionExtensions).Assembly;
 
@@ -1428,19 +1462,12 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Validation.FluentValidation.ServiceCollectionExtensions).Assembly,
         typeof(Full.NET.Compatibility.AdminNet.AdminNetApiResultMapper).Assembly,
         typeof(Full.NET.Composition.FullNetHostProfile).Assembly,
-        typeof(IdentityModule).Assembly,
         typeof(Full.NET.Modules.Identity.Contracts.VerifiedTenantContext).Assembly,
-        typeof(TenancyModule).Assembly,
         typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).Assembly,
-        typeof(Full.NET.Modules.Organization.OrganizationModule).Assembly,
         typeof(Full.NET.Modules.Organization.Contracts.OrganizationErrorCodes).Assembly,
-        typeof(SettingsModule).Assembly,
         typeof(Full.NET.Modules.Settings.Contracts.SettingsErrorCodes).Assembly,
-        typeof(AuditingModule).Assembly,
-        typeof(FilesModule).Assembly,
         typeof(Full.NET.Modules.Files.Contracts.FilesErrorCodes).Assembly,
-        typeof(DocumentModule).Assembly,
-        typeof(SerialNumbersModule).Assembly,
+        .. BusinessModules,
         HostApi,
         HostMigrator,
         HostWorker,

@@ -1,4 +1,5 @@
 using Full.NET.Abstractions.Results;
+using Full.NET.Localization;
 
 namespace Full.NET.Modules.Identity.Contracts;
 
@@ -29,7 +30,9 @@ public interface ITenantUserSelectionDirectory
 /// <param name="Id">稳定用户标识。</param>
 /// <param name="Username">登录名。</param>
 /// <param name="DisplayName">显示名称。</param>
+/// <param name="PreferredLocale">账号已保存的规范语言偏好。</param>
 public sealed record TenantUserDirectoryEntry(
     Guid Id,
     string Username,
-    string DisplayName);
+    string DisplayName,
+    string PreferredLocale = LocaleCatalog.DefaultLocale);
