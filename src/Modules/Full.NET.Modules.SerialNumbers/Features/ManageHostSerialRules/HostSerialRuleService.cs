@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.SerialNumbers.Domain;
 using Full.NET.Modules.SerialNumbers.Persistence;
@@ -18,7 +19,8 @@ internal sealed class HostSerialRuleService(
     ICommandTransaction transaction,
     IClock clock,
     IIdGenerator idGenerator,
-    IOptions<DatabaseOptions> databaseOptions)
+    IOptions<DatabaseOptions> databaseOptions,
+    IDataApprovalScenarioPolicyPort approvalScenarioPolicy)
 {
     public async Task<Result<PagedResult<SerialNumberRuleResponse>>> ListAsync(
         int page,
@@ -130,12 +132,22 @@ internal sealed class HostSerialRuleService(
             cancellationToken);
     }
 
-    public Task<Result<SerialNumberRuleResponse>> UpdateAsync(
+    public async Task<Result<SerialNumberRuleResponse>> UpdateAsync(
         Guid ruleId,
         Guid actorUserId,
         UpdateSerialNumberRuleRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (await approvalScenarioPolicy.BlocksDirectWriteAsync(
+                DataApprovalScenarioKeys.SerialRuleHostUpdate,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return Result<SerialNumberRuleResponse>.Failure(new Error(
+                SerialNumberErrorCodes.UpdateRequiresApproval,
+                "The serial number rule update must be submitted for approval.",
+                ErrorType.Conflict));
+        }
+
         var input = Normalize(
             null,
             request.DisplayName,
@@ -149,17 +161,17 @@ internal sealed class HostSerialRuleService(
             request.IsEnabled);
         if (!input.IsSuccess || request.Version < 1)
         {
-            return Task.FromResult(Invalid());
+            return Invalid();
         }
 
-        return transaction.ExecuteAsync(
+        return await transaction.ExecuteAsync(
             token => UpdateCoreAsync(
                 ruleId,
                 actorUserId,
                 request.Version,
                 input.Value!,
                 token),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     public Task<Result<SerialNumberRuleResponse>> SetEnabledAsync(

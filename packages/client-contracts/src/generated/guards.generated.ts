@@ -250,10 +250,14 @@ import type {
   SerialNumberResetInterval,
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
+  SerialRuleFieldChange,
+  SerialRuleUpdateApprovalPreviewResponse,
+  SerialRuleUpdateApprovalSubmissionResponse,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   StartWorkflowInstanceRequest,
   Stream,
+  SubmitSerialRuleUpdateApprovalRequest,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
@@ -3047,6 +3051,39 @@ function isSerialNumberRuleScope(value: unknown): value is SerialNumberRuleScope
   return typeof value === 'number' && Number.isInteger(value);
 }
 
+export function readSerialRuleFieldChange(value: unknown): SerialRuleFieldChange {
+  if (!(isSerialRuleFieldChange(value))) {
+    throw new Error('client.invalid_serial_rule_field_change');
+  }
+  return value;
+}
+
+function isSerialRuleFieldChange(value: unknown): value is SerialRuleFieldChange {
+  return isRecord(value) && (value["afterValue"] === undefined || ((typeof value["afterValue"] === 'string') || (value["afterValue"] === null))) && (value["beforeValue"] === undefined || ((typeof value["beforeValue"] === 'string') || (value["beforeValue"] === null))) && (typeof value["changed"] === 'boolean') && (typeof value["fieldKey"] === 'string');
+}
+
+export function readSerialRuleUpdateApprovalPreviewResponse(value: unknown): SerialRuleUpdateApprovalPreviewResponse {
+  if (!(isSerialRuleUpdateApprovalPreviewResponse(value))) {
+    throw new Error('client.invalid_serial_rule_update_approval_preview_response');
+  }
+  return value;
+}
+
+function isSerialRuleUpdateApprovalPreviewResponse(value: unknown): value is SerialRuleUpdateApprovalPreviewResponse {
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (typeof value["beforeSnapshotJson"] === 'string') && (Array.isArray(value["changes"]) && value["changes"].every(item16 => isSerialRuleFieldChange(item16))) && (typeof value["displayName"] === 'string') && (typeof value["ruleId"] === 'string' && guidPattern.test(value["ruleId"])) && (typeof value["ruleKey"] === 'string');
+}
+
+export function readSerialRuleUpdateApprovalSubmissionResponse(value: unknown): SerialRuleUpdateApprovalSubmissionResponse {
+  if (!(isSerialRuleUpdateApprovalSubmissionResponse(value))) {
+    throw new Error('client.invalid_serial_rule_update_approval_submission_response');
+  }
+  return value;
+}
+
+function isSerialRuleUpdateApprovalSubmissionResponse(value: unknown): value is SerialRuleUpdateApprovalSubmissionResponse {
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (value["beforeSnapshotJson"] === undefined || ((typeof value["beforeSnapshotJson"] === 'string') || (value["beforeSnapshotJson"] === null))) && (Array.isArray(value["changes"]) && value["changes"].every(item16 => isSerialRuleFieldChange(item16))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestVersion"] === 'number' && Number.isInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
+}
+
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
   if (!(isSetHostDocumentPermissionsRequest(value))) {
     throw new Error('client.invalid_set_host_document_permissions_request');
@@ -3089,6 +3126,17 @@ export function readStream(value: unknown): Stream {
 
 function isStream(value: unknown): value is Stream {
   return value instanceof Blob;
+}
+
+export function readSubmitSerialRuleUpdateApprovalRequest(value: unknown): SubmitSerialRuleUpdateApprovalRequest {
+  if (!(isSubmitSerialRuleUpdateApprovalRequest(value))) {
+    throw new Error('client.invalid_submit_serial_rule_update_approval_request');
+  }
+  return value;
+}
+
+function isSubmitSerialRuleUpdateApprovalRequest(value: unknown): value is SubmitSerialRuleUpdateApprovalRequest {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (isUpdateSerialNumberRuleRequest(value["update"]));
 }
 
 export function readSuperAdministratorAuditResponse(value: unknown): SuperAdministratorAuditResponse {

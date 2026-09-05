@@ -58,5 +58,6 @@ internal static class LegacyCoarseActionPermissionRegistry
 
     internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
     {
+        "PUT /api/v1/data-approvals/scenarios/{scenarioKey}|data_approvals.scenarios.manage",
     };
 }

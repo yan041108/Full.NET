@@ -64,6 +64,30 @@
                                      ]
                   },
                   {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}/update-approval-preview",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.submit_update_approval",
+                                             "successStatus":  200,
+                                             "requestSchema":  "UpdateSerialNumberRuleRequest",
+                                             "responseSchema":  "SerialRuleUpdateApprovalPreviewResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}/update-approval-requests",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.submit_update_approval",
+                                             "successStatus":  201,
+                                             "requestSchema":  "SubmitSerialRuleUpdateApprovalRequest",
+                                             "responseSchema":  "SerialRuleUpdateApprovalSubmissionResponse"
+                                         }
+                                     ]
+                  },
+                  {
                       "path":  "/api/v1/serial-numbers/rules/preview",
                       "operations":  [
                                          {
@@ -155,6 +179,41 @@
                                                                             "total"
                                                                         ],
                                                          "itemSchema":  "SerialNumberRuleResponse"
-                                                     }
+                                                     },
+                    "SerialRuleFieldChange":  {
+                                                  "properties":  [
+                                                                     "fieldKey",
+                                                                     "beforeValue",
+                                                                     "afterValue",
+                                                                     "changed"
+                                                                 ]
+                                              },
+                    "SubmitSerialRuleUpdateApprovalRequest":  {
+                                                                  "properties":  [
+                                                                                     "update",
+                                                                                     "idempotencyKey"
+                                                                                 ]
+                                                              },
+                    "SerialRuleUpdateApprovalPreviewResponse":  {
+                                                                    "properties":  [
+                                                                                       "ruleId",
+                                                                                       "ruleKey",
+                                                                                       "displayName",
+                                                                                       "changes",
+                                                                                       "beforeSnapshotJson",
+                                                                                       "afterSnapshotJson"
+                                                                                   ]
+                                                                },
+                    "SerialRuleUpdateApprovalSubmissionResponse":  {
+                                                                       "properties":  [
+                                                                                          "requestId",
+                                                                                          "statusKey",
+                                                                                          "changes",
+                                                                                          "beforeSnapshotJson",
+                                                                                          "afterSnapshotJson",
+                                                                                          "workflowDefinitionVersionId",
+                                                                                          "requestVersion"
+                                                                                      ]
+                                                                   }
                 }
 }

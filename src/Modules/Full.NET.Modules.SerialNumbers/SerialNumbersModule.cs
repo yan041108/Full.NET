@@ -4,6 +4,7 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.SerialNumbers.Features.AllocateSerialNumbers;
+using Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
 using Full.NET.Modules.SerialNumbers.Features.ManageHostSerialRules;
 using Full.NET.Modules.SerialNumbers.Serialization;
 using Microsoft.AspNetCore.Routing;
@@ -28,7 +29,7 @@ public sealed class SerialNumbersModule : IFullNetModule
     /// 显式声明的运行时依赖：Identity 提供受信任用户与权限目录；
     /// 不得在未注册 Identity 模块的宿主中启用本模块。
     /// </summary>
-    public IReadOnlyCollection<string> Dependencies => ["Identity"];
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "DataApproval"];
 
     /// <summary>
     /// 注册权限目录贡献者、IClock/IIdGenerator 单例（如未由其他模块提供）、
@@ -51,6 +52,7 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<SerialNumberPreviewService>();
         services.TryAddScoped<HostSerialRuleService>();
+        services.TryAddScoped<SerialRuleUpdateApprovalService>();
         services.TryAddScoped<ISerialNumberAllocator, SerialNumberAllocator>();
         services.TryAddScoped<ISerialRuleChangeApprovalSource, Features.DataApprovalBridge.SerialRuleChangeApprovalSource>();
         services.TryAddScoped<ISerialRuleChangeApprovalApplier, Features.DataApprovalBridge.SerialRuleChangeApprovalApplier>();

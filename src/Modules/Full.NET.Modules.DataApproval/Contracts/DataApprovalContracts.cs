@@ -1,12 +1,5 @@
 namespace Full.NET.Modules.DataApproval.Contracts;
 
-/// <summary>DataApproval 首个切片支持的稳定场景键。</summary>
-public static class DataApprovalScenarioKeys
-{
-    /// <summary>Host 流水号规则更新审批。</summary>
-    public const string SerialRuleHostUpdate = "serial_numbers.host_rule.update";
-}
-
 /// <summary>DataApproval 请求状态机器键。</summary>
 public static class DataApprovalStatusKeys
 {

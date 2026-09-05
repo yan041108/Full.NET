@@ -3405,6 +3405,18 @@
       "statementName": "data_approval.request.update_status", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateStatus", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "审批终态回写必须同时校验当前可信作用域、原状态和乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
     },
     {
+      "statementName": "data_approval.scenario.find_by_key", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindScenarioByKey", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "按场景键读取审批策略绑定必须同时校验当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_scenario", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.scenario.insert", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.InsertScenario", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "首次持久化场景绑定将当前可信 TenantScopeKey 显式写入，不依赖隐式租户绑定。", "requiredSqlFragments": ["fn_dataapproval_scenario", "@TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.scenario.list", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListScenarios", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "场景绑定列表只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_scenario", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.scenario.update_binding", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateScenarioBinding", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "更新场景绑定必须同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_scenario", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
       "statementName": "identity.workflow.find_active_host_roles_by_ids", "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.FindActiveHostRolesByIds", "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs", "category": "host_catalog", "reason": "Workflow 候选角色仅读取 Host 授权目录中的活动角色，不应绑定当前租户。", "requiredSqlFragments": ["fn_identity_role", "TenantId IS NULL"]
     },
     {

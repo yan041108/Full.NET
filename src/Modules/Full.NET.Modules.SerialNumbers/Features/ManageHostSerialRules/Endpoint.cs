@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
+using Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -184,6 +185,63 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             SerialNumberRulePermissions.Disable));
+
+        group.MapPost("/{ruleId:guid}/update-approval-preview", async (
+            Guid ruleId,
+            UpdateSerialNumberRuleRequest request,
+            SerialRuleUpdateApprovalService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.PreviewAsync(ruleId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("serialNumbersPreviewRuleUpdateApproval")
+        .Produces<SerialRuleUpdateApprovalPreviewResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            SerialNumberRulePermissions.SubmitUpdateApproval));
+
+        group.MapPost("/{ruleId:guid}/update-approval-requests", async (
+            Guid ruleId,
+            SubmitSerialRuleUpdateApprovalRequest request,
+            SerialRuleUpdateApprovalService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.SubmitAsync(
+                    ruleId,
+                    actorUserId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return result.IsSuccess
+                ? Results.Created(
+                    $"/api/v1/data-approvals/requests/{result.Value!.RequestId:D}",
+                    result.Value)
+                : mapper.Map(result, httpContext);
+        })
+        .WithName("serialNumbersSubmitRuleUpdateApproval")
+        .Produces<SerialRuleUpdateApprovalSubmissionResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            SerialNumberRulePermissions.SubmitUpdateApproval));
 
         group.MapPost("/preview", (
             PreviewSerialNumberRequest request,

@@ -2001,6 +2001,32 @@ export interface SerialNumberRuleResponse {
 
 export type SerialNumberRuleScope = number;
 
+export interface SerialRuleFieldChange {
+  readonly afterValue?: string | null;
+  readonly beforeValue?: string | null;
+  readonly changed: boolean;
+  readonly fieldKey: string;
+}
+
+export interface SerialRuleUpdateApprovalPreviewResponse {
+  readonly afterSnapshotJson: string;
+  readonly beforeSnapshotJson: string;
+  readonly changes: Array<SerialRuleFieldChange>;
+  readonly displayName: string;
+  readonly ruleId: string;
+  readonly ruleKey: string;
+}
+
+export interface SerialRuleUpdateApprovalSubmissionResponse {
+  readonly afterSnapshotJson: string;
+  readonly beforeSnapshotJson?: string | null;
+  readonly changes: Array<SerialRuleFieldChange>;
+  readonly requestId: string;
+  readonly requestVersion: number;
+  readonly statusKey: string;
+  readonly workflowDefinitionVersionId: string;
+}
+
 export interface SetHostDocumentPermissionsRequest {
   readonly documentId: string;
   readonly permissions: Array<HostDocumentPermissionEntry>;
@@ -2019,6 +2045,11 @@ export interface StartWorkflowInstanceRequest {
 }
 
 export type Stream = Blob;
+
+export interface SubmitSerialRuleUpdateApprovalRequest {
+  readonly idempotencyKey: string;
+  readonly update: UpdateSerialNumberRuleRequest;
+}
 
 export interface SuperAdministratorAuditResponse {
   readonly actorUserId: null | string;

@@ -11,6 +11,15 @@ import {
 } from '../api/data-approval-requests';
 import { listDataApprovalScenarios } from '../api/data-approval-scenarios';
 
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    query: {}
+  }),
+  useRouter: () => ({
+    push: vi.fn()
+  })
+}));
+
 vi.mock('../api/data-approval-requests', () => ({
   listDataApprovalRequests: vi.fn(),
   getDataApprovalRequest: vi.fn(),

@@ -1033,7 +1033,7 @@ public sealed class DependencyRulesTests
         var module = new SerialNumbersModule();
 
         CollectionAssert.AreEquivalent(
-            new[] { "Identity" },
+            new[] { "Identity", "DataApproval" },
             module.Dependencies.ToArray());
     }
 

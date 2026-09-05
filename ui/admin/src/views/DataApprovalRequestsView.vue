@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElButton, ElCard, ElInput, ElOption, ElSelect, ElTag } from 'element-plus';
 import { isFullNetProblemDetails, type FullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -15,6 +16,7 @@ import {
 import { listDataApprovalScenarios, type DataApprovalScenarioResponse } from '../api/data-approval-scenarios';
 
 const session = useSessionStore();
+const route = useRoute();
 const { t } = useAdminI18n();
 const requests = ref<DataApprovalRequestResponse[]>([]);
 const scenarios = ref<DataApprovalScenarioResponse[]>([]);
@@ -30,7 +32,13 @@ const problem = ref<FullNetProblemDetails>();
 const canCreate = computed(() => session.can('data_approvals.requests.create'));
 const canCancel = computed(() => session.can('data_approvals.requests.cancel'));
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  const requestId = typeof route.query.requestId === 'string' ? route.query.requestId : undefined;
+  if (requestId) {
+    await selectRequest(requestId);
+  }
+});
 
 async function load(): Promise<void> {
   loading.value = true;

@@ -133,6 +133,9 @@ public static class SerialNumberRulePermissions
 
     /// <summary>使用指定模式与序列预览流水号输出结果。</summary>
     public const string Preview = "serial_numbers.rules.preview";
+
+    /// <summary>提交流水号规则更新审批请求。</summary>
+    public const string SubmitUpdateApproval = "serial_numbers.rules.submit_update_approval";
 }
 
 /// <summary>SerialNumbers 模块稳定错误码。</summary>
@@ -172,6 +175,14 @@ public static class SerialNumberErrorCodes
     /// <summary>当前 reset bucket 的序列已耗尽。</summary>
     public const string SequenceExhausted =
         "serial_numbers.sequence.exhausted";
+
+    /// <summary>场景未启用审批时不能提交更新审批。</summary>
+    public const string UpdateApprovalNotRequired =
+        "serial_numbers.rule.update_approval_not_required";
+
+    /// <summary>规则更新必须经 DataApproval 审批，不能直接写入。</summary>
+    public const string UpdateRequiresApproval =
+        "serial_numbers.rule.update_requires_approval";
 }
 
 /// <summary>流水号规则变更审批所需的稳定快照摘要。</summary>
@@ -214,3 +225,53 @@ public interface ISerialRuleChangeApprovalApplier
         string idempotencyKey,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>流水号规则更新审批的单个字段差异。</summary>
+/// <param name="FieldKey">稳定字段键，供前端 i18n 映射。</param>
+/// <param name="BeforeValue">变更前值文本。</param>
+/// <param name="AfterValue">变更后值文本。</param>
+/// <param name="Changed">是否发生变更。</param>
+public sealed record SerialRuleFieldChange(
+    string FieldKey,
+    string? BeforeValue,
+    string? AfterValue,
+    bool Changed);
+
+/// <summary>提交流水号规则更新审批的请求体。</summary>
+/// <param name="Update">强类型提议更新。</param>
+/// <param name="IdempotencyKey">调用方幂等键。</param>
+public sealed record SubmitSerialRuleUpdateApprovalRequest(
+    UpdateSerialNumberRuleRequest Update,
+    string IdempotencyKey);
+
+/// <summary>流水号规则更新审批差异预览响应。</summary>
+/// <param name="RuleId">目标规则标识。</param>
+/// <param name="RuleKey">规则稳定键。</param>
+/// <param name="DisplayName">规则显示名称。</param>
+/// <param name="Changes">字段级差异列表。</param>
+/// <param name="BeforeSnapshotJson">变更前快照 JSON。</param>
+/// <param name="AfterSnapshotJson">提议变更 JSON。</param>
+public sealed record SerialRuleUpdateApprovalPreviewResponse(
+    Guid RuleId,
+    string RuleKey,
+    string DisplayName,
+    IReadOnlyList<SerialRuleFieldChange> Changes,
+    string BeforeSnapshotJson,
+    string AfterSnapshotJson);
+
+/// <summary>流水号规则更新审批提交结果。</summary>
+/// <param name="RequestId">DataApproval 请求标识。</param>
+/// <param name="StatusKey">审批请求状态键。</param>
+/// <param name="Changes">字段级差异列表。</param>
+/// <param name="BeforeSnapshotJson">变更前快照 JSON。</param>
+/// <param name="AfterSnapshotJson">提议变更 JSON。</param>
+/// <param name="WorkflowDefinitionVersionId">固定的工作流定义版本标识。</param>
+/// <param name="RequestVersion">审批请求乐观并发版本。</param>
+public sealed record SerialRuleUpdateApprovalSubmissionResponse(
+    Guid RequestId,
+    string StatusKey,
+    IReadOnlyList<SerialRuleFieldChange> Changes,
+    string? BeforeSnapshotJson,
+    string AfterSnapshotJson,
+    Guid WorkflowDefinitionVersionId,
+    long RequestVersion);

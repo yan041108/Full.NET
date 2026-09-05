@@ -7,6 +7,8 @@ import {
   serialNumbersEnableRule,
   serialNumbersListRules,
   serialNumbersPreviewSerialNumber,
+  serialNumbersPreviewRuleUpdateApproval,
+  serialNumbersSubmitRuleUpdateApproval,
   serialNumbersUpdateRule,
   type ChangeSerialNumberRuleStatusRequest,
   type CreateSerialNumberRuleRequest,
@@ -16,6 +18,10 @@ import {
   type SerialNumberRulePage,
   type SerialNumberRuleResponse,
   type SerialNumberRuleScope,
+  type SerialRuleFieldChange,
+  type SerialRuleUpdateApprovalPreviewResponse,
+  type SerialRuleUpdateApprovalSubmissionResponse,
+  type SubmitSerialRuleUpdateApprovalRequest,
   type UpdateSerialNumberRuleRequest
 } from '@fullnet/client-contracts';
 import { http } from './http';
@@ -139,6 +145,24 @@ export async function previewSerialNumber(
   return value;
 }
 
+/** 预览流水号规则更新审批的字段差异。 */
+export async function previewSerialRuleUpdateApproval(
+  ruleId: string,
+  input: UpdateSerialNumberRuleRequest,
+  signal?: AbortSignal
+): Promise<SerialRuleUpdateApprovalPreviewResponse> {
+  return serialNumbersPreviewRuleUpdateApproval(http, { ruleId, body: input }, signal);
+}
+
+/** 提交流水号规则更新审批请求。 */
+export async function submitSerialRuleUpdateApproval(
+  ruleId: string,
+  input: SubmitSerialRuleUpdateApprovalRequest,
+  signal?: AbortSignal
+): Promise<SerialRuleUpdateApprovalSubmissionResponse> {
+  return serialNumbersSubmitRuleUpdateApproval(http, { ruleId, body: input }, signal);
+}
+
 /** 校验单条规则响应结构，避免调用方重复编写相同的失败关闭逻辑。 */
 function readRule(value: unknown): SerialNumberRuleResponse {
   if (!isSerialNumberRuleResponse(value)) {
@@ -156,6 +180,10 @@ export type {
   SerialNumberPreviewResponse,
   SerialNumberRulePage,
   SerialNumberRuleResponse,
+  SerialRuleFieldChange,
+  SerialRuleUpdateApprovalPreviewResponse,
+  SerialRuleUpdateApprovalSubmissionResponse,
+  SubmitSerialRuleUpdateApprovalRequest,
   UpdateSerialNumberRuleRequest
 };
 

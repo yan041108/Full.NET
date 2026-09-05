@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   ElButton,
   ElCard,
   ElDatePicker,
+  ElDialog,
   ElInput,
   ElMessage,
   ElOption,
@@ -25,12 +27,17 @@ import {
   enableSerialNumberRule,
   listSerialNumberRules,
   previewSerialNumber,
+  previewSerialRuleUpdateApproval,
+  submitSerialRuleUpdateApproval,
   updateSerialNumberRule,
   type SerialNumberRuleSortBy,
-  type SerialNumberRuleSortDirection
+  type SerialNumberRuleSortDirection,
+  type SerialRuleFieldChange
 } from '../api/serial-number-rules';
+import { listDataApprovalScenarios } from '../api/data-approval-scenarios';
 
 const session = useSessionStore();
+const router = useRouter();
 const { t } = useAdminI18n();
 const rules = ref<SerialNumberRuleResponse[]>([]);
 const page = ref(1);
@@ -63,8 +70,12 @@ const previewSequenceValue = ref<number | null>(null);
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const updateApprovalRequired = ref(false);
+const approvalDialogVisible = ref(false);
+const approvalChanges = ref<SerialRuleFieldChange[]>([]);
 const canCreate = computed(() => session.can('serial_numbers.rules.create'));
 const canUpdate = computed(() => session.can('serial_numbers.rules.update'));
+const canSubmitApproval = computed(() => session.can('serial_numbers.rules.submit_update_approval'));
 const canEnable = computed(() => session.can('serial_numbers.rules.enable'));
 const canDisable = computed(() => session.can('serial_numbers.rules.disable'));
 const canPreview = computed(() => session.can('serial_numbers.rules.preview'));
@@ -81,6 +92,10 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
+    const scenarios = await listDataApprovalScenarios();
+    updateApprovalRequired.value = scenarios.some(
+      item => item.scenarioKey === 'serial_numbers.host_rule.update' && item.isEnabled
+    );
     await loadRules();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'serialNumberRules.loadFailed');
@@ -188,7 +203,7 @@ async function createRule(): Promise<void> {
 
 async function saveRule(): Promise<void> {
   const selected = selectedRule.value;
-  if (!selected || changing.value || !canUpdate.value) {
+  if (!selected || changing.value || !canUpdate.value || updateApprovalRequired.value) {
     return;
   }
   changing.value = true;
@@ -230,6 +245,61 @@ async function toggleEnabled(enable: boolean): Promise<void> {
   } finally {
     changing.value = false;
   }
+}
+
+async function openApprovalDialog(): Promise<void> {
+  const selected = selectedRule.value;
+  if (!selected || changing.value || !canSubmitApproval.value || !updateApprovalRequired.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const preview = await previewSerialRuleUpdateApproval(
+      selected.id,
+      buildUpdateRequest(selected.version)
+    );
+    approvalChanges.value = preview.changes.filter(change => change.changed);
+    if (!approvalChanges.value.length) {
+      ElMessage.warning(t('serialNumberRules.approvalNoChanges'));
+      return;
+    }
+    approvalDialogVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function submitApproval(): Promise<void> {
+  const selected = selectedRule.value;
+  if (!selected || changing.value || !canSubmitApproval.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const submitted = await submitSerialRuleUpdateApproval(selected.id, {
+      update: buildUpdateRequest(selected.version),
+      idempotencyKey: crypto.randomUUID()
+    });
+    approvalDialogVisible.value = false;
+    ElMessage.success(t('serialNumberRules.approvalSubmitSuccess'));
+    await router.push({
+      name: 'data-approval-requests',
+      query: { requestId: submitted.requestId }
+    });
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
+function fieldLabel(fieldKey: string): string {
+  const key = `serialNumberRules.approvalField.${fieldKey}` as const;
+  return t(key);
 }
 
 async function runPreview(): Promise<void> {
@@ -354,8 +424,25 @@ function toProblem(
             </ElButton>
           </PermissionGate>
           <PermissionGate code="serial_numbers.rules.update">
-            <ElButton v-if="selectedRule" data-testid="serial-rule-save" type="primary" :disabled="changing" @click="saveRule">
+            <ElButton
+              v-if="selectedRule && !updateApprovalRequired"
+              data-testid="serial-rule-save"
+              type="primary"
+              :disabled="changing"
+              @click="saveRule"
+            >
               {{ t('serialNumberRules.save') }}
+            </ElButton>
+          </PermissionGate>
+          <PermissionGate code="serial_numbers.rules.submit_update_approval">
+            <ElButton
+              v-if="selectedRule && updateApprovalRequired"
+              data-testid="serial-rule-submit-approval"
+              type="primary"
+              :disabled="changing"
+              @click="openApprovalDialog"
+            >
+              {{ t('serialNumberRules.submitApproval') }}
             </ElButton>
           </PermissionGate>
           <PermissionGate code="serial_numbers.rules.enable">
@@ -377,6 +464,28 @@ function toProblem(
         </div>
       </div>
     </ElCard>
+
+    <ElDialog
+      v-model="approvalDialogVisible"
+      :title="t('serialNumberRules.approvalDialogTitle')"
+      width="640px"
+    >
+      <p class="art-muted">{{ t('serialNumberRules.approvalDialogDescription') }}</p>
+      <ul class="approval-diff-list" data-testid="serial-rule-approval-diff">
+        <li v-for="change in approvalChanges" :key="change.fieldKey">
+          <strong>{{ fieldLabel(change.fieldKey) }}</strong>
+          <span>{{ change.beforeValue ?? '—' }}</span>
+          <span>→</span>
+          <span>{{ change.afterValue ?? '—' }}</span>
+        </li>
+      </ul>
+      <template #footer>
+        <ElButton @click="approvalDialogVisible = false">{{ t('serialNumberRules.approvalCancel') }}</ElButton>
+        <ElButton type="primary" data-testid="serial-rule-approval-confirm" :loading="changing" @click="submitApproval">
+          {{ t('serialNumberRules.approvalConfirm') }}
+        </ElButton>
+      </template>
+    </ElDialog>
 
     <ElCard v-if="canPreview" class="art-card" :aria-busy="changing">
       <template #header>

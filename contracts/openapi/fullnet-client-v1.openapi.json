@@ -23666,6 +23666,204 @@
           }
         ]
       }
+    },
+    "/api/v1/serial-numbers/rules/{ruleId}/update-approval-preview": {
+      "post": {
+        "operationId": "serialNumbersPreviewRuleUpdateApproval",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSerialNumberRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SerialRuleUpdateApprovalPreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SerialNumbersHostRules"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/serial-numbers/rules/{ruleId}/update-approval-requests": {
+      "post": {
+        "operationId": "serialNumbersSubmitRuleUpdateApproval",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ruleId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitSerialRuleUpdateApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SerialRuleUpdateApprovalSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "SerialNumbersHostRules"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -36086,6 +36284,126 @@
               "integer",
               "null"
             ],
+            "format": "int64"
+          }
+        }
+      },
+      "SerialRuleFieldChange": {
+        "type": "object",
+        "required": [
+          "fieldKey",
+          "changed"
+        ],
+        "properties": {
+          "fieldKey": {
+            "type": "string"
+          },
+          "beforeValue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "afterValue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SubmitSerialRuleUpdateApprovalRequest": {
+        "type": "object",
+        "required": [
+          "update",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "update": {
+            "$ref": "#/components/schemas/UpdateSerialNumberRuleRequest"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          }
+        }
+      },
+      "SerialRuleUpdateApprovalPreviewResponse": {
+        "type": "object",
+        "required": [
+          "ruleId",
+          "ruleKey",
+          "displayName",
+          "changes",
+          "beforeSnapshotJson",
+          "afterSnapshotJson"
+        ],
+        "properties": {
+          "ruleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ruleKey": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SerialRuleFieldChange"
+            }
+          },
+          "beforeSnapshotJson": {
+            "type": "string"
+          },
+          "afterSnapshotJson": {
+            "type": "string"
+          }
+        }
+      },
+      "SerialRuleUpdateApprovalSubmissionResponse": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "statusKey",
+          "changes",
+          "afterSnapshotJson",
+          "workflowDefinitionVersionId",
+          "requestVersion"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "statusKey": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SerialRuleFieldChange"
+            }
+          },
+          "beforeSnapshotJson": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "afterSnapshotJson": {
+            "type": "string"
+          },
+          "workflowDefinitionVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestVersion": {
+            "type": "integer",
             "format": "int64"
           }
         }

@@ -12,6 +12,11 @@ namespace Full.NET.Modules.SerialNumbers.Serialization;
 [JsonSerializable(typeof(PreviewSerialNumberRequest))]
 [JsonSerializable(typeof(SerialNumberPreviewResponse))]
 [JsonSerializable(typeof(SerialNumberRuleResponse))]
+[JsonSerializable(typeof(SerialRuleFieldChange))]
+[JsonSerializable(typeof(SerialRuleFieldChange[]))]
+[JsonSerializable(typeof(SerialRuleUpdateApprovalPreviewResponse))]
+[JsonSerializable(typeof(SerialRuleUpdateApprovalSubmissionResponse))]
+[JsonSerializable(typeof(SubmitSerialRuleUpdateApprovalRequest))]
 [JsonSerializable(typeof(UpdateSerialNumberRuleRequest))]
 internal partial class SerialNumbersJsonSerializerContext
     : JsonSerializerContext;

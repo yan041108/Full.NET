@@ -89,7 +89,6 @@ public sealed class FullNetModuleCatalogTests
                 typeof(IdentityModule),
                 typeof(AuditingModule),
                 typeof(CodeGenerationModule),
-                typeof(SerialNumbersModule),
                 typeof(TenancyModule),
                 typeof(OrganizationModule),
                 typeof(NotificationsModule),
@@ -101,6 +100,7 @@ public sealed class FullNetModuleCatalogTests
                 typeof(JobsModule),
                 typeof(MessagingModule),
                 typeof(ObservabilityAdminModule),
+                typeof(SerialNumbersModule),
             },
             modules,
             string.Join(

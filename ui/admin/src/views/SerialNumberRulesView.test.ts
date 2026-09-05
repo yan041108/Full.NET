@@ -9,8 +9,11 @@ import {
   enableSerialNumberRule,
   listSerialNumberRules,
   previewSerialNumber,
+  previewSerialRuleUpdateApproval,
+  submitSerialRuleUpdateApproval,
   updateSerialNumberRule
 } from '../api/serial-number-rules';
+import { listDataApprovalScenarios } from '../api/data-approval-scenarios';
 
 vi.mock('../api/serial-number-rules', () => ({
   createSerialNumberRule: vi.fn(),
@@ -18,7 +21,13 @@ vi.mock('../api/serial-number-rules', () => ({
   enableSerialNumberRule: vi.fn(),
   listSerialNumberRules: vi.fn(),
   previewSerialNumber: vi.fn(),
+  previewSerialRuleUpdateApproval: vi.fn(),
+  submitSerialRuleUpdateApproval: vi.fn(),
   updateSerialNumberRule: vi.fn()
+}));
+
+vi.mock('../api/data-approval-scenarios', () => ({
+  listDataApprovalScenarios: vi.fn()
 }));
 
 const listMock = vi.mocked(listSerialNumberRules);
@@ -69,11 +78,35 @@ describe('Vue 流水号规则页', () => {
       pageSize: 20,
       total: 1
     });
+    vi.mocked(listDataApprovalScenarios).mockReset().mockResolvedValue([]);
     vi.mocked(createSerialNumberRule).mockReset();
     vi.mocked(updateSerialNumberRule).mockReset();
     vi.mocked(enableSerialNumberRule).mockReset();
     vi.mocked(disableSerialNumberRule).mockReset();
     vi.mocked(previewSerialNumber).mockReset();
+    vi.mocked(previewSerialRuleUpdateApproval).mockReset();
+    vi.mocked(submitSerialRuleUpdateApproval).mockReset();
+  });
+
+  it('审批策略启用时显示提交审批按钮而非保存', async () => {
+    vi.mocked(listDataApprovalScenarios).mockResolvedValue([{
+      scenarioKey: 'serial_numbers.host_rule.update',
+      scopeKey: 'host',
+      isRegistered: true,
+      isEnabled: true,
+      workflowDefinitionKey: 'serial-rule-update',
+      workflowDefinitionVersionId: '0198f36e-f7a7-7c52-9cbb-774e67411207',
+      version: 1
+    }]);
+    const wrapper = mountWithPermissions([
+      'serial_numbers.rules.read',
+      'serial_numbers.rules.update',
+      'serial_numbers.rules.submit_update_approval'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="serial-rule-load"]').trigger('click');
+    expect(wrapper.find('[data-testid="serial-rule-save"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="serial-rule-submit-approval"]').exists()).toBe(true);
   });
 
   it('仅有 read 时不显示写入与预览操作', async () => {

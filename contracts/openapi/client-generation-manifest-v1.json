@@ -1836,6 +1836,18 @@
       "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
       "generatedGroup": "data-approval-scenarios",
       "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersPreviewRuleUpdateApproval",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersSubmitRuleUpdateApproval",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
     }
   ]
 }

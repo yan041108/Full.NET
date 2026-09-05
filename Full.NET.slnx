@@ -63,6 +63,7 @@
     <Project Path="src/Modules/Full.NET.Modules.SerialNumbers/Full.NET.Modules.SerialNumbers.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.SerialNumbers/Contracts/Full.NET.Modules.SerialNumbers.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.DataApproval/Full.NET.Modules.DataApproval.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.DataApproval/Contracts/Full.NET.Modules.DataApproval.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Workflow/Full.NET.Modules.Workflow.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.Workflow.Contracts/Full.NET.Modules.Workflow.Contracts.csproj" />
   </Folder>

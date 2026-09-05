@@ -35,6 +35,10 @@ internal sealed class SerialNumbersAuthorizationContributor
             SerialNumberRulePermissions.Preview,
             "预览流水号规则",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            SerialNumberRulePermissions.SubmitUpdateApproval,
+            "提交流水号规则更新审批",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -89,5 +93,12 @@ internal sealed class SerialNumbersAuthorizationContributor
             "预览流水号",
             "preview",
             50),
+        new AuthorizationActionDefinition(
+            "serial_numbers.rules.submit_update_approval",
+            "serial-number-rules",
+            SerialNumberRulePermissions.SubmitUpdateApproval,
+            "提交更新审批",
+            "submit-approval",
+            60),
     ];
 }

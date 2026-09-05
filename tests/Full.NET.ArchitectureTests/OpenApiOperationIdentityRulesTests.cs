@@ -73,6 +73,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string DocumentHostSharesTag = "DocumentHostShares";
     private const string DocumentPublicSharesTag = "DocumentPublicShares";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
+    private const string DataApprovalRequestsTag = "DataApprovalRequests";
+    private const string DataApprovalScenariosTag = "DataApprovalScenarios";
 
     [TestMethod]
     public void Approved_client_generation_operations_have_unique_lower_camel_names_and_one_primary_tag()
@@ -380,12 +382,21 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/code-generation/catalog/tables", "codeGenerationListCatalogTables", CodeGenerationCatalogTag),
         new("GET", "/api/v1/code-generation/catalog/tables/{tableName}/columns", "codeGenerationListCatalogColumns", CodeGenerationCatalogTag),
         new("POST", "/api/v1/code-generation/catalog/column-sync", "codeGenerationSyncCatalogColumns", CodeGenerationCatalogTag),
+        new("GET", "/api/v1/data-approvals/requests", "dataApprovalsListRequests", DataApprovalRequestsTag),
+        new("POST", "/api/v1/data-approvals/requests", "dataApprovalsCreateRequest", DataApprovalRequestsTag),
+        new("GET", "/api/v1/data-approvals/requests/{requestId}", "dataApprovalsGetRequest", DataApprovalRequestsTag),
+        new("POST", "/api/v1/data-approvals/requests/{requestId}/cancel", "dataApprovalsCancelRequest", DataApprovalRequestsTag),
+        new("GET", "/api/v1/data-approvals/scenarios", "dataApprovalsListScenarios", DataApprovalScenariosTag),
+        new("GET", "/api/v1/data-approvals/scenarios/{scenarioKey}", "dataApprovalsGetScenario", DataApprovalScenariosTag),
+        new("PUT", "/api/v1/data-approvals/scenarios/{scenarioKey}", "dataApprovalsUpdateScenarioBinding", DataApprovalScenariosTag),
         new("GET", "/api/v1/serial-numbers/rules", "serialNumbersListRules", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules", "serialNumbersCreateRule", SerialNumbersHostRulesTag),
         new("PUT", "/api/v1/serial-numbers/rules/{ruleId}", "serialNumbersUpdateRule", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/{ruleId}/enable", "serialNumbersEnableRule", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/{ruleId}/disable", "serialNumbersDisableRule", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/preview", "serialNumbersPreviewSerialNumber", SerialNumbersHostRulesTag),
+        new("POST", "/api/v1/serial-numbers/rules/{ruleId}/update-approval-preview", "serialNumbersPreviewRuleUpdateApproval", SerialNumbersHostRulesTag),
+        new("POST", "/api/v1/serial-numbers/rules/{ruleId}/update-approval-requests", "serialNumbersSubmitRuleUpdateApproval", SerialNumbersHostRulesTag),
         new("GET", "/api/v1/observability/log-files", "observabilityListLogFiles", ObservabilityLogFilesTag),
         new("GET", "/api/v1/observability/log-files/{id}/tail", "observabilityTailLogFile", ObservabilityLogFilesTag),
         new("GET", "/api/v1/observability/log-files/{id}/download", "observabilityDownloadLogFile", ObservabilityLogFilesTag),

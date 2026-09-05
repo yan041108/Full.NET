@@ -2,6 +2,8 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.DataApproval.Contracts;
+using Full.NET.Modules.DataApproval.Features.CrossModulePorts;
 using Full.NET.Modules.DataApproval.Features.ManageRequests;
 using Full.NET.Modules.DataApproval.Features.ManageScenarios;
 using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
@@ -24,7 +26,10 @@ public sealed class DataApprovalModule : IFullNetModule
     public string Name => "DataApproval";
 
     /// <inheritdoc />
-    public IReadOnlyCollection<string> Dependencies => ["Identity", "Workflow", "SerialNumbers"];
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "Workflow"];
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["SerialNumbers"];
 
     /// <inheritdoc />
     public void AddServices(
@@ -38,6 +43,11 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<DataApprovalRequestService>();
         services.TryAddScoped<DataApprovalScenarioService>();
+        services.TryAddScoped<DataApprovalSubmissionAdapter>();
+        services.TryAddScoped<IDataApprovalScenarioPolicyPort>(
+            provider => provider.GetRequiredService<DataApprovalSubmissionAdapter>());
+        services.TryAddScoped<IDataApprovalSubmissionPort>(
+            provider => provider.GetRequiredService<DataApprovalSubmissionAdapter>());
         services.TryAddScoped<DataApprovalWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
