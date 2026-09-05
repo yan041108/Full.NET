@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { ElButton, ElCard } from 'element-plus';
+import { ElButton, ElCard, ElMessage } from 'element-plus';
 import {
   createWorkflowFormDraft,
   isFullNetProblemDetails,
@@ -10,12 +10,16 @@ import {
 } from '@fullnet/client-contracts';
 import {
   createWorkflowForm,
+  deleteWorkflowFormVersion,
   getWorkflowForm,
   getWorkflowFormComponentCatalog,
+  listWorkflowFormVersions,
   listWorkflowForms,
   publishWorkflowForm,
+  setWorkflowFormStatus,
   updateWorkflowFormDraft,
-  type WorkflowFormResponse
+  type WorkflowFormResponse,
+  type WorkflowFormVersionResponse
 } from '../api/workflow-forms';
 import { useSessionStore } from '../auth/session';
 import PermissionGate from '../components/PermissionGate.vue';
@@ -29,6 +33,9 @@ interface VForm3WorkflowDesignerInstance {
 const { t } = useAdminI18n();
 const session = useSessionStore();
 const forms = ref<WorkflowFormResponse[]>([]);
+const versions = ref<WorkflowFormVersionResponse[]>([]);
+const selectedFormId = ref<string>();
+const selectedForm = ref<WorkflowFormResponse>();
 const selected = ref<WorkflowFormResponse>();
 const localDraft = ref<WorkflowFormSchema>();
 const catalog = ref<WorkflowFormComponentCatalogResponse>();
@@ -67,7 +74,7 @@ async function submitCreate(): Promise<void> {
 }
 
 async function openEditor(row: WorkflowFormResponse): Promise<void> {
-  if (busy.value) return;
+  if (busy.value || formStatus(row) === 'archived') return;
   const result = await act(
     () => Promise.all([getWorkflowForm(row.id), getWorkflowFormComponentCatalog()]),
     'workflowForms.loadFailed'
@@ -132,6 +139,68 @@ function showDesignerError(code: string): void {
   };
 }
 
+function formStatus(form: WorkflowFormResponse): 'active' | 'disabled' | 'archived' {
+  const statusKey = (form as WorkflowFormResponse & { statusKey?: string }).statusKey;
+  if (statusKey === 'disabled' || statusKey === 'archived') {
+    return statusKey;
+  }
+  return 'active';
+}
+
+async function changeFormStatus(
+  form: WorkflowFormResponse,
+  statusKey: 'active' | 'disabled' | 'archived'
+): Promise<void> {
+  const version = Number((form as WorkflowFormResponse & { version?: number }).version ?? 0);
+  const updated = await act(
+    () => setWorkflowFormStatus(form.id, statusKey, version),
+    'workflowForms.operationFailed'
+  );
+  if (updated === undefined) {
+    return;
+  }
+  replaceForm(updated);
+  if (selectedForm.value?.id === updated.id) {
+    selectedForm.value = updated;
+  }
+  if (selected.value?.id === updated.id) {
+    closeEditor();
+  }
+  ElMessage.success(t(`workflowForms.statusSuccess.${statusKey}`));
+}
+
+async function openVersions(form: WorkflowFormResponse): Promise<void> {
+  if (busy.value) {
+    return;
+  }
+  const rows = await act(
+    () => listWorkflowFormVersions(form.id),
+    'workflowForms.loadFailed'
+  );
+  if (rows === undefined) {
+    return;
+  }
+  versions.value = rows;
+  selectedFormId.value = form.id;
+  selectedForm.value = form;
+}
+
+async function removeFormVersion(version: WorkflowFormVersionResponse): Promise<void> {
+  await act(
+    async () => {
+      await deleteWorkflowFormVersion(version.id);
+      if (selectedFormId.value !== undefined) {
+        versions.value = await listWorkflowFormVersions(selectedFormId.value);
+        const refreshed = await getWorkflowForm(selectedFormId.value);
+        replaceForm(refreshed);
+        selectedForm.value = refreshed;
+      }
+    },
+    'workflowForms.operationFailed'
+  );
+  ElMessage.success(t('workflowForms.deleteVersionSuccess'));
+}
+
 function replaceForm(value: WorkflowFormResponse): void {
   forms.value = forms.value.map(item => item.id === value.id ? value : item);
 }
@@ -181,6 +250,7 @@ async function act<T>(
         <table>
           <thead><tr>
             <th>{{ t('workflowForms.formKey') }}</th>
+            <th>{{ t('workflowForms.status') }}</th>
             <th>{{ t('workflowForms.revision') }}</th>
             <th>{{ t('workflowForms.publishedVersion') }}</th>
             <th>{{ t('workflowForms.actions') }}</th>
@@ -188,24 +258,82 @@ async function act<T>(
           <tbody>
             <tr v-for="row in forms" :key="row.id">
               <td><code translate="no">{{ row.formKey }}</code></td>
+              <td>{{ t(`workflowForms.statusLabel.${formStatus(row)}`) }}</td>
               <td>Revision {{ row.draftRevision }}</td>
               <td><code translate="no">{{ row.latestPublishedVersionId ?? '—' }}</code></td>
               <td class="workflow-forms__actions">
                 <PermissionGate code="workflow.forms.update">
-                  <el-button data-testid="workflow-form-edit" :disabled="busy" @click="openEditor(row)">
+                  <el-button
+                    data-testid="workflow-form-edit"
+                    :disabled="busy || formStatus(row) === 'archived'"
+                    @click="openEditor(row)"
+                  >
                     {{ t('workflowForms.edit') }}
                   </el-button>
                 </PermissionGate>
+                <el-button
+                  data-testid="workflow-form-versions"
+                  :disabled="busy"
+                  @click="openVersions(row)"
+                >{{ t('workflowForms.versions') }}</el-button>
                 <PermissionGate code="workflow.forms.publish">
-                  <el-button type="primary" plain data-testid="workflow-form-publish" :disabled="busy" @click="publish(row)">
+                  <el-button
+                    type="primary"
+                    plain
+                    data-testid="workflow-form-publish"
+                    :disabled="busy || formStatus(row) !== 'active'"
+                    @click="publish(row)"
+                  >
                     {{ t('workflowForms.publish') }}
                   </el-button>
+                </PermissionGate>
+                <PermissionGate v-if="formStatus(row) === 'active'" code="workflow.forms.manage_status">
+                  <el-button
+                    data-testid="workflow-form-disable"
+                    :disabled="busy"
+                    @click="changeFormStatus(row, 'disabled')"
+                  >{{ t('workflowForms.disable') }}</el-button>
+                </PermissionGate>
+                <PermissionGate v-if="formStatus(row) === 'disabled'" code="workflow.forms.manage_status">
+                  <el-button
+                    data-testid="workflow-form-enable"
+                    :disabled="busy"
+                    @click="changeFormStatus(row, 'active')"
+                  >{{ t('workflowForms.enable') }}</el-button>
+                </PermissionGate>
+                <PermissionGate v-if="formStatus(row) !== 'archived'" code="workflow.forms.manage_status">
+                  <el-button
+                    data-testid="workflow-form-archive"
+                    :disabled="busy"
+                    @click="changeFormStatus(row, 'archived')"
+                  >{{ t('workflowForms.archive') }}</el-button>
                 </PermissionGate>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+    </el-card>
+
+    <el-card v-if="selectedFormId" shadow="never">
+      <div v-if="versions.length === 0" class="workflow-forms__empty">
+        {{ t('workflowForms.noVersions') }}
+      </div>
+      <ul v-else class="workflow-forms__versions">
+        <li v-for="version in versions" :key="version.id">
+          <span>{{ t('workflowForms.version') }} {{ version.versionNumber }}</span>
+          <time :datetime="version.publishedAtUtc">{{ version.publishedAtUtc }}</time>
+          <PermissionGate code="workflow.forms.delete_version">
+            <el-button
+              type="danger"
+              plain
+              data-testid="workflow-form-delete-version"
+              :disabled="busy"
+              @click="removeFormVersion(version)"
+            >{{ t('workflowForms.deleteVersion') }}</el-button>
+          </PermissionGate>
+        </li>
+      </ul>
     </el-card>
 
     <aside v-if="creating" class="workflow-forms__panel" aria-modal="true" role="dialog">
@@ -260,7 +388,9 @@ async function act<T>(
 .workflow-forms table { width: 100%; border-collapse: collapse; }
 .workflow-forms th, .workflow-forms td { padding: 0.8rem; border-bottom: 1px solid var(--el-border-color-lighter); text-align: left; }
 .workflow-forms th { color: var(--el-text-color-secondary); font-size: 0.78rem; }
-.workflow-forms__actions { display: flex; gap: 0.5rem; }
+.workflow-forms__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.workflow-forms__versions { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.workflow-forms__versions li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .workflow-forms__empty { padding: 2.5rem 1rem; color: var(--el-text-color-secondary); text-align: center; }
 .workflow-forms__panel { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--el-border-color); border-top: 4px solid var(--el-color-primary); background: var(--el-bg-color); box-shadow: var(--el-box-shadow-light); }
 .workflow-forms__panel--designer { position: fixed; z-index: 2000; inset: 4vh 3vw; overflow: auto; }

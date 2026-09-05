@@ -26,6 +26,14 @@ internal sealed class DataApprovalAuthorizationContributor : IAuthorizationCatal
             "取消数据审批请求",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            DataApprovalPermissions.Retry,
+            "重试数据审批工作流关联",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DataApprovalPermissions.RetryApply,
+            "重试数据审批业务应用",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             DataApprovalPermissions.ScenariosRead,
             "查询数据审批场景",
             AuthorizationScope.Host),
@@ -79,6 +87,20 @@ internal sealed class DataApprovalAuthorizationContributor : IAuthorizationCatal
             "取消审批",
             "cancel",
             20),
+        new AuthorizationActionDefinition(
+            "data_approvals.requests.retry",
+            "data-approval-requests",
+            DataApprovalPermissions.Retry,
+            "重试关联",
+            "retry",
+            30),
+        new AuthorizationActionDefinition(
+            "data_approvals.requests.retry_apply",
+            "data-approval-requests",
+            DataApprovalPermissions.RetryApply,
+            "重试应用",
+            "retry-apply",
+            40),
         new AuthorizationActionDefinition(
             "data_approvals.scenarios.manage",
             "data-approval-scenarios",

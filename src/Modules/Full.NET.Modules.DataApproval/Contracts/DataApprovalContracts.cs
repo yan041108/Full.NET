@@ -31,6 +31,12 @@ public static class DataApprovalPermissions
     /// <summary>取消待处理审批请求。</summary>
     public const string Cancel = "data_approvals.requests.cancel";
 
+    /// <summary>人工重试待关联工作流的审批请求。</summary>
+    public const string Retry = "data_approvals.requests.retry";
+
+    /// <summary>人工重试批准后业务应用。</summary>
+    public const string RetryApply = "data_approvals.requests.retry_apply";
+
     /// <summary>读取审批场景目录与绑定配置。</summary>
     public const string ScenariosRead = "data_approvals.scenarios.read";
 
@@ -70,6 +76,18 @@ public static class DataApprovalErrorCodes
 
     /// <summary>无权取消该请求。</summary>
     public const string CancelForbidden = "data_approvals.cancel.forbidden";
+
+    /// <summary>当前恢复状态不允许重试。</summary>
+    public const string RecoveryNotRetryable = "data_approvals.recovery.not_retryable";
+
+    /// <summary>恢复重试因并发冲突失败。</summary>
+    public const string RecoveryRetryConflict = "data_approvals.recovery.retry_conflict";
+
+    /// <summary>当前应用状态不允许重试。</summary>
+    public const string ApplicationNotRetryable = "data_approvals.application.not_retryable";
+
+    /// <summary>应用重试因并发冲突失败。</summary>
+    public const string ApplicationRetryConflict = "data_approvals.application.retry_conflict";
 }
 
 /// <summary>创建 DataApproval 请求的请求体。</summary>
@@ -106,6 +124,10 @@ public sealed record DataApprovalScenarioResponse(
 /// <param name="IdempotencyKey">调用方幂等键。</param>
 public sealed record CancelDataApprovalRequestBody(string IdempotencyKey);
 
+/// <summary>人工重试 DataApproval 工作流关联的请求体。</summary>
+/// <param name="Version">乐观并发版本，必须与当前请求一致。</param>
+public sealed record RetryDataApprovalRequestBody(long Version);
+
 /// <summary>DataApproval 请求的稳定响应。</summary>
 public sealed record DataApprovalRequestResponse(
     Guid Id,
@@ -120,4 +142,14 @@ public sealed record DataApprovalRequestResponse(
     Guid SubmittedByUserId,
     DateTimeOffset SubmittedAtUtc,
     DateTimeOffset? ResolvedAtUtc,
+    string RecoveryStatusKey,
+    string? LastFailureCode,
+    string? LastFailureMessage,
+    DateTimeOffset? LastRecoveryAttemptAtUtc,
+    int RecoveryAttemptCount,
+    string ApplicationStatusKey,
+    string? LastApplicationFailureCode,
+    string? LastApplicationFailureMessage,
+    DateTimeOffset? LastApplicationAttemptAtUtc,
+    int ApplicationAttemptCount,
     long Version);

@@ -89,7 +89,8 @@ internal sealed class WorkflowFormManagementService(
                                 token)
                             .ConfigureAwait(false);
                         return Result<WorkflowFormResponse>.Success(new(
-                            id, formKey, request.Draft, 1, null, now, null));
+                            id, formKey, request.Draft, 1, null,
+                            WorkflowDefinitionStatusKeys.Active, 1, now, null));
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -117,6 +118,155 @@ internal sealed class WorkflowFormManagementService(
             token => PublishCoreAsync(id, actorUserId, request, token),
             cancellationToken);
 
+    /// <summary>在乐观并发保护下变更表单启停或归档状态。</summary>
+    /// <param name="id">表单定义标识。</param>
+    /// <param name="request">目标状态与期望版本。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>更新后的表单投影，或稳定业务错误。</returns>
+    public async Task<Result<WorkflowFormResponse>> SetStatusAsync(
+        Guid id,
+        SetWorkflowFormStatusRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!WorkflowFormLifecycleRules.IsKnownStatusKey(request.StatusKey) || request.ExpectedVersion < 1)
+        {
+            return Invalid<WorkflowFormResponse>();
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return NotFound<WorkflowFormResponse>();
+        }
+
+        if (definition.StatusKey == WorkflowDefinitionStatusKeys.Archived)
+        {
+            return Failure<WorkflowFormResponse>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict);
+        }
+
+        if (!WorkflowFormLifecycleRules.CanTransition(definition.StatusKey, request.StatusKey))
+        {
+            return Failure<WorkflowFormResponse>(WorkflowErrorCodes.FormStatusInvalid, ErrorType.Validation);
+        }
+
+        if (definition.Version != request.ExpectedVersion)
+        {
+            return RevisionConflict<WorkflowFormResponse>();
+        }
+
+        var affected = await commandExecutor.ExecuteAsync(
+                WorkflowSql.UpdateFormStatus,
+                Parameters(("Id", id), ("TenantScopeKey", scope.TenantScopeKey),
+                    ("StatusKey", request.StatusKey), ("UpdatedAtUtc", clock.UtcNow),
+                    ("ExpectedVersion", request.ExpectedVersion)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return RevisionConflict<WorkflowFormResponse>();
+        }
+
+        return await GetAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>列出表单下全部不可变版本。</summary>
+    /// <param name="formId">表单定义标识。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>版本列表或稳定业务错误。</returns>
+    public async Task<Result<IReadOnlyList<WorkflowFormVersionResponse>>> ListVersionsAsync(
+        Guid formId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        if (await FindAsync(formId, scope, cancellationToken).ConfigureAwait(false) is null)
+        {
+            return NotFound<IReadOnlyList<WorkflowFormVersionResponse>>();
+        }
+
+        var rows = await queryExecutor.QueryAsync<WorkflowFormVersionRecord>(
+                WorkflowSql.ListFormVersions,
+                Parameters(("FormDefinitionId", formId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<WorkflowFormVersionResponse>>.Success(rows.Select(Map).ToArray());
+    }
+
+    /// <summary>删除未被运行实例引用的不可变表单版本。</summary>
+    /// <param name="versionId">待删除表单版本标识。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>删除成功或稳定业务错误。</returns>
+    public async Task<Result<bool>> DeleteVersionAsync(
+        Guid versionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (versionId == Guid.Empty)
+        {
+            return Failure<bool>(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var version = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowFormVersionRecord>(
+                WorkflowSql.FindFormVersionById,
+                Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (version is null)
+        {
+            return Failure<bool>(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        var definition = await FindAsync(version.FormDefinitionId, scope, cancellationToken).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return Failure<bool>(WorkflowErrorCodes.FormNotFound, ErrorType.NotFound);
+        }
+
+        var runningCount = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+                WorkflowSql.CountRunningInstancesByFormVersion,
+                Parameters(("FormVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (runningCount > 0)
+        {
+            return Failure<bool>(WorkflowErrorCodes.FormVersionInUse, ErrorType.Conflict);
+        }
+
+        var remainingVersions = (await queryExecutor.QueryAsync<WorkflowFormVersionRecord>(
+                WorkflowSql.ListFormVersions,
+                Parameters(("FormDefinitionId", version.FormDefinitionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false))
+            .Where(item => item.Id != versionId)
+            .ToArray();
+        var nextLatestVersionId = remainingVersions.MaxBy(item => item.VersionNumber)?.Id;
+
+        return await transaction.ExecuteResultAsync(async token =>
+        {
+            var affected = await commandExecutor.ExecuteAsync(
+                    WorkflowSql.DeleteFormVersion,
+                    Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                    token)
+                .ConfigureAwait(false);
+            if (affected != 1)
+            {
+                return Failure<bool>(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+            }
+
+            if (definition.LatestPublishedVersionId == versionId)
+            {
+                await commandExecutor.ExecuteAsync(
+                        WorkflowSql.SetLatestFormVersion,
+                        Parameters(("Id", definition.Id), ("TenantScopeKey", scope.TenantScopeKey),
+                            ("VersionId", nextLatestVersionId), ("UpdatedAtUtc", clock.UtcNow)),
+                        token)
+                    .ConfigureAwait(false);
+            }
+
+            return Result<bool>.Success(true);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<Result<WorkflowFormResponse>> UpdateDraftCoreAsync(
         Guid id,
         UpdateWorkflowFormDraftRequest request,
@@ -128,6 +278,17 @@ internal sealed class WorkflowFormManagementService(
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var definition = await FindAsync(id, scope, cancellationToken).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return NotFound<WorkflowFormResponse>();
+        }
+
+        if (!WorkflowFormLifecycleRules.AllowsDraftMutation(definition.StatusKey))
+        {
+            return Failure<WorkflowFormResponse>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict);
+        }
+
         var affected = await commandExecutor.ExecuteAsync(
                 WorkflowSql.UpdateFormDraft,
                 Parameters(
@@ -162,6 +323,13 @@ internal sealed class WorkflowFormManagementService(
         if (definition is null)
         {
             return NotFound<WorkflowFormVersionResponse>();
+        }
+
+        if (!WorkflowFormLifecycleRules.AllowsPublish(definition.StatusKey))
+        {
+            return definition.StatusKey == WorkflowDefinitionStatusKeys.Archived
+                ? Failure<WorkflowFormVersionResponse>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict)
+                : Failure<WorkflowFormVersionResponse>(WorkflowErrorCodes.FormDisabled, ErrorType.Conflict);
         }
 
         if (definition.DraftRevision != request.ExpectedRevision)
@@ -260,7 +428,7 @@ internal sealed class WorkflowFormManagementService(
 
     private static WorkflowFormResponse Map(WorkflowFormDefinitionRecord row) =>
         new(row.Id, row.FormKey, Deserialize(row.DraftSchemaJson)!, row.DraftRevision,
-            row.LatestPublishedVersionId, row.CreatedAtUtc, row.UpdatedAtUtc);
+            row.LatestPublishedVersionId, row.StatusKey, row.Version, row.CreatedAtUtc, row.UpdatedAtUtc);
 
     private static WorkflowFormVersionResponse Map(WorkflowFormVersionRecord row) =>
         new(row.Id, row.FormDefinitionId, row.VersionNumber, row.SchemaVersion,

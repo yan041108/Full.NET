@@ -202,7 +202,7 @@ public sealed class WorkflowTodoReturnServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", definitionVersionId, formVersionId,
-                "purchase", "PO-001", "active", instanceRevision, resolvedActorId, now,
+                "purchase", "PO-001", null, "active", instanceRevision, resolvedActorId, now,
                 null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -222,7 +222,7 @@ public sealed class WorkflowTodoReturnServiceTests
             .Returns(new WorkflowRuntimeAssetRecord(
                 definitionVersionId, formVersionId,
                 "{\"schemaVersion\":1,\"nodes\":[{\"nodeKey\":\"start\",\"nodeTypeKey\":\"start\",\"nodeSchemaVersion\":1,\"config\":{\"nextNodeKeys\":[\"manager\"]}},{\"nodeKey\":\"manager\",\"nodeTypeKey\":\"human.approval\",\"nodeSchemaVersion\":1,\"config\":{\"nextNodeKeys\":[\"finance\"]}},{\"nodeKey\":\"finance\",\"nodeTypeKey\":\"human.approval\",\"nodeSchemaVersion\":1,\"config\":{\"nextNodeKeys\":[\"end\"]}},{\"nodeKey\":\"end\",\"nodeTypeKey\":\"end\",\"nodeSchemaVersion\":1,\"config\":{\"nextNodeKeys\":[]}}]}",
-                "{\"schemaVersion\":1,\"adapterVersion\":1,\"sections\":[]}"));
+                "{\"schemaVersion\":1,\"adapterVersion\":1,\"sections\":[]}", null, "active"));
         query.QuerySingleOrDefaultAsync<WorkflowFormSubmissionRecord>(
                 WorkflowSql.FindFormSubmissionByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormSubmissionRecord(
@@ -250,7 +250,8 @@ public sealed class WorkflowTodoReturnServiceTests
             WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant),
             WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
                 query, command, ids, outbox),
-            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids));
+            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
+            WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator());
         return new ReturnFixture(service, query, command, outbox, todoId, resolvedActorId);
     }
 

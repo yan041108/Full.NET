@@ -105,14 +105,33 @@ export async function listWorkflowOrganizationUnitCandidates(
   return readWorkflowCandidatePage(value);
 }
 
+/** 预览办理人解析结果，供设计器范围校验。 */
+export async function previewWorkflowAssignees(
+  assigneePolicy: Record<string, unknown>,
+  initiatorUserId?: string,
+  signal?: AbortSignal
+): Promise<Array<{ id: string; username: string; displayName: string }>> {
+  const body: Record<string, unknown> = { assigneePolicy };
+  if (initiatorUserId !== undefined) {
+    body.initiatorUserId = initiatorUserId;
+  }
+  const response = await http.request<{ users: Array<{ id: string; username: string; displayName: string }> }>(
+    '/api/v1/workflow/definitions/assignee-preview',
+    { method: 'POST', body },
+    signal
+  );
+  return response.users;
+}
+
 /** 创建工作流定义草稿。 */
 export async function createWorkflowDefinition(
   definitionKey: string,
   draft: WorkflowDefinitionDraft,
+  businessTitleTemplate?: string | null,
   signal?: AbortSignal
 ): Promise<WorkflowDefinitionResponse> {
   return workflowCreateDefinition(http, {
-    body: { definitionKey, draft }
+    body: { definitionKey, draft, businessTitleTemplate: businessTitleTemplate ?? null }
   }, signal);
 }
 
@@ -121,11 +140,12 @@ export async function updateWorkflowDefinitionDraft(
   definitionId: string,
   expectedRevision: number,
   draft: WorkflowDefinitionDraft,
+  businessTitleTemplate?: string | null,
   signal?: AbortSignal
 ): Promise<WorkflowDefinitionResponse> {
   return workflowUpdateDefinitionDraft(http, {
     definitionId,
-    body: { expectedRevision, draft }
+    body: { expectedRevision, draft, businessTitleTemplate: businessTitleTemplate ?? null }
   }, signal);
 }
 
@@ -140,6 +160,32 @@ export async function publishWorkflowDefinition(
     definitionId,
     body: { expectedRevision, formVersionId }
   }, signal);
+}
+
+/** 变更工作流定义启停或归档状态。 */
+export async function setWorkflowDefinitionStatus(
+  definitionId: string,
+  statusKey: 'active' | 'disabled' | 'archived',
+  expectedVersion: number,
+  signal?: AbortSignal
+): Promise<WorkflowDefinitionResponse> {
+  return http.request<WorkflowDefinitionResponse>(
+    `/api/v1/workflow/definitions/${definitionId}/status`,
+    { method: 'POST', body: { statusKey, expectedVersion } },
+    signal
+  );
+}
+
+/** 删除未被运行实例引用的定义版本。 */
+export async function deleteWorkflowDefinitionVersion(
+  versionId: string,
+  signal?: AbortSignal
+): Promise<void> {
+  await http.request<void>(
+    `/api/v1/workflow/definition-versions/${versionId}`,
+    { method: 'DELETE' },
+    signal
+  );
 }
 
 /** 导出定义设计器所需的草稿、目录与已发布版本模型，供编辑页和发布流程共享同一契约。 */

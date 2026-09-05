@@ -60,7 +60,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", "active", 3, actorId, now, null, null, null, null, null, null));
+                "leave", "LEAVE-001", null, "active", 3, actorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((WorkflowActionReceiptRecord?)null);
@@ -136,7 +136,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", "active", 4, actorId, now, null, null, null, null, null, null));
+                "leave", "LEAVE-001", null, "active", 4, actorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowActionReceiptRecord(
@@ -208,7 +208,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-002", "active", 2, actorId, now, null, null, null, null, null, null));
+                "leave", "LEAVE-002", null, "active", 2, actorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((WorkflowActionReceiptRecord?)null);
@@ -254,7 +254,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-003", "active", 4, actorId, now, null, null, null, null, null, null));
+                "leave", "LEAVE-003", null, "active", 4, actorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((WorkflowActionReceiptRecord?)null);
@@ -298,7 +298,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", "suspended", 3, actorId, now, null, null, null, null, null, null));
+                "leave", "LEAVE-001", null, "suspended", 3, actorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((WorkflowActionReceiptRecord?)null);
@@ -382,7 +382,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", "suspended", 3, actorId, now, null, null, null, null, null, null));
+                "leave", "LEAVE-001", null, "suspended", 3, actorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns((WorkflowActionReceiptRecord?)null);

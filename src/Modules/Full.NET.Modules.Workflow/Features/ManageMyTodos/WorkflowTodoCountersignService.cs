@@ -255,7 +255,7 @@ internal sealed class WorkflowTodoCountersignService(
         var activeTodoId = direction == "before" ? firstTodoId : todo.Id;
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "active",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
             instance.Revision + 1, activeTodoId, instance.StartedAtUtc));
     }
 
@@ -360,7 +360,7 @@ internal sealed class WorkflowTodoCountersignService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "active",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
             instance.Revision + 1, todo.Id, instance.StartedAtUtc));
     }
 
@@ -415,7 +415,7 @@ internal sealed class WorkflowTodoCountersignService(
                 instance.BusinessId, now, token).ConfigureAwait(false);
             return Result<WorkflowInstanceResponse>.Success(new(
                 instance.Id, instance.DefinitionVersionId, formVersionId,
-                instance.BusinessType, instance.BusinessId, "active",
+                instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
                 instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
         }
 
@@ -436,7 +436,7 @@ internal sealed class WorkflowTodoCountersignService(
                 token).ConfigureAwait(false);
             return Result<WorkflowInstanceResponse>.Success(new(
                 instance.Id, instance.DefinitionVersionId, formVersionId,
-                instance.BusinessType, instance.BusinessId, "active",
+                instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
                 instance.Revision + 1, item.OriginTodoId, instance.StartedAtUtc));
         }
 
@@ -490,7 +490,7 @@ internal sealed class WorkflowTodoCountersignService(
             instance.BusinessId, now, token).ConfigureAwait(false);
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "active",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
             instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
     }
 
@@ -594,7 +594,7 @@ internal sealed class WorkflowTodoCountersignService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instanceStatus,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instanceStatus,
             instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
     }
 
@@ -726,7 +726,7 @@ internal sealed class WorkflowTodoCountersignService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
             receipt.InstanceRevision, receipt.ResultTodoId, instance.StartedAtUtc));
     }
 

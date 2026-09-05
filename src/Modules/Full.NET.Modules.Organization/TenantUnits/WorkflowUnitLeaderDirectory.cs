@@ -135,6 +135,81 @@ internal sealed class WorkflowUnitLeaderDirectory(
         return leaders.TryGetValue(unitId, out var leaderUserId) ? leaderUserId : null;
     }
 
+    /// <summary>解析发起人主部门沿上级链指定层级机构的负责人用户标识。</summary>
+    /// <param name="initiatorUserId">工作流实例发起人标识。</param>
+    /// <param name="ancestorLevel">向上层级，1 表示直接上级机构负责人。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>负责人用户标识；层级不足、组织环或负责人不存在时返回 <see langword="null"/>。</returns>
+    public async Task<Guid?> FindInitiatorAncestorUnitLeaderUserIdAsync(
+        Guid initiatorUserId,
+        int ancestorLevel,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureTenantContext();
+        if (!OrganizationUnitAncestryRules.IsValidAncestorLevel(ancestorLevel))
+        {
+            return null;
+        }
+
+        var primaryUnitId = await queryExecutor.QuerySingleOrDefaultAsync<Guid?>(
+                WorkflowUnitLeaderSql.FindInitiatorPrimaryUnitId,
+                OrganizationSqlParameters.Create(("UserId", initiatorUserId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (primaryUnitId is not { } startUnitId)
+        {
+            return null;
+        }
+
+        var parentCache = new Dictionary<Guid, Guid?>();
+        var visited = new HashSet<Guid> { startUnitId };
+        var current = startUnitId;
+        for (var depth = 0; depth < ancestorLevel; depth++)
+        {
+            var parentId = await ResolveParentUnitIdAsync(current, parentCache, cancellationToken)
+                .ConfigureAwait(false);
+            if (parentId is null)
+            {
+                return null;
+            }
+
+            if (!visited.Add(parentId.Value))
+            {
+                return null;
+            }
+
+            current = parentId.Value;
+        }
+
+        var leaders = await FindActiveUnitLeaderUserIdsAsync([current], cancellationToken)
+            .ConfigureAwait(false);
+        return leaders.TryGetValue(current, out var leaderUserId) ? leaderUserId : null;
+    }
+
+    /// <summary>读取活动机构单元的上级机构标识并写入缓存。</summary>
+    /// <param name="unitId">机构单元标识。</param>
+    /// <param name="parentCache">上级机构查询缓存。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>上级机构标识；根节点返回 <see langword="null"/>。</returns>
+    private async Task<Guid?> ResolveParentUnitIdAsync(
+        Guid unitId,
+        IDictionary<Guid, Guid?> parentCache,
+        CancellationToken cancellationToken)
+    {
+        if (parentCache.TryGetValue(unitId, out var cached))
+        {
+            return cached;
+        }
+
+        var parentId = await queryExecutor.QuerySingleOrDefaultAsync<Guid?>(
+                WorkflowUnitLeaderSql.FindActiveUnitParentId,
+                OrganizationSqlParameters.Create(("UnitId", unitId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        parentCache[unitId] = parentId;
+        return parentId;
+    }
+
     /// <summary>将数据库投影映射为 Workflow Contract 最小机构单元条目。</summary>
     /// <param name="row">机构单元列表行。</param>
     /// <returns>机构单元目录项。</returns>

@@ -154,7 +154,7 @@ public sealed class WorkflowTodoCountersignServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", definitionVersionId, formVersionId,
-                "purchase", "PO-1", "active", 7, resolvedActorId, now, null, null, null, null, null, null));
+                "purchase", "PO-1", null, "active", 7, resolvedActorId, now, null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(receipt);

@@ -386,6 +386,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/data-approvals/requests", "dataApprovalsCreateRequest", DataApprovalRequestsTag),
         new("GET", "/api/v1/data-approvals/requests/{requestId}", "dataApprovalsGetRequest", DataApprovalRequestsTag),
         new("POST", "/api/v1/data-approvals/requests/{requestId}/cancel", "dataApprovalsCancelRequest", DataApprovalRequestsTag),
+        new("POST", "/api/v1/data-approvals/requests/{requestId}/retry", "dataApprovalsRetryRequest", DataApprovalRequestsTag),
+        new("POST", "/api/v1/data-approvals/requests/{requestId}/retry-apply", "dataApprovalsRetryApplyRequest", DataApprovalRequestsTag),
         new("GET", "/api/v1/data-approvals/scenarios", "dataApprovalsListScenarios", DataApprovalScenariosTag),
         new("GET", "/api/v1/data-approvals/scenarios/{scenarioKey}", "dataApprovalsGetScenario", DataApprovalScenariosTag),
         new("PUT", "/api/v1/data-approvals/scenarios/{scenarioKey}", "dataApprovalsUpdateScenarioBinding", DataApprovalScenariosTag),

@@ -2,7 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.DataApproval.Contracts;
-using Full.NET.Modules.DataApproval.Features;
+using Full.NET.Modules.DataApproval.Domain;
 using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
 using Full.NET.Modules.DataApproval.Persistence;
 using Full.NET.Modules.SerialNumbers.Contracts;
@@ -14,71 +14,115 @@ namespace Full.NET.UnitTests.DataApproval;
 [TestClass]
 public sealed class DataApprovalWorkflowOutcomeServiceTests
 {
-    /// <summary>验证规则版本冲突时不得把审批请求错误收敛为已批准。</summary>
+    /// <summary>工作流批准后若业务应用冲突，不得把请求直接标记为 approved。</summary>
     /// <returns>表示异步验证过程的任务。</returns>
     [TestMethod]
-    public async Task Approved_serial_rule_version_conflict_does_not_resolve_request_as_approved()
+    public async Task Approved_workflow_with_version_conflict_does_not_mark_request_as_approved()
     {
         var requestId = Guid.NewGuid();
-        var targetId = Guid.NewGuid();
-        var actorUserId = Guid.NewGuid();
+        var row = CreateInReviewRow(requestId);
         var queryExecutor = Substitute.For<IQueryExecutor>();
         var commandExecutor = Substitute.For<ICommandExecutor>();
         var clock = Substitute.For<IClock>();
         var applier = Substitute.For<ISerialRuleChangeApprovalApplier>();
-        var row = new DataApprovalRequestRecord(
-            requestId,
-            null,
-            "host",
-            "host",
-            DataApprovalScenarioKeys.SerialRuleHostUpdate,
-            targetId,
-            DataApprovalStatusKeys.InReview,
-            null,
-            "{}",
-            Guid.NewGuid(),
-            1,
-            Guid.NewGuid(),
-            actorUserId,
-            DateTimeOffset.UtcNow,
-            null,
-            "approval-key",
-            DateTimeOffset.UtcNow,
-            DateTimeOffset.UtcNow,
-            2);
+        var now = DateTimeOffset.UtcNow;
+        clock.UtcNow.Returns(now);
         queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
-                Arg.Any<SqlStatement>(),
+                DataApprovalSql.FindRequestByBusinessId,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(row);
+        commandExecutor.ExecuteAsync(
+                DataApprovalSql.MarkApplicationPending,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
+                DataApprovalSql.FindRequestById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(row with
+            {
+                ApplicationStatusKey = DataApprovalApplicationStatusKeys.PendingApply,
+                Version = row.Version + 1
+            });
         applier.ApplyApprovedUpdateAsync(
-                targetId,
+                row.TargetEntityId,
                 row.AfterSnapshotJson,
-                actorUserId,
+                row.SubmittedByUserId,
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>())
             .Returns(Result<SerialNumberRuleResponse>.Failure(new Error(
                 SerialNumberErrorCodes.RuleVersionConflict,
                 "conflict",
                 ErrorType.Conflict)));
+        commandExecutor.ExecuteAsync(
+                DataApprovalSql.RecordApplicationFailure,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
 
-        var service = new DataApprovalWorkflowOutcomeService(
+        var applicationService = new DataApprovalRequestApplicationService(
             queryExecutor,
             commandExecutor,
             clock,
             applier);
+        var service = new DataApprovalWorkflowOutcomeService(
+            queryExecutor,
+            commandExecutor,
+            clock,
+            applicationService);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.HandleTerminalWorkflowAsync(
-                Guid.Empty,
-                DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
-                requestId.ToString("D"),
-                "completed",
-                actorUserId,
-                "message-id"));
+        await service.HandleTerminalWorkflowAsync(
+            Guid.Empty,
+            DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
+            requestId.ToString("D"),
+            "completed",
+            row.SubmittedByUserId,
+            "message-id");
 
-        StringAssert.Contains(exception.Message, SerialNumberErrorCodes.RuleVersionConflict);
-        await commandExecutor.DidNotReceiveWithAnyArgs()
-            .ExecuteAsync(default!, default, default);
+        await commandExecutor.DidNotReceive().ExecuteAsync(
+            DataApprovalSql.CompleteApprovedApplication,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await commandExecutor.DidNotReceive().ExecuteAsync(
+            DataApprovalSql.UpdateStatus,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    private static DataApprovalRequestRecord CreateInReviewRow(Guid requestId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new DataApprovalRequestRecord(
+            requestId,
+            null,
+            "host",
+            "host",
+            DataApprovalScenarioKeys.SerialRuleHostUpdate,
+            Guid.NewGuid(),
+            DataApprovalStatusKeys.InReview,
+            null,
+            "{}",
+            Guid.NewGuid(),
+            1,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            now,
+            null,
+            "approval-key",
+            DataApprovalRecoveryStatusKeys.None,
+            null,
+            null,
+            null,
+            0,
+            DataApprovalApplicationStatusKeys.None,
+            null,
+            null,
+            null,
+            0,
+            now,
+            now,
+            2);
     }
 }

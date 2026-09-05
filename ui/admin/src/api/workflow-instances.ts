@@ -2,6 +2,8 @@ import {
   workflowCancelInstance as cancelInstance,
   workflowGetInstance,
   workflowListInstanceExecutionLogs,
+  workflowListInstances,
+  workflowListMyInstances,
   workflowPauseInstance as pauseInstance,
   workflowRecoverInstance as recoverInstance,
   workflowReassignInstance as reassignInstance,
@@ -12,6 +14,7 @@ import {
   type ReassignWorkflowInstanceRequest,
   type ResumeWorkflowInstanceRequest,
   type WorkflowExecutionLogResponse,
+  type WorkflowInstanceListItemResponse,
   type WorkflowInstanceResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
@@ -76,6 +79,38 @@ export async function reassignWorkflowInstance(
 /** 改派请求必须显式携带目标用户、expectedRevision 与幂等键。 */
 export type { ReassignWorkflowInstanceRequest };
 
+/** 分页查询当前作用域内全部工作流实例。 */
+export async function listWorkflowInstances(
+  query: {
+    page?: number;
+    pageSize?: number;
+    statusKey?: string;
+    definitionKey?: string;
+    definitionVersionId?: string;
+    startedFromUtc?: string;
+    startedToUtc?: string;
+  } = {},
+  signal?: AbortSignal
+) {
+  return workflowListInstances(http, { query }, signal);
+}
+
+/** 分页查询当前用户发起的工作流实例。 */
+export async function listMyWorkflowInstances(
+  query: {
+    page?: number;
+    pageSize?: number;
+    statusKey?: string;
+    definitionKey?: string;
+    definitionVersionId?: string;
+    startedFromUtc?: string;
+    startedToUtc?: string;
+  } = {},
+  signal?: AbortSignal
+) {
+  return workflowListMyInstances(http, { query }, signal);
+}
+
 /** 读取工作流实例详情，供待办页与详情页回到同一权威实例快照。 */
 export async function getWorkflowInstance(
   instanceId: string,
@@ -93,4 +128,8 @@ export async function listWorkflowInstanceExecutionLogs(
 }
 
 /** 导出工作流实例详情与执行日志模型，供实例详情页和时间线面板共享同一契约。 */
-export type { WorkflowExecutionLogResponse, WorkflowInstanceResponse };
+export type {
+  WorkflowExecutionLogResponse,
+  WorkflowInstanceListItemResponse,
+  WorkflowInstanceResponse
+};

@@ -21,7 +21,7 @@ internal static class WorkflowSql
         "workflow.definition.list",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
-               LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+               LatestPublishedVersionId, BusinessTitleTemplate, StatusKey, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_workflow_definition
         WHERE TenantScopeKey = @TenantScopeKey
         ORDER BY DefinitionKey
@@ -32,7 +32,7 @@ internal static class WorkflowSql
         "workflow.definition.find_by_id",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
-               LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+               LatestPublishedVersionId, BusinessTitleTemplate, StatusKey, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_workflow_definition
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
@@ -55,10 +55,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_definition
             (Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
-             LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version)
+             LatestPublishedVersionId, BusinessTitleTemplate, StatusKey, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
             (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @DefinitionKey, @DraftId,
-             NULL, @CreatedById, @CreatedAtUtc, NULL, 1)
+             NULL, @BusinessTitleTemplate, 'active', @CreatedById, @CreatedAtUtc, NULL, 1)
         """,
         SqlDataScope.Global);
 
@@ -87,6 +87,61 @@ internal static class WorkflowSql
               SELECT 1 FROM fn_workflow_definition AS definition
               WHERE definition.Id = fn_workflow_definition_draft.DefinitionId
                 AND definition.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>更新定义级业务标题模板草稿元数据。</summary>
+    public static readonly SqlStatement UpdateDefinitionBusinessTitleTemplate = new(
+        "workflow.definition.update_business_title_template",
+        """
+        UPDATE fn_workflow_definition
+        SET BusinessTitleTemplate = @BusinessTitleTemplate,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>更新定义启停或归档状态。</summary>
+    public static readonly SqlStatement UpdateDefinitionStatus = new(
+        "workflow.definition.update_status",
+        """
+        UPDATE fn_workflow_definition
+        SET StatusKey = @StatusKey,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND Version = @ExpectedVersion
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>统计仍引用指定定义版本的运行或暂停实例数量。</summary>
+    public static readonly SqlStatement CountRunningInstancesByDefinitionVersion = new(
+        "workflow.instance.count_running_by_definition_version",
+        """
+        SELECT COUNT(1)
+        FROM fn_workflow_instance AS instance
+        INNER JOIN fn_workflow_definition_version AS version
+            ON version.Id = instance.DefinitionVersionId
+        INNER JOIN fn_workflow_definition AS definition
+            ON definition.Id = version.DefinitionId
+        WHERE instance.DefinitionVersionId = @DefinitionVersionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+          AND instance.StatusKey IN ('active', 'suspended')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>删除未被运行实例引用的定义版本。</summary>
+    public static readonly SqlStatement DeleteDefinitionVersion = new(
+        "workflow.definition_version.delete",
+        """
+        DELETE version
+        FROM fn_workflow_definition_version AS version
+        INNER JOIN fn_workflow_definition AS definition
+            ON definition.Id = version.DefinitionId
+        WHERE version.Id = @Id
+          AND definition.TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
 
@@ -123,10 +178,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_definition_version
             (Id, DefinitionId, FormVersionId, VersionNumber, SchemaVersion,
-             CanonicalJson, ContentHash, PublishedById, PublishedAtUtc)
+             CanonicalJson, ContentHash, BusinessTitleTemplate, PublishedById, PublishedAtUtc)
         VALUES
             (@Id, @DefinitionId, @FormVersionId, @VersionNumber, @SchemaVersion,
-             @CanonicalJson, @ContentHash, @PublishedById, @PublishedAtUtc)
+             @CanonicalJson, @ContentHash, @BusinessTitleTemplate, @PublishedById, @PublishedAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -147,7 +202,7 @@ internal static class WorkflowSql
         """
         SELECT version.Id, version.DefinitionId, version.FormVersionId, version.VersionNumber,
                version.SchemaVersion, version.CanonicalJson, version.ContentHash,
-               version.PublishedById, version.PublishedAtUtc
+               version.BusinessTitleTemplate, version.PublishedById, version.PublishedAtUtc
         FROM fn_workflow_definition_version AS version
         INNER JOIN fn_workflow_definition AS definition ON definition.Id = version.DefinitionId
         WHERE version.DefinitionId = @DefinitionId
@@ -160,7 +215,7 @@ internal static class WorkflowSql
         "workflow.form_definition.list",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
-               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc,
+               DraftRevision, LatestPublishedVersionId, StatusKey, Version, CreatedById, CreatedAtUtc,
                UpdatedAtUtc
         FROM fn_workflow_form_definition
         WHERE TenantScopeKey = @TenantScopeKey
@@ -172,7 +227,7 @@ internal static class WorkflowSql
         "workflow.form_definition.find_by_id",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
-               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc,
+               DraftRevision, LatestPublishedVersionId, StatusKey, Version, CreatedById, CreatedAtUtc,
                UpdatedAtUtc
         FROM fn_workflow_form_definition
         WHERE Id = @Id
@@ -185,10 +240,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_form_definition
             (Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
-             DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc)
+             DraftRevision, LatestPublishedVersionId, StatusKey, Version, CreatedById, CreatedAtUtc, UpdatedAtUtc)
         VALUES
             (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @FormKey, @DraftSchemaJson,
-             1, NULL, @CreatedById, @CreatedAtUtc, NULL)
+             1, NULL, 'active', 1, @CreatedById, @CreatedAtUtc, NULL)
         """,
         SqlDataScope.Global);
 
@@ -202,6 +257,80 @@ internal static class WorkflowSql
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
           AND DraftRevision = @ExpectedRevision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>更新表单启停或归档状态。</summary>
+    public static readonly SqlStatement UpdateFormStatus = new(
+        "workflow.form_definition.update_status",
+        """
+        UPDATE fn_workflow_form_definition
+        SET StatusKey = @StatusKey,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND Version = @ExpectedVersion
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>列出表单下全部不可变版本。</summary>
+    public static readonly SqlStatement ListFormVersions = new(
+        "workflow.form_version.list",
+        """
+        SELECT version.Id, version.FormDefinitionId, version.VersionNumber,
+               version.SchemaVersion, version.AdapterVersion,
+               version.ComponentCatalogVersion, version.FormSchemaJson,
+               version.WebRenderSchemaJson, version.ContentHash,
+               version.PublishedById, version.PublishedAtUtc
+        FROM fn_workflow_form_version AS version
+        INNER JOIN fn_workflow_form_definition AS definition
+            ON definition.Id = version.FormDefinitionId
+        WHERE version.FormDefinitionId = @FormDefinitionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+        ORDER BY version.VersionNumber DESC
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>统计仍引用指定表单版本的运行或暂停实例数量。</summary>
+    public static readonly SqlStatement CountRunningInstancesByFormVersion = new(
+        "workflow.instance.count_running_by_form_version",
+        """
+        SELECT COUNT(1)
+        FROM fn_workflow_instance AS instance
+        INNER JOIN fn_workflow_form_version AS version
+            ON version.Id = instance.FormVersionId
+        INNER JOIN fn_workflow_form_definition AS definition
+            ON definition.Id = version.FormDefinitionId
+        WHERE instance.FormVersionId = @FormVersionId
+          AND definition.TenantScopeKey = @TenantScopeKey
+          AND instance.StatusKey IN ('active', 'suspended')
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>删除未被运行实例引用的表单版本。</summary>
+    public static readonly SqlStatement DeleteFormVersion = new(
+        "workflow.form_version.delete",
+        """
+        DELETE version
+        FROM fn_workflow_form_version AS version
+        INNER JOIN fn_workflow_form_definition AS definition
+            ON definition.Id = version.FormDefinitionId
+        WHERE version.Id = @Id
+          AND definition.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>回写表单最新已发布版本指针。</summary>
+    public static readonly SqlStatement SetLatestFormVersion = new(
+        "workflow.form_definition.set_latest_version",
+        """
+        UPDATE fn_workflow_form_definition
+        SET LatestPublishedVersionId = @VersionId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
 
@@ -238,7 +367,8 @@ internal static class WorkflowSql
         UPDATE fn_workflow_form_definition
         SET LatestPublishedVersionId = @VersionId,
             DraftRevision = DraftRevision + 1,
-            UpdatedAtUtc = @UpdatedAtUtc
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
           AND DraftRevision = @ExpectedRevision
@@ -249,7 +379,7 @@ internal static class WorkflowSql
         "workflow.definition.find_by_key",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionKey, DraftId,
-               LatestPublishedVersionId, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
+               LatestPublishedVersionId, BusinessTitleTemplate, StatusKey, CreatedById, CreatedAtUtc, UpdatedAtUtc, Version
         FROM fn_workflow_definition
         WHERE TenantScopeKey = @TenantScopeKey
           AND DefinitionKey = @DefinitionKey
@@ -274,7 +404,7 @@ internal static class WorkflowSql
         """
         SELECT version.Id, version.DefinitionId, version.FormVersionId, version.VersionNumber,
                version.SchemaVersion, version.CanonicalJson, version.ContentHash,
-               version.PublishedById, version.PublishedAtUtc
+               version.BusinessTitleTemplate, version.PublishedById, version.PublishedAtUtc
         FROM fn_workflow_definition_version AS version
         INNER JOIN fn_workflow_definition AS definition
             ON definition.Id = version.DefinitionId
@@ -287,7 +417,7 @@ internal static class WorkflowSql
         "workflow.form_definition.find_by_key",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, FormKey, DraftSchemaJson,
-               DraftRevision, LatestPublishedVersionId, CreatedById, CreatedAtUtc,
+               DraftRevision, LatestPublishedVersionId, StatusKey, Version, CreatedById, CreatedAtUtc,
                UpdatedAtUtc
         FROM fn_workflow_form_definition
         WHERE TenantScopeKey = @TenantScopeKey
@@ -315,7 +445,7 @@ internal static class WorkflowSql
         "workflow.instance.find_by_id",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionVersionId,
-               FormVersionId, BusinessType, BusinessId, StatusKey, Revision,
+               FormVersionId, BusinessType, BusinessId, BusinessTitle, StatusKey, Revision,
                StartedById, StartedAtUtc, CompletedAtUtc, CancelledById,
                CancelledAtUtc, CancellationReason, LeaseOwnerKey, LeaseExpiresAtUtc
         FROM fn_workflow_instance
@@ -331,7 +461,7 @@ internal static class WorkflowSql
         "workflow.instance.find_active_by_business_key",
         """
         SELECT Id, TenantId, ScopeKey, TenantScopeKey, DefinitionVersionId,
-               FormVersionId, BusinessType, BusinessId, StatusKey, Revision,
+               FormVersionId, BusinessType, BusinessId, BusinessTitle, StatusKey, Revision,
                StartedById, StartedAtUtc, CompletedAtUtc, CancelledById,
                CancelledAtUtc, CancellationReason, LeaseOwnerKey, LeaseExpiresAtUtc
         FROM fn_workflow_instance
@@ -346,7 +476,8 @@ internal static class WorkflowSql
         "workflow.runtime_asset.find",
         """
         SELECT version.Id AS DefinitionVersionId, version.FormVersionId,
-               version.CanonicalJson, formVersion.FormSchemaJson
+               version.CanonicalJson, formVersion.FormSchemaJson, version.BusinessTitleTemplate,
+               definition.StatusKey AS DefinitionStatusKey
         FROM fn_workflow_definition_version AS version
         INNER JOIN fn_workflow_definition AS definition
             ON definition.Id = version.DefinitionId
@@ -365,12 +496,12 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_instance
             (Id, TenantId, ScopeKey, TenantScopeKey, DefinitionVersionId, FormVersionId,
-             BusinessType, BusinessId, StatusKey, Revision, StartedById, StartedAtUtc,
+             BusinessType, BusinessId, BusinessTitle, StatusKey, Revision, StartedById, StartedAtUtc,
              CompletedAtUtc, CancelledById, CancelledAtUtc, CancellationReason,
              LeaseOwnerKey, LeaseExpiresAtUtc)
         VALUES
             (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @DefinitionVersionId, @FormVersionId,
-             @BusinessType, @BusinessId, 'active', 1, @StartedById, @StartedAtUtc,
+             @BusinessType, @BusinessId, @BusinessTitle, 'active', 1, @StartedById, @StartedAtUtc,
              NULL, NULL, NULL, NULL, NULL, NULL)
         """,
         SqlDataScope.Global);
@@ -459,7 +590,7 @@ internal static class WorkflowSql
         """
         SELECT TOP (@Take) cc.Id, cc.InstanceId, cc.StepId, step.NodeKey,
                cc.RecipientUserId, instance.BusinessType, instance.BusinessId,
-               cc.CreatedAtUtc, cc.ReadAtUtc
+               instance.BusinessTitle, cc.CreatedAtUtc, cc.ReadAtUtc
         FROM fn_workflow_cc AS cc
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
         LEFT JOIN fn_workflow_step AS step ON step.Id = cc.StepId
@@ -475,7 +606,7 @@ internal static class WorkflowSql
         """
         SELECT cc.Id, cc.InstanceId, cc.StepId, step.NodeKey,
                cc.RecipientUserId, instance.BusinessType, instance.BusinessId,
-               cc.CreatedAtUtc, cc.ReadAtUtc
+               instance.BusinessTitle, cc.CreatedAtUtc, cc.ReadAtUtc
         FROM fn_workflow_cc AS cc
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
         LEFT JOIN fn_workflow_step AS step ON step.Id = cc.StepId
@@ -492,7 +623,7 @@ internal static class WorkflowSql
         """
         SELECT cc.Id, cc.InstanceId, cc.StepId, step.NodeKey,
                cc.RecipientUserId, instance.BusinessType, instance.BusinessId,
-               cc.CreatedAtUtc, cc.ReadAtUtc
+               instance.BusinessTitle, cc.CreatedAtUtc, cc.ReadAtUtc
         FROM fn_workflow_cc AS cc
         INNER JOIN fn_workflow_instance AS instance ON instance.Id = cc.InstanceId
         LEFT JOIN fn_workflow_step AS step ON step.Id = cc.StepId
@@ -1589,6 +1720,198 @@ internal static class WorkflowSql
             Revision = Revision + 1
         WHERE InstanceId = @InstanceId
           AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    private const string InstanceListSelectColumns = """
+        instance.Id,
+        instance.DefinitionVersionId,
+        definition.DefinitionKey,
+        instance.BusinessType,
+        instance.BusinessId,
+        instance.BusinessTitle,
+        instance.StatusKey,
+        instance.StartedById,
+        instance.StartedAtUtc,
+        instance.CompletedAtUtc
+        """;
+
+    private const string InstanceListJoinClause = """
+        FROM fn_workflow_instance AS instance
+        INNER JOIN fn_workflow_definition_version AS version
+            ON version.Id = instance.DefinitionVersionId
+        INNER JOIN fn_workflow_definition AS definition
+            ON definition.Id = version.DefinitionId
+        """;
+
+    private const string InstanceListFilterClause = """
+        WHERE instance.TenantScopeKey = @TenantScopeKey
+          AND (@StartedById IS NULL OR instance.StartedById = @StartedById)
+          AND (@StatusKey IS NULL OR instance.StatusKey = @StatusKey)
+          AND (@DefinitionKey IS NULL OR definition.DefinitionKey = @DefinitionKey)
+          AND (@DefinitionVersionId IS NULL OR instance.DefinitionVersionId = @DefinitionVersionId)
+          AND (@StartedFromUtc IS NULL OR instance.StartedAtUtc >= @StartedFromUtc)
+          AND (@StartedToUtc IS NULL OR instance.StartedAtUtc <= @StartedToUtc)
+        """;
+
+    /// <summary>统计当前作用域内满足筛选条件的实例总数。</summary>
+    public static readonly SqlStatement CountInstancesFiltered = new(
+        "workflow.instance.count_filtered",
+        $"""
+        SELECT COUNT(1)
+        {InstanceListJoinClause}
+        {InstanceListFilterClause}
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>分页查询当前作用域内满足筛选条件的实例（SQL Server）。</summary>
+    public static readonly SqlStatement PageInstancesFilteredSqlServer = new(
+        "workflow.instance.page_filtered.sqlserver",
+        $"""
+        SELECT {InstanceListSelectColumns}
+        {InstanceListJoinClause}
+        {InstanceListFilterClause}
+        ORDER BY instance.StartedAtUtc DESC, instance.Id ASC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>分页查询当前作用域内满足筛选条件的实例（MySQL）。</summary>
+    public static readonly SqlStatement PageInstancesFilteredMySql = new(
+        "workflow.instance.page_filtered.mysql",
+        $"""
+        SELECT {InstanceListSelectColumns}
+        {InstanceListJoinClause}
+        {InstanceListFilterClause}
+        ORDER BY instance.StartedAtUtc DESC, instance.Id ASC
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
+    private const string TodoListSelectColumns = """
+        todo.Id,
+        todo.InstanceId,
+        todo.StepId,
+        todo.StatusKey,
+        todo.ArrivedAtUtc,
+        todo.CompletedAtUtc,
+        todo.ResultActionKey,
+        todo.Revision,
+        instance.BusinessType,
+        instance.BusinessId,
+        instance.BusinessTitle,
+        instance.StatusKey AS InstanceStatusKey,
+        definition.DefinitionKey,
+        step.NodeKey
+        """;
+
+    private const string TodoListJoinClause = """
+        FROM fn_workflow_todo AS todo
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = todo.InstanceId
+        INNER JOIN fn_workflow_definition_version AS version
+            ON version.Id = instance.DefinitionVersionId
+        INNER JOIN fn_workflow_definition AS definition
+            ON definition.Id = version.DefinitionId
+        INNER JOIN fn_workflow_step AS step ON step.Id = todo.StepId
+        """;
+
+    private const string TodoListSharedFilterClause = """
+          AND instance.TenantScopeKey = @TenantScopeKey
+          AND todo.AssigneeUserId = @AssigneeUserId
+          AND (@DefinitionKey IS NULL OR definition.DefinitionKey = @DefinitionKey)
+          AND (@BusinessType IS NULL OR instance.BusinessType = @BusinessType)
+          AND (@ResultActionKey IS NULL OR todo.ResultActionKey = @ResultActionKey)
+        """;
+
+    /// <summary>统计当前用户待办数量。</summary>
+    public static readonly SqlStatement CountPendingTodosFiltered = new(
+        "workflow.todo.count_pending_filtered",
+        $"""
+        SELECT COUNT(1)
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('active', 'awaiting_before_countersign')
+          AND instance.StatusKey = 'active'
+          {TodoListSharedFilterClause}
+          AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
+          AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>分页查询当前用户待办（SQL Server）。</summary>
+    public static readonly SqlStatement PagePendingTodosFilteredSqlServer = new(
+        "workflow.todo.page_pending_filtered.sqlserver",
+        $"""
+        SELECT {TodoListSelectColumns}
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('active', 'awaiting_before_countersign')
+          AND instance.StatusKey = 'active'
+          {TodoListSharedFilterClause}
+          AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
+          AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+        ORDER BY todo.ArrivedAtUtc DESC, todo.Id ASC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>分页查询当前用户待办（MySQL）。</summary>
+    public static readonly SqlStatement PagePendingTodosFilteredMySql = new(
+        "workflow.todo.page_pending_filtered.mysql",
+        $"""
+        SELECT {TodoListSelectColumns}
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('active', 'awaiting_before_countersign')
+          AND instance.StatusKey = 'active'
+          {TodoListSharedFilterClause}
+          AND (@ArrivedFromUtc IS NULL OR todo.ArrivedAtUtc >= @ArrivedFromUtc)
+          AND (@ArrivedToUtc IS NULL OR todo.ArrivedAtUtc <= @ArrivedToUtc)
+        ORDER BY todo.ArrivedAtUtc DESC, todo.Id ASC
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>统计当前用户已办数量。</summary>
+    public static readonly SqlStatement CountHistoryTodosFiltered = new(
+        "workflow.todo.count_history_filtered",
+        $"""
+        SELECT COUNT(1)
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('completed', 'cancelled')
+          AND todo.CompletedAtUtc IS NOT NULL
+          {TodoListSharedFilterClause}
+          AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
+          AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>分页查询当前用户已办（SQL Server）。</summary>
+    public static readonly SqlStatement PageHistoryTodosFilteredSqlServer = new(
+        "workflow.todo.page_history_filtered.sqlserver",
+        $"""
+        SELECT {TodoListSelectColumns}
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('completed', 'cancelled')
+          AND todo.CompletedAtUtc IS NOT NULL
+          {TodoListSharedFilterClause}
+          AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
+          AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+        ORDER BY todo.CompletedAtUtc DESC, todo.Id ASC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>分页查询当前用户已办（MySQL）。</summary>
+    public static readonly SqlStatement PageHistoryTodosFilteredMySql = new(
+        "workflow.todo.page_history_filtered.mysql",
+        $"""
+        SELECT {TodoListSelectColumns}
+        {TodoListJoinClause}
+        WHERE todo.StatusKey IN ('completed', 'cancelled')
+          AND todo.CompletedAtUtc IS NOT NULL
+          {TodoListSharedFilterClause}
+          AND (@CompletedFromUtc IS NULL OR todo.CompletedAtUtc >= @CompletedFromUtc)
+          AND (@CompletedToUtc IS NULL OR todo.CompletedAtUtc <= @CompletedToUtc)
+        ORDER BY todo.CompletedAtUtc DESC, todo.Id ASC
+        LIMIT @PageSize OFFSET @Offset
         """,
         SqlDataScope.Global);
 }

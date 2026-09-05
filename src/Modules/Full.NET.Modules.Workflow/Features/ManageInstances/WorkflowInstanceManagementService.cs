@@ -11,6 +11,7 @@ using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
 using Full.NET.Modules.Workflow.Features;
+using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Serialization;
 using Microsoft.Extensions.Options;
 
@@ -42,7 +43,8 @@ internal sealed class WorkflowInstanceManagementService(
     WorkflowApprovalAssigneeCoordinator approvalAssigneeCoordinator,
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowApprovalTransitionExecutor transitionExecutor,
-    WorkflowParallelJoinCoordinator parallelJoinCoordinator)
+    WorkflowParallelJoinCoordinator parallelJoinCoordinator,
+    WorkflowFormAttachmentCoordinator attachmentCoordinator)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
     /// <param name="actorUserId">发起人的稳定用户标识。</param>
@@ -68,6 +70,17 @@ internal sealed class WorkflowInstanceManagementService(
         {
             return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.Validation);
         }
+
+        if (!WorkflowDefinitionLifecycleRules.AllowsNewInstance(asset.DefinitionStatusKey))
+        {
+            return Failure(
+                asset.DefinitionStatusKey == WorkflowDefinitionStatusKeys.Archived
+                    ? WorkflowErrorCodes.DefinitionArchived
+                    : WorkflowErrorCodes.DefinitionDisabled,
+                ErrorType.Conflict);
+        }
+
+        var businessTitle = ResolveBusinessTitle(request, asset.BusinessTitleTemplate);
 
         var definition = JsonSerializer.Deserialize(
             asset.CanonicalJson,
@@ -97,6 +110,7 @@ internal sealed class WorkflowInstanceManagementService(
         }
 
         var instanceId = idGenerator.NewId();
+        var submissionId = idGenerator.NewId();
         var now = clock.UtcNow;
         var requestHash = HashStartRequest(request);
         try
@@ -110,6 +124,7 @@ internal sealed class WorkflowInstanceManagementService(
                         ("FormVersionId", asset.FormVersionId),
                         ("BusinessType", request.BusinessType.Trim()),
                         ("BusinessId", request.BusinessId.Trim()),
+                        ("BusinessTitle", businessTitle),
                         ("StartedById", actorUserId), ("StartedAtUtc", now)), token).ConfigureAwait(false);
                 var approvalExecutionSequence = 1L;
                 Guid firstTodoId;
@@ -121,6 +136,7 @@ internal sealed class WorkflowInstanceManagementService(
                             instanceId, scope.TenantId, scope.ScopeKey, scope.TenantScopeKey,
                             asset.DefinitionVersionId, asset.FormVersionId,
                             request.BusinessType.Trim(), request.BusinessId.Trim(),
+                            businessTitle,
                             "active", 1, actorUserId, now,
                             null, null, null, null, null, null),
                         scope,
@@ -186,10 +202,23 @@ internal sealed class WorkflowInstanceManagementService(
                     firstStepId = activation.StepId;
                 }
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertFormSubmission,
-                    Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                    Parameters(("Id", submissionId), ("InstanceId", instanceId),
                         ("FormVersionId", asset.FormVersionId),
                         ("SubmissionJson", request.InitialValues.GetRawText()),
                         ("UpdatedById", actorUserId), ("UpdatedAtUtc", now)), token).ConfigureAwait(false);
+                var attachmentSync = await attachmentCoordinator.SynchronizeAsync(
+                    actorUserId,
+                    submissionId,
+                    instanceId,
+                    scope.TenantScopeKey,
+                    formSchema!,
+                    new Dictionary<string, JsonElement>(StringComparer.Ordinal),
+                    initialValues,
+                    token).ConfigureAwait(false);
+                if (!attachmentSync.IsSuccess)
+                {
+                    return Result<WorkflowInstanceResponse>.Failure(attachmentSync.Error!);
+                }
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("StepId", firstStepId), ("TodoId", firstTodoId), ("ActionKey", "start"),
@@ -213,8 +242,8 @@ internal sealed class WorkflowInstanceManagementService(
 
                 return Result<WorkflowInstanceResponse>.Success(new(
                     instanceId, asset.DefinitionVersionId, asset.FormVersionId,
-                    request.BusinessType.Trim(), request.BusinessId.Trim(), "active", 1,
-                    firstTodoId, now));
+                    request.BusinessType.Trim(), request.BusinessId.Trim(), businessTitle,
+                    "active", 1, firstTodoId, now));
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -421,7 +450,7 @@ internal sealed class WorkflowInstanceManagementService(
             .ToArray();
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
             instance.Revision, todo?.Id, instance.StartedAtUtc, todo?.DueAtUtc,
             timeoutStatus, todo?.ReminderCount ?? 0, todo?.EscalatedAtUtc,
             approvalProgress?.NodeKey,
@@ -478,7 +507,14 @@ internal sealed class WorkflowInstanceManagementService(
         request.InitialValues.ValueKind == JsonValueKind.Object &&
         request.BusinessType.Trim() is { Length: >= 1 and <= 64 } &&
         request.BusinessId.Trim() is { Length: >= 1 and <= 128 } &&
+        WorkflowBusinessTitleRules.IsValidTitle(request.BusinessTitle) &&
         request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 };
+
+    private static string? ResolveBusinessTitle(
+        StartWorkflowInstanceRequest request,
+        string? publishedTemplate) =>
+        WorkflowBusinessTitleRules.NormalizeTitle(request.BusinessTitle)
+        ?? WorkflowBusinessTitleRules.Resolve(publishedTemplate, request.InitialValues);
 
     private static bool IsValid(CancelWorkflowInstanceRequest request) =>
         request.ExpectedRevision >= 1 &&
@@ -625,7 +661,7 @@ internal sealed class WorkflowInstanceManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, nextStatus,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, nextStatus,
             expectedRevision + 1, activeWork.TodoId, instance.StartedAtUtc));
     }
 
@@ -842,7 +878,7 @@ internal sealed class WorkflowInstanceManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "cancelled",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "cancelled",
             request.ExpectedRevision + 1, null, instance.StartedAtUtc));
     }
 
@@ -881,7 +917,7 @@ internal sealed class WorkflowInstanceManagementService(
             ? Failure(WorkflowErrorCodes.ActiveInstanceExists, ErrorType.Conflict)
             : Result<WorkflowInstanceResponse>.Success(new(
                 instance.Id, instance.DefinitionVersionId, formVersionId,
-                instance.BusinessType, instance.BusinessId, instance.StatusKey,
+                instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
                 instance.Revision, todo.Id, instance.StartedAtUtc));
     }
 
@@ -938,7 +974,7 @@ internal sealed class WorkflowInstanceManagementService(
         Guid? activeTodoId) =>
         new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
             instance.Revision, activeTodoId, instance.StartedAtUtc);
 
     private async Task<bool> CanReadAsync(

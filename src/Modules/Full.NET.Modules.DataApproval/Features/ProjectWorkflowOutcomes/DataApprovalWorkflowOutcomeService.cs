@@ -5,7 +5,6 @@ using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.DataApproval.Domain;
 using Full.NET.Modules.DataApproval.Features;
 using Full.NET.Modules.DataApproval.Persistence;
-using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
 
 namespace Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
@@ -15,7 +14,7 @@ internal sealed class DataApprovalWorkflowOutcomeService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IClock clock,
-    ISerialRuleChangeApprovalApplier serialRuleApplier)
+    DataApprovalRequestApplicationService applicationService)
 {
     /// <summary>按工作流实例终态更新 DataApproval 请求。</summary>
     /// <param name="tenantId">事件租户标识。</param>
@@ -61,32 +60,30 @@ internal sealed class DataApprovalWorkflowOutcomeService(
                     ("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (row is null || !DataApprovalStatusTransition.CanResolveFromWorkflow(row.StatusKey))
+        if (row is null)
         {
-            if (row is not null &&
-                string.Equals(row.StatusKey, targetStatus, StringComparison.Ordinal))
-            {
-                return;
-            }
-
             return;
         }
 
-        if (string.Equals(targetStatus, DataApprovalStatusKeys.Approved, StringComparison.Ordinal) &&
-            string.Equals(row.ScenarioKey, DataApprovalScenarioKeys.SerialRuleHostUpdate, StringComparison.Ordinal))
+        if (string.Equals(row.StatusKey, targetStatus, StringComparison.Ordinal))
         {
-            var apply = await serialRuleApplier.ApplyApprovedUpdateAsync(
-                    row.TargetEntityId,
-                    row.AfterSnapshotJson,
+            return;
+        }
+
+        if (!DataApprovalStatusTransition.CanResolveFromWorkflow(row.StatusKey))
+        {
+            return;
+        }
+
+        if (string.Equals(targetStatus, DataApprovalStatusKeys.Approved, StringComparison.Ordinal))
+        {
+            await applicationService.TryApplyApprovedChangeAsync(
+                    row,
                     actorUserId,
                     idempotencyKey,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!apply.IsSuccess)
-            {
-                throw new InvalidOperationException(
-                    $"data_approvals.apply_failed:{apply.Error?.Code}");
-            }
+            return;
         }
 
         var now = clock.UtcNow;

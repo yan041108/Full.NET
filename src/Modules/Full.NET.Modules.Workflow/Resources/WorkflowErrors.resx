@@ -22,6 +22,10 @@
   <data name="workflow.cc.not_found" xml:space="preserve"><value>工作流抄送记录不存在或不属于当前用户。</value></data>
   <data name="workflow.definition.topology_unsupported" xml:space="preserve"><value>当前部署尚不支持此工作流拓扑。</value></data>
   <data name="workflow.definition.not_found" xml:space="preserve"><value>工作流定义不存在。</value></data>
+  <data name="workflow.definition.disabled" xml:space="preserve"><value>工作流定义已停用，不能发布新版本或启动实例。</value></data>
+  <data name="workflow.definition.archived" xml:space="preserve"><value>工作流定义已归档，不能再修改。</value></data>
+  <data name="workflow.definition.status_invalid" xml:space="preserve"><value>工作流定义状态或状态迁移无效。</value></data>
+  <data name="workflow.version.in_use" xml:space="preserve"><value>仍有运行中的实例引用该定义版本，不能删除。</value></data>
   <data name="workflow.definition.key_exists" xml:space="preserve"><value>当前作用域已存在相同流程定义键。</value></data>
   <data name="workflow.form.field_type_unknown" xml:space="preserve"><value>表单包含未知字段类型。</value></data>
   <data name="workflow.form.field_key_duplicate" xml:space="preserve"><value>表单字段标识重复。</value></data>
@@ -33,6 +37,11 @@
   <data name="workflow.form.size_limit_exceeded" xml:space="preserve"><value>表单规模超过允许上限。</value></data>
   <data name="workflow.form.schema_unsupported" xml:space="preserve"><value>表单协议版本不受支持。</value></data>
   <data name="workflow.form.not_found" xml:space="preserve"><value>工作流表单不存在。</value></data>
+  <data name="workflow.form.disabled" xml:space="preserve"><value>工作流表单已停用，不能发布或被新流程绑定。</value></data>
+  <data name="workflow.form.archived" xml:space="preserve"><value>工作流表单已归档，不能再修改。</value></data>
+  <data name="workflow.form.status_invalid" xml:space="preserve"><value>工作流表单状态或状态迁移无效。</value></data>
+  <data name="workflow.form.version_in_use" xml:space="preserve"><value>仍有运行中的实例引用该表单版本，不能删除。</value></data>
+  <data name="workflow.form.attachment_invalid" xml:space="preserve"><value>表单附件无效、越权或不符合已发布约束。</value></data>
   <data name="workflow.form.key_exists" xml:space="preserve"><value>当前作用域已存在相同表单键。</value></data>
   <data name="workflow.todo.assignee_mismatch" xml:space="preserve"><value>待办不属于当前用户。</value></data>
   <data name="workflow.todo.assignee_not_found" xml:space="preserve"><value>目标办理人不存在、已停用或不属于当前作用域。</value></data>

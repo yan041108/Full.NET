@@ -102,6 +102,36 @@ internal sealed record WorkflowTodoResponse(
     string? ResultActionKey,
     long Revision);
 
+/// <summary>待办/已办分页列表项，附带实例上下文与历史动作快照字段。</summary>
+/// <param name="Id">待办标识。</param>
+/// <param name="InstanceId">流程实例标识。</param>
+/// <param name="StepId">流程步骤标识。</param>
+/// <param name="StatusKey">待办状态键。</param>
+/// <param name="ArrivedAtUtc">到达时间（UTC）。</param>
+/// <param name="CompletedAtUtc">完成时间（UTC）；未完成时为空。</param>
+/// <param name="ResultActionKey">完成时写入的处理结果动作键快照。</param>
+/// <param name="Revision">待办修订号。</param>
+/// <param name="BusinessType">关联业务类型。</param>
+/// <param name="BusinessId">关联业务标识。</param>
+/// <param name="InstanceStatusKey">实例当前状态键。</param>
+/// <param name="DefinitionKey">流程定义稳定键。</param>
+/// <param name="NodeKey">步骤节点键。</param>
+internal sealed record WorkflowTodoListItemResponse(
+    Guid Id,
+    Guid InstanceId,
+    Guid StepId,
+    string StatusKey,
+    DateTimeOffset ArrivedAtUtc,
+    DateTimeOffset? CompletedAtUtc,
+    string? ResultActionKey,
+    long Revision,
+    string BusinessType,
+    string BusinessId,
+    string? BusinessTitle,
+    string InstanceStatusKey,
+    string DefinitionKey,
+    string NodeKey);
+
 internal sealed record WorkflowTodoDetailResponse(
     Guid Id,
     Guid InstanceId,

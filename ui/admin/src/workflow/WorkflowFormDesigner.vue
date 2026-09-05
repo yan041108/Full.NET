@@ -2,14 +2,19 @@
 import { computed, ref, watch } from 'vue';
 import {
   WORKFLOW_FIELD_TYPES,
+  WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES,
   addWorkflowFormField,
   addWorkflowFormSection,
+  createDefaultSubtableConstraints,
+  readWorkflowSubtableConstraints,
   removeWorkflowFormField,
   updateWorkflowFormField,
   type WorkflowFieldType,
   type WorkflowFormComponentCatalogResponse,
   type WorkflowFormField,
-  type WorkflowFormSchema
+  type WorkflowFormSchema,
+  type WorkflowSubtableColumnDefinition,
+  type WorkflowSubtableColumnFieldType
 } from '@fullnet/client-contracts';
 import { useAdminI18n } from '../i18n/adminI18n';
 
@@ -107,6 +112,10 @@ function updateConstraint(
     constraints[constraintKey] = rawValue.split(/\r?\n/u)
       .map(value => value.trim())
       .filter(value => value.length > 0);
+  } else if (constraintKey === 'allowedExtensions') {
+    constraints[constraintKey] = rawValue.split(/\r?\n|[,;]/u)
+      .map(value => value.trim().replace(/^\./u, '').toLowerCase())
+      .filter(value => value.length > 0);
   } else if (isNumericConstraint(field, constraintKey)) {
     constraints[constraintKey] = Number(rawValue);
   } else {
@@ -141,7 +150,96 @@ function isNumericConstraint(field: WorkflowFormField, constraintKey: string): b
   return constraintKey === 'scale'
     || constraintKey === 'minLength'
     || constraintKey === 'maxLength'
+    || constraintKey === 'maxCount'
+    || constraintKey === 'maxSizeBytes'
+    || constraintKey === 'maxRows'
     || field.fieldTypeKey === 'integer' && (constraintKey === 'minimum' || constraintKey === 'maximum');
+}
+
+function subtableConfig(field: WorkflowFormField) {
+  return readWorkflowSubtableConstraints(field) ?? createDefaultSubtableConstraints();
+}
+
+function updateSubtableConstraints(
+  field: WorkflowFormField,
+  constraints: ReturnType<typeof createDefaultSubtableConstraints>
+): void {
+  mutate(() => updateWorkflowFormField(
+    workingSchema.value,
+    field.fieldKey,
+    { constraints },
+    props.catalog
+  ));
+}
+
+function updateSubtableMaxRows(field: WorkflowFormField, rawValue: string): void {
+  const maxRows = Number.parseInt(rawValue, 10);
+  if (!Number.isSafeInteger(maxRows)) {
+    return;
+  }
+
+  const current = subtableConfig(field);
+  updateSubtableConstraints(field, { ...current, maxRows });
+}
+
+function addSubtableColumn(field: WorkflowFormField): void {
+  const current = subtableConfig(field);
+  if (current.columns.length >= 16) {
+    return;
+  }
+
+  const columnKey = `col${current.columns.length + 1}`;
+  updateSubtableConstraints(field, {
+    ...current,
+    columns: [...current.columns, defaultSubtableColumn(columnKey, 'text')]
+  });
+}
+
+function removeSubtableColumn(field: WorkflowFormField, columnKey: string): void {
+  const current = subtableConfig(field);
+  if (current.columns.length <= 1) {
+    return;
+  }
+
+  updateSubtableConstraints(field, {
+    ...current,
+    columns: current.columns.filter(column => column.columnKey !== columnKey)
+  });
+}
+
+function updateSubtableColumn(
+  field: WorkflowFormField,
+  columnKey: string,
+  patch: Partial<WorkflowSubtableColumnDefinition>
+): void {
+  const current = subtableConfig(field);
+  updateSubtableConstraints(field, {
+    ...current,
+    columns: current.columns.map(column => column.columnKey === columnKey
+      ? {
+          ...column,
+          ...patch,
+          constraints: patch.constraints ?? column.constraints
+        }
+      : column)
+  });
+}
+
+function defaultSubtableColumn(
+  columnKey: string,
+  fieldTypeKey: WorkflowSubtableColumnFieldType
+): WorkflowSubtableColumnDefinition {
+  if (fieldTypeKey === 'money' || fieldTypeKey === 'decimal') {
+    return { columnKey, fieldTypeKey, required: false, constraints: { scale: 2 } };
+  }
+  if (fieldTypeKey === 'radio' || fieldTypeKey === 'checkbox' || fieldTypeKey === 'select') {
+    return { columnKey, fieldTypeKey, required: false, constraints: { options: ['option1'] } };
+  }
+  return { columnKey, fieldTypeKey, required: false, constraints: {} };
+}
+
+function isWorkflowFieldType(value: string): value is WorkflowFieldType {
+  return WORKFLOW_FIELD_TYPES.some(type => type === value);
 }
 
 function mutate(action: () => WorkflowFormSchema): void {
@@ -158,10 +256,6 @@ function mutate(action: () => WorkflowFormSchema): void {
       ? error.message
       : 'client.invalid_workflow_form_draft';
   }
-}
-
-function isWorkflowFieldType(value: string): value is WorkflowFieldType {
-  return WORKFLOW_FIELD_TYPES.some(type => type === value);
 }
 </script>
 
@@ -300,7 +394,88 @@ function isWorkflowFieldType(value: string): value is WorkflowFieldType {
               </label>
             </div>
 
-            <div v-if="constraintKeysFor(field).length > 0" class="form-studio__constraints">
+            <div v-if="field.fieldTypeKey === 'subtable'" class="form-studio__subtable">
+              <label>
+                <span>{{ t('workflowFormDesigner.subtable.maxRows') }}</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  :value="subtableConfig(field).maxRows"
+                  :readonly="disabled"
+                  data-constraint-key="maxRows"
+                  @change="updateSubtableMaxRows(field, ($event.target as HTMLInputElement).value)"
+                />
+              </label>
+
+              <div class="form-studio__subtable-columns">
+                <header>
+                  <strong>{{ t('workflowFormDesigner.subtable.columns') }}</strong>
+                  <button
+                    v-if="!disabled"
+                    type="button"
+                    data-designer-action
+                    @click="addSubtableColumn(field)"
+                  >{{ t('workflowFormDesigner.subtable.addColumn') }}</button>
+                </header>
+
+                <article
+                  v-for="column in subtableConfig(field).columns"
+                  :key="column.columnKey"
+                  class="form-studio__subtable-column"
+                  :data-column-key="column.columnKey"
+                >
+                  <div class="form-studio__field-grid">
+                    <label>
+                      <span>{{ t('workflowFormDesigner.subtable.columnKey') }}</span>
+                      <input
+                        :value="column.columnKey"
+                        :readonly="disabled"
+                        @change="updateSubtableColumn(field, column.columnKey, {
+                          columnKey: ($event.target as HTMLInputElement).value.trim()
+                        })"
+                      />
+                    </label>
+                    <label>
+                      <span>{{ t('workflowFormDesigner.fieldType') }}</span>
+                      <select
+                        :value="column.fieldTypeKey"
+                        :disabled="disabled"
+                        @change="updateSubtableColumn(field, column.columnKey,
+                          defaultSubtableColumn(column.columnKey,
+                            ($event.target as HTMLSelectElement).value as WorkflowSubtableColumnFieldType))"
+                      >
+                        <option
+                          v-for="fieldType in WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES"
+                          :key="fieldType"
+                          :value="fieldType"
+                          translate="no"
+                        >{{ fieldType }}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="form-studio__required">
+                    <input
+                      type="checkbox"
+                      :checked="column.required"
+                      :disabled="disabled"
+                      @change="updateSubtableColumn(field, column.columnKey, {
+                        required: ($event.target as HTMLInputElement).checked
+                      })"
+                    />
+                    <span>{{ t('workflowFormDesigner.required') }}</span>
+                  </label>
+                  <button
+                    v-if="!disabled && subtableConfig(field).columns.length > 1"
+                    type="button"
+                    class="form-studio__remove"
+                    @click="removeSubtableColumn(field, column.columnKey)"
+                  >{{ t('workflowFormDesigner.remove') }}</button>
+                </article>
+              </div>
+            </div>
+
+            <div v-else-if="constraintKeysFor(field).length > 0" class="form-studio__constraints">
               <label v-for="constraintKey in constraintKeysFor(field)" :key="constraintKey">
                 <span translate="no">{{ constraintKey }}</span>
                 <textarea
@@ -406,6 +581,10 @@ function isWorkflowFieldType(value: string): value is WorkflowFieldType {
 .form-studio__field-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 0.75rem; }
 .form-studio__required { display: flex !important; align-items: center; min-height: 36px; }
 .form-studio__constraints { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.55rem; }
+.form-studio__subtable { display: grid; gap: 0.75rem; }
+.form-studio__subtable-columns { display: grid; gap: 0.65rem; }
+.form-studio__subtable-columns header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.form-studio__subtable-column { display: grid; gap: 0.55rem; padding: 0.65rem; border: 1px dashed var(--studio-line); border-radius: 6px; }
 .form-studio input[readonly], .form-studio textarea[readonly] { color: var(--studio-muted); background: var(--el-fill-color-light); }
 
 @media (max-width: 880px) {

@@ -104,6 +104,18 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowListInstances",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListMyInstances",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowGetInstance",
       "apiModule": "ui/admin/src/api/workflow-instances.ts",
       "generatedGroup": "workflow-instances",
@@ -171,6 +183,12 @@
     },
     {
       "operationId": "workflowListMyTodos",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListMyTodoHistory",
       "apiModule": "ui/admin/src/api/workflow-todos.ts",
       "generatedGroup": "workflow-todos",
       "status": "generated"
@@ -1847,6 +1865,18 @@
       "operationId": "serialNumbersSubmitRuleUpdateApproval",
       "apiModule": "ui/admin/src/api/serial-number-rules.ts",
       "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsRetryRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsRetryApplyRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
       "status": "generated"
     }
   ]

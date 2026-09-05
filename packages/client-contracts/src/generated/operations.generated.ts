@@ -219,7 +219,9 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PagedResultOfWorkflowInstanceListItemResponse,
   PagedResultOfWorkflowRecoveryTaskResponse,
+  PagedResultOfWorkflowTodoListItemResponse,
   PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
@@ -241,6 +243,7 @@ import type {
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
+  RetryDataApprovalRequestBody,
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
   ReturnWorkflowTodoRequest,
@@ -256,6 +259,8 @@ import type {
   SerialRuleUpdateApprovalSubmissionResponse,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
+  SetWorkflowDefinitionStatusRequest,
+  SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
   Stream,
   SubmitSerialRuleUpdateApprovalRequest,
@@ -311,6 +316,7 @@ import type {
   WorkflowFormSchema,
   WorkflowFormSection,
   WorkflowFormVersionResponse,
+  WorkflowInstanceListItemResponse,
   WorkflowInstanceResponse,
   WorkflowNodeDraft,
   WorkflowNodeTypeCatalogResponse,
@@ -319,6 +325,7 @@ import type {
   WorkflowRecipientCandidateResponse,
   WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
+  WorkflowTodoListItemResponse,
   WorkflowTodoResponse,
   WorkflowTodoReturnTargetResponse,
   WorkflowTodoRuntimeResponse
@@ -443,7 +450,9 @@ import {
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
+  readPagedResultOfWorkflowInstanceListItemResponse,
   readPagedResultOfWorkflowRecoveryTaskResponse,
+  readPagedResultOfWorkflowTodoListItemResponse,
   readRecipientEndpointResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
@@ -473,9 +482,9 @@ import {
   readWorkflowListDefinitionsResponse,
   readWorkflowListDefinitionVersionsResponse,
   readWorkflowListFormsResponse,
+  readWorkflowListFormVersionsResponse,
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyCcResponse,
-  readWorkflowListMyTodosResponse,
   readWorkflowListTodoReturnTargetsResponse,
   readWorkflowNodeTypeCatalogResponse,
   readWorkflowRecipientCandidatePageResponse,
@@ -1187,6 +1196,52 @@ export async function dataApprovalsListScenarios(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readDataApprovalsListScenariosResponse(value);
+}
+
+export interface DataApprovalsRetryApplyRequestParameters {
+  readonly requestId: string;
+  readonly body: RetryDataApprovalRequestBody;
+}
+
+export async function dataApprovalsRetryApplyRequest(
+  http: HttpClient,
+  parameters: DataApprovalsRetryApplyRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}/retry-apply`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsRetryRequestParameters {
+  readonly requestId: string;
+  readonly body: RetryDataApprovalRequestBody;
+}
+
+export async function dataApprovalsRetryRequest(
+  http: HttpClient,
+  parameters: DataApprovalsRetryRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}/retry`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
 }
 
 export interface DataApprovalsUpdateScenarioBindingParameters {
@@ -6667,6 +6722,44 @@ export async function workflowCreateForm(
   return readWorkflowFormResponse(value);
 }
 
+export interface WorkflowDeleteDefinitionVersionParameters {
+  readonly versionId: string;
+}
+
+export async function workflowDeleteDefinitionVersion(
+  http: HttpClient,
+  parameters: WorkflowDeleteDefinitionVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/workflow/definition-versions/${encodeURIComponent(String(parameters.versionId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
+export interface WorkflowDeleteFormVersionParameters {
+  readonly versionId: string;
+}
+
+export async function workflowDeleteFormVersion(
+  http: HttpClient,
+  parameters: WorkflowDeleteFormVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/workflow/form-versions/${encodeURIComponent(String(parameters.versionId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
 export interface WorkflowGetDefinitionParameters {
   readonly definitionId: string;
 }
@@ -6883,6 +6976,24 @@ export async function workflowListForms(
   return readWorkflowListFormsResponse(value);
 }
 
+export interface WorkflowListFormVersionsParameters {
+  readonly formId: string;
+}
+
+export async function workflowListFormVersions(
+  http: HttpClient,
+  parameters: WorkflowListFormVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowFormVersionResponse>> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/versions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListFormVersionsResponse(value);
+}
+
 export interface WorkflowListInstanceExecutionLogsParameters {
   readonly instanceId: string;
 }
@@ -6899,6 +7010,52 @@ export async function workflowListInstanceExecutionLogs(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowListInstanceExecutionLogsResponse(value);
+}
+
+export interface WorkflowListInstancesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly statusKey?: string;
+  readonly definitionKey?: string;
+  readonly definitionVersionId?: string;
+  readonly startedFromUtc?: string;
+  readonly startedToUtc?: string;
+}
+
+export async function workflowListInstances(
+  http: HttpClient,
+  parameters: WorkflowListInstancesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfWorkflowInstanceListItemResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  if (parameters.definitionKey !== undefined) {
+    query.set('definitionKey', String(parameters.definitionKey));
+  }
+  if (parameters.definitionVersionId !== undefined) {
+    query.set('definitionVersionId', String(parameters.definitionVersionId));
+  }
+  if (parameters.startedFromUtc !== undefined) {
+    query.set('startedFromUtc', String(parameters.startedFromUtc));
+  }
+  if (parameters.startedToUtc !== undefined) {
+    query.set('startedToUtc', String(parameters.startedToUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/instances` : `/api/v1/workflow/instances?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfWorkflowInstanceListItemResponse(value);
 }
 
 export interface WorkflowListMyCcParameters {
@@ -6919,8 +7076,105 @@ export async function workflowListMyCc(
   return readWorkflowListMyCcResponse(value);
 }
 
-export interface WorkflowListMyTodosParameters {
+export interface WorkflowListMyInstancesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly statusKey?: string;
+  readonly definitionKey?: string;
+  readonly definitionVersionId?: string;
+  readonly startedFromUtc?: string;
+  readonly startedToUtc?: string;
+}
 
+export async function workflowListMyInstances(
+  http: HttpClient,
+  parameters: WorkflowListMyInstancesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfWorkflowInstanceListItemResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  if (parameters.definitionKey !== undefined) {
+    query.set('definitionKey', String(parameters.definitionKey));
+  }
+  if (parameters.definitionVersionId !== undefined) {
+    query.set('definitionVersionId', String(parameters.definitionVersionId));
+  }
+  if (parameters.startedFromUtc !== undefined) {
+    query.set('startedFromUtc', String(parameters.startedFromUtc));
+  }
+  if (parameters.startedToUtc !== undefined) {
+    query.set('startedToUtc', String(parameters.startedToUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/instances/mine` : `/api/v1/workflow/instances/mine?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfWorkflowInstanceListItemResponse(value);
+}
+
+export interface WorkflowListMyTodoHistoryParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly definitionKey?: string;
+  readonly businessType?: string;
+  readonly resultActionKey?: string;
+  readonly completedFromUtc?: string;
+  readonly completedToUtc?: string;
+}
+
+export async function workflowListMyTodoHistory(
+  http: HttpClient,
+  parameters: WorkflowListMyTodoHistoryParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfWorkflowTodoListItemResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.definitionKey !== undefined) {
+    query.set('definitionKey', String(parameters.definitionKey));
+  }
+  if (parameters.businessType !== undefined) {
+    query.set('businessType', String(parameters.businessType));
+  }
+  if (parameters.resultActionKey !== undefined) {
+    query.set('resultActionKey', String(parameters.resultActionKey));
+  }
+  if (parameters.completedFromUtc !== undefined) {
+    query.set('completedFromUtc', String(parameters.completedFromUtc));
+  }
+  if (parameters.completedToUtc !== undefined) {
+    query.set('completedToUtc', String(parameters.completedToUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/mine/history` : `/api/v1/workflow/todos/mine/history?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfWorkflowTodoListItemResponse(value);
+}
+
+export interface WorkflowListMyTodosParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly definitionKey?: string;
+  readonly businessType?: string;
+  readonly arrivedFromUtc?: string;
+  readonly arrivedToUtc?: string;
 }
 
 export async function workflowListMyTodos(
@@ -6928,13 +7182,32 @@ export async function workflowListMyTodos(
   parameters: WorkflowListMyTodosParameters,
   signal?: AbortSignal,
   options?: RequestOptions
-): Promise<Array<WorkflowTodoResponse>> {
-  const path = `/api/v1/workflow/todos/mine`;
+): Promise<PagedResultOfWorkflowTodoListItemResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.definitionKey !== undefined) {
+    query.set('definitionKey', String(parameters.definitionKey));
+  }
+  if (parameters.businessType !== undefined) {
+    query.set('businessType', String(parameters.businessType));
+  }
+  if (parameters.arrivedFromUtc !== undefined) {
+    query.set('arrivedFromUtc', String(parameters.arrivedFromUtc));
+  }
+  if (parameters.arrivedToUtc !== undefined) {
+    query.set('arrivedToUtc', String(parameters.arrivedToUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/mine` : `/api/v1/workflow/todos/mine?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
-  return readWorkflowListMyTodosResponse(value);
+  return readPagedResultOfWorkflowTodoListItemResponse(value);
 }
 
 export interface WorkflowListRecipientCandidatesParameters {
@@ -7262,6 +7535,52 @@ export async function workflowReturnTodo(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowSetDefinitionStatusParameters {
+  readonly definitionId: string;
+  readonly body: SetWorkflowDefinitionStatusRequest;
+}
+
+export async function workflowSetDefinitionStatus(
+  http: HttpClient,
+  parameters: WorkflowSetDefinitionStatusParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowDefinitionResponse> {
+  const path = `/api/v1/workflow/definitions/${encodeURIComponent(String(parameters.definitionId))}/status`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowDefinitionResponse(value);
+}
+
+export interface WorkflowSetFormStatusParameters {
+  readonly formId: string;
+  readonly body: SetWorkflowFormStatusRequest;
+}
+
+export async function workflowSetFormStatus(
+  http: HttpClient,
+  parameters: WorkflowSetFormStatusParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowFormResponse> {
+  const path = `/api/v1/workflow/forms/${encodeURIComponent(String(parameters.formId))}/status`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowFormResponse(value);
 }
 
 export interface WorkflowStartInstanceParameters {

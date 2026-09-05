@@ -40,7 +40,8 @@ public sealed record StartWorkflowInstanceCommand(
     string BusinessType,
     string BusinessId,
     string InitialValuesJson,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    string? BusinessTitle = null);
 
 /// <summary>跨模块取消工作流实例的命令。</summary>
 /// <param name="InstanceId">工作流实例标识。</param>

@@ -11,7 +11,8 @@ using InstanceEndpoint = Full.NET.Modules.Workflow.Features.ManageInstances.Endp
 using Full.NET.Modules.Workflow.Features.ManageInstances;
 using TodoEndpoint = Full.NET.Modules.Workflow.Features.ManageMyTodos.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
-using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Execution;
 using CcEndpoint = Full.NET.Modules.Workflow.Features.ManageMyCc.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageMyCc;
@@ -20,6 +21,8 @@ using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Features.CrossModulePorts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -36,7 +39,7 @@ public sealed class WorkflowModule : IFullNetModule
     public string Name => "Workflow";
 
     /// <summary>获取 Workflow 运行与可靠通知投影所需的模块依赖。</summary>
-    public IReadOnlyCollection<string> Dependencies => ["Identity", "Notifications", "Organization"];
+    public IReadOnlyCollection<string> Dependencies => ["Files", "Identity", "Notifications", "Organization"];
 
     /// <summary>注册工作流定义、运行时、抄送及 AOT 静态闭包服务。</summary>
     /// <param name="services">应用依赖注入服务集合。</param>
@@ -58,13 +61,21 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowRecipientCandidateQueryService>();
         services.AddScoped<WorkflowRoleCandidateQueryService>();
         services.AddScoped<WorkflowOrganizationUnitCandidateQueryService>();
+        services.AddScoped<WorkflowAssigneePreviewService>();
+        services.AddScoped<WorkflowFormAttachmentCoordinator>();
+        services.AddScoped<WorkflowFormAttachmentAccessService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            WorkflowFormSubmissionAttachmentProbe>());
         services.AddScoped<WorkflowAssigneeResolver>();
         services.AddScoped<WorkflowAssigneePublishValidator>();
         services.AddScoped<WorkflowApprovalAssigneeCoordinator>();
         services.AddScoped<WorkflowInstanceManagementService>();
+        services.AddScoped<WorkflowInstanceQueryService>();
         services.AddScoped<WorkflowInstanceRecoveryService>();
         services.AddScoped<WorkflowRecoveryTaskService>();
         services.AddScoped<WorkflowTodoManagementService>();
+        services.AddScoped<WorkflowTodoQueryService>();
         services.AddScoped<WorkflowTodoCountersignService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowParallelJoinCoordinator>();
@@ -89,8 +100,10 @@ public sealed class WorkflowModule : IFullNetModule
     {
         FormEndpoint.Map(endpoints);
         FormEndpoint.MapVersion(endpoints);
+        FormEndpoint.MapVersionMutations(endpoints);
         DefinitionEndpoint.Map(endpoints);
         DefinitionEndpoint.MapVersion(endpoints);
+        DefinitionEndpoint.MapVersionMutations(endpoints);
         InstanceEndpoint.Map(endpoints);
         TodoEndpoint.Map(endpoints);
         CcEndpoint.Map(endpoints);
@@ -125,5 +138,8 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddSingleton<WorkflowTodoTimeoutScanCursor>();
         services.AddScoped<WorkflowTodoTimeoutProcessor>();
         services.AddHostedService<WorkflowTodoTimeoutHostedProcessor>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            WorkflowFormSubmissionAttachmentProbe>());
     }
 }

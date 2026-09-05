@@ -33,13 +33,15 @@ internal static class WorkflowFormComponentCatalog
         Component("checkbox", "options"),
         Component("select", "options"),
         Component("switch"),
+        Component("attachment", "maxCount", "maxSizeBytes", "allowedExtensions"),
+        Component("subtable", "maxRows", "columns"),
     ];
 
     private static readonly IReadOnlyDictionary<string, WorkflowFormComponentDefinition> ByFieldType =
         ComponentDefinitions.ToDictionary(component => component.FieldTypeKey, StringComparer.Ordinal);
 
     public static WorkflowFormComponentCatalogSnapshot Current { get; } =
-        new(1, 1, 1, Array.AsReadOnly(ComponentDefinitions));
+        new(3, 1, 1, Array.AsReadOnly(ComponentDefinitions));
 
     public static bool TryGet(
         string? fieldTypeKey,

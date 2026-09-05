@@ -1,10 +1,14 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Features;
+using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 
@@ -14,6 +18,78 @@ internal static class Endpoint
     /// <param name="endpoints">应用端点路由构建器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/v1/workflow/instances", async (
+            int? page,
+            int? pageSize,
+            string? statusKey,
+            string? definitionKey,
+            Guid? definitionVersionId,
+            DateTimeOffset? startedFromUtc,
+            DateTimeOffset? startedToUtc,
+            WorkflowInstanceQueryService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+            mapper.Map(
+                await service.ListAsync(
+                        page ?? 1,
+                        pageSize ?? 20,
+                        statusKey,
+                        definitionKey,
+                        definitionVersionId,
+                        startedFromUtc,
+                        startedToUtc,
+                        token)
+                    .ConfigureAwait(false),
+                context))
+        .WithName("workflowListInstances")
+        .WithTags("WorkflowInstances")
+        .Produces<PagedResult<WorkflowInstanceListItemResponse>>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesList));
+
+        endpoints.MapGet("/api/v1/workflow/instances/mine", async (
+            int? page,
+            int? pageSize,
+            string? statusKey,
+            string? definitionKey,
+            Guid? definitionVersionId,
+            DateTimeOffset? startedFromUtc,
+            DateTimeOffset? startedToUtc,
+            WorkflowInstanceQueryService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.ListMineAsync(
+                        actorUserId,
+                        page ?? 1,
+                        pageSize ?? 20,
+                        statusKey,
+                        definitionKey,
+                        definitionVersionId,
+                        startedFromUtc,
+                        startedToUtc,
+                        token)
+                    .ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowListMyInstances")
+        .WithTags("WorkflowInstances")
+        .Produces<PagedResult<WorkflowInstanceListItemResponse>>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRead));
+
         endpoints.MapPost("/api/v1/workflow/instances", async (
             StartWorkflowInstanceRequest request,
             WorkflowInstanceManagementService service,
@@ -220,6 +296,39 @@ internal static class Endpoint
         .WithName("workflowListInstanceExecutionLogs")
         .WithTags("WorkflowInstances")
         .Produces<IReadOnlyList<WorkflowExecutionLogResponse>>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRead));
+
+        endpoints.MapGet("/api/v1/workflow/instances/{instanceId:guid}/form-attachments/{fileId:guid}/content", async (
+            Guid instanceId,
+            Guid fileId,
+            WorkflowFormAttachmentAccessService attachmentAccess,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            var scope = WorkflowManagementScope.Resolve(
+                context.RequestServices.GetRequiredService<ICurrentTenant>());
+            var result = await attachmentAccess
+                .OpenInstanceAttachmentAsync(instanceId, fileId, scope.TenantScopeKey, token)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(Result<object?>.Failure(result.Error!), context);
+            }
+
+            var content = result.Value!;
+            return Results.File(
+                content.Content,
+                content.ContentType,
+                content.OriginalFileName,
+                enableRangeProcessing: true);
+        })
+        .WithName("workflowDownloadInstanceFormAttachment")
+        .WithTags("WorkflowInstances")
+        .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)

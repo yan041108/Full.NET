@@ -577,6 +577,7 @@ export interface CreateSerialNumberRuleRequest {
 }
 
 export interface CreateWorkflowDefinitionRequest {
+  readonly businessTitleTemplate?: null | string;
   readonly definitionKey: string;
   readonly draft: WorkflowDefinitionDraft;
 }
@@ -602,8 +603,18 @@ export interface CurrentUserResponse {
 
 export interface DataApprovalRequestResponse {
   readonly afterSnapshotJson: string;
+  readonly applicationAttemptCount: number;
+  readonly applicationStatusKey: string;
   readonly beforeSnapshotJson?: string | null;
   readonly id: string;
+  readonly lastApplicationAttemptAtUtc?: string | null;
+  readonly lastApplicationFailureCode?: string | null;
+  readonly lastApplicationFailureMessage?: string | null;
+  readonly lastFailureCode?: string | null;
+  readonly lastFailureMessage?: string | null;
+  readonly lastRecoveryAttemptAtUtc?: string | null;
+  readonly recoveryAttemptCount: number;
+  readonly recoveryStatusKey: string;
   readonly resolvedAtUtc?: string | null;
   readonly scenarioKey: string;
   readonly statusKey: string;
@@ -1811,8 +1822,22 @@ export interface PagedResultOfTenantSummary {
   readonly total: number;
 }
 
+export interface PagedResultOfWorkflowInstanceListItemResponse {
+  readonly items: Array<WorkflowInstanceListItemResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfWorkflowRecoveryTaskResponse {
   readonly items: Array<WorkflowRecoveryTaskResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfWorkflowTodoListItemResponse {
+  readonly items: Array<WorkflowTodoListItemResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
@@ -1937,6 +1962,10 @@ export interface ResumeWorkflowInstanceRequest {
   readonly reason: null | string;
 }
 
+export interface RetryDataApprovalRequestBody {
+  readonly version: number;
+}
+
 export interface RetryNotificationDeliveryRequest {
   readonly reason: string;
   readonly revision: number;
@@ -2036,8 +2065,19 @@ export interface SetNotificationProviderProfileEnabledRequest {
   readonly version: number;
 }
 
+export interface SetWorkflowDefinitionStatusRequest {
+  readonly expectedVersion: number;
+  readonly statusKey: string;
+}
+
+export interface SetWorkflowFormStatusRequest {
+  readonly expectedVersion: number;
+  readonly statusKey: string;
+}
+
 export interface StartWorkflowInstanceRequest {
   readonly businessId: string;
+  readonly businessTitle?: null | string;
   readonly businessType: string;
   readonly definitionVersionId: string;
   readonly idempotencyKey: string;
@@ -2337,6 +2377,7 @@ export interface UpdateSerialNumberRuleRequest {
 }
 
 export interface UpdateWorkflowDefinitionDraftRequest {
+  readonly businessTitleTemplate?: null | string;
   readonly draft: WorkflowDefinitionDraft;
   readonly expectedRevision: number;
 }
@@ -2357,6 +2398,7 @@ export interface WorkflowCcReadResponse {
 
 export interface WorkflowCcResponse {
   readonly businessId: string;
+  readonly businessTitle?: null | string;
   readonly businessType: string;
   readonly createdAtUtc: string;
   readonly id: string;
@@ -2372,17 +2414,20 @@ export interface WorkflowDefinitionDraft {
 }
 
 export interface WorkflowDefinitionResponse {
+  readonly businessTitleTemplate?: null | string;
   readonly createdAtUtc: string;
   readonly definitionKey: string;
   readonly draft: WorkflowDefinitionDraft;
   readonly draftRevision: number;
   readonly id: string;
   readonly latestPublishedVersionId: null | string;
+  readonly statusKey: string;
   readonly updatedAtUtc: null | string;
   readonly version: number;
 }
 
 export interface WorkflowDefinitionVersionResponse {
+  readonly businessTitleTemplate?: null | string;
   readonly canonicalJson: string;
   readonly contentHash: string;
   readonly definitionId: string;
@@ -2433,7 +2478,9 @@ export interface WorkflowFormResponse {
   readonly formKey: string;
   readonly id: string;
   readonly latestPublishedVersionId: null | string;
+  readonly statusKey: string;
   readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface WorkflowFormSchema {
@@ -2461,12 +2508,26 @@ export interface WorkflowFormVersionResponse {
   readonly webRenderSchemaJson: string;
 }
 
+export interface WorkflowInstanceListItemResponse {
+  readonly businessId: string;
+  readonly businessTitle?: null | string;
+  readonly businessType: string;
+  readonly completedAtUtc: null | string;
+  readonly definitionKey: string;
+  readonly definitionVersionId: string;
+  readonly id: string;
+  readonly startedAtUtc: string;
+  readonly startedById: string;
+  readonly statusKey: string;
+}
+
 export interface WorkflowInstanceResponse {
   readonly activeNodeKey?: null | string;
   readonly activeTodoId: null | string;
   readonly approvalModeKey?: null | string;
   readonly approvedCount?: number | null;
   readonly businessId: string;
+  readonly businessTitle?: null | string;
   readonly businessType: string;
   readonly definitionVersionId: string;
   readonly dueAtUtc?: null | string;
@@ -2552,6 +2613,23 @@ export interface WorkflowTodoDetailResponse {
   readonly stepId: string;
   readonly submission: JsonElement;
   readonly submissionRevision: number;
+}
+
+export interface WorkflowTodoListItemResponse {
+  readonly arrivedAtUtc: string;
+  readonly businessId: string;
+  readonly businessTitle?: null | string;
+  readonly businessType: string;
+  readonly completedAtUtc: null | string;
+  readonly definitionKey: string;
+  readonly id: string;
+  readonly instanceId: string;
+  readonly instanceStatusKey: string;
+  readonly nodeKey: string;
+  readonly resultActionKey: null | string;
+  readonly revision: number;
+  readonly statusKey: string;
+  readonly stepId: string;
 }
 
 export interface WorkflowTodoResponse {

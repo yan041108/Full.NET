@@ -6,7 +6,9 @@ import { useSessionStore } from '../auth/session';
 import {
   cancelWorkflowInstance,
   getWorkflowInstance,
+  listMyWorkflowInstances,
   listWorkflowInstanceExecutionLogs,
+  listWorkflowInstances,
   pauseWorkflowInstance,
   recoverWorkflowInstance,
   resumeWorkflowInstance
@@ -16,7 +18,9 @@ import WorkflowInstancesView from './WorkflowInstancesView.vue';
 vi.mock('../api/workflow-instances', () => ({
   cancelWorkflowInstance: vi.fn(),
   getWorkflowInstance: vi.fn(),
+  listMyWorkflowInstances: vi.fn(),
   listWorkflowInstanceExecutionLogs: vi.fn(),
+  listWorkflowInstances: vi.fn(),
   pauseWorkflowInstance: vi.fn(),
   recoverWorkflowInstance: vi.fn(),
   resumeWorkflowInstance: vi.fn()
@@ -47,6 +51,28 @@ function mountView(permissions = ['workflow.instances.read']) {
 describe('WorkflowInstancesView', () => {
   beforeEach(() => {
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue(undefined as never);
+    vi.mocked(listMyWorkflowInstances).mockReset().mockResolvedValue({
+      items: [{
+        id: instanceId,
+        definitionVersionId: '01912345-6789-7abc-8def-0123456789ac',
+        definitionKey: 'purchase',
+        businessType: 'purchase',
+        businessId: 'PO-001',
+        statusKey: 'active',
+        startedById: '01912345-6789-7abc-8def-0123456789aa',
+        startedAtUtc: '2026-08-30T00:00:00Z',
+        completedAtUtc: null
+      }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+    vi.mocked(listWorkflowInstances).mockReset().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    });
     vi.mocked(cancelWorkflowInstance).mockReset().mockResolvedValue({
       id: instanceId,
       definitionVersionId: '01912345-6789-7abc-8def-0123456789ac',
@@ -96,6 +122,19 @@ describe('WorkflowInstancesView', () => {
     vi.mocked(pauseWorkflowInstance).mockReset();
     vi.mocked(resumeWorkflowInstance).mockReset();
     vi.mocked(recoverWorkflowInstance).mockReset();
+  });
+
+  it('默认加载我发起的列表并在点击行后展开详情', async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(listMyWorkflowInstances).toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="workflow-instance-list-item"]').text()).toContain('PO-001');
+    await wrapper.get('[data-testid="workflow-instance-list-item"]').trigger('click');
+    await flushPromises();
+
+    expect(getWorkflowInstance).toHaveBeenCalledWith(instanceId, expect.any(AbortSignal));
+    expect(wrapper.get('[data-testid="workflow-instance-summary"]').text()).toContain('PO-001');
   });
 
   it('仅向具有独立取消权限的用户展示并执行活动实例取消', async () => {

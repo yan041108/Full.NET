@@ -38,7 +38,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowDefinitionRecord>(
                 WorkflowSql.FindDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowDefinitionRecord(
-                definitionId, null, "host", "host", "leave", draftId, null,
+                definitionId, null, "host", "host", "leave", draftId, null, null, "active",
                 actorId, now, null, 1));
         query.QuerySingleOrDefaultAsync<WorkflowDefinitionDraftRecord>(
                 WorkflowSql.FindDefinitionDraftByDefinition, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -84,7 +84,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowDefinitionRecord>(
                 WorkflowSql.FindDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowDefinitionRecord(
-                definitionId, null, "host", "host", "leave", draftId, null,
+                definitionId, null, "host", "host", "leave", draftId, null, null, "active",
                 actorId, now, null, 1));
         query.QuerySingleOrDefaultAsync<WorkflowDefinitionDraftRecord>(
                 WorkflowSql.FindDefinitionDraftByDefinition, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -95,7 +95,10 @@ public sealed class WorkflowDefinitionManagementServiceTests
                 WorkflowSql.FindFormVersionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormVersionRecord(
                 formVersionId, formDefinitionId, 1, 1, 1, 1,
-                CreateFormSchemaJson(), "{}", new string('b', 64), actorId, now));
+                CreateFormSchemaJson(), "{}", new string('b', 64), null, actorId, now));
+        query.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
+                WorkflowSql.FindFormDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(CreateActiveFormDefinition(formDefinitionId, actorId, now, formVersionId));
         users.FindActiveHostUsersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
@@ -145,7 +148,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowDefinitionRecord>(
                 WorkflowSql.FindDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowDefinitionRecord(
-                definitionId, tenantId, "tenant", $"tenant:{tenantId:N}", "leave", draftId, null,
+                definitionId, tenantId, "tenant", $"tenant:{tenantId:N}", "leave", draftId, null, null, "active",
                 actorId, now, null, 1));
         query.QuerySingleOrDefaultAsync<WorkflowDefinitionDraftRecord>(
                 WorkflowSql.FindDefinitionDraftByDefinition, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -156,7 +159,10 @@ public sealed class WorkflowDefinitionManagementServiceTests
                 WorkflowSql.FindFormVersionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormVersionRecord(
                 formVersionId, formDefinitionId, 1, 1, 1, 1,
-                CreateFormSchemaJson(), "{}", new string('b', 64), actorId, now));
+                CreateFormSchemaJson(), "{}", new string('b', 64), null, actorId, now));
+        query.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
+                WorkflowSql.FindFormDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(CreateActiveFormDefinition(formDefinitionId, actorId, now, formVersionId, tenantId));
         tenantUsers.FindActiveTenantUsersAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(),
                 Arg.Any<CancellationToken>())
@@ -183,6 +189,27 @@ public sealed class WorkflowDefinitionManagementServiceTests
         await hostUsers.DidNotReceiveWithAnyArgs().FindActiveHostUsersAsync(default!, default);
         Assert.AreEqual(0, command.ReceivedCalls().Count());
     }
+
+    private static WorkflowFormDefinitionRecord CreateActiveFormDefinition(
+        Guid formDefinitionId,
+        Guid actorId,
+        DateTimeOffset now,
+        Guid latestPublishedVersionId,
+        Guid? tenantId = null) =>
+        new(
+            formDefinitionId,
+            tenantId,
+            tenantId is null ? "host" : "tenant",
+            tenantId is null ? "host" : $"tenant:{tenantId:N}",
+            "leave-form",
+            CreateFormSchemaJson(),
+            1,
+            latestPublishedVersionId,
+            WorkflowDefinitionStatusKeys.Active,
+            1,
+            actorId,
+            now,
+            null);
 
     private static string CreateValidDraftJson()
     {

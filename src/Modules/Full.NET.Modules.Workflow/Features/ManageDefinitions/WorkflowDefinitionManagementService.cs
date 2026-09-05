@@ -115,10 +115,12 @@ internal sealed class WorkflowDefinitionManagementService(
         CancellationToken cancellationToken = default)
     {
         var definitionKey = NormalizeKey(request.DefinitionKey);
-        if (definitionKey is null)
+        if (definitionKey is null || !WorkflowBusinessTitleRules.IsValidTemplate(request.BusinessTitleTemplate))
         {
             return Invalid<WorkflowDefinitionResponse>();
         }
+
+        var template = WorkflowBusinessTitleRules.NormalizeTemplate(request.BusinessTitleTemplate);
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
         var definitionId = idGenerator.NewId();
@@ -134,6 +136,7 @@ internal sealed class WorkflowDefinitionManagementService(
                     Parameters(("Id", definitionId), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("TenantScopeKey", scope.TenantScopeKey),
                         ("DefinitionKey", definitionKey), ("DraftId", draftId),
+                        ("BusinessTitleTemplate", template),
                         ("CreatedById", actorUserId), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(
                     WorkflowSql.InsertDefinitionDraft,
@@ -141,7 +144,8 @@ internal sealed class WorkflowDefinitionManagementService(
                         ("DraftJson", draftJson), ("ContentHash", Hash(draftJson)),
                         ("UpdatedById", actorUserId), ("UpdatedAtUtc", now)), token).ConfigureAwait(false);
                 return Result<WorkflowDefinitionResponse>.Success(new(
-                    definitionId, definitionKey, request.Draft, 1, null, 1, now, null));
+                    definitionId, definitionKey, request.Draft, 1, null, template,
+                    WorkflowDefinitionStatusKeys.Active, 1, now, null));
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -166,15 +170,152 @@ internal sealed class WorkflowDefinitionManagementService(
         CancellationToken cancellationToken = default) =>
         PublishCoreAsync(id, actorUserId, request, cancellationToken);
 
-    private async Task<Result<WorkflowDefinitionResponse>> UpdateDraftCoreAsync(
-        Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request, CancellationToken token)
+    /// <summary>在乐观并发保护下变更定义启停或归档状态。</summary>
+    /// <param name="id">工作流定义标识。</param>
+    /// <param name="request">目标状态与期望版本。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>更新后的定义投影，或稳定业务错误。</returns>
+    public async Task<Result<WorkflowDefinitionResponse>> SetStatusAsync(
+        Guid id,
+        SetWorkflowDefinitionStatusRequest request,
+        CancellationToken cancellationToken = default)
     {
-        if (request.ExpectedRevision < 1)
+        if (!WorkflowDefinitionLifecycleRules.IsKnownStatusKey(request.StatusKey) || request.ExpectedVersion < 1)
         {
             return Invalid<WorkflowDefinitionResponse>();
         }
 
         var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var definition = await FindDefinitionAsync(id, scope, cancellationToken).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return NotFound<WorkflowDefinitionResponse>();
+        }
+
+        if (definition.StatusKey == WorkflowDefinitionStatusKeys.Archived)
+        {
+            return Failure<WorkflowDefinitionResponse>(WorkflowErrorCodes.DefinitionArchived, ErrorType.Conflict);
+        }
+
+        if (!WorkflowDefinitionLifecycleRules.CanTransition(definition.StatusKey, request.StatusKey))
+        {
+            return Failure<WorkflowDefinitionResponse>(WorkflowErrorCodes.DefinitionStatusInvalid, ErrorType.Validation);
+        }
+
+        if (definition.Version != request.ExpectedVersion)
+        {
+            return RevisionConflict<WorkflowDefinitionResponse>();
+        }
+
+        var affected = await commandExecutor.ExecuteAsync(
+            WorkflowSql.UpdateDefinitionStatus,
+            Parameters(("Id", id), ("TenantScopeKey", scope.TenantScopeKey),
+                ("StatusKey", request.StatusKey), ("UpdatedAtUtc", clock.UtcNow),
+                ("ExpectedVersion", request.ExpectedVersion)),
+            cancellationToken).ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return RevisionConflict<WorkflowDefinitionResponse>();
+        }
+
+        return await GetAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>删除未被运行实例引用的不可变定义版本。</summary>
+    /// <param name="versionId">待删除定义版本标识。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>删除成功或稳定业务错误。</returns>
+    public async Task<Result<bool>> DeleteVersionAsync(
+        Guid versionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (versionId == Guid.Empty)
+        {
+            return Failure<bool>(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var version = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowDefinitionVersionRecord>(
+                WorkflowSql.FindDefinitionVersionById,
+                Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (version is null)
+        {
+            return Failure<bool>(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        var definition = await FindDefinitionAsync(version.DefinitionId, scope, cancellationToken).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return Failure<bool>(WorkflowErrorCodes.DefinitionNotFound, ErrorType.NotFound);
+        }
+
+        var runningCount = await queryExecutor.QuerySingleOrDefaultAsync<int>(
+                WorkflowSql.CountRunningInstancesByDefinitionVersion,
+                Parameters(("DefinitionVersionId", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (runningCount > 0)
+        {
+            return Failure<bool>(WorkflowErrorCodes.VersionInUse, ErrorType.Conflict);
+        }
+
+        var remainingVersions = (await queryExecutor.QueryAsync<WorkflowDefinitionVersionRecord>(
+                WorkflowSql.ListDefinitionVersions,
+                Parameters(("DefinitionId", version.DefinitionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken)
+            .ConfigureAwait(false))
+            .Where(item => item.Id != versionId)
+            .ToArray();
+        var nextLatestVersionId = remainingVersions.MaxBy(item => item.VersionNumber)?.Id;
+
+        return await transaction.ExecuteResultAsync(async token =>
+        {
+            var affected = await commandExecutor.ExecuteAsync(
+                WorkflowSql.DeleteDefinitionVersion,
+                Parameters(("Id", versionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                token).ConfigureAwait(false);
+            if (affected != 1)
+            {
+                return Failure<bool>(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+            }
+
+            if (definition.LatestPublishedVersionId == versionId)
+            {
+                await commandExecutor.ExecuteAsync(
+                    WorkflowSql.SetLatestDefinitionVersion,
+                    Parameters(("Id", definition.Id), ("TenantScopeKey", scope.TenantScopeKey),
+                        ("VersionId", nextLatestVersionId), ("UpdatedAtUtc", clock.UtcNow)),
+                    token).ConfigureAwait(false);
+            }
+
+            return Result<bool>.Success(true);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<WorkflowDefinitionResponse>> UpdateDraftCoreAsync(
+        Guid id, Guid actorUserId, UpdateWorkflowDefinitionDraftRequest request, CancellationToken token)
+    {
+        if (request.ExpectedRevision < 1 || !WorkflowBusinessTitleRules.IsValidTemplate(request.BusinessTitleTemplate))
+        {
+            return Invalid<WorkflowDefinitionResponse>();
+        }
+
+        var template = WorkflowBusinessTitleRules.NormalizeTemplate(request.BusinessTitleTemplate);
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var definition = await FindDefinitionAsync(id, scope, token).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return NotFound<WorkflowDefinitionResponse>();
+        }
+
+        if (!WorkflowDefinitionLifecycleRules.AllowsDraftMutation(definition.StatusKey))
+        {
+            return Failure<WorkflowDefinitionResponse>(WorkflowErrorCodes.DefinitionArchived, ErrorType.Conflict);
+        }
+
         var json = Serialize(request.Draft);
         var affected = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateDefinitionDraft,
@@ -185,6 +326,11 @@ internal sealed class WorkflowDefinitionManagementService(
         {
             return await ResolveMutationFailureAsync<WorkflowDefinitionResponse>(id, scope, token).ConfigureAwait(false);
         }
+
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.UpdateDefinitionBusinessTitleTemplate,
+            Parameters(("Id", id), ("TenantScopeKey", scope.TenantScopeKey),
+                ("BusinessTitleTemplate", template), ("UpdatedAtUtc", clock.UtcNow)), token).ConfigureAwait(false);
 
         return await GetAsync(id, token).ConfigureAwait(false);
     }
@@ -204,6 +350,13 @@ internal sealed class WorkflowDefinitionManagementService(
             return NotFound<WorkflowDefinitionVersionResponse>();
         }
 
+        if (!WorkflowDefinitionLifecycleRules.AllowsPublish(definition.StatusKey))
+        {
+            return definition.StatusKey == WorkflowDefinitionStatusKeys.Archived
+                ? Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionArchived, ErrorType.Conflict)
+                : Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.DefinitionDisabled, ErrorType.Conflict);
+        }
+
         var draft = await FindDraftAsync(id, scope, token).ConfigureAwait(false);
         if (draft is null || draft.DraftRevision != request.ExpectedRevision)
         {
@@ -216,6 +369,23 @@ internal sealed class WorkflowDefinitionManagementService(
         if (formVersion is null)
         {
             return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.VersionNotPublished, ErrorType.Validation);
+        }
+
+        var formDefinition = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
+                WorkflowSql.FindFormDefinitionById,
+                Parameters(("Id", formVersion.FormDefinitionId), ("TenantScopeKey", scope.TenantScopeKey)),
+                token)
+            .ConfigureAwait(false);
+        if (formDefinition is null)
+        {
+            return Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.FormNotFound, ErrorType.Validation);
+        }
+
+        if (!WorkflowFormLifecycleRules.AllowsPublish(formDefinition.StatusKey))
+        {
+            return formDefinition.StatusKey == WorkflowDefinitionStatusKeys.Archived
+                ? Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.FormArchived, ErrorType.Conflict)
+                : Failure<WorkflowDefinitionVersionResponse>(WorkflowErrorCodes.FormDisabled, ErrorType.Conflict);
         }
 
         var model = Deserialize(draft.DraftJson);
@@ -303,6 +473,7 @@ internal sealed class WorkflowDefinitionManagementService(
                 actorUserId,
                 request,
                 scope,
+                definition,
                 model,
                 compilation.Value!,
                 transactionToken),
@@ -323,6 +494,7 @@ internal sealed class WorkflowDefinitionManagementService(
         Guid actorUserId,
         PublishWorkflowDefinitionRequest request,
         WorkflowManagementScope scope,
+        WorkflowDefinitionRecord definition,
         WorkflowDefinitionDraft model,
         WorkflowCompiledArtifact artifact,
         CancellationToken token)
@@ -349,6 +521,7 @@ internal sealed class WorkflowDefinitionManagementService(
                 Parameters(("Id", versionId), ("DefinitionId", id), ("FormVersionId", request.FormVersionId),
                     ("VersionNumber", number), ("SchemaVersion", model!.SchemaVersion),
                     ("CanonicalJson", artifact.CanonicalJson), ("ContentHash", artifact.ContentHash),
+                    ("BusinessTitleTemplate", definition.BusinessTitleTemplate),
                     ("PublishedById", actorUserId), ("PublishedAtUtc", now)), token).ConfigureAwait(false);
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -377,7 +550,8 @@ internal sealed class WorkflowDefinitionManagementService(
 
         return Result<WorkflowDefinitionVersionResponse>.Success(new(
             versionId, id, request.FormVersionId, number, model.SchemaVersion,
-            artifact.CanonicalJson, artifact.ContentHash, actorUserId, now));
+            artifact.CanonicalJson, artifact.ContentHash, definition.BusinessTitleTemplate,
+            actorUserId, now));
     }
 
     private Task<WorkflowDefinitionRecord?> FindDefinitionAsync(Guid id, WorkflowManagementScope scope, CancellationToken token) =>
@@ -394,8 +568,8 @@ internal sealed class WorkflowDefinitionManagementService(
         var model = Deserialize(draft.DraftJson);
         return model is null ? null : new(
             definition.Id, definition.DefinitionKey, model, draft.DraftRevision,
-            definition.LatestPublishedVersionId, definition.Version,
-            definition.CreatedAtUtc, definition.UpdatedAtUtc);
+            definition.LatestPublishedVersionId, definition.BusinessTitleTemplate, definition.StatusKey,
+            definition.Version, definition.CreatedAtUtc, definition.UpdatedAtUtc);
     }
 
     private async Task<Result<T>> ResolveMutationFailureAsync<T>(Guid id, WorkflowManagementScope scope, CancellationToken token) =>
@@ -403,7 +577,7 @@ internal sealed class WorkflowDefinitionManagementService(
 
     private static WorkflowDefinitionVersionResponse Map(WorkflowDefinitionVersionRecord row) =>
         new(row.Id, row.DefinitionId, row.FormVersionId, row.VersionNumber, row.SchemaVersion,
-            row.CanonicalJson, row.ContentHash, row.PublishedById, row.PublishedAtUtc);
+            row.CanonicalJson, row.ContentHash, row.BusinessTitleTemplate, row.PublishedById, row.PublishedAtUtc);
 
     private static string Serialize(WorkflowDefinitionDraft draft) =>
         JsonSerializer.Serialize(draft, WorkflowJsonSerializerContext.Default.WorkflowDefinitionDraft);

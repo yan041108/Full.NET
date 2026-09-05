@@ -1,11 +1,14 @@
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Workflow.Domain;
+using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Features.ManageMyTodos;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -119,6 +122,44 @@ internal static class WorkflowTodoManagementTestDependencies
             .Returns(call => (call.Arg<IReadOnlyCollection<Guid>>() ?? Array.Empty<Guid>())
                 .ToDictionary(unitId => unitId, _ => Guid.CreateVersion7()));
         return new WorkflowAssigneePublishValidator(hostUsers, tenantUsers, roleDirectory, unitDirectory);
+    }
+
+    /// <summary>创建默认放行的附件协调器，供实例与待办测试复用。</summary>
+    internal static WorkflowFormAttachmentCoordinator CreateAttachmentCoordinator()
+    {
+        var claimService = Substitute.For<IHostFileReferenceClaimService>();
+        claimService.ClaimAsync(Arg.Any<HostFileReferenceClaimRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Result<HostFileReferenceClaimResult>.Success(
+                new HostFileReferenceClaimResult(
+                    Guid.CreateVersion7(),
+                    HostFileReferenceClaimStates.Active,
+                    new HostFileReference(Guid.CreateVersion7(), 1, null))));
+        claimService.ConfirmAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<HostFileReferenceClaimResult>.Success(
+                new HostFileReferenceClaimResult(
+                    Guid.CreateVersion7(),
+                    HostFileReferenceClaimStates.Active,
+                    new HostFileReference(Guid.CreateVersion7(), 1, null))));
+        claimService.ReleaseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(true));
+
+        var descriptorReader = Substitute.For<IHostFileDescriptorReader>();
+        descriptorReader.GetReadyDescriptorAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(new HostFileDescriptor(
+                Guid.CreateVersion7(),
+                "evidence.pdf",
+                "application/pdf",
+                1024,
+                null,
+                Guid.CreateVersion7()));
+
+        return new WorkflowFormAttachmentCoordinator(
+            claimService,
+            descriptorReader,
+            Substitute.For<IQueryExecutor>(),
+            Substitute.For<ICommandExecutor>(),
+            Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>());
     }
 
     private sealed class PassthroughTransaction : ICommandTransaction

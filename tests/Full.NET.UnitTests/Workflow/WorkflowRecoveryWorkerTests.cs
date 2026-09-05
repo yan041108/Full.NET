@@ -327,7 +327,7 @@ public sealed class WorkflowRecoveryWorkerTests
     private static WorkflowInstanceRecord CreateInstance(Guid instanceId, string statusKey, long revision) =>
         new(
             instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-            "leave", "LEAVE-001", statusKey, revision, Guid.CreateVersion7(), DateTimeOffset.UtcNow,
+            "leave", "LEAVE-001", null, statusKey, revision, Guid.CreateVersion7(), DateTimeOffset.UtcNow,
             null, null, null, null, null, null);
 
     private static async Task AssertEndpointPermissionAsync(string route, string permission)

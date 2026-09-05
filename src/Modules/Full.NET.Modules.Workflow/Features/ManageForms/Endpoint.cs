@@ -91,6 +91,49 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsPublish));
+
+        group.MapPost("/{formId:guid}/status", async (Guid formId,
+            SetWorkflowFormStatusRequest request, WorkflowFormManagementService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.SetStatusAsync(formId, request, token).ConfigureAwait(false), context))
+        .WithName("workflowSetFormStatus")
+        .Produces<WorkflowFormResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsManageStatus));
+
+        group.MapGet("/{formId:guid}/versions", async (Guid formId,
+            WorkflowFormManagementService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.ListVersionsAsync(formId, token).ConfigureAwait(false), context))
+        .WithName("workflowListFormVersions")
+        .Produces<IReadOnlyList<WorkflowFormVersionResponse>>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsRead));
+    }
+
+    public static void MapVersionMutations(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapDelete("/api/v1/workflow/form-versions/{versionId:guid}", async (
+            Guid versionId, WorkflowFormManagementService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken token) =>
+        {
+            var result = await service.DeleteVersionAsync(versionId, token).ConfigureAwait(false);
+            return result.IsSuccess ? Results.NoContent() : mapper.Map(result, context);
+        })
+        .WithName("workflowDeleteFormVersion")
+        .WithTags("WorkflowForms")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.FormsDeleteVersion));
     }
 
     public static void MapVersion(IEndpointRouteBuilder endpoints)

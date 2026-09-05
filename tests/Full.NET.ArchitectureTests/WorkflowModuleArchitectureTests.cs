@@ -31,6 +31,7 @@ public sealed class WorkflowModuleArchitectureTests
                 "Full.NET.Data.Dapper",
                 "Full.NET.Hosting",
                 "Full.NET.Modularity",
+                "Full.NET.Modules.Files.Contracts",
                 "Full.NET.Modules.Identity.Contracts",
                 "Full.NET.Modules.Organization.Contracts",
                 "Full.NET.Modules.Workflow.Contracts",

@@ -56,4 +56,10 @@ public static class DataApprovalScenarioCatalog
         return entry is not null &&
                string.Equals(entry.ScopeKey, scopeKey, StringComparison.Ordinal);
     }
+
+    /// <summary>为工作流启动生成稳定业务标题快照。</summary>
+    /// <param name="scenarioKey">场景键。</param>
+    /// <param name="targetEntityId">被变更实体标识。</param>
+    public static string FormatWorkflowBusinessTitle(string scenarioKey, Guid targetEntityId) =>
+        $"{scenarioKey} · {targetEntityId:D}";
 }

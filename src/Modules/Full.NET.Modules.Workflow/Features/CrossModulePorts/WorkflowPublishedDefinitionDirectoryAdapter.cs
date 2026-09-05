@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Persistence;
 
@@ -29,6 +30,11 @@ internal sealed class WorkflowPublishedDefinitionDirectoryAdapter(
                 ("DefinitionKey", definitionKey.Trim())),
             cancellationToken).ConfigureAwait(false);
         if (definition?.LatestPublishedVersionId is not { } versionId)
+        {
+            return null;
+        }
+
+        if (!WorkflowDefinitionLifecycleRules.AllowsNewInstance(definition.StatusKey))
         {
             return null;
         }
@@ -79,6 +85,11 @@ internal sealed class WorkflowPublishedDefinitionDirectoryAdapter(
                 ("TenantScopeKey", scope.TenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
         if (definition is null)
+        {
+            return null;
+        }
+
+        if (!WorkflowDefinitionLifecycleRules.AllowsNewInstance(definition.StatusKey))
         {
             return null;
         }

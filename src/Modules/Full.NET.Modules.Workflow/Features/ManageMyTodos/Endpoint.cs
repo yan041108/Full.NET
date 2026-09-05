@@ -14,7 +14,13 @@ internal static class Endpoint
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/v1/workflow/todos/mine", async (
-            WorkflowTodoManagementService service,
+            int? page,
+            int? pageSize,
+            string? definitionKey,
+            string? businessType,
+            DateTimeOffset? arrivedFromUtc,
+            DateTimeOffset? arrivedToUtc,
+            WorkflowTodoQueryService service,
             IApiResultMapper mapper,
             HttpContext context,
             CancellationToken token) =>
@@ -24,11 +30,63 @@ internal static class Endpoint
                 return Results.Unauthorized();
             }
 
-            return mapper.Map(await service.ListMineAsync(actorUserId, token).ConfigureAwait(false), context);
+            return mapper.Map(
+                await service.ListPendingAsync(
+                        actorUserId,
+                        page ?? 1,
+                        pageSize ?? 20,
+                        definitionKey,
+                        businessType,
+                        arrivedFromUtc,
+                        arrivedToUtc,
+                        token)
+                    .ConfigureAwait(false),
+                context);
         })
         .WithName("workflowListMyTodos")
         .WithTags("WorkflowTodos")
-        .Produces<IReadOnlyList<WorkflowTodoResponse>>()
+        .Produces<PagedResult<WorkflowTodoListItemResponse>>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosRead));
+
+        endpoints.MapGet("/api/v1/workflow/todos/mine/history", async (
+            int? page,
+            int? pageSize,
+            string? definitionKey,
+            string? businessType,
+            string? resultActionKey,
+            DateTimeOffset? completedFromUtc,
+            DateTimeOffset? completedToUtc,
+            WorkflowTodoQueryService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.ListHistoryAsync(
+                        actorUserId,
+                        page ?? 1,
+                        pageSize ?? 20,
+                        definitionKey,
+                        businessType,
+                        resultActionKey,
+                        completedFromUtc,
+                        completedToUtc,
+                        token)
+                    .ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowListMyTodoHistory")
+        .WithTags("WorkflowTodos")
+        .Produces<PagedResult<WorkflowTodoListItemResponse>>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosRead));

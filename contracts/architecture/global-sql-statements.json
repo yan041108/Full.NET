@@ -2258,6 +2258,50 @@
       ]
     },
     {
+      "statementName": "workflow.definition.update_business_title_template",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.UpdateDefinitionBusinessTitleTemplate",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；业务标题模板草稿更新必须先由可信上下文构造 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition.update_status",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.UpdateDefinitionStatus",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；定义启停/归档必须先由可信上下文构造 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.count_running_by_definition_version",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CountRunningInstancesByDefinitionVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除定义版本前必须按可信 TenantScopeKey 统计仍占用该版本的运行或暂停实例。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.delete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.DeleteDefinitionVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除定义版本必须通过与父定义同一 TenantScopeKey 的 JOIN 保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
       "statementName": "workflow.definition_draft.claim_publish",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ClaimDefinitionDraftForPublish",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
@@ -2390,6 +2434,61 @@
       ]
     },
     {
+      "statementName": "workflow.form_definition.update_status",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.UpdateFormStatus",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；表单启停/归档必须先由可信上下文构造 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_version.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListFormVersions",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出表单版本必须通过父定义同一 TenantScopeKey 的 JOIN 保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.count_running_by_form_version",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CountRunningInstancesByFormVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除表单版本前必须按可信 TenantScopeKey 统计仍占用该版本的运行或暂停实例。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_version.delete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.DeleteFormVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除表单版本必须通过与父定义同一 TenantScopeKey 的 JOIN 保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.set_latest_version",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.SetLatestFormVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；回写最新发布版本必须先由可信上下文构造 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
       "statementName": "workflow.definition.find_by_key",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindDefinitionByKey",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
@@ -2458,6 +2557,39 @@
     {
       "statementName": "workflow.instance.find_active_by_business_key",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveInstanceByBusinessKey",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.count_filtered",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CountInstancesFiltered",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.page_filtered.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PageInstancesFilteredSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.page_filtered.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PageInstancesFilteredMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
@@ -2632,6 +2764,61 @@
       ]
     },
     {
+      "statementName": "workflow.form_submission_attachment.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件投影行必须携带可信 TenantScopeKey，并与提交/实例父聚合在同一本地事务中写入。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission_attachment",
+        "TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission_attachment.delete_by_submission_field_file",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.DeleteBySubmissionFieldFile",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件投影删除必须绑定提交标识，避免跨提交误删引用。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission_attachment",
+        "SubmissionId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission_attachment.exists_for_instance_file",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ExistsForInstanceFile",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运行时附件读取授权必须同时校验实例 TenantScopeKey 与投影存在性。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission_attachment",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission_attachment.exists_for_submission_file",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ExistsForSubmissionFile",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件复用校验必须限定在同一提交标识内，避免跨提交引用他人上传文件。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission_attachment",
+        "SubmissionId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission_attachment.exists_for_probe",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowFormSubmissionAttachmentSql.ExistsForProbe",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowFormSubmissionAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Files claim 对账探测必须按提交与文件精确匹配投影行。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission_attachment",
+        "SubmissionId"
+      ]
+    },
+    {
       "statementName": "workflow.action_record.insert",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertActionRecord",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
@@ -2700,6 +2887,72 @@
     {
       "statementName": "workflow.todo.list_mine.mysql",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListMineMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.count_pending_filtered",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CountPendingTodosFiltered",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.page_pending_filtered.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PagePendingTodosFilteredSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.page_pending_filtered.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PagePendingTodosFilteredMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.count_history_filtered",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CountHistoryTodosFiltered",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.page_history_filtered.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PageHistoryTodosFilteredSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.page_history_filtered.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PageHistoryTodosFilteredMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
@@ -3394,6 +3647,30 @@
     },
     {
       "statementName": "data_approval.request.link_workflow", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.LinkWorkflowInstance", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "关联工作流实例必须同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.record_recovery_failure", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.RecordRecoveryFailure", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "记录工作流关联失败必须同时校验当前可信作用域与乐观并发版本，并递增恢复尝试次数。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "RecoveryAttemptCount = RecoveryAttemptCount + 1"]
+    },
+    {
+      "statementName": "data_approval.request.list_pending_recovery.sqlserver", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingRecoverySqlServer", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待恢复请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'pending'", "TOP (@BatchSize)"]
+    },
+    {
+      "statementName": "data_approval.request.list_pending_recovery.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingRecoveryMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待恢复请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'pending'", "LIMIT @BatchSize"]
+    },
+    {
+      "statementName": "data_approval.request.mark_application_pending", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.MarkApplicationPending", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "进入批准后业务应用阶段必须同时校验当前可信作用域、in_review 状态与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "StatusKey = @ExpectedStatusKey"]
+    },
+    {
+      "statementName": "data_approval.request.record_application_failure", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.RecordApplicationFailure", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "记录业务应用失败必须同时校验当前可信作用域、in_review 状态与乐观并发版本，并递增应用尝试次数。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "ApplicationAttemptCount = ApplicationAttemptCount + 1"]
+    },
+    {
+      "statementName": "data_approval.request.complete_approved_application", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.CompleteApprovedApplication", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "业务应用成功后才能把请求收敛为 approved，并同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "StatusKey = @ExpectedStatusKey"]
+    },
+    {
+      "statementName": "data_approval.request.list_pending_application.sqlserver", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingApplicationSqlServer", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待应用请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'in_review'", "TOP (@BatchSize)"]
+    },
+    {
+      "statementName": "data_approval.request.list_pending_application.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingApplicationMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待应用请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'in_review'", "LIMIT @BatchSize"]
     },
     {
       "statementName": "data_approval.request.page.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "MySQL 审批请求分页只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]

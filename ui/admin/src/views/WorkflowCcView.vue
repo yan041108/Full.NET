@@ -5,11 +5,17 @@ import {
   isFullNetProblemDetails,
   type FullNetProblemDetails
 } from '@fullnet/client-contracts';
+import { useRouter } from 'vue-router';
 import { listMyWorkflowCc, markWorkflowCcRead, type WorkflowCcResponse } from '../api/workflow-cc';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
+import {
+  findWorkflowBusinessDetailRoute,
+  formatWorkflowBusinessLabel
+} from '../workflow/workflowBusinessDetail';
 
 const { t } = useAdminI18n();
+const router = useRouter();
 const records = ref<WorkflowCcResponse[]>([]);
 const loading = ref(false);
 const actingId = ref<string>();
@@ -60,6 +66,15 @@ function toProblem(error: unknown): FullNetProblemDetails {
     ? error
     : { status: 500, code: 'client.workflow_cc_failed', title: t('workflowCc.operationFailed') };
 }
+
+/** 通过可信白名单路由打开业务单据详情。 */
+function openBusinessDetail(businessType: string, businessId: string): void {
+  const route = findWorkflowBusinessDetailRoute(businessType);
+  if (route === undefined) {
+    return;
+  }
+  void router.push({ name: route.routeName, query: { [route.idQueryKey]: businessId } });
+}
 </script>
 
 <template>
@@ -91,7 +106,18 @@ function toProblem(error: unknown): FullNetProblemDetails {
           </thead>
           <tbody>
             <tr v-for="record in records" :key="record.id" :class="{ 'is-unread': record.readAtUtc === null }">
-              <td><strong translate="no">{{ record.businessType }}</strong><code translate="no">{{ record.businessId }}</code></td>
+              <td>
+                <strong translate="no">{{ formatWorkflowBusinessLabel(record.businessTitle, record.businessType, record.businessId) }}</strong>
+                <el-button
+                  v-if="findWorkflowBusinessDetailRoute(record.businessType)"
+                  link
+                  type="primary"
+                  data-testid="workflow-cc-view-document"
+                  @click="openBusinessDetail(record.businessType, record.businessId)"
+                >
+                  {{ t('workflow.business.viewDocument') }}
+                </el-button>
+              </td>
               <td><code translate="no">{{ record.nodeKey }}</code></td>
               <td><time :datetime="record.createdAtUtc">{{ record.createdAtUtc }}</time></td>
               <td><el-tag :type="record.readAtUtc === null ? 'warning' : 'info'">{{ t(record.readAtUtc === null ? 'workflowCc.unread' : 'workflowCc.read') }}</el-tag></td>

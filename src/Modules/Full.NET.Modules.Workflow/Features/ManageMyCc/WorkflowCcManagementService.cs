@@ -110,6 +110,7 @@ internal sealed class WorkflowCcManagementService(
             record.NodeKey,
             record.BusinessType,
             record.BusinessId,
+            record.BusinessTitle,
             record.CreatedAtUtc,
             record.ReadAtUtc);
 

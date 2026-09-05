@@ -34,6 +34,7 @@ internal sealed class WorkflowAssigneePublishValidator(
                     .ConfigureAwait(false);
             case WorkflowAssigneePolicy.Initiator:
             case WorkflowAssigneePolicy.InitiatorPrimaryUnitLeader:
+            case WorkflowAssigneePolicy.InitiatorAncestorUnitLeader:
                 return scope.TenantId.HasValue || source.ResolverKindKey == WorkflowAssigneePolicy.Initiator;
             case WorkflowAssigneePolicy.RoleMembers:
                 return await ValidateRolesAsync(source.RoleIds, cancellationToken).ConfigureAwait(false);

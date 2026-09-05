@@ -74,6 +74,40 @@ doc.paths['/api/v1/data-approvals/requests/{requestId}/cancel'] = {
   })
 };
 
+doc.paths['/api/v1/data-approvals/requests/{requestId}/retry'] = {
+  post: withSecurity({
+    operationId: 'dataApprovalsRetryRequest',
+    parameters: [{ in: 'path', name: 'requestId', required: true, schema: { type: 'string', format: 'uuid' } }],
+    requestBody: { required: true, content: { 'application/json': { schema: ref('RetryDataApprovalRequestBody') } } },
+    responses: {
+      200: { description: 'OK', content: { 'application/json': { schema: ref('DataApprovalRequestResponse') } } },
+      400: { description: 'Bad Request', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      404: { description: 'Not Found', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      409: { description: 'Conflict', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['DataApprovalRequests']
+  })
+};
+
+doc.paths['/api/v1/data-approvals/requests/{requestId}/retry-apply'] = {
+  post: withSecurity({
+    operationId: 'dataApprovalsRetryApplyRequest',
+    parameters: [{ in: 'path', name: 'requestId', required: true, schema: { type: 'string', format: 'uuid' } }],
+    requestBody: { required: true, content: { 'application/json': { schema: ref('RetryDataApprovalRequestBody') } } },
+    responses: {
+      200: { description: 'OK', content: { 'application/json': { schema: ref('DataApprovalRequestResponse') } } },
+      400: { description: 'Bad Request', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      404: { description: 'Not Found', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      409: { description: 'Conflict', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['DataApprovalRequests']
+  })
+};
+
 doc.components.schemas.CreateDataApprovalRequestBody = {
   type: 'object',
   required: ['scenarioKey', 'targetEntityId', 'proposedChangeJson', 'idempotencyKey'],
@@ -111,9 +145,14 @@ doc.components.schemas.CancelDataApprovalRequestBody = {
   required: ['idempotencyKey'],
   properties: { idempotencyKey: { type: 'string' } }
 };
+doc.components.schemas.RetryDataApprovalRequestBody = {
+  type: 'object',
+  required: ['version'],
+  properties: { version: { type: 'integer', format: 'int64' } }
+};
 doc.components.schemas.DataApprovalRequestResponse = {
   type: 'object',
-  required: ['id', 'scenarioKey', 'targetEntityId', 'statusKey', 'afterSnapshotJson', 'workflowDefinitionVersionId', 'submittedByUserId', 'submittedAtUtc', 'version'],
+  required: ['id', 'scenarioKey', 'targetEntityId', 'statusKey', 'afterSnapshotJson', 'workflowDefinitionVersionId', 'submittedByUserId', 'submittedAtUtc', 'recoveryStatusKey', 'recoveryAttemptCount', 'applicationStatusKey', 'applicationAttemptCount', 'version'],
   properties: {
     id: { type: 'string', format: 'uuid' },
     scenarioKey: { type: 'string' },
@@ -127,6 +166,16 @@ doc.components.schemas.DataApprovalRequestResponse = {
     submittedByUserId: { type: 'string', format: 'uuid' },
     submittedAtUtc: { type: 'string', format: 'date-time' },
     resolvedAtUtc: { type: ['string', 'null'], format: 'date-time' },
+    recoveryStatusKey: { type: 'string' },
+    lastFailureCode: { type: ['string', 'null'] },
+    lastFailureMessage: { type: ['string', 'null'] },
+    lastRecoveryAttemptAtUtc: { type: ['string', 'null'], format: 'date-time' },
+    recoveryAttemptCount: { type: 'integer', format: 'int32' },
+    applicationStatusKey: { type: 'string' },
+    lastApplicationFailureCode: { type: ['string', 'null'] },
+    lastApplicationFailureMessage: { type: ['string', 'null'] },
+    lastApplicationAttemptAtUtc: { type: ['string', 'null'], format: 'date-time' },
+    applicationAttemptCount: { type: 'integer', format: 'int32' },
     version: { type: 'integer', format: 'int64' }
   }
 };
@@ -189,6 +238,8 @@ const entries = [
   'dataApprovalsCreateRequest',
   'dataApprovalsGetRequest',
   'dataApprovalsCancelRequest',
+  'dataApprovalsRetryRequest',
+  'dataApprovalsRetryApplyRequest',
   'dataApprovalsListScenarios',
   'dataApprovalsGetScenario',
   'dataApprovalsUpdateScenarioBinding'

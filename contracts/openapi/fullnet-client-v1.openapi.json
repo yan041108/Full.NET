@@ -20659,6 +20659,95 @@
         ]
       }
     },
+    "/api/v1/workflow/definitions/{definitionId}/status": {
+      "post": {
+        "operationId": "workflowSetDefinitionStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "definitionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkflowDefinitionStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinitionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
     "/api/v1/workflow/definitions/{definitionId}/publish": {
       "post": {
         "operationId": "workflowPublishDefinition",
@@ -20830,6 +20919,78 @@
         ]
       }
     },
+    "/api/v1/workflow/definition-versions/{versionId}": {
+      "delete": {
+        "operationId": "workflowDeleteDefinitionVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
     "/api/v1/workflow/definitions/node-type-catalog": {
       "get": {
         "operationId": "workflowGetNodeTypeCatalog",
@@ -20843,6 +21004,74 @@
               }
             },
             "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowDefinitions"
+        ]
+      }
+    },
+    "/api/v1/workflow/definitions/assignee-preview": {
+      "post": {
+        "operationId": "workflowPreviewAssignees",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewWorkflowAssigneeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowAssigneePreviewResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -21006,6 +21235,76 @@
               }
             },
             "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowForms"
+        ]
+      },
+      "delete": {
+        "operationId": "workflowDeleteFormVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "security": [
@@ -21405,6 +21704,177 @@
         ]
       }
     },
+    "/api/v1/workflow/forms/{formId}/status": {
+      "post": {
+        "operationId": "workflowSetFormStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "formId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkflowFormStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowFormResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowForms"
+        ]
+      }
+    },
+    "/api/v1/workflow/forms/{formId}/versions": {
+      "get": {
+        "operationId": "workflowListFormVersions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "formId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowFormVersionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowForms"
+        ]
+      }
+    },
     "/api/v1/workflow/forms/component-catalog": {
       "get": {
         "operationId": "workflowGetFormComponentCatalog",
@@ -21454,6 +21924,116 @@
       }
     },
     "/api/v1/workflow/instances": {
+      "get": {
+        "operationId": "workflowListInstances",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statusKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "definitionKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "definitionVersionId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startedFromUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startedToUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfWorkflowInstanceListItemResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowInstances"
+        ]
+      },
       "post": {
         "operationId": "workflowStartInstance",
         "requestBody": {
@@ -21516,6 +22096,118 @@
               }
             },
             "description": "Conflict"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowInstances"
+        ]
+      }
+    },
+    "/api/v1/workflow/instances/mine": {
+      "get": {
+        "operationId": "workflowListMyInstances",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "statusKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "definitionKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "definitionVersionId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startedFromUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startedToUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfWorkflowInstanceListItemResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
           }
         },
         "security": [
@@ -23092,19 +23784,183 @@
     "/api/v1/workflow/todos/mine": {
       "get": {
         "operationId": "workflowListMyTodos",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "definitionKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "businessType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "arrivedFromUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "arrivedToUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/WorkflowTodoResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/PagedResultOfWorkflowTodoListItemResponse"
                 }
               }
             },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "WorkflowTodos"
+        ]
+      }
+    },
+    "/api/v1/workflow/todos/mine/history": {
+      "get": {
+        "operationId": "workflowListMyTodoHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "definitionKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "businessType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resultActionKey",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "completedFromUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "completedToUtc",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfWorkflowTodoListItemResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -23854,6 +24710,204 @@
         },
         "tags": [
           "SerialNumbersHostRules"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/data-approvals/requests/{requestId}/retry": {
+      "post": {
+        "operationId": "dataApprovalsRetryRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryDataApprovalRequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataApprovalRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DataApprovalRequests"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/data-approvals/requests/{requestId}/retry-apply": {
+      "post": {
+        "operationId": "dataApprovalsRetryApplyRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryDataApprovalRequestBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataApprovalRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "DataApprovalRequests"
         ],
         "security": [
           {
@@ -26393,6 +27447,12 @@
       },
       "CreateWorkflowDefinitionRequest": {
         "properties": {
+          "businessTitleTemplate": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "definitionKey": {
             "type": "string"
           },
@@ -32587,6 +33647,88 @@
         ],
         "type": "object"
       },
+      "PagedResultOfWorkflowInstanceListItemResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowInstanceListItemResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
+      "PagedResultOfWorkflowTodoListItemResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTodoListItemResponse"
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "pageSize": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "type": "object"
+      },
       "PagedResultOfWorkflowRecoveryTaskResponse": {
         "properties": {
           "items": {
@@ -33436,6 +34578,12 @@
         "properties": {
           "businessId": {
             "type": "string"
+          },
+          "businessTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "businessType": {
             "type": "string"
@@ -34809,6 +35957,12 @@
       },
       "UpdateWorkflowDefinitionDraftRequest": {
         "properties": {
+          "businessTitleTemplate": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "draft": {
             "$ref": "#/components/schemas/WorkflowDefinitionDraft"
           },
@@ -34879,6 +36033,12 @@
         "properties": {
           "businessId": {
             "type": "string"
+          },
+          "businessTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "businessType": {
             "type": "string"
@@ -34951,6 +36111,12 @@
       },
       "WorkflowDefinitionResponse": {
         "properties": {
+          "businessTitleTemplate": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "createdAtUtc": {
             "format": "date-time",
             "type": "string"
@@ -34980,6 +36146,9 @@
               "string"
             ]
           },
+          "statusKey": {
+            "type": "string"
+          },
           "updatedAtUtc": {
             "format": "date-time",
             "type": [
@@ -35002,14 +36171,41 @@
           "draft",
           "draftRevision",
           "latestPublishedVersionId",
+          "statusKey",
           "version",
           "createdAtUtc",
           "updatedAtUtc"
         ],
         "type": "object"
       },
+      "SetWorkflowDefinitionStatusRequest": {
+        "properties": {
+          "expectedVersion": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "statusKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusKey",
+          "expectedVersion"
+        ],
+        "type": "object"
+      },
       "WorkflowDefinitionVersionResponse": {
         "properties": {
+          "businessTitleTemplate": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "canonicalJson": {
             "type": "string"
           },
@@ -35237,6 +36433,17 @@
               "string"
             ]
           },
+          "statusKey": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
           "updatedAtUtc": {
             "format": "date-time",
             "type": [
@@ -35251,8 +36458,30 @@
           "draft",
           "draftRevision",
           "latestPublishedVersionId",
+          "statusKey",
+          "version",
           "createdAtUtc",
           "updatedAtUtc"
+        ],
+        "type": "object"
+      },
+      "SetWorkflowFormStatusRequest": {
+        "properties": {
+          "expectedVersion": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "statusKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusKey",
+          "expectedVersion"
         ],
         "type": "object"
       },
@@ -35383,6 +36612,63 @@
         ],
         "type": "object"
       },
+      "WorkflowInstanceListItemResponse": {
+        "properties": {
+          "businessId": {
+            "type": "string"
+          },
+          "businessTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "businessType": {
+            "type": "string"
+          },
+          "completedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "definitionVersionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "startedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "startedById": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "statusKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "businessId",
+          "businessType",
+          "completedAtUtc",
+          "definitionKey",
+          "definitionVersionId",
+          "id",
+          "startedAtUtc",
+          "startedById",
+          "statusKey"
+        ],
+        "type": "object"
+      },
       "WorkflowInstanceResponse": {
         "properties": {
           "activeNodeKey": {
@@ -35415,6 +36701,12 @@
           },
           "businessId": {
             "type": "string"
+          },
+          "businessTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "businessType": {
             "type": "string"
@@ -35652,6 +36944,38 @@
         ],
         "type": "object"
       },
+      "PreviewWorkflowAssigneeRequest": {
+        "properties": {
+          "assigneePolicy": {
+            "type": "object"
+          },
+          "initiatorUserId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "assigneePolicy"
+        ],
+        "type": "object"
+      },
+      "WorkflowAssigneePreviewResponse": {
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowRecipientCandidateResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "type": "object"
+      },
       "WorkflowRecipientCandidateResponse": {
         "properties": {
           "displayName": {
@@ -35878,6 +37202,87 @@
           "approvedCount",
           "rejectedCount",
           "pendingCount"
+        ],
+        "type": "object"
+      },
+      "WorkflowTodoListItemResponse": {
+        "properties": {
+          "arrivedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "businessTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "businessType": {
+            "type": "string"
+          },
+          "completedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "instanceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "instanceStatusKey": {
+            "type": "string"
+          },
+          "nodeKey": {
+            "type": "string"
+          },
+          "resultActionKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revision": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "statusKey": {
+            "type": "string"
+          },
+          "stepId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "arrivedAtUtc",
+          "businessId",
+          "businessType",
+          "completedAtUtc",
+          "definitionKey",
+          "id",
+          "instanceId",
+          "instanceStatusKey",
+          "nodeKey",
+          "resultActionKey",
+          "revision",
+          "statusKey",
+          "stepId"
         ],
         "type": "object"
       },
@@ -36126,6 +37531,10 @@
           "workflowDefinitionVersionId",
           "submittedByUserId",
           "submittedAtUtc",
+          "recoveryStatusKey",
+          "recoveryAttemptCount",
+          "applicationStatusKey",
+          "applicationAttemptCount",
           "version"
         ],
         "properties": {
@@ -36184,6 +37593,58 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "recoveryStatusKey": {
+            "type": "string"
+          },
+          "lastFailureCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastFailureMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastRecoveryAttemptAtUtc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "recoveryAttemptCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "applicationStatusKey": {
+            "type": "string"
+          },
+          "lastApplicationFailureCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastApplicationFailureMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastApplicationAttemptAtUtc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "applicationAttemptCount": {
+            "type": "integer",
+            "format": "int32"
           },
           "version": {
             "type": "integer",
@@ -36403,6 +37864,18 @@
             "format": "uuid"
           },
           "requestVersion": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RetryDataApprovalRequestBody": {
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
             "type": "integer",
             "format": "int64"
           }

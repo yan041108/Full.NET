@@ -15,7 +15,9 @@ export const WORKFLOW_FIELD_TYPES = [
   'select',
   'integer',
   'checkbox',
-  'switch'
+  'switch',
+  'attachment',
+  'subtable'
 ] as const;
 
 export type WorkflowFieldType = typeof WORKFLOW_FIELD_TYPES[number];
@@ -42,7 +44,9 @@ const WORKFLOW_FORM_CONSTRAINT_KEYS: Readonly<Record<WorkflowFieldType, Readonly
   radio: new Set(['options']),
   checkbox: new Set(['options']),
   select: new Set(['options']),
-  switch: new Set()
+  switch: new Set(),
+  attachment: new Set(['maxCount', 'maxSizeBytes', 'allowedExtensions']),
+  subtable: new Set(['maxRows', 'columns'])
 };
 
 export interface WorkflowFormField {

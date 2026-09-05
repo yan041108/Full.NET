@@ -71,6 +71,29 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
 
+        group.MapPost("/assignee-preview", async (
+            PreviewWorkflowAssigneeRequest request,
+            [FromServices] WorkflowAssigneePreviewService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.PreviewAsync(request, actor, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowPreviewAssignees")
+        .Produces<WorkflowAssigneePreviewResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
+
         group.MapGet("/", async (WorkflowDefinitionManagementService service, IApiResultMapper mapper,
             HttpContext context, CancellationToken token) => mapper.Map(await service.ListAsync(token).ConfigureAwait(false), context))
             .WithName("workflowListDefinitions")
@@ -138,6 +161,19 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsPublish));
 
+        group.MapPost("/{definitionId:guid}/status", async (Guid definitionId,
+            SetWorkflowDefinitionStatusRequest request, WorkflowDefinitionManagementService service,
+            IApiResultMapper mapper, HttpContext context, CancellationToken token) =>
+            mapper.Map(await service.SetStatusAsync(definitionId, request, token).ConfigureAwait(false), context))
+        .WithName("workflowSetDefinitionStatus")
+        .Produces<WorkflowDefinitionResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsManageStatus));
+
         group.MapGet("/{definitionId:guid}/versions", async (Guid definitionId,
             WorkflowDefinitionManagementService service, IApiResultMapper mapper,
             HttpContext context, CancellationToken token) => mapper.Map(await service.ListVersionsAsync(definitionId, token).ConfigureAwait(false), context))
@@ -147,6 +183,27 @@ internal static class Endpoint
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsRead));
+    }
+
+    /// <summary>映射不可变工作流定义版本变更接口。</summary>
+    /// <param name="endpoints">Endpoint 路由构建器。</param>
+    public static void MapVersionMutations(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapDelete("/api/v1/workflow/definition-versions/{versionId:guid}", async (
+            Guid versionId, WorkflowDefinitionManagementService service, IApiResultMapper mapper,
+            HttpContext context, CancellationToken token) =>
+        {
+            var result = await service.DeleteVersionAsync(versionId, token).ConfigureAwait(false);
+            return result.IsSuccess ? Results.NoContent() : mapper.Map(result, context);
+        })
+            .WithName("workflowDeleteDefinitionVersion")
+            .WithTags("WorkflowDefinitions")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.DefinitionsDeleteVersion));
     }
 
     /// <summary>映射不可变工作流定义版本读取接口。</summary>

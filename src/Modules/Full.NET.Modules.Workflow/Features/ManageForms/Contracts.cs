@@ -2,6 +2,10 @@ using Full.NET.Modules.Workflow.Domain;
 
 namespace Full.NET.Modules.Workflow.Features.ManageForms;
 
+internal sealed record SetWorkflowFormStatusRequest(
+    string StatusKey,
+    long ExpectedVersion);
+
 internal sealed record CreateWorkflowFormRequest(
     string FormKey,
     WorkflowFormSchema Draft);
@@ -31,6 +35,8 @@ internal sealed record WorkflowFormResponse(
     WorkflowFormSchema Draft,
     long DraftRevision,
     Guid? LatestPublishedVersionId,
+    string StatusKey,
+    long Version,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc);
 

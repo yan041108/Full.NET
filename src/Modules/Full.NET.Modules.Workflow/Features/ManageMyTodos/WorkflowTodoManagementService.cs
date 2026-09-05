@@ -9,6 +9,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Workflow.Contracts;
 using Full.NET.Modules.Workflow.Features;
+using Full.NET.Modules.Workflow.Features.FormAttachments;
 using Full.NET.Modules.Workflow.Features.ManageInstances;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Persistence;
@@ -45,27 +46,9 @@ internal sealed class WorkflowTodoManagementService(
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowTodoCountersignService countersignService,
     WorkflowApprovalTransitionExecutor transitionExecutor,
-    WorkflowParallelJoinCoordinator parallelJoinCoordinator)
+    WorkflowParallelJoinCoordinator parallelJoinCoordinator,
+    WorkflowFormAttachmentCoordinator attachmentCoordinator)
 {
-    public async Task<Result<IReadOnlyList<WorkflowTodoResponse>>> ListMineAsync(
-        Guid actorUserId,
-        CancellationToken cancellationToken = default)
-    {
-        var scope = WorkflowManagementScope.Resolve(currentTenant);
-        var statement = databaseOptions.Value.Provider switch
-        {
-            DatabaseProvider.SqlServer => WorkflowSql.ListMineSqlServer,
-            DatabaseProvider.MySql => WorkflowSql.ListMineMySql,
-            _ => throw new InvalidOperationException(
-                $"Unsupported database provider '{databaseOptions.Value.Provider}'."),
-        };
-        var rows = await queryExecutor.QueryAsync<WorkflowTodoRecord>(
-            statement,
-            WorkflowSqlParameters.Create(("TenantScopeKey", scope.TenantScopeKey),
-                ("AssigneeUserId", actorUserId), ("Take", 100)), cancellationToken).ConfigureAwait(false);
-        return Result<IReadOnlyList<WorkflowTodoResponse>>.Success(rows.Select(Map).ToArray());
-    }
-
     public Task<Result<WorkflowInstanceResponse>> ApproveAsync(
         Guid todoId,
         Guid actorUserId,
@@ -347,7 +330,7 @@ internal sealed class WorkflowTodoManagementService(
             {
                 return Result<WorkflowInstanceResponse>.Success(new(
                     instance.Id, instance.DefinitionVersionId, formVersionId,
-                    instance.BusinessType, instance.BusinessId, receipt.ResultStatusKey,
+                    instance.BusinessType, instance.BusinessId, instance.BusinessTitle, receipt.ResultStatusKey,
                     receipt.InstanceRevision, receipt.ResultTodoId, instance.StartedAtUtc));
             }
 
@@ -432,7 +415,7 @@ internal sealed class WorkflowTodoManagementService(
 
             return await ActApprovalSlotAsync(
                 todo, approvalModeKey, instance, formVersionId, submission!, runtimePlan!, patchedSubmission,
-                scope, actorUserId, request, actionKey, requestHash, token).ConfigureAwait(false);
+                formSchema!, scope, actorUserId, request, actionKey, requestHash, token).ConfigureAwait(false);
         }
 
         if (actionKey == "approve")
@@ -463,6 +446,20 @@ internal sealed class WorkflowTodoManagementService(
             : advancesToNextApproval ? "active" : "completed";
         var stepStatus = actionKey == "reject" ? "rejected" : "completed";
         Guid? nextTodoId = null;
+        var attachmentSync = await SyncSubmissionAttachmentsAsync(
+            actorUserId,
+            submission!,
+            instance.Id,
+            scope,
+            formSchema!,
+            submission!.SubmissionJson,
+            patchedSubmission,
+            token).ConfigureAwait(false);
+        if (!attachmentSync.IsSuccess)
+        {
+            return Result<WorkflowInstanceResponse>.Failure(attachmentSync.Error!);
+        }
+
         var submissionUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
@@ -616,7 +613,7 @@ internal sealed class WorkflowTodoManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instanceStatus,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instanceStatus,
             instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
     }
 
@@ -643,6 +640,7 @@ internal sealed class WorkflowTodoManagementService(
         WorkflowFormSubmissionRecord submission,
         WorkflowRuntimePlan runtimePlan,
         string patchedSubmission,
+        WorkflowFormSchema formSchema,
         WorkflowManagementScope scope,
         Guid actorUserId,
         ActWorkflowTodoRequest request,
@@ -667,6 +665,20 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         var now = clock.UtcNow;
+        var attachmentSync = await SyncSubmissionAttachmentsAsync(
+            actorUserId,
+            submission,
+            instance.Id,
+            scope,
+            formSchema,
+            submission.SubmissionJson,
+            patchedSubmission,
+            token).ConfigureAwait(false);
+        if (!attachmentSync.IsSuccess)
+        {
+            return Result<WorkflowInstanceResponse>.Failure(attachmentSync.Error!);
+        }
+
         var submissionUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
@@ -831,7 +843,7 @@ internal sealed class WorkflowTodoManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instanceStatus,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instanceStatus,
             instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
     }
 
@@ -968,6 +980,20 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         // 与批准/驳回统一先争抢提交快照 CAS，避免和取消、改派的待办→实例锁顺序形成环。
+        var attachmentSync = await SyncSubmissionAttachmentsAsync(
+            actorUserId,
+            submission!,
+            instance.Id,
+            scope,
+            formSchema!,
+            submission!.SubmissionJson,
+            patchedSubmission,
+            token).ConfigureAwait(false);
+        if (!attachmentSync.IsSuccess)
+        {
+            return Result<WorkflowInstanceResponse>.Failure(attachmentSync.Error!);
+        }
+
         var submissionUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
@@ -1080,7 +1106,7 @@ internal sealed class WorkflowTodoManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "active",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
             instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
     }
 
@@ -1109,7 +1135,7 @@ internal sealed class WorkflowTodoManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, receipt.ResultStatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, receipt.ResultStatusKey,
             receipt.InstanceRevision, receipt.ResultTodoId, instance.StartedAtUtc));
     }
 
@@ -1135,7 +1161,7 @@ internal sealed class WorkflowTodoManagementService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "active",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
             receipt.InstanceRevision, receipt.ResultTodoId, instance.StartedAtUtc));
     }
 
@@ -1173,6 +1199,42 @@ internal sealed class WorkflowTodoManagementService(
     {
         var value = $"{actionKey}\n{request.ExpectedRevision}\n{request.FieldPatch.GetRawText()}\n{request.Comment?.Trim()}";
         return HashUtf8(value);
+    }
+
+    private async Task<Result<bool>> SyncSubmissionAttachmentsAsync(
+        Guid actorUserId,
+        WorkflowFormSubmissionRecord submission,
+        Guid instanceId,
+        WorkflowManagementScope scope,
+        WorkflowFormSchema schema,
+        string previousSubmissionJson,
+        string nextSubmissionJson,
+        CancellationToken cancellationToken)
+    {
+        var previousValues = JsonSerializer.Deserialize(
+            previousSubmissionJson,
+            WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement)
+            ?? new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        var nextValues = JsonSerializer.Deserialize(
+            nextSubmissionJson,
+            WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
+        if (nextValues is null)
+        {
+            return Result<bool>.Failure(new Error(
+                WorkflowErrorCodes.SchemaInvalid,
+                "The workflow submission payload is invalid.",
+                ErrorType.Validation));
+        }
+
+        return await attachmentCoordinator.SynchronizeAsync(
+            actorUserId,
+            submission.Id,
+            instanceId,
+            scope.TenantScopeKey,
+            schema,
+            previousValues,
+            nextValues,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>计算包含目标步骤的稳定退回请求摘要。</summary>
@@ -1236,12 +1298,8 @@ internal sealed class WorkflowTodoManagementService(
         Guid formVersionId,
         Guid? activeTodoId) =>
         new(instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
             instance.Revision, activeTodoId, instance.StartedAtUtc);
-
-    private static WorkflowTodoResponse Map(WorkflowTodoRecord row) =>
-        new(row.Id, row.InstanceId, row.StepId, row.AssigneeUserId, row.StatusKey,
-            row.ArrivedAtUtc, row.CompletedAtUtc, row.ResultActionKey, row.Revision);
 
     private static Result<WorkflowInstanceResponse> Failure(string code, ErrorType type) =>
         Result<WorkflowInstanceResponse>.Failure(

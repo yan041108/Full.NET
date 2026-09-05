@@ -153,7 +153,7 @@ public sealed class WorkflowMultiApprovalServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", definitionVersionId, formVersionId,
-                "purchase", "PO-001", "active", 7, actorId, now,
+                "purchase", "PO-001", null, "active", 7, actorId, now,
                 null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -162,7 +162,7 @@ public sealed class WorkflowMultiApprovalServiceTests
                 WorkflowSql.FindRuntimeAsset, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowRuntimeAssetRecord(
                 definitionVersionId, formVersionId, canonicalJson,
-                "{\"schemaVersion\":1,\"adapterVersion\":1,\"sections\":[]}"));
+                "{\"schemaVersion\":1,\"adapterVersion\":1,\"sections\":[]}", null, "active"));
         query.QuerySingleOrDefaultAsync<WorkflowFormSubmissionRecord>(
                 WorkflowSql.FindFormSubmissionByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormSubmissionRecord(
@@ -196,7 +196,8 @@ public sealed class WorkflowMultiApprovalServiceTests
             WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant),
             WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
                 query, command, ids, outbox),
-            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids));
+            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
+            WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator());
         return new ApprovalFixture(service, query, command, outbox, todoId, actorId);
     }
 

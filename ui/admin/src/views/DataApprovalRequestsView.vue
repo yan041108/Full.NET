@@ -11,6 +11,8 @@ import {
   createDataApprovalRequest,
   getDataApprovalRequest,
   listDataApprovalRequests,
+  retryDataApprovalRequest,
+  retryDataApprovalApplyRequest,
   type DataApprovalRequestResponse
 } from '../api/data-approval-requests';
 import { listDataApprovalScenarios, type DataApprovalScenarioResponse } from '../api/data-approval-scenarios';
@@ -31,6 +33,8 @@ const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const canCreate = computed(() => session.can('data_approvals.requests.create'));
 const canCancel = computed(() => session.can('data_approvals.requests.cancel'));
+const canRetry = computed(() => session.can('data_approvals.requests.retry'));
+const canRetryApply = computed(() => session.can('data_approvals.requests.retry_apply'));
 
 onMounted(async () => {
   await load();
@@ -103,6 +107,70 @@ async function submitCancel(): Promise<void> {
   } finally {
     changing.value = false;
   }
+}
+
+async function submitRetry(): Promise<void> {
+  if (!selectedRequest.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    selectedRequest.value = await retryDataApprovalRequest(selectedRequest.value.id, {
+      version: selectedRequest.value.version
+    });
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'dataApprovalRequests.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function submitRetryApply(): Promise<void> {
+  if (!selectedRequest.value) return;
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    selectedRequest.value = await retryDataApprovalApplyRequest(selectedRequest.value.id, {
+      version: selectedRequest.value.version
+    });
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'dataApprovalRequests.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+function showRecovery(request: DataApprovalRequestResponse): boolean {
+  return request.recoveryStatusKey !== 'none' || (request.statusKey === 'pending' && !request.workflowInstanceId);
+}
+
+function canShowRetry(request: DataApprovalRequestResponse): boolean {
+  return request.statusKey === 'pending'
+    && !request.workflowInstanceId
+    && request.recoveryStatusKey !== 'none'
+    && request.recoveryStatusKey !== 'failed_terminal';
+}
+
+function applicationStatusLabel(applicationStatusKey: string): string {
+  const key = `dataApprovalRequests.applicationStatus.${applicationStatusKey}`;
+  const translated = t(key);
+  return translated === key ? applicationStatusKey : translated;
+}
+
+function showApplication(request: DataApprovalRequestResponse): boolean {
+  return request.applicationStatusKey !== 'none' && request.applicationStatusKey !== 'applied';
+}
+
+function canShowRetryApply(request: DataApprovalRequestResponse): boolean {
+  return request.statusKey === 'in_review'
+    && (request.applicationStatusKey === 'pending_apply' || request.applicationStatusKey === 'failed_retryable');
+}
+
+function recoveryStatusLabel(recoveryStatusKey: string): string {
+  const key = `dataApprovalRequests.recoveryStatus.${recoveryStatusKey}`;
+  const translated = t(key);
+  return translated === key ? recoveryStatusKey : translated;
 }
 
 function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'info' {
@@ -195,8 +263,58 @@ function toProblem(error: unknown, fallbackCode: string): FullNetProblemDetails 
       <p data-testid="data-approval-detail-workflow">
         {{ t('dataApprovalRequests.fieldWorkflowInstanceId') }}: {{ selectedRequest.workflowInstanceId ?? '—' }}
       </p>
+      <template v-if="showRecovery(selectedRequest)">
+        <p data-testid="data-approval-detail-recovery">
+          {{ t('dataApprovalRequests.fieldRecoveryStatus') }}:
+          {{ recoveryStatusLabel(selectedRequest.recoveryStatusKey) }}
+        </p>
+        <p
+          v-if="selectedRequest.lastFailureCode || selectedRequest.lastFailureMessage"
+          data-testid="data-approval-detail-failure"
+        >
+          {{ t('dataApprovalRequests.fieldLastFailure') }}:
+          {{ selectedRequest.lastFailureCode ?? '—' }}
+          <span v-if="selectedRequest.lastFailureMessage"> — {{ selectedRequest.lastFailureMessage }}</span>
+        </p>
+      </template>
+      <template v-if="showApplication(selectedRequest)">
+        <p data-testid="data-approval-detail-application">
+          {{ t('dataApprovalRequests.fieldApplicationStatus') }}:
+          {{ applicationStatusLabel(selectedRequest.applicationStatusKey) }}
+        </p>
+        <p
+          v-if="selectedRequest.lastApplicationFailureCode || selectedRequest.lastApplicationFailureMessage"
+          data-testid="data-approval-detail-application-failure"
+        >
+          {{ t('dataApprovalRequests.fieldLastApplicationFailure') }}:
+          {{ selectedRequest.lastApplicationFailureCode ?? '—' }}
+          <span v-if="selectedRequest.lastApplicationFailureMessage"> — {{ selectedRequest.lastApplicationFailureMessage }}</span>
+        </p>
+      </template>
       <pre data-testid="data-approval-before">{{ selectedRequest.beforeSnapshotJson ?? '—' }}</pre>
       <pre data-testid="data-approval-after">{{ selectedRequest.afterSnapshotJson }}</pre>
+      <PermissionGate code="data_approvals.requests.retry">
+        <ElButton
+          v-if="canRetry && canShowRetry(selectedRequest)"
+          type="warning"
+          data-testid="data-approval-retry"
+          :loading="changing"
+          @click="submitRetry"
+        >
+          {{ t('dataApprovalRequests.retry') }}
+        </ElButton>
+      </PermissionGate>
+      <PermissionGate code="data_approvals.requests.retry_apply">
+        <ElButton
+          v-if="canRetryApply && canShowRetryApply(selectedRequest)"
+          type="warning"
+          data-testid="data-approval-retry-apply"
+          :loading="changing"
+          @click="submitRetryApply"
+        >
+          {{ t('dataApprovalRequests.retryApply') }}
+        </ElButton>
+      </PermissionGate>
       <PermissionGate code="data_approvals.requests.cancel">
         <ElButton
           v-if="canCancel && (selectedRequest.statusKey === 'pending' || selectedRequest.statusKey === 'in_review')"

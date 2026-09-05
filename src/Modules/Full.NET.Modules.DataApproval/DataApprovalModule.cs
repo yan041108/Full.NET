@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.DataApproval.Contracts;
+using Full.NET.Modules.DataApproval.Execution;
 using Full.NET.Modules.DataApproval.Features.CrossModulePorts;
 using Full.NET.Modules.DataApproval.Features.ManageRequests;
 using Full.NET.Modules.DataApproval.Features.ManageScenarios;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.DataApproval;
 
@@ -42,6 +44,8 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<DataApprovalRequestService>();
+        services.TryAddScoped<DataApprovalRequestLinkService>();
+        services.TryAddScoped<DataApprovalRequestApplicationService>();
         services.TryAddScoped<DataApprovalScenarioService>();
         services.TryAddScoped<DataApprovalSubmissionAdapter>();
         services.TryAddScoped<IDataApprovalScenarioPolicyPort>(
@@ -62,6 +66,18 @@ public sealed class DataApprovalModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 DataApprovalJsonSerializerContext.Default));
+        services.AddOptions<DataApprovalRequestRecoveryWorkerOptions>()
+            .Bind(configuration.GetSection(DataApprovalRequestRecoveryWorkerOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DataApprovalRequestRecoveryWorkerOptions>,
+            DataApprovalRequestRecoveryWorkerOptionsValidator>());
+        services.AddOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>()
+            .Bind(configuration.GetSection(DataApprovalRequestApplicationRecoveryWorkerOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DataApprovalRequestApplicationRecoveryWorkerOptions>,
+            DataApprovalRequestApplicationRecoveryWorkerOptionsValidator>());
     }
 
     /// <inheritdoc />
@@ -69,6 +85,12 @@ public sealed class DataApprovalModule : IFullNetModule
         IServiceCollection services,
         IConfiguration configuration)
     {
+        services.TryAddScoped<DataApprovalRequestLinkService>();
+        services.TryAddScoped<DataApprovalRequestApplicationService>();
+        services.TryAddScoped<DataApprovalRequestRecoveryBatchProcessor>();
+        services.AddHostedService<DataApprovalRequestRecoveryHostedProcessor>();
+        services.TryAddScoped<DataApprovalRequestApplicationRecoveryBatchProcessor>();
+        services.AddHostedService<DataApprovalRequestApplicationRecoveryHostedProcessor>();
         services.TryAddScoped<DataApprovalWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,

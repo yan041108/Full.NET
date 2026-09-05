@@ -39,6 +39,7 @@ public sealed class WorkflowAssigneePolicyTests
                     new { resolverKindKey = "organization_unit_leader", unitId },
                     new { resolverKindKey = "initiator" },
                     new { resolverKindKey = "initiator_primary_unit_leader" },
+                    new { resolverKindKey = "initiator_ancestor_unit_leader", ancestorLevel = 2 },
                 },
             },
         });
@@ -46,7 +47,27 @@ public sealed class WorkflowAssigneePolicyTests
         var valid = WorkflowAssigneePolicy.TryRead(config, out var policy);
 
         Assert.IsTrue(valid);
-        Assert.AreEqual(5, policy.Sources.Count);
+        Assert.AreEqual(6, policy.Sources.Count);
+    }
+
+    /// <summary>上级部门层级必须处于受控闭区间。</summary>
+    [TestMethod]
+    public void Ancestor_level_must_be_bounded()
+    {
+        AssertInvalid(new
+        {
+            sources = new[]
+            {
+                new { resolverKindKey = "initiator_ancestor_unit_leader", ancestorLevel = 0 },
+            },
+        });
+        AssertInvalid(new
+        {
+            sources = new[]
+            {
+                new { resolverKindKey = "initiator_ancestor_unit_leader", ancestorLevel = 21 },
+            },
+        });
     }
 
     /// <summary>未知来源键、重复用户和越界数组必须失败关闭。</summary>

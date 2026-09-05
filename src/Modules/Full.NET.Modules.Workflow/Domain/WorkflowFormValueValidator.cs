@@ -72,6 +72,8 @@ internal static class WorkflowFormValueValidator
         "integer" => IsIntegerValid(field, value),
         "checkbox" => AreDeclaredOptions(field, value),
         "switch" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+        "attachment" => IsAttachmentValid(field, value),
+        "subtable" => WorkflowFormSubtableValueRules.IsValid(field, value),
         _ => false,
     };
 
@@ -167,6 +169,26 @@ internal static class WorkflowFormValueValidator
         var selectedKeys = selected.Select(item => item.GetString()!).ToArray();
         return selectedKeys.Distinct(StringComparer.Ordinal).Count() == selectedKeys.Length &&
                selectedKeys.All(key => options.Contains(key, StringComparer.Ordinal));
+    }
+
+    private static bool IsAttachmentValid(WorkflowFormField field, JsonElement value)
+    {
+        if (!WorkflowFormAttachmentConstraints.TryRead(
+                field,
+                out var maxCount,
+                out _,
+                out _) ||
+            !WorkflowFormAttachmentValueRules.TryReadFileIds(value, out var fileIds))
+        {
+            return false;
+        }
+
+        if (field.Required && fileIds.Length == 0)
+        {
+            return false;
+        }
+
+        return fileIds.Length <= maxCount;
     }
 
 }

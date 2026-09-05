@@ -89,6 +89,17 @@ internal static class WorkflowFormCompiler
                 .Any(field => !WorkflowFormFieldConstraints.TryReadTemporalRange(
                     field,
                     out _,
+                    out _)) ||
+            fields.Where(field => field.FieldTypeKey == "attachment")
+                .Any(field => !WorkflowFormAttachmentConstraints.TryRead(
+                    field,
+                    out _,
+                    out _,
+                    out _)) ||
+            fields.Where(field => field.FieldTypeKey == "subtable")
+                .Any(field => !WorkflowFormSubtableConstraints.TryRead(
+                    field,
+                    out _,
                     out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.FormFieldConstraintsInvalid);

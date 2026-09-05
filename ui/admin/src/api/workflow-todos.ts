@@ -3,6 +3,7 @@ import {
   readWorkflowInstanceResponse,
   workflowApproveTodo,
   workflowGetTodoRuntime,
+  workflowListMyTodoHistory,
   workflowListTodoReturnTargets,
   workflowListMyTodos,
   workflowRejectTodo,
@@ -10,16 +11,39 @@ import {
   type WorkflowInstanceResponse,
   type WorkflowSubmission,
   type WorkflowTodoDetail,
-  type WorkflowTodoResponse,
+  type WorkflowTodoListItemResponse,
   type WorkflowTodoReturnTargetResponse
 } from '@fullnet/client-contracts';
 import { http, request } from './http';
 
-/** 查询当前用户待办列表。 */
+type WorkflowTodoListQuery = {
+  page?: number;
+  pageSize?: number;
+  definitionKey?: string;
+  businessType?: string;
+};
+
+/** 分页查询当前用户待办列表。 */
 export async function listMyWorkflowTodos(
+  query: WorkflowTodoListQuery & {
+    arrivedFromUtc?: string;
+    arrivedToUtc?: string;
+  } = {},
   signal?: AbortSignal
-): Promise<WorkflowTodoResponse[]> {
-  return workflowListMyTodos(http, {}, signal);
+) {
+  return workflowListMyTodos(http, query, signal);
+}
+
+/** 分页查询当前用户已办历史，结果动作与完成时间来自行内快照。 */
+export async function listMyWorkflowTodoHistory(
+  query: WorkflowTodoListQuery & {
+    resultActionKey?: string;
+    completedFromUtc?: string;
+    completedToUtc?: string;
+  } = {},
+  signal?: AbortSignal
+) {
+  return workflowListMyTodoHistory(http, query, signal);
 }
 
 /** 读取单个待办运行时详情，并对返回结构做失败关闭校验。 */
@@ -207,6 +231,6 @@ export type {
   WorkflowInstanceResponse,
   WorkflowSubmission,
   WorkflowTodoDetail,
-  WorkflowTodoResponse,
+  WorkflowTodoListItemResponse,
   WorkflowTodoReturnTargetResponse
 };

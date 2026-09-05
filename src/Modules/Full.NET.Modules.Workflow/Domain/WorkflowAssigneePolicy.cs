@@ -3,15 +3,17 @@ using System.Text.Json;
 namespace Full.NET.Modules.Workflow.Domain;
 
 /// <summary>描述发布版本中固化的一条办理人解析来源。</summary>
-/// <param name="ResolverKindKey">指定用户、角色成员、机构负责人、发起人或发起人主部门负责人。</param>
+/// <param name="ResolverKindKey">指定用户、角色成员、机构负责人、发起人或发起人上级部门负责人。</param>
 /// <param name="UserIds">指定用户模式下的去重用户标识。</param>
 /// <param name="RoleIds">角色成员模式下的去重角色标识。</param>
 /// <param name="UnitId">机构负责人模式下的目标机构单元标识。</param>
+/// <param name="AncestorLevel">发起人上级部门负责人模式下的向上层级，1 表示直接上级机构。</param>
 internal sealed record WorkflowAssigneeSource(
     string ResolverKindKey,
     IReadOnlyList<Guid> UserIds,
     IReadOnlyList<Guid> RoleIds,
-    Guid? UnitId);
+    Guid? UnitId,
+    int? AncestorLevel);
 
 /// <summary>描述人工审批节点固化的办理人解析策略。</summary>
 /// <param name="Sources">按配置顺序排列的闭合解析来源。</param>
@@ -31,6 +33,9 @@ internal sealed record WorkflowAssigneePolicy(IReadOnlyList<WorkflowAssigneeSour
 
     /// <summary>发起人主部门负责人解析器键。</summary>
     public const string InitiatorPrimaryUnitLeader = "initiator_primary_unit_leader";
+
+    /// <summary>发起人上级部门负责人解析器键。</summary>
+    public const string InitiatorAncestorUnitLeader = "initiator_ancestor_unit_leader";
 
     private const int MaximumSourceCount = 8;
     private const int MaximumUserCount = 20;
@@ -80,10 +85,44 @@ internal sealed record WorkflowAssigneePolicy(IReadOnlyList<WorkflowAssigneeSour
         return true;
     }
 
+    /// <summary>从独立的办理人策略对象读取闭合配置，供设计器预览复用。</summary>
+    /// <param name="assigneePolicyElement">办理人策略 JSON 对象。</param>
+    /// <param name="policy">解析成功的策略。</param>
+    /// <returns>结构有效时返回 <see langword="true"/>。</returns>
+    public static bool TryReadPolicy(JsonElement assigneePolicyElement, out WorkflowAssigneePolicy policy)
+    {
+        policy = CreateDefault();
+        if (assigneePolicyElement.ValueKind != JsonValueKind.Object ||
+            !assigneePolicyElement.TryGetProperty("sources", out var sourcesElement) ||
+            sourcesElement.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var sources = new List<WorkflowAssigneeSource>();
+        foreach (var sourceElement in sourcesElement.EnumerateArray())
+        {
+            if (!TryReadSource(sourceElement, out var source))
+            {
+                return false;
+            }
+
+            sources.Add(source!);
+        }
+
+        if (sources.Count is < 1 or > MaximumSourceCount)
+        {
+            return false;
+        }
+
+        policy = new WorkflowAssigneePolicy(sources);
+        return true;
+    }
+
     /// <summary>创建兼容旧定义的默认发起人单人策略。</summary>
     /// <returns>仅包含发起人的默认策略。</returns>
     public static WorkflowAssigneePolicy CreateDefault() =>
-        new([new WorkflowAssigneeSource(Initiator, [], [], null)]);
+        new([new WorkflowAssigneeSource(Initiator, [], [], null, null)]);
 
     /// <summary>解析单条办理人来源配置。</summary>
     /// <param name="element">来源 JSON 对象。</param>
@@ -104,17 +143,20 @@ internal sealed record WorkflowAssigneePolicy(IReadOnlyList<WorkflowAssigneeSour
         {
             SpecifiedUsers => TryReadGuidArray(element, "userIds", 1, MaximumUserCount, out var userIds) &&
                 HasExactProperties(element, "resolverKindKey", "userIds") &&
-                AssignSource(out source, resolverKindKey!, userIds, [], null),
+                AssignSource(out source, resolverKindKey!, userIds, [], null, null),
             RoleMembers => TryReadGuidArray(element, "roleIds", 1, MaximumRoleCount, out var roleIds) &&
                 HasExactProperties(element, "resolverKindKey", "roleIds") &&
-                AssignSource(out source, resolverKindKey!, [], roleIds, null),
+                AssignSource(out source, resolverKindKey!, [], roleIds, null, null),
             OrganizationUnitLeader => TryReadGuid(element, "unitId", out var unitId) &&
                 HasExactProperties(element, "resolverKindKey", "unitId") &&
-                AssignSource(out source, resolverKindKey!, [], [], unitId),
+                AssignSource(out source, resolverKindKey!, [], [], unitId, null),
             Initiator => HasExactProperties(element, "resolverKindKey") &&
-                AssignSource(out source, resolverKindKey!, [], [], null),
+                AssignSource(out source, resolverKindKey!, [], [], null, null),
             InitiatorPrimaryUnitLeader => HasExactProperties(element, "resolverKindKey") &&
-                AssignSource(out source, resolverKindKey!, [], [], null),
+                AssignSource(out source, resolverKindKey!, [], [], null, null),
+            InitiatorAncestorUnitLeader => TryReadAncestorLevel(element, out var ancestorLevel) &&
+                HasExactProperties(element, "resolverKindKey", "ancestorLevel") &&
+                AssignSource(out source, resolverKindKey!, [], [], null, ancestorLevel),
             _ => false,
         };
     }
@@ -185,15 +227,38 @@ internal sealed record WorkflowAssigneePolicy(IReadOnlyList<WorkflowAssigneeSour
             value != Guid.Empty;
     }
 
+    /// <summary>读取上级部门层级参数。</summary>
+    /// <param name="element">父对象。</param>
+    /// <param name="ancestorLevel">解析结果。</param>
+    /// <returns>层级在受控闭区间内时返回 <see langword="true"/>。</returns>
+    private static bool TryReadAncestorLevel(JsonElement element, out int ancestorLevel)
+    {
+        ancestorLevel = 0;
+        if (!element.TryGetProperty("ancestorLevel", out var levelElement))
+        {
+            return false;
+        }
+
+        if (levelElement.ValueKind == JsonValueKind.Number && levelElement.TryGetInt32(out ancestorLevel))
+        {
+            return ancestorLevel is >= 1 and <= 20;
+        }
+
+        return levelElement.ValueKind == JsonValueKind.String &&
+            int.TryParse(levelElement.GetString(), out ancestorLevel) &&
+            ancestorLevel is >= 1 and <= 20;
+    }
+
     /// <summary>构造解析成功的来源记录。</summary>
     private static bool AssignSource(
         out WorkflowAssigneeSource? source,
         string resolverKindKey,
         IReadOnlyList<Guid> userIds,
         IReadOnlyList<Guid> roleIds,
-        Guid? unitId)
+        Guid? unitId,
+        int? ancestorLevel)
     {
-        source = new WorkflowAssigneeSource(resolverKindKey, userIds, roleIds, unitId);
+        source = new WorkflowAssigneeSource(resolverKindKey, userIds, roleIds, unitId, ancestorLevel);
         return true;
     }
 }

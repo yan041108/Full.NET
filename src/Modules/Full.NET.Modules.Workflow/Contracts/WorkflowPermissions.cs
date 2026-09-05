@@ -11,6 +11,10 @@ public static class WorkflowPermissions
     public const string DefinitionsUpdate = "workflow.definitions.update";
     /// <summary>发布工作流版本。</summary>
     public const string DefinitionsPublish = "workflow.definitions.publish";
+    /// <summary>变更工作流定义启停或归档状态。</summary>
+    public const string DefinitionsManageStatus = "workflow.definitions.manage_status";
+    /// <summary>删除未被运行实例引用的工作流定义版本。</summary>
+    public const string DefinitionsDeleteVersion = "workflow.definitions.delete_version";
     /// <summary>查询表单定义与版本。</summary>
     public const string FormsRead = "workflow.forms.read";
     /// <summary>创建表单定义。</summary>
@@ -19,8 +23,14 @@ public static class WorkflowPermissions
     public const string FormsUpdate = "workflow.forms.update";
     /// <summary>发布表单版本。</summary>
     public const string FormsPublish = "workflow.forms.publish";
+    /// <summary>变更工作流表单启停或归档状态。</summary>
+    public const string FormsManageStatus = "workflow.forms.manage_status";
+    /// <summary>删除未被运行实例引用的工作流表单版本。</summary>
+    public const string FormsDeleteVersion = "workflow.forms.delete_version";
     /// <summary>查询工作流实例与轨迹。</summary>
     public const string InstancesRead = "workflow.instances.read";
+    /// <summary>分页查询当前作用域内全部工作流实例。</summary>
+    public const string InstancesList = "workflow.instances.list";
     /// <summary>启动工作流实例。</summary>
     public const string InstancesStart = "workflow.instances.start";
     /// <summary>取消工作流实例。</summary>
@@ -59,11 +69,16 @@ public static class WorkflowPermissions
         DefinitionsCreate,
         DefinitionsUpdate,
         DefinitionsPublish,
+        DefinitionsManageStatus,
+        DefinitionsDeleteVersion,
         FormsRead,
         FormsCreate,
         FormsUpdate,
         FormsPublish,
+        FormsManageStatus,
+        FormsDeleteVersion,
         InstancesRead,
+        InstancesList,
         InstancesStart,
         InstancesCancel,
         InstancesPause,

@@ -7,7 +7,8 @@ internal sealed record StartWorkflowInstanceRequest(
     string BusinessType,
     string BusinessId,
     JsonElement InitialValues,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    string? BusinessTitle = null);
 
 internal sealed record CancelWorkflowInstanceRequest(
     long ExpectedRevision,
@@ -104,6 +105,7 @@ internal sealed record WorkflowInstanceResponse(
     Guid FormVersionId,
     string BusinessType,
     string BusinessId,
+    string? BusinessTitle,
     string StatusKey,
     long Revision,
     Guid? ActiveTodoId,
@@ -128,3 +130,25 @@ internal sealed record WorkflowExecutionLogResponse(
     string? FromStatusKey,
     string ToStatusKey,
     DateTimeOffset CreatedAtUtc);
+
+/// <summary>工作流实例分页列表项，供全局管理与“我发起的”查询共用。</summary>
+/// <param name="Id">实例标识。</param>
+/// <param name="DefinitionVersionId">发布定义版本标识。</param>
+/// <param name="DefinitionKey">流程定义稳定键。</param>
+/// <param name="BusinessType">稳定业务类型。</param>
+/// <param name="BusinessId">稳定业务标识。</param>
+/// <param name="StatusKey">实例状态机器键。</param>
+/// <param name="StartedById">发起人标识。</param>
+/// <param name="StartedAtUtc">发起时间（UTC）。</param>
+/// <param name="CompletedAtUtc">完成时间（UTC）；未完成时为空。</param>
+internal sealed record WorkflowInstanceListItemResponse(
+    Guid Id,
+    Guid DefinitionVersionId,
+    string DefinitionKey,
+    string BusinessType,
+    string BusinessId,
+    string? BusinessTitle,
+    string StatusKey,
+    Guid StartedById,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc);

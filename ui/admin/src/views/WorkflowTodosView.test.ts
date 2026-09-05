@@ -6,6 +6,7 @@ import { useSessionStore } from '../auth/session';
 import {
   approveWorkflowTodo,
   getWorkflowTodo,
+  listMyWorkflowTodoHistory,
   listWorkflowTodoReturnTargets,
   listMyWorkflowTodos,
   rejectWorkflowTodo,
@@ -16,6 +17,7 @@ import WorkflowTodosView from './WorkflowTodosView.vue';
 vi.mock('../api/workflow-todos', () => ({
   approveWorkflowTodo: vi.fn(),
   getWorkflowTodo: vi.fn(),
+  listMyWorkflowTodoHistory: vi.fn(),
   listWorkflowTodoReturnTargets: vi.fn(),
   listMyWorkflowTodos: vi.fn(),
   rejectWorkflowTodo: vi.fn(),
@@ -26,16 +28,43 @@ const todo = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   instanceId: '01912345-6789-7abc-8def-0123456789ac',
   stepId: '01912345-6789-7abc-8def-0123456789ad',
+  statusKey: 'active',
+  arrivedAtUtc: '2026-08-30T00:00:00Z',
+  completedAtUtc: null,
+  resultActionKey: null,
+  revision: 3,
+  businessType: 'purchase',
+  businessId: 'PO-001',
+  instanceStatusKey: 'active',
+  definitionKey: 'purchase-approval',
+  nodeKey: 'manager-approval'
+};
+
+const historyTodo = {
+  ...todo,
+  id: '01912345-6789-7abc-8def-0123456789b0',
+  statusKey: 'completed',
+  completedAtUtc: '2026-08-31T00:00:00Z',
+  resultActionKey: 'approve'
+};
+
+const paged = (items: typeof todo[]) => ({
+  items,
+  page: 1,
+  pageSize: 20,
+  total: items.length
+});
+
+const detail: WorkflowTodoDetail = {
+  id: todo.id,
+  instanceId: todo.instanceId,
+  stepId: todo.stepId,
   assigneeUserId: '01912345-6789-7abc-8def-0123456789ae',
   statusKey: 'pending',
   arrivedAtUtc: '2026-08-30T00:00:00Z',
   completedAtUtc: null,
   resultActionKey: null,
-  revision: 3
-};
-
-const detail: WorkflowTodoDetail = {
-  ...todo,
+  revision: 3,
   formVersionId: '01912345-6789-7abc-8def-0123456789af',
   formSchemaHash: 'a'.repeat(64),
   formSchema: {
@@ -66,7 +95,7 @@ function mountWithPermissions(permissions: string[]) {
   setActivePinia(pinia);
   const session = useSessionStore();
   session.currentUser = {
-    id: todo.assigneeUserId,
+    id: '01912345-6789-7abc-8def-0123456789ae',
     username: 'approver',
     displayName: '审批人',
     tenantId: '01912345-6789-7abc-8def-0123456789aa',
@@ -83,7 +112,8 @@ function mountWithPermissions(permissions: string[]) {
 
 describe('WorkflowTodosView', () => {
   beforeEach(() => {
-    vi.mocked(listMyWorkflowTodos).mockReset().mockResolvedValue([todo]);
+    vi.mocked(listMyWorkflowTodos).mockReset().mockResolvedValue(paged([todo]));
+    vi.mocked(listMyWorkflowTodoHistory).mockReset().mockResolvedValue(paged([historyTodo]));
     vi.mocked(getWorkflowTodo).mockReset().mockResolvedValue(detail);
     vi.mocked(listWorkflowTodoReturnTargets).mockReset().mockResolvedValue([{
       stepId: '01912345-6789-7abc-8def-0123456789a3',
@@ -208,8 +238,8 @@ describe('WorkflowTodosView', () => {
       traceId: 'trace-conflict'
     });
     vi.mocked(listMyWorkflowTodos)
-      .mockResolvedValueOnce([todo])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce(paged([todo]))
+      .mockResolvedValueOnce(paged([]));
     const wrapper = mountWithPermissions([
       'workflow.todos.read',
       'workflow.todos.approve'
@@ -263,5 +293,21 @@ describe('WorkflowTodosView', () => {
       '资料不完整',
       expect.any(String)
     );
+  });
+
+  it('已办页签加载历史分页并只读展示动作快照', async () => {
+    const wrapper = mountWithPermissions(['workflow.todos.read']);
+    await flushPromises();
+
+    const tabs = wrapper.findAll('[data-testid="workflow-todo-tabs"] .el-tabs__item');
+    await tabs[1].trigger('click');
+    await flushPromises();
+
+    expect(listMyWorkflowTodoHistory).toHaveBeenCalled();
+    await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="workflow-todo-history-snapshot"]').text()).toContain('同意');
+    expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(false);
   });
 });

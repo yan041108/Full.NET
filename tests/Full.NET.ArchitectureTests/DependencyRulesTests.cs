@@ -1043,7 +1043,7 @@ public sealed class DependencyRulesTests
         var module = new WorkflowModule();
 
         CollectionAssert.AreEquivalent(
-            new[] { "Identity", "Notifications", "Organization" },
+            new[] { "Files", "Identity", "Notifications", "Organization" },
             module.Dependencies.ToArray());
     }
 

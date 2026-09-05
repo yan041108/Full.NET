@@ -1,6 +1,19 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
-import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox } from 'element-plus';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import {
+  ElButton,
+  ElCard,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTabPane,
+  ElTabs,
+  ElTag
+} from 'element-plus';
 import type { MessageKey } from '@fullnet/admin-i18n';
 import {
   isFullNetProblemDetails,
@@ -9,18 +22,45 @@ import {
 import {
   cancelWorkflowInstance,
   getWorkflowInstance,
+  listMyWorkflowInstances,
   listWorkflowInstanceExecutionLogs,
+  listWorkflowInstances,
   pauseWorkflowInstance,
   recoverWorkflowInstance,
   resumeWorkflowInstance,
   type WorkflowExecutionLogResponse,
+  type WorkflowInstanceListItemResponse,
   type WorkflowInstanceResponse
 } from '../api/workflow-instances';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
+import {
+  findWorkflowBusinessDetailRoute,
+  formatWorkflowBusinessLabel
+} from '../workflow/workflowBusinessDetail';
+
+const statusFilterOptions = [
+  'active',
+  'completed',
+  'rejected',
+  'cancelled',
+  'suspended'
+] as const;
+
+type InstanceStatusKey = typeof statusFilterOptions[number];
+type InstanceTabKey = 'mine' | 'all';
 
 const { t } = useAdminI18n();
+const router = useRouter();
 const session = useSessionStore();
+const activeTab = ref<InstanceTabKey>('mine');
+const listItems = ref<WorkflowInstanceListItemResponse[]>([]);
+const listPage = ref(1);
+const listPageSize = ref(20);
+const listTotal = ref(0);
+const listLoading = ref(false);
+const statusFilter = ref<string>();
+const definitionKeyFilter = ref('');
 const instanceId = ref('');
 const loading = ref(false);
 const cancelling = ref(false);
@@ -96,6 +136,7 @@ const showApprovalProgress = computed(() => {
 });
 
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
+const canListAll = computed(() => session.can('workflow.instances.list'));
 const mutating = computed(() =>
   cancelling.value || pausing.value || resuming.value || recovering.value
 );
@@ -121,6 +162,74 @@ const canRecover = computed(() =>
 );
 
 onBeforeUnmount(() => loadController?.abort());
+
+onMounted(() => {
+  void loadList();
+});
+
+watch(activeTab, () => {
+  listPage.value = 1;
+  void loadList();
+});
+
+async function loadList(): Promise<void> {
+  listLoading.value = true;
+  problem.value = undefined;
+  try {
+    const query = {
+      page: listPage.value,
+      pageSize: listPageSize.value,
+      statusKey: statusFilter.value || undefined,
+      definitionKey: definitionKeyFilter.value.trim() || undefined
+    };
+    const result = activeTab.value === 'all' && canListAll.value
+      ? await listWorkflowInstances(query)
+      : await listMyWorkflowInstances(query);
+    listItems.value = result.items;
+    listPage.value = result.page;
+    listPageSize.value = result.pageSize;
+    listTotal.value = result.total;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'workflowInstances.listFailed');
+  } finally {
+    listLoading.value = false;
+  }
+}
+
+async function selectListItem(item: WorkflowInstanceListItemResponse): Promise<void> {
+  instanceId.value = item.id;
+  await load();
+}
+
+function openBusinessDetail(businessType: string, businessId: string): void {
+  const route = findWorkflowBusinessDetailRoute(businessType);
+  if (route === undefined) {
+    return;
+  }
+  void router.push({ name: route.routeName, query: { [route.idQueryKey]: businessId } });
+}
+
+function instanceStatusLabel(statusKey: string): string {
+  return statusFilterOptions.includes(statusKey as InstanceStatusKey)
+    ? t(`workflowInstances.statusKey.${statusKey}` as MessageKey)
+    : statusKey;
+}
+
+function instanceStatusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger' | undefined {
+  switch (statusKey) {
+    case 'completed':
+      return 'success';
+    case 'active':
+      return 'info';
+    case 'suspended':
+      return 'warning';
+    case 'rejected':
+    case 'cancelled':
+      return 'danger';
+    default:
+      return undefined;
+  }
+}
 
 async function load(): Promise<void> {
   const requestedId = instanceId.value.trim();
@@ -308,13 +417,16 @@ function captureActionError(error: unknown): void {
   problem.value = toProblem(error);
 }
 
-function toProblem(error: unknown): FullNetProblemDetails {
+function toProblem(
+  error: unknown,
+  fallbackCode: MessageKey = 'workflowInstances.loadFailed'
+): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
     : {
         status: 500,
-        code: 'client.workflow_instance_failed',
-        title: t('workflowInstances.loadFailed')
+        code: fallbackCode,
+        title: t(fallbackCode)
       };
 }
 </script>
@@ -370,6 +482,78 @@ function toProblem(error: unknown): FullNetProblemDetails {
       </div>
     </header>
 
+    <el-card shadow="never" class="workflow-instances__list-card" :aria-busy="listLoading">
+      <el-tabs v-model="activeTab" data-testid="workflow-instance-tabs">
+        <el-tab-pane :label="t('workflowInstances.tabs.mine')" name="mine" />
+        <el-tab-pane
+          v-if="canListAll"
+          :label="t('workflowInstances.tabs.all')"
+          name="all"
+        />
+      </el-tabs>
+
+      <form class="workflow-instances__filters" @submit.prevent="loadList">
+        <el-select
+          v-model="statusFilter"
+          clearable
+          data-testid="workflow-instance-status-filter"
+          :placeholder="t('workflowInstances.filters.status')"
+        >
+          <el-option
+            v-for="statusKey in statusFilterOptions"
+            :key="statusKey"
+            :label="instanceStatusLabel(statusKey)"
+            :value="statusKey"
+          />
+        </el-select>
+        <el-input
+          v-model="definitionKeyFilter"
+          clearable
+          data-testid="workflow-instance-definition-filter"
+          :placeholder="t('workflowInstances.filters.definitionKey')"
+        />
+        <el-button
+          type="primary"
+          native-type="submit"
+          data-testid="workflow-instance-filter-apply"
+          :loading="listLoading"
+          @click="loadList"
+        >
+          {{ t('workflowInstances.filters.apply') }}
+        </el-button>
+      </form>
+
+      <p v-if="!listItems.length && !listLoading" class="workflow-instances__empty">
+        {{ t('workflowInstances.listEmpty') }}
+      </p>
+      <ul v-else class="workflow-instances__list">
+        <li v-for="item in listItems" :key="item.id">
+          <button
+            type="button"
+            data-testid="workflow-instance-list-item"
+            @click="selectListItem(item)"
+          >
+            <strong translate="no">{{ formatWorkflowBusinessLabel(item.businessTitle, item.businessType, item.businessId) }}</strong>
+            <el-tag :type="instanceStatusTone(item.statusKey)">
+              {{ instanceStatusLabel(item.statusKey) }}
+            </el-tag>
+            <small translate="no">{{ item.definitionKey }}</small>
+            <time :datetime="item.startedAtUtc">{{ item.startedAtUtc }}</time>
+          </button>
+        </li>
+      </ul>
+      <el-pagination
+        v-if="listTotal > 0"
+        background
+        layout="prev, pager, next, total"
+        data-testid="workflow-instance-pagination"
+        :current-page="listPage"
+        :page-size="listPageSize"
+        :total="listTotal"
+        @current-change="value => { listPage = value; void loadList(); }"
+      />
+    </el-card>
+
     <el-card shadow="never" class="workflow-instances__search-card">
       <form class="workflow-instances__search" @submit.prevent="load">
         <label for="workflow-instance-id">{{ t('workflowInstances.instanceId') }}</label>
@@ -420,7 +604,16 @@ function toProblem(error: unknown): FullNetProblemDetails {
       >
         <article class="workflow-instances__identity">
           <span>{{ t('workflowInstances.business') }}</span>
-          <strong>{{ instance.businessType }} · {{ instance.businessId }}</strong>
+          <strong>{{ formatWorkflowBusinessLabel(instance.businessTitle, instance.businessType, instance.businessId) }}</strong>
+          <el-button
+            v-if="findWorkflowBusinessDetailRoute(instance.businessType)"
+            type="primary"
+            link
+            data-testid="workflow-instance-open-business"
+            @click="openBusinessDetail(instance.businessType, instance.businessId)"
+          >
+            {{ t('workflow.business.viewDocument') }}
+          </el-button>
           <code translate="no">{{ instance.id }}</code>
         </article>
         <article>
@@ -537,7 +730,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
       </el-card>
     </template>
 
-    <div v-else-if="!problem && !loading" class="workflow-instances__landing">
+    <div v-else-if="!problem && !loading && !instance" class="workflow-instances__landing">
       <span aria-hidden="true">01 — N</span>
       <p>{{ t('workflowInstances.empty') }}</p>
     </div>
@@ -605,6 +798,48 @@ function toProblem(error: unknown): FullNetProblemDetails {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
+}
+
+.workflow-instances__list-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.workflow-instances__filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.workflow-instances__list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-instances__list button {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-bg-color);
+  text-align: left;
+  cursor: pointer;
+}
+
+.workflow-instances__list button:hover {
+  border-color: var(--el-color-primary-light-5);
+  background: var(--el-color-primary-light-9);
+}
+
+.workflow-instances__list small,
+.workflow-instances__list time {
+  color: var(--el-text-color-secondary);
+  font-size: 0.75rem;
 }
 
 .workflow-instances__summary {
@@ -785,7 +1020,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
 @media (max-width: 560px) {
   .workflow-instances__search-row,
-  .workflow-instances__summary {
+  .workflow-instances__summary,
+  .workflow-instances__filters {
     grid-template-columns: 1fr;
   }
 

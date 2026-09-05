@@ -137,6 +137,19 @@ internal static class WorkflowUnitLeaderSql
         """,
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>读取活动机构单元的上级机构标识。</summary>
+    public static readonly SqlStatement FindActiveUnitParentId = new(
+        "organization.workflow.find_active_unit_parent_id",
+        """
+        SELECT unit.ParentId
+        FROM fn_organization_unit AS unit
+        WHERE unit.TenantId = @TenantId
+          AND unit.Id = @UnitId
+          AND unit.IsActive = 1
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
 }
 
 /// <summary>Workflow 机构单元目录列表行投影。</summary>

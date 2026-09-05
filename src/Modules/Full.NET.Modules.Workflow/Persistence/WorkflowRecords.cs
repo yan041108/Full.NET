@@ -9,6 +9,8 @@ internal sealed record WorkflowDefinitionRecord(
     string DefinitionKey,
     Guid? DraftId,
     Guid? LatestPublishedVersionId,
+    string? BusinessTitleTemplate,
+    string StatusKey,
     Guid CreatedById,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
@@ -33,6 +35,7 @@ internal sealed record WorkflowDefinitionVersionRecord(
     int SchemaVersion,
     string CanonicalJson,
     string ContentHash,
+    string? BusinessTitleTemplate,
     Guid PublishedById,
     DateTimeOffset PublishedAtUtc);
 
@@ -46,6 +49,8 @@ internal sealed record WorkflowFormDefinitionRecord(
     string DraftSchemaJson,
     long DraftRevision,
     Guid? LatestPublishedVersionId,
+    string StatusKey,
+    long Version,
     Guid CreatedById,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc);
@@ -61,6 +66,7 @@ internal sealed record WorkflowFormVersionRecord(
     string FormSchemaJson,
     string WebRenderSchemaJson,
     string ContentHash,
+    string? BusinessTitleTemplate,
     Guid PublishedById,
     DateTimeOffset PublishedAtUtc);
 
@@ -74,6 +80,7 @@ internal sealed record WorkflowInstanceRecord(
     Guid? FormVersionId,
     string BusinessType,
     string BusinessId,
+    string? BusinessTitle,
     string StatusKey,
     long Revision,
     Guid StartedById,
@@ -84,6 +91,19 @@ internal sealed record WorkflowInstanceRecord(
     string? CancellationReason,
     string? LeaseOwnerKey,
     DateTimeOffset? LeaseExpiresAtUtc);
+
+/// <summary>工作流实例分页列表持久化投影。</summary>
+internal sealed record WorkflowInstanceListRecord(
+    Guid Id,
+    Guid DefinitionVersionId,
+    string DefinitionKey,
+    string BusinessType,
+    string BusinessId,
+    string? BusinessTitle,
+    string StatusKey,
+    Guid StartedById,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc);
 
 /// <summary>工作流待办持久化投影。</summary>
 internal sealed record WorkflowTodoRecord(
@@ -96,6 +116,23 @@ internal sealed record WorkflowTodoRecord(
     DateTimeOffset? CompletedAtUtc,
     string? ResultActionKey,
     long Revision);
+
+/// <summary>待办/已办分页列表持久化投影。</summary>
+internal sealed record WorkflowTodoListRecord(
+    Guid Id,
+    Guid InstanceId,
+    Guid StepId,
+    string StatusKey,
+    DateTimeOffset ArrivedAtUtc,
+    DateTimeOffset? CompletedAtUtc,
+    string? ResultActionKey,
+    long Revision,
+    string BusinessType,
+    string BusinessId,
+    string? BusinessTitle,
+    string InstanceStatusKey,
+    string DefinitionKey,
+    string NodeKey);
 
 /// <summary>后台超时扫描使用的有界待办投影。</summary>
 /// <param name="TenantId">租户标识；Host 作用域为空。</param>
@@ -247,7 +284,9 @@ internal sealed record WorkflowRuntimeAssetRecord(
     Guid DefinitionVersionId,
     Guid FormVersionId,
     string CanonicalJson,
-    string FormSchemaJson);
+    string FormSchemaJson,
+    string? BusinessTitleTemplate,
+    string DefinitionStatusKey);
 
 /// <summary>实例表单当前提交快照。</summary>
 internal sealed record WorkflowFormSubmissionRecord(
@@ -291,6 +330,7 @@ internal sealed record WorkflowCcRecord(
     Guid RecipientUserId,
     string BusinessType,
     string BusinessId,
+    string? BusinessTitle,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? ReadAtUtc);
 

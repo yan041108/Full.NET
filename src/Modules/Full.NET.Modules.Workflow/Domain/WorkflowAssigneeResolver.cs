@@ -134,6 +134,22 @@ internal sealed class WorkflowAssigneeResolver(
                 return primaryLeader is { } leaderId
                     ? Result<IReadOnlyList<Guid>>.Success([leaderId])
                     : Failure();
+            case WorkflowAssigneePolicy.InitiatorAncestorUnitLeader:
+                if (!scope.TenantId.HasValue ||
+                    source.AncestorLevel is not { } ancestorLevel)
+                {
+                    return Failure();
+                }
+
+                var ancestorLeader = await unitLeaderDirectory
+                    .FindInitiatorAncestorUnitLeaderUserIdAsync(
+                        initiatorUserId,
+                        ancestorLevel,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return ancestorLeader is { } ancestorLeaderId
+                    ? Result<IReadOnlyList<Guid>>.Success([ancestorLeaderId])
+                    : Failure();
             default:
                 return Failure();
         }

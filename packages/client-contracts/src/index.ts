@@ -54,6 +54,20 @@ export {
 export type { WorkflowFormFieldPatch } from './workflow-form-draft.js';
 
 export {
+  WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES,
+  createDefaultSubtableConstraints,
+  isSubtableRowValue,
+  readSubtableRows,
+  readWorkflowSubtableConstraints
+} from './workflow-form-subtable.js';
+
+export type {
+  WorkflowSubtableColumnDefinition,
+  WorkflowSubtableColumnFieldType,
+  WorkflowSubtableConstraints
+} from './workflow-form-subtable.js';
+
+export {
   createSessionRefreshCoordinator
 } from './session-refresh-coordinator.js';
 

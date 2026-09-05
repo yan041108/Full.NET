@@ -39,7 +39,8 @@ internal sealed class WorkflowInstanceStarterAdapter(
                 command.BusinessType,
                 command.BusinessId,
                 initialValues,
-                command.IdempotencyKey),
+                command.IdempotencyKey,
+                command.BusinessTitle),
             cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {

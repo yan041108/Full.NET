@@ -69,6 +69,44 @@ export async function publishWorkflowForm(
   return workflowPublishForm(http, { formId, body }, signal);
 }
 
+/** 变更工作流表单启停或归档状态。 */
+export async function setWorkflowFormStatus(
+  formId: string,
+  statusKey: 'active' | 'disabled' | 'archived',
+  expectedVersion: number,
+  signal?: AbortSignal
+): Promise<WorkflowFormResponse> {
+  return http.request<WorkflowFormResponse>(
+    `/api/v1/workflow/forms/${formId}/status`,
+    { method: 'POST', body: { statusKey, expectedVersion } },
+    signal
+  ).then(readSafeForm);
+}
+
+/** 列出工作流表单的全部已发布版本。 */
+export async function listWorkflowFormVersions(
+  formId: string,
+  signal?: AbortSignal
+): Promise<WorkflowFormVersionResponse[]> {
+  return http.request<WorkflowFormVersionResponse[]>(
+    `/api/v1/workflow/forms/${formId}/versions`,
+    { method: 'GET' },
+    signal
+  );
+}
+
+/** 删除未被运行实例引用的表单版本。 */
+export async function deleteWorkflowFormVersion(
+  versionId: string,
+  signal?: AbortSignal
+): Promise<void> {
+  await http.request<void>(
+    `/api/v1/workflow/form-versions/${versionId}`,
+    { method: 'DELETE' },
+    signal
+  );
+}
+
 /** 导出表单发布、组件目录与版本模型，供设计器、发布确认弹窗与版本面板共享同一契约。 */
 export type {
   PublishWorkflowFormRequest,

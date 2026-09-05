@@ -223,7 +223,7 @@ public sealed class WorkflowInstanceManagementServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "purchase", "PO-001", "active", 5, actorId, now,
+                "purchase", "PO-001", null, "active", 5, actorId, now,
                 null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowTodoTimeoutSummaryRecord>(
                 WorkflowSql.FindActiveTodoTimeoutByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
@@ -280,7 +280,8 @@ public sealed class WorkflowInstanceManagementServiceTests
             notificationPublisher,
             WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
                 query, command, ids, outbox ?? Substitute.For<IOutboxWriter>()),
-            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids));
+            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids),
+            WorkflowTodoManagementTestDependencies.CreateAttachmentCoordinator());
     }
 
     /// <summary>构造暂停/恢复路径需要的实例、回执和活动工作查询。</summary>
@@ -305,7 +306,7 @@ public sealed class WorkflowInstanceManagementServiceTests
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
                 instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
-                "leave", "LEAVE-001", statusKey, revision, actorId, now,
+                "leave", "LEAVE-001", null, statusKey, revision, actorId, now,
                 null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())

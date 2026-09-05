@@ -80,6 +80,7 @@ public sealed class WorkflowCcManagementServiceTests
             actorId,
             "leave.request",
             "request-1",
+            null,
             DateTimeOffset.UtcNow,
             readAtUtc);
 }

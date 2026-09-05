@@ -7,6 +7,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.DataApproval.Domain;
 using Full.NET.Modules.DataApproval.Features.ManageScenarios;
+using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
 using Full.NET.Modules.DataApproval.Persistence;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
@@ -26,8 +27,9 @@ internal sealed class DataApprovalRequestService(
     IOptions<DatabaseOptions> databaseOptions,
     ISerialRuleChangeApprovalSource serialRuleApprovalSource,
     DataApprovalScenarioService scenarioService,
-    IWorkflowInstanceStarter workflowStarter,
-    IWorkflowInstanceCanceller workflowCanceller)
+    IWorkflowInstanceCanceller workflowCanceller,
+    DataApprovalRequestLinkService linkService,
+    DataApprovalRequestApplicationService applicationService)
 {
     /// <summary>分页查询审批请求。</summary>
     public async Task<Result<PagedResult<DataApprovalRequestResponse>>> ListAsync(
@@ -104,7 +106,7 @@ internal sealed class DataApprovalRequestService(
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return await EnsureWorkflowStartedAsync(existing, cancellationToken)
+            return await linkService.TryLinkWorkflowAsync(existing, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -159,6 +161,16 @@ internal sealed class DataApprovalRequestService(
                         ("SubmittedAtUtc", now),
                         ("ResolvedAtUtc", null),
                         ("IdempotencyKey", normalized.IdempotencyKey),
+                        ("RecoveryStatusKey", DataApprovalRecoveryStatusKeys.PendingLink),
+                        ("LastFailureCode", null),
+                        ("LastFailureMessage", null),
+                        ("LastRecoveryAttemptAtUtc", null),
+                        ("RecoveryAttemptCount", 0),
+                        ("ApplicationStatusKey", DataApprovalApplicationStatusKeys.None),
+                        ("LastApplicationFailureCode", null),
+                        ("LastApplicationFailureMessage", null),
+                        ("LastApplicationAttemptAtUtc", null),
+                        ("ApplicationAttemptCount", 0),
                         ("CreatedAtUtc", now),
                         ("UpdatedAtUtc", now),
                         ("Version", 1L)),
@@ -183,7 +195,7 @@ internal sealed class DataApprovalRequestService(
             var createdRow = await FindAsync(requestId, cancellationToken).ConfigureAwait(false);
             return createdRow is null
                 ? NotFound()
-                : await EnsureWorkflowStartedAsync(createdRow, cancellationToken).ConfigureAwait(false);
+                : await linkService.TryLinkWorkflowAsync(createdRow, cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception)
             when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -203,78 +215,84 @@ internal sealed class DataApprovalRequestService(
                     ErrorType.Conflict));
             }
 
-            return await EnsureWorkflowStartedAsync(replay, cancellationToken)
+            return await linkService.TryLinkWorkflowAsync(replay, cancellationToken)
                 .ConfigureAwait(false);
         }
     }
 
-    /// <summary>在本地审批事务提交后幂等启动并关联工作流实例。</summary>
-    /// <param name="row">已提交的审批请求。</param>
-    /// <param name="cancellationToken">取消令牌。</param>
-    private async Task<Result<DataApprovalRequestResponse>> EnsureWorkflowStartedAsync(
-        DataApprovalRequestRecord row,
-        CancellationToken cancellationToken)
+    /// <summary>人工重试 pending 请求的工作流关联。</summary>
+    public async Task<Result<DataApprovalRequestResponse>> RetryLinkAsync(
+        Guid requestId,
+        RetryDataApprovalRequestBody request,
+        CancellationToken cancellationToken = default)
     {
-        if (row.WorkflowInstanceId is not null)
-        {
-            return Result<DataApprovalRequestResponse>.Success(Map(row));
-        }
-
-        var catalogEntry = DataApprovalScenarioCatalog.Find(row.ScenarioKey);
-        if (catalogEntry is null)
+        if (request.Version < 1)
         {
             return Result<DataApprovalRequestResponse>.Failure(new Error(
-                DataApprovalErrorCodes.ScenarioUnsupported,
-                "The approval scenario is not supported.",
+                DataApprovalErrorCodes.RequestInvalid,
+                "The approval request is invalid.",
                 ErrorType.Validation));
         }
 
-        // Workflow 写入不进入 DataApproval 本地事务；稳定幂等键允许失败后由同一创建请求恢复。
-        var start = await workflowStarter.StartAsync(
-                row.SubmittedByUserId,
-                new StartWorkflowInstanceCommand(
-                    row.WorkflowDefinitionVersionId,
-                    catalogEntry.WorkflowBusinessType,
-                    row.Id.ToString("D"),
-                    "{}",
-                    $"{row.IdempotencyKey}:start"),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!start.IsSuccess)
+        var row = await FindAsync(requestId, cancellationToken).ConfigureAwait(false);
+        if (row is null)
         {
-            return Result<DataApprovalRequestResponse>.Failure(start.Error!);
+            return NotFound();
         }
 
-        var affected = await commandExecutor.ExecuteAsync(
-                DataApprovalSql.LinkWorkflowInstance,
-                DataApprovalSqlParameters.Create(
-                    ("Id", row.Id),
-                    ("TenantScopeKey", row.TenantScopeKey),
-                    ("WorkflowInstanceId", start.Value!.InstanceId),
-                    ("WorkflowRevision", start.Value.Revision),
-                    ("StatusKey", DataApprovalStatusKeys.InReview),
-                    ("UpdatedAtUtc", clock.UtcNow),
-                    ("ExpectedVersion", row.Version)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (affected != 1)
+        if (row.Version != request.Version)
         {
-            var latest = await FindAsync(row.Id, cancellationToken).ConfigureAwait(false);
-            if (latest?.WorkflowInstanceId == start.Value.InstanceId)
-            {
-                return Result<DataApprovalRequestResponse>.Success(Map(latest));
-            }
-
             return Result<DataApprovalRequestResponse>.Failure(new Error(
-                DataApprovalErrorCodes.StatusInvalid,
-                "The approval request could not be linked to the workflow.",
+                DataApprovalErrorCodes.RecoveryRetryConflict,
+                "The approval request changed concurrently.",
                 ErrorType.Conflict));
         }
 
-        var updated = await FindAsync(row.Id, cancellationToken).ConfigureAwait(false);
-        return updated is null
-            ? NotFound()
-            : Result<DataApprovalRequestResponse>.Success(Map(updated));
+        return await linkService.TryLinkWorkflowAsync(row, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>人工重试批准后业务应用。</summary>
+    public async Task<Result<DataApprovalRequestResponse>> RetryApplyAsync(
+        Guid requestId,
+        RetryDataApprovalRequestBody request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Version < 1)
+        {
+            return Result<DataApprovalRequestResponse>.Failure(new Error(
+                DataApprovalErrorCodes.RequestInvalid,
+                "The approval request is invalid.",
+                ErrorType.Validation));
+        }
+
+        var row = await FindAsync(requestId, cancellationToken).ConfigureAwait(false);
+        if (row is null)
+        {
+            return NotFound();
+        }
+
+        if (row.Version != request.Version)
+        {
+            return Result<DataApprovalRequestResponse>.Failure(new Error(
+                DataApprovalErrorCodes.ApplicationRetryConflict,
+                "The approval request changed concurrently.",
+                ErrorType.Conflict));
+        }
+
+        if (!DataApprovalApplicationRules.CanManualRetryApply(row.StatusKey, row.ApplicationStatusKey))
+        {
+            return Result<DataApprovalRequestResponse>.Failure(new Error(
+                DataApprovalErrorCodes.ApplicationNotRetryable,
+                "The approval request cannot retry application in the current state.",
+                ErrorType.Conflict));
+        }
+
+        return await applicationService.TryApplyApprovedChangeAsync(
+                row,
+                row.SubmittedByUserId,
+                $"{row.Id:D}:apply-retry",
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>取消待处理审批请求并联动工作流实例。</summary>
@@ -440,6 +458,16 @@ internal sealed class DataApprovalRequestService(
             row.SubmittedByUserId,
             row.SubmittedAtUtc,
             row.ResolvedAtUtc,
+            row.RecoveryStatusKey,
+            row.LastFailureCode,
+            row.LastFailureMessage,
+            row.LastRecoveryAttemptAtUtc,
+            row.RecoveryAttemptCount,
+            row.ApplicationStatusKey,
+            row.LastApplicationFailureCode,
+            row.LastApplicationFailureMessage,
+            row.LastApplicationAttemptAtUtc,
+            row.ApplicationAttemptCount,
             row.Version);
 
     private static Result<DataApprovalRequestResponse> NotFound() =>

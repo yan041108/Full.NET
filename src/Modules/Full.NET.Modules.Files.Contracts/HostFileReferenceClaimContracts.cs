@@ -7,6 +7,9 @@ public static class HostFileReferenceClaimConsumerModules
 {
     /// <summary>Document 模块消费者；用于文档版本关联文件的 claim 生命周期。</summary>
     public const string Document = "document";
+
+    /// <summary>Workflow 模块消费者；用于表单提交附件的 claim 生命周期。</summary>
+    public const string Workflow = "workflow";
 }
 
 /// <summary>引用 claim 状态机。</summary>
@@ -33,6 +36,15 @@ public static class HostFileReferenceClaimIdempotencyKeys
     /// <param name="versionId">文档版本标识。</param>
     /// <returns>形如 "document-version:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 的幂等键。</returns>
     public static string DocumentVersion(Guid versionId) => $"document-version:{versionId:D}";
+
+    /// <summary>
+    /// 为 Workflow 表单提交附件生成稳定幂等键；同一提交与文件组合多次调用返回值相同。
+    /// </summary>
+    /// <param name="submissionId">表单提交标识。</param>
+    /// <param name="fileId">附件文件标识。</param>
+    /// <returns>形如 "workflow-form-submission-attachment:{submissionId}:{fileId}" 的幂等键。</returns>
+    public static string WorkflowFormSubmissionAttachment(Guid submissionId, Guid fileId) =>
+        $"workflow-form-submission-attachment:{submissionId:D}:{fileId:D}";
 }
 
 /// <summary>

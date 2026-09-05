@@ -8,6 +8,7 @@ internal sealed record WorkflowCcResponse(
     string NodeKey,
     string BusinessType,
     string BusinessId,
+    string? BusinessTitle,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? ReadAtUtc);
 

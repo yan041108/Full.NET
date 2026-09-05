@@ -9,9 +9,11 @@ import {
 } from '@fullnet/client-contracts';
 import {
   createWorkflowDefinition,
+  deleteWorkflowDefinitionVersion,
   getWorkflowDefinition,
   getWorkflowNodeTypeCatalog,
   publishWorkflowDefinition,
+  setWorkflowDefinitionStatus,
   updateWorkflowDefinitionDraft,
   type WorkflowDefinitionDraft
 } from '../api/workflow-definitions';
@@ -45,6 +47,7 @@ const session = useSessionStore();
 const definitions = ref<WorkflowDefinitionResponse[]>([]);
 const versions = ref<WorkflowDefinitionVersionResponse[]>([]);
 const selectedDefinitionId = ref<string>();
+const selectedDefinition = ref<WorkflowDefinitionResponse>();
 const selectedVersion = ref<WorkflowDefinitionVersionResponse>();
 const startSchema = ref<WorkflowFormSchema>();
 const initialValues = ref<WorkflowSubmission>({});
@@ -60,7 +63,7 @@ const workflowTree = ref<WorkflowVue3Node>();
 const definitionDesigner = ref<WorkflowVue3DesignerInstance>();
 const enabledNodeTypes = ref<readonly string[]>([]);
 const publishedForms = ref<WorkflowFormResponse[]>([]);
-const publishFormVersionId = ref('');
+const businessTitleTemplate = ref('');
 const gatewayFields = ref<readonly WorkflowFormField[]>([]);
 const canLoadPublishForms = computed(() =>
   session.can('workflow.definitions.publish') && session.can('workflow.forms.read'));
@@ -105,7 +108,7 @@ async function submitCreate(): Promise<void> {
 }
 
 async function openEditor(definition: WorkflowDefinitionResponse): Promise<void> {
-  if (loading.value || acting.value) return;
+  if (loading.value || acting.value || definitionStatus(definition) === 'archived') return;
   const result = await runManagementAction(
     () => Promise.all([
       getWorkflowDefinition(definition.id),
@@ -128,8 +131,10 @@ async function openEditor(definition: WorkflowDefinitionResponse): Promise<void>
   }
   try {
     editingDefinition.value = authoritative;
+    businessTitleTemplate.value = authoritative.businessTitleTemplate ?? '';
     workflowTree.value = toWorkflowVue3Tree(authoritative.draft);
-    publishedForms.value = forms.filter(form => form.latestPublishedVersionId !== null);
+    publishedForms.value = forms.filter(form =>
+      form.latestPublishedVersionId !== null && formStatus(form) === 'active');
     publishFormVersionId.value = publishedForms.value[0]?.latestPublishedVersionId ?? '';
     await loadGatewayFields();
   } catch (error: unknown) {
@@ -164,7 +169,11 @@ async function saveDefinitionDraft(): Promise<void> {
     return;
   }
   const saved = await runManagementAction(
-    () => updateWorkflowDefinitionDraft(current.id, current.draftRevision, draft),
+    () => updateWorkflowDefinitionDraft(
+      current.id,
+      current.draftRevision,
+      draft,
+      businessTitleTemplate.value),
     'workflowDefinitions.operationFailed'
   );
   if (saved !== undefined) {
@@ -231,6 +240,59 @@ function showDesignerError(code: string): void {
   problem.value = { status: 400, code, title: t('workflowDefinitions.operationFailed') };
 }
 
+function definitionStatus(definition: WorkflowDefinitionResponse): 'active' | 'disabled' | 'archived' {
+  const statusKey = (definition as WorkflowDefinitionResponse & { statusKey?: string }).statusKey;
+  if (statusKey === 'disabled' || statusKey === 'archived') {
+    return statusKey;
+  }
+  return 'active';
+}
+
+function formStatus(form: WorkflowFormResponse): 'active' | 'disabled' | 'archived' {
+  const statusKey = (form as WorkflowFormResponse & { statusKey?: string }).statusKey;
+  if (statusKey === 'disabled' || statusKey === 'archived') {
+    return statusKey;
+  }
+  return 'active';
+}
+
+async function changeDefinitionStatus(
+  definition: WorkflowDefinitionResponse,
+  statusKey: 'active' | 'disabled' | 'archived'
+): Promise<void> {
+  const updated = await runManagementAction(
+    () => setWorkflowDefinitionStatus(definition.id, statusKey, definition.version),
+    'workflowDefinitions.operationFailed'
+  );
+  if (updated === undefined) {
+    return;
+  }
+  definitions.value = definitions.value.map(item => item.id === updated.id ? updated : item);
+  if (selectedDefinition.value?.id === updated.id) {
+    selectedDefinition.value = updated;
+  }
+  if (editingDefinition.value?.id === updated.id) {
+    closeEditor();
+  }
+  ElMessage.success(t(`workflowDefinitions.statusSuccess.${statusKey}`));
+}
+
+async function removeDefinitionVersion(version: WorkflowDefinitionVersionResponse): Promise<void> {
+  await runManagementAction(
+    async () => {
+      await deleteWorkflowDefinitionVersion(version.id);
+      if (selectedDefinitionId.value !== undefined) {
+        versions.value = await listWorkflowDefinitionVersions(selectedDefinitionId.value);
+        const refreshed = await getWorkflowDefinition(selectedDefinitionId.value);
+        definitions.value = definitions.value.map(item => item.id === refreshed.id ? refreshed : item);
+        selectedDefinition.value = refreshed;
+      }
+    },
+    'workflowDefinitions.operationFailed'
+  );
+  ElMessage.success(t('workflowDefinitions.deleteVersionSuccess'));
+}
+
 async function loadDefinitions(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
@@ -252,6 +314,7 @@ async function openVersions(definition: WorkflowDefinitionResponse): Promise<voi
   try {
     versions.value = await listWorkflowDefinitionVersions(definition.id);
     selectedDefinitionId.value = definition.id;
+    selectedDefinition.value = definition;
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowDefinitions.loadFailed');
   } finally {
@@ -364,6 +427,7 @@ function toProblem(
         <table>
           <thead><tr>
             <th>{{ t('workflowDefinitions.definitionKey') }}</th>
+            <th>{{ t('workflowDefinitions.status') }}</th>
             <th>{{ t('workflowDefinitions.latestVersion') }}</th>
             <th>{{ t('workflowDefinitions.updatedAt') }}</th>
             <th>{{ t('workflowDefinitions.actions') }}</th>
@@ -371,13 +435,14 @@ function toProblem(
           <tbody>
             <tr v-for="definition in definitions" :key="definition.id">
               <td><code translate="no">{{ definition.definitionKey }}</code></td>
+              <td>{{ t(`workflowDefinitions.statusLabel.${definitionStatus(definition)}`) }}</td>
               <td><code translate="no">{{ definition.latestPublishedVersionId ?? '—' }}</code></td>
               <td>{{ definition.updatedAtUtc ?? definition.createdAtUtc }}</td>
               <td class="workflow-definitions__actions">
                 <PermissionGate code="workflow.definitions.update">
                   <el-button
                     data-testid="workflow-definition-edit"
-                    :disabled="loading || acting"
+                    :disabled="loading || acting || definitionStatus(definition) === 'archived'"
                     @click="openEditor(definition)"
                   >{{ t('workflowDefinitions.edit') }}</el-button>
                 </PermissionGate>
@@ -386,6 +451,27 @@ function toProblem(
                   :disabled="loading || acting"
                   @click="openVersions(definition)"
                 >{{ t('workflowDefinitions.versions') }}</el-button>
+                <PermissionGate v-if="definitionStatus(definition) === 'active'" code="workflow.definitions.manage_status">
+                  <el-button
+                    data-testid="workflow-definition-disable"
+                    :disabled="loading || acting"
+                    @click="changeDefinitionStatus(definition, 'disabled')"
+                  >{{ t('workflowDefinitions.disable') }}</el-button>
+                </PermissionGate>
+                <PermissionGate v-if="definitionStatus(definition) === 'disabled'" code="workflow.definitions.manage_status">
+                  <el-button
+                    data-testid="workflow-definition-enable"
+                    :disabled="loading || acting"
+                    @click="changeDefinitionStatus(definition, 'active')"
+                  >{{ t('workflowDefinitions.enable') }}</el-button>
+                </PermissionGate>
+                <PermissionGate v-if="definitionStatus(definition) !== 'archived'" code="workflow.definitions.manage_status">
+                  <el-button
+                    data-testid="workflow-definition-archive"
+                    :disabled="loading || acting"
+                    @click="changeDefinitionStatus(definition, 'archived')"
+                  >{{ t('workflowDefinitions.archive') }}</el-button>
+                </PermissionGate>
               </td>
             </tr>
           </tbody>
@@ -422,6 +508,15 @@ function toProblem(
           {{ t('workflowDefinitions.close') }}
         </el-button>
       </div>
+      <label class="workflow-definitions__title-template">
+        <span>{{ t('workflowDefinitions.businessTitleTemplate') }}</span>
+        <input
+          v-model="businessTitleTemplate"
+          data-testid="workflow-definition-title-template"
+          maxlength="256"
+          :placeholder="t('workflowDefinitions.businessTitleTemplateHint')"
+        />
+      </label>
       <WorkflowVue3Designer
         ref="definitionDesigner"
         v-model="workflowTree"
@@ -465,7 +560,10 @@ function toProblem(
         <li v-for="version in versions" :key="version.id">
           <span>{{ t('workflowDefinitions.version') }} {{ version.versionNumber }}</span>
           <time :datetime="version.publishedAtUtc">{{ version.publishedAtUtc }}</time>
-          <PermissionGate code="workflow.instances.start">
+          <PermissionGate
+            v-if="selectedDefinition && definitionStatus(selectedDefinition) === 'active'"
+            code="workflow.instances.start"
+          >
             <el-button
               type="primary"
               plain
@@ -473,6 +571,15 @@ function toProblem(
               :disabled="loading || acting"
               @click="openStart(version)"
             >{{ t('workflowDefinitions.start') }}</el-button>
+          </PermissionGate>
+          <PermissionGate code="workflow.definitions.delete_version">
+            <el-button
+              type="danger"
+              plain
+              data-testid="workflow-definition-delete-version"
+              :disabled="loading || acting"
+              @click="removeDefinitionVersion(version)"
+            >{{ t('workflowDefinitions.deleteVersion') }}</el-button>
           </PermissionGate>
         </li>
       </ul>

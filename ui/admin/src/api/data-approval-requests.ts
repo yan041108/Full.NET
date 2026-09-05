@@ -3,10 +3,13 @@ import {
   dataApprovalsCreateRequest,
   dataApprovalsGetRequest,
   dataApprovalsListRequests,
+  dataApprovalsRetryRequest,
+  dataApprovalsRetryApplyRequest,
   type CancelDataApprovalRequestBody,
   type CreateDataApprovalRequestBody,
   type DataApprovalRequestResponse,
-  type PagedResultOfDataApprovalRequestResponse
+  type PagedResultOfDataApprovalRequestResponse,
+  type RetryDataApprovalRequestBody
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
@@ -52,8 +55,27 @@ export function cancelDataApprovalRequest(
   return dataApprovalsCancelRequest(http, { requestId, body }, signal);
 }
 
+/** 人工重试 pending 请求的工作流关联。 */
+export function retryDataApprovalRequest(
+  requestId: string,
+  body: RetryDataApprovalRequestBody,
+  signal?: AbortSignal
+): Promise<DataApprovalRequestResponse> {
+  return dataApprovalsRetryRequest(http, { requestId, body }, signal);
+}
+
+/** 人工重试批准后业务应用。 */
+export function retryDataApprovalApplyRequest(
+  requestId: string,
+  body: RetryDataApprovalRequestBody,
+  signal?: AbortSignal
+): Promise<DataApprovalRequestResponse> {
+  return dataApprovalsRetryApplyRequest(http, { requestId, body }, signal);
+}
+
 export type {
   CancelDataApprovalRequestBody,
   CreateDataApprovalRequestBody,
-  DataApprovalRequestResponse
+  DataApprovalRequestResponse,
+  RetryDataApprovalRequestBody
 };

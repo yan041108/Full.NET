@@ -672,6 +672,15 @@ function readAssigneeSource(value: unknown): Record<string, unknown> {
     case 'initiator':
     case 'initiator_primary_unit_leader':
       return { resolverKindKey: value.resolverKindKey };
+    case 'initiator_ancestor_unit_leader': {
+      const ancestorLevel = typeof value.ancestorLevel === 'number'
+        ? value.ancestorLevel
+        : typeof value.ancestorLevel === 'string' ? Number(value.ancestorLevel) : Number.NaN;
+      if (!Number.isInteger(ancestorLevel) || ancestorLevel < 1 || ancestorLevel > 20) {
+        throw new Error('client.invalid_workflow_assignee_policy');
+      }
+      return { resolverKindKey: value.resolverKindKey, ancestorLevel };
+    }
     default:
       throw new Error('client.invalid_workflow_assignee_policy');
   }

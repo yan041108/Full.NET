@@ -1,6 +1,18 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  ElButton,
+  ElCard,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTabPane,
+  ElTabs,
+  ElTag
+} from 'element-plus';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails
@@ -12,27 +24,53 @@ import {
   getWorkflowTodo,
   getWorkflowTodoCountersignChain,
   listWorkflowTodoReturnTargets,
+  listMyWorkflowTodoHistory,
   listMyWorkflowTodos,
   rejectWorkflowTodo,
   returnWorkflowTodo,
   type WorkflowSubmission,
   type WorkflowTodoDetail,
-  type WorkflowTodoResponse,
+  type WorkflowTodoListItemResponse,
   type WorkflowTodoReturnTargetResponse,
   type WorkflowTodoCountersignChain
 } from '../api/workflow-todos';
 import { listWorkflowRecipientCandidates } from '../api/workflow-definitions';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { usePermission } from '../auth/permission';
+import { useRouter } from 'vue-router';
 import PermissionGate from '../components/PermissionGate.vue';
 import WorkflowFormRenderer from '../workflow/WorkflowFormRenderer.vue';
+import {
+  findWorkflowBusinessDetailRoute,
+  formatWorkflowBusinessLabel
+} from '../workflow/workflowBusinessDetail';
+
+const resultActionFilterOptions = [
+  'approve',
+  'reject',
+  'return',
+  'cancel',
+  'cancelled'
+] as const;
+
+type TodoTabKey = 'pending' | 'history';
 
 const { t } = useAdminI18n();
+const router = useRouter();
 const { can } = usePermission();
+const activeTab = ref<TodoTabKey>('pending');
+const listItems = ref<WorkflowTodoListItemResponse[]>([]);
+const listPage = ref(1);
+const listPageSize = ref(20);
+const listTotal = ref(0);
+const listLoading = ref(false);
+const definitionKeyFilter = ref('');
+const businessTypeFilter = ref('');
+const resultActionFilter = ref<string>();
 const loading = ref(false);
 const acting = ref(false);
-const todos = ref<WorkflowTodoResponse[]>([]);
 const selected = ref<WorkflowTodoDetail>();
+const selectedListItem = ref<WorkflowTodoListItemResponse>();
 const fieldPatch = ref<WorkflowSubmission>({});
 const comment = ref('');
 const returnTargets = ref<WorkflowTodoReturnTargetResponse[]>([]);
@@ -43,6 +81,8 @@ const countersignCandidates = ref<Array<{ id: string; label: string }>>([]);
 const countersignChain = ref<WorkflowTodoCountersignChain>();
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
+
+const detailReadOnly = computed(() => activeTab.value === 'history');
 
 const requiredFieldsReady = computed(() => {
   const detail = selected.value;
@@ -101,7 +141,7 @@ async function submitCountersign(): Promise<void> {
     );
     ElMessage.success(t('workflowTodos.countersignSuccess'));
     closeDetail();
-    await load();
+    await loadList();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowTodos.operationFailed');
   } finally {
@@ -126,7 +166,7 @@ async function cancelCountersign(): Promise<void> {
     );
     ElMessage.success(t('workflowTodos.countersignCancelSuccess'));
     closeDetail();
-    await load();
+    await loadList();
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowTodos.operationFailed');
   } finally {
@@ -134,44 +174,79 @@ async function cancelCountersign(): Promise<void> {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  void loadList();
+});
 onBeforeUnmount(() => loadController?.abort());
 
-async function load(): Promise<void> {
+watch(activeTab, () => {
+  listPage.value = 1;
+  closeDetail();
+  void loadList();
+});
+
+async function loadList(): Promise<void> {
   loadController?.abort();
   loadController = new AbortController();
-  loading.value = true;
+  const signal = loadController.signal;
+  listLoading.value = true;
   problem.value = undefined;
   try {
-    todos.value = await listMyWorkflowTodos(loadController.signal);
+    const query = {
+      page: listPage.value,
+      pageSize: listPageSize.value,
+      definitionKey: definitionKeyFilter.value.trim() || undefined,
+      businessType: businessTypeFilter.value.trim() || undefined
+    };
+    const result = activeTab.value === 'history'
+      ? await listMyWorkflowTodoHistory({
+          ...query,
+          resultActionKey: resultActionFilter.value || undefined
+        }, signal)
+      : await listMyWorkflowTodos(query, signal);
+    if (!signal.aborted) {
+      listItems.value = result.items;
+      listPage.value = result.page;
+      listPageSize.value = result.pageSize;
+      listTotal.value = result.total;
+    }
   } catch (error: unknown) {
-    if (!loadController.signal.aborted) {
+    if (!loadController?.signal.aborted) {
       problem.value = toProblem(error, 'workflowTodos.loadFailed');
     }
   } finally {
-    loading.value = false;
+    listLoading.value = false;
   }
 }
 
-async function openTodo(todo: WorkflowTodoResponse): Promise<void> {
-  if (loading.value || acting.value) {
+async function openTodo(todo: WorkflowTodoListItemResponse): Promise<void> {
+  if (listLoading.value || loading.value || acting.value) {
     return;
   }
   loading.value = true;
   problem.value = undefined;
+  selectedListItem.value = todo;
   try {
-    const [detail, targets] = await Promise.all([
-      getWorkflowTodo(todo.id),
-      canReturn.value ? listWorkflowTodoReturnTargets(todo.id) : Promise.resolve([])
-    ]);
+    const detail = await getWorkflowTodo(todo.id);
     selected.value = detail;
-    returnTargets.value = targets;
-    await loadCountersignContext(todo.id);
+    if (!detailReadOnly.value) {
+      const targets = canReturn.value
+        ? await listWorkflowTodoReturnTargets(todo.id)
+        : [];
+      returnTargets.value = targets;
+      await loadCountersignContext(todo.id);
+    } else {
+      returnTargets.value = [];
+      countersignChain.value = undefined;
+      countersignAssigneeIds.value = [];
+      countersignCandidates.value = [];
+    }
     fieldPatch.value = {};
     comment.value = '';
     returnTargetStepId.value = '';
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowTodos.loadFailed');
+    selectedListItem.value = undefined;
   } finally {
     loading.value = false;
   }
@@ -197,14 +272,14 @@ async function returnSelected(): Promise<void> {
     );
     ElMessage.success(t('workflowTodos.returnSuccess'));
     closeDetail();
-    await load();
+    await loadList();
   } catch (error: unknown) {
     const actionProblem = toProblem(error, 'workflowTodos.operationFailed');
     problem.value = actionProblem;
     if (actionProblem.status === 409) {
       closeDetail();
       try {
-        todos.value = await listMyWorkflowTodos();
+        await loadList();
       } catch {
         // 冲突后必须关闭过期退回动作；刷新失败时保留原始 409。
       }
@@ -236,14 +311,14 @@ async function act(action: 'approve' | 'reject'): Promise<void> {
       ? 'workflowTodos.approveSuccess'
       : 'workflowTodos.rejectSuccess'));
     closeDetail();
-    await load();
+    await loadList();
   } catch (error: unknown) {
     const actionProblem = toProblem(error, 'workflowTodos.operationFailed');
     problem.value = actionProblem;
     if (actionProblem.status === 409) {
       closeDetail();
       try {
-        todos.value = await listMyWorkflowTodos();
+        await loadList();
       } catch {
         // 冲突后必须先关闭过期动作；刷新失败时保留原始 409，避免用次生错误掩盖并发事实。
       }
@@ -256,6 +331,7 @@ async function act(action: 'approve' | 'reject'): Promise<void> {
 
 function closeDetail(): void {
   selected.value = undefined;
+  selectedListItem.value = undefined;
   fieldPatch.value = {};
   comment.value = '';
   returnTargets.value = [];
@@ -263,6 +339,22 @@ function closeDetail(): void {
   countersignChain.value = undefined;
   countersignAssigneeIds.value = [];
   countersignCandidates.value = [];
+}
+
+function openBusinessDetail(businessType: string, businessId: string): void {
+  const route = findWorkflowBusinessDetailRoute(businessType);
+  if (route === undefined) {
+    return;
+  }
+  void router.push({ name: route.routeName, query: { [route.idQueryKey]: businessId } });
+}
+
+function resultActionLabel(actionKey: string | null | undefined): string {
+  if (actionKey === null || actionKey === undefined || actionKey.length === 0) {
+    return t('workflowInstances.timeoutStatus.not_configured');
+  }
+  const key = `workflowTodos.resultAction.${actionKey}` as MessageKey;
+  return t(key);
 }
 
 function hasValue(value: unknown): boolean {
@@ -301,7 +393,7 @@ function toProblem(
 </script>
 
 <template>
-  <section class="workflow-todos art-page-stack art-full-height" :aria-busy="loading || acting">
+  <section class="workflow-todos art-page-stack art-full-height" :aria-busy="listLoading || loading || acting">
     <header class="workflow-todos__header">
       <div>
         <h1 data-route-heading tabindex="-1">{{ t('workflowTodos.title') }}</h1>
@@ -315,49 +407,137 @@ function toProblem(
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
 
-    <el-card shadow="never" class="workflow-todos__list">
-      <div v-if="todos.length === 0 && !loading" class="workflow-todos__empty">
-        {{ t('workflowTodos.empty') }}
+    <el-card shadow="never" class="workflow-todos__list" :aria-busy="listLoading">
+      <el-tabs v-model="activeTab" data-testid="workflow-todo-tabs">
+        <el-tab-pane :label="t('workflowTodos.tabs.pending')" name="pending" />
+        <el-tab-pane :label="t('workflowTodos.tabs.history')" name="history" />
+      </el-tabs>
+
+      <form class="workflow-todos__filters" @submit.prevent="loadList">
+        <el-input
+          v-model="definitionKeyFilter"
+          clearable
+          data-testid="workflow-todo-definition-filter"
+          :placeholder="t('workflowTodos.filters.definitionKey')"
+        />
+        <el-input
+          v-model="businessTypeFilter"
+          clearable
+          data-testid="workflow-todo-business-type-filter"
+          :placeholder="t('workflowTodos.filters.businessType')"
+        />
+        <el-select
+          v-if="activeTab === 'history'"
+          v-model="resultActionFilter"
+          clearable
+          data-testid="workflow-todo-result-action-filter"
+          :placeholder="t('workflowTodos.filters.resultAction')"
+        >
+          <el-option
+            v-for="actionKey in resultActionFilterOptions"
+            :key="actionKey"
+            :label="resultActionLabel(actionKey)"
+            :value="actionKey"
+          />
+        </el-select>
+        <el-button
+          type="primary"
+          native-type="submit"
+          data-testid="workflow-todo-filter-apply"
+          :loading="listLoading"
+          @click="loadList"
+        >
+          {{ t('workflowTodos.filters.apply') }}
+        </el-button>
+      </form>
+
+      <div
+        v-if="!listItems.length && !listLoading"
+        class="workflow-todos__empty"
+      >
+        {{ t(activeTab === 'history' ? 'workflowTodos.historyEmpty' : 'workflowTodos.empty') }}
       </div>
       <div v-else class="workflow-todos__table-wrap">
         <table>
           <thead>
             <tr>
-              <th>{{ t('workflowTodos.instance') }}</th>
-              <th>{{ t('workflowTodos.status') }}</th>
-              <th>{{ t('workflowTodos.arrivedAt') }}</th>
+              <th>{{ t('workflowTodos.business') }}</th>
+              <th>{{ t('workflowTodos.node') }}</th>
+              <th v-if="activeTab === 'history'">{{ t('workflowTodos.resultAction') }}</th>
+              <th>{{ t(activeTab === 'history' ? 'workflowTodos.completedAt' : 'workflowTodos.arrivedAt') }}</th>
               <th>{{ t('workflowTodos.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="todo in todos" :key="todo.id">
-              <td><code translate="no">{{ todo.instanceId }}</code></td>
-              <td><span class="workflow-todos__status" translate="no">{{ todo.statusKey }}</span></td>
-              <td><time :datetime="todo.arrivedAtUtc">{{ todo.arrivedAtUtc }}</time></td>
+            <tr v-for="todo in listItems" :key="todo.id">
+              <td>
+                <strong translate="no">{{ formatWorkflowBusinessLabel(todo.businessTitle, todo.businessType, todo.businessId) }}</strong>
+                <small translate="no">{{ todo.definitionKey }}</small>
+              </td>
+              <td><span translate="no">{{ todo.nodeKey }}</span></td>
+              <td v-if="activeTab === 'history'">
+                <el-tag translate="no">{{ resultActionLabel(todo.resultActionKey) }}</el-tag>
+              </td>
+              <td>
+                <time
+                  :datetime="activeTab === 'history' ? (todo.completedAtUtc ?? '') : todo.arrivedAtUtc"
+                >
+                  {{ activeTab === 'history' ? todo.completedAtUtc : todo.arrivedAtUtc }}
+                </time>
+              </td>
               <td>
                 <el-button
                   data-testid="workflow-todo-open"
-                  :disabled="loading || acting"
+                  :disabled="listLoading || loading || acting"
                   @click="openTodo(todo)"
                 >
-                  {{ t('workflowTodos.open') }}
+                  {{ t(detailReadOnly ? 'workflowTodos.view' : 'workflowTodos.open') }}
+                </el-button>
+                <el-button
+                  v-if="findWorkflowBusinessDetailRoute(todo.businessType)"
+                  link
+                  type="primary"
+                  data-testid="workflow-todo-open-business"
+                  @click="openBusinessDetail(todo.businessType, todo.businessId)"
+                >
+                  {{ t('workflow.business.viewDocument') }}
                 </el-button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+      <el-pagination
+        v-if="listTotal > 0"
+        background
+        layout="prev, pager, next, total"
+        data-testid="workflow-todo-pagination"
+        :current-page="listPage"
+        :page-size="listPageSize"
+        :total="listTotal"
+        @current-change="value => { listPage = value; void loadList(); }"
+      />
     </el-card>
 
     <el-drawer
       :model-value="selected !== undefined"
-      :title="t('workflowTodos.detail')"
+      :title="t(detailReadOnly ? 'workflowTodos.historyDetail' : 'workflowTodos.detail')"
       size="min(680px, 94vw)"
       @close="closeDetail"
     >
       <template v-if="selected">
         <div
-          v-if="selected.approvedCount + selected.rejectedCount + selected.pendingCount > 1"
+          v-if="detailReadOnly && selectedListItem"
+          class="workflow-todos__history-snapshot"
+          data-testid="workflow-todo-history-snapshot"
+        >
+          <el-tag translate="no">{{ resultActionLabel(selectedListItem.resultActionKey) }}</el-tag>
+          <time :datetime="selectedListItem.completedAtUtc ?? ''">
+            {{ selectedListItem.completedAtUtc }}
+          </time>
+        </div>
+        <div
+          v-else-if="selected.approvedCount + selected.rejectedCount + selected.pendingCount > 1"
           class="workflow-todos__approval-progress"
           data-testid="workflow-approval-progress"
         >
@@ -372,11 +552,14 @@ function toProblem(
         <WorkflowFormRenderer
           :schema="selected.formSchema"
           :submission="selected.submission"
-          :field-policies="selected.fieldPolicies"
+          :instance-id="selected.instanceId"
+          :field-policies="detailReadOnly
+            ? Object.fromEntries(Object.keys(selected.fieldPolicies).map(key => [key, 'readOnly']))
+            : selected.fieldPolicies"
           @update:patch="fieldPatch = $event"
         />
 
-        <label class="workflow-todos__comment">
+        <label v-if="!detailReadOnly" class="workflow-todos__comment">
           <span>{{ t('workflowTodos.comment') }}</span>
           <textarea
             v-model="comment"
@@ -387,7 +570,7 @@ function toProblem(
           ></textarea>
         </label>
 
-        <label v-if="canReturn" class="workflow-todos__return-target">
+        <label v-if="!detailReadOnly && canReturn" class="workflow-todos__return-target">
           <span>{{ t('workflowTodos.returnTarget') }}</span>
           <select
             v-model="returnTargetStepId"
@@ -407,7 +590,7 @@ function toProblem(
           </select>
         </label>
 
-        <PermissionGate code="workflow.todos.countersign">
+        <PermissionGate v-if="!detailReadOnly" code="workflow.todos.countersign">
           <div v-if="countersignChain" class="workflow-todos__countersign-chain">
             <strong>{{ t('workflowTodos.countersignChain') }}</strong>
             <ol>
@@ -463,7 +646,7 @@ function toProblem(
           </div>
         </PermissionGate>
 
-        <div class="workflow-todos__decision-bar">
+        <div v-if="!detailReadOnly" class="workflow-todos__decision-bar">
           <el-button :disabled="acting" @click="closeDetail">
             {{ t('workflowTodos.close') }}
           </el-button>
@@ -523,6 +706,37 @@ function toProblem(
 .workflow-todos__header p {
   margin: 0.35rem 0 0;
   color: var(--el-text-color-secondary);
+}
+
+.workflow-todos__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.workflow-todos__filters .el-input,
+.workflow-todos__filters .el-select {
+  width: min(220px, 100%);
+}
+
+.workflow-todos__history-snapshot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-light);
+}
+
+.workflow-todos td small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--el-text-color-secondary);
+  font-size: 0.75rem;
 }
 
 .workflow-todos__approval-progress {

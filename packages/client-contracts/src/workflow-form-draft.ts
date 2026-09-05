@@ -1,5 +1,8 @@
 import type { WorkflowFormComponentCatalogResponse } from './generated/index.generated.js';
 import {
+  createDefaultSubtableConstraints
+} from './workflow-form-subtable.js';
+import {
   WORKFLOW_FIELD_TYPES,
   type WorkflowFieldType,
   type WorkflowFormField,
@@ -197,6 +200,16 @@ function defaultConstraints(fieldTypeKey: WorkflowFieldType): Readonly<Record<st
   if (fieldTypeKey === 'radio' || fieldTypeKey === 'checkbox' || fieldTypeKey === 'select') {
     return { options: ['option1'] };
   }
+  if (fieldTypeKey === 'attachment') {
+    return {
+      maxCount: 3,
+      maxSizeBytes: 10_485_760,
+      allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx']
+    };
+  }
+  if (fieldTypeKey === 'subtable') {
+    return createDefaultSubtableConstraints();
+  }
   return {};
 }
 
@@ -212,17 +225,83 @@ function sanitizeConstraints(
     if (!isSafeConstraintValue(value)) {
       fail();
     }
-    result[key] = Array.isArray(value) ? [...value] : value;
+    result[key] = cloneConstraintValue(value);
   }
   return result;
 }
 
+function cloneConstraintValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(item => typeof item === 'object' && item !== null && !Array.isArray(item)
+      ? { ...item }
+      : item);
+  }
+  return value;
+}
+
 function isSafeConstraintValue(value: unknown): boolean {
+  if (isSafeSubtableColumnsValue(value)) {
+    return true;
+  }
+
   return typeof value === 'string'
     || typeof value === 'number' && Number.isFinite(value)
     || Array.isArray(value) && value.length > 0
       && value.every(item => typeof item === 'string' && item.trim().length > 0)
       && new Set(value).size === value.length;
+}
+
+function isSafeSubtableColumnsValue(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 16) {
+    return false;
+  }
+
+  const keys = new Set<string>();
+  return value.every(column => {
+    if (!isRecord(column)
+      || typeof column.columnKey !== 'string'
+      || !isStableKey(column.columnKey)
+      || keys.has(column.columnKey)
+      || typeof column.fieldTypeKey !== 'string'
+      || !WORKFLOW_FIELD_TYPES.some(type => type === column.fieldTypeKey
+        && type !== 'attachment'
+        && type !== 'subtable')
+      || typeof column.required !== 'boolean'
+      || !isRecord(column.constraints)) {
+      return false;
+    }
+
+    keys.add(column.columnKey);
+    const allowed = WORKFLOW_FORM_CONSTRAINT_KEYS[column.fieldTypeKey as WorkflowFieldType];
+    return Object.keys(column.constraints).every(key => allowed.has(key))
+      && Object.values(column.constraints).every(item =>
+        typeof item === 'string'
+        || typeof item === 'number' && Number.isFinite(item)
+        || Array.isArray(item) && item.length > 0
+          && item.every(entry => typeof entry === 'string' && entry.trim().length > 0)
+          && new Set(item).size === item.length);
+  });
+}
+
+const WORKFLOW_FORM_CONSTRAINT_KEYS: Readonly<Record<WorkflowFieldType, ReadonlySet<string>>> = {
+  text: new Set(['minLength', 'maxLength']),
+  textarea: new Set(['minLength', 'maxLength']),
+  integer: new Set(['minimum', 'maximum']),
+  decimal: new Set(['scale', 'minimum', 'maximum']),
+  money: new Set(['scale', 'minimum', 'maximum']),
+  date: new Set(['minimum', 'maximum']),
+  time: new Set(['minimum', 'maximum']),
+  datetime: new Set(['minimum', 'maximum']),
+  radio: new Set(['options']),
+  checkbox: new Set(['options']),
+  select: new Set(['options']),
+  switch: new Set(),
+  attachment: new Set(['maxCount', 'maxSizeBytes', 'allowedExtensions']),
+  subtable: new Set(['maxRows', 'columns'])
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function replaceSection(

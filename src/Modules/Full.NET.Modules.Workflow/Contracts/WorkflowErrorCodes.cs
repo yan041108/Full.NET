@@ -25,6 +25,14 @@ public static class WorkflowErrorCodes
     /// <summary>办理人解析策略结构、作用域或实体引用无效。</summary>
     public const string DefinitionAssigneePolicyInvalid = Prefix + "definition.assignee_policy_invalid";
     public const string DefinitionTopologyUnsupported = Prefix + "definition.topology_unsupported";
+    /// <summary>工作流定义已停用，禁止启动新实例或发布。</summary>
+    public const string DefinitionDisabled = Prefix + "definition.disabled";
+    /// <summary>工作流定义已归档，禁止继续变更。</summary>
+    public const string DefinitionArchived = Prefix + "definition.archived";
+    /// <summary>工作流定义状态键或状态迁移无效。</summary>
+    public const string DefinitionStatusInvalid = Prefix + "definition.status_invalid";
+    /// <summary>工作流定义版本仍被运行实例引用，禁止删除。</summary>
+    public const string VersionInUse = Prefix + "version.in_use";
     public const string DefinitionNotFound = Prefix + "definition.not_found";
     public const string DefinitionKeyExists = Prefix + "definition.key_exists";
     public const string FormFieldTypeUnknown = Prefix + "form.field_type_unknown";
@@ -37,6 +45,16 @@ public static class WorkflowErrorCodes
     public const string FormSizeLimitExceeded = Prefix + "form.size_limit_exceeded";
     public const string FormSchemaUnsupported = Prefix + "form.schema_unsupported";
     public const string FormNotFound = Prefix + "form.not_found";
+    /// <summary>工作流表单已停用，禁止发布或被新流程绑定。</summary>
+    public const string FormDisabled = Prefix + "form.disabled";
+    /// <summary>工作流表单已归档，禁止继续变更。</summary>
+    public const string FormArchived = Prefix + "form.archived";
+    /// <summary>工作流表单状态键或状态迁移无效。</summary>
+    public const string FormStatusInvalid = Prefix + "form.status_invalid";
+    /// <summary>工作流表单版本仍被运行实例引用，禁止删除。</summary>
+    public const string FormVersionInUse = Prefix + "form.version_in_use";
+    /// <summary>表单附件字段引用了无效、越权或不符合约束的文件。</summary>
+    public const string FormAttachmentInvalid = Prefix + "form.attachment_invalid";
     public const string FormKeyExists = Prefix + "form.key_exists";
     public const string TodoAssigneeMismatch = Prefix + "todo.assignee_mismatch";
     public const string TodoAssigneeNotFound = Prefix + "todo.assignee_not_found";
@@ -88,6 +106,10 @@ public static class WorkflowErrorCodes
         DefinitionApprovalPolicyInvalid,
         DefinitionAssigneePolicyInvalid,
         DefinitionTopologyUnsupported,
+        DefinitionDisabled,
+        DefinitionArchived,
+        DefinitionStatusInvalid,
+        VersionInUse,
         DefinitionNotFound,
         DefinitionKeyExists,
         FormFieldTypeUnknown,
@@ -100,6 +122,11 @@ public static class WorkflowErrorCodes
         FormSizeLimitExceeded,
         FormSchemaUnsupported,
         FormNotFound,
+        FormDisabled,
+        FormArchived,
+        FormStatusInvalid,
+        FormVersionInUse,
+        FormAttachmentInvalid,
         FormKeyExists,
         TodoAssigneeMismatch,
         TodoAssigneeNotFound,

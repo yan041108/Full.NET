@@ -47,14 +47,14 @@ public sealed class WorkflowFormComponentCatalogTests
     {
         var catalog = WorkflowFormComponentCatalog.Current;
 
-        Assert.AreEqual(1, catalog.CatalogVersion);
+        Assert.AreEqual(3, catalog.CatalogVersion);
         Assert.AreEqual(1, catalog.SchemaVersion);
         Assert.AreEqual(1, catalog.AdapterVersion);
         CollectionAssert.AreEquivalent(
             new[]
             {
                 "text", "textarea", "integer", "decimal", "money", "date",
-                "time", "datetime", "radio", "checkbox", "select", "switch",
+                "time", "datetime", "radio", "checkbox", "select", "switch", "attachment", "subtable",
             },
             catalog.Components.Select(component => component.FieldTypeKey).ToArray());
         Assert.IsTrue(catalog.Components.All(component =>

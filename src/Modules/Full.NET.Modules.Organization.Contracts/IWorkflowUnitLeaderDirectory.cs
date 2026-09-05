@@ -38,6 +38,16 @@ public interface IWorkflowUnitLeaderDirectory
     Task<Guid?> FindInitiatorPrimaryUnitLeaderUserIdAsync(
         Guid initiatorUserId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>解析发起人主部门沿上级链指定层级机构的负责人用户标识。</summary>
+    /// <param name="initiatorUserId">工作流实例发起人标识。</param>
+    /// <param name="ancestorLevel">向上层级，1 表示直接上级机构负责人。</param>
+    /// <param name="cancellationToken">请求取消令牌。</param>
+    /// <returns>负责人用户标识；层级不足、组织环或负责人不存在时返回 <see langword="null"/>。</returns>
+    Task<Guid?> FindInitiatorAncestorUnitLeaderUserIdAsync(
+        Guid initiatorUserId,
+        int ancestorLevel,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Workflow 设计器与发布校验使用的最小机构单元投影。</summary>

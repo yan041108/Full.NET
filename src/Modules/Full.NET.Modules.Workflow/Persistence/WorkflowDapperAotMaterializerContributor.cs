@@ -50,10 +50,12 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetString(4),
             AotDataReaderExtensions.ReadNullableGuid(reader, 5),
             AotDataReaderExtensions.ReadNullableGuid(reader, 6),
-            reader.GetGuid(7),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9),
-            reader.GetInt64(10));
+            AotDataReaderExtensions.ReadNullableString(reader, 7),
+            reader.GetString(8),
+            reader.GetGuid(9),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            reader.GetInt64(12));
 
     private static WorkflowDefinitionDraftRecord ReadDefinitionDraft(DbDataReader reader) =>
         new(
@@ -74,8 +76,9 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetInt32(4),
             reader.GetString(5),
             reader.GetString(6),
-            reader.GetGuid(7),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8));
+            AotDataReaderExtensions.ReadNullableString(reader, 7),
+            reader.GetGuid(8),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9));
 
     private static WorkflowFormDefinitionRecord ReadFormDefinition(DbDataReader reader) =>
         new(
@@ -87,9 +90,11 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetString(5),
             reader.GetInt64(6),
             AotDataReaderExtensions.ReadNullableGuid(reader, 7),
-            reader.GetGuid(8),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10));
+            reader.GetString(8),
+            reader.GetInt64(9),
+            reader.GetGuid(10),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12));
 
     private static WorkflowFormVersionRecord ReadFormVersion(DbDataReader reader) =>
         new(
@@ -115,16 +120,17 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableGuid(reader, 5),
             reader.GetString(6),
             reader.GetString(7),
-            reader.GetString(8),
-            reader.GetInt64(9),
-            reader.GetGuid(10),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 12),
-            AotDataReaderExtensions.ReadNullableGuid(reader, 13),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
-            AotDataReaderExtensions.ReadNullableString(reader, 15),
+            AotDataReaderExtensions.ReadNullableString(reader, 8),
+            reader.GetString(9),
+            reader.GetInt64(10),
+            reader.GetGuid(11),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 13),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 14),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 15),
             AotDataReaderExtensions.ReadNullableString(reader, 16),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 17));
+            AotDataReaderExtensions.ReadNullableString(reader, 17),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18));
 
     private static WorkflowTodoRecord ReadTodo(DbDataReader reader) =>
         new(
@@ -206,7 +212,9 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetGuid(0),
             reader.GetGuid(1),
             reader.GetString(2),
-            reader.GetString(3));
+            reader.GetString(3),
+            AotDataReaderExtensions.ReadNullableString(reader, 4),
+            reader.GetString(5));
 
     private static WorkflowFormSubmissionRecord ReadFormSubmission(DbDataReader reader) =>
         new(
@@ -253,8 +261,9 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetGuid(4),
             reader.GetString(5),
             reader.GetString(6),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8));
+            AotDataReaderExtensions.ReadNullableString(reader, 7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9));
 
     /// <summary>按显式 SQL 投影顺序物化恢复任务。</summary>
     /// <param name="reader">定位到当前行的数据读取器。</param>

@@ -3,7 +3,7 @@ import { computed, nextTick, provide, ref, watch } from 'vue';
 import type { WorkflowDefinitionDraft, WorkflowFormField } from '@fullnet/client-contracts';
 import type { WorkflowRecipientCandidateResponse } from '@fullnet/client-contracts';
 import { ElButton, ElDrawer, ElInput, ElInputNumber, ElOption, ElSelect, ElSwitch } from 'element-plus';
-import { listWorkflowOrganizationUnitCandidates, listWorkflowRecipientCandidates, listWorkflowRoleCandidates } from '../api/workflow-definitions';
+import { listWorkflowOrganizationUnitCandidates, listWorkflowRecipientCandidates, listWorkflowRoleCandidates, previewWorkflowAssignees } from '../api/workflow-definitions';
 import { useAdminI18n } from '../i18n/adminI18n';
 import NodeWrap from './vendor/workflow-vue3/src/components/nodeWrap.vue';
 import { useStore } from './vendor/workflow-vue3/src/stores/index.js';
@@ -42,10 +42,14 @@ const timeoutEscalationRecipientUserId = ref('');
 const approvalModeKey = ref<'single' | 'all' | 'any' | 'nOfM'>('single');
 const approvalApproverUserIds = ref<string[]>([]);
 const approvalRequiredApprovals = ref(2);
-const assigneeSourceKind = ref<'initiator' | 'specified_users' | 'role_members' | 'organization_unit_leader' | 'initiator_primary_unit_leader'>('initiator');
+const assigneeSourceKind = ref<'initiator' | 'specified_users' | 'role_members' | 'organization_unit_leader' | 'initiator_primary_unit_leader' | 'initiator_ancestor_unit_leader'>('initiator');
 const assigneeUserIds = ref<string[]>([]);
 const assigneeRoleIds = ref<string[]>([]);
 const assigneeUnitId = ref('');
+const assigneeAncestorLevel = ref(1);
+const assigneePreviewUsers = ref<Array<{ id: string; username: string; displayName: string }>>([]);
+const assigneePreviewLoading = ref(false);
+const assigneePreviewError = ref('');
 const roleCandidates = ref<Array<{ id: string; code: string; name: string }>>([]);
 const organizationUnitCandidates = ref<Array<{ id: string; code: string; name: string }>>([]);
 const roleCandidatesLoading = ref(false);
@@ -163,6 +167,7 @@ watch(() => store.approverDrawer, visible => {
     || resolverKind === 'role_members'
     || resolverKind === 'organization_unit_leader'
     || resolverKind === 'initiator_primary_unit_leader'
+    || resolverKind === 'initiator_ancestor_unit_leader'
     ? resolverKind
     : 'initiator';
   assigneeUserIds.value = Array.isArray(firstSource?.userIds)
@@ -172,6 +177,9 @@ watch(() => store.approverDrawer, visible => {
     ? firstSource.roleIds.filter((value): value is string => typeof value === 'string')
     : [];
   assigneeUnitId.value = typeof firstSource?.unitId === 'string' ? firstSource.unitId : '';
+  assigneeAncestorLevel.value = readInteger(firstSource?.ancestorLevel, 1);
+  assigneePreviewUsers.value = [];
+  assigneePreviewError.value = '';
   void loadCcCandidates();
   void loadRoleCandidates();
   void loadOrganizationUnitCandidates();
@@ -262,34 +270,72 @@ function closeCcRecipients(): void {
   store.setCopyer(false);
 }
 
+/** 根据当前办理人来源构造闭合策略对象。 */
+function buildAssigneePolicy(): Record<string, unknown> | undefined {
+  if (assigneeSourceKind.value === 'initiator') {
+    return undefined;
+  }
+  if (assigneeSourceKind.value === 'specified_users') {
+    const userIds = [...new Set(assigneeUserIds.value)];
+    if (userIds.length < 1 || userIds.length > 20) {
+      return undefined;
+    }
+    return { sources: [{ resolverKindKey: 'specified_users', userIds }] };
+  }
+  if (assigneeSourceKind.value === 'role_members') {
+    const roleIds = [...new Set(assigneeRoleIds.value)];
+    if (roleIds.length < 1 || roleIds.length > 5) {
+      return undefined;
+    }
+    return { sources: [{ resolverKindKey: 'role_members', roleIds }] };
+  }
+  if (assigneeSourceKind.value === 'organization_unit_leader') {
+    if (!assigneeUnitId.value) {
+      return undefined;
+    }
+    return { sources: [{ resolverKindKey: 'organization_unit_leader', unitId: assigneeUnitId.value }] };
+  }
+  if (assigneeSourceKind.value === 'initiator_primary_unit_leader') {
+    return { sources: [{ resolverKindKey: 'initiator_primary_unit_leader' }] };
+  }
+  const ancestorLevel = assigneeAncestorLevel.value;
+  if (!Number.isInteger(ancestorLevel) || ancestorLevel < 1 || ancestorLevel > 20) {
+    return undefined;
+  }
+  return { sources: [{ resolverKindKey: 'initiator_ancestor_unit_leader', ancestorLevel }] };
+}
+
+/** 预览当前办理人策略对发起人的解析结果。 */
+async function previewAssigneeScope(): Promise<void> {
+  assigneePreviewLoading.value = true;
+  assigneePreviewError.value = '';
+  assigneePreviewUsers.value = [];
+  try {
+    const assigneePolicy = buildAssigneePolicy() ?? { sources: [{ resolverKindKey: 'initiator' }] };
+    assigneePreviewUsers.value = await previewWorkflowAssignees(assigneePolicy);
+    if (assigneePreviewUsers.value.length === 0) {
+      assigneePreviewError.value = t('workflowDesigner.assignee.previewEmpty');
+    }
+  } catch {
+    assigneePreviewError.value = t('workflowDesigner.assignee.previewFailed');
+  } finally {
+    assigneePreviewLoading.value = false;
+  }
+}
+
 /** 保存审批参与人、收敛方式及超时策略；发布后由服务端固化为步骤快照。 */
 function saveApprovalConfiguration(): void {
   const envelope = store.approverConfig1 as { value?: WorkflowVue3Node; id?: number | string };
   const value = { ...envelope.value };
-  if (assigneeSourceKind.value === 'initiator') {
+  const assigneePolicy = buildAssigneePolicy();
+  if (assigneePolicy === undefined && assigneeSourceKind.value !== 'initiator') {
+    emit('validation-error', 'client.invalid_workflow_assignee_policy');
+    return;
+  }
+  if (assigneePolicy === undefined) {
     delete value.assigneePolicy;
-  } else if (assigneeSourceKind.value === 'specified_users') {
-    const userIds = [...new Set(assigneeUserIds.value)];
-    if (userIds.length < 1 || userIds.length > 20) {
-      emit('validation-error', 'client.invalid_workflow_assignee_policy');
-      return;
-    }
-    value.assigneePolicy = { sources: [{ resolverKindKey: 'specified_users', userIds }] };
-  } else if (assigneeSourceKind.value === 'role_members') {
-    const roleIds = [...new Set(assigneeRoleIds.value)];
-    if (roleIds.length < 1 || roleIds.length > 5) {
-      emit('validation-error', 'client.invalid_workflow_assignee_policy');
-      return;
-    }
-    value.assigneePolicy = { sources: [{ resolverKindKey: 'role_members', roleIds }] };
-  } else if (assigneeSourceKind.value === 'organization_unit_leader') {
-    if (!assigneeUnitId.value) {
-      emit('validation-error', 'client.invalid_workflow_assignee_policy');
-      return;
-    }
-    value.assigneePolicy = { sources: [{ resolverKindKey: 'organization_unit_leader', unitId: assigneeUnitId.value }] };
   } else {
-    value.assigneePolicy = { sources: [{ resolverKindKey: 'initiator_primary_unit_leader' }] };
+    value.assigneePolicy = assigneePolicy;
   }
   if (approvalModeKey.value === 'single') {
     delete value.approvalPolicy;
@@ -485,7 +531,17 @@ defineExpose({ readDraft });
           <el-option label="角色成员" value="role_members" />
           <el-option label="机构负责人" value="organization_unit_leader" />
           <el-option label="发起人主部门负责人" value="initiator_primary_unit_leader" />
+          <el-option :label="t('workflowDesigner.assignee.initiatorAncestorUnitLeader')" value="initiator_ancestor_unit_leader" />
         </el-select>
+      </label>
+      <label v-if="assigneeSourceKind === 'initiator_ancestor_unit_leader'">
+        <span>{{ t('workflowDesigner.assignee.ancestorLevel') }}</span>
+        <el-input-number
+          v-model="assigneeAncestorLevel"
+          data-testid="workflow-assignee-ancestor-level"
+          :min="1"
+          :max="20"
+        />
       </label>
       <label v-if="assigneeSourceKind === 'specified_users'">
         <span>指定用户</span>
@@ -505,6 +561,22 @@ defineExpose({ readDraft });
           <el-option v-for="candidate in organizationUnitCandidates" :key="candidate.id" :label="`${candidate.name} (${candidate.code})`" :value="candidate.id" />
         </el-select>
       </label>
+      <div class="workflow-assignee-preview">
+        <div class="workflow-assignee-preview__header">
+          <span>{{ t('workflowDesigner.assignee.previewTitle') }}</span>
+          <el-button
+            data-testid="workflow-assignee-preview"
+            :loading="assigneePreviewLoading"
+            @click="previewAssigneeScope"
+          >{{ t('workflowDesigner.assignee.previewAction') }}</el-button>
+        </div>
+        <p v-if="assigneePreviewError" class="workflow-assignee-preview__error">{{ assigneePreviewError }}</p>
+        <ul v-else-if="assigneePreviewUsers.length > 0" class="workflow-assignee-preview__users">
+          <li v-for="user in assigneePreviewUsers" :key="user.id">
+            {{ user.displayName }} ({{ user.username }})
+          </li>
+        </ul>
+      </div>
       <label>
         <span>{{ t('workflowDesigner.approval.mode') }}</span>
         <el-select v-model="approvalModeKey" data-testid="workflow-approval-mode">
@@ -607,4 +679,8 @@ defineExpose({ readDraft });
 .workflow-gateway-form label { display: grid; gap: 8px; }
 .workflow-timeout-form { display: grid; gap: 18px; }
 .workflow-timeout-form label { display: grid; gap: 8px; }
+.workflow-assignee-preview { display: grid; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; }
+.workflow-assignee-preview__header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.workflow-assignee-preview__error { margin: 0; color: var(--el-color-danger); }
+.workflow-assignee-preview__users { margin: 0; padding-left: 1.1rem; }
 </style>

@@ -89,12 +89,12 @@ public sealed class FullNetModuleCatalogTests
                 typeof(IdentityModule),
                 typeof(AuditingModule),
                 typeof(CodeGenerationModule),
+                typeof(FilesModule),
                 typeof(TenancyModule),
                 typeof(OrganizationModule),
                 typeof(NotificationsModule),
                 typeof(WorkflowModule),
                 typeof(DataApprovalModule),
-                typeof(FilesModule),
                 typeof(DocumentModule),
                 typeof(SettingsModule),
                 typeof(JobsModule),
@@ -233,7 +233,8 @@ public sealed class FullNetModuleCatalogTests
         var configuration = CreateConfiguration(new Dictionary<string, string?>
         {
             ["FullNet:Modules:Enabled:0"] = "Identity",
-            ["FullNet:Modules:Enabled:1"] = "Workflow",
+            ["FullNet:Modules:Enabled:1"] = "Files",
+            ["FullNet:Modules:Enabled:2"] = "Workflow",
         });
 
         var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>

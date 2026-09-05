@@ -297,7 +297,7 @@ internal sealed class WorkflowInstanceRecoveryService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
             request.ExpectedRevision + 1, todo.Id, instance.StartedAtUtc));
     }
 
@@ -401,7 +401,7 @@ internal sealed class WorkflowInstanceRecoveryService(
 
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, "active",
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, "active",
             request.ExpectedRevision + 1, work.TodoId, instance.StartedAtUtc));
     }
 
@@ -600,7 +600,7 @@ internal sealed class WorkflowInstanceRecoveryService(
         Guid formVersionId,
         Guid? activeTodoId) =>
         new(instance.Id, instance.DefinitionVersionId, formVersionId,
-            instance.BusinessType, instance.BusinessId, instance.StatusKey,
+            instance.BusinessType, instance.BusinessId, instance.BusinessTitle, instance.StatusKey,
             instance.Revision, activeTodoId, instance.StartedAtUtc);
 
     /// <summary>构造受控 SQL 参数字典。</summary>
