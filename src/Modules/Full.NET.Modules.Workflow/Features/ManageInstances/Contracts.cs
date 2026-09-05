@@ -66,6 +66,12 @@ internal sealed record ReassignWorkflowInstanceRequest(
 /// <param name="TimeoutStatusKey">超时状态机器键。</param>
 /// <param name="ReminderCount">已原子提交的催办次数。</param>
 /// <param name="EscalatedAtUtc">升级通知提交时间（UTC）。</param>
+/// <param name="ActiveNodeKey">当前活动多人审批节点键；无多人审批时为空。</param>
+/// <param name="ApprovalModeKey">当前活动多人审批模式键；无多人审批时为空。</param>
+/// <param name="RequiredApprovalCount">当前活动步骤通过所需的同意票数。</param>
+/// <param name="ApprovedCount">当前活动步骤已同意票数。</param>
+/// <param name="RejectedCount">当前活动步骤已驳回票数。</param>
+/// <param name="PendingCount">当前活动步骤仍待处理票数。</param>
 internal sealed record WorkflowInstanceResponse(
     Guid Id,
     Guid DefinitionVersionId,
@@ -79,7 +85,13 @@ internal sealed record WorkflowInstanceResponse(
     DateTimeOffset? DueAtUtc = null,
     string TimeoutStatusKey = "not_configured",
     int ReminderCount = 0,
-    DateTimeOffset? EscalatedAtUtc = null);
+    DateTimeOffset? EscalatedAtUtc = null,
+    string? ActiveNodeKey = null,
+    string? ApprovalModeKey = null,
+    int? RequiredApprovalCount = null,
+    int? ApprovedCount = null,
+    int? RejectedCount = null,
+    int? PendingCount = null);
 
 internal sealed record WorkflowExecutionLogResponse(
     Guid Id,

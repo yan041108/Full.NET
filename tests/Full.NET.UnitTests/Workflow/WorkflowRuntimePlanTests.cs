@@ -31,6 +31,39 @@ public sealed class WorkflowRuntimePlanTests
         Assert.IsTrue(second.CompletesInstance);
     }
 
+    /// <summary>运行计划必须把不可变多人审批策略传播到对应等待点。</summary>
+    [TestMethod]
+    public void Multi_approval_policy_is_carried_by_runtime_transition()
+    {
+        var users = new[] { Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7() };
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "review"),
+            new WorkflowNodeDraft(
+                "review",
+                "human.approval",
+                1,
+                JsonSerializer.SerializeToElement(new
+                {
+                    nextNodeKeys = new[] { "end" },
+                    approvalPolicy = new
+                    {
+                        modeKey = "nOfM",
+                        approverUserIds = users,
+                        requiredApprovals = 2,
+                    },
+                })),
+            Node("end", "end"),
+        ]);
+
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan));
+        Assert.IsTrue(plan!.TryResolveStart(out var transition));
+        Assert.IsNotNull(transition.ApprovalPolicy);
+        Assert.AreEqual("nOfM", transition.ApprovalPolicy.ModeKey);
+        Assert.AreEqual(2, transition.ApprovalPolicy.RequiredApprovals);
+        CollectionAssert.AreEqual(users, transition.ApprovalPolicy.ApproverUserIds.ToArray());
+    }
+
     [TestMethod]
     public void Branched_or_non_approval_plan_is_rejected()
     {

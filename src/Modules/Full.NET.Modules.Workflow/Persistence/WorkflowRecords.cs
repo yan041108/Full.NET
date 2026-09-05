@@ -166,7 +166,39 @@ internal sealed record WorkflowTodoRuntimeRecord(
     string? ResultActionKey,
     long Revision,
     string NodeKey,
-    long StepRevision);
+    long StepRevision,
+    string? ApprovalModeKey,
+    int? RequiredApprovalCount,
+    int? ApprovalSlotCount);
+
+/// <summary>当前待办对应的一人一票审批席位。</summary>
+/// <param name="Id">审批席位标识。</param>
+/// <param name="Revision">席位乐观锁修订号。</param>
+internal sealed record WorkflowApprovalSlotRecord(Guid Id, long Revision);
+
+/// <summary>当前活动多人审批步骤的权威进度快照。</summary>
+/// <param name="NodeKey">稳定节点键。</param>
+/// <param name="ApprovalModeKey">单人、会签、或签或 N-of-M 模式键。</param>
+/// <param name="RequiredApprovalCount">步骤通过所需的同意票数。</param>
+/// <param name="ApprovedCount">当前已同意票数。</param>
+/// <param name="RejectedCount">当前已驳回票数。</param>
+/// <param name="PendingCount">当前仍待处理票数。</param>
+internal sealed record WorkflowInstanceApprovalProgressRecord(
+    string NodeKey,
+    string ApprovalModeKey,
+    int RequiredApprovalCount,
+    int ApprovedCount,
+    int RejectedCount,
+    int PendingCount);
+
+/// <summary>数据库按步骤聚合的多人审批权威票数。</summary>
+/// <param name="ApprovedCount">已赞成票数。</param>
+/// <param name="RejectedCount">已反对票数。</param>
+/// <param name="PendingCount">仍未决定的票数。</param>
+internal sealed record WorkflowApprovalTallyRecord(
+    int ApprovedCount,
+    int RejectedCount,
+    int PendingCount);
 
 /// <summary>审批退回使用的当前有效执行链历史目标。</summary>
 /// <param name="StepId">历史步骤标识。</param>
@@ -208,7 +240,8 @@ internal sealed record WorkflowActionReceiptRecord(
     long InstanceRevision,
     string IdempotencyKey,
     string? RequestHash,
-    Guid? ResultTodoId);
+    Guid? ResultTodoId,
+    string? ResultStatusKey = null);
 
 /// <summary>实例执行轨迹的追加式投影。</summary>
 internal sealed record WorkflowExecutionLogRecord(

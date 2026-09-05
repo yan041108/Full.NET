@@ -210,6 +210,40 @@ public sealed class WorkflowInstanceManagementServiceTests
             WorkflowPermissions.InstancesResume);
     }
 
+    /// <summary>实例详情必须附带当前活动多人审批步骤的权威票数进度。</summary>
+    [TestMethod]
+    public async Task GetAsync_includes_active_multi_approval_progress()
+    {
+        var instanceId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var todoId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        var query = Substitute.For<IQueryExecutor>();
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowInstanceRecord(
+                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
+                "purchase", "PO-001", "active", 5, actorId, now,
+                null, null, null, null, null, null));
+        query.QuerySingleOrDefaultAsync<WorkflowTodoTimeoutSummaryRecord>(
+                WorkflowSql.FindActiveTodoTimeoutByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowTodoTimeoutSummaryRecord(todoId, null, 0, null));
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceApprovalProgressRecord>(
+                WorkflowSql.FindActiveStepApprovalProgressByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowInstanceApprovalProgressRecord("review", "nOfM", 2, 1, 0, 2));
+        var service = CreateService(query, Substitute.For<ICommandExecutor>(), actorId);
+
+        var result = await service.GetAsync(instanceId, actorId);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("review", result.Value!.ActiveNodeKey);
+        Assert.AreEqual("nOfM", result.Value.ApprovalModeKey);
+        Assert.AreEqual(2, result.Value.RequiredApprovalCount);
+        Assert.AreEqual(1, result.Value.ApprovedCount);
+        Assert.AreEqual(0, result.Value.RejectedCount);
+        Assert.AreEqual(2, result.Value.PendingCount);
+    }
+
     /// <summary>构造暂停/恢复服务及其查询替身。</summary>
     /// <param name="query">已配置的查询执行器。</param>
     /// <param name="command">命令执行器。</param>
@@ -230,6 +264,8 @@ public sealed class WorkflowInstanceManagementServiceTests
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UtcNow);
         var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
+        var notificationPublisher = new WorkflowNotificationOutboxPublisher(
+            outbox ?? Substitute.For<IOutboxWriter>());
         return new WorkflowInstanceManagementService(
             query,
             command,
@@ -239,7 +275,8 @@ public sealed class WorkflowInstanceManagementServiceTests
             ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
-            new WorkflowNotificationOutboxPublisher(outbox ?? Substitute.For<IOutboxWriter>()));
+            new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
+            notificationPublisher);
     }
 
     /// <summary>构造暂停/恢复路径需要的实例、回执和活动工作查询。</summary>

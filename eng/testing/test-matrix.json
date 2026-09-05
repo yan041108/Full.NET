@@ -329,6 +329,12 @@
       },
       "111": {
         "filter": "FullyQualifiedName~Migration111WorkflowTodoTimeoutPolicyRecoveryTests.MySql_|FullyQualifiedName~Migration111WorkflowTodoTimeoutPolicyRecoveryTests.SqlServer_"
+      },
+      "112": {
+        "filter": "FullyQualifiedName~Migration112WorkflowStepExecutionSequenceRecoveryTests.MySql_|FullyQualifiedName~Migration112WorkflowStepExecutionSequenceRecoveryTests.SqlServer_"
+      },
+      "113": {
+        "filter": "FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.MySql_|FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -346,17 +352,17 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 66,
+        "minimum": 68,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 66,
+        "minimum": 68,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 332,
+        "minimum": 336,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -372,7 +378,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 649,
+        "minimum": 657,
         "timeout": "90m"
       }
     }

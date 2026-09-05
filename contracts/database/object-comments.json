@@ -1273,8 +1273,24 @@
         "IdempotencyKey": "幂等键",
         "InstanceId": "流程实例标识",
         "InstanceRevision": "流程实例修订号",
+        "ResultStatusKey": "Result Status Key",
+        "ResultTodoId": "Result Todo标识",
         "StepId": "流程步骤标识",
         "TodoId": "待办标识"
+      }
+    },
+    "fn_workflow_approval_slot": {
+      "comment": "workflowapproval slot表",
+      "columns": {
+        "AssigneeUserId": "Assignee User标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DecidedAtUtc": "Decided At(UTC)",
+        "DecisionKey": "Decision Key",
+        "Id": "逻辑主键",
+        "InstanceId": "Instance标识",
+        "Revision": "修订号",
+        "StepId": "Step标识",
+        "TodoId": "Todo标识"
       }
     },
     "fn_workflow_cc": {
@@ -1455,6 +1471,8 @@
     "fn_workflow_step": {
       "comment": "工作流步骤表",
       "columns": {
+        "ApprovalModeKey": "Approval Mode Key",
+        "ApprovalSlotCount": "Approval Slot Count",
         "AssignedUserId": "当前处理人标识",
         "AttemptCount": "尝试次数",
         "CompletedAtUtc": "完成时间(UTC)",
@@ -1464,6 +1482,7 @@
         "InstanceId": "流程实例标识",
         "NodeKey": "流程节点键",
         "NodeTypeKey": "流程节点类型键",
+        "RequiredApprovalCount": "Required Approval Count",
         "Revision": "步骤修订号",
         "StartedAtUtc": "开始时间(UTC)",
         "StatusKey": "步骤状态键"

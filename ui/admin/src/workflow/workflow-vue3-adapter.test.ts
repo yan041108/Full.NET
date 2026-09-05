@@ -40,6 +40,31 @@ describe('Workflow-Vue3 定义适配器', () => {
     })).toThrow();
   });
 
+  it('多人审批策略在设计树与服务端草稿之间保持闭合往返', () => {
+    const legalUserId = '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d002';
+    const tree = {
+      id: 'start', type: 0, nodeName: '发起人', childNode: {
+        id: 'approve', type: 1, nodeName: '审批人',
+        approvalPolicy: {
+          modeKey: 'nOfM',
+          approverUserIds: [financeUserId, legalUserId],
+          requiredApprovals: 1
+        },
+        childNode: null
+      }
+    };
+
+    expect(() => fromWorkflowVue3Tree(tree)).toThrow('client.invalid_workflow_approval_policy');
+    tree.childNode.approvalPolicy.approverUserIds.push(
+      '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d003');
+    tree.childNode.approvalPolicy.requiredApprovals = 2;
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect((draft.nodes[1]?.config as Record<string, unknown>).approvalPolicy)
+      .toEqual(tree.childNode.approvalPolicy);
+    expect(toWorkflowVue3Tree(draft)).toMatchObject(tree);
+  });
+
   it('把线性审批树转换成服务端权威节点并补齐显式结束节点', () => {
     const draft = fromWorkflowVue3Tree({
       id: 'start',

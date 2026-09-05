@@ -21,6 +21,9 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowTodoRecord>(ReadTodo);
         registrar.Register<WorkflowActiveWorkRecord>(ReadActiveWork);
         registrar.Register<WorkflowTodoRuntimeRecord>(ReadTodoRuntime);
+        registrar.Register<WorkflowApprovalSlotRecord>(ReadApprovalSlot);
+        registrar.Register<WorkflowApprovalTallyRecord>(ReadApprovalTally);
+        registrar.Register<WorkflowInstanceApprovalProgressRecord>(ReadInstanceApprovalProgress);
         registrar.Register<WorkflowTodoReturnTargetRecord>(ReadTodoReturnTarget);
         registrar.Register<WorkflowRuntimeAssetRecord>(ReadRuntimeAsset);
         registrar.Register<WorkflowFormSubmissionRecord>(ReadFormSubmission);
@@ -152,7 +155,34 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableString(reader, 7),
             reader.GetInt64(8),
             reader.GetString(9),
-            reader.GetInt64(10));
+            reader.GetInt64(10),
+            AotDataReaderExtensions.ReadNullableString(reader, 11),
+            reader.IsDBNull(12) ? null : reader.GetInt32(12),
+            reader.IsDBNull(13) ? null : reader.GetInt32(13));
+
+    /// <summary>按显式 SQL 投影顺序物化审批席位。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>审批席位标识及修订号。</returns>
+    private static WorkflowApprovalSlotRecord ReadApprovalSlot(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetInt64(1));
+
+    /// <summary>按显式 SQL 投影顺序物化审批票数。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>当前步骤的赞成、反对与未决票数。</returns>
+    private static WorkflowApprovalTallyRecord ReadApprovalTally(DbDataReader reader) =>
+        new(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2));
+
+    /// <summary>按显式 SQL 投影顺序物化实例活动多人审批进度。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>当前活动步骤的节点键、模式与权威票数。</returns>
+    private static WorkflowInstanceApprovalProgressRecord ReadInstanceApprovalProgress(DbDataReader reader) =>
+        new(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetInt32(2),
+            reader.GetInt32(3),
+            reader.GetInt32(4),
+            reader.GetInt32(5));
 
     /// <summary>按显式 SQL 投影顺序物化审批退回目标。</summary>
     /// <param name="reader">定位到当前行的数据读取器。</param>
@@ -191,7 +221,8 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetInt64(2),
             reader.GetString(3),
             AotDataReaderExtensions.ReadNullableString(reader, 4),
-            AotDataReaderExtensions.ReadNullableGuid(reader, 5));
+            AotDataReaderExtensions.ReadNullableGuid(reader, 5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6));
 
     private static WorkflowExecutionLogRecord ReadExecutionLog(DbDataReader reader) =>
         new(

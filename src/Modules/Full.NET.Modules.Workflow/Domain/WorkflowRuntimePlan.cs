@@ -173,13 +173,14 @@ internal sealed class WorkflowRuntimePlan
             switch (node.NodeTypeKey)
             {
                 case "human.approval":
-                    if (!WorkflowTodoTimeoutPolicy.TryRead(node.Config, out var timeoutPolicy))
+                    if (!WorkflowTodoTimeoutPolicy.TryRead(node.Config, out var timeoutPolicy) ||
+                        !WorkflowApprovalPolicy.TryRead(node.Config, out var approvalPolicy))
                     {
                         return false;
                     }
 
                     transition = new WorkflowApprovalTransition(
-                        node.NodeKey, false, automaticNodes, timeoutPolicy);
+                        node.NodeKey, false, automaticNodes, timeoutPolicy, approvalPolicy);
                     return true;
                 case "end":
                     transition = new WorkflowApprovalTransition(null, true, automaticNodes, null);
@@ -237,7 +238,8 @@ internal sealed class WorkflowRuntimePlan
         {
             case "start":
             case "human.approval":
-                if (!TryReadSingleNext(node.Config, out var nextNodeKey))
+                if (!TryReadSingleNext(node.Config, out var nextNodeKey) ||
+                    !WorkflowApprovalPolicy.TryRead(node.Config, out _))
                 {
                     return false;
                 }
@@ -396,16 +398,19 @@ internal readonly record struct WorkflowApprovalTransition
     /// <param name="completesInstance">迁移完成后是否结束实例。</param>
     /// <param name="automaticNodes">到达下一等待点前按顺序执行的自动节点。</param>
     /// <param name="timeoutPolicy">下一人工审批节点发布时固化的超时策略。</param>
+    /// <param name="approvalPolicy">下一人工审批节点发布时固化的多人审批策略。</param>
     public WorkflowApprovalTransition(
         string? nextApprovalNodeKey,
         bool completesInstance,
         IReadOnlyList<WorkflowAutomaticRuntimeNode> automaticNodes,
-        WorkflowTodoTimeoutPolicy? timeoutPolicy = null)
+        WorkflowTodoTimeoutPolicy? timeoutPolicy = null,
+        WorkflowApprovalPolicy? approvalPolicy = null)
     {
         NextApprovalNodeKey = nextApprovalNodeKey;
         CompletesInstance = completesInstance;
         AutomaticNodes = automaticNodes;
         TimeoutPolicy = timeoutPolicy;
+        ApprovalPolicy = approvalPolicy;
     }
 
     /// <summary>获取下一人工审批节点；流程结束时为空。</summary>
@@ -419,6 +424,9 @@ internal readonly record struct WorkflowApprovalTransition
 
     /// <summary>获取下一审批待办固化的超时策略；未配置时为空。</summary>
     public WorkflowTodoTimeoutPolicy? TimeoutPolicy { get; }
+
+    /// <summary>获取下一审批等待点的多人审批策略；为空时沿用旧单人办理语义。</summary>
+    public WorkflowApprovalPolicy? ApprovalPolicy { get; }
 
     /// <summary>获取兼容现有抄送写入器的抄送节点投影。</summary>
     public IReadOnlyList<WorkflowCcRuntimeNode> CcNodes =>

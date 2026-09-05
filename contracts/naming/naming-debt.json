@@ -3,6 +3,13 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/113_WorkflowMultiApproval.sql",
+      "reason": "113 使用 INFORMATION_SCHEMA 条件存储过程幂等追加多人审批快照列、席位表和索引；全部对象名均为固定常量，并由双提供程序迁移与运行时快照门禁覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/112_WorkflowStepExecutionSequence.sql",

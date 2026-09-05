@@ -34571,11 +34571,32 @@
       },
       "WorkflowInstanceResponse": {
         "properties": {
+          "activeNodeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "activeTodoId": {
             "format": "uuid",
             "type": [
               "null",
               "string"
+            ]
+          },
+          "approvalModeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "approvedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string",
+              "null"
             ]
           },
           "businessId": {
@@ -34610,6 +34631,24 @@
             "format": "uuid",
             "type": "string"
           },
+          "pendingCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string",
+              "null"
+            ]
+          },
+          "rejectedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string",
+              "null"
+            ]
+          },
           "reminderCount": {
             "default": 0,
             "format": "int32",
@@ -34625,6 +34664,15 @@
             "type": [
               "integer",
               "string"
+            ]
+          },
+          "requiredApprovalCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string",
+              "null"
             ]
           },
           "startedAtUtc": {
@@ -34912,6 +34960,17 @@
       },
       "WorkflowTodoDetailResponse": {
         "properties": {
+          "approvalModeKey": {
+            "type": "string"
+          },
+          "approvedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
           "assigneeUserId": {
             "format": "uuid",
             "type": "string"
@@ -34936,6 +34995,30 @@
           "instanceId": {
             "format": "uuid",
             "type": "string"
+          },
+          "pendingCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "rejectedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "requiredApprovalCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
           },
           "revision": {
             "format": "int64",
@@ -34975,7 +35058,12 @@
           "formSchema",
           "submission",
           "fieldPolicies",
-          "submissionRevision"
+          "submissionRevision",
+          "approvalModeKey",
+          "requiredApprovalCount",
+          "approvedCount",
+          "rejectedCount",
+          "pendingCount"
         ],
         "type": "object"
       },
@@ -35067,6 +35155,17 @@
       },
       "WorkflowTodoRuntimeResponse": {
         "properties": {
+          "approvalModeKey": {
+            "type": "string"
+          },
+          "approvedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
           "assigneeUserId": {
             "format": "uuid",
             "type": "string"
@@ -35094,6 +35193,30 @@
           "instanceId": {
             "format": "uuid",
             "type": "string"
+          },
+          "pendingCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "rejectedCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "requiredApprovalCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
           },
           "revision": {
             "format": "int64",
@@ -35134,7 +35257,12 @@
           "formSchema",
           "submission",
           "fieldPolicies",
-          "submissionRevision"
+          "submissionRevision",
+          "approvalModeKey",
+          "requiredApprovalCount",
+          "approvedCount",
+          "rejectedCount",
+          "pendingCount"
         ],
         "type": "object"
       }

@@ -3138,6 +3138,176 @@
       ]
     },
     {
+      "statementName": "workflow.approval_step.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertApprovalStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "审批步骤只能在已由可信租户实例锁定的工作流事务中创建，并固化审批模式与门槛快照。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId",
+        "@ApprovalModeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertApprovalSlot",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "审批席位只能在已锁定可信租户实例的节点激活事务中创建，并由实例、步骤和待办外键维持边界。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "@InstanceId",
+        "@StepId",
+        "@TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_action_record.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertApprovalActionRecord",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多人审批动作回执只能在已锁定可信租户实例的事务内写入，并持久化确定性返回快照。",
+      "requiredSqlFragments": [
+        "fn_workflow_action_record",
+        "@InstanceId",
+        "@IdempotencyKey",
+        "@ResultStatusKey"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.find_by_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalSlotByTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "办理人投票前必须通过实例联表和可信 TenantScopeKey 锁定自己的未决审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "slot.AssigneeUserId = @AssigneeUserId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.find_for_reassignment",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalSlotForReassignment",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "生命周期操作只能在可信 TenantScopeKey 内查找待办对应的未决审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "instance.TenantScopeKey = @TenantScopeKey",
+        "slot.TodoId = @TodoId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.find_by_step_assignee",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalSlotByStepAssignee",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多人审批改派必须在可信 TenantScopeKey 内检查目标用户是否已持有同一步骤席位，维持一人一票。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "slot.StepId = @StepId",
+        "slot.AssigneeUserId = @AssigneeUserId",
+        "instance.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.find_tally_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalTallyByStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "票数聚合仅允许在同一事务已经锁定并验证所属实例后按步骤读取，避免跨租户暴露聚合结果。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "StepId = @StepId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.decide_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.DecideApprovalSlotWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "席位决定只能在已锁定可信租户实例后，以步骤、待办、办理人和修订号共同保护一人一票。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "AssigneeUserId = @AssigneeUserId",
+        "Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_step.advance_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.AdvanceApprovalStepWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "未收敛审批步骤只在已锁定可信租户实例后按实例标识和修订号推进。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "InstanceId = @InstanceId",
+        "Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_todo.cancel_pending_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingApprovalTodosByStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "步骤收敛或退回时只在已锁定可信租户实例后关闭该步骤剩余待办。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "StepId = @StepId",
+        "StatusKey = 'active'"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.cancel_pending_by_step",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingApprovalSlotsByStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "步骤收敛或退回时只在已锁定可信租户实例后取消该步骤剩余席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "StepId = @StepId",
+        "DecisionKey IS NULL"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.lock_for_multi_approval",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.LockInstanceForMultiApproval",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多人审批投票与实例生命周期操作必须按可信 TenantScopeKey 和预期修订号取得统一实例行锁。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey",
+        "Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.reassign_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReassignApprovalSlotWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "多人审批改派在实例行锁与可信租户校验后，以原办理人和修订号同步更新审批席位。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "ExpectedAssigneeUserId",
+        "Revision = @Revision"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.find_active_step_approval_progress",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveStepApprovalProgressByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "实例详情只允许读取当前可信 TenantScopeKey 内活动多人审批步骤的权威票数进度。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "fn_workflow_approval_slot",
+        "instance.TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
       "statementName": "workflow.todo.find_active_timeout_by_instance",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveTodoTimeoutByInstance",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",

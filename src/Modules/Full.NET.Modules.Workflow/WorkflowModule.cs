@@ -61,6 +61,7 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowTodoCountersignService>();
         services.AddScoped<WorkflowCcTransitionWriter>();
         services.AddScoped<WorkflowAutomaticTransitionWriter>();
+        services.AddScoped<WorkflowApprovalActivationWriter>();
         services.AddScoped<WorkflowNotificationOutboxPublisher>();
         services.AddScoped<WorkflowCcManagementService>();
 #if FULLNET_AOT_COMPILE

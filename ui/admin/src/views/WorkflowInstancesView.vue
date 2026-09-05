@@ -42,6 +42,28 @@ function timeoutStatusLabel(statusKey: string | undefined): string {
   return t(`workflowInstances.timeoutStatus.${normalized}` as MessageKey);
 }
 
+/** 把多人审批模式键映射为设计器同源文案。 */
+function approvalModeLabel(modeKey: string): string {
+  switch (modeKey) {
+    case 'all': return t('workflowDesigner.approval.all');
+    case 'any': return t('workflowDesigner.approval.any');
+    case 'nOfM': return t('workflowDesigner.approval.nOfM');
+    default: return modeKey;
+  }
+}
+
+const showApprovalProgress = computed(() => {
+  const current = instance.value;
+  if (current?.approvalModeKey === undefined || current.approvalModeKey === null) {
+    return false;
+  }
+
+  const approved = current.approvedCount ?? 0;
+  const rejected = current.rejectedCount ?? 0;
+  const pending = current.pendingCount ?? 0;
+  return approved + rejected + pending > 1;
+});
+
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
 const mutating = computed(() =>
   cancelling.value || pausing.value || resuming.value || recovering.value
@@ -398,6 +420,21 @@ function toProblem(error: unknown): FullNetProblemDetails {
         <article v-if="instance.escalatedAtUtc">
           <span>{{ t('workflowInstances.escalatedAt') }}</span>
           <time :datetime="instance.escalatedAtUtc">{{ instance.escalatedAtUtc }}</time>
+        </article>
+        <article
+          v-if="showApprovalProgress"
+          class="workflow-instances__approval-progress"
+          data-testid="workflow-instance-approval-progress"
+        >
+          <span>{{ t('workflowInstances.approvalProgressTitle') }}</span>
+          <strong>{{ approvalModeLabel(instance.approvalModeKey ?? '') }}</strong>
+          <span>{{ t('workflowTodos.approvalProgress', {
+            approved: instance.approvedCount ?? 0,
+            rejected: instance.rejectedCount ?? 0,
+            pending: instance.pendingCount ?? 0,
+            required: instance.requiredApprovalCount ?? 0
+          }) }}</span>
+          <code v-if="instance.activeNodeKey" translate="no">{{ instance.activeNodeKey }}</code>
         </article>
       </section>
 

@@ -24,6 +24,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
 /// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
+/// <param name="approvalActivationWriter">人工审批等待点激活写入器。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 internal sealed class WorkflowInstanceManagementService(
     IQueryExecutor queryExecutor,
@@ -34,6 +35,7 @@ internal sealed class WorkflowInstanceManagementService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter,
+    WorkflowApprovalActivationWriter approvalActivationWriter,
     WorkflowNotificationOutboxPublisher notificationPublisher)
 {
     /// <summary>按已发布版本启动实例，并在同一本地事务内建立首待办和起始抄送。</summary>
@@ -83,10 +85,7 @@ internal sealed class WorkflowInstanceManagementService(
         }
 
         var instanceId = idGenerator.NewId();
-        var stepId = idGenerator.NewId();
-        var todoId = idGenerator.NewId();
         var now = clock.UtcNow;
-        var timeoutSchedule = WorkflowTodoTimeoutSchedule.Create(now, startTransition.TimeoutPolicy);
         var requestHash = HashStartRequest(request);
         try
         {
@@ -107,21 +106,18 @@ internal sealed class WorkflowInstanceManagementService(
                     1L,
                     now,
                     token).ConfigureAwait(false);
-                await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
-                    Parameters(("Id", stepId), ("InstanceId", instanceId),
-                        ("NodeKey", approvalNodeKey), ("AssignedUserId", actorUserId),
-                        ("ExecutionSequence", approvalExecutionSequence),
-                        ("StartedAtUtc", now)), token).ConfigureAwait(false);
-                await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
-                    Parameters(("Id", todoId), ("InstanceId", instanceId), ("StepId", stepId),
-                        ("AssigneeUserId", actorUserId), ("ArrivedAtUtc", now),
-                        ("DueAtUtc", timeoutSchedule.DueAtUtc),
-                        ("NextReminderAtUtc", timeoutSchedule.NextReminderAtUtc),
-                        ("EscalateAtUtc", timeoutSchedule.EscalateAtUtc),
-                        ("MaxReminderCount", timeoutSchedule.MaxReminderCount),
-                        ("ReminderIntervalMinutes", timeoutSchedule.ReminderIntervalMinutes),
-                        ("EscalationRecipientUserId", timeoutSchedule.EscalationRecipientUserId),
-                        ("NextTimeoutSignalAtUtc", timeoutSchedule.NextTimeoutSignalAtUtc)), token).ConfigureAwait(false);
+                var activation = await approvalActivationWriter.WriteAsync(
+                    instanceId,
+                    scope.TenantScopeKey,
+                    approvalNodeKey,
+                    startTransition.ApprovalPolicy,
+                    actorUserId,
+                    approvalExecutionSequence,
+                    now,
+                    startTransition.TimeoutPolicy,
+                    request.BusinessType.Trim(),
+                    request.BusinessId.Trim(),
+                    token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertFormSubmission,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
                         ("FormVersionId", asset.FormVersionId),
@@ -129,13 +125,13 @@ internal sealed class WorkflowInstanceManagementService(
                         ("UpdatedById", actorUserId), ("UpdatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
-                        ("StepId", stepId), ("TodoId", todoId), ("ActionKey", "start"),
+                        ("StepId", activation.StepId), ("TodoId", activation.FirstTodoId), ("ActionKey", "start"),
                         ("ActorUserId", actorUserId), ("InstanceRevision", 1L),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("CommentSummary", null), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
                     Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
-                        ("StepId", stepId), ("TransitionKey", "instance.start"),
+                        ("StepId", activation.StepId), ("TransitionKey", "instance.start"),
                         ("FromStatusKey", null), ("ToStatusKey", "active"),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
@@ -148,20 +144,10 @@ internal sealed class WorkflowInstanceManagementService(
                         ("DetailJson", $"{{\"definitionVersionId\":\"{asset.DefinitionVersionId:D}\"}}"),
                         ("CreatedAtUtc", now)), token).ConfigureAwait(false);
 
-                // 待办提醒必须与待办本身同事务写入 Outbox；下游失败不得反向影响本事务。
-                await notificationPublisher.PublishTodoAssignedAsync(
-                    instanceId,
-                    todoId,
-                    actorUserId,
-                    request.BusinessType.Trim(),
-                    request.BusinessId.Trim(),
-                    now,
-                    token).ConfigureAwait(false);
-
                 return Result<WorkflowInstanceResponse>.Success(new(
                     instanceId, asset.DefinitionVersionId, asset.FormVersionId,
                     request.BusinessType.Trim(), request.BusinessId.Trim(), "active", 1,
-                    todoId, now));
+                    activation.FirstTodoId, now));
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -340,11 +326,21 @@ internal sealed class WorkflowInstanceManagementService(
             : todo?.DueAtUtc is { } due && due <= clock.UtcNow ? "overdue"
             : todo?.DueAtUtc is not null ? "scheduled"
             : "not_configured";
+        var approvalProgress = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowInstanceApprovalProgressRecord>(
+            WorkflowSql.FindActiveStepApprovalProgressByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, instance.StatusKey,
             instance.Revision, todo?.Id, instance.StartedAtUtc, todo?.DueAtUtc,
-            timeoutStatus, todo?.ReminderCount ?? 0, todo?.EscalatedAtUtc));
+            timeoutStatus, todo?.ReminderCount ?? 0, todo?.EscalatedAtUtc,
+            approvalProgress?.NodeKey,
+            approvalProgress?.ApprovalModeKey,
+            approvalProgress?.RequiredApprovalCount,
+            approvalProgress?.ApprovedCount,
+            approvalProgress?.RejectedCount,
+            approvalProgress?.PendingCount));
     }
 
     public async Task<Result<IReadOnlyList<WorkflowExecutionLogResponse>>> ListExecutionLogsAsync(
@@ -664,12 +660,37 @@ internal sealed class WorkflowInstanceManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
+        var approvalSlot = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+            WorkflowSql.FindApprovalSlotForReassignment,
+            Parameters(("TodoId", activeWork.TodoId), ("TenantScopeKey", scope.TenantScopeKey)),
+            token).ConfigureAwait(false);
+        if (approvalSlot is not null)
+        {
+            var instanceLocked = await commandExecutor.ExecuteAsync(
+                WorkflowSql.LockInstanceForMultiApproval,
+                Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                    ("Revision", request.ExpectedRevision)), token).ConfigureAwait(false);
+            if (instanceLocked != 1)
+            {
+                return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
+        }
+
         var now = clock.UtcNow;
         var todoUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CancelTodoWithRevision,
             Parameters(("Id", activeWork.TodoId), ("InstanceId", instanceId),
                 ("TenantScopeKey", scope.TenantScopeKey), ("CompletedAtUtc", now),
                 ("Revision", activeWork.TodoRevision)), token).ConfigureAwait(false);
+        // 多人审批只把最早活动待办作为生命周期动作锚点，其余同步骤席位必须同事务关闭。
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelPendingApprovalTodosByStep,
+            Parameters(("StepId", activeWork.StepId), ("CompletedAtUtc", now)), token)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.CancelPendingApprovalSlotsByStep,
+            Parameters(("StepId", activeWork.StepId), ("DecidedAtUtc", now)), token)
+            .ConfigureAwait(false);
         var stepUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.CancelStepWithRevision,
             Parameters(("Id", activeWork.StepId), ("InstanceId", instanceId),

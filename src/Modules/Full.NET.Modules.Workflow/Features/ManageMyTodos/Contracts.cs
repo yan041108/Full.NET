@@ -78,6 +78,19 @@ internal sealed record WorkflowTodoCountersignItemResponse(
     string StatusKey,
     Guid? TodoId);
 
+/// <summary>多人审批动作完成后的权威票数快照。</summary>
+/// <param name="ApprovalModeKey">单人、会签、或签或 N-of-M 模式键。</param>
+/// <param name="RequiredApprovalCount">步骤通过所需的同意票数。</param>
+/// <param name="ApprovedCount">当前已同意票数。</param>
+/// <param name="RejectedCount">当前已驳回票数。</param>
+/// <param name="PendingCount">当前仍待处理票数。</param>
+internal sealed record WorkflowApprovalAuditDetail(
+    string ApprovalModeKey,
+    int RequiredApprovalCount,
+    int ApprovedCount,
+    int RejectedCount,
+    int PendingCount);
+
 internal sealed record WorkflowTodoResponse(
     Guid Id,
     Guid InstanceId,
@@ -100,7 +113,23 @@ internal sealed record WorkflowTodoDetailResponse(
     JsonElement FormSchema,
     JsonElement Submission,
     IReadOnlyDictionary<string, string> FieldPolicies,
-    long SubmissionRevision);
+    long SubmissionRevision)
+{
+    /// <summary>单人、会签、或签或 N-of-M 模式键。</summary>
+    public required string ApprovalModeKey { get; init; }
+
+    /// <summary>步骤通过所需的同意票数。</summary>
+    public required int RequiredApprovalCount { get; init; }
+
+    /// <summary>当前已同意票数。</summary>
+    public required int ApprovedCount { get; init; }
+
+    /// <summary>当前已驳回票数。</summary>
+    public required int RejectedCount { get; init; }
+
+    /// <summary>当前仍待处理票数。</summary>
+    public required int PendingCount { get; init; }
+}
 
 internal sealed record WorkflowTodoRuntimeResponse(
     Guid Id,
@@ -114,4 +143,20 @@ internal sealed record WorkflowTodoRuntimeResponse(
     JsonElement FormSchema,
     JsonElement Submission,
     IReadOnlyDictionary<string, string> FieldPolicies,
-    long SubmissionRevision);
+    long SubmissionRevision)
+{
+    /// <summary>单人、会签、或签或 N-of-M 模式键。</summary>
+    public required string ApprovalModeKey { get; init; }
+
+    /// <summary>步骤通过所需的同意票数。</summary>
+    public required int RequiredApprovalCount { get; init; }
+
+    /// <summary>当前已同意票数。</summary>
+    public required int ApprovedCount { get; init; }
+
+    /// <summary>当前已驳回票数。</summary>
+    public required int RejectedCount { get; init; }
+
+    /// <summary>当前仍待处理票数。</summary>
+    public required int PendingCount { get; init; }
+}

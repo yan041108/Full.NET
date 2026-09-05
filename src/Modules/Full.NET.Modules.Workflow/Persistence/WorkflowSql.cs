@@ -387,6 +387,23 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>写入携带单人或多人审批门槛快照的人工步骤。</summary>
+    public static readonly SqlStatement InsertApprovalStep = new(
+        "workflow.approval_step.insert",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence,
+             ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
+             StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+             NULL, 0, 1, @ExecutionSequence,
+             @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
+             @StartedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
     /// <summary>写入已经同步完成的抄送步骤；抄送不产生待办，也不占用处理人。</summary>
     public static readonly SqlStatement InsertCompletedCcStep = new(
         "workflow.step.insert_completed_cc",
@@ -518,6 +535,19 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>写入节点激活时固化的一人一票审批席位。</summary>
+    public static readonly SqlStatement InsertApprovalSlot = new(
+        "workflow.approval_slot.insert",
+        """
+        INSERT INTO fn_workflow_approval_slot
+            (Id, InstanceId, StepId, TodoId, AssigneeUserId, DecisionKey,
+             Revision, CreatedAtUtc, DecidedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @StepId, @TodoId, @AssigneeUserId, NULL,
+             1, @CreatedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertFormSubmission = new(
         "workflow.form_submission.insert",
         """
@@ -569,6 +599,21 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>写入多人审批动作及其确定性响应快照，避免后续票数变化污染幂等回放。</summary>
+    public static readonly SqlStatement InsertApprovalActionRecord = new(
+        "workflow.approval_action_record.insert",
+        """
+        INSERT INTO fn_workflow_action_record
+            (Id, InstanceId, StepId, TodoId, ActionKey, ActorUserId,
+             InstanceRevision, IdempotencyKey, CommentSummary, CreatedAtUtc,
+             ResultStatusKey, ResultTodoId)
+        VALUES
+            (@Id, @InstanceId, @StepId, @TodoId, @ActionKey, @ActorUserId,
+             @InstanceRevision, @IdempotencyKey, @CommentSummary, @CreatedAtUtc,
+             @ResultStatusKey, @ResultTodoId)
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement InsertExecutionLog = new(
         "workflow.execution_log.insert",
         """
@@ -586,7 +631,8 @@ internal static class WorkflowSql
         """
         SELECT action.ActionKey, action.ActorUserId, action.InstanceRevision,
                action.IdempotencyKey, log.Summary AS RequestHash,
-               result_todo.Id AS ResultTodoId
+               COALESCE(action.ResultTodoId, result_todo.Id) AS ResultTodoId,
+               action.ResultStatusKey
         FROM fn_workflow_action_record AS action
         LEFT JOIN fn_workflow_execution_log AS log
          ON log.InstanceId = action.InstanceId
@@ -672,7 +718,8 @@ internal static class WorkflowSql
         """
         SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
-               todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision
+               todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision,
+               step.ApprovalModeKey, step.RequiredApprovalCount, step.ApprovalSlotCount
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
@@ -680,6 +727,60 @@ internal static class WorkflowSql
             ON step.Id = todo.StepId
         WHERE todo.Id = @Id
           AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信实例内读取当前待办尚未决定的审批席位。</summary>
+    public static readonly SqlStatement FindApprovalSlotByTodo = new(
+        "workflow.approval_slot.find_by_todo",
+        """
+        SELECT slot.Id, slot.Revision
+        FROM fn_workflow_approval_slot AS slot
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = slot.InstanceId
+        WHERE slot.TodoId = @TodoId
+          AND slot.AssigneeUserId = @AssigneeUserId
+          AND slot.DecisionKey IS NULL
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信实例内读取待改派 Todo 对应的审批席位；旧单人步骤没有席位并返回空。</summary>
+    public static readonly SqlStatement FindApprovalSlotForReassignment = new(
+        "workflow.approval_slot.find_for_reassignment",
+        """
+        SELECT slot.Id, slot.Revision
+        FROM fn_workflow_approval_slot AS slot
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = slot.InstanceId
+        WHERE slot.TodoId = @TodoId
+          AND slot.DecisionKey IS NULL
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在可信实例内检查目标用户是否已经持有同一步骤的审批席位。</summary>
+    public static readonly SqlStatement FindApprovalSlotByStepAssignee = new(
+        "workflow.approval_slot.find_by_step_assignee",
+        """
+        SELECT slot.Id, slot.Revision
+        FROM fn_workflow_approval_slot AS slot
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = slot.InstanceId
+        WHERE slot.StepId = @StepId
+          AND slot.AssigneeUserId = @AssigneeUserId
+          AND slot.Id <> @ExcludedSlotId
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按步骤聚合已持久化票数，作为收敛判断的唯一权威。</summary>
+    public static readonly SqlStatement FindApprovalTallyByStep = new(
+        "workflow.approval_slot.find_tally_by_step",
+        """
+        SELECT
+            SUM(CASE WHEN DecisionKey = 'approve' THEN 1 ELSE 0 END) AS ApprovedCount,
+            SUM(CASE WHEN DecisionKey = 'reject' THEN 1 ELSE 0 END) AS RejectedCount,
+            SUM(CASE WHEN DecisionKey IS NULL THEN 1 ELSE 0 END) AS PendingCount
+        FROM fn_workflow_approval_slot
+        WHERE StepId = @StepId
         """,
         SqlDataScope.Global);
 
@@ -769,6 +870,33 @@ internal static class WorkflowSql
         WHERE todo.InstanceId = @InstanceId
           AND todo.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS earlier
+              WHERE earlier.InstanceId = todo.InstanceId
+                AND earlier.StatusKey = 'active'
+                AND earlier.Id < todo.Id)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取实例当前活动多人审批步骤的权威票数进度。</summary>
+    public static readonly SqlStatement FindActiveStepApprovalProgressByInstance = new(
+        "workflow.instance.find_active_step_approval_progress",
+        """
+        SELECT step.NodeKey,
+               step.ApprovalModeKey,
+               step.RequiredApprovalCount,
+               COALESCE(SUM(CASE WHEN slot.DecisionKey = 'approve' THEN 1 ELSE 0 END), 0) AS ApprovedCount,
+               COALESCE(SUM(CASE WHEN slot.DecisionKey = 'reject' THEN 1 ELSE 0 END), 0) AS RejectedCount,
+               COALESCE(SUM(CASE WHEN slot.DecisionKey IS NULL THEN 1 ELSE 0 END), 0) AS PendingCount
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        LEFT JOIN fn_workflow_approval_slot AS slot ON slot.StepId = step.Id
+        WHERE step.InstanceId = @InstanceId
+          AND step.StatusKey = 'active'
+          AND step.ApprovalModeKey IS NOT NULL
+          AND step.ApprovalModeKey <> 'single'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        GROUP BY step.NodeKey, step.ApprovalModeKey, step.RequiredApprovalCount
         """,
         SqlDataScope.Global);
 
@@ -782,6 +910,11 @@ internal static class WorkflowSql
         WHERE todo.InstanceId = @InstanceId
           AND todo.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS earlier
+              WHERE earlier.InstanceId = todo.InstanceId
+                AND earlier.StatusKey = 'active'
+                AND earlier.Id < todo.Id)
         """,
         SqlDataScope.Global);
 
@@ -799,6 +932,11 @@ internal static class WorkflowSql
           AND step.StatusKey = 'active'
           AND instance.StatusKey IN ('active', 'suspended')
           AND instance.TenantScopeKey = @TenantScopeKey
+          AND NOT EXISTS (
+              SELECT 1 FROM fn_workflow_todo AS earlier
+              WHERE earlier.InstanceId = todo.InstanceId
+                AND earlier.StatusKey = 'active'
+                AND earlier.Id < todo.Id)
         """,
         SqlDataScope.Global);
 
@@ -855,6 +993,63 @@ internal static class WorkflowSql
           AND InstanceId = @InstanceId
           AND StatusKey = 'active'
           AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>以席位修订号保护一人一票决定，防止同一办理人重复投票。</summary>
+    public static readonly SqlStatement DecideApprovalSlotWithRevision = new(
+        "workflow.approval_slot.decide_with_revision",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET DecisionKey = @DecisionKey,
+            DecidedAtUtc = @DecidedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND StepId = @StepId
+          AND TodoId = @TodoId
+          AND AssigneeUserId = @AssigneeUserId
+          AND DecisionKey IS NULL
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>步骤尚未收敛时仅推进修订号，序列化同一步骤的并发投票。</summary>
+    public static readonly SqlStatement AdvanceApprovalStepWithRevision = new(
+        "workflow.approval_step.advance_with_revision",
+        """
+        UPDATE fn_workflow_step
+        SET Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>步骤收敛后关闭尚未投票的其他个人待办。</summary>
+    public static readonly SqlStatement CancelPendingApprovalTodosByStep = new(
+        "workflow.approval_todo.cancel_pending_by_step",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            ResultActionKey = 'cancel',
+            Revision = Revision + 1
+        WHERE StepId = @StepId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>步骤收敛后取消尚未投票的审批席位，保证票数事实不再变化。</summary>
+    public static readonly SqlStatement CancelPendingApprovalSlotsByStep = new(
+        "workflow.approval_slot.cancel_pending_by_step",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET DecisionKey = 'cancelled',
+            DecidedAtUtc = @DecidedAtUtc,
+            Revision = Revision + 1
+        WHERE StepId = @StepId
+          AND DecisionKey IS NULL
         """,
         SqlDataScope.Global);
 
@@ -931,6 +1126,34 @@ internal static class WorkflowSql
               WHERE instance.Id = fn_workflow_todo.InstanceId
                 AND instance.StatusKey = 'active'
                 AND instance.TenantScopeKey = @TenantScopeKey)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>以实例行为锁串行多人审批和生命周期动作，但不提前改变对外修订号。</summary>
+    public static readonly SqlStatement LockInstanceForMultiApproval = new(
+        "workflow.instance.lock_for_multi_approval",
+        """
+        UPDATE fn_workflow_instance
+        SET Revision = Revision
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey IN ('active', 'suspended')
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>同步改派尚未投票的审批席位，保持 Todo 办理人与一人一票身份一致。</summary>
+    public static readonly SqlStatement ReassignApprovalSlotWithRevision = new(
+        "workflow.approval_slot.reassign_with_revision",
+        """
+        UPDATE fn_workflow_approval_slot
+        SET AssigneeUserId = @AssigneeUserId,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TodoId = @TodoId
+          AND AssigneeUserId = @ExpectedAssigneeUserId
+          AND DecisionKey IS NULL
+          AND Revision = @Revision
         """,
         SqlDataScope.Global);
 

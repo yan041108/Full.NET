@@ -17,6 +17,7 @@
   <data name="workflow.definition.cc_recipients_invalid" xml:space="preserve"><value>工作流抄送人配置无效或包含非活动用户。</value></data>
   <data name="workflow.definition.gateway_invalid" xml:space="preserve"><value>工作流排他网关配置、字段条件或默认分支无效。</value></data>
   <data name="workflow.definition.timeout_policy_invalid" xml:space="preserve"><value>审批待办的超时、催办或升级策略无效。</value></data>
+  <data name="workflow.definition.approval_policy_invalid" xml:space="preserve"><value>多人审批模式、办理人或法定票数无效。</value></data>
   <data name="workflow.cc.not_found" xml:space="preserve"><value>工作流抄送记录不存在或不属于当前用户。</value></data>
   <data name="workflow.definition.topology_unsupported" xml:space="preserve"><value>当前部署尚不支持此工作流拓扑。</value></data>
   <data name="workflow.definition.not_found" xml:space="preserve"><value>工作流定义不存在。</value></data>

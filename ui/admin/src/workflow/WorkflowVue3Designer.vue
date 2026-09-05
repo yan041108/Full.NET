@@ -39,6 +39,9 @@ const timeoutMaxReminderCount = ref(3);
 const timeoutEscalationEnabled = ref(false);
 const timeoutEscalationMinutes = ref(2880);
 const timeoutEscalationRecipientUserId = ref('');
+const approvalModeKey = ref<'single' | 'all' | 'any' | 'nOfM'>('single');
+const approvalApproverUserIds = ref<string[]>([]);
+const approvalRequiredApprovals = ref(2);
 const gatewayCondition = ref<WorkflowVue3Node>();
 const gatewayFieldKey = ref('');
 const gatewayOperator = ref('equals');
@@ -127,6 +130,18 @@ watch(() => store.approverDrawer, visible => {
   timeoutEscalationRecipientUserId.value = typeof policy?.escalationRecipientUserId === 'string'
     ? policy.escalationRecipientUserId
     : '';
+  const configuredApproval = isRecord(envelope.value?.approvalPolicy)
+    ? envelope.value?.approvalPolicy as Record<string, unknown>
+    : undefined;
+  const configuredMode = configuredApproval?.modeKey;
+  approvalModeKey.value = configuredMode === 'all' || configuredMode === 'any' || configuredMode === 'nOfM'
+    ? configuredMode
+    : 'single';
+  approvalApproverUserIds.value = Array.isArray(configuredApproval?.approverUserIds)
+    ? configuredApproval.approverUserIds.filter(
+      (value): value is string => typeof value === 'string')
+    : [];
+  approvalRequiredApprovals.value = readInteger(configuredApproval?.requiredApprovals, 2);
   void loadCcCandidates();
 });
 
@@ -191,10 +206,27 @@ function closeCcRecipients(): void {
   store.setCopyer(false);
 }
 
-/** 保存审批节点超时策略；关闭策略时从节点中移除配置，历史发布版本不受影响。 */
-function saveTimeoutPolicy(): void {
+/** 保存审批参与人、收敛方式及超时策略；发布后由服务端固化为步骤快照。 */
+function saveApprovalConfiguration(): void {
   const envelope = store.approverConfig1 as { value?: WorkflowVue3Node; id?: number | string };
   const value = { ...envelope.value };
+  if (approvalModeKey.value === 'single') {
+    delete value.approvalPolicy;
+  } else {
+    const approvers = [...new Set(approvalApproverUserIds.value)];
+    const required = approvalRequiredApprovals.value;
+    if (approvers.length < 2 || approvers.length > 20 ||
+      (approvalModeKey.value === 'nOfM' &&
+        (!Number.isInteger(required) || required <= 1 || required >= approvers.length))) {
+      emit('validation-error', 'client.invalid_workflow_approval_policy');
+      return;
+    }
+    value.approvalPolicy = {
+      modeKey: approvalModeKey.value,
+      approverUserIds: approvers,
+      ...(approvalModeKey.value === 'nOfM' ? { requiredApprovals: required } : {})
+    };
+  }
   if (!timeoutEnabled.value) {
     delete value.timeoutPolicy;
   } else {
@@ -222,8 +254,8 @@ function saveTimeoutPolicy(): void {
   store.setApprover(false);
 }
 
-/** 关闭审批超时配置并丢弃未保存输入。 */
-function closeTimeoutPolicy(): void {
+/** 关闭审批配置并丢弃未保存输入。 */
+function closeApprovalConfiguration(): void {
   store.setApprover(false);
 }
 
@@ -359,11 +391,42 @@ defineExpose({ readDraft });
   </el-drawer>
   <el-drawer
     :model-value="store.approverDrawer"
-    :title="t('workflowDesigner.timeout.title')"
+    :title="t('workflowDesigner.approval.title')"
     size="min(560px, 94vw)"
-    @close="closeTimeoutPolicy"
+    @close="closeApprovalConfiguration"
   >
     <div class="workflow-timeout-form">
+      <label>
+        <span>{{ t('workflowDesigner.approval.mode') }}</span>
+        <el-select v-model="approvalModeKey" data-testid="workflow-approval-mode">
+          <el-option :label="t('workflowDesigner.approval.single')" value="single" />
+          <el-option :label="t('workflowDesigner.approval.all')" value="all" />
+          <el-option :label="t('workflowDesigner.approval.any')" value="any" />
+          <el-option :label="t('workflowDesigner.approval.nOfM')" value="nOfM" />
+        </el-select>
+      </label>
+      <label v-if="approvalModeKey !== 'single'">
+        <span>{{ t('workflowDesigner.approval.approvers') }}</span>
+        <el-select
+          v-model="approvalApproverUserIds"
+          multiple
+          filterable
+          :multiple-limit="20"
+          :loading="ccCandidatesLoading"
+          data-testid="workflow-approval-approvers"
+        >
+          <el-option v-for="candidate in ccCandidates" :key="candidate.id" :label="`${candidate.displayName} (${candidate.username})`" :value="candidate.id" />
+        </el-select>
+      </label>
+      <label v-if="approvalModeKey === 'nOfM'">
+        <span>{{ t('workflowDesigner.approval.required') }}</span>
+        <el-input-number
+          v-model="approvalRequiredApprovals"
+          :min="2"
+          :max="Math.max(2, approvalApproverUserIds.length - 1)"
+          data-testid="workflow-approval-required"
+        />
+      </label>
       <label><span>{{ t('workflowDesigner.timeout.enabled') }}</span><el-switch v-model="timeoutEnabled" data-testid="workflow-timeout-enabled" /></label>
       <template v-if="timeoutEnabled">
         <label><span>{{ t('workflowDesigner.timeout.dueMinutes') }}</span><el-input-number v-model="timeoutDueMinutes" :min="1" :max="525600" data-testid="workflow-timeout-due" /></label>
@@ -382,8 +445,8 @@ defineExpose({ readDraft });
       </template>
     </div>
     <template #footer>
-      <el-button @click="closeTimeoutPolicy">{{ t('workflowDesigner.timeout.cancel') }}</el-button>
-      <el-button type="primary" data-testid="workflow-timeout-save" @click="saveTimeoutPolicy">{{ t('workflowDesigner.timeout.confirm') }}</el-button>
+      <el-button @click="closeApprovalConfiguration">{{ t('workflowDesigner.timeout.cancel') }}</el-button>
+      <el-button type="primary" data-testid="workflow-timeout-save" @click="saveApprovalConfiguration">{{ t('workflowDesigner.timeout.confirm') }}</el-button>
     </template>
   </el-drawer>
   <el-drawer

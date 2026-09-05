@@ -25,6 +25,7 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
 /// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
+/// <param name="approvalActivationWriter">人工审批等待点激活写入器。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
 internal sealed class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
@@ -35,6 +36,7 @@ internal sealed class WorkflowTodoManagementService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     WorkflowAutomaticTransitionWriter automaticTransitionWriter,
+    WorkflowApprovalActivationWriter approvalActivationWriter,
     WorkflowNotificationOutboxPublisher notificationPublisher,
     WorkflowTodoCountersignService countersignService)
 {
@@ -124,11 +126,24 @@ internal sealed class WorkflowTodoManagementService(
         var visibleSubmission = JsonSerializer.SerializeToElement(
             view.Values,
             WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
+        var tally = todo.ApprovalModeKey is null
+            ? null
+            : await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalTallyRecord>(
+                WorkflowSql.FindApprovalTallyByStep,
+                WorkflowSqlParameters.Create(("StepId", todo.StepId)), cancellationToken)
+                .ConfigureAwait(false);
         return Result<WorkflowTodoDetailResponse>.Success(new(
             todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
             todo.StatusKey, todo.Revision, asset.FormVersionId,
             visibleSchema, visibleSubmission, view.FieldPolicies,
-            submission.Revision));
+            submission.Revision)
+        {
+            ApprovalModeKey = todo.ApprovalModeKey ?? "single",
+            RequiredApprovalCount = todo.RequiredApprovalCount ?? 1,
+            ApprovedCount = tally?.ApprovedCount ?? 0,
+            RejectedCount = tally?.RejectedCount ?? 0,
+            PendingCount = tally?.PendingCount ?? 1,
+        });
     }
 
     public async Task<Result<WorkflowTodoRuntimeResponse>> GetRuntimeAsync(
@@ -147,7 +162,14 @@ internal sealed class WorkflowTodoManagementService(
             detail.Id, detail.InstanceId, detail.StepId, detail.AssigneeUserId,
             detail.StatusKey, detail.Revision, detail.FormVersionId,
             HashUtf8(detail.FormSchema.GetRawText()), detail.FormSchema,
-            detail.Submission, detail.FieldPolicies, detail.SubmissionRevision));
+            detail.Submission, detail.FieldPolicies, detail.SubmissionRevision)
+        {
+            ApprovalModeKey = detail.ApprovalModeKey,
+            RequiredApprovalCount = detail.RequiredApprovalCount,
+            ApprovedCount = detail.ApprovedCount,
+            RejectedCount = detail.RejectedCount,
+            PendingCount = detail.PendingCount,
+        });
     }
 
     /// <summary>列出当前办理人可以选择的历史人工审批退回目标。</summary>
@@ -314,6 +336,14 @@ internal sealed class WorkflowTodoManagementService(
                 return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
             }
 
+            if (receipt.ResultStatusKey is not null)
+            {
+                return Result<WorkflowInstanceResponse>.Success(new(
+                    instance.Id, instance.DefinitionVersionId, formVersionId,
+                    instance.BusinessType, instance.BusinessId, receipt.ResultStatusKey,
+                    receipt.InstanceRevision, receipt.ResultTodoId, instance.StartedAtUtc));
+            }
+
             var replayTodo = instance.StatusKey == "active"
                 ? await queryExecutor.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
                     WorkflowSql.FindActiveTodoByInstance,
@@ -374,6 +404,30 @@ internal sealed class WorkflowTodoManagementService(
             return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
         }
 
+        // 新激活步骤具有审批席位快照；旧存量步骤继续走原单人兼容路径。
+        if (todo.ApprovalModeKey is { } approvalModeKey)
+        {
+            // 所有多人审批和实例生命周期动作先锁同一实例，避免不同 Todo 与实例形成反向锁序。
+            var instanceLocked = await commandExecutor.ExecuteAsync(
+                WorkflowSql.LockInstanceForMultiApproval,
+                WorkflowSqlParameters.Create(("Id", instance.Id),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("Revision", instance.Revision)), token)
+                .ConfigureAwait(false);
+            if (instanceLocked != 1)
+            {
+                var concurrentReceipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+                    WorkflowSql.FindActionReceipt,
+                    WorkflowSqlParameters.Create(("InstanceId", instance.Id),
+                        ("IdempotencyKey", request.IdempotencyKey.Trim())), token).ConfigureAwait(false);
+                return ReplayApproval(
+                    instance, formVersionId, actorUserId, actionKey, requestHash, concurrentReceipt);
+            }
+
+            return await ActApprovalSlotAsync(
+                todo, approvalModeKey, instance, formVersionId, submission!, runtimePlan!, patchedSubmission,
+                scope, actorUserId, request, actionKey, requestHash, token).ConfigureAwait(false);
+        }
+
         if (actionKey == "approve")
         {
             var patchedValues = JsonSerializer.Deserialize(
@@ -397,8 +451,7 @@ internal sealed class WorkflowTodoManagementService(
             ? "rejected"
             : advancesToNextApproval ? "active" : "completed";
         var stepStatus = actionKey == "reject" ? "rejected" : "completed";
-        var nextStepId = advancesToNextApproval ? idGenerator.NewId() : (Guid?)null;
-        var nextTodoId = advancesToNextApproval ? idGenerator.NewId() : (Guid?)null;
+        Guid? nextTodoId = null;
         var submissionUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
             WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
@@ -459,23 +512,19 @@ internal sealed class WorkflowTodoManagementService(
             : 0;
         if (advancesToNextApproval)
         {
-            var timeoutSchedule = WorkflowTodoTimeoutSchedule.Create(now, transition.TimeoutPolicy);
-            // 审批人解析器尚未开放前沿用当前办理人，避免从设计器的非权威展示字段推导身份。
-            await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
-                WorkflowSqlParameters.Create(("Id", nextStepId), ("InstanceId", instance.Id),
-                    ("NodeKey", transition.NextApprovalNodeKey), ("AssignedUserId", actorUserId),
-                    ("ExecutionSequence", approvalExecutionSequence),
-                    ("StartedAtUtc", now)), token).ConfigureAwait(false);
-            await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
-                WorkflowSqlParameters.Create(("Id", nextTodoId), ("InstanceId", instance.Id),
-                    ("StepId", nextStepId), ("AssigneeUserId", actorUserId),
-                    ("ArrivedAtUtc", now), ("DueAtUtc", timeoutSchedule.DueAtUtc),
-                    ("NextReminderAtUtc", timeoutSchedule.NextReminderAtUtc),
-                    ("EscalateAtUtc", timeoutSchedule.EscalateAtUtc),
-                    ("MaxReminderCount", timeoutSchedule.MaxReminderCount),
-                    ("ReminderIntervalMinutes", timeoutSchedule.ReminderIntervalMinutes),
-                    ("EscalationRecipientUserId", timeoutSchedule.EscalationRecipientUserId),
-                    ("NextTimeoutSignalAtUtc", timeoutSchedule.NextTimeoutSignalAtUtc)), token).ConfigureAwait(false);
+            var activation = await approvalActivationWriter.WriteAsync(
+                instance.Id,
+                scope.TenantScopeKey,
+                transition.NextApprovalNodeKey!,
+                transition.ApprovalPolicy,
+                actorUserId,
+                approvalExecutionSequence,
+                now,
+                transition.TimeoutPolicy,
+                instance.BusinessType,
+                instance.BusinessId,
+                token).ConfigureAwait(false);
+            nextTodoId = activation.FirstTodoId;
         }
 
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
@@ -499,18 +548,7 @@ internal sealed class WorkflowTodoManagementService(
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
 
         // 只在首次成功迁移后发布提醒；上方幂等回放分支不会再次追加 Outbox。
-        if (advancesToNextApproval)
-        {
-            await notificationPublisher.PublishTodoAssignedAsync(
-                instance.Id,
-                nextTodoId!.Value,
-                actorUserId,
-                instance.BusinessType,
-                instance.BusinessId,
-                now,
-                token).ConfigureAwait(false);
-        }
-        else if (actionKey == "reject")
+        if (actionKey == "reject")
         {
             await notificationPublisher.PublishInstanceRejectedAsync(
                 instance.Id,
@@ -529,6 +567,214 @@ internal sealed class WorkflowTodoManagementService(
                 instance.BusinessId,
                 now,
                 token).ConfigureAwait(false);
+        }
+
+        return Result<WorkflowInstanceResponse>.Success(new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, instanceStatus,
+            instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
+    }
+
+    /// <summary>提交一人一票决定，并按步骤权威票数原子收敛多人审批。</summary>
+    /// <param name="todo">当前审批待办及步骤快照。</param>
+    /// <param name="approvalModeKey">调用点已验证为非空的多人审批模式键。</param>
+    /// <param name="instance">当前活动实例。</param>
+    /// <param name="formVersionId">实例绑定的表单版本。</param>
+    /// <param name="submission">当前表单提交快照。</param>
+    /// <param name="runtimePlan">发布定义生成的运行计划。</param>
+    /// <param name="patchedSubmission">应用当前字段补丁后的提交 JSON。</param>
+    /// <param name="scope">可信租户作用域。</param>
+    /// <param name="actorUserId">当前办理人。</param>
+    /// <param name="request">审批动作请求。</param>
+    /// <param name="actionKey">批准或驳回机器键。</param>
+    /// <param name="requestHash">用于幂等校验的请求摘要。</param>
+    /// <param name="token">取消当前事务操作的令牌。</param>
+    /// <returns>投票后的实例快照或稳定业务错误。</returns>
+    private async Task<Result<WorkflowInstanceResponse>> ActApprovalSlotAsync(
+        WorkflowTodoRuntimeRecord todo,
+        string approvalModeKey,
+        WorkflowInstanceRecord instance,
+        Guid formVersionId,
+        WorkflowFormSubmissionRecord submission,
+        WorkflowRuntimePlan runtimePlan,
+        string patchedSubmission,
+        WorkflowManagementScope scope,
+        Guid actorUserId,
+        ActWorkflowTodoRequest request,
+        string actionKey,
+        string requestHash,
+        CancellationToken token)
+    {
+        if (todo.RequiredApprovalCount is not { } requiredApprovalCount ||
+            todo.ApprovalSlotCount is not { } approvalSlotCount ||
+            requiredApprovalCount < 1 || approvalSlotCount < requiredApprovalCount)
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+        }
+
+        var slot = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+            WorkflowSql.FindApprovalSlotByTodo,
+            WorkflowSqlParameters.Create(("TodoId", todo.Id), ("AssigneeUserId", actorUserId),
+                ("TenantScopeKey", scope.TenantScopeKey)), token).ConfigureAwait(false);
+        if (slot is null)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var now = clock.UtcNow;
+        var submissionUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.UpdateFormSubmissionWithRevision,
+            WorkflowSqlParameters.Create(("InstanceId", instance.Id), ("FormVersionId", formVersionId),
+                ("SubmissionJson", patchedSubmission), ("UpdatedById", actorUserId),
+                ("UpdatedAtUtc", now), ("Revision", submission.Revision)), token).ConfigureAwait(false);
+        var todoUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.CompleteTodoWithRevision,
+            WorkflowSqlParameters.Create(("Id", todo.Id), ("AssigneeUserId", actorUserId),
+                ("TenantScopeKey", scope.TenantScopeKey), ("CompletedAtUtc", now),
+                ("ResultActionKey", actionKey), ("Revision", request.ExpectedRevision)), token)
+            .ConfigureAwait(false);
+        var slotUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.DecideApprovalSlotWithRevision,
+            WorkflowSqlParameters.Create(("Id", slot.Id), ("StepId", todo.StepId),
+                ("TodoId", todo.Id), ("AssigneeUserId", actorUserId),
+                ("DecisionKey", actionKey), ("DecidedAtUtc", now), ("Revision", slot.Revision)), token)
+            .ConfigureAwait(false);
+        if (submissionUpdated != 1 || todoUpdated != 1 || slotUpdated != 1)
+        {
+            var concurrentReceipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+                WorkflowSql.FindActionReceipt,
+                WorkflowSqlParameters.Create(("InstanceId", instance.Id),
+                    ("IdempotencyKey", request.IdempotencyKey.Trim())), token).ConfigureAwait(false);
+            return ReplayApproval(
+                instance, formVersionId, actorUserId, actionKey, requestHash, concurrentReceipt);
+        }
+
+        var tally = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalTallyRecord>(
+            WorkflowSql.FindApprovalTallyByStep,
+            WorkflowSqlParameters.Create(("StepId", todo.StepId)), token).ConfigureAwait(false);
+        if (tally is null || tally.ApprovedCount + tally.RejectedCount + tally.PendingCount != approvalSlotCount)
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+        }
+
+        var outcome = WorkflowApprovalDecision.Resolve(
+            requiredApprovalCount, tally.ApprovedCount, tally.PendingCount);
+        var instanceStatus = outcome == WorkflowApprovalOutcome.Rejected ? "rejected" : "active";
+        WorkflowApprovalTransition transition = default;
+        if (outcome == WorkflowApprovalOutcome.Approved)
+        {
+            var patchedValues = JsonSerializer.Deserialize(
+                patchedSubmission,
+                WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
+            if (patchedValues is null ||
+                !runtimePlan.TryResolveApproval(todo.NodeKey, patchedValues, out transition))
+            {
+                return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
+            }
+
+            instanceStatus = transition.CompletesInstance ? "completed" : "active";
+        }
+
+        var stepUpdated = outcome == WorkflowApprovalOutcome.Waiting
+            ? await commandExecutor.ExecuteAsync(
+                WorkflowSql.AdvanceApprovalStepWithRevision,
+                WorkflowSqlParameters.Create(("Id", todo.StepId), ("InstanceId", instance.Id),
+                    ("Revision", todo.StepRevision)), token).ConfigureAwait(false)
+            : await commandExecutor.ExecuteAsync(
+                WorkflowSql.CompleteStepWithRevision,
+                WorkflowSqlParameters.Create(("Id", todo.StepId), ("InstanceId", instance.Id),
+                    ("StatusKey", outcome == WorkflowApprovalOutcome.Approved ? "completed" : "rejected"),
+                    ("CompletedAtUtc", now), ("Revision", todo.StepRevision)), token).ConfigureAwait(false);
+        var instanceUpdated = outcome == WorkflowApprovalOutcome.Waiting || instanceStatus == "active"
+            ? await commandExecutor.ExecuteAsync(
+                WorkflowSql.AdvanceInstanceWithRevision,
+                WorkflowSqlParameters.Create(("Id", instance.Id),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("Revision", instance.Revision)), token)
+                .ConfigureAwait(false)
+            : await commandExecutor.ExecuteAsync(
+                WorkflowSql.CompleteInstanceWithRevision,
+                WorkflowSqlParameters.Create(("Id", instance.Id),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("StatusKey", instanceStatus),
+                    ("CompletedAtUtc", now), ("Revision", instance.Revision)), token).ConfigureAwait(false);
+        if (stepUpdated != 1 || instanceUpdated != 1)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        if (outcome != WorkflowApprovalOutcome.Waiting)
+        {
+            // 收敛后批量关闭剩余席位和待办；当前票已完成，因此不会被此更新重复处理。
+            await commandExecutor.ExecuteAsync(
+                WorkflowSql.CancelPendingApprovalTodosByStep,
+                WorkflowSqlParameters.Create(("StepId", todo.StepId), ("CompletedAtUtc", now)), token)
+                .ConfigureAwait(false);
+            await commandExecutor.ExecuteAsync(
+                WorkflowSql.CancelPendingApprovalSlotsByStep,
+                WorkflowSqlParameters.Create(("StepId", todo.StepId), ("DecidedAtUtc", now)), token)
+                .ConfigureAwait(false);
+        }
+
+        Guid? nextTodoId = null;
+        if (outcome == WorkflowApprovalOutcome.Approved && !transition.CompletesInstance)
+        {
+            var nextExecutionSequence = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                WorkflowSql.FindNextStepExecutionSequence,
+                WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
+            var approvalExecutionSequence = await automaticTransitionWriter.WriteAsync(
+                instance.Id, scope.TenantScopeKey, transition.AutomaticNodes,
+                nextExecutionSequence, now, token).ConfigureAwait(false);
+            var activation = await approvalActivationWriter.WriteAsync(
+                instance.Id, scope.TenantScopeKey, transition.NextApprovalNodeKey!,
+                transition.ApprovalPolicy, actorUserId, approvalExecutionSequence, now,
+                transition.TimeoutPolicy, instance.BusinessType, instance.BusinessId, token)
+                .ConfigureAwait(false);
+            nextTodoId = activation.FirstTodoId;
+        }
+
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.InsertApprovalActionRecord,
+            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+                ("StepId", todo.StepId), ("TodoId", todo.Id), ("ActionKey", actionKey),
+                ("ActorUserId", actorUserId), ("InstanceRevision", instance.Revision + 1),
+                ("IdempotencyKey", request.IdempotencyKey.Trim()),
+                ("CommentSummary", request.Comment?.Trim()), ("CreatedAtUtc", now),
+                ("ResultStatusKey", instanceStatus), ("ResultTodoId", nextTodoId)), token)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.InsertExecutionLog,
+            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("InstanceId", instance.Id),
+                ("StepId", todo.StepId), ("TransitionKey", $"todo.{actionKey}"),
+                ("FromStatusKey", "active"), ("ToStatusKey", instanceStatus),
+                ("IdempotencyKey", request.IdempotencyKey.Trim()),
+                ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+            WorkflowSql.InsertDomainAudit,
+            WorkflowSqlParameters.Create(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                ("ScopeKey", scope.ScopeKey), ("InstanceId", instance.Id),
+                ("OperationKey", $"todo.{actionKey}"), ("ActorUserId", actorUserId),
+                ("ResourceTypeKey", "todo"), ("ResourceId", todo.Id),
+                ("OutcomeKey", "succeeded"),
+                ("DetailJson", JsonSerializer.Serialize(
+                    new WorkflowApprovalAuditDetail(
+                        approvalModeKey,
+                        requiredApprovalCount,
+                        tally.ApprovedCount,
+                        tally.RejectedCount,
+                        tally.PendingCount),
+                    WorkflowJsonSerializerContext.Default.WorkflowApprovalAuditDetail)),
+                ("CreatedAtUtc", now)), token).ConfigureAwait(false);
+
+        if (outcome == WorkflowApprovalOutcome.Rejected)
+        {
+            await notificationPublisher.PublishInstanceRejectedAsync(
+                instance.Id, instance.StartedById, instance.BusinessType,
+                instance.BusinessId, now, token).ConfigureAwait(false);
+        }
+        else if (outcome == WorkflowApprovalOutcome.Approved && transition.CompletesInstance)
+        {
+            await notificationPublisher.PublishInstanceCompletedAsync(
+                instance.Id, instance.StartedById, instance.BusinessType,
+                instance.BusinessId, now, token).ConfigureAwait(false);
         }
 
         return Result<WorkflowInstanceResponse>.Success(new(
@@ -650,6 +896,25 @@ internal sealed class WorkflowTodoManagementService(
         var nextStepId = idGenerator.NewId();
         var nextTodoId = idGenerator.NewId();
         var timeoutSchedule = WorkflowTodoTimeoutSchedule.Create(now, timeoutPolicy);
+        if (todo.ApprovalModeKey is not null)
+        {
+            var instanceLocked = await commandExecutor.ExecuteAsync(
+                WorkflowSql.LockInstanceForMultiApproval,
+                WorkflowSqlParameters.Create(("Id", instance.Id),
+                    ("TenantScopeKey", scope.TenantScopeKey), ("Revision", instance.Revision)), token)
+                .ConfigureAwait(false);
+            if (instanceLocked != 1)
+            {
+                var concurrentReceipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+                    WorkflowSql.FindActionReceipt,
+                    WorkflowSqlParameters.Create(("InstanceId", instance.Id),
+                        ("IdempotencyKey", idempotencyKey)), token).ConfigureAwait(false);
+                return concurrentReceipt is null
+                    ? Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict)
+                    : ReplayReturn(instance, formVersionId, actorUserId, requestHash, concurrentReceipt);
+            }
+        }
+
         // 与批准/驳回统一先争抢提交快照 CAS，避免和取消、改派的待办→实例锁顺序形成环。
         var submissionUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.UpdateFormSubmissionWithRevision,
@@ -684,6 +949,19 @@ internal sealed class WorkflowTodoManagementService(
         if (todoUpdated != 1 || stepUpdated != 1 || instanceUpdated != 1)
         {
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        if (todo.ApprovalModeKey is not null)
+        {
+            // 退回会终止当前多人审批步骤，必须同步关闭其他人的待办和未决席位。
+            await commandExecutor.ExecuteAsync(
+                WorkflowSql.CancelPendingApprovalTodosByStep,
+                WorkflowSqlParameters.Create(("StepId", todo.StepId), ("CompletedAtUtc", now)), token)
+                .ConfigureAwait(false);
+            await commandExecutor.ExecuteAsync(
+                WorkflowSql.CancelPendingApprovalSlotsByStep,
+                WorkflowSqlParameters.Create(("StepId", todo.StepId), ("DecidedAtUtc", now)), token)
+                .ConfigureAwait(false);
         }
 
         var nextExecutionSequence = await queryExecutor.QuerySingleOrDefaultAsync<long>(
@@ -752,6 +1030,35 @@ internal sealed class WorkflowTodoManagementService(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, "active",
             instance.Revision + 1, nextTodoId, instance.StartedAtUtc));
+    }
+
+    /// <summary>按首次成功投票的持久化结果构造并发幂等响应。</summary>
+    /// <param name="instance">当前读取到的实例，用于提供不可变业务标识。</param>
+    /// <param name="formVersionId">实例固化的表单版本标识。</param>
+    /// <param name="actorUserId">当前操作人标识。</param>
+    /// <param name="actionKey">当前批准或驳回动作键。</param>
+    /// <param name="requestHash">当前请求的规范哈希。</param>
+    /// <param name="receipt">竞争事务可能已经提交的动作回执。</param>
+    /// <returns>原始成功响应；未找到回执或语义不一致时返回冲突。</returns>
+    private static Result<WorkflowInstanceResponse> ReplayApproval(
+        WorkflowInstanceRecord instance,
+        Guid formVersionId,
+        Guid actorUserId,
+        string actionKey,
+        string requestHash,
+        WorkflowActionReceiptRecord? receipt)
+    {
+        if (receipt is null || receipt.ActionKey != actionKey ||
+            receipt.ActorUserId != actorUserId || receipt.RequestHash != requestHash ||
+            receipt.ResultStatusKey is null)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        return Result<WorkflowInstanceResponse>.Success(new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, receipt.ResultStatusKey,
+            receipt.InstanceRevision, receipt.ResultTodoId, instance.StartedAtUtc));
     }
 
     /// <summary>按首次成功动作的持久化回执构造稳定退回响应，不读取随后变化的实例状态。</summary>

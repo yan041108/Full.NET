@@ -68,6 +68,9 @@ public sealed class WorkflowInstanceRecoveryServiceTests
                 WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowTodoRecord(
                 todoId, instanceId, stepId, Guid.CreateVersion7(), "active", now, null, null, 2));
+        query.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+                WorkflowSql.FindApprovalSlotForReassignment, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowApprovalSlotRecord(Guid.CreateVersion7(), 1));
         command.ExecuteAsync(
                 Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(1);
@@ -86,7 +89,17 @@ public sealed class WorkflowInstanceRecoveryServiceTests
             Arg.Is<IReadOnlyCollection<Guid>>(ids => ids != null && ids.SequenceEqual(new[] { assigneeId })),
             Arg.Any<CancellationToken>());
         await tenantUsers.DidNotReceiveWithAnyArgs().FindActiveTenantUsersAsync(default!, default);
-        Assert.AreEqual(5, command.ReceivedCalls().Count());
+        Assert.AreEqual(7, command.ReceivedCalls().Count());
+        await query.Received(1).QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+            WorkflowSql.FindApprovalSlotByStepAssignee,
+            Arg.Is<object?>(value => HasValue(value, "StepId", stepId) &&
+                HasValue(value, "AssigneeUserId", assigneeId)),
+            Arg.Any<CancellationToken>());
+        await command.Received(1).ExecuteAsync(
+            WorkflowSql.ReassignApprovalSlotWithRevision,
+            Arg.Is<object?>(value => HasValue(value, "TodoId", todoId) &&
+                HasValue(value, "AssigneeUserId", assigneeId)),
+            Arg.Any<CancellationToken>());
         await outbox.Received(1).AddAsync(
             WorkflowNotificationIntegrationEventTypes.TodoAssigned,
             1,
@@ -415,6 +428,15 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         var value = $"{request.AssigneeUserId:D}\n{request.ExpectedRevision}\n{request.Reason?.Trim()}";
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     }
+
+    /// <summary>判断 SQL 参数字典是否包含期望键值。</summary>
+    /// <param name="parameters">SQL 参数字典。</param>
+    /// <param name="name">参数名称。</param>
+    /// <param name="expected">期望参数值。</param>
+    /// <returns>参数存在且值相等时返回 <see langword="true"/>。</returns>
+    private static bool HasValue(object? parameters, string name, object expected) =>
+        parameters is IReadOnlyDictionary<string, object?> values &&
+        values.TryGetValue(name, out var actual) && actual?.Equals(expected) == true;
 
     private sealed class TrackingTransaction : ICommandTransaction
     {

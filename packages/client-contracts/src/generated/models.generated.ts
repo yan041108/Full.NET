@@ -2363,7 +2363,10 @@ export interface WorkflowFormVersionResponse {
 }
 
 export interface WorkflowInstanceResponse {
+  readonly activeNodeKey?: null | string;
   readonly activeTodoId: null | string;
+  readonly approvalModeKey?: null | string;
+  readonly approvedCount?: null | number;
   readonly businessId: string;
   readonly businessType: string;
   readonly definitionVersionId: string;
@@ -2371,7 +2374,10 @@ export interface WorkflowInstanceResponse {
   readonly escalatedAtUtc?: null | string;
   readonly formVersionId: string;
   readonly id: string;
+  readonly pendingCount?: null | number;
+  readonly rejectedCount?: null | number;
   readonly reminderCount?: number;
+  readonly requiredApprovalCount?: null | number;
   readonly revision: number;
   readonly startedAtUtc: string;
   readonly statusKey: string;
@@ -2431,12 +2437,17 @@ export interface WorkflowRecoveryTaskResponse {
 }
 
 export interface WorkflowTodoDetailResponse {
+  readonly approvalModeKey: string;
+  readonly approvedCount: number;
   readonly assigneeUserId: string;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
   readonly formSchema: JsonElement;
   readonly formVersionId: string;
   readonly id: string;
   readonly instanceId: string;
+  readonly pendingCount: number;
+  readonly rejectedCount: number;
+  readonly requiredApprovalCount: number;
   readonly revision: number;
   readonly statusKey: string;
   readonly stepId: string;
@@ -2464,6 +2475,8 @@ export interface WorkflowTodoReturnTargetResponse {
 }
 
 export interface WorkflowTodoRuntimeResponse {
+  readonly approvalModeKey: string;
+  readonly approvedCount: number;
   readonly assigneeUserId: string;
   readonly fieldPolicies: Readonly<Record<string, unknown>>;
   readonly formSchema: JsonElement;
@@ -2471,6 +2484,9 @@ export interface WorkflowTodoRuntimeResponse {
   readonly formVersionId: string;
   readonly id: string;
   readonly instanceId: string;
+  readonly pendingCount: number;
+  readonly rejectedCount: number;
+  readonly requiredApprovalCount: number;
   readonly revision: number;
   readonly statusKey: string;
   readonly stepId: string;

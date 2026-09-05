@@ -53,7 +53,12 @@ const detail: WorkflowTodoDetail = {
   },
   submission: { summary: '采购审批' },
   fieldPolicies: { summary: 'editable' },
-  submissionRevision: 4
+  submissionRevision: 4,
+  approvalModeKey: 'single',
+  requiredApprovalCount: 1,
+  approvedCount: 0,
+  rejectedCount: 0,
+  pendingCount: 1
 };
 
 function mountWithPermissions(permissions: string[]) {
@@ -122,6 +127,24 @@ describe('WorkflowTodosView', () => {
 
     expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="workflow-todo-reject"]').exists()).toBe(false);
+  });
+
+  it('多人审批详情展示权威票数和通过门槛', async () => {
+    vi.mocked(getWorkflowTodo).mockResolvedValue({
+      ...detail,
+      approvalModeKey: 'nOfM',
+      requiredApprovalCount: 2,
+      approvedCount: 1,
+      rejectedCount: 0,
+      pendingCount: 2
+    });
+    const wrapper = mountWithPermissions(['workflow.todos.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="workflow-approval-progress"]').text())
+      .toContain('同意 1 · 驳回 0 · 待处理 2 · 通过门槛 2');
   });
 
   it('请求进行中阻止重复审批', async () => {

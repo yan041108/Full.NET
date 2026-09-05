@@ -17,6 +17,7 @@
   <data name="workflow.definition.cc_recipients_invalid" xml:space="preserve"><value>The workflow CC recipient configuration is invalid or contains an inactive user.</value></data>
   <data name="workflow.definition.gateway_invalid" xml:space="preserve"><value>The workflow exclusive gateway configuration, field condition, or default branch is invalid.</value></data>
   <data name="workflow.definition.timeout_policy_invalid" xml:space="preserve"><value>The approval todo timeout, reminder, or escalation policy is invalid.</value></data>
+  <data name="workflow.definition.approval_policy_invalid" xml:space="preserve"><value>The multi-approval mode, assignees, or threshold is invalid.</value></data>
   <data name="workflow.cc.not_found" xml:space="preserve"><value>The workflow CC record was not found or does not belong to the current user.</value></data>
   <data name="workflow.definition.topology_unsupported" xml:space="preserve"><value>This workflow topology is not supported by the current deployment.</value></data>
   <data name="workflow.definition.not_found" xml:space="preserve"><value>The workflow definition was not found.</value></data>

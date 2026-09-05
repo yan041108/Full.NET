@@ -215,6 +215,33 @@ internal sealed class WorkflowInstanceRecoveryService(
             return Failure(WorkflowErrorCodes.TodoAssigneeUnchanged, ErrorType.Validation);
         }
 
+        var approvalSlot = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+            WorkflowSql.FindApprovalSlotForReassignment,
+            Parameters(("TodoId", todo.Id), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (approvalSlot is not null)
+        {
+            var instanceLocked = await commandExecutor.ExecuteAsync(
+                WorkflowSql.LockInstanceForMultiApproval,
+                Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                    ("Revision", request.ExpectedRevision)), cancellationToken).ConfigureAwait(false);
+            if (instanceLocked != 1)
+            {
+                return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
+
+            // 同一步骤保持一人一票；实例锁使检查与后续席位更新之间不存在改派竞争窗口。
+            var occupiedSlot = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalSlotRecord>(
+                WorkflowSql.FindApprovalSlotByStepAssignee,
+                Parameters(("StepId", todo.StepId), ("AssigneeUserId", request.AssigneeUserId),
+                    ("ExcludedSlotId", approvalSlot.Id), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken).ConfigureAwait(false);
+            if (occupiedSlot is not null)
+            {
+                return Failure(WorkflowErrorCodes.TodoAssigneeUnchanged, ErrorType.Validation);
+            }
+        }
+
         // 待办修订与实例修订必须同时命中，任何并发变化都会让 ExecuteResultAsync 回滚全部追加记录。
         var todoUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.ReassignTodoWithRevision,
@@ -222,11 +249,20 @@ internal sealed class WorkflowInstanceRecoveryService(
                 ("ExpectedAssigneeUserId", todo.AssigneeUserId),
                 ("AssigneeUserId", request.AssigneeUserId), ("Revision", todo.Revision),
                 ("TenantScopeKey", scope.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        var approvalSlotUpdated = approvalSlot is null
+            ? 0
+            : await commandExecutor.ExecuteAsync(
+                WorkflowSql.ReassignApprovalSlotWithRevision,
+                Parameters(("Id", approvalSlot.Id), ("TodoId", todo.Id),
+                    ("ExpectedAssigneeUserId", todo.AssigneeUserId),
+                    ("AssigneeUserId", request.AssigneeUserId), ("Revision", approvalSlot.Revision)),
+                cancellationToken).ConfigureAwait(false);
         var instanceUpdated = await commandExecutor.ExecuteAsync(
             WorkflowSql.AdvanceInstanceWithRevision,
             Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
                 ("Revision", request.ExpectedRevision)), cancellationToken).ConfigureAwait(false);
-        if (todoUpdated != 1 || instanceUpdated != 1)
+        if (todoUpdated != 1 || instanceUpdated != 1 ||
+            approvalSlot is not null && approvalSlotUpdated != 1)
         {
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }

@@ -59,6 +59,18 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionTimeoutPolicyInvalid);
         }
 
+        // 多人审批配置决定运行时身份和完成门槛，发布前必须收敛为闭合用户集合与确定票数。
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "human.approval" &&
+                !WorkflowApprovalPolicy.TryRead(node.Config, out _)) ||
+            draft.Nodes.Any(node =>
+                node.NodeTypeKey != "human.approval" &&
+                node.Config.ValueKind == JsonValueKind.Object &&
+                node.Config.TryGetProperty("approvalPolicy", out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid);
+        }
+
         if (draft.Nodes.GroupBy(node => node.NodeKey, StringComparer.Ordinal).Any(group => group.Count() > 1))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionNodeKeyDuplicate);

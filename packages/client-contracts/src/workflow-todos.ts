@@ -68,11 +68,18 @@ export type WorkflowFieldPolicies = Readonly<Record<string, WorkflowFieldPolicy>
 
 export type WorkflowTodoDetail = Omit<
   WorkflowTodoRuntimeResponse,
-  'fieldPolicies' | 'formSchema' | 'submission'
+  'fieldPolicies' | 'formSchema' | 'submission' |
+  'approvalModeKey' | 'requiredApprovalCount' | 'approvedCount' |
+  'rejectedCount' | 'pendingCount'
 > & {
   readonly fieldPolicies: WorkflowFieldPolicies;
   readonly formSchema: WorkflowFormSchema;
   readonly submission: WorkflowSubmission;
+  readonly approvalModeKey: string;
+  readonly requiredApprovalCount: number;
+  readonly approvedCount: number;
+  readonly rejectedCount: number;
+  readonly pendingCount: number;
 };
 
 /**
@@ -80,17 +87,31 @@ export type WorkflowTodoDetail = Omit<
  * 未知 adapter、字段控件或策略全部失败关闭。
  */
 export function isWorkflowTodoDetail(value: unknown): value is WorkflowTodoDetail {
-  let response: WorkflowTodoRuntimeResponse;
+  let raw: WorkflowTodoRuntimeResponse;
   try {
-    response = readWorkflowTodoRuntimeResponse(value);
+    raw = readWorkflowTodoRuntimeResponse(value);
   } catch {
     return false;
   }
 
+  if (raw.approvalModeKey === undefined || raw.requiredApprovalCount === undefined ||
+    raw.approvedCount === undefined || raw.rejectedCount === undefined ||
+    raw.pendingCount === undefined) {
+    return false;
+  }
+  const response = raw as WorkflowTodoDetail;
+
   if (!isWorkflowFormSchema(response.formSchema)
     || !isRecord(response.submission)
     || !isWorkflowFieldPolicies(response.fieldPolicies)
-    || !/^[0-9a-f]{64}$/.test(response.formSchemaHash)) {
+    || !/^[0-9a-f]{64}$/.test(response.formSchemaHash)
+    || !['single', 'all', 'any', 'nOfM'].includes(response.approvalModeKey)
+    || response.requiredApprovalCount < 1
+    || response.approvedCount < 0
+    || response.rejectedCount < 0
+    || response.pendingCount < 0
+    || response.requiredApprovalCount >
+      response.approvedCount + response.rejectedCount + response.pendingCount) {
     return false;
   }
 

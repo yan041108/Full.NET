@@ -155,6 +155,35 @@ describe('WorkflowInstancesView', () => {
     expect(wrapper.find('[data-testid="workflow-instance-recover"]').exists()).toBe(false);
   });
 
+  it('展示活动多人审批步骤的权威票数进度', async () => {
+    vi.mocked(getWorkflowInstance).mockResolvedValue({
+      id: instanceId,
+      definitionVersionId: '01912345-6789-7abc-8def-0123456789ac',
+      formVersionId: '01912345-6789-7abc-8def-0123456789ad',
+      businessType: 'purchase',
+      businessId: 'PO-001',
+      statusKey: 'active',
+      revision: 3,
+      activeTodoId: '01912345-6789-7abc-8def-0123456789ae',
+      startedAtUtc: '2026-08-30T00:00:00Z',
+      activeNodeKey: 'review',
+      approvalModeKey: 'nOfM',
+      requiredApprovalCount: 2,
+      approvedCount: 1,
+      rejectedCount: 0,
+      pendingCount: 2
+    });
+    const wrapper = mountView();
+    await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);
+    await wrapper.get('[data-testid="workflow-instance-search"]').trigger('click');
+    await flushPromises();
+
+    const progress = wrapper.get('[data-testid="workflow-instance-approval-progress"]');
+    expect(progress.text()).toContain('review');
+    expect(progress.text()).toContain('同意 1');
+    expect(progress.text()).toContain('通过门槛 2');
+  });
+
   it('查询失败时清除旧实例并展示 ProblemDetails', async () => {
     const wrapper = mountView();
     await wrapper.get('[data-testid="workflow-instance-id"]').setValue(instanceId);

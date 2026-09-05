@@ -323,6 +323,10 @@ function readClosedNodeConfig(
       result.timeoutPolicy = cloneJson(value);
       continue;
     }
+    if (key === 'approvalPolicy' && nodeTypeKey === 'human.approval') {
+      result.approvalPolicy = readApprovalPolicy(value);
+      continue;
+    }
     if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
       result.recipientUserIds = readRecipientUserIds(value);
       continue;
@@ -350,6 +354,10 @@ function readClosedTargetConfig(
       result.timeoutPolicy = cloneJson(value);
       continue;
     }
+    if (key === 'approvalPolicy' && nodeTypeKey === 'human.approval') {
+      result.approvalPolicy = readApprovalPolicy(value);
+      continue;
+    }
     if (key === 'recipientUserIds' && nodeTypeKey === 'notify.cc') {
       result.recipientUserIds = readRecipientUserIds(value);
       continue;
@@ -360,18 +368,52 @@ function readClosedTargetConfig(
 }
 
 /** 验证抄送人闭合集合，并通过复制切断设计器可变数组引用。 */
-function readRecipientUserIds(value: unknown): string[] {
+function readRecipientUserIds(
+  value: unknown,
+  errorCode = 'client.invalid_workflow_cc_recipients'
+): string[] {
   if (!Array.isArray(value)
     || value.length < 1
     || value.length > 20
     || value.some(userId => typeof userId !== 'string' || !userIdPattern.test(userId))) {
-    throw new Error('client.invalid_workflow_cc_recipients');
+    throw new Error(errorCode);
   }
   const normalized = value.map(userId => String(userId).toLowerCase());
   if (new Set(normalized).size !== normalized.length) {
-    throw new Error('client.invalid_workflow_cc_recipients');
+    throw new Error(errorCode);
   }
   return normalized;
+}
+
+/** 验证多人审批闭合配置，防止设计器把展示字段或未知模式写入发布草稿。 */
+function readApprovalPolicy(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || !['all', 'any', 'nOfM'].includes(String(value.modeKey))) {
+    throw new Error('client.invalid_workflow_approval_policy');
+  }
+  const keys = Object.keys(value);
+  const expectedKeys = value.modeKey === 'nOfM'
+    ? ['approverUserIds', 'modeKey', 'requiredApprovals']
+    : ['approverUserIds', 'modeKey'];
+  if (keys.length !== expectedKeys.length || expectedKeys.some(key => !keys.includes(key))) {
+    throw new Error('client.invalid_workflow_approval_policy');
+  }
+  const approverUserIds = readRecipientUserIds(
+    value.approverUserIds,
+    'client.invalid_workflow_approval_policy'
+  );
+  if (approverUserIds.length < 2) {
+    throw new Error('client.invalid_workflow_approval_policy');
+  }
+  if (value.modeKey === 'nOfM' &&
+    (!Number.isInteger(value.requiredApprovals) || Number(value.requiredApprovals) <= 1 ||
+      Number(value.requiredApprovals) >= approverUserIds.length)) {
+    throw new Error('client.invalid_workflow_approval_policy');
+  }
+  return {
+    modeKey: value.modeKey,
+    approverUserIds,
+    ...(value.modeKey === 'nOfM' ? { requiredApprovals: value.requiredApprovals } : {})
+  };
 }
 
 /** 字段权限策略必须是稳定字段键到有限策略枚举的映射，避免任意值透传。 */

@@ -196,7 +196,8 @@ public sealed class WorkflowTodoReturnServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(
                 WorkflowSql.FindTodoById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowTodoRuntimeRecord(
-                todoId, instanceId, stepId, resolvedActorId, "active", now, null, null, 3, "finance", 1));
+                todoId, instanceId, stepId, resolvedActorId, "active", now, null, null, 3, "finance", 1,
+                null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
@@ -238,12 +239,14 @@ public sealed class WorkflowTodoReturnServiceTests
         ids.NewId().Returns(_ => Guid.CreateVersion7());
         var outbox = Substitute.For<IOutboxWriter>();
         var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
+        var notificationPublisher = new WorkflowNotificationOutboxPublisher(outbox);
         var service = new WorkflowTodoManagementService(
             query, command, new TrackingTransaction(), tenant, clock, ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
-            new WorkflowNotificationOutboxPublisher(outbox),
-            Substitute.For<WorkflowTodoCountersignService>());
+            new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
+            notificationPublisher,
+            WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant));
         return new ReturnFixture(service, query, command, outbox, todoId, resolvedActorId);
     }
 

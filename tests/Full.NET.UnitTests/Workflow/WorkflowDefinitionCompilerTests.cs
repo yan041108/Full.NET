@@ -116,6 +116,30 @@ public sealed class WorkflowDefinitionCompilerTests
         Assert.IsTrue(result.IsSuccess);
     }
 
+    /// <summary>发布编译必须拒绝结构不闭合的多人审批策略。</summary>
+    [TestMethod]
+    public void Compile_rejects_invalid_multi_approval_policy()
+    {
+        var user = Guid.CreateVersion7();
+        var result = WorkflowDefinitionCompiler.Compile(new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "{\"nextNodeKeys\":[\"approve\"]}"),
+            Node("approve", "human.approval", JsonSerializer.Serialize(new
+            {
+                nextNodeKeys = new[] { "end" },
+                approvalPolicy = new
+                {
+                    modeKey = "all",
+                    approverUserIds = new[] { user, user },
+                },
+            })),
+            Node("end", "end", "{}"),
+        ]));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.DefinitionApprovalPolicyInvalid, result.ErrorCode);
+    }
+
     [TestMethod]
     [DataRow("[]")]
     [DataRow("[\"not-a-guid\"]")]

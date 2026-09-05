@@ -20,6 +20,8 @@ public static class WorkflowErrorCodes
     public const string DefinitionGatewayInvalid = Prefix + "definition.gateway_invalid";
     /// <summary>审批待办超时、催办或升级策略无效。</summary>
     public const string DefinitionTimeoutPolicyInvalid = Prefix + "definition.timeout_policy_invalid";
+    /// <summary>多人审批模式、办理人或法定票数配置无效。</summary>
+    public const string DefinitionApprovalPolicyInvalid = Prefix + "definition.approval_policy_invalid";
     public const string DefinitionTopologyUnsupported = Prefix + "definition.topology_unsupported";
     public const string DefinitionNotFound = Prefix + "definition.not_found";
     public const string DefinitionKeyExists = Prefix + "definition.key_exists";
@@ -81,6 +83,7 @@ public static class WorkflowErrorCodes
         DefinitionCcRecipientsInvalid,
         DefinitionGatewayInvalid,
         DefinitionTimeoutPolicyInvalid,
+        DefinitionApprovalPolicyInvalid,
         DefinitionTopologyUnsupported,
         DefinitionNotFound,
         DefinitionKeyExists,

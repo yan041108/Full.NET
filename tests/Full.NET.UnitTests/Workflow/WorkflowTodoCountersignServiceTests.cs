@@ -148,7 +148,8 @@ public sealed class WorkflowTodoCountersignServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowTodoRuntimeRecord>(
                 WorkflowSql.FindTodoById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowTodoRuntimeRecord(
-                todoId, instanceId, stepId, resolvedActorId, "active", now, null, null, 3, "finance", 1));
+                todoId, instanceId, stepId, resolvedActorId, "active", now, null, null, 3, "finance", 1,
+                null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(

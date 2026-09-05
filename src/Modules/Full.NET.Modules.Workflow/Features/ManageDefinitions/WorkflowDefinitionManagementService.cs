@@ -230,30 +230,45 @@ internal sealed class WorkflowDefinitionManagementService(
                 compilation?.ErrorCode ?? WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
         }
 
-        var recipientUserIds = model!.Nodes
+        var ccRecipientUserIds = model!.Nodes
             .Where(node => node.NodeTypeKey == "notify.cc")
             .SelectMany(node => WorkflowCcNodeConfiguration.TryReadRecipients(
                 node.Config,
                 out var recipients) ? recipients : [])
             .Distinct()
             .ToArray();
-        int validRecipientCount;
+        var approvalUserIds = model.Nodes
+            .Where(node => node.NodeTypeKey == "human.approval")
+            .SelectMany(node => WorkflowApprovalPolicy.TryRead(node.Config, out var policy) && policy is not null
+                ? policy.ApproverUserIds
+                : [])
+            .Distinct()
+            .ToArray();
+        var referencedUserIds = ccRecipientUserIds.Concat(approvalUserIds).Distinct().ToArray();
+        IReadOnlySet<Guid> validUserIds;
         if (scope.TenantId.HasValue)
         {
-            // Tenant 定义只能引用当前可信 Tenant 的直属用户或有效成员，批量读取避免逐收件人 N+1。
-            var users = await tenantUserDirectory.FindActiveTenantUsersAsync(recipientUserIds, token)
+            // Tenant 定义中的审批和抄送身份统一批量复核，禁止逐节点回退查询或跨租户引用。
+            var users = await tenantUserDirectory.FindActiveTenantUsersAsync(referencedUserIds, token)
                 .ConfigureAwait(false);
-            validRecipientCount = users.Count;
+            validUserIds = users.Keys.ToHashSet();
         }
         else
         {
             // Host 定义继续限定为活动 Host 用户，禁止把 Tenant 用户写入 Host 版本。
-            var users = await hostUserDirectory.FindActiveHostUsersAsync(recipientUserIds, token)
+            var users = await hostUserDirectory.FindActiveHostUsersAsync(referencedUserIds, token)
                 .ConfigureAwait(false);
-            validRecipientCount = users.Count;
+            validUserIds = users.Keys.ToHashSet();
         }
 
-        if (validRecipientCount != recipientUserIds.Length)
+        if (approvalUserIds.Any(userId => !validUserIds.Contains(userId)))
+        {
+            return Failure<WorkflowDefinitionVersionResponse>(
+                WorkflowErrorCodes.DefinitionApprovalPolicyInvalid,
+                ErrorType.Validation);
+        }
+
+        if (ccRecipientUserIds.Any(userId => !validUserIds.Contains(userId)))
         {
             return Failure<WorkflowDefinitionVersionResponse>(
                 WorkflowErrorCodes.DefinitionCcRecipientsInvalid,

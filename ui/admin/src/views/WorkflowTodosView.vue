@@ -281,6 +281,15 @@ function createIdempotencyKey(): string {
   return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
 }
 
+function approvalModeLabel(modeKey: string): string {
+  switch (modeKey) {
+    case 'all': return t('workflowDesigner.approval.all');
+    case 'any': return t('workflowDesigner.approval.any');
+    case 'nOfM': return t('workflowDesigner.approval.nOfM');
+    default: return t('workflowDesigner.approval.single');
+  }
+}
+
 function toProblem(
   error: unknown,
   fallbackKey: 'workflowTodos.loadFailed' | 'workflowTodos.operationFailed'
@@ -347,6 +356,19 @@ function toProblem(
       @close="closeDetail"
     >
       <template v-if="selected">
+        <div
+          v-if="selected.approvedCount + selected.rejectedCount + selected.pendingCount > 1"
+          class="workflow-todos__approval-progress"
+          data-testid="workflow-approval-progress"
+        >
+          <strong>{{ approvalModeLabel(selected.approvalModeKey) }}</strong>
+          <span>{{ t('workflowTodos.approvalProgress', {
+            approved: selected.approvedCount,
+            rejected: selected.rejectedCount,
+            pending: selected.pendingCount,
+            required: selected.requiredApprovalCount
+          }) }}</span>
+        </div>
         <WorkflowFormRenderer
           :schema="selected.formSchema"
           :submission="selected.submission"
@@ -501,6 +523,18 @@ function toProblem(
 .workflow-todos__header p {
   margin: 0.35rem 0 0;
   color: var(--el-text-color-secondary);
+}
+
+.workflow-todos__approval-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
 }
 
 .workflow-todos__table-wrap {
