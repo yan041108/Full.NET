@@ -264,6 +264,24 @@ public sealed class NamingConventionTests
             return NormalizePath(Path.GetRelativePath(root, matches[0]));
         }
 
+        if (matches.Length == 0)
+        {
+            var declarationPattern = new Regex(
+                $@"\b(?:class|struct|interface|enum|record(?:\s+(?:class|struct))?)\s+{Regex.Escape(type.Name)}\b",
+                RegexOptions.CultureInvariant);
+            matches = Directory
+                .EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
+                .Where(path => !path.Contains(
+                    $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
+                    StringComparison.OrdinalIgnoreCase))
+                .Where(path => declarationPattern.IsMatch(File.ReadAllText(path)))
+                .ToArray();
+            if (matches.Length == 1)
+            {
+                return NormalizePath(Path.GetRelativePath(root, matches[0]));
+            }
+        }
+
         if (!required && matches.Length == 0)
         {
             return string.Empty;

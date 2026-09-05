@@ -1212,6 +1212,419 @@
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/100_MessagingDomainAuditRequestedOutcome.sql",
       "reason": "100 的条件 DROP/ADD CHECK 尚不能由静态扫描器完整解析；表、列和约束名均为静态常量，并由既有双库迁移与 Kafka 重放审计测试覆盖。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.definition_not_found",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.definition_concurrency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.definition_job_key_exists",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.definition_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.handler_kind_required",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.sensitive_header_in_plain_headers",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.definition_disabled",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.definition_has_active_dependents",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.handler_not_found",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.execution_not_found",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.schedule_not_found",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.schedule_concurrency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.schedule_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.schedule_has_active_executions",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "Jobs 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.announcement_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.announcement_concurrency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.announcement_invalid_status",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.announcement_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.announcement_audience_invalid",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.inbox_message_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.inbox_recipient_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.inbox_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.inbox_scope_forbidden",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_verification_challenge_missing",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_verification_code_invalid",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_verification_attempts_exhausted",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_verification_send_cooldown",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.recipient_endpoint_verification_send_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.delivery_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.delivery_retry_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.delivery_retry_invalid",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.receipt_invalid",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.receipt_provider_unknown",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.receipt_too_large",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.template_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.template_not_published",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.template_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.template_concurrency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.template_key_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.template_parameter_invalid",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.intent_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.intent_idempotency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.intent_channel_unsupported",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.intent_recipient_limit",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.provider_type_unknown",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.provider_profile_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.provider_profile_key_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.provider_profile_concurrency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.provider_profile_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.provider_profile_not_published",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.binding_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.binding_key_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.binding_concurrency_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.binding_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.binding_not_published",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.binding_scene_conflict",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

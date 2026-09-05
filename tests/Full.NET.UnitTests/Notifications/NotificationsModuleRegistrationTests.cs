@@ -4,6 +4,7 @@ using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
 using Full.NET.Modules.Notifications.Features.ProjectWorkflowNotifications;
+using Full.NET.Modules.Notifications.Features.CreateNotificationIntents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -47,6 +48,9 @@ public sealed class NotificationsModuleRegistrationTests
             && descriptor.Lifetime == ServiceLifetime.Singleton));
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(WorkflowNotificationTemplateProvisioner)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(NotificationRecipientDirectoryResolver)
             && descriptor.Lifetime == ServiceLifetime.Scoped));
     }
 

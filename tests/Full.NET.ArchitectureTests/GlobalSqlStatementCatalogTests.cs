@@ -10,9 +10,6 @@ public sealed class GlobalSqlStatementCatalogTests
     private static readonly Assembly[] SqlStatementAssemblies =
     [
         .. ProductionAssemblies.All,
-        typeof(Full.NET.Modules.Jobs.JobsModule).Assembly,
-        typeof(Full.NET.Modules.Messaging.MessagingModule).Assembly,
-        typeof(Full.NET.Modules.Notifications.NotificationsModule).Assembly,
     ];
 
     private static readonly HashSet<string> AllowedCategories =

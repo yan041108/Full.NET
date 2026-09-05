@@ -21,14 +21,18 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
     IClock clock,
     IIdGenerator idGenerator)
 {
+    /// <summary>
+    /// 自动模板预置的稳定系统审计主体；该标识不代表真实用户，也不得参与授权判断。
+    /// </summary>
+    internal static readonly Guid AutomaticProvisionerActorId =
+        new("019911b0-7a4d-7d3c-8e5f-607182930001");
+
     /// <summary>确保指定内建模板存在已发布版本；已存在的人工模板永不被覆盖。</summary>
     /// <param name="scope">由消息 Envelope 派生的可信通知作用域。</param>
-    /// <param name="actorUserId">触发 Workflow 事实的受信用户标识。</param>
     /// <param name="templateKey">闭合目录中的稳定模板键。</param>
     /// <param name="cancellationToken">消息租约取消令牌。</param>
     public async Task EnsurePublishedAsync(
         NotificationInboxScope scope,
-        Guid actorUserId,
         string templateKey,
         CancellationToken cancellationToken)
     {
@@ -50,19 +54,17 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
         }
 
         await transaction.ExecuteAsync(
-            token => EnsureCoreAsync(scope, actorUserId, definition!, token),
+            token => EnsureCoreAsync(scope, definition!, token),
             cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>在单个本地事务中创建模板、首版快照并更新发布指针。</summary>
     /// <param name="scope">可信通知作用域。</param>
-    /// <param name="actorUserId">发布审计主体。</param>
     /// <param name="definition">内建模板定义。</param>
     /// <param name="cancellationToken">事务取消令牌。</param>
     /// <returns>事务完成标记。</returns>
     private async Task<bool> EnsureCoreAsync(
         NotificationInboxScope scope,
-        Guid actorUserId,
         WorkflowNotificationTemplateDefinition definition,
         CancellationToken cancellationToken)
     {
@@ -105,7 +107,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
                     ("DraftSubject", draft.Value!.Subject),
                     ("DraftBodyJson", draft.Value.BodyJson),
                     ("DraftParameterSchemaJson", draft.Value.ParameterSchemaJson),
-                    ("CreatedById", actorUserId),
+                    ("CreatedById", AutomaticProvisionerActorId),
                     ("CreatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -137,7 +139,7 @@ internal sealed class WorkflowNotificationTemplateProvisioner(
                     ("ParameterSchemaJson", draft.Value.ParameterSchemaJson),
                     ("ContentClassificationKey", classification),
                     ("ContentHash", contentHash),
-                    ("PublishedById", actorUserId),
+                    ("PublishedById", AutomaticProvisionerActorId),
                     ("PublishedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);

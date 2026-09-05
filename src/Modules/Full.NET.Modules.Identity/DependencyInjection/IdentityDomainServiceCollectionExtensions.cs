@@ -113,4 +113,18 @@ internal static class IdentityDomainServiceCollectionExtensions
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
         return services;
     }
+
+    /// <summary>注册 Workflow 通知投影按 Host/Tenant 作用域批量校验收件人所需的最小目录。</summary>
+    /// <param name="services">应用依赖注入服务集合。</param>
+    /// <returns>原服务集合，便于继续链式注册。</returns>
+    internal static IServiceCollection AddNotificationRecipientDirectories(
+        this IServiceCollection services)
+    {
+        services.AddHostUserDirectory();
+        services.TryAddScoped<HostUsers.HostUserSelectionDirectory>();
+        services.TryAddScoped<IHostUserBatchSelectionDirectory>(provider =>
+            provider.GetRequiredService<HostUsers.HostUserSelectionDirectory>());
+        services.TryAddScoped<ITenantUserSelectionDirectory, HostUsers.TenantUserSelectionDirectory>();
+        return services;
+    }
 }

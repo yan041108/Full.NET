@@ -166,6 +166,23 @@ public sealed class IdentityModuleRegistrationTests
     }
 
     [TestMethod]
+    public void Identity_background_services_register_scope_aware_notification_recipient_directories()
+    {
+        var services = new ServiceCollection();
+
+        new IdentityModule().AddBackgroundServices(
+            services,
+            new ConfigurationBuilder().Build());
+
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(IHostUserBatchSelectionDirectory)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+        Assert.IsTrue(services.Any(descriptor =>
+            descriptor.ServiceType == typeof(ITenantUserSelectionDirectory)
+            && descriptor.Lifetime == ServiceLifetime.Scoped));
+    }
+
+    [TestMethod]
     public async Task Identity_module_repeated_registration_preserves_critical_contracts()
     {
         var configuration = new ConfigurationBuilder()

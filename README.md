@@ -16,7 +16,7 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 - SQL Server/MySQL 双数据库 DbUp 迁移及 Testcontainers 集成测试。
 - MemoryPack 二进制 Outbox、精确 schema 版本路由、最大尝试、死信终态、租约式至少一次消费，以及默认关闭且使用独立消息作用域的有界并发。
 - 追加式 Outbox、SQL Server CDC/MySQL Binlog、Kafka 与消费 Inbox 已达 `Build-verified / Pilot`（Organization 真实 CDC E2E）；**默认不切流**（`Messaging:DeliveryCutover:Enabled=false`）。权威边界见 [`ADR-0006`](docs/architecture/adr/ADR-0006-transactional-outbox-cdc-kafka-event-delivery.md)与[验证记录](docs/verification/cdc-kafka-pilot-2026-08-08.md)。
-- FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`；安全关键租户缓存已实现“提交后本机同步失效 + Outbox 跨节点修复”的最小闭环，并暴露失效时延/失败、陈旧命中与 Backplane 熔断恢复的低基数指标。
+- FusionCache 作为唯一缓存实现，同时暴露 `IFusionCache` 与 `.AsHybridCache()` 适配的 `HybridCache`；安全关键租户缓存已实现“提交后删除当前实例 L1/L2 + Redis Backplane 广播 + TTL/版本兜底”的失效闭环，并暴露失效时延/失败、陈旧命中与 Backplane 熔断恢复的低基数指标。
 - System.Text.Json 源生成 HTTP 合约、Serilog 普通/高优先级独立有界异步日志、OpenTelemetry 和健康检查。
 - ASP.NET Core `Accept-Language` 请求协商、`zh-CN/en-US` 规范化、异步 CultureScope、模块错误资源和本地化响应头能力。
 - Identity 安全会话与授权上下文底座：强密码引导、RSA JWT、登录锁定、Refresh Token 轮换/重用撤销、CSRF、CORS、审计、最小 RBAC、可信租户切换和权限导航。
