@@ -141,7 +141,7 @@
     "fn_workflow_instance": {
       "comment": "工作流实例表",
       "columns": {
-        "ActiveBusinessKey": "活动实例业务唯一键",
+        "ActiveBusinessKey": "占用中的实例业务唯一键",
         "BusinessId": "业务对象标识",
         "BusinessType": "业务对象类型",
         "CancellationReason": "取消原因",

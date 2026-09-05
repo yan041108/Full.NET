@@ -5,6 +5,20 @@
     {
       "kind": "dynamic_sql",
       "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/109_WorkflowSuspendedInstanceOccupancy.sql",
+      "reason": "109 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等重建占用中的实例业务唯一键；对象名、列名和 DDL 均为脚本内常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/109_WorkflowSuspendedInstanceOccupancy.sql",
+      "reason": "109 的条件 DROP INDEX / DROP COLUMN 尚不能由静态扫描器完整解析；计算列与过滤唯一索引名均为常量，并由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/106_NotificationsAnnouncementLifecycle.sql",
       "reason": "106 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等补齐公告生命周期列；对象名、列名和 DDL 均为脚本内常量，并由双库迁移恢复测试覆盖。",
       "removalMilestone": "M1.0"

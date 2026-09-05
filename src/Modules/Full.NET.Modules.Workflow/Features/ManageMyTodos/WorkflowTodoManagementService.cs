@@ -230,6 +230,11 @@ internal sealed class WorkflowTodoManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
+        if (instance.StatusKey == "suspended")
+        {
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+        }
+
         if (instance.StatusKey != "active")
         {
             return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);

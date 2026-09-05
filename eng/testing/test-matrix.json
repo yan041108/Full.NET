@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 1519,
+      "minimum": 1536,
       "timeout": "10m",
       "selections": {
         "code-generation-realtime": {
@@ -22,7 +22,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 136,
+      "minimum": 137,
       "timeout": "10m",
       "selections": {
         "api-native-aot": {
@@ -314,6 +314,9 @@
       },
       "105": {
         "filter": "FullyQualifiedName~Migration105NotificationsInboxScopeExtensionRecoveryTests.MySql_|FullyQualifiedName~Migration105NotificationsInboxScopeExtensionRecoveryTests.SqlServer_"
+      },
+      "109": {
+        "filter": "FullyQualifiedName~Migration109WorkflowSuspendedInstanceOccupancyRecoveryTests.MySql_|FullyQualifiedName~Migration109WorkflowSuspendedInstanceOccupancyRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -341,7 +344,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 326,
+        "minimum": 328,
         "timeout": "90m"
       },
       "infrastructure": {

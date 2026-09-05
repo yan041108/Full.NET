@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { ElButton, ElCard, ElInput, ElMessage, ElMessageBox } from 'element-plus';
+import type { MessageKey } from '@fullnet/admin-i18n';
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails
@@ -9,6 +10,9 @@ import {
   cancelWorkflowInstance,
   getWorkflowInstance,
   listWorkflowInstanceExecutionLogs,
+  pauseWorkflowInstance,
+  recoverWorkflowInstance,
+  resumeWorkflowInstance,
   type WorkflowExecutionLogResponse,
   type WorkflowInstanceResponse
 } from '../api/workflow-instances';
@@ -20,16 +24,37 @@ const session = useSessionStore();
 const instanceId = ref('');
 const loading = ref(false);
 const cancelling = ref(false);
+const pausing = ref(false);
+const resuming = ref(false);
+const recovering = ref(false);
 const instance = ref<WorkflowInstanceResponse>();
 const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
 const canSearch = computed(() => instanceId.value.trim().length > 0 && !loading.value);
+const mutating = computed(() =>
+  cancelling.value || pausing.value || resuming.value || recovering.value
+);
 const canCancel = computed(() =>
-  instance.value?.statusKey === 'active' &&
+  (instance.value?.statusKey === 'active' || instance.value?.statusKey === 'suspended') &&
   session.can('workflow.instances.cancel') &&
-  !cancelling.value
+  !mutating.value
+);
+const canPause = computed(() =>
+  instance.value?.statusKey === 'active' &&
+  session.can('workflow.instances.pause') &&
+  !mutating.value
+);
+const canResume = computed(() =>
+  instance.value?.statusKey === 'suspended' &&
+  session.can('workflow.instances.resume') &&
+  !mutating.value
+);
+const canRecover = computed(() =>
+  instance.value?.statusKey === 'suspended' &&
+  session.can('workflow.instances.recover') &&
+  !mutating.value
 );
 
 onBeforeUnmount(() => loadController?.abort());
@@ -85,21 +110,139 @@ async function cancelInstance(): Promise<void> {
       }
     );
     cancelling.value = true;
-    problem.value = undefined;
-    instance.value = await cancelWorkflowInstance(current.id, {
-      expectedRevision: current.revision,
-      reason: null,
-      idempotencyKey: `cancel-${crypto.randomUUID()}`
-    });
-    executionLogs.value = await listWorkflowInstanceExecutionLogs(current.id);
-    ElMessage.success(t('workflowInstances.cancelSuccess'));
+    await mutateInstance(
+      current.id,
+      () => cancelWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: null,
+        idempotencyKey: `cancel-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.cancelSuccess'
+    );
   } catch (error: unknown) {
-    if (error !== 'cancel' && error !== 'close') {
-      problem.value = toProblem(error);
-    }
+    captureActionError(error);
   } finally {
     cancelling.value = false;
   }
+}
+
+async function pauseInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canPause.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('workflowInstances.pauseConfirm'),
+      t('workflowInstances.pauseTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('workflowInstances.pause'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    pausing.value = true;
+    await mutateInstance(
+      current.id,
+      () => pauseWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: null,
+        idempotencyKey: `pause-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.pauseSuccess'
+    );
+  } catch (error: unknown) {
+    captureActionError(error);
+  } finally {
+    pausing.value = false;
+  }
+}
+
+async function resumeInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canResume.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('workflowInstances.resumeConfirm'),
+      t('workflowInstances.resumeTitle'),
+      {
+        confirmButtonText: t('workflowInstances.resume'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    resuming.value = true;
+    await mutateInstance(
+      current.id,
+      () => resumeWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: null,
+        idempotencyKey: `resume-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.resumeSuccess'
+    );
+  } catch (error: unknown) {
+    captureActionError(error);
+  } finally {
+    resuming.value = false;
+  }
+}
+
+async function recoverInstance(): Promise<void> {
+  const current = instance.value;
+  if (current === undefined || !canRecover.value) {
+    return;
+  }
+
+  try {
+    const prompt = await ElMessageBox.prompt(
+      t('workflowInstances.recoverConfirm'),
+      t('workflowInstances.recoverTitle'),
+      {
+        inputType: 'textarea',
+        inputValidator: (value: string) =>
+          (value ?? '').trim().length > 0 || t('workflowInstances.recoverReasonRequired'),
+        confirmButtonText: t('workflowInstances.recover'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    recovering.value = true;
+    await mutateInstance(
+      current.id,
+      () => recoverWorkflowInstance(current.id, {
+        expectedRevision: current.revision,
+        reason: prompt.value.trim(),
+        idempotencyKey: `recover-${crypto.randomUUID()}`
+      }),
+      'workflowInstances.recoverSuccess'
+    );
+  } catch (error: unknown) {
+    captureActionError(error);
+  } finally {
+    recovering.value = false;
+  }
+}
+
+async function mutateInstance(
+  currentId: string,
+  submit: () => Promise<WorkflowInstanceResponse>,
+  successKey: MessageKey
+): Promise<void> {
+  problem.value = undefined;
+  instance.value = await submit();
+  executionLogs.value = await listWorkflowInstanceExecutionLogs(currentId);
+  ElMessage.success(t(successKey));
+}
+
+function captureActionError(error: unknown): void {
+  if (error === 'cancel' || error === 'close') {
+    return;
+  }
+
+  problem.value = toProblem(error);
 }
 
 function toProblem(error: unknown): FullNetProblemDetails {
@@ -121,16 +264,47 @@ function toProblem(error: unknown): FullNetProblemDetails {
         <h1 data-route-heading tabindex="-1">{{ t('workflowInstances.title') }}</h1>
         <p>{{ t('workflowInstances.caption') }}</p>
       </div>
-      <el-button
-        v-if="canCancel"
-        type="danger"
-        plain
-        data-testid="workflow-instance-cancel"
-        :loading="cancelling"
-        @click="cancelInstance"
-      >
-        {{ t('workflowInstances.cancel') }}
-      </el-button>
+      <div class="workflow-instances__actions">
+        <el-button
+          v-if="canPause"
+          type="warning"
+          plain
+          data-testid="workflow-instance-pause"
+          :loading="pausing"
+          @click="pauseInstance"
+        >
+          {{ t('workflowInstances.pause') }}
+        </el-button>
+        <el-button
+          v-if="canResume"
+          type="primary"
+          plain
+          data-testid="workflow-instance-resume"
+          :loading="resuming"
+          @click="resumeInstance"
+        >
+          {{ t('workflowInstances.resume') }}
+        </el-button>
+        <el-button
+          v-if="canRecover"
+          type="warning"
+          data-testid="workflow-instance-recover"
+          :loading="recovering"
+          @click="recoverInstance"
+        >
+          {{ t('workflowInstances.recover') }}
+        </el-button>
+        <el-button
+          v-if="canCancel"
+          type="danger"
+          plain
+          data-testid="workflow-instance-cancel"
+          :loading="cancelling"
+          @click="cancelInstance"
+        >
+          {{ t('workflowInstances.cancel') }}
+        </el-button>
+      </div>
     </header>
 
     <el-card shadow="never" class="workflow-instances__search-card">
@@ -164,6 +338,15 @@ function toProblem(error: unknown): FullNetProblemDetails {
       <strong translate="no">{{ problem.code }}</strong>
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
+      <el-button
+        v-if="problem.status === 409"
+        text
+        type="primary"
+        data-testid="workflow-instance-conflict-refresh"
+        @click="load"
+      >
+        {{ t('workflowInstances.conflictRefresh') }}
+      </el-button>
     </div>
 
     <template v-if="instance">
@@ -263,6 +446,13 @@ function toProblem(error: unknown): FullNetProblemDetails {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.workflow-instances__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .workflow-instances__header p,

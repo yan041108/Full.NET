@@ -2828,6 +2828,28 @@
         "fn_workflow_instance",
         "TenantScopeKey = @TenantScopeKey"
       ]
+    },
+    {
+      "statementName": "workflow.instance.suspend_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.SuspendInstanceWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.resume_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ResumeInstanceWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     }
   ]
 }

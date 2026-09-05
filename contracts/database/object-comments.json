@@ -1426,7 +1426,7 @@
         "StatusKey": "实例状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "TenantScopeKey": "租户作用域唯一键",
-        "ActiveBusinessKey": "活动实例业务唯一键"
+        "ActiveBusinessKey": "占用中的实例业务唯一键"
       }
     },
     "fn_workflow_step": {

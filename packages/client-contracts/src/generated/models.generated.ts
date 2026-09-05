@@ -1749,6 +1749,12 @@ export interface PagedResultOfTenantSummary {
   readonly total: number;
 }
 
+export interface PauseWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
+}
+
 export interface PreviewSerialNumberRequest {
   readonly atUtc: string;
   readonly pattern: string;
@@ -1816,6 +1822,12 @@ export interface RecipientEndpointResponse {
   readonly verificationStatusKey: string;
 }
 
+export interface RecoverWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: string;
+}
+
 export interface ReplaceHostRoleFieldGrantsRequest {
   readonly fieldKeys: Array<string>;
   readonly resourceKey: string;
@@ -1842,6 +1854,12 @@ export interface RestoreDiagnosticPolicyRequest {
 
 export interface RestoreHostDocumentItemRequest {
   readonly version: number;
+}
+
+export interface ResumeWorkflowInstanceRequest {
+  readonly expectedRevision: number;
+  readonly idempotencyKey: string;
+  readonly reason: null | string;
 }
 
 export interface RetryNotificationDeliveryRequest {

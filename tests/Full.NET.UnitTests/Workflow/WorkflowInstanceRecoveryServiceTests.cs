@@ -21,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>验证工作流实例强制恢复与改派控制面的权限、原因、并发和待办保留边界。</summary>
 [TestClass]
 public sealed class WorkflowInstanceRecoveryServiceTests
 {
@@ -258,6 +259,131 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         Assert.AreEqual(WorkflowErrorCodes.RevisionConflict, result.Error!.Code);
         await query.DidNotReceive().QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
             WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, command.ReceivedCalls().Count());
+    }
+
+    /// <summary>
+    /// 强制恢复必须填写原因，并在同一事务内把暂停实例恢复到原活动待办。
+    /// </summary>
+    [TestMethod]
+    public async Task Recover_requires_reason_and_restores_the_original_active_todo()
+    {
+        var instanceId = Guid.CreateVersion7();
+        var todoId = Guid.CreateVersion7();
+        var stepId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        var query = Substitute.For<IQueryExecutor>();
+        var command = Substitute.For<ICommandExecutor>();
+        var tenant = Substitute.For<ICurrentTenant>();
+        var clock = Substitute.For<IClock>();
+        var ids = Substitute.For<IIdGenerator>();
+        tenant.IsHost.Returns(true);
+        clock.UtcNow.Returns(now);
+        ids.NewId().Returns(_ => Guid.CreateVersion7());
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowInstanceRecord(
+                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
+                "leave", "LEAVE-001", "suspended", 3, actorId, now, null, null, null, null, null, null));
+        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns((WorkflowActionReceiptRecord?)null);
+        query.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(
+                WorkflowSql.FindActiveWorkByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowActiveWorkRecord(todoId, 2, stepId, 1));
+        command.ExecuteAsync(
+                Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(1);
+        var outbox = Substitute.For<IOutboxWriter>();
+        var service = new WorkflowInstanceRecoveryService(
+            query, command, new TrackingTransaction(), tenant, clock, ids,
+            Substitute.For<IHostUserBatchSelectionDirectory>(),
+            Substitute.For<ITenantUserSelectionDirectory>(),
+            new WorkflowNotificationOutboxPublisher(outbox));
+
+        var missingReason = await service.RecoverAsync(
+            instanceId, actorId, new RecoverWorkflowInstanceRequest(3, "  ", "recover-001"));
+        var recovered = await service.RecoverAsync(
+            instanceId, actorId, new RecoverWorkflowInstanceRequest(3, "卡住后强制恢复", "recover-001"));
+
+        Assert.IsFalse(missingReason.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.SchemaInvalid, missingReason.Error!.Code);
+        Assert.IsTrue(recovered.IsSuccess);
+        Assert.AreEqual("active", recovered.Value!.StatusKey);
+        Assert.AreEqual(todoId, recovered.Value.ActiveTodoId);
+        Assert.AreEqual(4, recovered.Value.Revision);
+        await command.Received().ExecuteAsync(
+            WorkflowSql.ResumeInstanceWithRevision, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        await command.DidNotReceive().ExecuteAsync(
+            WorkflowSql.InsertTodo, Arg.Any<object?>(), Arg.Any<CancellationToken>());
+        Assert.AreEqual(0, outbox.ReceivedCalls().Count());
+    }
+
+    /// <summary>
+    /// 强制恢复端点必须绑定 recover 权限，且与改派路径分离。
+    /// </summary>
+    [TestMethod]
+    public async Task Recover_endpoint_requires_instances_recover_permission()
+    {
+        var builder = WebApplication.CreateBuilder();
+        var module = new WorkflowModule();
+        module.AddServices(builder.Services, builder.Configuration);
+        builder.Services.AddSingleton(Substitute.For<IApiResultMapper>());
+        await using var app = builder.Build();
+        module.MapEndpoints(app);
+
+        var endpoint = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(candidate => candidate.RoutePattern.RawText ==
+                "/api/v1/workflow/instances/{instanceId:guid}/recover");
+        var authorization = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
+
+        Assert.HasCount(1, authorization);
+        Assert.AreEqual(
+            FullNetPermissionPolicies.For(WorkflowPermissions.InstancesRecover),
+            authorization[0].Policy);
+    }
+
+    /// <summary>暂停实例上的改派必须失败关闭，且不得改写待办。</summary>
+    [TestMethod]
+    public async Task Reassign_suspended_instance_returns_invalid_transition()
+    {
+        var instanceId = Guid.CreateVersion7();
+        var actorId = Guid.CreateVersion7();
+        var assigneeId = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        var query = Substitute.For<IQueryExecutor>();
+        var command = Substitute.For<ICommandExecutor>();
+        var tenant = Substitute.For<ICurrentTenant>();
+        var hostUsers = Substitute.For<IHostUserBatchSelectionDirectory>();
+        tenant.IsHost.Returns(true);
+        hostUsers.FindActiveHostUsersAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, HostUserDirectoryEntry>
+            {
+                [assigneeId] = new(assigneeId, "next", "下一办理人"),
+            });
+        query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
+                WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(new WorkflowInstanceRecord(
+                instanceId, null, "host", "host", Guid.CreateVersion7(), Guid.CreateVersion7(),
+                "leave", "LEAVE-001", "suspended", 3, actorId, now, null, null, null, null, null, null));
+        query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+                WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns((WorkflowActionReceiptRecord?)null);
+        var service = new WorkflowInstanceRecoveryService(
+            query, command, new TrackingTransaction(), tenant, Substitute.For<IClock>(),
+            Substitute.For<IIdGenerator>(), hostUsers,
+            Substitute.For<ITenantUserSelectionDirectory>(),
+            new WorkflowNotificationOutboxPublisher(Substitute.For<IOutboxWriter>()));
+
+        var result = await service.ReassignAsync(
+            instanceId, actorId, new ReassignWorkflowInstanceRequest(assigneeId, 3, null, "reassign-001"));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, result.Error!.Code);
         Assert.AreEqual(0, command.ReceivedCalls().Count());
     }
 

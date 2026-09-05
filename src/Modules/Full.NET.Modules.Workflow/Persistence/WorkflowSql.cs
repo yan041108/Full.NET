@@ -324,6 +324,9 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>
+    /// 查找当前作用域内仍占用业务键的实例；暂停与运行同等占用，避免恢复时撞唯一约束。
+    /// </summary>
     public static readonly SqlStatement FindActiveInstanceByBusinessKey = new(
         "workflow.instance.find_active_by_business_key",
         """
@@ -335,7 +338,7 @@ internal static class WorkflowSql
         WHERE TenantScopeKey = @TenantScopeKey
           AND BusinessType = @BusinessType
           AND BusinessId = @BusinessId
-          AND StatusKey = 'active'
+          AND StatusKey IN ('active', 'suspended')
         """,
         SqlDataScope.Global);
 
@@ -617,6 +620,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>列出当前用户在运行中实例上的活动待办；暂停实例不得出现在我的待办。</summary>
     public static readonly SqlStatement ListMineSqlServer = new(
         "workflow.todo.list_mine.sqlserver",
         """
@@ -628,10 +632,12 @@ internal static class WorkflowSql
         WHERE instance.TenantScopeKey = @TenantScopeKey
           AND todo.AssigneeUserId = @AssigneeUserId
           AND todo.StatusKey = 'active'
+          AND instance.StatusKey = 'active'
         ORDER BY todo.ArrivedAtUtc DESC, todo.Id DESC
         """,
         SqlDataScope.Global);
 
+    /// <summary>列出当前用户在运行中实例上的活动待办；暂停实例不得出现在我的待办。</summary>
     public static readonly SqlStatement ListMineMySql = new(
         "workflow.todo.list_mine.mysql",
         """
@@ -643,6 +649,7 @@ internal static class WorkflowSql
         WHERE instance.TenantScopeKey = @TenantScopeKey
           AND todo.AssigneeUserId = @AssigneeUserId
           AND todo.StatusKey = 'active'
+          AND instance.StatusKey = 'active'
         ORDER BY todo.ArrivedAtUtc DESC, todo.Id DESC
         LIMIT @Take
         """,
@@ -678,6 +685,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>读取运行或暂停实例上仍活动的步骤与待办，供生命周期转换保留原节点。</summary>
     public static readonly SqlStatement FindActiveWorkByInstance = new(
         "workflow.instance.find_active_work",
         """
@@ -689,7 +697,7 @@ internal static class WorkflowSql
         WHERE todo.InstanceId = @InstanceId
           AND todo.StatusKey = 'active'
           AND step.StatusKey = 'active'
-          AND instance.StatusKey = 'active'
+          AND instance.StatusKey IN ('active', 'suspended')
           AND instance.TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
@@ -832,6 +840,7 @@ internal static class WorkflowSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>取消运行中或已暂停实例，并释放执行租约；终态不得命中。</summary>
     public static readonly SqlStatement CancelInstanceWithRevision = new(
         "workflow.instance.cancel_with_revision",
         """
@@ -845,7 +854,41 @@ internal static class WorkflowSql
             Revision = Revision + 1
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey IN ('active', 'suspended')
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 把运行中的实例暂停并释放租约；步骤和待办保持活动以便恢复后继续。
+    /// </summary>
+    public static readonly SqlStatement SuspendInstanceWithRevision = new(
+        "workflow.instance.suspend_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET StatusKey = 'suspended',
+            LeaseOwnerKey = NULL,
+            LeaseExpiresAtUtc = NULL,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
           AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>
+    /// 把已暂停实例恢复为运行中，并从原活动节点继续，不得新建步骤或待办。
+    /// </summary>
+    public static readonly SqlStatement ResumeInstanceWithRevision = new(
+        "workflow.instance.resume_with_revision",
+        """
+        UPDATE fn_workflow_instance
+        SET StatusKey = 'active',
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND StatusKey = 'suspended'
           AND Revision = @Revision
         """,
         SqlDataScope.Global);

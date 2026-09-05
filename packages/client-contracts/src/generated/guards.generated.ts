@@ -212,6 +212,7 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
   ProvisionTenantRequest,
@@ -223,12 +224,14 @@ import type {
   PublishWorkflowFormRequest,
   ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
+  RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
+  ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
@@ -2613,6 +2616,17 @@ function isPagedResultOfTenantSummary(value: unknown): value is PagedResultOfTen
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isTenantSummary(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowInstanceRequest {
+  if (!(isPauseWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_pause_workflow_instance_request');
+  }
+  return value;
+}
+
+function isPauseWorkflowInstanceRequest(value: unknown): value is PauseWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
 export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
   if (!(isPreviewSerialNumberRequest(value))) {
     throw new Error('client.invalid_preview_serial_number_request');
@@ -2734,6 +2748,17 @@ function isRecipientEndpointResponse(value: unknown): value is RecipientEndpoint
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["endpointKindKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["maskedValue"] === 'string') && (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["verificationStatusKey"] === 'string');
 }
 
+export function readRecoverWorkflowInstanceRequest(value: unknown): RecoverWorkflowInstanceRequest {
+  if (!(isRecoverWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_recover_workflow_instance_request');
+  }
+  return value;
+}
+
+function isRecoverWorkflowInstanceRequest(value: unknown): value is RecoverWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
+}
+
 export function readReplaceHostRoleFieldGrantsRequest(value: unknown): ReplaceHostRoleFieldGrantsRequest {
   if (!(isReplaceHostRoleFieldGrantsRequest(value))) {
     throw new Error('client.invalid_replace_host_role_field_grants_request');
@@ -2798,6 +2823,17 @@ export function readRestoreHostDocumentItemRequest(value: unknown): RestoreHostD
 
 function isRestoreHostDocumentItemRequest(value: unknown): value is RestoreHostDocumentItemRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readResumeWorkflowInstanceRequest(value: unknown): ResumeWorkflowInstanceRequest {
+  if (!(isResumeWorkflowInstanceRequest(value))) {
+    throw new Error('client.invalid_resume_workflow_instance_request');
+  }
+  return value;
+}
+
+function isResumeWorkflowInstanceRequest(value: unknown): value is ResumeWorkflowInstanceRequest {
+  return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
 }
 
 export function readRetryNotificationDeliveryRequest(value: unknown): RetryNotificationDeliveryRequest {

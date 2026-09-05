@@ -4,6 +4,9 @@ using Full.NET.Modules.Workflow.Domain;
 
 namespace Full.NET.UnitTests.Workflow;
 
+/// <summary>
+/// 工作流运行时状态机测试。
+/// </summary>
 [TestClass]
 public sealed class WorkflowStateMachineTests
 {
@@ -123,6 +126,109 @@ public sealed class WorkflowStateMachineTests
         Assert.AreEqual(first.Receipt, replay.Receipt);
         Assert.AreEqual(WorkflowErrorCodes.InstanceVersionConflict, stale.ErrorCode);
         Assert.AreEqual(WorkflowErrorCodes.InstanceTerminal, terminal.ErrorCode);
+    }
+
+    /// <summary>
+    /// 暂停必须保留原活动待办，并对终态或重复暂停失败关闭。
+    /// </summary>
+    [TestMethod]
+    public void Pause_keeps_the_original_active_todo_and_rejects_terminal_or_already_suspended()
+    {
+        var initial = WorkflowRuntimeState.Active(TodoId, AssigneeId, 3);
+        var command = new PauseWorkflowInstanceCommand(3, "等待补充材料", "pause-001");
+        var paused = WorkflowStateMachine.Pause(initial, command);
+        var replay = WorkflowStateMachine.Pause(paused.State!, command);
+        var alreadySuspended = WorkflowStateMachine.Pause(
+            paused.State!,
+            command with { IdempotencyKey = "pause-002", ExpectedRevision = 4 });
+        var terminal = WorkflowStateMachine.Pause(
+            initial with { InstanceStatus = WorkflowInstanceStatus.Completed },
+            command with { IdempotencyKey = "pause-003" });
+
+        Assert.IsTrue(paused.IsSuccess);
+        Assert.AreEqual(WorkflowInstanceStatus.Suspended, paused.State!.InstanceStatus);
+        Assert.AreEqual(WorkflowTodoStatus.Active, paused.State.TodoStatus);
+        Assert.AreEqual(TodoId, paused.State.TodoId);
+        Assert.AreEqual(4, paused.State.Revision);
+        Assert.AreEqual("pause", paused.Receipt!.Action);
+        Assert.IsTrue(replay.IsReplay);
+        Assert.AreEqual(paused.Receipt, replay.Receipt);
+        Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, alreadySuspended.ErrorCode);
+        Assert.AreEqual(WorkflowErrorCodes.InstanceTerminal, terminal.ErrorCode);
+    }
+
+    /// <summary>
+    /// 普通恢复与强制恢复都从原待办继续，且不得作用于运行中或终态实例。
+    /// </summary>
+    [TestMethod]
+    public void Resume_and_recover_restore_running_without_replacing_the_todo()
+    {
+        var paused = WorkflowStateMachine.Pause(
+            WorkflowRuntimeState.Active(TodoId, AssigneeId, 5),
+            new PauseWorkflowInstanceCommand(5, null, "pause-001")).State!;
+        var resume = WorkflowStateMachine.Resume(
+            paused,
+            new ResumeWorkflowInstanceCommand(6, null, "resume-001"));
+        var recover = WorkflowStateMachine.Recover(
+            paused,
+            new RecoverWorkflowInstanceCommand(6, "卡住后由管理员恢复", "recover-001"));
+        var runningResume = WorkflowStateMachine.Resume(
+            WorkflowRuntimeState.Active(TodoId, AssigneeId, 5),
+            new ResumeWorkflowInstanceCommand(5, null, "resume-002"));
+        var completedRecover = WorkflowStateMachine.Recover(
+            WorkflowRuntimeState.Active(TodoId, AssigneeId, 5) with
+            {
+                InstanceStatus = WorkflowInstanceStatus.Rejected,
+            },
+            new RecoverWorkflowInstanceCommand(5, "终态不可恢复", "recover-002"));
+
+        Assert.IsTrue(resume.IsSuccess);
+        Assert.AreEqual(WorkflowInstanceStatus.Running, resume.State!.InstanceStatus);
+        Assert.AreEqual(TodoId, resume.State.TodoId);
+        Assert.AreEqual(WorkflowTodoStatus.Active, resume.State.TodoStatus);
+        Assert.AreEqual("resume", resume.Receipt!.Action);
+        Assert.IsTrue(recover.IsSuccess);
+        Assert.AreEqual(TodoId, recover.State!.TodoId);
+        Assert.AreEqual("recover", recover.Receipt!.Action);
+        Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, runningResume.ErrorCode);
+        Assert.AreEqual(WorkflowErrorCodes.InstanceTerminal, completedRecover.ErrorCode);
+    }
+
+    /// <summary>
+    /// 暂停实例上的办理必须返回无效转换，而不是终态错误。
+    /// </summary>
+    [TestMethod]
+    public void Approve_rejects_suspended_instance_as_invalid_transition()
+    {
+        var suspended = WorkflowRuntimeState.Active(TodoId, AssigneeId, 3) with
+        {
+            InstanceStatus = WorkflowInstanceStatus.Suspended,
+        };
+        var result = WorkflowStateMachine.Approve(suspended, Command(3), AssigneeId);
+
+        Assert.AreEqual(WorkflowErrorCodes.InvalidTransition, result.ErrorCode);
+    }
+
+    /// <summary>
+    /// 已暂停实例仍可取消，已完成实例继续按终态拒绝。
+    /// </summary>
+    [TestMethod]
+    public void Cancel_allows_suspended_instance_and_still_rejects_completed()
+    {
+        var suspended = WorkflowRuntimeState.Active(TodoId, AssigneeId, 4) with
+        {
+            InstanceStatus = WorkflowInstanceStatus.Suspended,
+        };
+        var cancelled = WorkflowStateMachine.Cancel(
+            suspended,
+            new CancelWorkflowInstanceCommand(4, "暂停后撤回", "cancel-suspend-001"));
+        var completed = WorkflowStateMachine.Cancel(
+            suspended with { InstanceStatus = WorkflowInstanceStatus.Completed },
+            new CancelWorkflowInstanceCommand(4, "终态", "cancel-suspend-002"));
+
+        Assert.IsTrue(cancelled.IsSuccess);
+        Assert.AreEqual(WorkflowInstanceStatus.Cancelled, cancelled.State!.InstanceStatus);
+        Assert.AreEqual(WorkflowErrorCodes.InstanceTerminal, completed.ErrorCode);
     }
 
     private static ActOnWorkflowTodoCommand Command(long expectedRevision) =>

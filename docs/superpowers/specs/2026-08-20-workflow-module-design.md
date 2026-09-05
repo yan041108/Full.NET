@@ -25,7 +25,7 @@ Workflow 拥有流程定义、不可变定义版本、表单定义与版本、�
 
 1. 定义权威格式为规范 JSON；MemoryPack 只用于需要可靠跨进程交付的 Integration Event，不作为定义数据库列格式。
 2. 树形审批 Draft 经服务端编译为单一 Workflow IR；LogicFlow 首版仅可作为同一 IR 的候选只读轨迹视图。
-3. 允许同一业务键保留历史多实例，但同一作用域最多一个 Active 实例；批准后重开必须由业务模块显式发起新实例。
+3. 允许同一业务键保留历史多实例，但同一作用域最多一个占用中的实例（`active` 或 `suspended`）；批准后重开必须由业务模块显式发起新实例。
 4. 首版拒绝为终态 `Rejected`；任意节点回退、重走全程和复杂驳回策略后续按版本扩展。
 5. 定义、实例和表单支持 Host/Tenant 双作用域；首版禁止租户实例引用 Host 定义，也禁止跨租户引用定义、表单、主体或文件。
 6. 首批可执行节点只有发起、单人审批、抄送、排他条件和结束；复杂节点不会因设计器已有 UI 而自动获得发布或执行承诺。
@@ -182,12 +182,14 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 | `workflow.instances.read` | 实例、步骤和轨迹页面 |
 | `workflow.instances.start` | 启动实例 |
 | `workflow.instances.cancel` | 取消实例 |
+| `workflow.instances.pause` | 暂停运行中实例 |
+| `workflow.instances.resume` | 普通恢复已暂停实例 |
 | `workflow.instances.recover` | 强制恢复/改派，高权限 |
 | `workflow.todos.read` | 我的待办页面 |
 | `workflow.todos.approve` | 同意本人待办 |
 | `workflow.todos.reject` | 拒绝本人待办 |
 
-页面和操作同时受权限与资源授权保护。`workflow.todos.approve/reject` 不能授权用户办理他人的 Todo；实例详情还必须校验作用域、数据范围和关联主体。无权限时 Vue 不创建入口，直接 API 返回 403。发布、取消、审批、改派和强制恢复写 B0 审计；显示文本不作为审计机器码。
+页面和操作同时受权限与资源授权保护。`workflow.todos.approve/reject` 不能授权用户办理他人的 Todo；实例详情还必须校验作用域、数据范围和关联主体。无权限时 Vue 不创建入口，直接 API 返回 403。发布、取消、暂停、恢复、审批、改派和强制恢复写 B0 审计；显示文本不作为审计机器码。
 
 ## 11. API 与序列化边界
 
@@ -196,7 +198,7 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 - 定义：`GET/POST /definitions`、`PUT /definitions/{id}/draft`、`POST /definitions/{id}/publish`
 - 表单：`GET/POST /forms`、`PUT /forms/{id}/draft`、`POST /forms/{id}/publish`
 - 版本：`GET /definitions/{id}/versions`、`GET /definition-versions/{versionId}`、`GET /form-versions/{versionId}`
-- 实例：`POST /instances`、`GET /instances/{id}`、`POST /instances/{id}/cancel`
+- 实例：`POST /instances`、`GET /instances/{id}`、`POST /instances/{id}/pause`、`POST /instances/{id}/resume`、`POST /instances/{id}/recover`、`POST /instances/{id}/cancel`
 - 待办：`GET /todos/mine`、`GET /todos/{id}`、`POST /todos/{id}/approve`、`POST /todos/{id}/reject`
 - 轨迹：`GET /instances/{id}/execution-logs`
 

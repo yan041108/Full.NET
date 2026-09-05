@@ -116,6 +116,24 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowPauseInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowResumeInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowRecoverInstance",
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "generatedGroup": "workflow-instances",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowReassignInstance",
       "apiModule": "ui/admin/src/api/workflow-instances.ts",
       "generatedGroup": "workflow-instances",

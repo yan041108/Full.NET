@@ -213,6 +213,7 @@ import type {
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
+  PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
   ProblemDetails,
   ProvisionTenantRequest,
@@ -224,12 +225,14 @@ import type {
   PublishWorkflowFormRequest,
   ReassignWorkflowInstanceRequest,
   RecipientEndpointResponse,
+  RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
+  ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
@@ -6732,6 +6735,29 @@ export async function workflowMarkCcRead(
   return readWorkflowCcReadResponse(value);
 }
 
+export interface WorkflowPauseInstanceParameters {
+  readonly instanceId: string;
+  readonly body: PauseWorkflowInstanceRequest;
+}
+
+export async function workflowPauseInstance(
+  http: HttpClient,
+  parameters: WorkflowPauseInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/pause`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowPublishDefinitionParameters {
   readonly definitionId: string;
   readonly body: PublishWorkflowDefinitionRequest;
@@ -6801,6 +6827,29 @@ export async function workflowReassignInstance(
   return readWorkflowInstanceResponse(value);
 }
 
+export interface WorkflowRecoverInstanceParameters {
+  readonly instanceId: string;
+  readonly body: RecoverWorkflowInstanceRequest;
+}
+
+export async function workflowRecoverInstance(
+  http: HttpClient,
+  parameters: WorkflowRecoverInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/recover`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
 export interface WorkflowRejectTodoParameters {
   readonly todoId: string;
   readonly body: ActWorkflowTodoRequest;
@@ -6813,6 +6862,29 @@ export async function workflowRejectTodo(
   options?: RequestOptions
 ): Promise<WorkflowInstanceResponse> {
   const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/reject`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowResumeInstanceParameters {
+  readonly instanceId: string;
+  readonly body: ResumeWorkflowInstanceRequest;
+}
+
+export async function workflowResumeInstance(
+  http: HttpClient,
+  parameters: WorkflowResumeInstanceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/instances/${encodeURIComponent(String(parameters.instanceId))}/resume`;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

@@ -18,6 +18,9 @@ namespace Full.NET.IntegrationTests.Workflow;
 /// <summary>验收工作流实例启动、表单安全 Patch、Host/Tenant 隔离和本人待办资源边界。</summary>
 internal static class WorkflowRuntimeApiAssertions
 {
+    /// <summary>验收启动、办理、改派、取消、暂停/恢复以及 OpenAPI operationId。</summary>
+    /// <param name="factory">当前数据库提供程序的 API 工厂。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
     public static async Task VerifyStartAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
@@ -35,6 +38,8 @@ internal static class WorkflowRuntimeApiAssertions
                 WorkflowPermissions.InstancesStart,
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.InstancesCancel,
+                WorkflowPermissions.InstancesPause,
+                WorkflowPermissions.InstancesResume,
                 WorkflowPermissions.InstancesRecover,
                 WorkflowPermissions.TodosRead,
                 WorkflowPermissions.TodosApprove,
@@ -458,6 +463,9 @@ internal static class WorkflowRuntimeApiAssertions
             new[] { "instance.start", "instance.cancel" },
             cancellationLogs.RootElement.EnumerateArray()
                 .Select(item => item.GetProperty("transitionKey").GetString()).ToArray());
+
+        await VerifyPauseResumeRecoverAsync(
+            client, identity, other, versions, cancellationToken);
 
         var concurrentBusinessId = Guid.NewGuid().ToString("N");
         using var concurrentStart = await client.SendAsync(
@@ -1713,6 +1721,234 @@ internal static class WorkflowRuntimeApiAssertions
         return new(definitionVersion.RootElement.GetProperty("id").GetGuid(), formVersionId);
     }
 
+    /// <summary>
+    /// 验收暂停、普通恢复和强制恢复的权限、状态拒绝、幂等、冲突和业务占用。
+    /// </summary>
+    /// <param name="client">已指向 Host 的 HTTP 客户端。</param>
+    /// <param name="identity">具备暂停/恢复权限的发起人。</param>
+    /// <param name="other">无暂停权限的旁观者。</param>
+    /// <param name="versions">已发布的定义与表单版本。</param>
+    /// <param name="cancellationToken">取消当前 HTTP 调用的令牌。</param>
+    private static async Task VerifyPauseResumeRecoverAsync(
+        HttpClient client,
+        HostTestIdentity identity,
+        HostTestIdentity other,
+        PublishedRuntimeAssets versions,
+        CancellationToken cancellationToken)
+    {
+        var businessId = Guid.NewGuid().ToString("N");
+        using var start = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId,
+                initialValues = new { reason = "pause occupancy" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, start.StatusCode, await start.Content.ReadAsStringAsync(cancellationToken));
+        using var started = JsonDocument.Parse(await start.Content.ReadAsStringAsync(cancellationToken));
+        var instanceId = started.RootElement.GetProperty("id").GetGuid();
+        var todoId = started.RootElement.GetProperty("activeTodoId").GetGuid();
+
+        using var permissionDeniedPause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", other.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    reason = "missing pause permission",
+                    idempotencyKey = $"pause-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedPause.StatusCode);
+
+        var pauseKey = $"pause-{Guid.NewGuid():N}";
+        using var pause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = "等待材料", idempotencyKey = pauseKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pause.StatusCode, await pause.Content.ReadAsStringAsync(cancellationToken));
+        using var paused = JsonDocument.Parse(await pause.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("suspended", paused.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(todoId, paused.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(2, paused.RootElement.GetProperty("revision").GetInt64());
+
+        using var pauseReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = "等待材料", idempotencyKey = pauseKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pauseReplay.StatusCode);
+        using var pauseReplayBody = JsonDocument.Parse(
+            await pauseReplay.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(todoId, pauseReplayBody.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var pauseDigestConflict = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = "不同原因", idempotencyKey = pauseKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, pauseDigestConflict.StatusCode);
+
+        using var stalePause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = null as string, idempotencyKey = $"pause-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, stalePause.StatusCode);
+
+        using var occupancyConflict = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId,
+                initialValues = new { reason = "second occupancy" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, occupancyConflict.StatusCode);
+
+        using var approveWhilePaused = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, $"/api/v1/workflow/todos/{todoId:D}/approve", identity.AccessToken,
+                new
+                {
+                    expectedRevision = 1,
+                    fieldPatch = new { decision = "approved" },
+                    comment = "paused",
+                    idempotencyKey = $"approve-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, approveWhilePaused.StatusCode);
+
+        using var reassignWhilePaused = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/reassign", identity.AccessToken,
+                new
+                {
+                    assigneeUserId = other.UserId,
+                    expectedRevision = 2,
+                    reason = "paused",
+                    idempotencyKey = $"reassign-{Guid.NewGuid():N}",
+                }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, reassignWhilePaused.StatusCode);
+
+        using var missingRecoverReason = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "  ", idempotencyKey = $"recover-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, missingRecoverReason.StatusCode);
+
+        using var permissionDeniedRecover = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", other.AccessToken,
+                new { expectedRevision = 2, reason = "强制恢复", idempotencyKey = $"recover-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedRecover.StatusCode);
+
+        var recoverKey = $"recover-{Guid.NewGuid():N}";
+        using var recover = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住后强制恢复", idempotencyKey = recoverKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, recover.StatusCode, await recover.Content.ReadAsStringAsync(cancellationToken));
+        using var recovered = JsonDocument.Parse(await recover.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("active", recovered.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(todoId, recovered.RootElement.GetProperty("activeTodoId").GetGuid());
+        Assert.AreEqual(3, recovered.RootElement.GetProperty("revision").GetInt64());
+
+        using var recoverReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "卡住后强制恢复", idempotencyKey = recoverKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, recoverReplay.StatusCode);
+        using var recoverReplayBody = JsonDocument.Parse(
+            await recoverReplay.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(todoId, recoverReplayBody.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var recoverDigestConflict = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 2, reason = "另一原因", idempotencyKey = recoverKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, recoverDigestConflict.StatusCode);
+
+        using var secondPause = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 3, reason = null as string, idempotencyKey = $"pause-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondPause.StatusCode);
+
+        using var permissionDeniedResume = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", other.AccessToken,
+                new { expectedRevision = 4, reason = null as string, idempotencyKey = $"resume-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, permissionDeniedResume.StatusCode);
+
+        var resumeKey = $"resume-{Guid.NewGuid():N}";
+        using var resume = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", identity.AccessToken,
+                new { expectedRevision = 4, reason = null as string, idempotencyKey = resumeKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, resume.StatusCode, await resume.Content.ReadAsStringAsync(cancellationToken));
+        using var resumed = JsonDocument.Parse(await resume.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual("active", resumed.RootElement.GetProperty("statusKey").GetString());
+        Assert.AreEqual(todoId, resumed.RootElement.GetProperty("activeTodoId").GetGuid());
+
+        using var resumeReplay = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", identity.AccessToken,
+                new { expectedRevision = 4, reason = null as string, idempotencyKey = resumeKey }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, resumeReplay.StatusCode);
+
+        using var resumeActive = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/resume", identity.AccessToken,
+                new { expectedRevision = 5, reason = null as string, idempotencyKey = $"resume-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, resumeActive.StatusCode);
+
+        using var recoverActive = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{instanceId:D}/recover", identity.AccessToken,
+                new { expectedRevision = 5, reason = "不应恢复运行中实例", idempotencyKey = $"recover-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, recoverActive.StatusCode);
+
+        using var cancelSuspendedStart = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post, "/api/v1/workflow/instances", identity.AccessToken, new
+            {
+                definitionVersionId = versions.DefinitionVersionId,
+                businessType = "leave.request",
+                businessId = Guid.NewGuid().ToString("N"),
+                initialValues = new { reason = "cancel suspended" },
+                idempotencyKey = $"start-{Guid.NewGuid():N}",
+            }), cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, cancelSuspendedStart.StatusCode);
+        using var cancelSuspendedStarted = JsonDocument.Parse(
+            await cancelSuspendedStart.Content.ReadAsStringAsync(cancellationToken));
+        var cancelSuspendedId = cancelSuspendedStarted.RootElement.GetProperty("id").GetGuid();
+        using var pauseForCancel = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelSuspendedId:D}/pause", identity.AccessToken,
+                new { expectedRevision = 1, reason = null as string, idempotencyKey = $"pause-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pauseForCancel.StatusCode);
+        using var cancelSuspended = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Post,
+                $"/api/v1/workflow/instances/{cancelSuspendedId:D}/cancel", identity.AccessToken,
+                new { expectedRevision = 2, reason = "关闭暂停实例", idempotencyKey = $"cancel-{Guid.NewGuid():N}" }),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, cancelSuspended.StatusCode,
+            await cancelSuspended.Content.ReadAsStringAsync(cancellationToken));
+    }
+
     private static async Task VerifyOpenApiAsync(HttpClient client, CancellationToken cancellationToken)
     {
         using var response = await client.GetAsync("/openapi/v1.json", cancellationToken);
@@ -1724,6 +1960,15 @@ internal static class WorkflowRuntimeApiAssertions
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/instances/{instanceId}/cancel", HttpMethod.Post,
             "workflowCancelInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/pause", HttpMethod.Post,
+            "workflowPauseInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/resume", HttpMethod.Post,
+            "workflowResumeInstance", "WorkflowInstances", 200, "application/json", "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document.RootElement, "/api/v1/workflow/instances/{instanceId}/recover", HttpMethod.Post,
+            "workflowRecoverInstance", "WorkflowInstances", 200, "application/json", "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document.RootElement, "/api/v1/workflow/instances/{instanceId}/reassign", HttpMethod.Post,
             "workflowReassignInstance", "WorkflowInstances", 200, "application/json", "application/json");

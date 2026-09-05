@@ -13,7 +13,7 @@ using Full.NET.Modules.Workflow.Persistence;
 
 namespace Full.NET.Modules.Workflow.Features.ManageInstances;
 
-/// <summary>在可信作用域内执行工作流活动待办改派，并保持运行状态、审计和通知原子一致。</summary>
+/// <summary>在可信作用域内执行工作流实例强制恢复与活动待办改派，并保持审计原子一致。</summary>
 /// <param name="queryExecutor">受控查询执行器。</param>
 /// <param name="commandExecutor">显式 SQL 命令执行器。</param>
 /// <param name="transaction">Workflow 本地事务边界。</param>
@@ -36,6 +36,8 @@ internal sealed class WorkflowInstanceRecoveryService(
 {
     private const string ActionKey = "reassign";
     private const string TransitionKey = "todo.reassign";
+    private const string RecoverActionKey = "recover";
+    private const string RecoverTransitionKey = "instance.recover";
 
     /// <summary>把实例的唯一活动待办改派给同一可信作用域内的活动用户。</summary>
     /// <param name="instanceId">待改派的工作流实例标识。</param>
@@ -77,7 +79,46 @@ internal sealed class WorkflowInstanceRecoveryService(
         catch (DataCommandException exception) when (
             exception.Kind == DataCommandFailureKind.UniqueConstraint)
         {
-            return await ResolveReplayAsync(
+            return             await ResolveReplayAsync(
+                instanceId, actorUserId, request, scope, requestHash, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>强制恢复当前作用域内已暂停的实例，必须记录原因且不得新建待办或通知。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行高权限操作的用户标识。</param>
+    /// <param name="request">修订号、原因和幂等键。</param>
+    /// <param name="cancellationToken">取消当前异步操作的令牌。</param>
+    /// <returns>恢复后的实例快照或稳定业务错误。</returns>
+    public async Task<Result<WorkflowInstanceResponse>> RecoverAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        RecoverWorkflowInstanceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsValid(instanceId, actorUserId, request))
+        {
+            return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.Validation);
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var requestHash = HashRecoverRequest(request);
+        try
+        {
+            var result = await transaction.ExecuteResultAsync(
+                token => RecoverCoreAsync(instanceId, actorUserId, request, scope, requestHash, token),
+                cancellationToken).ConfigureAwait(false);
+            return !result.IsSuccess && result.Error?.Code == WorkflowErrorCodes.RevisionConflict
+                ? await ResolveRecoverReplayAsync(
+                    instanceId, actorUserId, request, scope, requestHash, cancellationToken)
+                    .ConfigureAwait(false)
+                : result;
+        }
+        catch (DataCommandException exception) when (
+            exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            return await ResolveRecoverReplayAsync(
                 instanceId, actorUserId, request, scope, requestHash, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -143,6 +184,11 @@ internal sealed class WorkflowInstanceRecoveryService(
                 Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
                 cancellationToken).ConfigureAwait(false);
             return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, replayTodo?.Id));
+        }
+
+        if (instance.StatusKey == "suspended")
+        {
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
         }
 
         if (instance.StatusKey != "active")
@@ -217,6 +263,147 @@ internal sealed class WorkflowInstanceRecoveryService(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, instance.StatusKey,
             request.ExpectedRevision + 1, todo.Id, instance.StartedAtUtc));
+    }
+
+    /// <summary>
+    /// 在事务内把暂停实例恢复为运行，保留原活动待办，并把原因写入回执与审计。
+    /// </summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行强制恢复的用户标识。</param>
+    /// <param name="request">已通过边界校验的请求。</param>
+    /// <param name="scope">可信工作流作用域。</param>
+    /// <param name="requestHash">规范请求摘要。</param>
+    /// <param name="cancellationToken">取消当前事务操作的令牌。</param>
+    /// <returns>恢复后的实例快照或导致回滚的失败结果。</returns>
+    private async Task<Result<WorkflowInstanceResponse>> RecoverCoreAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        RecoverWorkflowInstanceRequest request,
+        WorkflowManagementScope scope,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var instance = await FindInstanceAsync(instanceId, scope, cancellationToken).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        var idempotencyKey = request.IdempotencyKey.Trim();
+        var receipt = await FindReceiptAsync(instanceId, idempotencyKey, cancellationToken)
+            .ConfigureAwait(false);
+        if (receipt is not null)
+        {
+            if (receipt.ActionKey != RecoverActionKey || receipt.ActorUserId != actorUserId ||
+                receipt.RequestHash != requestHash)
+            {
+                return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+            }
+
+            var replayWork = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(
+                WorkflowSql.FindActiveWorkByInstance,
+                Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+                cancellationToken).ConfigureAwait(false);
+            return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, replayWork?.TodoId));
+        }
+
+        if (instance.StatusKey is "completed" or "rejected" or "cancelled")
+        {
+            return Failure(WorkflowErrorCodes.InstanceTerminal, ErrorType.Conflict);
+        }
+
+        if (instance.StatusKey != "suspended")
+        {
+            return Failure(WorkflowErrorCodes.InvalidTransition, ErrorType.Conflict);
+        }
+
+        if (instance.Revision != request.ExpectedRevision)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var work = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(
+            WorkflowSql.FindActiveWorkByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (work is null)
+        {
+            return Failure(WorkflowErrorCodes.TodoNotActive, ErrorType.Conflict);
+        }
+
+        var instanceUpdated = await commandExecutor.ExecuteAsync(
+            WorkflowSql.ResumeInstanceWithRevision,
+            Parameters(("Id", instanceId), ("TenantScopeKey", scope.TenantScopeKey),
+                ("Revision", request.ExpectedRevision)), cancellationToken).ConfigureAwait(false);
+        if (instanceUpdated != 1)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var now = clock.UtcNow;
+        var reason = request.Reason.Trim();
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,
+            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                ("StepId", work.StepId), ("TodoId", work.TodoId), ("ActionKey", RecoverActionKey),
+                ("ActorUserId", actorUserId), ("InstanceRevision", request.ExpectedRevision + 1),
+                ("IdempotencyKey", idempotencyKey), ("CommentSummary", reason),
+                ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertExecutionLog,
+            Parameters(("Id", idGenerator.NewId()), ("InstanceId", instanceId),
+                ("StepId", work.StepId), ("TransitionKey", RecoverTransitionKey),
+                ("FromStatusKey", "suspended"), ("ToStatusKey", "active"),
+                ("IdempotencyKey", idempotencyKey), ("Summary", requestHash),
+                ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
+            Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
+                ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),
+                ("OperationKey", RecoverTransitionKey), ("ActorUserId", actorUserId),
+                ("ResourceTypeKey", "instance"), ("ResourceId", instanceId),
+                ("OutcomeKey", "succeeded"),
+                ("DetailJson", CreateRecoverAuditDetail(reason)),
+                ("CreatedAtUtc", now)), cancellationToken).ConfigureAwait(false);
+
+        return Result<WorkflowInstanceResponse>.Success(new(
+            instance.Id, instance.DefinitionVersionId, formVersionId,
+            instance.BusinessType, instance.BusinessId, "active",
+            request.ExpectedRevision + 1, work.TodoId, instance.StartedAtUtc));
+    }
+
+    /// <summary>在并发冲突或唯一键竞争后读取强制恢复回执，判断是否为同语义重放。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">执行强制恢复的用户标识。</param>
+    /// <param name="request">原始强制恢复请求。</param>
+    /// <param name="scope">可信工作流作用域。</param>
+    /// <param name="requestHash">规范请求摘要。</param>
+    /// <param name="cancellationToken">取消当前查询的令牌。</param>
+    /// <returns>匹配回执对应的当前实例快照，否则返回修订冲突。</returns>
+    private async Task<Result<WorkflowInstanceResponse>> ResolveRecoverReplayAsync(
+        Guid instanceId,
+        Guid actorUserId,
+        RecoverWorkflowInstanceRequest request,
+        WorkflowManagementScope scope,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        var instance = await FindInstanceAsync(instanceId, scope, cancellationToken).ConfigureAwait(false);
+        if (instance?.FormVersionId is not { } formVersionId)
+        {
+            return Failure(WorkflowErrorCodes.VersionNotPublished, ErrorType.NotFound);
+        }
+
+        var receipt = await FindReceiptAsync(
+            instanceId, request.IdempotencyKey.Trim(), cancellationToken).ConfigureAwait(false);
+        if (receipt?.ActionKey != RecoverActionKey || receipt.ActorUserId != actorUserId ||
+            receipt.RequestHash != requestHash)
+        {
+            return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+        }
+
+        var work = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActiveWorkRecord>(
+            WorkflowSql.FindActiveWorkByInstance,
+            Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        return Result<WorkflowInstanceResponse>.Success(Map(instance, formVersionId, work?.TodoId));
     }
 
     /// <summary>在并发冲突或唯一键竞争后读取已提交回执，判断是否为同语义重放。</summary>
@@ -296,6 +483,42 @@ internal sealed class WorkflowInstanceRecoveryService(
         request.AssigneeUserId != Guid.Empty && request.ExpectedRevision >= 1 &&
         request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 } &&
         request.Reason?.Trim() is not { Length: > 512 };
+
+    /// <summary>校验强制恢复请求必须携带非空原因、修订号和幂等键。</summary>
+    /// <param name="instanceId">工作流实例标识。</param>
+    /// <param name="actorUserId">操作人标识。</param>
+    /// <param name="request">待校验请求。</param>
+    /// <returns>所有边界条件满足时返回 <see langword="true"/>。</returns>
+    private static bool IsValid(
+        Guid instanceId,
+        Guid actorUserId,
+        RecoverWorkflowInstanceRequest request) =>
+        instanceId != Guid.Empty && actorUserId != Guid.Empty &&
+        request.ExpectedRevision >= 1 &&
+        request.IdempotencyKey.Trim() is { Length: >= 1 and <= 128 } &&
+        request.Reason?.Trim() is { Length: >= 1 and <= 512 };
+
+    /// <summary>生成与传输格式无关的强制恢复请求摘要。</summary>
+    /// <param name="request">已通过边界校验的请求。</param>
+    /// <returns>小写十六进制 SHA-256 摘要。</returns>
+    private static string HashRecoverRequest(RecoverWorkflowInstanceRequest request)
+    {
+        var value = $"{request.ExpectedRevision}\n{request.Reason.Trim()}";
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    }
+
+    /// <summary>把强制恢复原因写入审计详情，原因只作为人类可读说明。</summary>
+    /// <param name="reason">已规范化的恢复原因。</param>
+    /// <returns>序列化后的 JSON 文档。</returns>
+    private static string CreateRecoverAuditDetail(string reason) =>
+        $"{{\"reason\":\"{EscapeJson(reason)}\"}}";
+
+    /// <summary>转义审计详情中的原因文本，避免破坏 JSON 对象边界。</summary>
+    /// <param name="value">已规范化的人类可读原因。</param>
+    /// <returns>可作为 JSON 字符串内容的转义文本。</returns>
+    private static string EscapeJson(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
 
     /// <summary>生成与传输格式无关的改派请求摘要。</summary>
     /// <param name="request">已通过边界校验的请求。</param>
