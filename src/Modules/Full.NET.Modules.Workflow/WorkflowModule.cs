@@ -19,6 +19,8 @@ using RecoveryEndpoint = Full.NET.Modules.Workflow.Features.ManageRecoveryTasks.
 using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
+using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Features.CrossModulePorts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,6 +72,9 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<WorkflowAutomaticTransitionWriter>();
         services.AddScoped<WorkflowApprovalActivationWriter>();
         services.AddScoped<WorkflowNotificationOutboxPublisher>();
+        services.AddScoped<IWorkflowPublishedDefinitionDirectory, WorkflowPublishedDefinitionDirectoryAdapter>();
+        services.AddScoped<IWorkflowInstanceStarter, WorkflowInstanceStarterAdapter>();
+        services.AddScoped<IWorkflowInstanceCanceller, WorkflowInstanceCancellerAdapter>();
         services.AddScoped<WorkflowCcManagementService>();
 #if FULLNET_AOT_COMPILE
         new Persistence.WorkflowDapperAotMaterializerContributor()

@@ -1794,6 +1794,30 @@
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",
       "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsListRequests",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsCreateRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsGetRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsCancelRequest",
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "generatedGroup": "data-approval-requests",
+      "status": "generated"
     }
   ]
 }

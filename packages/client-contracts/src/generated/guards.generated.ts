@@ -19,6 +19,7 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeSerialNumberRuleStatusRequest,
@@ -50,6 +51,7 @@ import type {
   ConfirmTotpEnrollmentRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
+  CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
   CreateHostAnnouncementRequest,
@@ -78,6 +80,7 @@ import type {
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
   CurrentUserResponse,
+  DataApprovalRequestResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -182,6 +185,7 @@ import type {
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
   PagedResultOfExceptionLogResponse,
@@ -498,6 +502,17 @@ export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnroll
 
 function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnrollmentResponse {
   return isRecord(value) && (typeof value["otpAuthUri"] === 'string') && (typeof value["sharedSecretBase32"] === 'string');
+}
+
+export function readCancelDataApprovalRequestBody(value: unknown): CancelDataApprovalRequestBody {
+  if (!(isCancelDataApprovalRequestBody(value))) {
+    throw new Error('client.invalid_cancel_data_approval_request_body');
+  }
+  return value;
+}
+
+function isCancelDataApprovalRequestBody(value: unknown): value is CancelDataApprovalRequestBody {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string');
 }
 
 export function readCancelWorkflowInstanceRequest(value: unknown): CancelWorkflowInstanceRequest {
@@ -841,6 +856,17 @@ function isCreateConfigEntryRequest(value: unknown): value is CreateConfigEntryR
   return isRecord(value) && (typeof value["configKey"] === 'string') && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["valueKind"] === 'string' && ["string", "boolean", "integer", "decimal", "json", "secret"].includes(value["valueKind"]));
 }
 
+export function readCreateDataApprovalRequestBody(value: unknown): CreateDataApprovalRequestBody {
+  if (!(isCreateDataApprovalRequestBody(value))) {
+    throw new Error('client.invalid_create_data_approval_request_body');
+  }
+  return value;
+}
+
+function isCreateDataApprovalRequestBody(value: unknown): value is CreateDataApprovalRequestBody {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (typeof value["proposedChangeJson"] === 'string') && (typeof value["scenarioKey"] === 'string') && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["workflowDefinitionKey"] === 'string');
+}
+
 export function readCreateDictItemRequest(value: unknown): CreateDictItemRequest {
   if (!(isCreateDictItemRequest(value))) {
     throw new Error('client.invalid_create_dict_item_request');
@@ -1147,6 +1173,17 @@ export function readCurrentUserResponse(value: unknown): CurrentUserResponse {
 
 function isCurrentUserResponse(value: unknown): value is CurrentUserResponse {
   return isRecord(value) && (typeof value["actorScope"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isSuperAdministrator"] === 'boolean') && (Array.isArray(value["permissions"]) && value["permissions"].every(item20 => typeof item20 === 'string')) && (typeof value["preferredLocale"] === 'string') && (typeof value["profileVersion"] === 'number' && Number.isInteger(value["profileVersion"])) && (typeof value["scope"] === 'string') && (typeof value["sessionId"] === 'string' && guidPattern.test(value["sessionId"])) && ((value["tenantId"] === null) || (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"]))) && (typeof value["username"] === 'string');
+}
+
+export function readDataApprovalRequestResponse(value: unknown): DataApprovalRequestResponse {
+  if (!(isDataApprovalRequestResponse(value))) {
+    throw new Error('client.invalid_data_approval_request_response');
+  }
+  return value;
+}
+
+function isDataApprovalRequestResponse(value: unknown): value is DataApprovalRequestResponse {
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (value["beforeSnapshotJson"] === undefined || ((typeof value["beforeSnapshotJson"] === 'string') || (value["beforeSnapshotJson"] === null))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["resolvedAtUtc"] === undefined || ((typeof value["resolvedAtUtc"] === 'string') || (value["resolvedAtUtc"] === null))) && (typeof value["scenarioKey"] === 'string') && (typeof value["statusKey"] === 'string') && (typeof value["submittedAtUtc"] === 'string') && (typeof value["submittedByUserId"] === 'string' && guidPattern.test(value["submittedByUserId"])) && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"])) && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) && (value["workflowInstanceId"] === undefined || ((typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])) || (value["workflowInstanceId"] === null))) && (value["workflowRevision"] === undefined || ((typeof value["workflowRevision"] === 'number' && Number.isInteger(value["workflowRevision"])) || (value["workflowRevision"] === null)));
 }
 
 export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
@@ -2291,6 +2328,17 @@ export function readPagedResultOfConfigEntryResponse(value: unknown): PagedResul
 
 function isPagedResultOfConfigEntryResponse(value: unknown): value is PagedResultOfConfigEntryResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isConfigEntryResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfDataApprovalRequestResponse(value: unknown): PagedResultOfDataApprovalRequestResponse {
+  if (!(isPagedResultOfDataApprovalRequestResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_data_approval_request_response');
+  }
+  return value;
+}
+
+function isPagedResultOfDataApprovalRequestResponse(value: unknown): value is PagedResultOfDataApprovalRequestResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isDataApprovalRequestResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfDictItemResponse(value: unknown): PagedResultOfDictItemResponse {

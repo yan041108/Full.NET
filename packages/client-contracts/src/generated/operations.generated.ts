@@ -20,6 +20,7 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
   ChangeSerialNumberRuleStatusRequest,
@@ -51,6 +52,7 @@ import type {
   ConfirmTotpEnrollmentRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
+  CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
   CreateHostAnnouncementRequest,
@@ -79,6 +81,7 @@ import type {
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
   CurrentUserResponse,
+  DataApprovalRequestResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -183,6 +186,7 @@ import type {
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
+  PagedResultOfDataApprovalRequestResponse,
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
   PagedResultOfExceptionLogResponse,
@@ -329,6 +333,7 @@ import {
   readConfigEntryResponse,
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
+  readDataApprovalRequestResponse,
   readDiagnosticPolicyResponse,
   readDictItemResponse,
   readDictTypeResponse,
@@ -398,6 +403,7 @@ import {
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
   readPagedResultOfConfigEntryResponse,
+  readPagedResultOfDataApprovalRequestResponse,
   readPagedResultOfDictItemResponse,
   readPagedResultOfDictTypeResponse,
   readPagedResultOfExceptionLogResponse,
@@ -1038,6 +1044,103 @@ export async function codeGenerationUpdateTemplate(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readCodeGenerationTemplateResponse(value);
+}
+
+export interface DataApprovalsCancelRequestParameters {
+  readonly requestId: string;
+  readonly body: CancelDataApprovalRequestBody;
+}
+
+export async function dataApprovalsCancelRequest(
+  http: HttpClient,
+  parameters: DataApprovalsCancelRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}/cancel`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsCreateRequestParameters {
+  readonly body: CreateDataApprovalRequestBody;
+}
+
+export async function dataApprovalsCreateRequest(
+  http: HttpClient,
+  parameters: DataApprovalsCreateRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsGetRequestParameters {
+  readonly requestId: string;
+}
+
+export async function dataApprovalsGetRequest(
+  http: HttpClient,
+  parameters: DataApprovalsGetRequestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalRequestResponse> {
+  const path = `/api/v1/data-approvals/requests/${encodeURIComponent(String(parameters.requestId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsListRequestsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly scenarioKey?: string;
+  readonly statusKey?: string;
+}
+
+export async function dataApprovalsListRequests(
+  http: HttpClient,
+  parameters: DataApprovalsListRequestsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfDataApprovalRequestResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.scenarioKey !== undefined) {
+    query.set('scenarioKey', String(parameters.scenarioKey));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  const path = query.size === 0 ? `/api/v1/data-approvals/requests` : `/api/v1/data-approvals/requests?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfDataApprovalRequestResponse(value);
 }
 
 export interface DocumentHostAddItemVersionParameters {

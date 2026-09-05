@@ -234,6 +234,11 @@ export function createAppRouter(
         component: () => import('../views/SerialNumberRulesView.vue')
       },
       {
+        name: 'data-approval-requests',
+        path: '/data-approvals/requests',
+        component: () => import('../views/DataApprovalRequestsView.vue')
+      },
+      {
         name: 'observability-log-files',
         path: '/observability/log-files',
         component: () => import('../views/ObservabilityLogFilesView.vue')

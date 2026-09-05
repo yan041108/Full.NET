@@ -12,6 +12,7 @@ using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Messaging;
 using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.SerialNumbers;
+using Full.NET.Modules.DataApproval;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
 using Microsoft.AspNetCore.Builder;
@@ -147,6 +148,7 @@ public static class FullNetModuleCatalog
         new SerialNumbersModule(),
         new ObservabilityAdminModule(),
         new WorkflowModule(),
+        new DataApprovalModule(),
     ];
 
     private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>

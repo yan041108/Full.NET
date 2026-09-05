@@ -16,6 +16,7 @@ using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Settings;
 using Full.NET.Modules.SerialNumbers;
+using Full.NET.Modules.DataApproval;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
@@ -88,17 +89,18 @@ public sealed class FullNetModuleCatalogTests
                 typeof(IdentityModule),
                 typeof(AuditingModule),
                 typeof(CodeGenerationModule),
+                typeof(SerialNumbersModule),
+                typeof(TenancyModule),
+                typeof(OrganizationModule),
+                typeof(NotificationsModule),
+                typeof(WorkflowModule),
+                typeof(DataApprovalModule),
                 typeof(FilesModule),
                 typeof(DocumentModule),
                 typeof(SettingsModule),
                 typeof(JobsModule),
                 typeof(MessagingModule),
-                typeof(TenancyModule),
-                typeof(OrganizationModule),
-                typeof(NotificationsModule),
                 typeof(ObservabilityAdminModule),
-                typeof(SerialNumbersModule),
-                typeof(WorkflowModule),
             },
             modules,
             string.Join(
@@ -106,7 +108,7 @@ public sealed class FullNetModuleCatalogTests
                 modules.Select(module => module.FullName)));
 
         var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
-        Assert.HasCount(14, catalog.List());
+        Assert.HasCount(15, catalog.List());
         Assert.IsNotNull(catalog.FindByKey("Identity"));
         Assert.AreEqual(
             FullNetModuleSourceClassification.Official,

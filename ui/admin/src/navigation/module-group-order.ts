@@ -14,6 +14,7 @@ export const ADMIN_MODULE_GROUP_ORDER: readonly string[] = [
   'jobs',
   'code-generation',
   'serial-numbers',
+  'data-approval',
   'auditing',
   'messaging'
 ];

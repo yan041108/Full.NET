@@ -97,7 +97,7 @@ public sealed class WorkflowStateMachineTests
     {
         var result = WorkflowStateMachine.Cancel(
             WorkflowRuntimeState.Active(TodoId, AssigneeId, 7),
-            new CancelWorkflowInstanceCommand(7, "业务申请已撤回", "cancel-001"));
+            new Full.NET.Modules.Workflow.Domain.CancelWorkflowInstanceCommand(7, "业务申请已撤回", "cancel-001"));
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(WorkflowInstanceStatus.Cancelled, result.State!.InstanceStatus);
@@ -110,7 +110,7 @@ public sealed class WorkflowStateMachineTests
     public void Cancel_replays_same_idempotency_key_and_rejects_stale_or_terminal_instance()
     {
         var initial = WorkflowRuntimeState.Active(TodoId, AssigneeId, 3);
-        var command = new CancelWorkflowInstanceCommand(3, "不再需要", "cancel-001");
+        var command = new Full.NET.Modules.Workflow.Domain.CancelWorkflowInstanceCommand(3, "不再需要", "cancel-001");
         var first = WorkflowStateMachine.Cancel(initial, command);
         var replay = WorkflowStateMachine.Cancel(first.State!, command);
         var stale = WorkflowStateMachine.Cancel(
@@ -221,10 +221,10 @@ public sealed class WorkflowStateMachineTests
         };
         var cancelled = WorkflowStateMachine.Cancel(
             suspended,
-            new CancelWorkflowInstanceCommand(4, "暂停后撤回", "cancel-suspend-001"));
+            new Full.NET.Modules.Workflow.Domain.CancelWorkflowInstanceCommand(4, "暂停后撤回", "cancel-suspend-001"));
         var completed = WorkflowStateMachine.Cancel(
             suspended with { InstanceStatus = WorkflowInstanceStatus.Completed },
-            new CancelWorkflowInstanceCommand(4, "终态", "cancel-suspend-002"));
+            new Full.NET.Modules.Workflow.Domain.CancelWorkflowInstanceCommand(4, "终态", "cancel-suspend-002"));
 
         Assert.IsTrue(cancelled.IsSuccess);
         Assert.AreEqual(WorkflowInstanceStatus.Cancelled, cancelled.State!.InstanceStatus);

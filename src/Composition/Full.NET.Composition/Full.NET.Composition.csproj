@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Messaging\Full.NET.Modules.Messaging.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.CodeGeneration\Full.NET.Modules.CodeGeneration.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.DataApproval\Full.NET.Modules.DataApproval.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.ObservabilityAdmin\Full.NET.Modules.ObservabilityAdmin.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Workflow\Full.NET.Modules.Workflow.csproj" />
   </ItemGroup>

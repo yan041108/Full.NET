@@ -1,0 +1,90 @@
+{
+    "id": "data-approvals-v1",
+    "version": 1,
+    "description": "DataApproval 请求 HTTP 契约冻结夹具；与 DataApprovalContracts 和 ManageRequests.Endpoint 对齐。",
+    "paths": [
+        {
+            "path": "/api/v1/data-approvals/requests",
+            "operations": [
+                {
+                    "method": "GET",
+                    "permission": "data_approvals.requests.read",
+                    "successStatus": 200,
+                    "responseSchema": "DataApprovalRequestResponsePage"
+                },
+                {
+                    "method": "POST",
+                    "permission": "data_approvals.requests.create",
+                    "successStatus": 201,
+                    "requestSchema": "CreateDataApprovalRequestBody",
+                    "responseSchema": "DataApprovalRequestResponse"
+                }
+            ]
+        },
+        {
+            "path": "/api/v1/data-approvals/requests/{requestId}",
+            "operations": [
+                {
+                    "method": "GET",
+                    "permission": "data_approvals.requests.read",
+                    "successStatus": 200,
+                    "responseSchema": "DataApprovalRequestResponse"
+                }
+            ]
+        },
+        {
+            "path": "/api/v1/data-approvals/requests/{requestId}/cancel",
+            "operations": [
+                {
+                    "method": "POST",
+                    "permission": "data_approvals.requests.cancel",
+                    "successStatus": 200,
+                    "requestSchema": "CancelDataApprovalRequestBody",
+                    "responseSchema": "DataApprovalRequestResponse"
+                }
+            ]
+        }
+    ],
+    "schemas": {
+        "CreateDataApprovalRequestBody": {
+            "properties": [
+                "scenarioKey",
+                "targetEntityId",
+                "proposedChangeJson",
+                "workflowDefinitionKey",
+                "idempotencyKey"
+            ]
+        },
+        "CancelDataApprovalRequestBody": {
+            "properties": [
+                "idempotencyKey"
+            ]
+        },
+        "DataApprovalRequestResponse": {
+            "properties": [
+                "id",
+                "scenarioKey",
+                "targetEntityId",
+                "statusKey",
+                "beforeSnapshotJson",
+                "afterSnapshotJson",
+                "workflowInstanceId",
+                "workflowRevision",
+                "workflowDefinitionVersionId",
+                "submittedByUserId",
+                "submittedAtUtc",
+                "resolvedAtUtc",
+                "version"
+            ]
+        },
+        "DataApprovalRequestResponsePage": {
+            "properties": [
+                "items",
+                "page",
+                "pageSize",
+                "total"
+            ],
+            "itemSchema": "DataApprovalRequestResponse"
+        }
+    }
+}

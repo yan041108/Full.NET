@@ -192,6 +192,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.serialNumberRules.title',
     captionKey: 'navigation.serialNumberRules.caption'
   }],
+  ['data-approval-requests', {
+    titleKey: 'navigation.dataApprovalRequests.title',
+    captionKey: 'navigation.dataApprovalRequests.caption'
+  }],
   ['access-logs', {
     titleKey: 'navigation.accessLogs.title',
     captionKey: 'navigation.accessLogs.caption'

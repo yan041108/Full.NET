@@ -173,3 +173,44 @@ public static class SerialNumberErrorCodes
     public const string SequenceExhausted =
         "serial_numbers.sequence.exhausted";
 }
+
+/// <summary>流水号规则变更审批所需的稳定快照摘要。</summary>
+/// <param name="RuleId">目标规则标识。</param>
+/// <param name="RuleKey">规则稳定键。</param>
+/// <param name="DisplayName">规则显示名称。</param>
+/// <param name="Version">提交审批时的乐观并发版本。</param>
+/// <param name="SnapshotJson">可反序列化为 <see cref="UpdateSerialNumberRuleRequest"/> 的 JSON 文本。</param>
+public sealed record SerialRuleApprovalSnapshot(
+    Guid RuleId,
+    string RuleKey,
+    string DisplayName,
+    long Version,
+    string SnapshotJson);
+
+/// <summary>读取流水号规则变更审批前的稳定快照。</summary>
+public interface ISerialRuleChangeApprovalSource
+{
+    /// <summary>读取指定规则当前可审批变更的快照。</summary>
+    /// <param name="ruleId">目标规则标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<Result<SerialRuleApprovalSnapshot>> GetSnapshotAsync(
+        Guid ruleId,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>在审批通过后把提议变更应用到流水号规则。</summary>
+public interface ISerialRuleChangeApprovalApplier
+{
+    /// <summary>按已批准快照更新目标规则，并保证幂等重放安全。</summary>
+    /// <param name="ruleId">目标规则标识。</param>
+    /// <param name="afterSnapshotJson">审批通过的变更 JSON，须可反序列化为 <see cref="UpdateSerialNumberRuleRequest"/>。</param>
+    /// <param name="actorUserId">执行应用的用户标识。</param>
+    /// <param name="idempotencyKey">稳定幂等键，用于重放保护。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<Result<SerialNumberRuleResponse>> ApplyApprovedUpdateAsync(
+        Guid ruleId,
+        string afterSnapshotJson,
+        Guid actorUserId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
+}

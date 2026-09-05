@@ -104,6 +104,10 @@ export interface BeginTotpEnrollmentResponse {
   readonly sharedSecretBase32: string;
 }
 
+export interface CancelDataApprovalRequestBody {
+  readonly idempotencyKey: string;
+}
+
 export interface CancelWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
@@ -356,6 +360,14 @@ export interface CreateConfigEntryRequest {
   readonly valueKind: "string" | "boolean" | "integer" | "decimal" | "json" | "secret";
 }
 
+export interface CreateDataApprovalRequestBody {
+  readonly idempotencyKey: string;
+  readonly proposedChangeJson: string;
+  readonly scenarioKey: string;
+  readonly targetEntityId: string;
+  readonly workflowDefinitionKey: string;
+}
+
 export interface CreateDictItemRequest {
   readonly color: null | string;
   readonly displayOrder: number;
@@ -587,6 +599,22 @@ export interface CurrentUserResponse {
   readonly sessionId: string;
   readonly tenantId: null | string;
   readonly username: string;
+}
+
+export interface DataApprovalRequestResponse {
+  readonly afterSnapshotJson: string;
+  readonly beforeSnapshotJson?: string | null;
+  readonly id: string;
+  readonly resolvedAtUtc?: string | null;
+  readonly scenarioKey: string;
+  readonly statusKey: string;
+  readonly submittedAtUtc: string;
+  readonly submittedByUserId: string;
+  readonly targetEntityId: string;
+  readonly version: number;
+  readonly workflowDefinitionVersionId: string;
+  readonly workflowInstanceId?: string | null;
+  readonly workflowRevision?: number | null;
 }
 
 export interface DeleteCodeGenerationTemplateRequest {
@@ -1545,6 +1573,13 @@ export interface PagedResultOfCodeGenerationTemplateResponse {
 
 export interface PagedResultOfConfigEntryResponse {
   readonly items: Array<ConfigEntryResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfDataApprovalRequestResponse {
+  readonly items: Array<DataApprovalRequestResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
