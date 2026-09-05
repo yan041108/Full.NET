@@ -82,8 +82,7 @@ internal sealed class DataApprovalWorkflowOutcomeService(
                     idempotencyKey,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!apply.IsSuccess &&
-                apply.Error?.Code is not SerialNumberErrorCodes.RuleVersionConflict)
+            if (!apply.IsSuccess)
             {
                 throw new InvalidOperationException(
                     $"data_approvals.apply_failed:{apply.Error?.Code}");

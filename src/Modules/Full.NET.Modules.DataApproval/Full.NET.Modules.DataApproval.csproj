@@ -14,7 +14,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Workflow.Contracts\Full.NET.Modules.Workflow.Contracts.csproj" />
-    <ProjectReference Include="..\Full.NET.Modules.SerialNumbers\Full.NET.Modules.SerialNumbers.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.SerialNumbers\Contracts\Full.NET.Modules.SerialNumbers.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

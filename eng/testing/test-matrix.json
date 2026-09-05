@@ -335,6 +335,21 @@
       },
       "113": {
         "filter": "FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.MySql_|FullyQualifiedName~Migration113WorkflowMultiApprovalRecoveryTests.SqlServer_"
+      },
+      "114": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+      },
+      "115": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+      },
+      "116": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+      },
+      "117": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
+      },
+      "118": {
+        "filter": "FullyQualifiedName~MySqlMigrationTests|FullyQualifiedName~SqlServerMigrationTests"
       }
     },
     "mainPartitions": [

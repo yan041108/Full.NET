@@ -63,6 +63,7 @@ type WorkflowGatewayJoin = {
 type WorkflowInstanceDetail = WorkflowInstanceResponse & { gatewayJoins?: WorkflowGatewayJoin[] | null };
 
 const gatewayJoins = computed(() => (instance.value as WorkflowInstanceDetail | undefined)?.gatewayJoins ?? []);
+const timeoutStatusKeys = new Set(['scheduled', 'overdue', 'escalated', 'not_configured']);
 
 /** 把服务端稳定机器码映射为当前语言文案，未知值安全回落为未配置。 */
 function timeoutStatusLabel(statusKey: string | undefined): string {

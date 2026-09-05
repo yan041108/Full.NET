@@ -17,6 +17,11 @@ const runtimeDetail = {
   assigneeUserId: '01912345-6789-7abc-8def-0123456789ae',
   statusKey: 'pending',
   revision: 3,
+  approvalModeKey: 'any',
+  approvedCount: 0,
+  pendingCount: 1,
+  rejectedCount: 0,
+  requiredApprovalCount: 1,
   formVersionId: '01912345-6789-7abc-8def-0123456789af',
   formSchemaHash: 'a'.repeat(64),
   formSchema: {

@@ -29,6 +29,8 @@ vi.mock('../api/workflow-definitions', () => ({
   createWorkflowDefinition: vi.fn(),
   getWorkflowDefinition: vi.fn(),
   getWorkflowNodeTypeCatalog: vi.fn(),
+  listWorkflowRoleCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
+  listWorkflowOrganizationUnitCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
   publishWorkflowDefinition: vi.fn(),
   updateWorkflowDefinitionDraft: vi.fn()
 }));

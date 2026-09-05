@@ -108,6 +108,30 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_dataapproval_request": {
+      "comment": "数据审批申请表",
+      "columns": {
+        "AfterSnapshotJson": "After Snapshot(JSON)",
+        "BeforeSnapshotJson": "Before Snapshot(JSON)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "IdempotencyKey": "幂等键",
+        "ResolvedAtUtc": "Resolved At(UTC)",
+        "ScenarioKey": "Scenario Key",
+        "ScopeKey": "作用域键",
+        "StatusKey": "状态键",
+        "SubmittedAtUtc": "Submitted At(UTC)",
+        "SubmittedByUserId": "Submitted By User标识",
+        "TargetEntityId": "Target Entity标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "TenantScopeKey": "租户作用域唯一键",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号",
+        "WorkflowDefinitionVersionId": "Workflow Definition Version标识",
+        "WorkflowInstanceId": "Workflow Instance标识",
+        "WorkflowRevision": "Workflow Revision"
+      }
+    },
     "fn_document_category": {
       "comment": "文档分类表",
       "columns": {
@@ -906,12 +930,14 @@
         "ContentCategoryKey": "内容政策类别键",
         "CreatedAtUtc": "创建时间(UTC)",
         "CreatedById": "创建人标识",
+        "DefaultLocaleTag": "Default Locale Tag",
         "DraftBodyJson": "草稿正文(JSON)",
         "DraftParameterSchemaJson": "草稿参数结构(JSON)",
         "DraftRevision": "草稿修订号",
         "DraftSubject": "草稿主题",
         "Id": "逻辑主键",
         "LatestPublishedVersionId": "最新已发布版本标识",
+        "LocaleTag": "Locale Tag",
         "ScopeKey": "作用域键",
         "TemplateKey": "模板稳定键",
         "TenantId": "租户标识；NULL 表示 Host 级",
@@ -927,6 +953,7 @@
         "ContentClassificationKey": "内容安全分级键",
         "ContentHash": "内容哈希",
         "Id": "逻辑主键",
+        "LocaleTag": "Locale Tag",
         "ParameterSchemaJson": "参数结构(JSON)",
         "PublishedAtUtc": "发布时间(UTC)",
         "PublishedById": "Published By标识",
@@ -1304,6 +1331,31 @@
         "StepId": "流程步骤标识"
       }
     },
+    "fn_workflow_countersign_chain": {
+      "comment": "workflowcountersign chain表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreatedByUserId": "创建人用户标识",
+        "DirectionKey": "Direction Key",
+        "Id": "逻辑主键",
+        "InstanceId": "Instance标识",
+        "OriginTodoId": "Origin Todo标识",
+        "StatusKey": "状态键",
+        "StepId": "Step标识",
+        "ActiveOriginKey": "活动原始待办唯一键"
+      }
+    },
+    "fn_workflow_countersign_item": {
+      "comment": "workflowcountersign item表",
+      "columns": {
+        "AssigneeUserId": "Assignee User标识",
+        "ChainId": "Chain标识",
+        "Id": "逻辑主键",
+        "SequenceNo": "Sequence No",
+        "StatusKey": "状态键",
+        "TodoId": "Todo标识"
+      }
+    },
     "fn_workflow_definition": {
       "comment": "工作流定义表",
       "columns": {
@@ -1445,6 +1497,31 @@
         "ActiveBusinessKey": "占用中的实例业务唯一键"
       }
     },
+    "fn_workflow_parallel_branch_arrival": {
+      "comment": "workflowparallel branch arrival表",
+      "columns": {
+        "ArrivedAtUtc": "Arrived At(UTC)",
+        "BranchKey": "Branch Key",
+        "Id": "逻辑主键",
+        "ParallelJoinId": "Parallel Join标识"
+      }
+    },
+    "fn_workflow_parallel_join": {
+      "comment": "workflowparallel join表",
+      "columns": {
+        "ArrivedBranchCount": "Arrived Branch Count",
+        "CompletedAtUtc": "完成时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ForkNodeKey": "Fork Node Key",
+        "GatewayTypeKey": "Gateway Type Key",
+        "Id": "逻辑主键",
+        "InstanceId": "Instance标识",
+        "JoinNodeKey": "Join Node Key",
+        "RequiredBranchCount": "Required Branch Count",
+        "Revision": "修订号",
+        "StatusKey": "状态键"
+      }
+    },
     "fn_workflow_recovery_task": {
       "comment": "工作流恢复任务表",
       "columns": {
@@ -1482,6 +1559,8 @@
         "InstanceId": "流程实例标识",
         "NodeKey": "流程节点键",
         "NodeTypeKey": "流程节点类型键",
+        "ParallelBranchKey": "Parallel Branch Key",
+        "ParallelJoinId": "Parallel Join标识",
         "RequiredApprovalCount": "Required Approval Count",
         "Revision": "步骤修订号",
         "StartedAtUtc": "开始时间(UTC)",

@@ -37,6 +37,7 @@ using Full.NET.Modules.Identity.Resources;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Modules.Identity.Serialization;
+using Full.NET.Modules.Identity.Workflow;
 using Full.NET.Seeding.Abstractions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -437,6 +438,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantUserSelectionDirectory,
             TenantUserSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IWorkflowRoleMemberDirectory,
+            WorkflowRoleMemberDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostNavigationDefinitionLoader>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Type<

@@ -8,6 +8,7 @@ using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Document;
+using Full.NET.Modules.DataApproval;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
@@ -1042,7 +1043,7 @@ public sealed class DependencyRulesTests
         var module = new WorkflowModule();
 
         CollectionAssert.AreEquivalent(
-            new[] { "Identity", "Notifications" },
+            new[] { "Identity", "Notifications", "Organization" },
             module.Dependencies.ToArray());
     }
 
@@ -1423,6 +1424,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Messaging.MessagingModule).Assembly,
         typeof(Full.NET.Modules.CodeGeneration.CodeGenerationModule).Assembly,
         typeof(SerialNumbersModule).Assembly,
+        typeof(DataApprovalModule).Assembly,
         typeof(ObservabilityAdminModule).Assembly,
         typeof(WorkflowModule).Assembly,
     ];

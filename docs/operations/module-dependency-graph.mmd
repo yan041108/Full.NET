@@ -3,6 +3,9 @@
 flowchart LR
   Identity --> Auditing
   Identity --> CodeGeneration
+  Identity --> DataApproval
+  Workflow --> DataApproval
+  SerialNumbers --> DataApproval
   Identity --> Document
   Files --> Document
   Identity --> Files
@@ -19,3 +22,4 @@ flowchart LR
   Identity --> Tenancy
   Identity --> Workflow
   Notifications --> Workflow
+  Organization --> Workflow

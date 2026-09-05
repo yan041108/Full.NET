@@ -19,7 +19,7 @@ Host 流水号规则 UPDATE 通过 DataApproval 发起工作流审批，审批�
 | --- | --- |
 | Workflow 跨模块端口 | `IWorkflowPublishedDefinitionDirectory` / `IWorkflowInstanceStarter` / `IWorkflowInstanceCanceller` 适配器 |
 | SerialNumbers 桥接 | `ISerialRuleChangeApprovalSource` / `ISerialRuleChangeApprovalApplier` |
-| DataApproval 模块 | 表 `fn_data_approval_request`、CRUD+cancel API、工作流终态事件处理器 |
+| DataApproval 模块 | 表 `fn_dataapproval_request`、CRUD+cancel API、工作流终态事件处理器 |
 | 迁移 | `118_DataApprovalRequest.sql`（SqlServer + MySql） |
 | OpenAPI | `data-approvals-v1.json`、客户端生成、契约测试 |
 | Vue 管理端 | `DataApprovalRequestsView.vue` + 路由/导航/i18n |

@@ -3,6 +3,48 @@
   "preV1NameMap": "contracts/naming/pre-v1-name-map.json",
   "items": [
     {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/114_WorkflowCountersign.sql",
+      "reason": "114 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等补齐会签计算列、表与索引；所有结构标识均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/115_WorkflowParallelGateway.sql",
+      "reason": "115 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等创建并行网关表及索引；所有结构标识均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/116_WorkflowInclusiveGateway.sql",
+      "reason": "116 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等追加包容网关快照列；所有表列名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/116_WorkflowInclusiveGateway.sql",
+      "reason": "116 的条件 ALTER TABLE DDL 尚不能由静态扫描器完整解析；表列名为固定常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/117_NotificationsTemplateLocale.sql",
+      "reason": "117 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等追加模板语言列并替换唯一索引；所有结构标识均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/117_NotificationsTemplateLocale.sql",
+      "reason": "117 的条件 DROP INDEX DDL 尚不能由静态扫描器完整解析；索引名及表名均为固定常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
       "kind": "unsupported_sql",
       "value": "unsupported_ddl",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/113_WorkflowMultiApproval.sql",

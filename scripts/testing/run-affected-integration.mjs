@@ -36,6 +36,7 @@ const mergeDeferredShardNames = new Set(['messaging-heavy']);
 const focusedModules = new Set([
   'Auditing',
   'CodeGeneration',
+  'DataApproval',
   'Document',
   'Files',
   'Jobs',
@@ -180,6 +181,10 @@ function addTarget(targets, target) {
 }
 
 function addModuleTarget(targets, moduleName) {
+  if (moduleName === 'DataApproval') {
+    addTarget(targets, { kind: 'shard', name: 'smoke' });
+    return;
+  }
   if (moduleName === 'Identity') {
     addTarget(targets, filterTarget('Identity', identityFilter));
     return;
