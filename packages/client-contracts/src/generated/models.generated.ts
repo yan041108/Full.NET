@@ -1315,6 +1315,17 @@ export interface NotificationDeliveryAttemptResponse {
   readonly statusKey: string;
 }
 
+export interface NotificationDeliveryReceiptResponse {
+  readonly externalStatusKey: string;
+  readonly id: string;
+  readonly mappedStatusKey: string;
+  readonly processedAtUtc: null | string;
+  readonly processStatusKey: string;
+  readonly providerMessageId: null | string;
+  readonly providerTypeKey: string;
+  readonly receivedAtUtc: string;
+}
+
 export interface NotificationDeliveryResponse {
   readonly attempts: Array<NotificationDeliveryAttemptResponse>;
   readonly bindingVersionId: null | string;
@@ -1324,6 +1335,7 @@ export interface NotificationDeliveryResponse {
   readonly intentId: string;
   readonly nextAttemptAtUtc: null | string;
   readonly providerProfileVersionId: null | string;
+  readonly receipts: Array<NotificationDeliveryReceiptResponse>;
   readonly recipientId: string;
   readonly revision: number;
   readonly statusKey: string;
@@ -2366,7 +2378,7 @@ export interface WorkflowInstanceResponse {
   readonly activeNodeKey?: null | string;
   readonly activeTodoId: null | string;
   readonly approvalModeKey?: null | string;
-  readonly approvedCount?: null | number;
+  readonly approvedCount?: number | null;
   readonly businessId: string;
   readonly businessType: string;
   readonly definitionVersionId: string;
@@ -2374,10 +2386,10 @@ export interface WorkflowInstanceResponse {
   readonly escalatedAtUtc?: null | string;
   readonly formVersionId: string;
   readonly id: string;
-  readonly pendingCount?: null | number;
-  readonly rejectedCount?: null | number;
+  readonly pendingCount?: number | null;
+  readonly rejectedCount?: number | null;
   readonly reminderCount?: number;
-  readonly requiredApprovalCount?: null | number;
+  readonly requiredApprovalCount?: number | null;
   readonly revision: number;
   readonly startedAtUtc: string;
   readonly statusKey: string;

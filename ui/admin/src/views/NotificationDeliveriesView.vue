@@ -11,6 +11,7 @@ import {
 import {
   isFullNetProblemDetails,
   type FullNetProblemDetails,
+  type NotificationDeliveryReceiptResponse,
   type NotificationDeliveryResponse
 } from '@fullnet/client-contracts';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -96,6 +97,37 @@ async function retryItem(): Promise<void> {
   } finally {
     changing.value = false;
   }
+}
+
+function receiptLabel(receipt: NotificationDeliveryReceiptResponse): string {
+  const mapped = t(`notificationDeliveries.receipt.mapped.${receipt.mappedStatusKey}` as 'notificationDeliveries.receipt.mapped.failed');
+  const external = t(`notificationDeliveries.receipt.external.${receipt.externalStatusKey}` as 'notificationDeliveries.receipt.external.bounced');
+  if (external !== receipt.externalStatusKey) {
+    return `${mapped} · ${external}`;
+  }
+  return `${mapped} · ${receipt.externalStatusKey}`;
+}
+
+function receiptTone(mappedStatusKey: string): 'success' | 'warning' | 'info' | 'danger' | undefined {
+  switch (mappedStatusKey) {
+    case 'delivered':
+    case 'accepted':
+      return 'success';
+    case 'sent':
+      return 'warning';
+    case 'failed':
+      return 'danger';
+    default:
+      return 'info';
+  }
+}
+
+function latestBounceReason(receipts: NotificationDeliveryReceiptResponse[]): string | undefined {
+  const bounce = [...receipts]
+    .reverse()
+    .find(item => item.mappedStatusKey === 'failed'
+      && (item.externalStatusKey === 'bounced' || item.externalStatusKey === 'rejected'));
+  return bounce ? receiptLabel(bounce) : undefined;
 }
 
 function statusLabel(statusKey: string): string {
@@ -197,6 +229,29 @@ function toProblem(
           <ElTag>{{ attempt.resultCategoryKey ?? attempt.statusKey }}</ElTag>
         </li>
       </ul>
+      <p
+        v-if="latestBounceReason(selected.receipts ?? [])"
+        data-testid="notification-deliveries-bounce-reason"
+      >
+        {{ t('notificationDeliveries.bounceReason') }}:
+        {{ latestBounceReason(selected.receipts ?? []) }}
+      </p>
+      <section v-if="(selected.receipts ?? []).length > 0" class="delivery-receipts">
+        <h3>{{ t('notificationDeliveries.receiptTimeline') }}</h3>
+        <ul class="art-list">
+          <li
+            v-for="receipt in selected.receipts ?? []"
+            :key="receipt.id"
+            data-testid="notification-deliveries-receipt"
+          >
+            <time>{{ receipt.receivedAtUtc }}</time>
+            <ElTag :type="receiptTone(receipt.mappedStatusKey)">
+              {{ receiptLabel(receipt) }}
+            </ElTag>
+            <span>{{ receipt.processStatusKey }}</span>
+          </li>
+        </ul>
+      </section>
       <PermissionGate v-if="canRetryStatus(selected.statusKey)" code="notifications.deliveries.retry">
         <div class="art-form-grid">
           <ElInput

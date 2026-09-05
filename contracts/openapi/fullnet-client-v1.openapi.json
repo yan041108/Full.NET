@@ -29456,6 +29456,12 @@
               "null",
               "string"
             ]
+          },
+          "receipts": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationDeliveryReceiptResponse"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -29470,7 +29476,56 @@
           "nextAttemptAtUtc",
           "createdAtUtc",
           "updatedAtUtc",
-          "attempts"
+          "attempts",
+          "receipts"
+        ],
+        "type": "object"
+      },
+      "NotificationDeliveryReceiptResponse": {
+        "properties": {
+          "externalStatusKey": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "mappedStatusKey": {
+            "type": "string"
+          },
+          "processStatusKey": {
+            "type": "string"
+          },
+          "processedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "providerMessageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "providerTypeKey": {
+            "type": "string"
+          },
+          "receivedAtUtc": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "providerTypeKey",
+          "providerMessageId",
+          "externalStatusKey",
+          "mappedStatusKey",
+          "processStatusKey",
+          "receivedAtUtc",
+          "processedAtUtc"
         ],
         "type": "object"
       },

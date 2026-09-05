@@ -13,7 +13,19 @@ public sealed record NotificationDeliveryResponse(
     DateTimeOffset? NextAttemptAtUtc,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc,
-    IReadOnlyList<NotificationDeliveryAttemptResponse> Attempts);
+    IReadOnlyList<NotificationDeliveryAttemptResponse> Attempts,
+    IReadOnlyList<NotificationDeliveryReceiptResponse> Receipts);
+
+/// <summary>外部渠道回执只读视图；退信原因使用稳定外部状态键，不含原始载荷。</summary>
+public sealed record NotificationDeliveryReceiptResponse(
+    Guid Id,
+    string ProviderTypeKey,
+    string? ProviderMessageId,
+    string ExternalStatusKey,
+    string MappedStatusKey,
+    string ProcessStatusKey,
+    DateTimeOffset ReceivedAtUtc,
+    DateTimeOffset? ProcessedAtUtc);
 
 /// <summary>单次 Provider 调用记录；错误码为闭合类别，不含异常正文。</summary>
 public sealed record NotificationDeliveryAttemptResponse(

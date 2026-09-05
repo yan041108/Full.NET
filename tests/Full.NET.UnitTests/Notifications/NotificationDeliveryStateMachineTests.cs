@@ -75,6 +75,18 @@ public sealed class NotificationDeliveryStateMachineTests
     }
 
     [TestMethod]
+    public void Bounce_receipt_can_fail_sent_delivery()
+    {
+        var failed = NotificationDeliveryStateMachine.Apply(
+            NotificationDeliveryStatus.Sent,
+            NotificationDeliveryStatus.Failed,
+            NotificationStatusSource.Receipt);
+
+        Assert.IsTrue(failed.Applied);
+        Assert.AreEqual(NotificationDeliveryStatus.Failed, failed.Status);
+    }
+
+    [TestMethod]
     public void Failed_can_dead_letter_but_inbox_read_can_happen_from_persisted()
     {
         var deadLetter = NotificationDeliveryStateMachine.Apply(

@@ -373,6 +373,18 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    public static readonly SqlStatement ListReceiptsByDelivery = new(
+        "notifications.platform.receipt.list_by_delivery",
+        """
+        SELECT Id, ProviderTypeKey, ProviderMessageId, ReceiptIdempotencyKey, DeliveryId,
+               ExternalStatusKey, MappedStatusKey, PayloadDigest, ReceivedAtUtc,
+               ProcessedAtUtc, ProcessStatusKey
+        FROM fn_notifications_receipt
+        WHERE DeliveryId = @DeliveryId
+        ORDER BY ReceivedAtUtc, Id
+        """,
+        SqlDataScope.Global);
+
     /// <summary>
     /// 插入 accepted Delivery。Intent 幂等回放在插入前即返回，首次受理不会撞 Recipient+Channel+Profile 唯一索引。
     /// 使用 VALUES 而非无 FROM 的 INSERT SELECT，避免 MySQL 把无表 SELECT 物化为 0 行。

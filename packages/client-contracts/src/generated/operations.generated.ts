@@ -162,6 +162,7 @@ import type {
   NotificationBindingResponse,
   NotificationBindingTargetInput,
   NotificationDeliveryAttemptResponse,
+  NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,

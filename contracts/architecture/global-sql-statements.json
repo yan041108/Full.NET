@@ -1623,6 +1623,17 @@
       ]
     },
     {
+      "statementName": "notifications.platform.receipt.list_by_delivery",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListReceiptsByDelivery",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "投递详情只读查询回执时间线；DeliveryId 必须来自当前作用域内已存在的投递记录。",
+      "requiredSqlFragments": [
+        "fn_notifications_receipt",
+        "DeliveryId = @DeliveryId"
+      ]
+    },
+    {
       "statementName": "notifications.platform.receipt.insert",
       "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.InsertReceipt",
       "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",

@@ -161,6 +161,7 @@ import type {
   NotificationBindingResponse,
   NotificationBindingTargetInput,
   NotificationDeliveryAttemptResponse,
+  NotificationDeliveryReceiptResponse,
   NotificationDeliveryResponse,
   NotificationProviderConfigField,
   NotificationProviderProfileResponse,
@@ -2061,6 +2062,17 @@ function isNotificationDeliveryAttemptResponse(value: unknown): value is Notific
   return isRecord(value) && (typeof value["attemptNumber"] === 'number' && Number.isInteger(value["attemptNumber"])) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["finishedAtUtc"] === null) || (typeof value["finishedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && ((value["resultCategoryKey"] === null) || (typeof value["resultCategoryKey"] === 'string')) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string');
 }
 
+export function readNotificationDeliveryReceiptResponse(value: unknown): NotificationDeliveryReceiptResponse {
+  if (!(isNotificationDeliveryReceiptResponse(value))) {
+    throw new Error('client.invalid_notification_delivery_receipt_response');
+  }
+  return value;
+}
+
+function isNotificationDeliveryReceiptResponse(value: unknown): value is NotificationDeliveryReceiptResponse {
+  return isRecord(value) && (typeof value["externalStatusKey"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["mappedStatusKey"] === 'string') && ((value["processedAtUtc"] === null) || (typeof value["processedAtUtc"] === 'string')) && (typeof value["processStatusKey"] === 'string') && ((value["providerMessageId"] === null) || (typeof value["providerMessageId"] === 'string')) && (typeof value["providerTypeKey"] === 'string') && (typeof value["receivedAtUtc"] === 'string');
+}
+
 export function readNotificationDeliveryResponse(value: unknown): NotificationDeliveryResponse {
   if (!(isNotificationDeliveryResponse(value))) {
     throw new Error('client.invalid_notification_delivery_response');
@@ -2069,7 +2081,7 @@ export function readNotificationDeliveryResponse(value: unknown): NotificationDe
 }
 
 function isNotificationDeliveryResponse(value: unknown): value is NotificationDeliveryResponse {
-  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
+  return isRecord(value) && (Array.isArray(value["attempts"]) && value["attempts"].every(item17 => isNotificationDeliveryAttemptResponse(item17))) && ((value["bindingVersionId"] === null) || (typeof value["bindingVersionId"] === 'string' && guidPattern.test(value["bindingVersionId"]))) && (typeof value["channelKey"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["intentId"] === 'string' && guidPattern.test(value["intentId"])) && ((value["nextAttemptAtUtc"] === null) || (typeof value["nextAttemptAtUtc"] === 'string')) && ((value["providerProfileVersionId"] === null) || (typeof value["providerProfileVersionId"] === 'string' && guidPattern.test(value["providerProfileVersionId"]))) && (Array.isArray(value["receipts"]) && value["receipts"].every(item17 => isNotificationDeliveryReceiptResponse(item17))) && (typeof value["recipientId"] === 'string' && guidPattern.test(value["recipientId"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string'));
 }
 
 export function readNotificationProviderConfigField(value: unknown): NotificationProviderConfigField {
@@ -3587,7 +3599,7 @@ export function readWorkflowInstanceResponse(value: unknown): WorkflowInstanceRe
 }
 
 function isWorkflowInstanceResponse(value: unknown): value is WorkflowInstanceResponse {
-  return isRecord(value) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["reminderCount"] === undefined || (typeof value["reminderCount"] === 'number' && Number.isInteger(value["reminderCount"]))) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string'));
+  return isRecord(value) && (value["activeNodeKey"] === undefined || ((value["activeNodeKey"] === null) || (typeof value["activeNodeKey"] === 'string'))) && ((value["activeTodoId"] === null) || (typeof value["activeTodoId"] === 'string' && guidPattern.test(value["activeTodoId"]))) && (value["approvalModeKey"] === undefined || ((value["approvalModeKey"] === null) || (typeof value["approvalModeKey"] === 'string'))) && (value["approvedCount"] === undefined || ((typeof value["approvedCount"] === 'number' && Number.isInteger(value["approvedCount"])) || (value["approvedCount"] === null))) && (typeof value["businessId"] === 'string') && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (value["dueAtUtc"] === undefined || ((value["dueAtUtc"] === null) || (typeof value["dueAtUtc"] === 'string'))) && (value["escalatedAtUtc"] === undefined || ((value["escalatedAtUtc"] === null) || (typeof value["escalatedAtUtc"] === 'string'))) && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["pendingCount"] === undefined || ((typeof value["pendingCount"] === 'number' && Number.isInteger(value["pendingCount"])) || (value["pendingCount"] === null))) && (value["rejectedCount"] === undefined || ((typeof value["rejectedCount"] === 'number' && Number.isInteger(value["rejectedCount"])) || (value["rejectedCount"] === null))) && (value["reminderCount"] === undefined || (typeof value["reminderCount"] === 'number' && Number.isInteger(value["reminderCount"]))) && (value["requiredApprovalCount"] === undefined || ((typeof value["requiredApprovalCount"] === 'number' && Number.isInteger(value["requiredApprovalCount"])) || (value["requiredApprovalCount"] === null))) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["startedAtUtc"] === 'string') && (typeof value["statusKey"] === 'string') && (value["timeoutStatusKey"] === undefined || (typeof value["timeoutStatusKey"] === 'string'));
 }
 
 export function readWorkflowNodeDraft(value: unknown): WorkflowNodeDraft {

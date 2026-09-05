@@ -30,6 +30,7 @@ test('投递与回执 OpenAPI 夹具与 C# 契约和端点源码一致', async (
 
   assert.equal(contract.id, 'notifications-deliveries-receipts-v1');
   assert.match(deliveryContracts, /record NotificationDeliveryResponse/u);
+  assert.match(deliveryContracts, /record NotificationDeliveryReceiptResponse/u);
   assert.match(deliveryContracts, /record RetryNotificationDeliveryRequest/u);
   assert.match(deliveryContracts, /record NotificationReceiptAcceptedResponse/u);
   assert.doesNotMatch(deliveryContracts, /SecretReference/u);

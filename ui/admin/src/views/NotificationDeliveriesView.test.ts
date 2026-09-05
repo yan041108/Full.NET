@@ -18,7 +18,7 @@ vi.mock('../api/notification-platform', () => ({
 const listMock = vi.mocked(listNotificationDeliveries);
 const getMock = vi.mocked(getNotificationDelivery);
 
-function delivery(statusKey: string, idSuffix = '03') {
+function delivery(statusKey: string, idSuffix = '03', receipts: NotificationDeliveryResponse['receipts'] = []) {
   return {
     id: `0198f36e-f7a7-7c52-9cbb-774e674112${idSuffix}`,
     intentId: '0198f36e-f7a7-7c52-9cbb-774e67411204',
@@ -42,7 +42,8 @@ function delivery(statusKey: string, idSuffix = '03') {
         startedAtUtc: '2026-08-31T00:00:00Z',
         finishedAtUtc: '2026-08-31T00:00:01Z'
       }]
-      : []
+      : [],
+    receipts
   };
 }
 
@@ -99,5 +100,29 @@ describe('Vue 投递运维页', () => {
 
     expect(wrapper.find('[data-testid="notification-deliveries-retry-reason"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="notification-deliveries-retry"]').exists()).toBe(true);
+  });
+
+  it('详情展示回执时间线与退信原因', async () => {
+    getMock.mockResolvedValueOnce(delivery('failed', '03', [{
+      id: '0198f36e-f7a7-7c52-9cbb-774e67411209',
+      providerTypeKey: 'test.notification',
+      providerMessageId: 'msg-1',
+      externalStatusKey: 'bounced',
+      mappedStatusKey: 'failed',
+      processStatusKey: 'processed',
+      receivedAtUtc: '2026-08-31T00:05:00Z',
+      processedAtUtc: '2026-08-31T00:05:00Z'
+    }]));
+    const wrapper = mountWithPermissions([
+      'notifications.deliveries.read',
+      'notifications.deliveries.retry'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-deliveries-load"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="notification-deliveries-receipt"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="notification-deliveries-bounce-reason"]').text())
+      .toContain('退信');
   });
 });
