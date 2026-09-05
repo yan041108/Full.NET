@@ -122,23 +122,25 @@ internal sealed class HostJobScheduleService(
         }
         catch (CronFormatException)
         {
-            return InvalidCronPreview();
+            return InvalidCronPreviewAsync();
         }
         catch (TimeZoneNotFoundException)
         {
-            return InvalidCronPreview();
+            return InvalidCronPreviewAsync();
         }
         catch (InvalidTimeZoneException)
         {
-            return InvalidCronPreview();
+            return InvalidCronPreviewAsync();
         }
         catch (InvalidOperationException)
         {
-            return InvalidCronPreview();
+            return InvalidCronPreviewAsync();
         }
     }
 
-    private static Task<Result<HostJobScheduleCronPreviewResponse>> InvalidCronPreview() =>
+    /// <summary>创建已完成的 Cron 预览验证失败结果，保持同步解析路径不产生额外状态。</summary>
+    /// <returns>包含稳定验证错误码的已完成任务。</returns>
+    private static Task<Result<HostJobScheduleCronPreviewResponse>> InvalidCronPreviewAsync() =>
         Task.FromResult(
             Result<HostJobScheduleCronPreviewResponse>.Failure(
                 new Error(

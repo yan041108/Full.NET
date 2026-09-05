@@ -25,7 +25,6 @@ internal sealed class WorkflowNotificationProjectionService(
         // 内建模板先在独立本地事务中形成完整发布版本；成功后才允许 Intent 固定该不可变版本。
         await templateProvisioner.EnsurePublishedAsync(
             scope,
-            actorUserId,
             request.TemplateKey,
             cancellationToken).ConfigureAwait(false);
         var result = await intentService.CreateForTrustedEventAsync(

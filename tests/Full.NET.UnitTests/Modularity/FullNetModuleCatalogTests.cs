@@ -224,6 +224,23 @@ public sealed class FullNetModuleCatalogTests
         Assert.IsNotNull(catalog.FindByKey("Organization"));
     }
 
+    [TestMethod]
+    public void Workflow_without_notifications_is_rejected_before_module_registration()
+    {
+        var services = CreateServices();
+        var configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["FullNet:Modules:Enabled:0"] = "Identity",
+            ["FullNet:Modules:Enabled:1"] = "Workflow",
+        });
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            services.AddFullNetApplicationModules(configuration, FullNetHostProfile.Api));
+
+        StringAssert.Contains(exception.Message, "Workflow");
+        StringAssert.Contains(exception.Message, "Notifications");
+    }
+
     private static ServiceCollection CreateServices() => new();
 
     private static IConfiguration CreateConfiguration(

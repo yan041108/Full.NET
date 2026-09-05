@@ -29,10 +29,10 @@
 
 | 条件 | 严重级别 | 动作 |
 | --- | --- | --- |
-| `fullnet.cache.invalidation.failures` 5 分钟内 `distributed`+`failure` > 0 持续 3 个周期 | Warning | 检查 Redis 连通、Backplane 熔断与 Worker Outbox 重试 |
+| `fullnet.cache.invalidation.failures` 5 分钟内 `distributed`+`failure` > 0 持续 3 个周期 | Warning | 检查 Redis 连通、Backplane 熔断与 TTL/版本兜底窗口 |
 | `fullnet.cache.hits.stale` 任意副本 > 0 持续 5 分钟 | Critical | 安全关键路径可能读取陈旧权限/租户解析；按 S0 策略 Fail-Safe 已关闭，需立即排查失效链 |
 | `fullnet.cache.backplane.circuit.transitions` `open` 在 10 分钟内 ≥ 2 | Warning | 核对 Redis 负载、网络分区与连接池 |
-| `fullnet.outbox.pending.messages` 与最老年龄同步上升且缓存失效失败并存 | Warning | 跨节点修复可能受阻；先恢复 Redis 再观察 Outbox 消费 |
+| Backplane 熔断开启且 `fullnet.cache.invalidation.failures` 同步上升 | Warning | 跨节点失效广播受阻；先恢复 Redis，再核对 TTL/版本是否按预期收敛 |
 
 阈值需在真实多副本 soak 后按环境调参；本表为编排补证基线，不替代容量测试。
 
@@ -40,8 +40,8 @@
 
 | 等级 | 典型数据 | Fail-Safe | 跨节点修复 |
 | --- | --- | --- | --- |
-| S0 安全关键 | 权限、会话、租户解析 | 禁止 | 提交后本机修复 + Outbox 可靠确认 |
-| S1 业务读多 | 字典、配置只读投影 | 禁止 | 同上或短 TTL + 显式失效 |
+| S0 安全关键 | 权限、会话、租户解析 | 禁止 | 提交后删除当前 L1/L2 + Backplane + TTL/版本兜底 |
+| S1 业务读多 | 字典、配置只读投影 | 禁止 | 显式删除 L1/L2 + Backplane，或短 TTL 收敛 |
 | S2 可丢 | 演示/统计缓存 | 可评估 | 允许仅 L2 提前收敛 |
 
 新增缓存必须声明等级并在模块 Spec 中记录失效点；不得默认 Fail-Safe 用于授权。

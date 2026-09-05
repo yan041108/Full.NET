@@ -168,6 +168,7 @@ public sealed class NotificationsModule : IFullNetModule
     {
         services.TryAddSingleton<Providers.INotificationProviderTypeCatalog, Providers.NotificationProviderTypeCatalog>();
         services.TryAddScoped<Features.ProjectInboxFromIntent.InboxIntentProjectionService>();
+        services.TryAddScoped<Features.CreateNotificationIntents.NotificationRecipientDirectoryResolver>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationTemplateProvisioner>();
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationProjectionService>();

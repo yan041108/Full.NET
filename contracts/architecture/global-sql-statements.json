@@ -2167,6 +2167,667 @@
         "TenantScopeKey = @TenantScopeKey",
         "UserId = @UserId"
       ]
+    },
+    {
+      "statementName": "workflow.domain_audit.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertDomainAudit",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "cross_context_audit_write",
+      "reason": "Workflow 领域审计与业务事务原子写入；TenantId 与 ScopeKey 由可信管理作用域提供，允许 Host 与 Tenant 共用。",
+      "requiredSqlFragments": [
+        "fn_workflow_domain_audit",
+        "@TenantId",
+        "@ScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListDefinitions",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindDefinitionById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_draft.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListDefinitionDrafts",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_draft",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertDefinition",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该写入；TenantScopeKey 与 TenantId 必须由同一可信管理作用域构造。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_draft.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertDefinitionDraft",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_draft",
+        "@DefinitionId"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_draft.update",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.UpdateDefinitionDraft",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_draft",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_draft.claim_publish",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ClaimDefinitionDraftForPublish",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_draft",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.find_next_number",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextDefinitionVersionNumber",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertDefinitionVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_version",
+        "@DefinitionId"
+      ]
+    },
+    {
+      "statementName": "workflow.definition.set_latest_version",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.SetLatestDefinitionVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListDefinitionVersions",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.list",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListFormDefinitions",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindFormDefinitionById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertFormDefinition",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该写入；TenantScopeKey 与 TenantId 必须由同一可信管理作用域构造。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.update_draft",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.UpdateFormDraft",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_version.find_next_number",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextFormVersionNumber",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_version.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertFormVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_version",
+        "@FormDefinitionId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.publish",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.PublishFormVersion",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition.find_by_key",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindDefinitionByKey",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_draft.find_by_definition",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindDefinitionDraftByDefinition",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_draft",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.definition_version.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindDefinitionVersionById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_definition.find_by_key",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindFormDefinitionByKey",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_definition",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_version.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindFormVersionById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindInstanceById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.find_active_by_business_key",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveInstanceByBusinessKey",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.runtime_asset.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindRuntimeAsset",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_definition_version",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该写入；TenantScopeKey 与 TenantId 必须由同一可信管理作用域构造。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "@TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.step.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.step.insert_completed_cc",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedCcStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.step.insert_completed_gateway",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedGatewayStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.cc.list_recipient_ids_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListCcRecipientIdsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_cc",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.cc.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCc",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_cc",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.cc.list_mine.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListMyCcSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_cc",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.cc.list_mine.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListMyCcMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_cc",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.cc.find_own_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindOwnCcById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_cc",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.cc.mark_own_read",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.MarkOwnCcRead",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_cc",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertFormSubmission",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission.find_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindFormSubmissionByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.form_submission.update_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.UpdateFormSubmissionWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_form_submission",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.action_record.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertActionRecord",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_action_record",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.execution_log.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertExecutionLog",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_execution_log",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.action_record.find_receipt",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActionReceipt",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_action_record",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.execution_log.list.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListExecutionLogsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_execution_log",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.execution_log.list.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListExecutionLogsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_execution_log",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.list_mine.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListMineSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.list_mine.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListMineMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindTodoById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.find_active_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveTodoByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.find_active_work",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveWorkByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.is_participant",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.IsInstanceParticipant",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.complete_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteTodoWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.step.complete_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteStepWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.complete_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteInstanceWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.advance_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.AdvanceInstanceWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.reassign_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReassignTodoWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo.cancel_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelTodoWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.step.cancel_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelStepWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.instance.cancel_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelInstanceWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；调用方必须先由可信上下文构造 TenantScopeKey，并以该锚点限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_instance",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     }
   ]
 }

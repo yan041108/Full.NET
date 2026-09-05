@@ -57,18 +57,30 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
 
         await service.EnsurePublishedAsync(
             NotificationInboxScope.FromTrustedTenantId(tenantId),
-            actorUserId,
             "workflow.todo.assigned",
             CancellationToken.None);
 
+        Assert.AreNotEqual(
+            actorUserId,
+            WorkflowNotificationTemplateProvisioner.AutomaticProvisionerActorId);
         Assert.AreEqual(1, transaction.ExecutionCount);
         await command.Received(1).ExecuteAsync(
             NotificationPlatformSql.InsertTemplateTenant,
-            Arg.Is<object?>(value => HasParameter(value, "TenantId", tenantId)),
+            Arg.Is<object?>(value =>
+                HasParameter(value, "TenantId", tenantId)
+                && HasParameter(
+                    value,
+                    "CreatedById",
+                    WorkflowNotificationTemplateProvisioner.AutomaticProvisionerActorId)),
             Arg.Any<CancellationToken>());
         await command.Received(1).ExecuteAsync(
             NotificationPlatformSql.InsertTemplateVersion,
-            Arg.Is<object?>(value => HasParameter(value, "Id", versionId)),
+            Arg.Is<object?>(value =>
+                HasParameter(value, "Id", versionId)
+                && HasParameter(
+                    value,
+                    "PublishedById",
+                    WorkflowNotificationTemplateProvisioner.AutomaticProvisionerActorId)),
             Arg.Any<CancellationToken>());
         await command.Received(1).ExecuteAsync(
             NotificationPlatformSql.PublishTemplate,
@@ -96,7 +108,6 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
 
         await service.EnsurePublishedAsync(
             NotificationInboxScope.FromTrustedTenantId(Guid.CreateVersion7()),
-            Guid.CreateVersion7(),
             "workflow.instance.completed",
             CancellationToken.None);
 
@@ -127,7 +138,6 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             service.EnsurePublishedAsync(
                 NotificationInboxScope.FromTrustedTenantId(Guid.CreateVersion7()),
-                Guid.CreateVersion7(),
                 "workflow.instance.rejected",
                 CancellationToken.None));
 
@@ -162,7 +172,6 @@ public sealed class WorkflowNotificationTemplateProvisionerTests
 
         await service.EnsurePublishedAsync(
             NotificationInboxScope.FromTrustedTenantId(Guid.CreateVersion7()),
-            Guid.CreateVersion7(),
             "workflow.instance.cancelled",
             CancellationToken.None);
 

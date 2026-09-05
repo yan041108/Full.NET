@@ -26,7 +26,7 @@ internal sealed class NotificationIntentService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IOutboxWriter outboxWriter,
-    IHostUserDirectory hostUserDirectory,
+    NotificationRecipientDirectoryResolver recipientDirectory,
     ICurrentTenant currentTenant,
     InboxIntentProjectionService inboxProjection,
     NotificationRealtimeDelivery realtimeDelivery,
@@ -189,22 +189,20 @@ internal sealed class NotificationIntentService(
             return Result<PreparedIntent>.Failure(rendered.Error!);
         }
 
-        var resolved = new List<ResolvedRecipient>(recipients.Value!.Count);
-        foreach (var recipient in recipients.Value)
+        var normalizedRecipients = recipients.Value!;
+        var recipientUsers = await recipientDirectory
+            .ResolveAsync(scope, normalizedRecipients, cancellationToken)
+            .ConfigureAwait(false);
+        if (!recipientUsers.IsSuccess)
         {
-            var userId = Guid.Parse(recipient.RecipientKey);
-            var directory = await hostUserDirectory.FindActiveHostUserAsync(userId, cancellationToken)
-                .ConfigureAwait(false);
-            if (directory is null)
-            {
-                return Result<PreparedIntent>.Failure(new Error(
-                    NotificationsErrorCodes.InboxRecipientNotFound,
-                    "The recipient user was not found.",
-                    ErrorType.NotFound));
-            }
-
-            resolved.Add(new ResolvedRecipient(recipient, userId));
+            return Result<PreparedIntent>.Failure(recipientUsers.Error!);
         }
+
+        var resolved = normalizedRecipients
+            .Zip(
+                recipientUsers.Value!,
+                static (recipient, userId) => new ResolvedRecipient(recipient, userId))
+            .ToArray();
 
         var route = await ResolveRouteAsync(scope, producer.Value!, scene.Value!, template.ChannelKey, cancellationToken)
             .ConfigureAwait(false);
@@ -221,7 +219,7 @@ internal sealed class NotificationIntentService(
             version,
             snapshot.Value!,
             rendered.Value!,
-            recipients.Value,
+            normalizedRecipients,
             resolved,
             route.Value!));
     }
