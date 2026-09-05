@@ -26,7 +26,7 @@ Workflow 拥有流程定义、不可变定义版本、表单定义与版本、�
 1. 定义权威格式为规范 JSON；MemoryPack 只用于需要可靠跨进程交付的 Integration Event，不作为定义数据库列格式。
 2. 树形审批 Draft 经服务端编译为单一 Workflow IR；LogicFlow 首版仅可作为同一 IR 的候选只读轨迹视图。
 3. 允许同一业务键保留历史多实例，但同一作用域最多一个占用中的实例（`active` 或 `suspended`）；批准后重开必须由业务模块显式发起新实例。
-4. 首版拒绝为终态 `Rejected`；任意节点回退、重走全程和复杂驳回策略后续按版本扩展。
+4. Reject 保持终态 `Rejected`；已批准的首个退回扩展仅支持当前办理人选择同一实例当前有效执行链上已完成的人工审批步骤，不等同于重走全程、回原驳回节点或任意节点跳转。
 5. 定义、实例和表单支持 Host/Tenant 双作用域；首版禁止租户实例引用 Host 定义，也禁止跨租户引用定义、表单、主体或文件。
 6. 首批可执行节点只有发起、单人审批、抄送、排他条件和结束；复杂节点不会因设计器已有 UI 而自动获得发布或执行承诺。
 7. VForm3 原始 JSON 只作为后台设计输入；服务端发布时单向编译为 `WorkflowFormSchema`。后台使用受控 VForm3 Web Adapter，uni-app 使用 Full.NET 自研轻量渲染器。
@@ -155,7 +155,9 @@ VForm3 示例中的 `cssCode`、`functions`、生命周期事件和表单数据�
 
 - Definition Draft 可变；每次 Publish 创建更高 VersionNumber，不可变版本只能新增不能修补。
 - Instance 状态为 `Running / Completed / Rejected / Cancelled / Suspended`；首版 Reject 为终态。
-- Step 状态为 `Pending / Active / Completed / Rejected / Cancelled / TimedOut`；Todo 只能由 Active 走向已办理或关闭。
+- Step 状态为 `Pending / Active / Completed / Rejected / Cancelled / TimedOut / Returned / RolledBack`；Todo 只能由 Active 走向已办理或关闭。
+- `selected_completed_human_step` 退回策略只接受同实例、`Completed` 且类型为 `human.approval` 的当前有效链步骤。来源步骤记为 `Returned`，目标及其之后的旧完成链记为 `RolledBack` 并永久退出合法候选；目标节点创建新的 Step/Todo 尝试，保留旧记录作为历史，不重新执行中间自动节点。
+- Step 以实例内严格单调 `ExecutionSequence` 表达执行位置，候选按该序号倒序分页，退回失效不得依赖可回拨或被数据库截断的时间戳。升级存量以 ActionRecord 的 `InstanceRevision` 和同事务时间戳关联重建人审与自动节点区间；无法证明顺序的异常行保持空值并从退回能力失败关闭。Expand 迁移保持列可空以兼容滚动期间旧写入，新版本写入必须始终显式分配序号。
 - Start、Todo 动作和恢复命令均要求 IdempotencyKey；写操作携带 ExpectedRevision，重复相同请求返回同一确定结果，冲突返回稳定 ProblemDetails。
 - 表单 Patch、Todo 动作、步骤/实例推进、execution log、模块自有 `fn_workflow_domain_audit` 和必要 Outbox 在同一 Workflow 本地事务提交。事务内禁止调用其他模块或外部 Provider。
 - Worker/API 使用 `LeaseOwner + LeaseUntilUtc + LeaseGeneration`；过期可重领，续租、终态和恢复使用一致锁顺序。失败达到上限进入 Suspended，强制恢复需要独立权限和审计。

@@ -140,6 +140,20 @@ internal sealed class WorkflowRuntimePlan
     public bool ContainsApprovalNode(string nodeKey) =>
         nodes.TryGetValue(nodeKey, out var node) && node.NodeTypeKey == "human.approval";
 
+    /// <summary>读取不可变发布版本中指定人工审批节点的超时策略。</summary>
+    /// <param name="nodeKey">目标人工审批节点键。</param>
+    /// <param name="timeoutPolicy">节点固化的可选超时策略。</param>
+    /// <returns>目标存在、类型正确且策略可解析时返回 <see langword="true"/>。</returns>
+    public bool TryGetApprovalTimeoutPolicy(
+        string nodeKey,
+        out WorkflowTodoTimeoutPolicy? timeoutPolicy)
+    {
+        timeoutPolicy = null;
+        return nodes.TryGetValue(nodeKey, out var node) &&
+               node.NodeTypeKey == "human.approval" &&
+               WorkflowTodoTimeoutPolicy.TryRead(node.Config, out timeoutPolicy);
+    }
+
     /// <summary>沿唯一运行时路径执行自动节点，直到人工审批或终点。</summary>
     /// <param name="initialNodeKey">遍历起点。</param>
     /// <param name="values">实例绑定且已验证的表单值。</param>

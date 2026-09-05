@@ -46,6 +46,8 @@ public static class WorkflowErrorCodes
     public const string ActiveInstanceExists = Prefix + "instance.active_exists";
     public const string InstanceForbidden = Prefix + "instance.forbidden";
     public const string TodoForbidden = Prefix + "todo.forbidden";
+    /// <summary>指定步骤不是当前实例有效执行链上的已完成人工审批节点。</summary>
+    public const string TodoReturnTargetInvalid = Prefix + "todo.return_target_invalid";
     public const string CcNotFound = Prefix + "cc.not_found";
     public const string RevisionConflict = Prefix + "revision.conflict";
     public const string InvalidTransition = Prefix + "transition.invalid";
@@ -97,6 +99,7 @@ public static class WorkflowErrorCodes
         ActiveInstanceExists,
         InstanceForbidden,
         TodoForbidden,
+        TodoReturnTargetInvalid,
         CcNotFound,
         RevisionConflict,
         InvalidTransition,

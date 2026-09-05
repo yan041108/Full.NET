@@ -99,7 +99,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     /// <summary>插入一条带超时状态的 SQL Server 待办，用于确认部分恢复不破坏目标表业务数据。</summary>
     /// <param name="connection">测试数据库连接。</param>
     /// <returns>已写入的完整工作流种子。</returns>
-    private static async Task<WorkflowTodoSeed> SeedSqlServerTodoAsync(SqlConnection connection)
+    internal static async Task<WorkflowTodoSeed> SeedSqlServerTodoAsync(SqlConnection connection)
     {
         var seed = WorkflowTodoSeed.Create();
         await connection.ExecuteAsync(
@@ -159,7 +159,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     /// <summary>插入一条带超时状态的 MySQL 待办，用于确认部分恢复不破坏目标表业务数据。</summary>
     /// <param name="connection">测试数据库连接。</param>
     /// <returns>已写入的完整工作流种子。</returns>
-    private static async Task<WorkflowTodoSeed> SeedMySqlTodoAsync(MySqlConnection connection)
+    internal static async Task<WorkflowTodoSeed> SeedMySqlTodoAsync(MySqlConnection connection)
     {
         var seed = WorkflowTodoSeed.Create();
         await connection.ExecuteAsync(
@@ -233,7 +233,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     /// <param name="Now">创建时间。</param>
     /// <param name="DueAtUtc">逾期时间。</param>
     /// <param name="EscalateAtUtc">升级时间。</param>
-    private sealed record WorkflowTodoSeed(
+    internal sealed record WorkflowTodoSeed(
         Guid DefinitionId,
         Guid DefinitionVersionId,
         Guid FormDefinitionId,
@@ -280,7 +280,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     /// <summary>只执行 SQL Server 001 至 111，防止未来迁移改变本恢复用例语义。</summary>
     /// <param name="connectionString">隔离测试数据库连接串。</param>
     /// <returns>本轮迁移结果。</returns>
-    private static Task<MigrationResult> MigrateSqlServerThrough111Async(string connectionString)
+    internal static Task<MigrationResult> MigrateSqlServerThrough111Async(string connectionString)
     {
         var result = DeployChanges.To.SqlDatabase(connectionString)
             .WithScriptsEmbeddedInAssembly(
@@ -297,7 +297,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     /// <summary>只执行 MySQL 001 至 111，防止未来迁移改变本恢复用例语义。</summary>
     /// <param name="connectionString">隔离测试数据库连接串。</param>
     /// <returns>本轮迁移结果。</returns>
-    private static Task<MigrationResult> MigrateMySqlThrough111Async(string connectionString)
+    internal static Task<MigrationResult> MigrateMySqlThrough111Async(string connectionString)
     {
         var result = DeployChanges.To.MySqlDatabase(
                 MySqlConnectionStringPolicy.Create(
@@ -318,7 +318,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
 
     /// <summary>提供历史破坏性 Contract 迁移所需的测试维护证据。</summary>
     /// <returns>DbUp 变量字典。</returns>
-    private static Dictionary<string, string> MigrationVariables() =>
+    internal static Dictionary<string, string> MigrationVariables() =>
         new(StringComparer.Ordinal)
         {
             ["UuidContractMaintenanceMode"] = "1",
@@ -335,7 +335,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     /// <summary>把 DbUp 结果转换为项目迁移结果并保留原始失败。</summary>
     /// <param name="result">DbUp 执行结果。</param>
     /// <returns>成功迁移结果。</returns>
-    private static MigrationResult ToMigrationResult(DbUp.Engine.DatabaseUpgradeResult result)
+    internal static MigrationResult ToMigrationResult(DbUp.Engine.DatabaseUpgradeResult result)
     {
         if (!result.Successful)
         {
@@ -346,7 +346,7 @@ public sealed partial class Migration111WorkflowTodoTimeoutPolicyRecoveryTests
     }
 
     /// <summary>仅在 Through111 测试运行时兼容已发布 094 的 MySQL 8 不支持语法。</summary>
-    private sealed partial class Through111MySqlCompatibilityPreprocessor : IScriptPreprocessor
+    internal sealed partial class Through111MySqlCompatibilityPreprocessor : IScriptPreprocessor
     {
         /// <summary>移除由 095 幂等补齐的 094 条件约束语句。</summary>
         /// <param name="contents">原始迁移脚本。</param>

@@ -21,6 +21,7 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowTodoRecord>(ReadTodo);
         registrar.Register<WorkflowActiveWorkRecord>(ReadActiveWork);
         registrar.Register<WorkflowTodoRuntimeRecord>(ReadTodoRuntime);
+        registrar.Register<WorkflowTodoReturnTargetRecord>(ReadTodoReturnTarget);
         registrar.Register<WorkflowRuntimeAssetRecord>(ReadRuntimeAsset);
         registrar.Register<WorkflowFormSubmissionRecord>(ReadFormSubmission);
         registrar.Register<WorkflowActionReceiptRecord>(ReadActionReceipt);
@@ -147,7 +148,20 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
             AotDataReaderExtensions.ReadNullableString(reader, 7),
             reader.GetInt64(8),
-            reader.GetString(9));
+            reader.GetString(9),
+            reader.GetInt64(10));
+
+    /// <summary>按显式 SQL 投影顺序物化审批退回目标。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的退回目标投影。</returns>
+    private static WorkflowTodoReturnTargetRecord ReadTodoReturnTarget(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.GetGuid(2),
+            reader.GetInt64(3),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 4),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 5));
 
     private static WorkflowRuntimeAssetRecord ReadRuntimeAsset(DbDataReader reader) =>
         new(
@@ -173,7 +187,8 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetGuid(1),
             reader.GetInt64(2),
             reader.GetString(3),
-            AotDataReaderExtensions.ReadNullableString(reader, 4));
+            AotDataReaderExtensions.ReadNullableString(reader, 4),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 5));
 
     private static WorkflowExecutionLogRecord ReadExecutionLog(DbDataReader reader) =>
         new(

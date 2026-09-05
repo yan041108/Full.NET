@@ -68,7 +68,7 @@ public sealed class WorkflowInstanceManagementServiceTests
         var actorId = Guid.CreateVersion7();
         var command = Substitute.For<ICommandExecutor>();
         var receipt = new WorkflowActionReceiptRecord(
-            "pause", actorId, 4, "pause-001", HashLifecycle(3, "等待材料"));
+            "pause", actorId, 4, "pause-001", HashLifecycle(3, "等待材料"), null);
         var service = CreateService(
             CreateQuery(instanceId, actorId, "suspended", 4, todoId, receipt),
             command,

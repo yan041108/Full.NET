@@ -8,23 +8,30 @@ import {
 import {
   approveWorkflowTodo,
   getWorkflowTodo,
+  listWorkflowTodoReturnTargets,
   listMyWorkflowTodos,
   rejectWorkflowTodo,
+  returnWorkflowTodo,
   type WorkflowSubmission,
   type WorkflowTodoDetail,
-  type WorkflowTodoResponse
+  type WorkflowTodoResponse,
+  type WorkflowTodoReturnTargetResponse
 } from '../api/workflow-todos';
 import { useAdminI18n } from '../i18n/adminI18n';
+import { usePermission } from '../auth/permission';
 import PermissionGate from '../components/PermissionGate.vue';
 import WorkflowFormRenderer from '../workflow/WorkflowFormRenderer.vue';
 
 const { t } = useAdminI18n();
+const { can } = usePermission();
 const loading = ref(false);
 const acting = ref(false);
 const todos = ref<WorkflowTodoResponse[]>([]);
 const selected = ref<WorkflowTodoDetail>();
 const fieldPatch = ref<WorkflowSubmission>({});
 const comment = ref('');
+const returnTargets = ref<WorkflowTodoReturnTargetResponse[]>([]);
+const returnTargetStepId = ref('');
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
@@ -38,6 +45,11 @@ const requiredFieldsReady = computed(() => {
   return Object.entries(detail.fieldPolicies).every(([key, policy]) =>
     policy !== 'required' || hasValue(merged[key]));
 });
+const canReturn = computed(() => can('workflow.todos.return'));
+const returnReady = computed(() =>
+  requiredFieldsReady.value &&
+  returnTargetStepId.value.length > 0 &&
+  comment.value.trim().length > 0);
 
 onMounted(load);
 onBeforeUnmount(() => loadController?.abort());
@@ -65,13 +77,57 @@ async function openTodo(todo: WorkflowTodoResponse): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    selected.value = await getWorkflowTodo(todo.id);
+    const [detail, targets] = await Promise.all([
+      getWorkflowTodo(todo.id),
+      canReturn.value ? listWorkflowTodoReturnTargets(todo.id) : Promise.resolve([])
+    ]);
+    selected.value = detail;
+    returnTargets.value = targets;
     fieldPatch.value = {};
     comment.value = '';
+    returnTargetStepId.value = '';
   } catch (error: unknown) {
     problem.value = toProblem(error, 'workflowTodos.loadFailed');
   } finally {
     loading.value = false;
+  }
+}
+
+async function returnSelected(): Promise<void> {
+  const detail = selected.value;
+  const reason = comment.value.trim();
+  if (acting.value || detail === undefined || !returnReady.value) {
+    return;
+  }
+
+  acting.value = true;
+  problem.value = undefined;
+  try {
+    await returnWorkflowTodo(
+      detail.id,
+      returnTargetStepId.value,
+      detail.revision,
+      fieldPatch.value,
+      reason,
+      createIdempotencyKey()
+    );
+    ElMessage.success(t('workflowTodos.returnSuccess'));
+    closeDetail();
+    await load();
+  } catch (error: unknown) {
+    const actionProblem = toProblem(error, 'workflowTodos.operationFailed');
+    problem.value = actionProblem;
+    if (actionProblem.status === 409) {
+      closeDetail();
+      try {
+        todos.value = await listMyWorkflowTodos();
+      } catch {
+        // 冲突后必须关闭过期退回动作；刷新失败时保留原始 409。
+      }
+      problem.value = actionProblem;
+    }
+  } finally {
+    acting.value = false;
   }
 }
 
@@ -118,6 +174,8 @@ function closeDetail(): void {
   selected.value = undefined;
   fieldPatch.value = {};
   comment.value = '';
+  returnTargets.value = [];
+  returnTargetStepId.value = '';
 }
 
 function hasValue(value: unknown): boolean {
@@ -211,13 +269,33 @@ function toProblem(
 
         <label class="workflow-todos__comment">
           <span>{{ t('workflowTodos.comment') }}</span>
-          <el-input
+          <textarea
             v-model="comment"
-            type="textarea"
-            :rows="3"
-            maxlength="1000"
+            data-testid="workflow-todo-comment"
+            rows="3"
+            maxlength="512"
             :placeholder="t('workflowTodos.commentPlaceholder')"
-          />
+          ></textarea>
+        </label>
+
+        <label v-if="canReturn" class="workflow-todos__return-target">
+          <span>{{ t('workflowTodos.returnTarget') }}</span>
+          <select
+            v-model="returnTargetStepId"
+            data-testid="workflow-todo-return-target"
+            :disabled="acting || returnTargets.length === 0"
+          >
+            <option value="" disabled>{{ t(returnTargets.length === 0
+              ? 'workflowTodos.noReturnTargets'
+              : 'workflowTodos.returnTargetPlaceholder') }}</option>
+            <option
+              v-for="target in returnTargets"
+              :key="target.stepId"
+              :value="target.stepId"
+            >
+              {{ target.nodeKey }} · {{ target.completedAtUtc }}
+            </option>
+          </select>
         </label>
 
         <div class="workflow-todos__decision-bar">
@@ -245,6 +323,18 @@ function toProblem(
               @click="act('approve')"
             >
               {{ t('workflowTodos.approve') }}
+            </el-button>
+          </PermissionGate>
+          <PermissionGate code="workflow.todos.return">
+            <el-button
+              type="warning"
+              plain
+              data-testid="workflow-todo-return"
+              :loading="acting"
+              :disabled="!returnReady"
+              @click="returnSelected"
+            >
+              {{ t('workflowTodos.return') }}
             </el-button>
           </PermissionGate>
         </div>
@@ -319,6 +409,30 @@ function toProblem(
   margin-top: 1rem;
   color: var(--el-text-color-regular);
   font-weight: 650;
+}
+
+.workflow-todos__return-target {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  color: var(--el-text-color-regular);
+  font-weight: 650;
+}
+
+.workflow-todos__comment textarea,
+.workflow-todos__return-target select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  color: var(--el-text-color-primary);
+  background: var(--el-fill-color-blank);
+  font: inherit;
+}
+
+.workflow-todos__comment textarea {
+  resize: vertical;
 }
 
 .workflow-todos__decision-bar {

@@ -33,6 +33,7 @@ public sealed class WorkflowCcTransitionWriterTests
             instanceId,
             "host",
             [new WorkflowCcRuntimeNode("copy", [existingRecipient, newRecipient])],
+            2,
             DateTimeOffset.UtcNow);
 
         await command.Received(1).ExecuteAsync(
@@ -69,6 +70,7 @@ public sealed class WorkflowCcTransitionWriterTests
                 "gateway.exclusive",
                 [],
                 "large")],
+            2,
             DateTimeOffset.UtcNow);
 
         await command.Received(1).ExecuteAsync(

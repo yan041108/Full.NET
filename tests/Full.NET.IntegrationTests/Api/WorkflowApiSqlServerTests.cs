@@ -32,4 +32,14 @@ public sealed class WorkflowApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
         await WorkflowRuntimeApiAssertions.VerifyTenantScopeAsync(factory);
     }
+
+    /// <summary>验证 SQL Server 上审批退回的执行链、并发幂等和事务副作用。</summary>
+    [TestMethod]
+    public async Task Todo_return_contract_holds_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+        await WorkflowRuntimeApiAssertions.VerifyReturnAsync(factory);
+    }
 }

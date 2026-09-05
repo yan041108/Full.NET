@@ -1459,6 +1459,7 @@
         "AttemptCount": "尝试次数",
         "CompletedAtUtc": "完成时间(UTC)",
         "DueAtUtc": "处理截止时间(UTC)",
+        "ExecutionSequence": "Execution Sequence",
         "Id": "逻辑主键",
         "InstanceId": "流程实例标识",
         "NodeKey": "流程节点键",

@@ -6,16 +6,20 @@ import { useSessionStore } from '../auth/session';
 import {
   approveWorkflowTodo,
   getWorkflowTodo,
+  listWorkflowTodoReturnTargets,
   listMyWorkflowTodos,
-  rejectWorkflowTodo
+  rejectWorkflowTodo,
+  returnWorkflowTodo
 } from '../api/workflow-todos';
 import WorkflowTodosView from './WorkflowTodosView.vue';
 
 vi.mock('../api/workflow-todos', () => ({
   approveWorkflowTodo: vi.fn(),
   getWorkflowTodo: vi.fn(),
+  listWorkflowTodoReturnTargets: vi.fn(),
   listMyWorkflowTodos: vi.fn(),
-  rejectWorkflowTodo: vi.fn()
+  rejectWorkflowTodo: vi.fn(),
+  returnWorkflowTodo: vi.fn()
 }));
 
 const todo = {
@@ -76,6 +80,12 @@ describe('WorkflowTodosView', () => {
   beforeEach(() => {
     vi.mocked(listMyWorkflowTodos).mockReset().mockResolvedValue([todo]);
     vi.mocked(getWorkflowTodo).mockReset().mockResolvedValue(detail);
+    vi.mocked(listWorkflowTodoReturnTargets).mockReset().mockResolvedValue([{
+      stepId: '01912345-6789-7abc-8def-0123456789a3',
+      nodeKey: 'manager-approval',
+      assigneeUserId: '01912345-6789-7abc-8def-0123456789a4',
+      completedAtUtc: '2026-08-29T00:00:00Z'
+    }]);
     vi.mocked(approveWorkflowTodo).mockReset().mockResolvedValue({
       id: todo.instanceId,
       definitionVersionId: '01912345-6789-7abc-8def-0123456789a2',
@@ -88,6 +98,17 @@ describe('WorkflowTodosView', () => {
       startedAtUtc: '2026-08-30T00:00:00Z'
     });
     vi.mocked(rejectWorkflowTodo).mockReset();
+    vi.mocked(returnWorkflowTodo).mockReset().mockResolvedValue({
+      id: todo.instanceId,
+      definitionVersionId: '01912345-6789-7abc-8def-0123456789a2',
+      formVersionId: detail.formVersionId,
+      businessType: 'purchase',
+      businessId: 'PO-001',
+      statusKey: 'active',
+      revision: 5,
+      activeTodoId: '01912345-6789-7abc-8def-0123456789a5',
+      startedAtUtc: '2026-08-30T00:00:00Z'
+    });
   });
 
   it('审批与驳回按钮按独立权限失败关闭', async () => {
@@ -179,5 +200,45 @@ describe('WorkflowTodosView', () => {
     expect(listMyWorkflowTodos).toHaveBeenCalledTimes(2);
     expect(wrapper.find('[data-testid="workflow-todo-approve"]').exists()).toBe(false);
     expect(wrapper.get('[role="alert"]').text()).toContain('workflow.todo_revision_conflict');
+  });
+
+  it('退回入口按独立权限展示并加载服务端合法目标', async () => {
+    const wrapper = mountWithPermissions([
+      'workflow.todos.read',
+      'workflow.todos.return'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="workflow-todo-return"]').exists()).toBe(true);
+    expect(listWorkflowTodoReturnTargets).toHaveBeenCalledWith(todo.id);
+    expect(wrapper.text()).toContain('manager-approval');
+  });
+
+  it('选择合法目标并填写原因后提交退回', async () => {
+    const wrapper = mountWithPermissions([
+      'workflow.todos.read',
+      'workflow.todos.return'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-todo-open"]').trigger('click');
+    await flushPromises();
+
+    await wrapper.get('[data-testid="workflow-todo-return-target"]').setValue(
+      '01912345-6789-7abc-8def-0123456789a3'
+    );
+    await wrapper.get('[data-testid="workflow-todo-comment"]').setValue('资料不完整');
+    await wrapper.get('[data-testid="workflow-todo-return"]').trigger('click');
+    await flushPromises();
+
+    expect(returnWorkflowTodo).toHaveBeenCalledWith(
+      todo.id,
+      '01912345-6789-7abc-8def-0123456789a3',
+      todo.revision,
+      {},
+      '资料不完整',
+      expect.any(String)
+    );
   });
 });

@@ -237,6 +237,7 @@ import type {
   ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
+  ReturnWorkflowTodoRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -308,6 +309,7 @@ import type {
   WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
+  WorkflowTodoReturnTargetResponse,
   WorkflowTodoRuntimeResponse
 } from './models.generated.js';
 import {
@@ -457,6 +459,7 @@ import {
   readWorkflowListInstanceExecutionLogsResponse,
   readWorkflowListMyCcResponse,
   readWorkflowListMyTodosResponse,
+  readWorkflowListTodoReturnTargetsResponse,
   readWorkflowNodeTypeCatalogResponse,
   readWorkflowRecipientCandidatePageResponse,
   readWorkflowRecoveryTaskResponse,
@@ -6767,6 +6770,33 @@ export async function workflowListRecoveryTasks(
   return readPagedResultOfWorkflowRecoveryTaskResponse(value);
 }
 
+export interface WorkflowListTodoReturnTargetsParameters {
+  readonly todoId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function workflowListTodoReturnTargets(
+  http: HttpClient,
+  parameters: WorkflowListTodoReturnTargetsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<WorkflowTodoReturnTargetResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return-targets` : `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return-targets?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowListTodoReturnTargetsResponse(value);
+}
+
 export interface WorkflowMarkCcReadParameters {
   readonly ccId: string;
 }
@@ -6990,6 +7020,29 @@ export async function workflowRetryRecoveryTask(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowRecoveryTaskResponse(value);
+}
+
+export interface WorkflowReturnTodoParameters {
+  readonly todoId: string;
+  readonly body: ReturnWorkflowTodoRequest;
+}
+
+export async function workflowReturnTodo(
+  http: HttpClient,
+  parameters: WorkflowReturnTodoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowInstanceResponse> {
+  const path = `/api/v1/workflow/todos/${encodeURIComponent(String(parameters.todoId))}/return`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowInstanceResponse(value);
 }
 
 export interface WorkflowStartInstanceParameters {

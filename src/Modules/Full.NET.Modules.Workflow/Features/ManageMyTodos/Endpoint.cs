@@ -55,6 +55,34 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosRead));
 
+        endpoints.MapGet("/api/v1/workflow/todos/{todoId:guid}/return-targets", async (
+            Guid todoId,
+            int? page,
+            int? pageSize,
+            WorkflowTodoManagementService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.ListReturnTargetsAsync(
+                    todoId, actorUserId, page ?? 1, pageSize ?? 100, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowListTodoReturnTargets")
+        .WithTags("WorkflowTodos")
+        .Produces<IReadOnlyList<WorkflowTodoReturnTargetResponse>>()
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosReturn));
+
         endpoints.MapGet("/api/v1/workflow/todos/{todoId:guid}/runtime", async (
             Guid todoId,
             WorkflowTodoManagementService service,
@@ -134,6 +162,34 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosReject));
+
+        endpoints.MapPost("/api/v1/workflow/todos/{todoId:guid}/return", async (
+            Guid todoId,
+            ReturnWorkflowTodoRequest request,
+            WorkflowTodoManagementService service,
+            IApiResultMapper mapper,
+            HttpContext context,
+            CancellationToken token) =>
+        {
+            if (!TryGetActor(context, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return mapper.Map(
+                await service.ReturnAsync(todoId, actorUserId, request, token).ConfigureAwait(false),
+                context);
+        })
+        .WithName("workflowReturnTodo")
+        .WithTags("WorkflowTodos")
+        .Produces<WorkflowInstanceResponse>()
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(WorkflowPermissions.TodosReturn));
     }
 
     private static bool TryGetActor(HttpContext context, out Guid actorUserId) =>

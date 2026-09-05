@@ -100,9 +100,17 @@ internal sealed class WorkflowInstanceManagementService(
                         ("BusinessType", request.BusinessType.Trim()),
                         ("BusinessId", request.BusinessId.Trim()),
                         ("StartedById", actorUserId), ("StartedAtUtc", now)), token).ConfigureAwait(false);
+                var approvalExecutionSequence = await automaticTransitionWriter.WriteAsync(
+                    instanceId,
+                    scope.TenantScopeKey,
+                    startTransition.AutomaticNodes,
+                    1L,
+                    now,
+                    token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertStep,
                     Parameters(("Id", stepId), ("InstanceId", instanceId),
                         ("NodeKey", approvalNodeKey), ("AssignedUserId", actorUserId),
+                        ("ExecutionSequence", approvalExecutionSequence),
                         ("StartedAtUtc", now)), token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertTodo,
                     Parameters(("Id", todoId), ("InstanceId", instanceId), ("StepId", stepId),
@@ -131,12 +139,6 @@ internal sealed class WorkflowInstanceManagementService(
                         ("FromStatusKey", null), ("ToStatusKey", "active"),
                         ("IdempotencyKey", request.IdempotencyKey.Trim()),
                         ("Summary", requestHash), ("CreatedAtUtc", now)), token).ConfigureAwait(false);
-                await automaticTransitionWriter.WriteAsync(
-                    instanceId,
-                    scope.TenantScopeKey,
-                    startTransition.AutomaticNodes,
-                    now,
-                    token).ConfigureAwait(false);
                 await commandExecutor.ExecuteAsync(WorkflowSql.InsertDomainAudit,
                     Parameters(("Id", idGenerator.NewId()), ("TenantId", scope.TenantId),
                         ("ScopeKey", scope.ScopeKey), ("InstanceId", instanceId),

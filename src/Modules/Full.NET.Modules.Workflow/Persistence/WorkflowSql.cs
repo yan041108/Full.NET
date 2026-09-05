@@ -380,10 +380,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
-             NULL, 0, 1, @StartedAtUtc, NULL)
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, NULL)
         """,
         SqlDataScope.Global);
 
@@ -393,10 +393,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'notify.cc', 'completed', NULL,
-             NULL, 0, 1, @StartedAtUtc, @CompletedAtUtc)
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -406,10 +406,10 @@ internal static class WorkflowSql
         """
         INSERT INTO fn_workflow_step
             (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
-             DueAtUtc, AttemptCount, Revision, StartedAtUtc, CompletedAtUtc)
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence, StartedAtUtc, CompletedAtUtc)
         VALUES
             (@Id, @InstanceId, @NodeKey, 'gateway.exclusive', 'completed', NULL,
-             NULL, 0, 1, @StartedAtUtc, @CompletedAtUtc)
+             NULL, 0, 1, @ExecutionSequence, @StartedAtUtc, @CompletedAtUtc)
         """,
         SqlDataScope.Global);
 
@@ -585,11 +585,19 @@ internal static class WorkflowSql
         "workflow.action_record.find_receipt",
         """
         SELECT action.ActionKey, action.ActorUserId, action.InstanceRevision,
-               action.IdempotencyKey, log.Summary AS RequestHash
+               action.IdempotencyKey, log.Summary AS RequestHash,
+               result_todo.Id AS ResultTodoId
         FROM fn_workflow_action_record AS action
         LEFT JOIN fn_workflow_execution_log AS log
-          ON log.InstanceId = action.InstanceId
+         ON log.InstanceId = action.InstanceId
          AND log.IdempotencyKey = action.IdempotencyKey
+         AND log.TransitionKey <> 'step.reactivated'
+        LEFT JOIN fn_workflow_execution_log AS result_log
+          ON result_log.InstanceId = action.InstanceId
+         AND result_log.IdempotencyKey = action.IdempotencyKey
+         AND result_log.TransitionKey = 'step.reactivated'
+        LEFT JOIN fn_workflow_todo AS result_todo
+          ON result_todo.StepId = result_log.StepId
         WHERE action.InstanceId = @InstanceId
           AND action.IdempotencyKey = @IdempotencyKey
         """,
@@ -664,13 +672,88 @@ internal static class WorkflowSql
         """
         SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
-               todo.ResultActionKey, todo.Revision, step.NodeKey
+               todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
         INNER JOIN fn_workflow_step AS step
             ON step.Id = todo.StepId
         WHERE todo.Id = @Id
+          AND instance.TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>在实例级 CAS 成功后分配下一步骤执行序号；同一事务内不存在并发写入者。</summary>
+    public static readonly SqlStatement FindNextStepExecutionSequence = new(
+        "workflow.step.find_next_execution_sequence",
+        """
+        SELECT COALESCE(MAX(ExecutionSequence), 0) + 1
+        FROM fn_workflow_step
+        WHERE InstanceId = @InstanceId
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按最近完成顺序列出当前有效链上的可退回人工审批步骤。</summary>
+    public static readonly SqlStatement ListTodoReturnTargetsSqlServer = new(
+        "workflow.todo_return_target.list.sqlserver",
+        """
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+               step.ExecutionSequence,
+               step.StartedAtUtc, step.CompletedAtUtc
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        WHERE step.InstanceId = @InstanceId
+          AND step.NodeTypeKey = 'human.approval'
+          AND step.StatusKey = 'completed'
+          AND step.ExecutionSequence IS NOT NULL
+          AND step.AssignedUserId IS NOT NULL
+          AND step.CompletedAtUtc IS NOT NULL
+          AND instance.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        ORDER BY step.ExecutionSequence DESC, step.Id DESC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按最近完成顺序列出当前有效链上的可退回人工审批步骤。</summary>
+    public static readonly SqlStatement ListTodoReturnTargetsMySql = new(
+        "workflow.todo_return_target.list.mysql",
+        """
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+               step.ExecutionSequence,
+               step.StartedAtUtc, step.CompletedAtUtc
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        WHERE step.InstanceId = @InstanceId
+          AND step.NodeTypeKey = 'human.approval'
+          AND step.StatusKey = 'completed'
+          AND step.ExecutionSequence IS NOT NULL
+          AND step.AssignedUserId IS NOT NULL
+          AND step.CompletedAtUtc IS NOT NULL
+          AND instance.StatusKey = 'active'
+          AND instance.TenantScopeKey = @TenantScopeKey
+        ORDER BY step.ExecutionSequence DESC, step.Id DESC
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>提交退回时在可信实例内重新锁定一个有效人工审批目标。</summary>
+    public static readonly SqlStatement FindTodoReturnTarget = new(
+        "workflow.todo_return_target.find",
+        """
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+               step.ExecutionSequence,
+               step.StartedAtUtc, step.CompletedAtUtc
+        FROM fn_workflow_step AS step
+        INNER JOIN fn_workflow_instance AS instance ON instance.Id = step.InstanceId
+        WHERE step.Id = @TargetStepId
+          AND step.InstanceId = @InstanceId
+          AND step.NodeTypeKey = 'human.approval'
+          AND step.StatusKey = 'completed'
+          AND step.ExecutionSequence IS NOT NULL
+          AND step.AssignedUserId IS NOT NULL
+          AND step.CompletedAtUtc IS NOT NULL
+          AND instance.StatusKey = 'active'
           AND instance.TenantScopeKey = @TenantScopeKey
         """,
         SqlDataScope.Global);
@@ -772,6 +855,34 @@ internal static class WorkflowSql
           AND InstanceId = @InstanceId
           AND StatusKey = 'active'
           AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>把发起退回的当前活动步骤关闭为 returned。</summary>
+    public static readonly SqlStatement ReturnStepWithRevision = new(
+        "workflow.step.return_with_revision",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = 'returned',
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'active'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>从目标开始失效旧执行链，避免旧目标完成记录与新步骤尝试重复成为候选。</summary>
+    public static readonly SqlStatement RollBackCompletedStepsFromTarget = new(
+        "workflow.step.rollback_completed_from_target",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = 'rolled_back',
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'completed'
+          AND ExecutionSequence >= @TargetExecutionSequence
         """,
         SqlDataScope.Global);
 

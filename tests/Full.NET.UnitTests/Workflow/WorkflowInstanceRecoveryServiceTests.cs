@@ -127,7 +127,7 @@ public sealed class WorkflowInstanceRecoveryServiceTests
         query.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
                 WorkflowSql.FindActionReceipt, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowActionReceiptRecord(
-                "reassign", actorId, 4, request.IdempotencyKey, HashRequest(request)));
+                "reassign", actorId, 4, request.IdempotencyKey, HashRequest(request), null));
         query.QuerySingleOrDefaultAsync<WorkflowTodoRecord>(
                 WorkflowSql.FindActiveTodoByInstance, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowTodoRecord(

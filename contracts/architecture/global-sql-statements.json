@@ -2709,6 +2709,39 @@
       ]
     },
     {
+      "statementName": "workflow.todo_return_target.list.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListTodoReturnTargetsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；合法退回目标必须通过实例的可信 TenantScopeKey 限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_return_target.list.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListTodoReturnTargetsMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Workflow 在 Host 与 Tenant 上下文复用该语句；合法退回目标必须通过实例的可信 TenantScopeKey 限制当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "workflow.todo_return_target.find",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindTodoReturnTarget",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "退回提交必须按可信 TenantScopeKey 与当前实例标识重新复核目标，不能信任客户端候选。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
       "statementName": "workflow.todo.find_active_by_instance",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveTodoByInstance",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
@@ -2753,11 +2786,44 @@
       ]
     },
     {
+      "statementName": "workflow.step.find_next_execution_sequence",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextStepExecutionSequence",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "步骤序号只允许在已按可信 TenantScopeKey 取得实例乐观锁的同一本地事务中分配，父实例锁保证 MAX+1 单调且无并发重复。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
       "statementName": "workflow.step.complete_with_revision",
       "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteStepWithRevision",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "该子记录只允许在已按可信 TenantScopeKey 定位父聚合的同一本地事务中读写；不可猜测父标识保持作用域闭包。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.step.return_with_revision",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReturnStepWithRevision",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "来源步骤只允许在已按可信 TenantScopeKey 定位父实例的同一本地事务中关闭，并以实例和步骤修订号保护并发。",
+      "requiredSqlFragments": [
+        "fn_workflow_step",
+        "@InstanceId"
+      ]
+    },
+    {
+      "statementName": "workflow.step.rollback_completed_from_target",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.RollBackCompletedStepsFromTarget",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "旧执行链步骤只允许在已按可信 TenantScopeKey 定位父实例并成功取得实例乐观锁的同一本地事务中失效。",
       "requiredSqlFragments": [
         "fn_workflow_step",
         "@InstanceId"

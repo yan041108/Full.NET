@@ -200,6 +200,18 @@
       "status": "generated"
     },
     {
+      "operationId": "workflowListTodoReturnTargets",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowReturnTodo",
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "generatedGroup": "workflow-todos",
+      "status": "generated"
+    },
+    {
       "operationId": "workflowListMyCc",
       "apiModule": "ui/admin/src/api/workflow-cc.ts",
       "generatedGroup": "workflow-cc",

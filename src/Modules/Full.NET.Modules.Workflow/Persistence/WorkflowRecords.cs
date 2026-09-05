@@ -165,7 +165,23 @@ internal sealed record WorkflowTodoRuntimeRecord(
     DateTimeOffset? CompletedAtUtc,
     string? ResultActionKey,
     long Revision,
-    string NodeKey);
+    string NodeKey,
+    long StepRevision);
+
+/// <summary>审批退回使用的当前有效执行链历史目标。</summary>
+/// <param name="StepId">历史步骤标识。</param>
+/// <param name="NodeKey">稳定节点键。</param>
+/// <param name="AssigneeUserId">历史办理人快照。</param>
+/// <param name="ExecutionSequence">实例内单调执行序号，用于可靠失效目标及其后的旧执行链。</param>
+/// <param name="StartedAtUtc">步骤开始时间。</param>
+/// <param name="CompletedAtUtc">步骤完成时间。</param>
+internal sealed record WorkflowTodoReturnTargetRecord(
+    Guid StepId,
+    string NodeKey,
+    Guid AssigneeUserId,
+    long ExecutionSequence,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset CompletedAtUtc);
 
 /// <summary>启动实例所需的同作用域不可变定义和表单版本。</summary>
 internal sealed record WorkflowRuntimeAssetRecord(
@@ -191,7 +207,8 @@ internal sealed record WorkflowActionReceiptRecord(
     Guid ActorUserId,
     long InstanceRevision,
     string IdempotencyKey,
-    string? RequestHash);
+    string? RequestHash,
+    Guid? ResultTodoId);
 
 /// <summary>实例执行轨迹的追加式投影。</summary>
 internal sealed record WorkflowExecutionLogRecord(

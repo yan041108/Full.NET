@@ -236,6 +236,7 @@ import type {
   ResumeWorkflowInstanceRequest,
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
+  ReturnWorkflowTodoRequest,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -307,6 +308,7 @@ import type {
   WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoResponse,
+  WorkflowTodoReturnTargetResponse,
   WorkflowTodoRuntimeResponse
 } from './models.generated.js';
 
@@ -2884,6 +2886,17 @@ function isRetryWorkflowRecoveryTaskRequest(value: unknown): value is RetryWorkf
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["reason"] === 'string');
 }
 
+export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTodoRequest {
+  if (!(isReturnWorkflowTodoRequest(value))) {
+    throw new Error('client.invalid_return_workflow_todo_request');
+  }
+  return value;
+}
+
+function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTodoRequest {
+  return isRecord(value) && (typeof value["comment"] === 'string') && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
+}
+
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {
   if (!(isRevokeSuperAdministratorRequest(value))) {
     throw new Error('client.invalid_revoke_super_administrator_request');
@@ -3665,6 +3678,17 @@ function isWorkflowTodoResponse(value: unknown): value is WorkflowTodoResponse {
   return isRecord(value) && (typeof value["arrivedAtUtc"] === 'string') && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && ((value["resultActionKey"] === null) || (typeof value["resultActionKey"] === 'string')) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
 }
 
+export function readWorkflowTodoReturnTargetResponse(value: unknown): WorkflowTodoReturnTargetResponse {
+  if (!(isWorkflowTodoReturnTargetResponse(value))) {
+    throw new Error('client.invalid_workflow_todo_return_target_response');
+  }
+  return value;
+}
+
+function isWorkflowTodoReturnTargetResponse(value: unknown): value is WorkflowTodoReturnTargetResponse {
+  return isRecord(value) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (typeof value["completedAtUtc"] === 'string') && (typeof value["nodeKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"]));
+}
+
 export function readWorkflowTodoRuntimeResponse(value: unknown): WorkflowTodoRuntimeResponse {
   if (!(isWorkflowTodoRuntimeResponse(value))) {
     throw new Error('client.invalid_workflow_todo_runtime_response');
@@ -3933,6 +3957,13 @@ export function readWorkflowListMyTodosResponse(value: unknown): Array<WorkflowT
     throw new Error('client.invalid_workflow_list_my_todos_response');
   }
   return value as Array<WorkflowTodoResponse>;
+}
+
+export function readWorkflowListTodoReturnTargetsResponse(value: unknown): Array<WorkflowTodoReturnTargetResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isWorkflowTodoReturnTargetResponse(item5)))) {
+    throw new Error('client.invalid_workflow_list_todo_return_targets_response');
+  }
+  return value as Array<WorkflowTodoReturnTargetResponse>;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

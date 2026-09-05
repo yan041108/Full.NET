@@ -1886,6 +1886,14 @@ export interface RetryWorkflowRecoveryTaskRequest {
   readonly reason: string;
 }
 
+export interface ReturnWorkflowTodoRequest {
+  readonly comment: string;
+  readonly expectedRevision: number;
+  readonly fieldPatch: JsonElement;
+  readonly idempotencyKey: string;
+  readonly targetStepId: string;
+}
+
 export interface RevokeSuperAdministratorRequest {
   readonly currentPassword: string;
   readonly totpCode?: null | string;
@@ -2445,6 +2453,13 @@ export interface WorkflowTodoResponse {
   readonly resultActionKey: null | string;
   readonly revision: number;
   readonly statusKey: string;
+  readonly stepId: string;
+}
+
+export interface WorkflowTodoReturnTargetResponse {
+  readonly assigneeUserId: string;
+  readonly completedAtUtc: string;
+  readonly nodeKey: string;
   readonly stepId: string;
 }
 

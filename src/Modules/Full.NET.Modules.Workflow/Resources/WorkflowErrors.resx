@@ -44,6 +44,7 @@
   <data name="workflow.version.not_published" xml:space="preserve"><value>工作流版本尚未发布。</value></data>
   <data name="workflow.instance.active_exists" xml:space="preserve"><value>相同业务对象已存在活动实例。</value></data>
   <data name="workflow.todo.forbidden" xml:space="preserve"><value>无权处理该工作流待办。</value></data>
+  <data name="workflow.todo.return_target_invalid" xml:space="preserve"><value>退回目标不是当前实例有效执行链上的已完成人工审批步骤。</value></data>
   <data name="workflow.revision.conflict" xml:space="preserve"><value>工作流修订版本冲突。</value></data>
   <data name="workflow.transition.invalid" xml:space="preserve"><value>工作流状态转换无效。</value></data>
   <data name="workflow.recovery.not_found" xml:space="preserve"><value>工作流恢复任务不存在或不属于当前作用域。</value></data>

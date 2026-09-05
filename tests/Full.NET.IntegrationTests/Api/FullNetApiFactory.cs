@@ -33,6 +33,9 @@ internal sealed class FullNetApiFactory(
 
     public DatabaseProvider Provider => provider;
 
+    /// <summary>返回当前测试工厂专用数据库连接串，仅供跨提供程序持久化断言使用。</summary>
+    internal string ConnectionString => connectionString;
+
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
     private readonly string _cacheInstanceId = $"integration-{Guid.NewGuid():N}";
     private readonly List<BackplaneEventObservation> _backplaneEvents = [];
