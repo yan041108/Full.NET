@@ -153,7 +153,7 @@ describe('Vue 通知模板页', () => {
     await wrapper.get('[data-testid="notification-templates-load"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="notification-templates-locale-hints"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="notification-templates-locale-hints"]').exists()).toBe(true);
     expect(wrapper.findAll('[data-testid="notification-templates-missing-locale"]')).toHaveLength(1);
     expect(wrapper.get('[data-testid="notification-templates-missing-locale"]').text()).toBe('en-US');
   });

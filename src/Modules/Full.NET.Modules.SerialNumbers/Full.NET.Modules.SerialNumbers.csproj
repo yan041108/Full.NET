@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Contracts\**\*.cs" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
@@ -13,6 +14,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Localization\Full.NET.Localization.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="Contracts\Full.NET.Modules.SerialNumbers.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

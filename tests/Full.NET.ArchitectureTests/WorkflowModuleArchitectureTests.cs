@@ -32,6 +32,7 @@ public sealed class WorkflowModuleArchitectureTests
                 "Full.NET.Hosting",
                 "Full.NET.Modularity",
                 "Full.NET.Modules.Identity.Contracts",
+                "Full.NET.Modules.Organization.Contracts",
                 "Full.NET.Modules.Workflow.Contracts",
             },
             references);

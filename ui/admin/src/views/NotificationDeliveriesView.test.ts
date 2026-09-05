@@ -6,7 +6,8 @@ import { useSessionStore } from '../auth/session';
 import {
   getNotificationDelivery,
   listNotificationDeliveries,
-  retryNotificationDelivery
+  retryNotificationDelivery,
+  type NotificationDeliveryResponse
 } from '../api/notification-platform';
 
 vi.mock('../api/notification-platform', () => ({

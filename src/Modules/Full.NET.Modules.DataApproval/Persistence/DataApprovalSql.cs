@@ -12,7 +12,7 @@ internal static class DataApprovalSql
                StatusKey, BeforeSnapshotJson, AfterSnapshotJson, WorkflowInstanceId,
                WorkflowRevision, WorkflowDefinitionVersionId, SubmittedByUserId,
                SubmittedAtUtc, ResolvedAtUtc, IdempotencyKey, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE Id = @Id
           AND TenantScopeKey = @TenantScopeKey
         """,
@@ -25,7 +25,7 @@ internal static class DataApprovalSql
                StatusKey, BeforeSnapshotJson, AfterSnapshotJson, WorkflowInstanceId,
                WorkflowRevision, WorkflowDefinitionVersionId, SubmittedByUserId,
                SubmittedAtUtc, ResolvedAtUtc, IdempotencyKey, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE TenantScopeKey = @TenantScopeKey
           AND IdempotencyKey = @IdempotencyKey
         """,
@@ -38,7 +38,7 @@ internal static class DataApprovalSql
                StatusKey, BeforeSnapshotJson, AfterSnapshotJson, WorkflowInstanceId,
                WorkflowRevision, WorkflowDefinitionVersionId, SubmittedByUserId,
                SubmittedAtUtc, ResolvedAtUtc, IdempotencyKey, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE Id = @BusinessId
           AND TenantScopeKey = @TenantScopeKey
         """,
@@ -47,7 +47,7 @@ internal static class DataApprovalSql
     public static readonly SqlStatement InsertRequest = new(
         "data_approval.request.insert",
         """
-        INSERT INTO fn_data_approval_request
+        INSERT INTO fn_dataapproval_request
             (Id, TenantId, ScopeKey, TenantScopeKey, ScenarioKey, TargetEntityId,
              StatusKey, BeforeSnapshotJson, AfterSnapshotJson, WorkflowInstanceId,
              WorkflowRevision, WorkflowDefinitionVersionId, SubmittedByUserId,
@@ -63,7 +63,7 @@ internal static class DataApprovalSql
     public static readonly SqlStatement LinkWorkflowInstance = new(
         "data_approval.request.link_workflow",
         """
-        UPDATE fn_data_approval_request
+        UPDATE fn_dataapproval_request
         SET WorkflowInstanceId = @WorkflowInstanceId,
             WorkflowRevision = @WorkflowRevision,
             StatusKey = @StatusKey,
@@ -78,7 +78,7 @@ internal static class DataApprovalSql
     public static readonly SqlStatement UpdateStatus = new(
         "data_approval.request.update_status",
         """
-        UPDATE fn_data_approval_request
+        UPDATE fn_dataapproval_request
         SET StatusKey = @StatusKey,
             ResolvedAtUtc = @ResolvedAtUtc,
             UpdatedAtUtc = @UpdatedAtUtc,
@@ -94,7 +94,7 @@ internal static class DataApprovalSql
         "data_approval.request.count",
         """
         SELECT COUNT(1)
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE TenantScopeKey = @TenantScopeKey
           AND (@ScenarioKey IS NULL OR ScenarioKey = @ScenarioKey)
           AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
@@ -108,7 +108,7 @@ internal static class DataApprovalSql
                StatusKey, BeforeSnapshotJson, AfterSnapshotJson, WorkflowInstanceId,
                WorkflowRevision, WorkflowDefinitionVersionId, SubmittedByUserId,
                SubmittedAtUtc, ResolvedAtUtc, IdempotencyKey, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE TenantScopeKey = @TenantScopeKey
           AND (@ScenarioKey IS NULL OR ScenarioKey = @ScenarioKey)
           AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
@@ -116,7 +116,7 @@ internal static class DataApprovalSql
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 
         SELECT COUNT(1)
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE TenantScopeKey = @TenantScopeKey
           AND (@ScenarioKey IS NULL OR ScenarioKey = @ScenarioKey)
           AND (@StatusKey IS NULL OR StatusKey = @StatusKey);
@@ -130,7 +130,7 @@ internal static class DataApprovalSql
                StatusKey, BeforeSnapshotJson, AfterSnapshotJson, WorkflowInstanceId,
                WorkflowRevision, WorkflowDefinitionVersionId, SubmittedByUserId,
                SubmittedAtUtc, ResolvedAtUtc, IdempotencyKey, CreatedAtUtc, UpdatedAtUtc, Version
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE TenantScopeKey = @TenantScopeKey
           AND (@ScenarioKey IS NULL OR ScenarioKey = @ScenarioKey)
           AND (@StatusKey IS NULL OR StatusKey = @StatusKey)
@@ -138,7 +138,7 @@ internal static class DataApprovalSql
         LIMIT @PageSize OFFSET @Offset;
 
         SELECT COUNT(1)
-        FROM fn_data_approval_request
+        FROM fn_dataapproval_request
         WHERE TenantScopeKey = @TenantScopeKey
           AND (@ScenarioKey IS NULL OR ScenarioKey = @ScenarioKey)
           AND (@StatusKey IS NULL OR StatusKey = @StatusKey);

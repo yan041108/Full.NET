@@ -5,6 +5,8 @@ import { nextTick } from 'vue';
 import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
 
 vi.mock('../api/workflow-definitions', () => ({
+  listWorkflowRoleCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
+  listWorkflowOrganizationUnitCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
   listWorkflowRecipientCandidates: vi.fn().mockResolvedValue({
     items: [
       {

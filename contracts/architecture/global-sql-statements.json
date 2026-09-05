@@ -3376,6 +3376,120 @@
         "instance.TenantScopeKey = @TenantScopeKey",
         "EscalatedAtUtc IS NULL"
       ]
+    },
+    {
+      "statementName": "data_approval.request.count", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.CountRequests", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "审批请求计数只允许在当前可信 TenantScopeKey 内执行。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.find_by_business_id", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestByBusinessId", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "工作流业务标识反查审批请求时必须同时校验当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.find_by_id", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestById", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "按标识读取审批请求必须同时校验当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.find_by_idempotency", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestByIdempotency", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "幂等回放只能在当前可信作用域内命中审批请求。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.insert", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.InsertRequest", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "新建审批请求将当前可信 TenantScopeKey 显式持久化，不依赖隐式租户绑定。", "requiredSqlFragments": ["fn_dataapproval_request", "@TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.link_workflow", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.LinkWorkflowInstance", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "关联工作流实例必须同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.page.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "MySQL 审批请求分页只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.page.sqlserver", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsSqlServer", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "SQL Server 审批请求分页只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "data_approval.request.update_status", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateStatus", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "审批终态回写必须同时校验当前可信作用域、原状态和乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+    },
+    {
+      "statementName": "identity.workflow.find_active_host_roles_by_ids", "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.FindActiveHostRolesByIds", "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs", "category": "host_catalog", "reason": "Workflow 候选角色仅读取 Host 授权目录中的活动角色，不应绑定当前租户。", "requiredSqlFragments": ["fn_identity_role", "TenantId IS NULL"]
+    },
+    {
+      "statementName": "identity.workflow.list_active_host_role_members_by_role_ids", "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIds", "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs", "category": "host_catalog", "reason": "Workflow 角色成员解析基于 Host 角色目录，返回前仍由业务服务执行范围与状态校验。", "requiredSqlFragments": ["fn_identity_user_role", "fn_identity_role"]
+    },
+    {
+      "statementName": "notifications.platform.template.find_by_key_and_locale", "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateByKeyAndLocale", "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs", "category": "explicit_tenant_anchor", "reason": "通知模板的本地化回退需显式同时查询 Host 与当前租户候选，作用域由 TenantScopeKey 锨定。", "requiredSqlFragments": ["fn_notifications_template", "@TenantScopeKey"]
+    },
+    {
+      "statementName": "notifications.platform.template.list_locales_by_key", "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListTemplateLocalesByKey", "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs", "category": "explicit_tenant_anchor", "reason": "模板语言清单需显式合并 Host 与当前租户可见项，查询必须保留作用域锨点。", "requiredSqlFragments": ["fn_notifications_template", "@TenantScopeKey"]
+    },
+    {
+      "statementName": "workflow.countersign_chain.cancel", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelCountersignChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_chain"]
+    },
+    {
+      "statementName": "workflow.countersign_chain.complete", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteCountersignChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_chain"]
+    },
+    {
+      "statementName": "workflow.countersign_chain.find_active_by_origin_todo", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveCountersignChainByOriginTodo", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "查找活动会签链必须从当前作用域的原始待办定位。", "requiredSqlFragments": ["fn_workflow_countersign_chain", "TenantScopeKey"]
+    },
+    {
+      "statementName": "workflow.countersign_chain.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCountersignChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_chain"]
+    },
+    {
+      "statementName": "workflow.countersign_item.activate", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ActivateCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.countersign_item.cancel_pending", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingCountersignItems", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.countersign_item.complete", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.countersign_item.find_by_todo", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindCountersignItemByTodoId", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "待办反查会签项必须联结流程实例并校验当前作用域。", "requiredSqlFragments": ["fn_workflow_countersign_item", "TenantScopeKey"]
+    },
+    {
+      "statementName": "workflow.countersign_item.find_next_pending", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextPendingCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.countersign_item.find_next_pending_mysql", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextPendingCountersignItemMySql", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.countersign_item.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.countersign_item.list_by_chain", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListCountersignItemsByChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+    },
+    {
+      "statementName": "workflow.parallel_approval_step.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelApprovalStep", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_step"]
+    },
+    {
+      "statementName": "workflow.parallel_branch_arrival.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelBranchArrival", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_branch_arrival"]
+    },
+    {
+      "statementName": "workflow.parallel_join.cancel_waiting_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelWaitingParallelJoinsByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+    },
+    {
+      "statementName": "workflow.parallel_join.find_by_id", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindParallelJoinById", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+    },
+    {
+      "statementName": "workflow.parallel_join.find_waiting_by_instance_and_join_node", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindWaitingParallelJoinByInstanceAndJoinNode", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+    },
+    {
+      "statementName": "workflow.parallel_join.increment_arrival", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.IncrementParallelJoinArrival", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+    },
+    {
+      "statementName": "workflow.parallel_join.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelJoin", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+    },
+    {
+      "statementName": "workflow.parallel_join.list_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListParallelJoinsByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+    },
+    {
+      "statementName": "workflow.step.cancel_all_active_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelAllActiveStepsByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_step"]
+    },
+    {
+      "statementName": "workflow.step.insert_completed_parallel_gateway", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedParallelGatewayStep", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_step"]
+    },
+    {
+      "statementName": "workflow.todo.cancel_all_active_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelAllActiveTodosByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_todo"]
+    },
+    {
+      "statementName": "workflow.todo.reactivate_after_before_countersign", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReactivateOriginTodoAfterBeforeCountersign", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "前加签完成后恢复原待办必须校验当前作用域和修订号。", "requiredSqlFragments": ["fn_workflow_todo", "TenantScopeKey"]
+    },
+    {
+      "statementName": "workflow.todo.suspend_for_before_countersign", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.SuspendOriginTodoForBeforeCountersign", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "前加签时挂起原待办必须校验当前作用域和修订号。", "requiredSqlFragments": ["fn_workflow_todo", "TenantScopeKey"]
     }
   ]
 }

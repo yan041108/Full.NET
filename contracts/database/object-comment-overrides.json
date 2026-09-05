@@ -190,6 +190,11 @@
         "StepId": "流程步骤标识"
       }
     },
+    "fn_workflow_countersign_chain": {
+      "columns": {
+        "ActiveOriginKey": "活动原始待办唯一键"
+      }
+    },
     "fn_workflow_recovery_task": {
       "comment": "工作流恢复任务表",
       "columns": {

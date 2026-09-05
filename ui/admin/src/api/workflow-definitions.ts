@@ -14,18 +14,41 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
-export interface WorkflowRoleCandidatePageResponse {
-  readonly items: ReadonlyArray<{ readonly id: string; readonly code: string; readonly name: string }>;
+export type WorkflowCandidate = {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
+export type WorkflowCandidatePage = {
+  readonly items: WorkflowCandidate[];
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
 }
 
-export interface WorkflowOrganizationUnitCandidatePageResponse {
-  readonly items: ReadonlyArray<{ readonly id: string; readonly code: string; readonly name: string }>;
-  readonly page: number;
-  readonly pageSize: number;
-  readonly total: number;
+/** 对候选分页响应执行运行时校验，避免把未知 JSON 直接提升为业务契约。 */
+function readWorkflowCandidatePage(value: unknown): WorkflowCandidatePage {
+  if (!value || typeof value !== 'object') {
+    throw new Error('client.invalid_workflow_candidate_page');
+  }
+
+  const page = value as Record<string, unknown>;
+  const validItems = Array.isArray(page.items) && page.items.every(item => {
+    if (!item || typeof item !== 'object') return false;
+    const candidate = item as Record<string, unknown>;
+    return typeof candidate.id === 'string' &&
+      typeof candidate.code === 'string' &&
+      typeof candidate.name === 'string';
+  });
+  if (!validItems ||
+      !Number.isInteger(page.page) ||
+      !Number.isInteger(page.pageSize) ||
+      !Number.isInteger(page.total)) {
+    throw new Error('client.invalid_workflow_candidate_page');
+  }
+
+  return value as WorkflowCandidatePage;
 }
 
 /** 读取单个工作流定义详情。 */
@@ -57,13 +80,14 @@ export async function listWorkflowRoleCandidates(
   page = 1,
   pageSize = 50,
   signal?: AbortSignal
-): Promise<WorkflowRoleCandidatePageResponse> {
+): Promise<WorkflowCandidatePage> {
   const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-  return http.request<WorkflowRoleCandidatePageResponse>(
+  const value = await http.request<unknown>(
     `/api/v1/workflow/definitions/role-candidates?${query.toString()}`,
     undefined,
     signal
   );
+  return readWorkflowCandidatePage(value);
 }
 
 /** 分页读取定义编辑器可选择的机构单元。 */
@@ -71,13 +95,14 @@ export async function listWorkflowOrganizationUnitCandidates(
   page = 1,
   pageSize = 50,
   signal?: AbortSignal
-): Promise<WorkflowOrganizationUnitCandidatePageResponse> {
+): Promise<WorkflowCandidatePage> {
   const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-  return http.request<WorkflowOrganizationUnitCandidatePageResponse>(
+  const value = await http.request<unknown>(
     `/api/v1/workflow/definitions/organization-unit-candidates?${query.toString()}`,
     undefined,
     signal
   );
+  return readWorkflowCandidatePage(value);
 }
 
 /** 创建工作流定义草稿。 */

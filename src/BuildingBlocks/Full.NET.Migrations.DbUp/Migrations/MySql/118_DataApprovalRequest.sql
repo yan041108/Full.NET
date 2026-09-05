@@ -1,5 +1,5 @@
 -- 118：DataApproval 首个纵向切片请求表。
-CREATE TABLE IF NOT EXISTS fn_data_approval_request (
+CREATE TABLE IF NOT EXISTS fn_dataapproval_request (
     Id BINARY(16) NOT NULL COMMENT '逻辑主键',
     TenantId BINARY(16) NULL COMMENT '租户标识；Host 级为 NULL',
     ScopeKey varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '作用域键',
@@ -19,11 +19,11 @@ CREATE TABLE IF NOT EXISTS fn_data_approval_request (
     CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
     UpdatedAtUtc datetime(6) NOT NULL COMMENT '更新时间(UTC)',
     Version bigint NOT NULL DEFAULT 1 COMMENT '乐观并发版本号',
-    CONSTRAINT PK_fn_data_approval_request PRIMARY KEY (Id),
-    CONSTRAINT CK_fn_data_approval_request_ScopeKey CHECK (ScopeKey IN ('host', 'tenant')),
-    CONSTRAINT CK_fn_data_approval_request_StatusKey
+    CONSTRAINT PK_fn_dataapproval_request PRIMARY KEY (Id),
+    CONSTRAINT CK_fn_dataapproval_request_ScopeKey CHECK (ScopeKey IN ('host', 'tenant')),
+    CONSTRAINT CK_fn_dataapproval_request_StatusKey
         CHECK (StatusKey IN ('pending', 'in_review', 'approved', 'rejected', 'cancelled')),
-    CONSTRAINT CK_fn_data_approval_request_Version CHECK (Version > 0),
-    UNIQUE KEY UX_fn_data_approval_request_Idempotency (TenantScopeKey, IdempotencyKey),
-    KEY IX_fn_data_approval_request_SubmittedAtUtc (TenantScopeKey, SubmittedAtUtc, Id)
+    CONSTRAINT CK_fn_dataapproval_request_Version CHECK (Version > 0),
+    UNIQUE KEY UX_fn_dataapproval_request_Idempotency (TenantScopeKey, IdempotencyKey),
+    KEY IX_fn_dataapproval_request_SubmittedAtUtc (TenantScopeKey, SubmittedAtUtc, Id)
 ) COMMENT='数据审批请求表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

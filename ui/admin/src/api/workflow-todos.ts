@@ -1,5 +1,6 @@
 import {
   isWorkflowTodoDetail,
+  readWorkflowInstanceResponse,
   workflowApproveTodo,
   workflowGetTodoRuntime,
   workflowListTodoReturnTargets,
@@ -115,15 +116,42 @@ export type WorkflowTodoCountersignChain = {
   items: WorkflowTodoCountersignItem[];
 };
 
+/** 校验活动加签链响应，未知或残缺结构必须失败关闭。 */
+function readWorkflowTodoCountersignChain(value: unknown): WorkflowTodoCountersignChain {
+  if (!value || typeof value !== 'object') {
+    throw new Error('client.invalid_workflow_todo_countersign_chain');
+  }
+
+  const chain = value as Record<string, unknown>;
+  const validItems = Array.isArray(chain.items) && chain.items.every(item => {
+    if (!item || typeof item !== 'object') return false;
+    const candidate = item as Record<string, unknown>;
+    return typeof candidate.itemId === 'string' &&
+      Number.isInteger(candidate.sequenceNo) &&
+      typeof candidate.assigneeUserId === 'string' &&
+      typeof candidate.statusKey === 'string' &&
+      (candidate.todoId === null || typeof candidate.todoId === 'string');
+  });
+  if (typeof chain.chainId !== 'string' ||
+      (chain.directionKey !== 'before' && chain.directionKey !== 'after') ||
+      typeof chain.statusKey !== 'string' ||
+      !validItems) {
+    throw new Error('client.invalid_workflow_todo_countersign_chain');
+  }
+
+  return value as WorkflowTodoCountersignChain;
+}
+
 /** 读取当前待办的活动加签链。 */
 export async function getWorkflowTodoCountersignChain(
   todoId: string,
   signal?: AbortSignal
 ): Promise<WorkflowTodoCountersignChain> {
-  return request<WorkflowTodoCountersignChain>(
+  const value = await request<unknown>(
     `/api/v1/workflow/todos/${todoId}/countersign-chain`,
     { method: 'GET', signal }
   );
+  return readWorkflowTodoCountersignChain(value);
 }
 
 /** 对活动待办发起前加签或后加签。 */
@@ -136,20 +164,22 @@ export async function countersignWorkflowTodo(
   idempotencyKey: string,
   signal?: AbortSignal
 ): Promise<WorkflowInstanceResponse> {
-  return request<WorkflowInstanceResponse>(
+  const value = await request<unknown>(
     `/api/v1/workflow/todos/${todoId}/countersign`,
     {
       method: 'POST',
       signal,
-      body: {
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
         directionKey,
         assigneeUserIds,
         expectedRevision,
         comment,
         idempotencyKey
-      }
+      })
     }
   );
+  return readWorkflowInstanceResponse(value);
 }
 
 /** 取消尚未完成的活动加签链。 */
@@ -160,14 +190,16 @@ export async function cancelWorkflowTodoCountersign(
   idempotencyKey: string,
   signal?: AbortSignal
 ): Promise<WorkflowInstanceResponse> {
-  return request<WorkflowInstanceResponse>(
+  const value = await request<unknown>(
     `/api/v1/workflow/todos/${todoId}/countersign/cancel`,
     {
       method: 'POST',
       signal,
-      body: { expectedRevision, comment, idempotencyKey }
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedRevision, comment, idempotencyKey })
     }
   );
+  return readWorkflowInstanceResponse(value);
 }
 
 /** 导出待办列表、详情、审批结果与字段补丁模型，供待办页和审批弹窗共享同一契约。 */
@@ -176,7 +208,5 @@ export type {
   WorkflowSubmission,
   WorkflowTodoDetail,
   WorkflowTodoResponse,
-  WorkflowTodoReturnTargetResponse,
-  WorkflowTodoCountersignChain,
-  WorkflowTodoCountersignItem
+  WorkflowTodoReturnTargetResponse
 };

@@ -37,6 +37,8 @@ const descriptor: NotificationProviderTypeDescriptor = {
 const template = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411201',
   templateKey: 'order.shipped',
+  localeTag: 'zh-CN',
+  defaultLocaleTag: 'zh-CN',
   channelKey: 'inbox',
   contentCategoryKey: 'transactional',
   draftSubject: '已发货',
@@ -47,6 +49,8 @@ const template = {
   latestPublishedVersionNumber: null,
   latestContentHash: null,
   latestContentClassificationKey: null,
+  missingLocaleTags: [],
+  publishedLocaleTags: [],
   createdAtUtc: '2026-08-31T00:00:00Z',
   updatedAtUtc: null,
   version: 1
@@ -139,7 +143,8 @@ describe('notification-platform api', () => {
       nextAttemptAtUtc: '2026-08-31T00:00:00Z',
       createdAtUtc: '2026-08-31T00:00:00Z',
       updatedAtUtc: null,
-      attempts: []
+      attempts: [],
+      receipts: []
     });
 
     await retryNotificationDelivery('0198f36e-f7a7-7c52-9cbb-774e67411203', {

@@ -103,7 +103,8 @@ internal sealed class DataApprovalRequestService(
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return Result<DataApprovalRequestResponse>.Success(Map(existing));
+            return await EnsureWorkflowStartedAsync(existing, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var beforeSnapshotJson = (string?)null;
@@ -138,7 +139,7 @@ internal sealed class DataApprovalRequestService(
         var now = clock.UtcNow;
         try
         {
-            return await transaction.ExecuteResultAsync(async token =>
+            var created = await transaction.ExecuteResultAsync(async token =>
             {
                 await commandExecutor.ExecuteAsync(
                     DataApprovalSql.InsertRequest,
@@ -164,40 +165,6 @@ internal sealed class DataApprovalRequestService(
                         ("Version", 1L)),
                     token).ConfigureAwait(false);
 
-                var start = await workflowStarter.StartAsync(
-                        actorUserId,
-                        new StartWorkflowInstanceCommand(
-                            definition.DefinitionVersionId,
-                            DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
-                            requestId.ToString("D"),
-                            "{}",
-                            $"{normalized.IdempotencyKey}:start"),
-                        token)
-                    .ConfigureAwait(false);
-                if (!start.IsSuccess)
-                {
-                    return Result<DataApprovalRequestResponse>.Failure(start.Error!);
-                }
-
-                var affected = await commandExecutor.ExecuteAsync(
-                    DataApprovalSql.LinkWorkflowInstance,
-                    DataApprovalSqlParameters.Create(
-                        ("Id", requestId),
-                        ("TenantScopeKey", scope.TenantScopeKey),
-                        ("WorkflowInstanceId", start.Value!.InstanceId),
-                        ("WorkflowRevision", start.Value.Revision),
-                        ("StatusKey", DataApprovalStatusKeys.InReview),
-                        ("UpdatedAtUtc", clock.UtcNow),
-                        ("ExpectedVersion", 1L)),
-                    token).ConfigureAwait(false);
-                if (affected != 1)
-                {
-                    return Result<DataApprovalRequestResponse>.Failure(new Error(
-                        DataApprovalErrorCodes.StatusInvalid,
-                        "The approval request could not be linked to the workflow.",
-                        ErrorType.Conflict));
-                }
-
                 var row = await queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
                         DataApprovalSql.FindRequestById,
                         DataApprovalSqlParameters.Create(
@@ -209,6 +176,15 @@ internal sealed class DataApprovalRequestService(
                     ? NotFound()
                     : Result<DataApprovalRequestResponse>.Success(Map(row));
             }, cancellationToken).ConfigureAwait(false);
+            if (!created.IsSuccess)
+            {
+                return created;
+            }
+
+            var createdRow = await FindAsync(requestId, cancellationToken).ConfigureAwait(false);
+            return createdRow is null
+                ? NotFound()
+                : await EnsureWorkflowStartedAsync(createdRow, cancellationToken).ConfigureAwait(false);
         }
         catch (DataCommandException exception)
             when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
@@ -220,13 +196,77 @@ internal sealed class DataApprovalRequestService(
                         ("IdempotencyKey", normalized.IdempotencyKey)),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return replay is null
-                ? Result<DataApprovalRequestResponse>.Failure(new Error(
+            if (replay is null)
+            {
+                return Result<DataApprovalRequestResponse>.Failure(new Error(
                     DataApprovalErrorCodes.RequestInvalid,
                     "The approval request could not be created.",
-                    ErrorType.Conflict))
-                : Result<DataApprovalRequestResponse>.Success(Map(replay));
+                    ErrorType.Conflict));
+            }
+
+            return await EnsureWorkflowStartedAsync(replay, cancellationToken)
+                .ConfigureAwait(false);
         }
+    }
+
+    /// <summary>在本地审批事务提交后幂等启动并关联工作流实例。</summary>
+    /// <param name="row">已提交的审批请求。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private async Task<Result<DataApprovalRequestResponse>> EnsureWorkflowStartedAsync(
+        DataApprovalRequestRecord row,
+        CancellationToken cancellationToken)
+    {
+        if (row.WorkflowInstanceId is not null)
+        {
+            return Result<DataApprovalRequestResponse>.Success(Map(row));
+        }
+
+        // Workflow 写入不进入 DataApproval 本地事务；稳定幂等键允许失败后由同一创建请求恢复。
+        var start = await workflowStarter.StartAsync(
+                row.SubmittedByUserId,
+                new StartWorkflowInstanceCommand(
+                    row.WorkflowDefinitionVersionId,
+                    DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
+                    row.Id.ToString("D"),
+                    "{}",
+                    $"{row.IdempotencyKey}:start"),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!start.IsSuccess)
+        {
+            return Result<DataApprovalRequestResponse>.Failure(start.Error!);
+        }
+
+        var affected = await commandExecutor.ExecuteAsync(
+                DataApprovalSql.LinkWorkflowInstance,
+                DataApprovalSqlParameters.Create(
+                    ("Id", row.Id),
+                    ("TenantScopeKey", row.TenantScopeKey),
+                    ("WorkflowInstanceId", start.Value!.InstanceId),
+                    ("WorkflowRevision", start.Value.Revision),
+                    ("StatusKey", DataApprovalStatusKeys.InReview),
+                    ("UpdatedAtUtc", clock.UtcNow),
+                    ("ExpectedVersion", row.Version)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            var latest = await FindAsync(row.Id, cancellationToken).ConfigureAwait(false);
+            if (latest?.WorkflowInstanceId == start.Value.InstanceId)
+            {
+                return Result<DataApprovalRequestResponse>.Success(Map(latest));
+            }
+
+            return Result<DataApprovalRequestResponse>.Failure(new Error(
+                DataApprovalErrorCodes.StatusInvalid,
+                "The approval request could not be linked to the workflow.",
+                ErrorType.Conflict));
+        }
+
+        var updated = await FindAsync(row.Id, cancellationToken).ConfigureAwait(false);
+        return updated is null
+            ? NotFound()
+            : Result<DataApprovalRequestResponse>.Success(Map(updated));
     }
 
     /// <summary>取消待处理审批请求并联动工作流实例。</summary>

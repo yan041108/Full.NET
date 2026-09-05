@@ -5,6 +5,7 @@
 const MODULE_LABELS = {
   auditing: '审计',
   codegeneration: '代码生成',
+  dataapproval: '数据审批',
   document: '文档',
   files: '文件',
   identity: '身份认证',
@@ -79,6 +80,7 @@ const ENTITY_LABELS = {
   binding_version: '场景绑定版本',
   preference: '通知偏好',
   recipient_endpoint: '收件端点',
+  request: '申请',
   receipt: '投递回执',
   tenant: '租户',
   tenant_package: '租户套餐',
@@ -97,6 +99,7 @@ const COLUMN_LABELS = {
   AccessCount: '访问次数',
   AccessKeyId: '访问密钥标识',
   AccountType: '账户类型',
+  ActiveOriginKey: '活动原始待办唯一键',
   ActionKey: '操作键',
   ActiveTenantId: '当前活动租户标识',
   ActorDisplayName: '操作者显示名',
