@@ -124,13 +124,15 @@ internal sealed class WorkflowApprovalTransitionExecutor(
             fork.JoinNodeKey,
             fork.Branches.Count,
             now,
+            fork.GatewayTypeKey,
             cancellationToken).ConfigureAwait(false);
+        var gatewayNodeType = fork.GatewayTypeKey == "inclusive" ? "gateway.inclusive" : "gateway.parallel";
         var sequence = await automaticTransitionWriter.WriteAsync(
             instance.Id,
             scope.TenantScopeKey,
             [new WorkflowAutomaticRuntimeNode(
                 fork.ForkNodeKey,
-                "gateway.parallel",
+                gatewayNodeType,
                 [],
                 fork.JoinNodeKey)],
             executionSequence,
@@ -213,6 +215,10 @@ internal sealed class WorkflowApprovalTransitionExecutor(
             now,
             cancellationToken).ConfigureAwait(false);
 
+        var gatewayNodeType = joinArrival.ForkNodeKey is not null &&
+            runtimePlan.IsInclusiveFork(joinArrival.ForkNodeKey)
+                ? "gateway.inclusive"
+                : "gateway.parallel";
         var sequence = await automaticTransitionWriter.WriteAsync(
             instance.Id,
             scope.TenantScopeKey,
@@ -220,7 +226,7 @@ internal sealed class WorkflowApprovalTransitionExecutor(
                 ..joinArrival.TrailingAutomaticNodes,
                 new WorkflowAutomaticRuntimeNode(
                     joinArrival.JoinNodeKey,
-                    "gateway.parallel",
+                    gatewayNodeType,
                     [],
                     "joined"),
             ],

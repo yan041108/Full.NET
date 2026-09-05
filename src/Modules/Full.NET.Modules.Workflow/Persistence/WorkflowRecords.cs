@@ -142,6 +142,7 @@ internal sealed record WorkflowParallelJoinRecord(
     Guid InstanceId,
     string ForkNodeKey,
     string JoinNodeKey,
+    string GatewayTypeKey,
     int RequiredBranchCount,
     int ArrivedBranchCount,
     string StatusKey,
@@ -149,11 +150,12 @@ internal sealed record WorkflowParallelJoinRecord(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? CompletedAtUtc);
 
-/// <summary>实例详情页使用的并行分支状态投影。</summary>
+/// <summary>实例详情页使用的并行或包容分支状态投影。</summary>
 internal sealed record WorkflowParallelJoinStatusRecord(
     Guid Id,
     string ForkNodeKey,
     string JoinNodeKey,
+    string GatewayTypeKey,
     int RequiredBranchCount,
     int ArrivedBranchCount,
     string StatusKey,

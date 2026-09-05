@@ -338,12 +338,13 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetGuid(1),
             reader.GetString(2),
             reader.GetString(3),
-            reader.GetInt32(4),
+            reader.GetString(4),
             reader.GetInt32(5),
-            reader.GetString(6),
-            reader.GetInt64(7),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9));
+            reader.GetInt32(6),
+            reader.GetString(7),
+            reader.GetInt64(8),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10));
 
     /// <summary>按实例详情投影顺序物化并行汇合与分支到达状态。</summary>
     /// <param name="reader">定位到当前行的数据读取器。</param>
@@ -353,10 +354,11 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetGuid(0),
             reader.GetString(1),
             reader.GetString(2),
-            reader.GetInt32(3),
+            reader.GetString(3),
             reader.GetInt32(4),
-            reader.GetString(5),
-            AotDataReaderExtensions.ReadNullableString(reader, 6),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7));
+            reader.GetInt32(5),
+            reader.GetString(6),
+            AotDataReaderExtensions.ReadNullableString(reader, 7),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8));
 }
 #endif

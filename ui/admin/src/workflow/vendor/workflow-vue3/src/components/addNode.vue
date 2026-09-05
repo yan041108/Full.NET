@@ -19,6 +19,10 @@
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.ParallelRoute).icon }}</span></span>
             <span>并行分支</span>
           </button>
+          <button v-if="enabledNodeTypes.has('gateway.inclusive')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.InclusiveRoute)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.InclusiveRoute).icon }}</span></span>
+            <span>包容分支</span>
+          </button>
         </div>
         <template #reference>
           <button class="btn" type="button" aria-label="添加流程节点">
@@ -58,7 +62,7 @@ const createNodeId = () => {
 
 const addType = (type) => {
   visible.value = false
-  if (![NodeType.Approver, NodeType.Copyer, NodeType.Route, NodeType.ParallelRoute].includes(type)) return
+  if (![NodeType.Approver, NodeType.Copyer, NodeType.Route, NodeType.ParallelRoute, NodeType.InclusiveRoute].includes(type)) return
   if (type === NodeType.ParallelRoute) {
     const firstBranchId = createNodeId()
     const secondBranchId = createNodeId()
@@ -90,6 +94,54 @@ const addType = (type) => {
           type: NodeType.ConditionItem,
           priorityLevel: 2,
           branchKey: secondBranchId,
+          childNode: {
+            id: createNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+          },
+        },
+      ],
+      childNode: props.childNodeP,
+    })
+    return
+  }
+  if (type === NodeType.InclusiveRoute) {
+    const firstBranchId = createNodeId()
+    const defaultBranchId = createNodeId()
+    emit('update:childNodeP', {
+      id: createNodeId(),
+      nodeName: getNodeTypeMeta(type).label,
+      type,
+      error: false,
+      conditionNodes: [
+        {
+          id: firstBranchId,
+          nodeName: '包容条件1',
+          type: NodeType.ConditionItem,
+          priorityLevel: 1,
+          branchKey: firstBranchId,
+          fieldKey: '',
+          operator: 'equals',
+          childNode: {
+            id: createNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+          },
+        },
+        {
+          id: defaultBranchId,
+          nodeName: '其他条件',
+          type: NodeType.ConditionItem,
+          priorityLevel: 2,
+          isDefault: true,
           childNode: {
             id: createNodeId(),
             nodeName: getNodeTypeMeta(NodeType.Approver).label,

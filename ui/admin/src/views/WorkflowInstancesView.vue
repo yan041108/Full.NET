@@ -40,8 +40,29 @@ function transitionLabel(transitionKey: string): string {
   if (transitionKey === 'node.gateway.parallel.join') {
     return t('workflowInstances.parallelJoin');
   }
+  if (transitionKey === 'node.gateway.inclusive.fork') {
+    return t('workflowInstances.inclusiveFork');
+  }
+  if (transitionKey === 'node.gateway.inclusive.join') {
+    return t('workflowInstances.inclusiveJoin');
+  }
   return transitionKey;
 }
+
+type WorkflowGatewayJoinBranch = { branchKey: string; arrivedAtUtc?: string | null };
+type WorkflowGatewayJoin = {
+  id: string;
+  gatewayTypeKey: string;
+  forkNodeKey: string;
+  joinNodeKey: string;
+  requiredBranchCount: number;
+  arrivedBranchCount: number;
+  statusKey: string;
+  branches: WorkflowGatewayJoinBranch[];
+};
+type WorkflowInstanceDetail = WorkflowInstanceResponse & { gatewayJoins?: WorkflowGatewayJoin[] | null };
+
+const gatewayJoins = computed(() => (instance.value as WorkflowInstanceDetail | undefined)?.gatewayJoins ?? []);
 
 /** 把服务端稳定机器码映射为当前语言文案，未知值安全回落为未配置。 */
 function timeoutStatusLabel(statusKey: string | undefined): string {
@@ -446,6 +467,33 @@ function toProblem(error: unknown): FullNetProblemDetails {
           <code v-if="instance.activeNodeKey" translate="no">{{ instance.activeNodeKey }}</code>
         </article>
       </section>
+
+      <el-card
+        v-if="gatewayJoins.length > 0"
+        shadow="never"
+        class="workflow-instances__timeline-card"
+        data-testid="workflow-instance-gateway-joins"
+      >
+        <template #header>
+          <h2>{{ t('workflowInstances.gatewayJoinsTitle') }}</h2>
+        </template>
+        <ul class="workflow-instances__timeline">
+          <li v-for="join in gatewayJoins" :key="join.id">
+            <strong translate="no">{{ join.gatewayTypeKey }} · {{ join.forkNodeKey }} → {{ join.joinNodeKey }}</strong>
+            <span>{{ t('workflowInstances.gatewayJoinProgress', {
+              arrived: join.arrivedBranchCount,
+              required: join.requiredBranchCount,
+              status: join.statusKey
+            }) }}</span>
+            <ul v-if="join.branches.length > 0">
+              <li v-for="branch in join.branches" :key="branch.branchKey">
+                <code translate="no">{{ branch.branchKey }}</code>
+                <time v-if="branch.arrivedAtUtc" :datetime="branch.arrivedAtUtc">{{ branch.arrivedAtUtc }}</time>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </el-card>
 
       <el-card shadow="never" class="workflow-instances__timeline-card">
         <template #header>

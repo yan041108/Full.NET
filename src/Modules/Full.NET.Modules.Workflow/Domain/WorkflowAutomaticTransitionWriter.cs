@@ -52,7 +52,7 @@ internal sealed class WorkflowAutomaticTransitionWriter(
 
             if (node.NodeTypeKey != "gateway.exclusive" || string.IsNullOrWhiteSpace(node.OutcomeKey))
             {
-                if (node.NodeTypeKey == "gateway.parallel")
+                if (node.NodeTypeKey is "gateway.parallel" or "gateway.inclusive")
                 {
                     var parallelStepId = idGenerator.NewId();
                     await commandExecutor.ExecuteAsync(
@@ -67,10 +67,17 @@ internal sealed class WorkflowAutomaticTransitionWriter(
                             ("StartedAtUtc", occurredAtUtc),
                             ("CompletedAtUtc", occurredAtUtc)),
                         cancellationToken).ConfigureAwait(false);
-                    var transitionKey = string.IsNullOrWhiteSpace(node.OutcomeKey) ||
-                        node.OutcomeKey == "joined"
-                            ? "node.gateway.parallel.join"
-                            : "node.gateway.parallel.fork";
+                    var transitionKey = node.NodeTypeKey switch
+                    {
+                        "gateway.inclusive" => string.IsNullOrWhiteSpace(node.OutcomeKey) ||
+                            node.OutcomeKey == "joined"
+                                ? "node.gateway.inclusive.join"
+                                : "node.gateway.inclusive.fork",
+                        _ => string.IsNullOrWhiteSpace(node.OutcomeKey) ||
+                            node.OutcomeKey == "joined"
+                                ? "node.gateway.parallel.join"
+                                : "node.gateway.parallel.fork",
+                    };
                     await commandExecutor.ExecuteAsync(
                         WorkflowSql.InsertExecutionLog,
                         WorkflowSqlParameters.Create(

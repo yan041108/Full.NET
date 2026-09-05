@@ -13,6 +13,8 @@ internal sealed class WorkflowRuntimePlan
     private readonly IReadOnlyDictionary<string, WorkflowExclusiveGatewayDefinition> gateways;
     private readonly IReadOnlyDictionary<string, WorkflowParallelGatewayDefinition> parallelForks;
     private readonly IReadOnlyDictionary<string, WorkflowParallelGatewayDefinition> parallelJoins;
+    private readonly IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveForks;
+    private readonly IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins;
     private readonly string startNextNodeKey;
 
     /// <summary>使用已验证节点、出口和网关条件创建不可变运行计划。</summary>
@@ -21,6 +23,8 @@ internal sealed class WorkflowRuntimePlan
     /// <param name="gateways">按节点键索引的排他网关定义。</param>
     /// <param name="parallelForks">按节点键索引的并行分叉定义。</param>
     /// <param name="parallelJoins">按节点键索引的并行汇合定义。</param>
+    /// <param name="inclusiveForks">按节点键索引的包容分叉定义。</param>
+    /// <param name="inclusiveJoins">按节点键索引的包容汇合定义。</param>
     /// <param name="startNextNodeKey">开始节点的唯一后继。</param>
     private WorkflowRuntimePlan(
         IReadOnlyDictionary<string, WorkflowNodeDraft> nodes,
@@ -28,6 +32,8 @@ internal sealed class WorkflowRuntimePlan
         IReadOnlyDictionary<string, WorkflowExclusiveGatewayDefinition> gateways,
         IReadOnlyDictionary<string, WorkflowParallelGatewayDefinition> parallelForks,
         IReadOnlyDictionary<string, WorkflowParallelGatewayDefinition> parallelJoins,
+        IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveForks,
+        IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins,
         string startNextNodeKey)
     {
         this.nodes = nodes;
@@ -35,6 +41,8 @@ internal sealed class WorkflowRuntimePlan
         this.gateways = gateways;
         this.parallelForks = parallelForks;
         this.parallelJoins = parallelJoins;
+        this.inclusiveForks = inclusiveForks;
+        this.inclusiveJoins = inclusiveJoins;
         this.startNextNodeKey = startNextNodeKey;
     }
 
@@ -73,9 +81,11 @@ internal sealed class WorkflowRuntimePlan
         var gateways = new Dictionary<string, WorkflowExclusiveGatewayDefinition>(StringComparer.Ordinal);
         var parallelForks = new Dictionary<string, WorkflowParallelGatewayDefinition>(StringComparer.Ordinal);
         var parallelJoins = new Dictionary<string, WorkflowParallelGatewayDefinition>(StringComparer.Ordinal);
+        var inclusiveForks = new Dictionary<string, WorkflowInclusiveGatewayDefinition>(StringComparer.Ordinal);
+        var inclusiveJoins = new Dictionary<string, WorkflowInclusiveGatewayDefinition>(StringComparer.Ordinal);
         foreach (var node in draft.Nodes)
         {
-            if (!TryReadNode(node, formSchema, outgoing, gateways, parallelForks, parallelJoins))
+            if (!TryReadNode(node, formSchema, outgoing, gateways, parallelForks, parallelJoins, inclusiveForks, inclusiveJoins))
             {
                 return false;
             }
@@ -86,7 +96,8 @@ internal sealed class WorkflowRuntimePlan
             return false;
         }
 
-        if (!ValidateParallelPairs(parallelForks, parallelJoins))
+        if (!ValidateParallelPairs(parallelForks, parallelJoins) ||
+            !ValidateInclusivePairs(inclusiveForks, inclusiveJoins))
         {
             return false;
         }
@@ -111,6 +122,8 @@ internal sealed class WorkflowRuntimePlan
             gateways,
             parallelForks,
             parallelJoins,
+            inclusiveForks,
+            inclusiveJoins,
             startNextNodeKey!);
         return true;
     }
@@ -179,10 +192,25 @@ internal sealed class WorkflowRuntimePlan
         out WorkflowApprovalTransition transition)
     {
         transition = default;
-        return parallelJoins.TryGetValue(joinNodeKey, out var join) &&
-               join.NextNodeKey is { } nextNodeKey &&
+        string? nextNodeKey = null;
+        if (parallelJoins.TryGetValue(joinNodeKey, out var parallelJoin))
+        {
+            nextNodeKey = parallelJoin.NextNodeKey;
+        }
+        else if (inclusiveJoins.TryGetValue(joinNodeKey, out var inclusiveJoin))
+        {
+            nextNodeKey = inclusiveJoin.DefaultNextNodeKey;
+        }
+
+        return nextNodeKey is not null &&
                TryTraverse(nextNodeKey, values, stopAtJoinNodeKey: null, out transition);
     }
+
+    /// <summary>确认分叉节点属于包容网关。</summary>
+    /// <param name="forkNodeKey">分叉节点键。</param>
+    /// <returns>节点存在于包容分叉索引时返回 <see langword="true"/>。</returns>
+    public bool IsInclusiveFork(string forkNodeKey) =>
+        inclusiveForks.ContainsKey(forkNodeKey);
 
     /// <summary>确认节点是否为当前计划中的人工审批等待点。</summary>
     /// <param name="nodeKey">待检查的节点键。</param>
@@ -334,6 +362,79 @@ internal sealed class WorkflowRuntimePlan
                         "joined"));
                     current = joinNext;
                     break;
+                case "gateway.inclusive":
+                    if (inclusiveForks.TryGetValue(node.NodeKey, out var inclusiveFork))
+                    {
+                        if (!inclusiveFork.TrySelectBranches(values, out var selections))
+                        {
+                            return false;
+                        }
+
+                        automaticNodes.Add(new WorkflowAutomaticRuntimeNode(
+                            node.NodeKey,
+                            node.NodeTypeKey,
+                            [],
+                            string.Join(',', selections.Select(selection => selection.BranchKey))));
+                        var inclusiveBranchPlans = new List<WorkflowParallelBranchPlan>(selections.Count);
+                        foreach (var inclusiveSelection in selections)
+                        {
+                            if (!TryTraverseBranch(
+                                    inclusiveSelection.BranchKey,
+                                    inclusiveSelection.NextNodeKey,
+                                    values,
+                                    inclusiveFork.JoinNodeKey!,
+                                    out var branchPlan))
+                            {
+                                return false;
+                            }
+
+                            inclusiveBranchPlans.Add(branchPlan);
+                        }
+
+                        transition = new WorkflowApprovalTransition(
+                            null,
+                            false,
+                            automaticNodes,
+                            parallelFork: new WorkflowParallelForkPlan(
+                                node.NodeKey,
+                                inclusiveFork.JoinNodeKey!,
+                                inclusiveBranchPlans,
+                                "inclusive"));
+                        return true;
+                    }
+
+                    if (!inclusiveJoins.TryGetValue(node.NodeKey, out var inclusiveJoin))
+                    {
+                        return false;
+                    }
+
+                    if (stopAtJoinNodeKey is not null &&
+                        string.Equals(node.NodeKey, stopAtJoinNodeKey, StringComparison.Ordinal))
+                    {
+                        transition = new WorkflowApprovalTransition(
+                            null,
+                            false,
+                            automaticNodes,
+                            joinArrival: new WorkflowJoinArrivalPlan(
+                                node.NodeKey,
+                                inclusiveJoin.ForkNodeKey!,
+                                string.Empty,
+                                automaticNodes.ToArray()));
+                        return true;
+                    }
+
+                    if (outgoing[node.NodeKey] is not [var inclusiveJoinNext])
+                    {
+                        return false;
+                    }
+
+                    automaticNodes.Add(new WorkflowAutomaticRuntimeNode(
+                        node.NodeKey,
+                        node.NodeTypeKey,
+                        [],
+                        "joined"));
+                    current = inclusiveJoinNext;
+                    break;
                 default:
                     return false;
             }
@@ -409,6 +510,28 @@ internal sealed class WorkflowRuntimePlan
             join.ForkNodeKey is { } forkNodeKey && parallelForks.ContainsKey(forkNodeKey));
     }
 
+    /// <summary>验证包容分叉与汇合节点成对出现且互相引用一致。</summary>
+    /// <param name="inclusiveForks">包容分叉定义索引。</param>
+    /// <param name="inclusiveJoins">包容汇合定义索引。</param>
+    /// <returns>全部包容网关成对闭合时返回 <see langword="true"/>。</returns>
+    private static bool ValidateInclusivePairs(
+        IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveForks,
+        IReadOnlyDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins)
+    {
+        foreach (var (forkKey, fork) in inclusiveForks)
+        {
+            if (fork.JoinNodeKey is not { } joinNodeKey ||
+                !inclusiveJoins.TryGetValue(joinNodeKey, out var join) ||
+                !string.Equals(join.ForkNodeKey, forkKey, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return inclusiveJoins.Values.All(join =>
+            join.ForkNodeKey is { } forkNodeKey && inclusiveForks.ContainsKey(forkNodeKey));
+    }
+
     /// <summary>解析单个节点的出口与自动节点配置。</summary>
     /// <param name="node">待解析节点。</param>
     /// <param name="formSchema">可选的表单架构。</param>
@@ -416,6 +539,8 @@ internal sealed class WorkflowRuntimePlan
     /// <param name="gateways">正在构建的排他网关索引。</param>
     /// <param name="parallelForks">正在构建的并行分叉索引。</param>
     /// <param name="parallelJoins">正在构建的并行汇合索引。</param>
+    /// <param name="inclusiveForks">正在构建的包容分叉索引。</param>
+    /// <param name="inclusiveJoins">正在构建的包容汇合索引。</param>
     /// <returns>节点类型和配置均受当前执行器支持时返回 <see langword="true"/>。</returns>
     private static bool TryReadNode(
         WorkflowNodeDraft node,
@@ -423,7 +548,9 @@ internal sealed class WorkflowRuntimePlan
         IDictionary<string, string[]> outgoing,
         IDictionary<string, WorkflowExclusiveGatewayDefinition> gateways,
         IDictionary<string, WorkflowParallelGatewayDefinition> parallelForks,
-        IDictionary<string, WorkflowParallelGatewayDefinition> parallelJoins)
+        IDictionary<string, WorkflowParallelGatewayDefinition> parallelJoins,
+        IDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveForks,
+        IDictionary<string, WorkflowInclusiveGatewayDefinition> inclusiveJoins)
     {
         switch (node.NodeTypeKey)
         {
@@ -478,6 +605,27 @@ internal sealed class WorkflowRuntimePlan
 
                 parallelJoins.Add(node.NodeKey, parallel);
                 outgoing.Add(node.NodeKey, [parallel.NextNodeKey!]);
+                return true;
+            case "gateway.inclusive":
+                if (!WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out var inclusive))
+                {
+                    return false;
+                }
+
+                if (inclusive!.Role == WorkflowInclusiveGatewayRole.Fork)
+                {
+                    inclusiveForks.Add(node.NodeKey, inclusive);
+                    outgoing.Add(
+                        node.NodeKey,
+                        inclusive.Branches.Select(branch => branch.NextNodeKey)
+                            .Append(inclusive.DefaultNextNodeKey)
+                            .Distinct(StringComparer.Ordinal)
+                            .ToArray());
+                    return true;
+                }
+
+                inclusiveJoins.Add(node.NodeKey, inclusive);
+                outgoing.Add(node.NodeKey, [inclusive.DefaultNextNodeKey]);
                 return true;
             case "end":
                 if (!HasNoNext(node.Config))

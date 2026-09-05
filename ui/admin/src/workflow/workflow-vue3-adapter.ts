@@ -14,6 +14,8 @@ export interface WorkflowVue3Node {
 
 /** Workflow-Vue3 并行分支节点类型。 */
 const PARALLEL_ROUTE_TYPE = 12;
+/** Workflow-Vue3 包容分支节点类型。 */
+const INCLUSIVE_ROUTE_TYPE = 13;
 /** 旧设计器节点类型到服务端稳定节点类型的闭合映射。 */
 const sourceToTargetType = new Map<number, string>([
   [0, 'start'],
@@ -91,6 +93,56 @@ export function fromWorkflowVue3Tree(root: unknown): WorkflowDefinitionDraft {
       nodes.push({
         nodeKey: joinNodeKey,
         nodeTypeKey: 'gateway.parallel',
+        nodeSchemaVersion: 1,
+        config: {
+          gatewayRoleKey: 'join',
+          forkNodeKey: nodeKey,
+          nextNodeKeys: [nextAfterJoin]
+        }
+      });
+      if (merge !== null) compile(merge, continuationKey);
+      return;
+    }
+
+    if (Number(current.type) === INCLUSIVE_ROUTE_TYPE) {
+      assertSafeConfiguration(current);
+      const conditionNodes = current.conditionNodes;
+      if (!Array.isArray(conditionNodes) || conditionNodes.length < 2 || conditionNodes.length > 16) {
+        throw new Error('client.invalid_workflow_gateway');
+      }
+      const defaults = conditionNodes.filter(condition => condition.isDefault === true);
+      if (defaults.length !== 1 || conditionNodes.at(-1) !== defaults[0]) {
+        throw new Error('client.invalid_workflow_gateway');
+      }
+      const targets = conditionNodes.map(condition => {
+        if (!isRecord(condition.childNode)) throw new Error('client.invalid_workflow_gateway');
+        return readStableKey(condition.childNode.id);
+      });
+      if (new Set(targets).size !== targets.length) throw new Error('client.invalid_workflow_gateway');
+      const branches = conditionNodes.slice(0, -1).map((condition, index) => ({
+        branchKey: readStableKey(condition.branchKey ?? `branch-${index + 1}`),
+        nextNodeKey: targets[index]!,
+        condition: readDesignerGatewayCondition(condition)
+      }));
+      const joinNodeKey = `${nodeKey}-join`;
+      nodes.push({
+        nodeKey,
+        nodeTypeKey: 'gateway.inclusive',
+        nodeSchemaVersion: 1,
+        config: {
+          ...(typeof current.nodeName === 'string' ? { nodeName: current.nodeName } : {}),
+          gatewayRoleKey: 'fork',
+          joinNodeKey,
+          branches,
+          defaultNextNodeKey: targets.at(-1)!
+        }
+      });
+      conditionNodes.forEach(condition => compile(condition.childNode as WorkflowVue3Node, joinNodeKey));
+      const merge = isRecord(current.childNode) ? current.childNode as WorkflowVue3Node : null;
+      const nextAfterJoin = merge === null ? continuationKey : readStableKey(merge.id);
+      nodes.push({
+        nodeKey: joinNodeKey,
+        nodeTypeKey: 'gateway.inclusive',
         nodeSchemaVersion: 1,
         config: {
           gatewayRoleKey: 'join',
@@ -210,6 +262,47 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
     if (node.nodeTypeKey === 'gateway.parallel') {
       throw new Error('client.unsupported_workflow_node');
     }
+    if (node.nodeTypeKey === 'gateway.inclusive' && config.gatewayRoleKey === 'fork') {
+      const inclusive = readTargetInclusiveForkConfig(config);
+      const join = byKey.get(inclusive.joinNodeKey);
+      if (join === undefined || join.nodeTypeKey !== 'gateway.inclusive') {
+        throw new Error('client.invalid_workflow_definition_draft');
+      }
+      const joinConfig = isRecord(join.config) ? join.config : {};
+      const nextAfterJoin = Array.isArray(joinConfig.nextNodeKeys)
+        ? joinConfig.nextNodeKeys.find((value): value is string => typeof value === 'string')
+        : undefined;
+      const conditionNodes: WorkflowVue3Node[] = inclusive.branches.map((branch, index) => ({
+        id: `${node.nodeKey}-${branch.branchKey}`,
+        type: 3,
+        nodeName: branch.branchKey,
+        branchKey: branch.branchKey,
+        fieldKey: branch.condition.fieldKey,
+        operator: branch.condition.operator,
+        ...(branch.condition.value === undefined ? {} : { value: cloneJson(branch.condition.value) }),
+        priorityLevel: index + 1,
+        childNode: build(byKey.get(branch.nextNodeKey)!, inclusive.joinNodeKey)
+      }));
+      conditionNodes.push({
+        id: `${node.nodeKey}-default`,
+        type: 3,
+        nodeName: '其他条件',
+        isDefault: true,
+        priorityLevel: conditionNodes.length + 1,
+        childNode: build(byKey.get(inclusive.defaultNextNodeKey)!, inclusive.joinNodeKey)
+      });
+      const merge = nextAfterJoin === undefined ? undefined : byKey.get(nextAfterJoin);
+      return {
+        id: node.nodeKey,
+        type: INCLUSIVE_ROUTE_TYPE,
+        nodeName: typeof config.nodeName === 'string' ? config.nodeName : '包容分支',
+        conditionNodes,
+        childNode: merge === undefined ? null : build(merge, stopKey)
+      };
+    }
+    if (node.nodeTypeKey === 'gateway.inclusive') {
+      throw new Error('client.unsupported_workflow_node');
+    }
     const type = targetToSourceType.get(node.nodeTypeKey);
     if (type === undefined) throw new Error('client.unsupported_workflow_node');
     if (node.nodeTypeKey === 'gateway.exclusive') {
@@ -251,7 +344,7 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
     const next = byKey.get(nextKeys[0]!);
     if (next === undefined) throw new Error('client.invalid_workflow_definition_draft');
     const nextConfig = isRecord(next.config) ? next.config : {};
-    const stopsAtParallelJoin = next.nodeTypeKey === 'gateway.parallel'
+    const stopsAtJoinGateway = (next.nodeTypeKey === 'gateway.parallel' || next.nodeTypeKey === 'gateway.inclusive')
       && nextConfig.gatewayRoleKey === 'join';
     const closedConfig = readClosedTargetConfig(config, node.nodeTypeKey);
     const recipientUserIds = node.nodeTypeKey === 'notify.cc'
@@ -271,7 +364,7 @@ export function toWorkflowVue3Tree(draft: WorkflowDefinitionDraft): WorkflowVue3
           type: 'user'
         }))
       }),
-      childNode: stopsAtParallelJoin ? null : build(next, stopKey)
+      childNode: stopsAtJoinGateway ? null : build(next, stopKey)
     };
   };
 
@@ -327,6 +420,43 @@ function readTargetParallelForkConfig(config: Record<string, unknown>): Parallel
     throw new Error('client.unsupported_workflow_node_configuration');
   }
   return { joinNodeKey, branches };
+}
+
+interface InclusiveForkTargetConfig {
+  readonly joinNodeKey: string;
+  readonly branches: GatewayBranchConfig[];
+  readonly defaultNextNodeKey: string;
+}
+
+/** 从服务端 Draft 读取包容分叉闭合配置。 */
+function readTargetInclusiveForkConfig(config: Record<string, unknown>): InclusiveForkTargetConfig {
+  if (config.gatewayRoleKey !== 'fork' || typeof config.joinNodeKey !== 'string') {
+    throw new Error('client.invalid_workflow_gateway');
+  }
+  const joinNodeKey = readStableKey(config.joinNodeKey);
+  if (!Array.isArray(config.branches) || config.branches.length < 1 || config.branches.length > 15) {
+    throw new Error('client.invalid_workflow_gateway');
+  }
+  const branches = config.branches.map(value => {
+    if (!isRecord(value)) throw new Error('client.invalid_workflow_gateway');
+    const condition = value.condition;
+    if (!isRecord(condition)) throw new Error('client.invalid_workflow_gateway');
+    return {
+      branchKey: readStableKey(value.branchKey),
+      nextNodeKey: readStableKey(value.nextNodeKey),
+      condition: {
+        fieldKey: readStableKey(condition.fieldKey),
+        operator: typeof condition.operator === 'string' ? condition.operator : '',
+        ...(condition.value === undefined ? {} : { value: cloneJson(condition.value) })
+      }
+    };
+  });
+  const defaultNextNodeKey = readStableKey(config.defaultNextNodeKey);
+  const allowed = new Set(['nodeName', 'gatewayRoleKey', 'joinNodeKey', 'branches', 'defaultNextNodeKey']);
+  if (Object.keys(config).some(key => !allowed.has(key))) {
+    throw new Error('client.unsupported_workflow_node_configuration');
+  }
+  return { joinNodeKey, branches, defaultNextNodeKey };
 }
 
 /** 从条件分支卡片读取闭合字段比较，不接受组合表达式或扩展执行参数。 */
@@ -649,6 +779,7 @@ function defaultNodeName(nodeTypeKey: string): string {
   if (nodeTypeKey === 'human.approval') return '审批人';
   if (nodeTypeKey === 'gateway.exclusive') return '条件分支';
   if (nodeTypeKey === 'gateway.parallel') return '并行分支';
+  if (nodeTypeKey === 'gateway.inclusive') return '包容分支';
   return '抄送人';
 }
 

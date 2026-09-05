@@ -7,7 +7,8 @@ namespace Full.NET.Modules.Workflow.Domain;
 internal sealed record WorkflowParallelForkPlan(
     string ForkNodeKey,
     string JoinNodeKey,
-    IReadOnlyList<WorkflowParallelBranchPlan> Branches);
+    IReadOnlyList<WorkflowParallelBranchPlan> Branches,
+    string GatewayTypeKey = "parallel");
 
 /// <summary>描述单个并行分支从入口到首个等待点或汇合点的计划。</summary>
 /// <param name="BranchKey">稳定分支键。</param>

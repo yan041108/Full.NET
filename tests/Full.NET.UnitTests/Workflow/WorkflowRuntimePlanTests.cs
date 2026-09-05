@@ -192,6 +192,80 @@ public sealed class WorkflowRuntimePlanTests
         Assert.AreEqual("after", afterJoin.NextApprovalNodeKey);
     }
 
+    [TestMethod]
+    public void Inclusive_gateway_activates_all_matching_branches_and_waits_at_join()
+    {
+        var schema = new WorkflowFormSchema(1, 1,
+        [
+            new WorkflowFormSection("main",
+            [
+                new WorkflowFormField(
+                    "amount",
+                    "money",
+                    true,
+                    new Dictionary<string, JsonElement> { ["scale"] = JsonSerializer.SerializeToElement(2) }),
+            ]),
+        ]);
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "fork1"),
+            InclusiveForkNode("fork1", "join1", "default-approve", "finance", "manager"),
+            Node("finance", "human.approval", "join1"),
+            Node("manager", "human.approval", "join1"),
+            Node("default-approve", "human.approval", "join1"),
+            InclusiveJoinNode("join1", "fork1", "after"),
+            Node("after", "human.approval", "end"),
+            Node("end", "end"),
+        ]);
+
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, schema, out var plan));
+        Assert.IsNotNull(plan);
+        Assert.IsTrue(plan.TryResolveStart(Values("{\"amount\":\"50.00\"}"), out var start));
+        Assert.IsNotNull(start.ParallelFork);
+        Assert.AreEqual("inclusive", start.ParallelFork!.GatewayTypeKey);
+        Assert.AreEqual(1, start.ParallelFork.Branches.Count);
+        Assert.AreEqual("manager", start.ParallelFork.Branches[0].NextApprovalNodeKey);
+    }
+
+    private static WorkflowNodeDraft InclusiveForkNode(
+        string key,
+        string joinNodeKey,
+        string defaultTarget,
+        params string[] conditionalTargets) =>
+        new(
+            key,
+            "gateway.inclusive",
+            1,
+            JsonSerializer.SerializeToElement(new
+            {
+                gatewayRoleKey = "fork",
+                joinNodeKey,
+                defaultNextNodeKey = defaultTarget,
+                branches = conditionalTargets.Select((target, index) => new
+                {
+                    branchKey = $"branch-{target}",
+                    nextNodeKey = target,
+                    condition = new
+                    {
+                        fieldKey = "amount",
+                        @operator = index == 0 ? "greaterThanOrEqual" : "lessThan",
+                        value = index == 0 ? "1000.00" : "100.00",
+                    },
+                }).ToArray(),
+            }));
+
+    private static WorkflowNodeDraft InclusiveJoinNode(string key, string forkNodeKey, string next) =>
+        new(
+            key,
+            "gateway.inclusive",
+            1,
+            JsonSerializer.SerializeToElement(new
+            {
+                gatewayRoleKey = "join",
+                forkNodeKey,
+                nextNodeKeys = new[] { next },
+            }));
+
     private static WorkflowNodeDraft ParallelForkNode(
         string key,
         string joinNodeKey,

@@ -23,6 +23,7 @@ internal static class WorkflowNodeTypeCatalog
         Node("notify.cc"),
         Node("gateway.exclusive"),
         Node("gateway.parallel"),
+        Node("gateway.inclusive"),
         Node("end"),
     ];
 

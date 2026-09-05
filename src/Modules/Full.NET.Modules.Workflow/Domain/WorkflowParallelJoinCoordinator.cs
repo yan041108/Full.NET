@@ -27,6 +27,7 @@ internal sealed class WorkflowParallelJoinCoordinator(
         string joinNodeKey,
         int requiredBranchCount,
         DateTimeOffset createdAtUtc,
+        string gatewayTypeKey = "parallel",
         CancellationToken cancellationToken = default)
     {
         var joinId = idGenerator.NewId();
@@ -37,6 +38,7 @@ internal sealed class WorkflowParallelJoinCoordinator(
                 ("InstanceId", instanceId),
                 ("ForkNodeKey", forkNodeKey),
                 ("JoinNodeKey", joinNodeKey),
+                ("GatewayTypeKey", gatewayTypeKey),
                 ("RequiredBranchCount", requiredBranchCount),
                 ("CreatedAtUtc", createdAtUtc)),
             cancellationToken).ConfigureAwait(false);

@@ -54,6 +54,13 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
         }
 
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.inclusive" &&
+                !WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, null, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
         // 超时策略会直接驱动后台可靠事件，只允许审批节点携带闭合且可执行的时间与接收人配置。
         if (draft.Nodes.Any(node =>
                 node.NodeTypeKey == "human.approval" &&
@@ -160,6 +167,13 @@ internal static class WorkflowDefinitionCompiler
         if (draft.Nodes.Any(node =>
                 node.NodeTypeKey == "gateway.exclusive" &&
                 !WorkflowExclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.inclusive" &&
+                !WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, formSchema, out _)))
         {
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
         }
@@ -311,6 +325,17 @@ internal static class WorkflowDefinitionCompiler
             return parallel!.Role == WorkflowParallelGatewayRole.Fork
                 ? parallel.Branches.Select(branch => branch.NextNodeKey).ToArray()
                 : parallel.NextNodeKey is { } nextNodeKey ? [nextNodeKey] : [];
+        }
+
+        if (node.NodeTypeKey == "gateway.inclusive" &&
+            WorkflowInclusiveGatewayConfiguration.TryRead(node.Config, null, out var inclusive))
+        {
+            return inclusive!.Role == WorkflowInclusiveGatewayRole.Fork
+                ? inclusive.Branches.Select(branch => branch.NextNodeKey)
+                    .Append(inclusive.DefaultNextNodeKey)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray()
+                : [inclusive.DefaultNextNodeKey];
         }
 
         if (node.Config.ValueKind != JsonValueKind.Object ||

@@ -1441,10 +1441,10 @@ internal static class WorkflowSql
         "workflow.parallel_join.insert",
         """
         INSERT INTO fn_workflow_parallel_join
-            (Id, InstanceId, ForkNodeKey, JoinNodeKey, RequiredBranchCount,
+            (Id, InstanceId, ForkNodeKey, JoinNodeKey, GatewayTypeKey, RequiredBranchCount,
              ArrivedBranchCount, StatusKey, Revision, CreatedAtUtc, CompletedAtUtc)
         VALUES
-            (@Id, @InstanceId, @ForkNodeKey, @JoinNodeKey, @RequiredBranchCount,
+            (@Id, @InstanceId, @ForkNodeKey, @JoinNodeKey, @GatewayTypeKey, @RequiredBranchCount,
              0, 'waiting', 1, @CreatedAtUtc, NULL)
         """,
         SqlDataScope.Global);
@@ -1485,8 +1485,8 @@ internal static class WorkflowSql
         "workflow.parallel_join.find_by_id",
         """
         SELECT joinState.Id, joinState.InstanceId, joinState.ForkNodeKey, joinState.JoinNodeKey,
-               joinState.RequiredBranchCount, joinState.ArrivedBranchCount, joinState.StatusKey,
-               joinState.Revision, joinState.CreatedAtUtc, joinState.CompletedAtUtc
+               joinState.GatewayTypeKey, joinState.RequiredBranchCount, joinState.ArrivedBranchCount,
+               joinState.StatusKey, joinState.Revision, joinState.CreatedAtUtc, joinState.CompletedAtUtc
         FROM fn_workflow_parallel_join AS joinState
         WHERE joinState.Id = @Id
           AND joinState.InstanceId = @InstanceId
@@ -1497,7 +1497,7 @@ internal static class WorkflowSql
     public static readonly SqlStatement ListParallelJoinsByInstance = new(
         "workflow.parallel_join.list_by_instance",
         """
-        SELECT joinState.Id, joinState.ForkNodeKey, joinState.JoinNodeKey,
+        SELECT joinState.Id, joinState.ForkNodeKey, joinState.JoinNodeKey, joinState.GatewayTypeKey,
                joinState.RequiredBranchCount, joinState.ArrivedBranchCount, joinState.StatusKey,
                arrival.BranchKey, arrival.ArrivedAtUtc
         FROM fn_workflow_parallel_join AS joinState

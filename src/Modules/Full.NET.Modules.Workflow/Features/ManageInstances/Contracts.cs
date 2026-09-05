@@ -52,6 +52,32 @@ internal sealed record ReassignWorkflowInstanceRequest(
     string? Reason,
     string IdempotencyKey);
 
+/// <summary>实例详情展示的网关汇合分支到达事实。</summary>
+/// <param name="BranchKey">稳定分支键。</param>
+/// <param name="ArrivedAtUtc">到达汇合时间（UTC）。</param>
+internal sealed record WorkflowGatewayJoinBranchResponse(
+    string BranchKey,
+    DateTimeOffset? ArrivedAtUtc);
+
+/// <summary>实例详情展示的并行或包容网关汇合状态。</summary>
+/// <param name="Id">汇合状态标识。</param>
+/// <param name="GatewayTypeKey">网关类型键。</param>
+/// <param name="ForkNodeKey">分叉节点键。</param>
+/// <param name="JoinNodeKey">汇合节点键。</param>
+/// <param name="RequiredBranchCount">需要到达汇合的分支总数。</param>
+/// <param name="ArrivedBranchCount">已到达汇合的分支数。</param>
+/// <param name="StatusKey">汇合状态键。</param>
+/// <param name="Branches">已记录到达事实的分支集合。</param>
+internal sealed record WorkflowGatewayJoinResponse(
+    Guid Id,
+    string GatewayTypeKey,
+    string ForkNodeKey,
+    string JoinNodeKey,
+    int RequiredBranchCount,
+    int ArrivedBranchCount,
+    string StatusKey,
+    IReadOnlyList<WorkflowGatewayJoinBranchResponse> Branches);
+
 /// <summary>工作流实例详情与当前活动待办的超时摘要。</summary>
 /// <param name="Id">实例标识。</param>
 /// <param name="DefinitionVersionId">发布定义版本标识。</param>
@@ -91,7 +117,8 @@ internal sealed record WorkflowInstanceResponse(
     int? RequiredApprovalCount = null,
     int? ApprovedCount = null,
     int? RejectedCount = null,
-    int? PendingCount = null);
+    int? PendingCount = null,
+    IReadOnlyList<WorkflowGatewayJoinResponse>? GatewayJoins = null);
 
 internal sealed record WorkflowExecutionLogResponse(
     Guid Id,

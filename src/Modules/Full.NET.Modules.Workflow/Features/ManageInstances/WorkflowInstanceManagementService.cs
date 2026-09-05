@@ -397,6 +397,28 @@ internal sealed class WorkflowInstanceManagementService(
             WorkflowSql.FindActiveStepApprovalProgressByInstance,
             Parameters(("InstanceId", instanceId), ("TenantScopeKey", scope.TenantScopeKey)),
             cancellationToken).ConfigureAwait(false);
+        var joinRows = await queryExecutor.QueryAsync<WorkflowParallelJoinStatusRecord>(
+            WorkflowSql.ListParallelJoinsByInstance,
+            Parameters(("InstanceId", instanceId)),
+            cancellationToken).ConfigureAwait(false);
+        var gatewayJoins = joinRows
+            .GroupBy(row => row.Id)
+            .Select(group =>
+            {
+                var first = group.First();
+                return new WorkflowGatewayJoinResponse(
+                    first.Id,
+                    first.GatewayTypeKey,
+                    first.ForkNodeKey,
+                    first.JoinNodeKey,
+                    first.RequiredBranchCount,
+                    first.ArrivedBranchCount,
+                    first.StatusKey,
+                    group.Where(row => row.BranchKey is not null)
+                        .Select(row => new WorkflowGatewayJoinBranchResponse(row.BranchKey!, row.ArrivedAtUtc))
+                        .ToArray());
+            })
+            .ToArray();
         return Result<WorkflowInstanceResponse>.Success(new(
             instance.Id, instance.DefinitionVersionId, formVersionId,
             instance.BusinessType, instance.BusinessId, instance.StatusKey,
@@ -407,7 +429,8 @@ internal sealed class WorkflowInstanceManagementService(
             approvalProgress?.RequiredApprovalCount,
             approvalProgress?.ApprovedCount,
             approvalProgress?.RejectedCount,
-            approvalProgress?.PendingCount));
+            approvalProgress?.PendingCount,
+            gatewayJoins));
     }
 
     public async Task<Result<IReadOnlyList<WorkflowExecutionLogResponse>>> ListExecutionLogsAsync(
