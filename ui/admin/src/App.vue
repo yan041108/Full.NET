@@ -153,6 +153,7 @@ const shellLabels = computed(() => ({
   chatSendLabel: t('shell.chatSend'),
   chatCloseLabel: t('shell.chatClose'),
   logoutLabel: t('shell.logout'),
+  securitySettingsLabel: t('shell.securitySettings'),
   controlPlaneLabel: t('shell.controlPlane'),
   themeLightLabel: t('shell.themeLight'),
   themeDarkLabel: t('shell.themeDark'),

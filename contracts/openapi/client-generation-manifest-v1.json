@@ -356,6 +356,12 @@
       "status": "generated"
     },
     {
+      "operationId": "identityRevealHostUserProfileFields",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "generated"
+    },
+    {
       "operationId": "identityGetAuthorizationTree",
       "apiModule": "ui/admin/src/api/roles.ts",
       "generatedGroup": "identity-host-roles",
@@ -532,6 +538,12 @@
     {
       "operationId": "identityGetCurrentUser",
       "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityChangePassword",
+      "apiModule": "ui/admin/src/api/changePassword.ts",
       "generatedGroup": "identity-me",
       "status": "generated"
     },

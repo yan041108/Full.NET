@@ -77,9 +77,31 @@ public sealed class HostUserProfileMapperTests
             ["phone_number"]);
 
         Assert.IsNotNull(response);
-        Assert.AreEqual("13800000000", response.PhoneNumber);
+        Assert.AreEqual("****0000", response.PhoneNumber);
         Assert.IsNull(response.Address);
         Assert.IsNull(response.SortOrder);
         Assert.AreEqual(4, response.Version);
+    }
+
+    [TestMethod]
+    public void To_response_returns_plaintext_when_reveal_access_is_granted()
+    {
+        var record = new HostUserProfileRecord
+        {
+            UserId = Guid.CreateVersion7(),
+            PhoneNumber = "13800000000",
+            IdCardNumber = "440101199001011234",
+            Version = 2,
+        };
+
+        var response = HostUserProfileMapper.ToResponse(
+            record,
+            ["phone_number", "id_card_number"],
+            new HostUserSensitiveFieldRevealAccess(
+                CanRevealPhoneNumber: true,
+                CanRevealIdCardNumber: true));
+
+        Assert.AreEqual("13800000000", response!.PhoneNumber);
+        Assert.AreEqual("440101199001011234", response.IdCardNumber);
     }
 }

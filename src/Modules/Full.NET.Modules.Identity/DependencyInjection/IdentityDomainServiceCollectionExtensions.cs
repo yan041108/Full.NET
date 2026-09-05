@@ -42,6 +42,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<SuperAdministratorQueryService>();
         services.TryAddScoped<HostUserQueryService>();
         services.TryAddScoped<HostUserManagementService>();
+        services.TryAddScoped<HostUserSensitiveFieldRevealService>();
         services.TryAddScoped<HostUserRolesService>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
@@ -77,10 +78,16 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.AddFullNetFluentValidation<
             Features.UpdateLocale.Command,
             LocalePreferenceResponse>();
+        services.AddFullNetFluentValidation<
+            Features.ChangePassword.Command,
+            Features.ChangePassword.ChangePasswordSessionResult>();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
         services.TryAddScoped<
             IValidator<Features.UpdateLocale.Command>,
             Features.UpdateLocale.Validator>();
+        services.TryAddScoped<
+            IValidator<Features.ChangePassword.Command>,
+            Features.ChangePassword.Validator>();
         services.TryAddScoped<
             ICommandHandler<Command, LoginSessionResult>,
             LoginHandler>();
@@ -100,6 +107,11 @@ internal static class IdentityDomainServiceCollectionExtensions
                 Features.UpdateLocale.Command,
                 LocalePreferenceResponse>,
             Features.UpdateLocale.Handler>();
+        services.TryAddScoped<
+            ICommandHandler<
+                Features.ChangePassword.Command,
+                Features.ChangePassword.ChangePasswordSessionResult>,
+            Features.ChangePassword.Handler>();
 
         return services;
     }

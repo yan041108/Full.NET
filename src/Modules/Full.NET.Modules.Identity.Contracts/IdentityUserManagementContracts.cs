@@ -32,6 +32,12 @@ public static class IdentityUserManagementPermissions
     /// <summary>导入 Host 用户；禁止导入超级管理员。</summary>
     public const string Import = "identity.users.import";
 
+    /// <summary>查看 Host 用户手机号明文。</summary>
+    public const string RevealPhoneNumber = "identity.users.reveal_phone_number";
+
+    /// <summary>查看 Host 用户证件号明文。</summary>
+    public const string RevealIdCardNumber = "identity.users.reveal_id_card_number";
+
     /// <summary>迁移 054 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.users.write";
 }
@@ -244,3 +250,13 @@ public sealed record BatchHostUserStatusItem(
 public sealed record BatchHostUserStatusResponse(
     int SucceededCount,
     IReadOnlyList<BatchHostUserStatusItem> Results);
+
+/// <summary>揭示 Host 用户敏感档案字段请求。</summary>
+/// <param name="FieldKeys">待揭示的字段键，仅允许 <c>phone_number</c> 与 <c>id_card_number</c>。</param>
+public sealed record RevealHostUserProfileFieldsRequest(
+    IReadOnlyList<string> FieldKeys);
+
+/// <summary>揭示 Host 用户敏感档案字段响应。</summary>
+/// <param name="Values">按字段键返回的明文值；无值时为 <see langword="null"/>。</param>
+public sealed record RevealHostUserProfileFieldsResponse(
+    IReadOnlyDictionary<string, string?> Values);

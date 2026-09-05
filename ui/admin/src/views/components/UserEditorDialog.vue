@@ -19,6 +19,7 @@ import {
 import type { FormInstance } from 'element-plus';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import type { HostUser, HostUserProfileWrite } from '@fullnet/client-contracts';
+import { isMaskedHostUserIdCardNumber, isMaskedHostUserPhoneNumber } from '@fullnet/client-contracts';
 import type { MessageKey } from '@fullnet/admin-i18n';
 import { isIdentityPasswordValid } from '../../auth/identity-password-policy';
 import {
@@ -70,6 +71,9 @@ const props = defineProps<{
   canSubmit: boolean;
   effectiveFieldKeys: string[];
   showProfileTab: boolean;
+  canRevealPhoneNumber: boolean;
+  canRevealIdCardNumber: boolean;
+  revealingFieldKey: string | null;
   translate: (key: MessageKey) => string;
 }>();
 
@@ -87,6 +91,7 @@ const emit = defineEmits<{
   'update:positionId': [value: string];
   submit: [];
   cancel: [];
+  'reveal-profile-field': [fieldKey: 'phone_number' | 'id_card_number'];
 }>();
 
 const subsidiaryUnitTreeOptions = computed(() =>
@@ -125,6 +130,16 @@ const basicForm = reactive({
   remark: ''
 });
 const computedAge = computed(() => computeAgeFromBirthDate(basicForm.birthDate || null));
+const showRevealPhoneButton = computed(() =>
+  props.mode === 'edit'
+  && hasField('phone_number')
+  && props.canRevealPhoneNumber
+  && isMaskedHostUserPhoneNumber(basicForm.phoneNumber));
+const showRevealIdCardButton = computed(() =>
+  props.mode === 'edit'
+  && hasField('id_card_number')
+  && props.canRevealIdCardNumber
+  && isMaskedHostUserIdCardNumber(basicForm.idCardNumber));
 const fieldErrors = reactive({
   username: '',
   displayName: '',
@@ -278,6 +293,17 @@ watch(
     syncBasicFormFromProps();
     clearFieldErrors();
     void nextTick(() => basicFormRef.value?.clearValidate());
+  }
+);
+
+watch(
+  () => [props.profile.phoneNumber, props.profile.idCardNumber],
+  () => {
+    if (!props.open) {
+      return;
+    }
+    basicForm.phoneNumber = props.profile.phoneNumber ?? '';
+    basicForm.idCardNumber = props.profile.idCardNumber ?? '';
   }
 );
 
@@ -501,10 +527,21 @@ defineExpose({
               prop="phoneNumber"
               :error="fieldErrors.phoneNumber || undefined"
             >
-              <el-input
-                v-model="basicForm.phoneNumber"
-                @update:model-value="onPhoneInput"
-              />
+              <div class="users-editor-dialog__sensitive-field">
+                <el-input
+                  v-model="basicForm.phoneNumber"
+                  @update:model-value="onPhoneInput"
+                />
+                <el-button
+                  v-if="showRevealPhoneButton"
+                  type="primary"
+                  link
+                  :loading="revealingFieldKey === 'phone_number'"
+                  @click="emit('reveal-profile-field', 'phone_number')"
+                >
+                  {{ translate('users.revealSensitiveField') }}
+                </el-button>
+              </div>
             </el-form-item>
             <el-form-item
               v-if="hasField('email')"
@@ -584,10 +621,21 @@ defineExpose({
               v-if="hasField('id_card_number')"
               :label="translate('users.idCardNumber')"
             >
-              <el-input
-                v-model="basicForm.idCardNumber"
-                @update:model-value="patchProfile({ idCardNumber: $event || null })"
-              />
+              <div class="users-editor-dialog__sensitive-field">
+                <el-input
+                  v-model="basicForm.idCardNumber"
+                  @update:model-value="patchProfile({ idCardNumber: $event || null })"
+                />
+                <el-button
+                  v-if="showRevealIdCardButton"
+                  type="primary"
+                  link
+                  :loading="revealingFieldKey === 'id_card_number'"
+                  @click="emit('reveal-profile-field', 'id_card_number')"
+                >
+                  {{ translate('users.revealSensitiveField') }}
+                </el-button>
+              </div>
             </el-form-item>
             <el-form-item
               v-if="hasField('birth_date')"
@@ -969,6 +1017,17 @@ defineExpose({
   color: var(--art-gray-600);
   font-size: 13px;
   text-align: center;
+}
+
+.users-editor-dialog__sensitive-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.users-editor-dialog__sensitive-field :deep(.el-input) {
+  flex: 1;
 }
 
 .users-editor-dialog__footer {

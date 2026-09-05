@@ -1,0 +1,89 @@
+using System.Security.Claims;
+using Full.NET.Abstractions.Messaging;
+using Full.NET.Abstractions.Results;
+using Full.NET.Hosting.Api;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Http;
+using Full.NET.Modules.Identity.Security;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace Full.NET.Modules.Identity.Features.ChangePassword;
+
+/// <summary>当前用户自助改密端点。</summary>
+internal static class Endpoint
+{
+    /// <summary>映射自助改密端点。</summary>
+    /// <param name="endpoints">应用端点路由生成器。</param>
+    public static void Map(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost("/api/v1/me/password", async (
+            ChangePasswordRequest request,
+            ClaimsPrincipal principal,
+            ICommandDispatcher dispatcher,
+            IApiResultMapper mapper,
+            AllowedOriginValidator originValidator,
+            IdentityCookieWriter cookieWriter,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var origin = httpContext.Request.Headers.Origin.ToString();
+            var requestOrigin = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+            var referer = httpContext.Request.Headers.Referer.ToString();
+            if (!originValidator.IsAllowed(origin, requestOrigin, referer))
+            {
+                return mapper.Map(
+                    Result<TokenResponse>.Failure(new Error(
+                        Code: IdentityErrorCodes.OriginNotAllowed,
+                        Message: "The request origin is not allowed.",
+                        Type: ErrorType.Forbidden)),
+                    httpContext);
+            }
+
+            var csrfCookie = httpContext.Request.Cookies[IdentityCookieWriter.CsrfCookieName];
+            var csrfHeader = httpContext.Request.Headers["X-CSRF-Token"].ToString();
+            if (!CsrfTokenValidator.IsValid(csrfCookie, csrfHeader))
+            {
+                return mapper.Map(
+                    Result<TokenResponse>.Failure(new Error(
+                        Code: IdentityErrorCodes.CsrfValidationFailed,
+                        Message: "CSRF validation failed.",
+                        Type: ErrorType.Forbidden)),
+                    httpContext);
+            }
+
+            var result = await dispatcher.SendAsync<Command, ChangePasswordSessionResult>(
+                    new Command(
+                        request.CurrentPassword,
+                        request.NewPassword,
+                        principal,
+                        new ClientRequestContext(
+                            httpContext.Connection.RemoteIpAddress?.ToString(),
+                            httpContext.Request.Headers.UserAgent.ToString())),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(
+                    Result<TokenResponse>.Failure(result.Error!),
+                    httpContext);
+            }
+
+            cookieWriter.Write(
+                httpContext.Response,
+                result.Value!.RefreshToken,
+                result.Value.CsrfToken);
+            return Results.Ok(result.Value.Token);
+        })
+        .WithName("identityChangePassword")
+        .WithTags("IdentityMe")
+        .Produces<TokenResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireAuthorization()
+        .RequireRateLimiting(IdentityModule.SessionMutationRateLimitPolicy);
+    }
+}

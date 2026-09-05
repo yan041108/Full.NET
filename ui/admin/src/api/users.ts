@@ -23,6 +23,21 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 按独立揭示权限获取 Host 用户敏感档案字段明文。 */
+export async function revealHostUserProfileFields(
+  userId: string,
+  fieldKeys: readonly string[],
+  signal?: AbortSignal
+): Promise<Readonly<Record<string, string | null>>> {
+  const response = await http.request<Readonly<{ values: Readonly<Record<string, string | null>> }>>({
+    method: 'POST',
+    path: `/api/v1/identity/users/${userId}/reveal-profile-fields`,
+    body: { fieldKeys },
+    signal
+  });
+  return response.values;
+}
+
 /** 分页查询 Host 用户列表。 */
 export async function listHostUsers(
   page = 1,

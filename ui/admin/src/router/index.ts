@@ -11,6 +11,9 @@ import OverviewView from '../views/OverviewView.vue';
 /** 状态页始终允许直接进入，避免未认证或无导航目录时被守卫二次拦截。 */
 const statusPaths = new Set(['/403', '/404', '/500']);
 
+/** 自助账户页不依赖导航目录下发，已认证用户可直接访问。 */
+const selfServicePaths = new Set(['/account/security']);
+
 /** 延迟加载状态页，避免普通业务路由首次渲染时额外拉取错误页代码。 */
 const loadStatusView = () => import('../views/StatusView.vue');
 
@@ -27,6 +30,11 @@ export function createAppRouter(
         name: 'tenant-context',
         path: '/tenant-context',
         component: () => import('../views/TenantContextView.vue')
+      },
+      {
+        name: 'account-security',
+        path: '/account/security',
+        component: () => import('../views/SecuritySettingsView.vue')
       },
       {
         name: 'tenant-management',
@@ -308,7 +316,7 @@ export function createAppRouter(
   /** 已认证用户只能访问服务端已下发并被本地白名单认可的导航路径。 */
   router.beforeEach(to => {
     const session = useSessionStore(pinia);
-    if (!session.isAuthenticated || statusPaths.has(to.path)) {
+    if (!session.isAuthenticated || statusPaths.has(to.path) || selfServicePaths.has(to.path)) {
       return true;
     }
 

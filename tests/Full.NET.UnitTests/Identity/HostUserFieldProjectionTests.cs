@@ -1,4 +1,5 @@
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Persistence;
@@ -108,7 +109,7 @@ public sealed class HostUserFieldProjectionTests
             includeProfile: true);
 
         Assert.IsTrue(result.IsSuccess);
-        Assert.AreEqual("13800000000", result.Value!.Profile!.PhoneNumber);
+        Assert.AreEqual("****0000", result.Value!.Profile!.PhoneNumber);
         Assert.AreEqual("投影备注", result.Value.Profile.Remark);
         Assert.IsNull(result.Value.Profile.IdCardNumber);
         var profileStatement = query.Statements.Single(statement =>
@@ -226,10 +227,18 @@ public sealed class HostUserFieldProjectionTests
                 FieldProjectionResourceKeys.HostUsers,
                 Arg.Any<CancellationToken>())
             .Returns(projection);
+        var permissionSnapshots = Substitute.For<IPermissionSnapshotReader>();
+        permissionSnapshots.ReadAsync(
+                ActorUserId,
+                "host",
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(new PermissionSnapshot([], false));
         return new HostUserQueryService(
             query,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            resolver);
+            resolver,
+            permissionSnapshots);
     }
 
     private static UserFieldProjection MandatoryProjection() =>

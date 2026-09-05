@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Microsoft.AspNetCore.Identity;
@@ -43,6 +44,7 @@ public sealed class HostUserManagementDeadlockRetryTests
             Guid.CreateVersion7(),
             new UpdateHostUserRequest("并发更新", 1),
             allowedProfileFieldKeys: null,
+            actorUserId: null,
             CancellationToken.None);
 
         Assert.AreSame(expected, result);
@@ -63,7 +65,8 @@ public sealed class HostUserManagementDeadlockRetryTests
             transaction,
             new StubPasswordHasher(),
             Substitute.For<IClock>(),
-            Substitute.For<IIdGenerator>());
+            Substitute.For<IIdGenerator>(),
+            Substitute.For<IPermissionSnapshotReader>());
 
     /// <summary>
     /// 提供当前测试不会进入的密码哈希依赖，避免为内部领域类型生成动态代理。

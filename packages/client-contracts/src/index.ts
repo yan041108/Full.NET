@@ -12,6 +12,8 @@ export type { FullNetProblemDetails } from './problem-details.js';
 
 export { readCsrfHeaders } from './csrf.js';
 
+export { changePassword } from './change-password.js';
+
 export {
   createHttpClient
 } from './http.js';
@@ -52,6 +54,11 @@ export {
 } from './workflow-form-draft.js';
 
 export type { WorkflowFormFieldPatch } from './workflow-form-draft.js';
+
+export {
+  isMaskedHostUserIdCardNumber,
+  isMaskedHostUserPhoneNumber
+} from './host-user-sensitive-fields.js';
 
 export {
   WORKFLOW_SUBTABLE_COLUMN_FIELD_TYPES,

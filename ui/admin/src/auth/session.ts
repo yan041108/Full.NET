@@ -87,6 +87,13 @@ export const useSessionStore = defineStore('identity-session', () => {
     await getController().changeLocale(locale);
   }
 
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    await getController().changePassword(currentPassword, newPassword);
+  }
+
   /** 退出当前会话，并清空受认证状态保护的本地快照。 */
   async function logout(): Promise<void> {
     await getController().logout();
@@ -145,6 +152,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     reloadContext,
     switchTenant,
     changeLocale,
+    changePassword,
     logout,
     snapshot,
     subscribe,

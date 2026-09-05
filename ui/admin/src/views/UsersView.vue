@@ -26,7 +26,7 @@ import type {
   OrganizationUserPosition,
   OrganizationUserUnit
 } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isMaskedHostUserIdCardNumber, isMaskedHostUserPhoneNumber } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
@@ -67,6 +67,7 @@ import {
   listHostUsers,
   replaceHostUserRoles,
   resetHostUserPassword,
+  revealHostUserProfileFields,
   updateHostUser
 } from '../api/users';
 import {
@@ -155,6 +156,7 @@ const userUnits = ref<OrganizationUserUnit[]>([]);
 const userPositions = ref<OrganizationUserPosition[]>([]);
 const loading = ref(false);
 const changing = ref(false);
+const revealingProfileField = ref<string | null>(null);
 const selectedUsers = ref<HostUser[]>([]);
 const problem = ref<FullNetProblemDetails>();
 const importResults = ref<ImportHostUserRowResult[]>([]);
@@ -279,6 +281,8 @@ const tableHeaderCellStyle = computed(() => ({
 
 const canCreate = computed(() => session.can('identity.users.create'));
 const canUpdate = computed(() => session.can('identity.users.update'));
+const canRevealPhoneNumber = computed(() => session.can('identity.users.reveal_phone_number'));
+const canRevealIdCardNumber = computed(() => session.can('identity.users.reveal_id_card_number'));
 const canAssignRoles = computed(() => session.can('identity.users.assign_roles'));
 const canReadUserUnits = computed(() => session.can('organization.user_units.read'));
 const canCreateUserUnits = computed(() => session.can('organization.user_units.create'));
@@ -679,17 +683,35 @@ function profilePayloadForSubmit(): HostUserProfileWrite | undefined {
     return undefined;
   }
 
+  const fieldKeys = [...(editorProfile.value.fieldKeys ?? [])];
+  let phoneNumber = editorProfile.value.phoneNumber ?? null;
+  let idCardNumber = editorProfile.value.idCardNumber ?? null;
+  if (isMaskedHostUserPhoneNumber(phoneNumber)) {
+    phoneNumber = null;
+    const index = fieldKeys.indexOf('phone_number');
+    if (index >= 0) {
+      fieldKeys.splice(index, 1);
+    }
+  }
+  if (isMaskedHostUserIdCardNumber(idCardNumber)) {
+    idCardNumber = null;
+    const index = fieldKeys.indexOf('id_card_number');
+    if (index >= 0) {
+      fieldKeys.splice(index, 1);
+    }
+  }
+
   return {
-    fieldKeys: [...(editorProfile.value.fieldKeys ?? [])].sort(),
+    fieldKeys: fieldKeys.sort(),
     nickname: editorProfile.value.nickname ?? null,
-    phoneNumber: editorProfile.value.phoneNumber ?? null,
+    phoneNumber,
     email: editorProfile.value.email ?? null,
     employeeNumber: editorProfile.value.employeeNumber ?? null,
     gender: editorProfile.value.gender ?? null,
     joinDateUtc: editorProfile.value.joinDateUtc ?? null,
     sortOrder: editorProfile.value.sortOrder ?? null,
     idCardType: editorProfile.value.idCardType ?? null,
-    idCardNumber: editorProfile.value.idCardNumber ?? null,
+    idCardNumber,
     birthDate: editorProfile.value.birthDate ?? null,
     ethnicity: editorProfile.value.ethnicity ?? null,
     educationLevel: editorProfile.value.educationLevel ?? null,
@@ -701,6 +723,28 @@ function profilePayloadForSubmit(): HostUserProfileWrite | undefined {
     remark: editorProfile.value.remark ?? null,
     version: editorProfile.value.version ?? null
   };
+}
+
+async function revealProfileField(fieldKey: 'phone_number' | 'id_card_number'): Promise<void> {
+  const user = editingUser.value;
+  if (!user) {
+    return;
+  }
+
+  revealingProfileField.value = fieldKey;
+  try {
+    const values = await revealHostUserProfileFields(user.id, [fieldKey]);
+    const revealedValue = values[fieldKey] ?? null;
+    if (fieldKey === 'phone_number') {
+      editorProfile.value = { ...editorProfile.value, phoneNumber: revealedValue };
+    } else {
+      editorProfile.value = { ...editorProfile.value, idCardNumber: revealedValue };
+    }
+  } catch {
+    ElMessage.error(t('users.revealSensitiveFieldFailed'));
+  } finally {
+    revealingProfileField.value = null;
+  }
 }
 
 function buildIdentityCheckpointKey(): string {
@@ -2265,6 +2309,9 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       :can-submit="canSubmitEditor"
       :effective-field-keys="editingUser?.projectedFields?.effectiveFieldKeys ?? effectiveUserFieldKeys"
       :show-profile-tab="hasProfileTabFields"
+      :can-reveal-phone-number="canRevealPhoneNumber"
+      :can-reveal-id-card-number="canRevealIdCardNumber"
+      :revealing-field-key="revealingProfileField"
       :translate="t"
       @update:username="editorUsername = $event"
       @update:display-name="editorDisplayName = $event"
@@ -2276,6 +2323,7 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
       @update:primary-unit-id="editorPrimaryUnitId = $event"
       @update:subsidiary-unit-ids="editorSubsidiaryUnitIds = $event"
       @update:position-id="editorPositionId = $event"
+      @reveal-profile-field="revealProfileField"
       @submit="submitEditor"
     />
   </section>

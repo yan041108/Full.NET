@@ -73,6 +73,9 @@
   <data name="identity.organization_unit_projection.invalid_page_size" xml:space="preserve"><value>The organization unit projection reconciliation page size is out of range.</value></data>
   <data name="identity.user_import.workbook_invalid" xml:space="preserve"><value>The user import workbook format, size, or content is invalid.</value></data>
   <data name="identity.users.profile_invalid" xml:space="preserve"><value>The host user profile contains invalid authoritative fields.</value></data>
+  <data name="identity.users.profile_masked_value_rejected" xml:space="preserve"><value>Masked placeholder values cannot be submitted. Reveal the plaintext or enter a new sensitive field value.</value></data>
+  <data name="identity.password.current_invalid" xml:space="preserve"><value>The current password is invalid.</value></data>
+  <data name="identity.password.same_as_current" xml:space="preserve"><value>The new password must be different from the current password.</value></data>
   <data name="identity.users.phone_number_exists" xml:space="preserve"><value>The phone number is assigned to another host user.</value></data>
   <data name="identity.users.email_exists" xml:space="preserve"><value>The email is assigned to another host user.</value></data>
   <data name="identity.users.employee_number_exists" xml:space="preserve"><value>The employee number is assigned to another host user.</value></data>

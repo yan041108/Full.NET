@@ -103,6 +103,14 @@ internal sealed class IdentityAuthorizationContributor
             "导入 Host 用户",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityUserManagementPermissions.RevealPhoneNumber,
+            "查看 Host 用户手机号明文",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityUserManagementPermissions.RevealIdCardNumber,
+            "查看 Host 用户证件号明文",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityRoleFieldGrantPermissions.Read,
             "读取角色字段授权",
             AuthorizationScope.Host),
@@ -322,6 +330,20 @@ internal sealed class IdentityAuthorizationContributor
             "导入用户",
             "import",
             90),
+        new AuthorizationActionDefinition(
+            "identity.users.reveal-phone-number",
+            "users",
+            IdentityUserManagementPermissions.RevealPhoneNumber,
+            "查看手机号明文",
+            "reveal-phone-number",
+            95),
+        new AuthorizationActionDefinition(
+            "identity.users.reveal-id-card-number",
+            "users",
+            IdentityUserManagementPermissions.RevealIdCardNumber,
+            "查看证件号明文",
+            "reveal-id-card-number",
+            96),
         new AuthorizationActionDefinition(
             "identity.roles.create",
             "roles",

@@ -1046,6 +1046,34 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement RevokeUserSessionsExcept = new(
+        "identity.revoke_user_sessions_except",
+        """
+        UPDATE fn_identity_refresh_session
+        SET RevokedAtUtc = @RevokedAtUtc,
+            Version = Version + 1
+        WHERE UserId = @UserId
+          AND Id <> @ExceptSessionId
+          AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ResetUserPasswordByIdentity = new(
+        "identity.reset_user_password_by_identity",
+        """
+        UPDATE fn_identity_user
+        SET PasswordHash = @PasswordHash,
+            SecurityStamp = @SecurityStamp,
+            FailedLoginCount = 0,
+            LockoutEndUtc = NULL,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = @ScopeKey
+          AND IsActive = 1
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement RevokeSessionsByRole = new(
         "identity.revoke_sessions_by_role",
         """

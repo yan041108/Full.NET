@@ -3,6 +3,7 @@
 import { SwitchButton } from '@element-plus/icons-vue';
 
 import { ElButton, ElFormItem, ElOption, ElPopover, ElSelect } from 'element-plus';
+import { useRouter } from 'vue-router';
 
 
 
@@ -17,6 +18,7 @@ defineProps<{
   roleLabel: string;
 
   logoutLabel: string;
+  securitySettingsLabel: string;
 
   tenantSelectorLabel: string;
 
@@ -47,6 +49,12 @@ const emit = defineEmits<{
 
 
 const visible = defineModel<boolean>('open', { default: false });
+const router = useRouter();
+
+function openSecuritySettings(): void {
+  visible.value = false;
+  void router.push('/account/security');
+}
 
 </script>
 
@@ -124,6 +132,15 @@ const visible = defineModel<boolean>('open', { default: false });
       </div>
 
 
+
+      <el-button
+        class="art-user-menu__security"
+        type="primary"
+        link
+        @click="openSecuritySettings"
+      >
+        {{ securitySettingsLabel }}
+      </el-button>
 
       <el-button
 
@@ -276,6 +293,12 @@ const visible = defineModel<boolean>('open', { default: false });
 }
 
 
+
+.art-user-menu__security {
+  justify-content: flex-start;
+  width: 100%;
+  margin-bottom: 4px;
+}
 
 .art-user-menu__logout {
 

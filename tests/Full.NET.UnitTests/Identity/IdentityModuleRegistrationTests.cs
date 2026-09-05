@@ -396,6 +396,8 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostUserQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostUserSensitiveFieldRevealService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserRolesService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleManagementService>(
@@ -450,6 +452,9 @@ public sealed class IdentityModuleRegistrationTests
             IValidator<IdentityFeatures.UpdateLocale.Command>,
             IdentityFeatures.UpdateLocale.Validator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
+            IValidator<IdentityFeatures.ChangePassword.Command>,
+            IdentityFeatures.ChangePassword.Validator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
             ICommandHandler<LoginCommand, LoginSessionResult>,
             LoginHandler>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityCookieWriter>(ServiceLifetime.Scoped),
@@ -468,6 +473,11 @@ public sealed class IdentityModuleRegistrationTests
                 IdentityFeatures.UpdateLocale.Command,
                 LocalePreferenceResponse>,
             IdentityFeatures.UpdateLocale.Handler>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            ICommandHandler<
+                IdentityFeatures.ChangePassword.Command,
+                IdentityFeatures.ChangePassword.ChangePasswordSessionResult>,
+            IdentityFeatures.ChangePassword.Handler>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<AllowedOriginValidator>(
             ServiceLifetime.Singleton),

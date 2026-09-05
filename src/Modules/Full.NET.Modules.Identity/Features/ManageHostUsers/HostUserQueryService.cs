@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Options;
@@ -10,8 +11,10 @@ namespace Full.NET.Modules.Identity.Features.ManageHostUsers;
 internal sealed class HostUserQueryService(
     IQueryExecutor queryExecutor,
     IOptions<DatabaseOptions> databaseOptions,
-    IUserFieldProjectionResolver projectionResolver)
+    IUserFieldProjectionResolver projectionResolver,
+    IPermissionSnapshotReader permissionSnapshots)
 {
+    private const string HostScope = "host";
     public async Task<Result<PagedResult<HostUserResponse>>> ListAsync(
         Guid actorUserId,
         int page,
@@ -53,6 +56,7 @@ internal sealed class HostUserQueryService(
             ? await LoadProfilesAsync(
                     rows.Select(row => row.Id).ToArray(),
                     projection.FieldKeys,
+                    actorUserId,
                     cancellationToken)
                 .ConfigureAwait(false)
             : new Dictionary<Guid, HostUserProfileResponse?>();
@@ -87,6 +91,7 @@ internal sealed class HostUserQueryService(
             ? await LoadProfilesAsync(
                     rows.Select(row => row.Id).ToArray(),
                     projection.FieldKeys,
+                    actorUserId,
                     cancellationToken)
                 .ConfigureAwait(false)
             : new Dictionary<Guid, HostUserProfileResponse?>();
@@ -125,7 +130,7 @@ internal sealed class HostUserQueryService(
                 cancellationToken)
             .ConfigureAwait(false);
         var profiles = includeProfile
-            ? await LoadProfilesAsync([userId], projection.FieldKeys, cancellationToken)
+            ? await LoadProfilesAsync([userId], projection.FieldKeys, actorUserId, cancellationToken)
                 .ConfigureAwait(false)
             : new Dictionary<Guid, HostUserProfileResponse?>();
         return Result<HostUserResponse>.Success(Map(
@@ -153,6 +158,7 @@ internal sealed class HostUserQueryService(
     private async Task<IReadOnlyDictionary<Guid, HostUserProfileResponse?>> LoadProfilesAsync(
         IReadOnlyList<Guid> userIds,
         IReadOnlyCollection<string> effectiveFieldKeys,
+        Guid actorUserId,
         CancellationToken cancellationToken)
     {
         if (userIds.Count == 0 || !HostUserProfileMapper.HasReadableFields(effectiveFieldKeys))
@@ -166,6 +172,8 @@ internal sealed class HostUserQueryService(
             return new Dictionary<Guid, HostUserProfileResponse?>();
         }
 
+        var revealAccess = await ResolveRevealAccessAsync(actorUserId, cancellationToken)
+            .ConfigureAwait(false);
         var statement = IdentitySql.BuildProjectedHostUserProfilesByIds(columnMap.Values.ToArray());
         var records = await queryExecutor.QueryAsync<HostUserProfileRecord>(
                 statement,
@@ -174,10 +182,23 @@ internal sealed class HostUserQueryService(
             .ConfigureAwait(false);
         var profileMap = records.ToDictionary(
             record => record.UserId,
-            record => HostUserProfileMapper.ToResponse(record, effectiveFieldKeys));
+            record => HostUserProfileMapper.ToResponse(record, effectiveFieldKeys, revealAccess));
         return userIds.ToDictionary(
             userId => userId,
             userId => profileMap.GetValueOrDefault(userId));
+    }
+
+    private async Task<HostUserSensitiveFieldRevealAccess> ResolveRevealAccessAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = await permissionSnapshots.ReadAsync(
+                actorUserId,
+                HostScope,
+                tenantId: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return HostUserSensitiveFieldRevealAccess.FromPermissions(snapshot.Permissions);
     }
 
     private async Task<IReadOnlyDictionary<Guid, HostUserProjectedFieldsResponse>>

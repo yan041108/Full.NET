@@ -230,6 +230,15 @@ public static class IdentityErrorCodes
     /// <summary>Host 用户权威资料格式或字段组合无效。</summary>
     public const string UserProfileInvalid = "identity.users.profile_invalid";
 
+    /// <summary>客户端提交了掩码占位值，禁止写回权威档案。</summary>
+    public const string ProfileMaskedValueRejected = "identity.users.profile_masked_value_rejected";
+
+    /// <summary>自助改密时当前密码校验失败。</summary>
+    public const string CurrentPasswordInvalid = "identity.password.current_invalid";
+
+    /// <summary>新密码与当前密码相同。</summary>
+    public const string NewPasswordSameAsCurrent = "identity.password.same_as_current";
+
     /// <summary>Host 用户手机号已被目录内其他用户占用。</summary>
     public const string UserPhoneNumberExists = "identity.users.phone_number_exists";
 
@@ -315,6 +324,9 @@ public static class IdentityErrorCodes
         OrganizationUnitProjectionInvalidPageSize,
         UserImportWorkbookInvalid,
         UserProfileInvalid,
+        ProfileMaskedValueRejected,
+        CurrentPasswordInvalid,
+        NewPasswordSameAsCurrent,
         UserPhoneNumberExists,
         UserEmailExists,
         UserEmployeeNumberExists,

@@ -249,6 +249,37 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
 
+        group.MapPost("/{userId:guid}/reveal-profile-fields", async (
+            Guid userId,
+            RevealHostUserProfileFieldsRequest request,
+            HostUserSensitiveFieldRevealService revealService,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await revealService.RevealAsync(
+                    actorUserId,
+                    userId,
+                    request,
+                    httpContext.Connection.RemoteIpAddress?.ToString(),
+                    httpContext.Request.Headers.UserAgent.ToString(),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityRevealHostUserProfileFields")
+        .Produces<RevealHostUserProfileFieldsResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireFullNetPermission(IdentityUserManagementPermissions.Read);
+
         group.MapPost("/", async (
             CreateHostUserRequest request,
             HostUserManagementService service,
@@ -258,15 +289,17 @@ internal static class Endpoint
             CancellationToken cancellationToken) =>
         {
             var allowedProfileFieldKeys = Array.Empty<string>();
+            Guid? actorUserId = null;
             if (request.Profile is not null)
             {
-                if (!TryGetSubject(httpContext.User, out var actorUserId))
+                if (!TryGetSubject(httpContext.User, out var resolvedActorUserId))
                 {
                     return Results.Unauthorized();
                 }
 
+                actorUserId = resolvedActorUserId;
                 allowedProfileFieldKeys = await ResolveAllowedProfileFieldKeysAsync(
-                        actorUserId,
+                        resolvedActorUserId,
                         request.Profile,
                         projectionResolver,
                         cancellationToken)
@@ -276,10 +309,15 @@ internal static class Endpoint
                     return Results.Forbid();
                 }
             }
+            else if (TryGetSubject(httpContext.User, out var resolvedActorUserId))
+            {
+                actorUserId = resolvedActorUserId;
+            }
 
             var result = await service.CreateAsync(
                     request,
                     allowedProfileFieldKeys,
+                    actorUserId,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
@@ -309,15 +347,17 @@ internal static class Endpoint
             CancellationToken cancellationToken) =>
         {
             var allowedProfileFieldKeys = Array.Empty<string>();
+            Guid? actorUserId = null;
             if (request.Profile is not null)
             {
-                if (!TryGetSubject(httpContext.User, out var actorUserId))
+                if (!TryGetSubject(httpContext.User, out var resolvedActorUserId))
                 {
                     return Results.Unauthorized();
                 }
 
+                actorUserId = resolvedActorUserId;
                 allowedProfileFieldKeys = await ResolveAllowedProfileFieldKeysAsync(
-                        actorUserId,
+                        resolvedActorUserId,
                         request.Profile,
                         projectionResolver,
                         cancellationToken)
@@ -327,11 +367,16 @@ internal static class Endpoint
                     return Results.Forbid();
                 }
             }
+            else if (TryGetSubject(httpContext.User, out var resolvedActorUserId))
+            {
+                actorUserId = resolvedActorUserId;
+            }
 
             var result = await service.UpdateAsync(
                     userId,
                     request,
                     allowedProfileFieldKeys,
+                    actorUserId,
                     cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);

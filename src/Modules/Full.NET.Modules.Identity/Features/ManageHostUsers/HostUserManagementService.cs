@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
@@ -18,7 +19,8 @@ internal sealed class HostUserManagementService(
     ICommandTransaction transaction,
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    IPermissionSnapshotReader permissionSnapshots)
 {
     private const string HostScope = "host";
     private const int MaxDeadlockRetryAttempts = 3;
@@ -26,9 +28,10 @@ internal sealed class HostUserManagementService(
     public Task<Result<HostUserResponse>> CreateAsync(
         CreateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys = null,
+        Guid? actorUserId = null,
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteResultAsync(
-            token => CreateCoreAsync(request, allowedProfileFieldKeys, token),
+            token => CreateCoreAsync(request, allowedProfileFieldKeys, actorUserId, token),
             cancellationToken);
 
     public Task<Result<HostUserResponse>> DisableAsync(
@@ -57,6 +60,7 @@ internal sealed class HostUserManagementService(
         Guid userId,
         UpdateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,
+        Guid? actorUserId = null,
         CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; ; attempt++)
@@ -68,6 +72,7 @@ internal sealed class HostUserManagementService(
                             userId,
                             request,
                             allowedProfileFieldKeys,
+                            actorUserId,
                             token),
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -153,7 +158,7 @@ internal sealed class HostUserManagementService(
                 }
             }
 
-            var created = await CreateAsync(row, allowedProfileFieldKeys, cancellationToken)
+            var created = await CreateAsync(row, allowedProfileFieldKeys, actorUserId: null, cancellationToken)
                 .ConfigureAwait(false);
             if (created.IsSuccess)
             {
@@ -226,6 +231,7 @@ internal sealed class HostUserManagementService(
     private async Task<Result<HostUserResponse>> CreateCoreAsync(
         CreateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,
+        Guid? actorUserId,
         CancellationToken cancellationToken)
     {
         var username = request.Username?.Trim() ?? string.Empty;
@@ -321,6 +327,7 @@ internal sealed class HostUserManagementService(
                     user.Id,
                     request.Profile,
                     allowedProfileFieldKeys,
+                    actorUserId,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!profileResult.IsSuccess)
@@ -442,6 +449,7 @@ internal sealed class HostUserManagementService(
         Guid userId,
         UpdateHostUserRequest request,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,
+        Guid? actorUserId,
         CancellationToken cancellationToken)
     {
         var displayName = request.DisplayName?.Trim() ?? string.Empty;
@@ -515,6 +523,7 @@ internal sealed class HostUserManagementService(
                     userId,
                     request.Profile,
                     allowedProfileFieldKeys,
+                    actorUserId,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!profileResult.IsSuccess)
@@ -529,6 +538,8 @@ internal sealed class HostUserManagementService(
             profileResponse = await LoadProfileResponseAsync(
                     userId,
                     allowedProfileFieldKeys,
+                    actorUserId,
+                    freshlyWrittenFieldKeys: null,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -614,6 +625,7 @@ internal sealed class HostUserManagementService(
         Guid userId,
         HostUserProfileWriteRequest profile,
         IReadOnlyCollection<string>? allowedProfileFieldKeys,
+        Guid? actorUserId,
         CancellationToken cancellationToken)
     {
         var existing = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
@@ -625,6 +637,17 @@ internal sealed class HostUserManagementService(
             existing,
             profile,
             allowedProfileFieldKeys);
+        var maskedValueError = HostUserProfileMapper.ValidateWritableSensitiveValues(
+            mergedProfile.FieldKeys ?? [],
+            mergedProfile);
+        if (maskedValueError is not null)
+        {
+            return Result<HostUserProfileResponse?>.Failure(new Error(
+                maskedValueError,
+                "Masked profile values cannot be written back to the authoritative store.",
+                ErrorType.Validation));
+        }
+
         var normalizedResult = HostUserProfilePolicy.NormalizeAndValidate(mergedProfile);
         if (!normalizedResult.IsSuccess)
         {
@@ -703,8 +726,64 @@ internal sealed class HostUserManagementService(
             await LoadProfileResponseAsync(
                     userId,
                     allowedProfileFieldKeys,
+                    actorUserId,
+                    HostUserProfileMapper.NormalizeFieldKeys(profile.FieldKeys, allowedProfileFieldKeys),
                     cancellationToken)
                 .ConfigureAwait(false));
+    }
+
+    private async Task<HostUserProfileResponse?> LoadProfileResponseAsync(
+        Guid userId,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
+        Guid? actorUserId,
+        IReadOnlyCollection<string>? freshlyWrittenFieldKeys,
+        CancellationToken cancellationToken)
+    {
+        var record = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
+                IdentitySql.ListHostUserProfilesByIds,
+                IdentitySqlParameters.Create(("UserIds", new[] { userId })),
+                cancellationToken)
+            .ConfigureAwait(false)).FirstOrDefault();
+        var revealAccess = await ResolveRevealAccessAsync(actorUserId, freshlyWrittenFieldKeys, cancellationToken)
+            .ConfigureAwait(false);
+        return HostUserProfileMapper.ToResponse(record, allowedProfileFieldKeys, revealAccess);
+    }
+
+    private async Task<HostUserSensitiveFieldRevealAccess> ResolveRevealAccessAsync(
+        Guid? actorUserId,
+        IReadOnlyCollection<string>? freshlyWrittenFieldKeys,
+        CancellationToken cancellationToken)
+    {
+        if (actorUserId is null)
+        {
+            return default;
+        }
+
+        var snapshot = await permissionSnapshots.ReadAsync(
+                actorUserId.Value,
+                HostScope,
+                tenantId: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var revealAccess = HostUserSensitiveFieldRevealAccess.FromPermissions(snapshot.Permissions);
+        var writtenKeys = freshlyWrittenFieldKeys?.ToHashSet(StringComparer.Ordinal) ?? [];
+        return new HostUserSensitiveFieldRevealAccess(
+            revealAccess.CanRevealPhoneNumber || writtenKeys.Contains("phone_number"),
+            revealAccess.CanRevealIdCardNumber || writtenKeys.Contains("id_card_number"));
+    }
+
+    private async Task<HostUserProfileResponse?> LoadProfileResponseAsync(
+        Guid userId,
+        IReadOnlyCollection<string>? allowedProfileFieldKeys,
+        CancellationToken cancellationToken)
+    {
+        return await LoadProfileResponseAsync(
+                userId,
+                allowedProfileFieldKeys,
+                actorUserId: null,
+                freshlyWrittenFieldKeys: null,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<Error?> FindProfileConflictAsync(
@@ -782,19 +861,6 @@ internal sealed class HostUserManagementService(
 
     private static Error ProfileConflict(string code, string message) =>
         new(code, message, ErrorType.Conflict);
-
-    private async Task<HostUserProfileResponse?> LoadProfileResponseAsync(
-        Guid userId,
-        IReadOnlyCollection<string>? allowedProfileFieldKeys,
-        CancellationToken cancellationToken)
-    {
-        var record = (await queryExecutor.QueryAsync<HostUserProfileRecord>(
-                IdentitySql.ListHostUserProfilesByIds,
-                IdentitySqlParameters.Create(("UserIds", new[] { userId })),
-                cancellationToken)
-            .ConfigureAwait(false)).FirstOrDefault();
-        return HostUserProfileMapper.ToResponse(record, allowedProfileFieldKeys);
-    }
 
     private async Task<bool> IsActiveSuperAdministratorAsync(
         Guid userId,

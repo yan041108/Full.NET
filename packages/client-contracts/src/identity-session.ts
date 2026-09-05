@@ -1,4 +1,5 @@
 import { readCsrfHeaders } from './csrf.js';
+import { changePassword as changePasswordRequest } from './change-password.js';
 import type { HttpClient } from './http.js';
 import type { SessionRefreshCoordinator } from './session-refresh-coordinator.js';
 import {
@@ -43,6 +44,7 @@ export interface IdentitySessionController {
   reloadAuthenticatedContext(): Promise<void>;
   switchTenant(tenantId: string | null): Promise<void>;
   changeLocale(locale: SupportedLocale): Promise<void>;
+  changePassword(currentPassword: string, newPassword: string): Promise<void>;
   logout(): Promise<void>;
   can(permission: string): boolean;
   readAccessToken(): string | undefined;
@@ -308,6 +310,28 @@ export function createIdentitySession(
     }
   }
 
+  async function changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    if (state !== 'authenticated' || currentUser === undefined) {
+      throw new Error('identity.session_not_authenticated');
+    }
+
+    const operationGeneration = sessionGeneration;
+    const value = await changePasswordRequest(
+      http,
+      currentPassword,
+      newPassword
+    );
+    if (operationGeneration !== sessionGeneration) {
+      return;
+    }
+
+    token = value;
+    await reloadAuthenticatedContext();
+  }
+
   async function changeTenantContext(
     tenantId: string | null,
     operationGeneration: number
@@ -475,6 +499,7 @@ export function createIdentitySession(
     reloadAuthenticatedContext,
     switchTenant,
     changeLocale,
+    changePassword,
     logout,
     can,
     readAccessToken,

@@ -37,7 +37,8 @@ internal static class HostUserProfileMapper
 
     public static HostUserProfileResponse? ToResponse(
         HostUserProfileRecord? record,
-        IReadOnlyCollection<string>? effectiveFieldKeys = null)
+        IReadOnlyCollection<string>? effectiveFieldKeys = null,
+        HostUserSensitiveFieldRevealAccess revealAccess = default)
     {
         if (record is null)
         {
@@ -52,14 +53,14 @@ internal static class HostUserProfileMapper
 
         return new HostUserProfileResponse(
             HasField(readableFieldKeys, "nickname") ? record.Nickname : null,
-            HasField(readableFieldKeys, "phone_number") ? record.PhoneNumber : null,
+            ProjectPhoneNumber(record, readableFieldKeys, revealAccess),
             HasField(readableFieldKeys, "email") ? record.Email : null,
             HasField(readableFieldKeys, "employee_number") ? record.EmployeeNumber : null,
             HasField(readableFieldKeys, "gender") ? record.Gender : null,
             HasField(readableFieldKeys, "join_date_utc") ? FormatDate(record.JoinDateUtc) : null,
             HasField(readableFieldKeys, "sort_order") ? record.SortOrder : null,
             HasField(readableFieldKeys, "id_card_type") ? record.IdCardType : null,
-            HasField(readableFieldKeys, "id_card_number") ? record.IdCardNumber : null,
+            ProjectIdCardNumber(record, readableFieldKeys, revealAccess),
             HasField(readableFieldKeys, "birth_date") ? FormatDate(record.BirthDate) : null,
             HasField(readableFieldKeys, "ethnicity") ? record.Ethnicity : null,
             HasField(readableFieldKeys, "address") ? record.Address : null,
@@ -285,4 +286,54 @@ internal static class HostUserProfileMapper
         IReadOnlyCollection<string> fieldKeys,
         string fieldKey) =>
         fieldKeys.Contains(fieldKey, StringComparer.Ordinal);
+
+    private static string? ProjectPhoneNumber(
+        HostUserProfileRecord record,
+        IReadOnlyCollection<string> readableFieldKeys,
+        HostUserSensitiveFieldRevealAccess revealAccess)
+    {
+        if (!HasField(readableFieldKeys, "phone_number") || record.PhoneNumber is null)
+        {
+            return null;
+        }
+
+        return revealAccess.CanRevealPhoneNumber
+            ? record.PhoneNumber
+            : HostUserSensitiveFieldMasker.MaskPhoneNumber(record.PhoneNumber);
+    }
+
+    private static string? ProjectIdCardNumber(
+        HostUserProfileRecord record,
+        IReadOnlyCollection<string> readableFieldKeys,
+        HostUserSensitiveFieldRevealAccess revealAccess)
+    {
+        if (!HasField(readableFieldKeys, "id_card_number") || record.IdCardNumber is null)
+        {
+            return null;
+        }
+
+        return revealAccess.CanRevealIdCardNumber
+            ? record.IdCardNumber
+            : HostUserSensitiveFieldMasker.MaskIdCardNumber(record.IdCardNumber);
+    }
+
+    /// <summary>拒绝将掩码占位值写回权威档案。</summary>
+    public static string? ValidateWritableSensitiveValues(
+        IReadOnlyCollection<string> fieldKeys,
+        HostUserProfileWriteRequest patch)
+    {
+        if (fieldKeys.Contains("phone_number", StringComparer.Ordinal)
+            && HostUserSensitiveFieldMasker.LooksLikeMaskedPhoneNumber(patch.PhoneNumber))
+        {
+            return IdentityErrorCodes.ProfileMaskedValueRejected;
+        }
+
+        if (fieldKeys.Contains("id_card_number", StringComparer.Ordinal)
+            && HostUserSensitiveFieldMasker.LooksLikeMaskedIdCardNumber(patch.IdCardNumber))
+        {
+            return IdentityErrorCodes.ProfileMaskedValueRejected;
+        }
+
+        return null;
+    }
 }

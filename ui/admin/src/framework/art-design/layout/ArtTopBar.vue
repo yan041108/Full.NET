@@ -33,6 +33,7 @@ const props = defineProps<{
   chatLabel: string;
   languageLabel: string;
   logoutLabel: string;
+  securitySettingsLabel: string;
   noticeTitle: string;
   noticeMarkReadLabel: string;
   noticeViewAllLabel: string;
@@ -244,6 +245,7 @@ onUnmounted(() => {
           :display-name="displayName"
           :role-label="roleLabel"
           :logout-label="logoutLabel"
+          :security-settings-label="securitySettingsLabel"
           :tenant-selector-label="tenantSelectorLabel"
           :selected-context="selectedContext"
           :host-context-value="hostContextValue"

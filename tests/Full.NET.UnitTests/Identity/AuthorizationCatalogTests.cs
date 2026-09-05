@@ -62,6 +62,8 @@ public sealed class AuthorizationCatalogTests
                 "identity.users.import",
                 "identity.users.read",
                 "identity.users.reset_password",
+                "identity.users.reveal_id_card_number",
+                "identity.users.reveal_phone_number",
                 "identity.users.update",
                 "platform.dashboard.read",
                 "tenancy.host_tenants.read",
@@ -161,6 +163,8 @@ public sealed class AuthorizationCatalogTests
             ["enable"] = "identity.users.enable",
             ["export"] = "identity.users.export",
             ["import"] = "identity.users.import",
+            ["reveal-phone-number"] = "identity.users.reveal_phone_number",
+            ["reveal-id-card-number"] = "identity.users.reveal_id_card_number",
         };
 
         var usersActions = catalog.Actions
