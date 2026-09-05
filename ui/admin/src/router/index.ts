@@ -239,6 +239,11 @@ export function createAppRouter(
         component: () => import('../views/DataApprovalRequestsView.vue')
       },
       {
+        name: 'data-approval-scenarios',
+        path: '/data-approvals/scenarios',
+        component: () => import('../views/DataApprovalScenariosView.vue')
+      },
+      {
         name: 'observability-log-files',
         path: '/observability/log-files',
         component: () => import('../views/ObservabilityLogFilesView.vue')

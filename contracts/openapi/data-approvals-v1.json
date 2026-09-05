@@ -1,7 +1,7 @@
 {
     "id": "data-approvals-v1",
-    "version": 1,
-    "description": "DataApproval 请求 HTTP 契约冻结夹具；与 DataApprovalContracts 和 ManageRequests.Endpoint 对齐。",
+    "version": 2,
+    "description": "DataApproval 请求与场景 HTTP 契约冻结夹具；与 DataApprovalContracts 和 Endpoint 对齐。",
     "paths": [
         {
             "path": "/api/v1/data-approvals/requests",
@@ -43,6 +43,35 @@
                     "responseSchema": "DataApprovalRequestResponse"
                 }
             ]
+        },
+        {
+            "path": "/api/v1/data-approvals/scenarios",
+            "operations": [
+                {
+                    "method": "GET",
+                    "permission": "data_approvals.scenarios.read",
+                    "successStatus": 200,
+                    "responseSchema": "DataApprovalScenarioResponseList"
+                }
+            ]
+        },
+        {
+            "path": "/api/v1/data-approvals/scenarios/{scenarioKey}",
+            "operations": [
+                {
+                    "method": "GET",
+                    "permission": "data_approvals.scenarios.read",
+                    "successStatus": 200,
+                    "responseSchema": "DataApprovalScenarioResponse"
+                },
+                {
+                    "method": "PUT",
+                    "permission": "data_approvals.scenarios.manage",
+                    "successStatus": 200,
+                    "requestSchema": "UpdateDataApprovalScenarioBindingBody",
+                    "responseSchema": "DataApprovalScenarioResponse"
+                }
+            ]
         }
     ],
     "schemas": {
@@ -51,13 +80,19 @@
                 "scenarioKey",
                 "targetEntityId",
                 "proposedChangeJson",
-                "workflowDefinitionKey",
                 "idempotencyKey"
             ]
         },
         "CancelDataApprovalRequestBody": {
             "properties": [
                 "idempotencyKey"
+            ]
+        },
+        "UpdateDataApprovalScenarioBindingBody": {
+            "properties": [
+                "isEnabled",
+                "workflowDefinitionVersionId",
+                "version"
             ]
         },
         "DataApprovalRequestResponse": {
@@ -76,6 +111,23 @@
                 "resolvedAtUtc",
                 "version"
             ]
+        },
+        "DataApprovalScenarioResponse": {
+            "properties": [
+                "scenarioKey",
+                "scopeKey",
+                "isRegistered",
+                "isEnabled",
+                "workflowDefinitionKey",
+                "workflowDefinitionVersionId",
+                "version"
+            ]
+        },
+        "DataApprovalScenarioResponseList": {
+            "properties": [
+                "items"
+            ],
+            "itemSchema": "DataApprovalScenarioResponse"
         },
         "DataApprovalRequestResponsePage": {
             "properties": [

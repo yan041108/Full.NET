@@ -9,12 +9,17 @@ import {
   getDataApprovalRequest,
   listDataApprovalRequests
 } from '../api/data-approval-requests';
+import { listDataApprovalScenarios } from '../api/data-approval-scenarios';
 
 vi.mock('../api/data-approval-requests', () => ({
   listDataApprovalRequests: vi.fn(),
   getDataApprovalRequest: vi.fn(),
   createDataApprovalRequest: vi.fn(),
   cancelDataApprovalRequest: vi.fn()
+}));
+
+vi.mock('../api/data-approval-scenarios', () => ({
+  listDataApprovalScenarios: vi.fn()
 }));
 
 const listMock = vi.mocked(listDataApprovalRequests);
@@ -59,6 +64,15 @@ describe('Vue 数据审批请求页', () => {
   beforeEach(() => {
     listMock.mockReset().mockResolvedValue({ items: [request], page: 1, pageSize: 20, total: 1 });
     getMock.mockReset().mockResolvedValue(request);
+    vi.mocked(listDataApprovalScenarios).mockReset().mockResolvedValue([{
+      scenarioKey: 'serial_numbers.host_rule.update',
+      scopeKey: 'host',
+      isRegistered: true,
+      isEnabled: true,
+      workflowDefinitionKey: 'serial-rule-update',
+      workflowDefinitionVersionId: '0198f36e-f7a7-7c52-9cbb-774e67411207',
+      version: 1
+    }]);
     vi.mocked(createDataApprovalRequest).mockReset();
     vi.mocked(cancelDataApprovalRequest).mockReset();
   });

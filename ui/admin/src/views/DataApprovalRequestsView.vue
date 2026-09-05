@@ -12,16 +12,17 @@ import {
   listDataApprovalRequests,
   type DataApprovalRequestResponse
 } from '../api/data-approval-requests';
+import { listDataApprovalScenarios, type DataApprovalScenarioResponse } from '../api/data-approval-scenarios';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const requests = ref<DataApprovalRequestResponse[]>([]);
+const scenarios = ref<DataApprovalScenarioResponse[]>([]);
 const selectedRequestId = ref<string>();
 const selectedRequest = ref<DataApprovalRequestResponse>();
 const scenarioKey = ref('serial_numbers.host_rule.update');
 const targetEntityId = ref('');
 const proposedChangeJson = ref('{"displayName":"Updated rule","description":null,"scope":0,"resetInterval":1,"pattern":"INV-{sequence:5}","minimumValue":1,"maximumValue":99999,"displayOrder":10,"isEnabled":true,"version":1}');
-const workflowDefinitionKey = ref('');
 const idempotencyKey = ref('');
 const loading = ref(false);
 const changing = ref(false);
@@ -35,8 +36,12 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const result = await listDataApprovalRequests({ page: 1, pageSize: 20 });
+    const [result, scenarioList] = await Promise.all([
+      listDataApprovalRequests({ page: 1, pageSize: 20 }),
+      listDataApprovalScenarios()
+    ]);
     requests.value = result.items;
+    scenarios.value = scenarioList.filter(item => item.isEnabled);
   } catch (error: unknown) {
     problem.value = toProblem(error, 'dataApprovalRequests.loadFailed');
   } finally {
@@ -65,7 +70,6 @@ async function submitCreate(): Promise<void> {
       scenarioKey: scenarioKey.value,
       targetEntityId: targetEntityId.value,
       proposedChangeJson: proposedChangeJson.value,
-      workflowDefinitionKey: workflowDefinitionKey.value,
       idempotencyKey: idempotencyKey.value || crypto.randomUUID()
     });
     await load();
@@ -142,14 +146,18 @@ function toProblem(error: unknown, fallbackCode: string): FullNetProblemDetails 
         <div class="form-grid">
           <label>{{ t('dataApprovalRequests.fieldScenario') }}
             <ElSelect v-model="scenarioKey" data-testid="data-approval-scenario">
-              <ElOption value="serial_numbers.host_rule.update" :label="t('dataApprovalRequests.scenarioSerialRuleUpdate')" />
+              <ElOption
+                v-for="item in scenarios"
+                :key="item.scenarioKey"
+                :value="item.scenarioKey"
+                :label="item.scenarioKey === 'serial_numbers.host_rule.update'
+                  ? t('dataApprovalRequests.scenarioSerialRuleUpdate')
+                  : item.scenarioKey"
+              />
             </ElSelect>
           </label>
           <label>{{ t('dataApprovalRequests.fieldTargetEntityId') }}
             <ElInput v-model="targetEntityId" data-testid="data-approval-target-id" />
-          </label>
-          <label>{{ t('dataApprovalRequests.fieldWorkflowDefinitionKey') }}
-            <ElInput v-model="workflowDefinitionKey" data-testid="data-approval-workflow-key" />
           </label>
           <label>{{ t('dataApprovalRequests.fieldProposedChangeJson') }}
             <ElInput v-model="proposedChangeJson" type="textarea" :rows="6" data-testid="data-approval-proposed-json" />

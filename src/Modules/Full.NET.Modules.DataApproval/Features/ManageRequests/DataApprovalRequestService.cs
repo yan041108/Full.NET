@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.DataApproval.Domain;
+using Full.NET.Modules.DataApproval.Features.ManageScenarios;
 using Full.NET.Modules.DataApproval.Persistence;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.Workflow.Contracts;
@@ -24,7 +25,7 @@ internal sealed class DataApprovalRequestService(
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
     ISerialRuleChangeApprovalSource serialRuleApprovalSource,
-    IWorkflowPublishedDefinitionDirectory workflowDirectory,
+    DataApprovalScenarioService scenarioService,
     IWorkflowInstanceStarter workflowStarter,
     IWorkflowInstanceCanceller workflowCanceller)
 {
@@ -124,17 +125,15 @@ internal sealed class DataApprovalRequestService(
             beforeSnapshotJson = snapshot.Value!.SnapshotJson;
         }
 
-        var definition = await workflowDirectory
-            .FindLatestPublishedAsync(normalized.WorkflowDefinitionKey, cancellationToken)
+        var binding = await scenarioService
+            .ResolveForCreateAsync(normalized.ScenarioKey, cancellationToken)
             .ConfigureAwait(false);
-        if (definition is null)
+        if (!binding.IsSuccess)
         {
-            return Result<DataApprovalRequestResponse>.Failure(new Error(
-                DataApprovalErrorCodes.WorkflowDefinitionMissing,
-                "The workflow definition is not published.",
-                ErrorType.Validation));
+            return Result<DataApprovalRequestResponse>.Failure(binding.Error!);
         }
 
+        var definitionVersionId = binding.Value!.WorkflowDefinitionVersionId;
         var requestId = idGenerator.NewId();
         var now = clock.UtcNow;
         try
@@ -155,7 +154,7 @@ internal sealed class DataApprovalRequestService(
                         ("AfterSnapshotJson", normalized.ProposedChangeJson),
                         ("WorkflowInstanceId", null),
                         ("WorkflowRevision", null),
-                        ("WorkflowDefinitionVersionId", definition.DefinitionVersionId),
+                        ("WorkflowDefinitionVersionId", definitionVersionId),
                         ("SubmittedByUserId", actorUserId),
                         ("SubmittedAtUtc", now),
                         ("ResolvedAtUtc", null),
@@ -221,12 +220,21 @@ internal sealed class DataApprovalRequestService(
             return Result<DataApprovalRequestResponse>.Success(Map(row));
         }
 
+        var catalogEntry = DataApprovalScenarioCatalog.Find(row.ScenarioKey);
+        if (catalogEntry is null)
+        {
+            return Result<DataApprovalRequestResponse>.Failure(new Error(
+                DataApprovalErrorCodes.ScenarioUnsupported,
+                "The approval scenario is not supported.",
+                ErrorType.Validation));
+        }
+
         // Workflow 写入不进入 DataApproval 本地事务；稳定幂等键允许失败后由同一创建请求恢复。
         var start = await workflowStarter.StartAsync(
                 row.SubmittedByUserId,
                 new StartWorkflowInstanceCommand(
                     row.WorkflowDefinitionVersionId,
-                    DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
+                    catalogEntry.WorkflowBusinessType,
                     row.Id.ToString("D"),
                     "{}",
                     $"{row.IdempotencyKey}:start"),
@@ -382,12 +390,10 @@ internal sealed class DataApprovalRequestService(
         error = null;
         var scenarioKey = request.ScenarioKey?.Trim() ?? string.Empty;
         var proposedChangeJson = request.ProposedChangeJson?.Trim() ?? string.Empty;
-        var workflowDefinitionKey = request.WorkflowDefinitionKey?.Trim() ?? string.Empty;
         var idempotencyKey = request.IdempotencyKey?.Trim() ?? string.Empty;
         if (request.TargetEntityId == Guid.Empty ||
             scenarioKey.Length is < 1 or > 128 ||
             proposedChangeJson.Length is < 2 or > 65536 ||
-            workflowDefinitionKey.Length is < 1 or > 128 ||
             idempotencyKey.Length is < 1 or > 128)
         {
             error = new Error(
@@ -410,7 +416,6 @@ internal sealed class DataApprovalRequestService(
             scenarioKey,
             request.TargetEntityId,
             proposedChangeJson,
-            workflowDefinitionKey,
             idempotencyKey);
         return true;
     }
@@ -447,6 +452,5 @@ internal sealed class DataApprovalRequestService(
         string ScenarioKey,
         Guid TargetEntityId,
         string ProposedChangeJson,
-        string WorkflowDefinitionKey,
         string IdempotencyKey);
 }

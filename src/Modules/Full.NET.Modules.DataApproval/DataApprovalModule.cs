@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.DataApproval.Features.ManageRequests;
+using Full.NET.Modules.DataApproval.Features.ManageScenarios;
 using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
 using Full.NET.Modules.DataApproval.Serialization;
 using Full.NET.Modules.Identity.Contracts;
@@ -36,6 +37,7 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<DataApprovalRequestService>();
+        services.TryAddScoped<DataApprovalScenarioService>();
         services.TryAddScoped<DataApprovalWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
@@ -70,6 +72,9 @@ public sealed class DataApprovalModule : IFullNetModule
     }
 
     /// <inheritdoc />
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
-        Endpoint.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        Features.ManageRequests.Endpoint.Map(endpoints);
+        Features.ManageScenarios.Endpoint.Map(endpoints);
+    }
 }

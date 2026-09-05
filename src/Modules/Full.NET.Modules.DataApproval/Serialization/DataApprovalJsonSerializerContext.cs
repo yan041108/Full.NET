@@ -9,5 +9,8 @@ namespace Full.NET.Modules.DataApproval.Serialization;
 [JsonSerializable(typeof(CancelDataApprovalRequestBody))]
 [JsonSerializable(typeof(CreateDataApprovalRequestBody))]
 [JsonSerializable(typeof(DataApprovalRequestResponse))]
+[JsonSerializable(typeof(DataApprovalScenarioResponse))]
+[JsonSerializable(typeof(UpdateDataApprovalScenarioBindingBody))]
 [JsonSerializable(typeof(PagedResult<DataApprovalRequestResponse>))]
+[JsonSerializable(typeof(DataApprovalScenarioResponse[]))]
 internal partial class DataApprovalJsonSerializerContext : JsonSerializerContext;

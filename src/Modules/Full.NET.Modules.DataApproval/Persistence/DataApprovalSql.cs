@@ -144,7 +144,73 @@ internal static class DataApprovalSql
           AND (@StatusKey IS NULL OR StatusKey = @StatusKey);
         """,
         SqlDataScope.Global);
+
+    public static readonly SqlStatement FindScenarioByKey = new(
+        "data_approval.scenario.find_by_key",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, ScenarioKey, IsEnabled,
+               WorkflowDefinitionKey, WorkflowDefinitionVersionId,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_dataapproval_scenario
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND ScenarioKey = @ScenarioKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement ListScenarios = new(
+        "data_approval.scenario.list",
+        """
+        SELECT Id, TenantId, ScopeKey, TenantScopeKey, ScenarioKey, IsEnabled,
+               WorkflowDefinitionKey, WorkflowDefinitionVersionId,
+               CreatedAtUtc, UpdatedAtUtc, Version
+        FROM fn_dataapproval_scenario
+        WHERE TenantScopeKey = @TenantScopeKey
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement InsertScenario = new(
+        "data_approval.scenario.insert",
+        """
+        INSERT INTO fn_dataapproval_scenario
+            (Id, TenantId, ScopeKey, TenantScopeKey, ScenarioKey, IsEnabled,
+             WorkflowDefinitionKey, WorkflowDefinitionVersionId,
+             CreatedAtUtc, UpdatedAtUtc, Version)
+        VALUES
+            (@Id, @TenantId, @ScopeKey, @TenantScopeKey, @ScenarioKey, @IsEnabled,
+             @WorkflowDefinitionKey, @WorkflowDefinitionVersionId,
+             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement UpdateScenarioBinding = new(
+        "data_approval.scenario.update_binding",
+        """
+        UPDATE fn_dataapproval_scenario
+        SET IsEnabled = @IsEnabled,
+            WorkflowDefinitionKey = @WorkflowDefinitionKey,
+            WorkflowDefinitionVersionId = @WorkflowDefinitionVersionId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND ScenarioKey = @ScenarioKey
+          AND Version = @ExpectedVersion
+        """,
+        SqlDataScope.Global);
 }
+
+/// <summary>DataApproval 场景绑定持久化投影。</summary>
+internal sealed record DataApprovalScenarioRecord(
+    Guid Id,
+    Guid? TenantId,
+    string ScopeKey,
+    string TenantScopeKey,
+    string ScenarioKey,
+    bool IsEnabled,
+    string? WorkflowDefinitionKey,
+    Guid? WorkflowDefinitionVersionId,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    long Version);
 
 /// <summary>DataApproval 请求持久化投影。</summary>
 internal sealed record DataApprovalRequestRecord(

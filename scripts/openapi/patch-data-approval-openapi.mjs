@@ -76,13 +76,34 @@ doc.paths['/api/v1/data-approvals/requests/{requestId}/cancel'] = {
 
 doc.components.schemas.CreateDataApprovalRequestBody = {
   type: 'object',
-  required: ['scenarioKey', 'targetEntityId', 'proposedChangeJson', 'workflowDefinitionKey', 'idempotencyKey'],
+  required: ['scenarioKey', 'targetEntityId', 'proposedChangeJson', 'idempotencyKey'],
   properties: {
     scenarioKey: { type: 'string' },
     targetEntityId: { type: 'string', format: 'uuid' },
     proposedChangeJson: { type: 'string' },
-    workflowDefinitionKey: { type: 'string' },
     idempotencyKey: { type: 'string' }
+  }
+};
+doc.components.schemas.UpdateDataApprovalScenarioBindingBody = {
+  type: 'object',
+  required: ['isEnabled'],
+  properties: {
+    isEnabled: { type: 'boolean' },
+    workflowDefinitionVersionId: { type: ['string', 'null'], format: 'uuid' },
+    version: { type: ['integer', 'null'], format: 'int64' }
+  }
+};
+doc.components.schemas.DataApprovalScenarioResponse = {
+  type: 'object',
+  required: ['scenarioKey', 'scopeKey', 'isRegistered', 'isEnabled'],
+  properties: {
+    scenarioKey: { type: 'string' },
+    scopeKey: { type: 'string' },
+    isRegistered: { type: 'boolean' },
+    isEnabled: { type: 'boolean' },
+    workflowDefinitionKey: { type: ['string', 'null'] },
+    workflowDefinitionVersionId: { type: ['string', 'null'], format: 'uuid' },
+    version: { type: ['integer', 'null'], format: 'int64' }
   }
 };
 doc.components.schemas.CancelDataApprovalRequestBody = {
@@ -120,6 +141,46 @@ doc.components.schemas.PagedResultOfDataApprovalRequestResponse = {
   }
 };
 
+doc.paths['/api/v1/data-approvals/scenarios'] = {
+  get: withSecurity({
+    operationId: 'dataApprovalsListScenarios',
+    responses: {
+      200: { description: 'OK', content: { 'application/json': { schema: { type: 'array', items: ref('DataApprovalScenarioResponse') } } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['DataApprovalScenarios']
+  })
+};
+
+doc.paths['/api/v1/data-approvals/scenarios/{scenarioKey}'] = {
+  get: withSecurity({
+    operationId: 'dataApprovalsGetScenario',
+    parameters: [{ in: 'path', name: 'scenarioKey', required: true, schema: { type: 'string' } }],
+    responses: {
+      200: { description: 'OK', content: { 'application/json': { schema: ref('DataApprovalScenarioResponse') } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      404: { description: 'Not Found', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['DataApprovalScenarios']
+  }),
+  put: withSecurity({
+    operationId: 'dataApprovalsUpdateScenarioBinding',
+    parameters: [{ in: 'path', name: 'scenarioKey', required: true, schema: { type: 'string' } }],
+    requestBody: { required: true, content: { 'application/json': { schema: ref('UpdateDataApprovalScenarioBindingBody') } } },
+    responses: {
+      200: { description: 'OK', content: { 'application/json': { schema: ref('DataApprovalScenarioResponse') } } },
+      400: { description: 'Bad Request', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      404: { description: 'Not Found', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      409: { description: 'Conflict', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['DataApprovalScenarios']
+  })
+};
+
 await writeFile(openapiPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -127,14 +188,20 @@ const entries = [
   'dataApprovalsListRequests',
   'dataApprovalsCreateRequest',
   'dataApprovalsGetRequest',
-  'dataApprovalsCancelRequest'
+  'dataApprovalsCancelRequest',
+  'dataApprovalsListScenarios',
+  'dataApprovalsGetScenario',
+  'dataApprovalsUpdateScenarioBinding'
 ];
 for (const operationId of entries) {
   if (!manifest.entries.some((item) => item.operationId === operationId)) {
+    const apiModule = operationId.includes('Scenario')
+      ? 'ui/admin/src/api/data-approval-scenarios.ts'
+      : 'ui/admin/src/api/data-approval-requests.ts';
     manifest.entries.push({
       operationId,
-      apiModule: 'ui/admin/src/api/data-approval-requests.ts',
-      generatedGroup: 'data-approval-requests',
+      apiModule,
+      generatedGroup: operationId.includes('Scenario') ? 'data-approval-scenarios' : 'data-approval-requests',
       status: 'generated'
     });
   }

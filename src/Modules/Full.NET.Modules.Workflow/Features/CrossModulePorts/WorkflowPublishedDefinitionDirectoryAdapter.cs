@@ -49,4 +49,43 @@ internal sealed class WorkflowPublishedDefinitionDirectoryAdapter(
             version.FormVersionId,
             definition.DefinitionKey);
     }
+
+    /// <inheritdoc />
+    public async Task<WorkflowPublishedDefinitionVersion?> FindPublishedByVersionIdAsync(
+        Guid definitionVersionId,
+        CancellationToken cancellationToken = default)
+    {
+        if (definitionVersionId == Guid.Empty)
+        {
+            return null;
+        }
+
+        var scope = WorkflowManagementScope.Resolve(currentTenant);
+        var version = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowDefinitionVersionRecord>(
+            WorkflowSql.FindDefinitionVersionById,
+            WorkflowSqlParameters.Create(
+                ("Id", definitionVersionId),
+                ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (version is null)
+        {
+            return null;
+        }
+
+        var definition = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowDefinitionRecord>(
+            WorkflowSql.FindDefinitionById,
+            WorkflowSqlParameters.Create(
+                ("Id", version.DefinitionId),
+                ("TenantScopeKey", scope.TenantScopeKey)),
+            cancellationToken).ConfigureAwait(false);
+        if (definition is null)
+        {
+            return null;
+        }
+
+        return new WorkflowPublishedDefinitionVersion(
+            version.Id,
+            version.FormVersionId,
+            definition.DefinitionKey);
+    }
 }

@@ -1818,6 +1818,24 @@
       "apiModule": "ui/admin/src/api/data-approval-requests.ts",
       "generatedGroup": "data-approval-requests",
       "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsListScenarios",
+      "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
+      "generatedGroup": "data-approval-scenarios",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsGetScenario",
+      "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
+      "generatedGroup": "data-approval-scenarios",
+      "status": "generated"
+    },
+    {
+      "operationId": "dataApprovalsUpdateScenarioBinding",
+      "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
+      "generatedGroup": "data-approval-scenarios",
+      "status": "generated"
     }
   ]
 }

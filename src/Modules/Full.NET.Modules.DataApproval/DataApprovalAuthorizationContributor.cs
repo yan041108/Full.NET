@@ -25,6 +25,14 @@ internal sealed class DataApprovalAuthorizationContributor : IAuthorizationCatal
             DataApprovalPermissions.Cancel,
             "取消数据审批请求",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            DataApprovalPermissions.ScenariosRead,
+            "查询数据审批场景",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DataApprovalPermissions.ScenariosManage,
+            "配置数据审批场景绑定",
+            AuthorizationScope.Host),
     ];
 
     /// <inheritdoc />
@@ -41,6 +49,17 @@ internal sealed class DataApprovalAuthorizationContributor : IAuthorizationCatal
             "audit",
             96,
             DataApprovalPermissions.Read),
+        new NavigationDefinition(
+            "data-approval-scenarios",
+            null,
+            "data-approval-scenarios",
+            "/data-approvals/scenarios",
+            "data-approval-scenarios",
+            "审批场景",
+            "Approval Scenarios",
+            "setting",
+            97,
+            DataApprovalPermissions.ScenariosRead),
     ];
 
     /// <inheritdoc />
@@ -60,5 +79,12 @@ internal sealed class DataApprovalAuthorizationContributor : IAuthorizationCatal
             "取消审批",
             "cancel",
             20),
+        new AuthorizationActionDefinition(
+            "data_approvals.scenarios.manage",
+            "data-approval-scenarios",
+            DataApprovalPermissions.ScenariosManage,
+            "配置场景绑定",
+            "manage",
+            10),
     ];
 }

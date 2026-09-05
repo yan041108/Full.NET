@@ -365,7 +365,6 @@ export interface CreateDataApprovalRequestBody {
   readonly proposedChangeJson: string;
   readonly scenarioKey: string;
   readonly targetEntityId: string;
-  readonly workflowDefinitionKey: string;
 }
 
 export interface CreateDictItemRequest {
@@ -615,6 +614,16 @@ export interface DataApprovalRequestResponse {
   readonly workflowDefinitionVersionId: string;
   readonly workflowInstanceId?: string | null;
   readonly workflowRevision?: number | null;
+}
+
+export interface DataApprovalScenarioResponse {
+  readonly isEnabled: boolean;
+  readonly isRegistered: boolean;
+  readonly scenarioKey: string;
+  readonly scopeKey: string;
+  readonly version?: number | null;
+  readonly workflowDefinitionKey?: string | null;
+  readonly workflowDefinitionVersionId?: string | null;
 }
 
 export interface DeleteCodeGenerationTemplateRequest {
@@ -2081,6 +2090,12 @@ export interface UpdateConfigEntryRequest {
   readonly groupName: null | string;
   readonly value: string;
   readonly version: number;
+}
+
+export interface UpdateDataApprovalScenarioBindingBody {
+  readonly isEnabled: boolean;
+  readonly version?: number | null;
+  readonly workflowDefinitionVersionId?: string | null;
 }
 
 export interface UpdateDiagnosticPolicyRequest {

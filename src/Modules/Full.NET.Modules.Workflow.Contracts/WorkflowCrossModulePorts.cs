@@ -20,6 +20,13 @@ public interface IWorkflowPublishedDefinitionDirectory
     Task<WorkflowPublishedDefinitionVersion?> FindLatestPublishedAsync(
         string definitionKey,
         CancellationToken cancellationToken = default);
+
+    /// <summary>按版本标识查找当前可信作用域内已发布的工作流定义版本。</summary>
+    /// <param name="definitionVersionId">已发布定义版本标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<WorkflowPublishedDefinitionVersion?> FindPublishedByVersionIdAsync(
+        Guid definitionVersionId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>跨模块启动工作流实例的命令。</summary>

@@ -82,6 +82,7 @@ import type {
   CreateWorkflowFormRequest,
   CurrentUserResponse,
   DataApprovalRequestResponse,
+  DataApprovalScenarioResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -263,6 +264,7 @@ import type {
   TotpEnrollmentStatusResponse,
   UpdateCodeGenerationTemplateRequest,
   UpdateConfigEntryRequest,
+  UpdateDataApprovalScenarioBindingBody,
   UpdateDiagnosticPolicyRequest,
   UpdateDictItemRequest,
   UpdateDictTypeRequest,
@@ -334,6 +336,8 @@ import {
   readCreateHostApiKeyResponse,
   readCurrentUserResponse,
   readDataApprovalRequestResponse,
+  readDataApprovalScenarioResponse,
+  readDataApprovalsListScenariosResponse,
   readDiagnosticPolicyResponse,
   readDictItemResponse,
   readDictTypeResponse,
@@ -1109,6 +1113,24 @@ export async function dataApprovalsGetRequest(
   return readDataApprovalRequestResponse(value);
 }
 
+export interface DataApprovalsGetScenarioParameters {
+  readonly scenarioKey: string;
+}
+
+export async function dataApprovalsGetScenario(
+  http: HttpClient,
+  parameters: DataApprovalsGetScenarioParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalScenarioResponse> {
+  const path = `/api/v1/data-approvals/scenarios/${encodeURIComponent(String(parameters.scenarioKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalScenarioResponse(value);
+}
+
 export interface DataApprovalsListRequestsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -1141,6 +1163,47 @@ export async function dataApprovalsListRequests(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfDataApprovalRequestResponse(value);
+}
+
+export interface DataApprovalsListScenariosParameters {
+
+}
+
+export async function dataApprovalsListScenarios(
+  http: HttpClient,
+  parameters: DataApprovalsListScenariosParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<DataApprovalScenarioResponse>> {
+  const path = `/api/v1/data-approvals/scenarios`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalsListScenariosResponse(value);
+}
+
+export interface DataApprovalsUpdateScenarioBindingParameters {
+  readonly scenarioKey: string;
+  readonly body: UpdateDataApprovalScenarioBindingBody;
+}
+
+export async function dataApprovalsUpdateScenarioBinding(
+  http: HttpClient,
+  parameters: DataApprovalsUpdateScenarioBindingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<DataApprovalScenarioResponse> {
+  const path = `/api/v1/data-approvals/scenarios/${encodeURIComponent(String(parameters.scenarioKey))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readDataApprovalScenarioResponse(value);
 }
 
 export interface DocumentHostAddItemVersionParameters {

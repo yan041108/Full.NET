@@ -81,6 +81,7 @@ import type {
   CreateWorkflowFormRequest,
   CurrentUserResponse,
   DataApprovalRequestResponse,
+  DataApprovalScenarioResponse,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -262,6 +263,7 @@ import type {
   TotpEnrollmentStatusResponse,
   UpdateCodeGenerationTemplateRequest,
   UpdateConfigEntryRequest,
+  UpdateDataApprovalScenarioBindingBody,
   UpdateDiagnosticPolicyRequest,
   UpdateDictItemRequest,
   UpdateDictTypeRequest,
@@ -864,7 +866,7 @@ export function readCreateDataApprovalRequestBody(value: unknown): CreateDataApp
 }
 
 function isCreateDataApprovalRequestBody(value: unknown): value is CreateDataApprovalRequestBody {
-  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (typeof value["proposedChangeJson"] === 'string') && (typeof value["scenarioKey"] === 'string') && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["workflowDefinitionKey"] === 'string');
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (typeof value["proposedChangeJson"] === 'string') && (typeof value["scenarioKey"] === 'string') && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"]));
 }
 
 export function readCreateDictItemRequest(value: unknown): CreateDictItemRequest {
@@ -1184,6 +1186,17 @@ export function readDataApprovalRequestResponse(value: unknown): DataApprovalReq
 
 function isDataApprovalRequestResponse(value: unknown): value is DataApprovalRequestResponse {
   return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (value["beforeSnapshotJson"] === undefined || ((typeof value["beforeSnapshotJson"] === 'string') || (value["beforeSnapshotJson"] === null))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["resolvedAtUtc"] === undefined || ((typeof value["resolvedAtUtc"] === 'string') || (value["resolvedAtUtc"] === null))) && (typeof value["scenarioKey"] === 'string') && (typeof value["statusKey"] === 'string') && (typeof value["submittedAtUtc"] === 'string') && (typeof value["submittedByUserId"] === 'string' && guidPattern.test(value["submittedByUserId"])) && (typeof value["targetEntityId"] === 'string' && guidPattern.test(value["targetEntityId"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"])) && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) && (value["workflowInstanceId"] === undefined || ((typeof value["workflowInstanceId"] === 'string' && guidPattern.test(value["workflowInstanceId"])) || (value["workflowInstanceId"] === null))) && (value["workflowRevision"] === undefined || ((typeof value["workflowRevision"] === 'number' && Number.isInteger(value["workflowRevision"])) || (value["workflowRevision"] === null)));
+}
+
+export function readDataApprovalScenarioResponse(value: unknown): DataApprovalScenarioResponse {
+  if (!(isDataApprovalScenarioResponse(value))) {
+    throw new Error('client.invalid_data_approval_scenario_response');
+  }
+  return value;
+}
+
+function isDataApprovalScenarioResponse(value: unknown): value is DataApprovalScenarioResponse {
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isRegistered"] === 'boolean') && (typeof value["scenarioKey"] === 'string') && (typeof value["scopeKey"] === 'string') && (value["version"] === undefined || ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (value["version"] === null))) && (value["workflowDefinitionKey"] === undefined || ((typeof value["workflowDefinitionKey"] === 'string') || (value["workflowDefinitionKey"] === null))) && (value["workflowDefinitionVersionId"] === undefined || ((typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) || (value["workflowDefinitionVersionId"] === null)));
 }
 
 export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
@@ -3177,6 +3190,17 @@ function isUpdateConfigEntryRequest(value: unknown): value is UpdateConfigEntryR
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["groupName"] === null) || (typeof value["groupName"] === 'string')) && (typeof value["value"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readUpdateDataApprovalScenarioBindingBody(value: unknown): UpdateDataApprovalScenarioBindingBody {
+  if (!(isUpdateDataApprovalScenarioBindingBody(value))) {
+    throw new Error('client.invalid_update_data_approval_scenario_binding_body');
+  }
+  return value;
+}
+
+function isUpdateDataApprovalScenarioBindingBody(value: unknown): value is UpdateDataApprovalScenarioBindingBody {
+  return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (value["version"] === undefined || ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (value["version"] === null))) && (value["workflowDefinitionVersionId"] === undefined || ((typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) || (value["workflowDefinitionVersionId"] === null)));
+}
+
 export function readUpdateDiagnosticPolicyRequest(value: unknown): UpdateDiagnosticPolicyRequest {
   if (!(isUpdateDiagnosticPolicyRequest(value))) {
     throw new Error('client.invalid_update_diagnostic_policy_request');
@@ -3765,6 +3789,13 @@ export function readCodeGenerationListCatalogTablesResponse(value: unknown): Arr
     throw new Error('client.invalid_code_generation_list_catalog_tables_response');
   }
   return value as Array<CodeGenerationCatalogTableResponse>;
+}
+
+export function readDataApprovalsListScenariosResponse(value: unknown): Array<DataApprovalScenarioResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isDataApprovalScenarioResponse(item5)))) {
+    throw new Error('client.invalid_data_approvals_list_scenarios_response');
+  }
+  return value as Array<DataApprovalScenarioResponse>;
 }
 
 export function readDocumentHostDeleteCategoryResponse(value: unknown): boolean {

@@ -5,13 +5,10 @@ namespace Full.NET.Modules.DataApproval.Domain;
 /// <summary>校验 DataApproval 场景键与状态转换规则。</summary>
 public static class DataApprovalScenarioValidator
 {
-    /// <summary>判断场景键是否为当前切片已支持的场景。</summary>
+    /// <summary>判断场景键是否已在静态目录登记。</summary>
     /// <param name="scenarioKey">待校验场景键。</param>
     public static bool IsSupportedScenario(string? scenarioKey) =>
-        string.Equals(
-            scenarioKey?.Trim(),
-            DataApprovalScenarioKeys.SerialRuleHostUpdate,
-            StringComparison.Ordinal);
+        DataApprovalScenarioCatalog.Find(scenarioKey) is not null;
 }
 
 /// <summary>DataApproval 请求状态机转换规则。</summary>
