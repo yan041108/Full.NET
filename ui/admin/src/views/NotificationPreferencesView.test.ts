@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import NotificationPreferencesView from './NotificationPreferencesView.vue';
@@ -81,6 +81,10 @@ describe('Vue 通知偏好页', () => {
     vi.mocked(deleteMyRecipientEndpoint).mockReset().mockResolvedValue(undefined);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('只读用户只看到脱敏端点和待验证状态', async () => {
     const wrapper = mountView(['notifications.preferences.read']);
     await flushPromises();
@@ -153,5 +157,35 @@ describe('Vue 通知偏好页', () => {
     await flushPromises();
     expect(verifyMyRecipientEndpoint).toHaveBeenCalledWith(endpoint.id, '123456');
     expect(wrapper.text()).toContain('已验证');
+  });
+
+  it('发送验证码后按 resendAvailableAtUtc 展示倒计时并禁用重发', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-01T00:00:00.000Z'));
+    vi.mocked(sendMyRecipientEndpointVerification).mockResolvedValue({
+      expiresAtUtc: '2026-09-01T00:15:00Z',
+      resendAvailableAtUtc: '2026-09-01T00:01:00Z'
+    });
+    const wrapper = mountView([
+      'notifications.preferences.read',
+      'notifications.preferences.update'
+    ]);
+    await flushPromises();
+
+    const sendButton = wrapper.get('[data-testid="notification-preferences-send-code"]');
+    expect((sendButton.element as HTMLButtonElement).disabled).toBe(false);
+
+    await sendButton.trigger('click');
+    await flushPromises();
+
+    expect(sendMyRecipientEndpointVerification).toHaveBeenCalledWith(endpoint.id);
+    expect((sendButton.element as HTMLButtonElement).disabled).toBe(true);
+    expect(sendButton.text()).toContain('60');
+
+    vi.advanceTimersByTime(60_000);
+    await flushPromises();
+
+    expect((sendButton.element as HTMLButtonElement).disabled).toBe(false);
+    expect(sendButton.text()).toContain('重新发送');
   });
 });
