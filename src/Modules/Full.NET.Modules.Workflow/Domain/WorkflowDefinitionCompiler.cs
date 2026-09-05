@@ -47,6 +47,13 @@ internal static class WorkflowDefinitionCompiler
             return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
         }
 
+        if (draft.Nodes.Any(node =>
+                node.NodeTypeKey == "gateway.parallel" &&
+                !WorkflowParallelGatewayConfiguration.TryRead(node.Config, out _)))
+        {
+            return WorkflowCompilationResult.Failure(WorkflowErrorCodes.DefinitionGatewayInvalid);
+        }
+
         // 超时策略会直接驱动后台可靠事件，只允许审批节点携带闭合且可执行的时间与接收人配置。
         if (draft.Nodes.Any(node =>
                 node.NodeTypeKey == "human.approval" &&
@@ -298,6 +305,14 @@ internal static class WorkflowDefinitionCompiler
 
     private static string[] ReadNextNodeKeys(WorkflowNodeDraft node)
     {
+        if (node.NodeTypeKey == "gateway.parallel" &&
+            WorkflowParallelGatewayConfiguration.TryRead(node.Config, out var parallel))
+        {
+            return parallel!.Role == WorkflowParallelGatewayRole.Fork
+                ? parallel.Branches.Select(branch => branch.NextNodeKey).ToArray()
+                : parallel.NextNodeKey is { } nextNodeKey ? [nextNodeKey] : [];
+        }
+
         if (node.Config.ValueKind != JsonValueKind.Object ||
             !node.Config.TryGetProperty("nextNodeKeys", out var next) ||
             next.ValueKind != JsonValueKind.Array)

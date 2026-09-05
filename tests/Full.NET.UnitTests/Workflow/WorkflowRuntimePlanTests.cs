@@ -159,6 +159,70 @@ public sealed class WorkflowRuntimePlanTests
         Assert.AreEqual("default", manager.AutomaticNodes.Single().OutcomeKey);
     }
 
+    [TestMethod]
+    public void Parallel_gateway_fork_creates_branch_plans_and_join_waits_for_all_branches()
+    {
+        var draft = new WorkflowDefinitionDraft(1,
+        [
+            Node("start", "start", "fork1"),
+            ParallelForkNode("fork1", "join1", "approve-a", "approve-b"),
+            Node("approve-a", "human.approval", "join1"),
+            Node("approve-b", "human.approval", "join1"),
+            ParallelJoinNode("join1", "fork1", "after"),
+            Node("after", "human.approval", "end"),
+            Node("end", "end"),
+        ]);
+
+        Assert.IsTrue(WorkflowRuntimePlan.TryCreate(draft, out var plan));
+        Assert.IsNotNull(plan);
+        Assert.IsTrue(plan.TryResolveStart(out var start));
+        Assert.IsNotNull(start.ParallelFork);
+        Assert.AreEqual(2, start.ParallelFork!.Branches.Count);
+        Assert.AreEqual("approve-a", start.ParallelFork.Branches[0].NextApprovalNodeKey);
+        Assert.AreEqual("approve-b", start.ParallelFork.Branches[1].NextApprovalNodeKey);
+
+        Assert.IsTrue(plan.TryResolveApproval("approve-a", Values("{}"), "join1", out var branchA));
+        Assert.IsTrue(branchA.WaitsAtJoin);
+        Assert.AreEqual("join1", branchA.JoinArrival!.JoinNodeKey);
+
+        Assert.IsTrue(plan.TryResolveApproval("approve-b", Values("{}"), "join1", out var branchB));
+        Assert.IsTrue(branchB.WaitsAtJoin);
+
+        Assert.IsTrue(plan.TryResolveAfterJoin("join1", Values("{}"), out var afterJoin));
+        Assert.AreEqual("after", afterJoin.NextApprovalNodeKey);
+    }
+
+    private static WorkflowNodeDraft ParallelForkNode(
+        string key,
+        string joinNodeKey,
+        params string[] branchTargets) =>
+        new(
+            key,
+            "gateway.parallel",
+            1,
+            JsonSerializer.SerializeToElement(new
+            {
+                gatewayRoleKey = "fork",
+                joinNodeKey,
+                branches = branchTargets.Select((target, index) => new
+                {
+                    branchKey = $"branch-{target}",
+                    nextNodeKey = target,
+                }).ToArray(),
+            }));
+
+    private static WorkflowNodeDraft ParallelJoinNode(string key, string forkNodeKey, string next) =>
+        new(
+            key,
+            "gateway.parallel",
+            1,
+            JsonSerializer.SerializeToElement(new
+            {
+                gatewayRoleKey = "join",
+                forkNodeKey,
+                nextNodeKeys = new[] { next },
+            }));
+
     private static WorkflowNodeDraft Node(string key, string type, params string[] next) =>
         new(
             key,

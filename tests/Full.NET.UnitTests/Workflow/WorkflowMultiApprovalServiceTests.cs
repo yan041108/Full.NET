@@ -193,7 +193,10 @@ public sealed class WorkflowMultiApprovalServiceTests
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
             WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,
-            WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant));
+            WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant),
+            WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
+                query, command, ids, outbox),
+            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids));
         return new ApprovalFixture(service, query, command, outbox, todoId, actorId);
     }
 

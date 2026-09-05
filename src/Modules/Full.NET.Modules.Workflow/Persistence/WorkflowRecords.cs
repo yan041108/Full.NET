@@ -136,7 +136,29 @@ internal sealed record WorkflowTodoTimeoutCandidateRecord(
     DateTimeOffset? EscalatedAtUtc,
     DateTimeOffset NextTimeoutSignalAtUtc);
 
-/// <summary>实例详情页使用的活动待办超时摘要。</summary>
+/// <summary>并行汇合状态持久化记录。</summary>
+internal sealed record WorkflowParallelJoinRecord(
+    Guid Id,
+    Guid InstanceId,
+    string ForkNodeKey,
+    string JoinNodeKey,
+    int RequiredBranchCount,
+    int ArrivedBranchCount,
+    string StatusKey,
+    long Revision,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? CompletedAtUtc);
+
+/// <summary>实例详情页使用的并行分支状态投影。</summary>
+internal sealed record WorkflowParallelJoinStatusRecord(
+    Guid Id,
+    string ForkNodeKey,
+    string JoinNodeKey,
+    int RequiredBranchCount,
+    int ArrivedBranchCount,
+    string StatusKey,
+    string? BranchKey,
+    DateTimeOffset? ArrivedAtUtc);
 /// <param name="Id">活动待办标识。</param>
 /// <param name="DueAtUtc">截止时间。</param>
 /// <param name="ReminderCount">已发送催办次数。</param>
@@ -169,7 +191,10 @@ internal sealed record WorkflowTodoRuntimeRecord(
     long StepRevision,
     string? ApprovalModeKey,
     int? RequiredApprovalCount,
-    int? ApprovalSlotCount);
+    int? ApprovalSlotCount,
+    Guid? ParallelJoinId = null,
+    string? ParallelBranchKey = null,
+    string? ParallelJoinNodeKey = null);
 
 /// <summary>当前待办对应的一人一票审批席位。</summary>
 /// <param name="Id">审批席位标识。</param>

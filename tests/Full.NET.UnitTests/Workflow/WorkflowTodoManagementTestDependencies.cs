@@ -61,6 +61,37 @@ internal static class WorkflowTodoManagementTestDependencies
                 unitDirectory));
     }
 
+    /// <summary>创建并行汇合协调器，供实例与待办测试复用。</summary>
+    internal static WorkflowParallelJoinCoordinator CreateParallelJoinCoordinator(
+        IQueryExecutor query,
+        ICommandExecutor command,
+        IIdGenerator? ids = null)
+    {
+        ids ??= Substitute.For<IIdGenerator>();
+        ids.NewId().Returns(_ => Guid.CreateVersion7());
+        return new WorkflowParallelJoinCoordinator(command, query, ids);
+    }
+
+    /// <summary>创建审批迁移执行器，供实例与待办测试复用。</summary>
+    internal static WorkflowApprovalTransitionExecutor CreateTransitionExecutor(
+        IQueryExecutor query,
+        ICommandExecutor command,
+        IIdGenerator ids,
+        IOutboxWriter outbox,
+        WorkflowApprovalAssigneeCoordinator? assigneeCoordinator = null)
+    {
+        var ccWriter = new WorkflowCcTransitionWriter(query, command, ids);
+        var notificationPublisher = new WorkflowNotificationOutboxPublisher(outbox);
+        var automaticTransitionWriter = new WorkflowAutomaticTransitionWriter(command, ids, ccWriter);
+        var approvalActivationWriter = new WorkflowApprovalActivationWriter(command, ids, notificationPublisher);
+        return new WorkflowApprovalTransitionExecutor(
+            automaticTransitionWriter,
+            approvalActivationWriter,
+            CreateParallelJoinCoordinator(query, command, ids),
+            assigneeCoordinator ?? CreateAssigneeCoordinator(),
+            query);
+    }
+
     /// <summary>创建默认放行的发布期办理人校验器，供定义发布测试复用。</summary>
     /// <returns>所有来源均返回有效的校验器。</returns>
     internal static WorkflowAssigneePublishValidator CreateAssigneePublishValidator()

@@ -24,16 +24,18 @@ public sealed class WorkflowNodeTypeCatalogTests
         Assert.AreEqual(1, catalog.CatalogVersion);
         Assert.AreEqual(1, catalog.DefinitionSchemaVersion);
         CollectionAssert.AreEquivalent(
-            new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "end" },
+            new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "gateway.parallel", "end" },
             catalog.NodeTypes.Select(item => item.NodeTypeKey).ToArray());
         Assert.IsTrue(catalog.NodeTypes.All(item => item.Designable && item.NodeSchemaVersion == 1));
         CollectionAssert.AreEquivalent(
-            new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "end" },
+            new[] { "start", "human.approval", "notify.cc", "gateway.exclusive", "gateway.parallel", "end" },
             catalog.NodeTypes.Where(item => item.Publishable && item.Executable)
                 .Select(item => item.NodeTypeKey).ToArray());
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "notify.cc")
             is { Publishable: true, Executable: true });
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "gateway.exclusive")
+            is { Publishable: true, Executable: true });
+        Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "gateway.parallel")
             is { Publishable: true, Executable: true });
         Assert.IsTrue(catalog.NodeTypes.Single(item => item.NodeTypeKey == "human.approval")
             .SupportsFieldPolicies);

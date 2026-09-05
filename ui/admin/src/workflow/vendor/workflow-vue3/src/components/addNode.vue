@@ -15,6 +15,10 @@
             <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.Route).icon }}</span></span>
             <span>条件分支</span>
           </button>
+          <button v-if="enabledNodeTypes.has('gateway.parallel')" type="button" class="add-node-popover-item condition" @click="addType(NodeType.ParallelRoute)">
+            <span class="item-wrapper"><span class="iconfont">{{ getNodeTypeMeta(NodeType.ParallelRoute).icon }}</span></span>
+            <span>并行分支</span>
+          </button>
         </div>
         <template #reference>
           <button class="btn" type="button" aria-label="添加流程节点">
@@ -54,7 +58,53 @@ const createNodeId = () => {
 
 const addType = (type) => {
   visible.value = false
-  if (![NodeType.Approver, NodeType.Copyer, NodeType.Route].includes(type)) return
+  if (![NodeType.Approver, NodeType.Copyer, NodeType.Route, NodeType.ParallelRoute].includes(type)) return
+  if (type === NodeType.ParallelRoute) {
+    const firstBranchId = createNodeId()
+    const secondBranchId = createNodeId()
+    emit('update:childNodeP', {
+      id: createNodeId(),
+      nodeName: getNodeTypeMeta(type).label,
+      type,
+      error: false,
+      conditionNodes: [
+        {
+          id: firstBranchId,
+          nodeName: '并行条件1',
+          type: NodeType.ConditionItem,
+          priorityLevel: 1,
+          branchKey: firstBranchId,
+          childNode: {
+            id: createNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+          },
+        },
+        {
+          id: secondBranchId,
+          nodeName: '并行条件2',
+          type: NodeType.ConditionItem,
+          priorityLevel: 2,
+          branchKey: secondBranchId,
+          childNode: {
+            id: createNodeId(),
+            nodeName: getNodeTypeMeta(NodeType.Approver).label,
+            type: NodeType.Approver,
+            settype: 1,
+            examineMode: 1,
+            nodeUserList: [],
+            childNode: null,
+          },
+        },
+      ],
+      childNode: props.childNodeP,
+    })
+    return
+  }
   if (type === NodeType.Route) {
     const firstBranchId = createNodeId()
     const defaultBranchId = createNodeId()

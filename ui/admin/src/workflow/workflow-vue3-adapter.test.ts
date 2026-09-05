@@ -137,6 +137,77 @@ describe('Workflow-Vue3 定义适配器', () => {
     });
   });
 
+  it('在 Workflow-Vue3 并行分支树与并行网关 Draft 之间双向转换', () => {
+    const tree = {
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'parallel-fork',
+        type: 12,
+        nodeName: '并行审批',
+        conditionNodes: [
+          {
+            id: 'branch-a',
+            type: 3,
+            branchKey: 'a',
+            childNode: { id: 'approve-a', type: 1, childNode: null }
+          },
+          {
+            id: 'branch-b',
+            type: 3,
+            branchKey: 'b',
+            childNode: { id: 'approve-b', type: 1, childNode: null }
+          }
+        ],
+        childNode: { id: 'after-join', type: 1, childNode: null }
+      }
+    };
+
+    const draft = fromWorkflowVue3Tree(tree);
+    expect(draft.nodes.find(node => node.nodeKey === 'parallel-fork')).toMatchObject({
+      nodeKey: 'parallel-fork',
+      nodeTypeKey: 'gateway.parallel',
+      config: {
+        nodeName: '并行审批',
+        gatewayRoleKey: 'fork',
+        joinNodeKey: 'parallel-fork-join',
+        branches: [
+          { branchKey: 'a', nextNodeKey: 'approve-a' },
+          { branchKey: 'b', nextNodeKey: 'approve-b' }
+        ]
+      }
+    });
+    expect(draft.nodes.find(node => node.nodeKey === 'parallel-fork-join')).toMatchObject({
+      nodeKey: 'parallel-fork-join',
+      nodeTypeKey: 'gateway.parallel',
+      config: {
+        gatewayRoleKey: 'join',
+        forkNodeKey: 'parallel-fork',
+        nextNodeKeys: ['after-join']
+      }
+    });
+    expect(toWorkflowVue3Tree(draft)).toMatchObject({
+      id: 'start',
+      type: 0,
+      childNode: {
+        id: 'parallel-fork',
+        type: 12,
+        nodeName: '并行审批',
+        conditionNodes: [
+          {
+            branchKey: 'a',
+            childNode: { id: 'approve-a', type: 1 }
+          },
+          {
+            branchKey: 'b',
+            childNode: { id: 'approve-b', type: 1 }
+          }
+        ],
+        childNode: { id: 'after-join', type: 1 }
+      }
+    });
+  });
+
   it('在 Workflow-Vue3 分支树与排他网关 Draft 之间双向转换', () => {
     const tree = {
       id: 'start',

@@ -719,12 +719,15 @@ internal static class WorkflowSql
         SELECT todo.Id, todo.InstanceId, todo.StepId, todo.AssigneeUserId,
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
                todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision,
-               step.ApprovalModeKey, step.RequiredApprovalCount, step.ApprovalSlotCount
+               step.ApprovalModeKey, step.RequiredApprovalCount, step.ApprovalSlotCount,
+               step.ParallelJoinId, step.ParallelBranchKey, parallelJoin.JoinNodeKey
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
         INNER JOIN fn_workflow_step AS step
             ON step.Id = todo.StepId
+        LEFT JOIN fn_workflow_parallel_join AS parallelJoin
+            ON parallelJoin.Id = step.ParallelJoinId
         WHERE todo.Id = @Id
           AND instance.TenantScopeKey = @TenantScopeKey
         """,
@@ -1430,6 +1433,162 @@ internal static class WorkflowSql
           AND item.StatusKey = 'pending'
         ORDER BY item.SequenceNo
         LIMIT 1
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入并行汇合状态记录。</summary>
+    public static readonly SqlStatement InsertParallelJoin = new(
+        "workflow.parallel_join.insert",
+        """
+        INSERT INTO fn_workflow_parallel_join
+            (Id, InstanceId, ForkNodeKey, JoinNodeKey, RequiredBranchCount,
+             ArrivedBranchCount, StatusKey, Revision, CreatedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @ForkNodeKey, @JoinNodeKey, @RequiredBranchCount,
+             0, 'waiting', 1, @CreatedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>幂等写入并行分支到达事实。</summary>
+    public static readonly SqlStatement InsertParallelBranchArrival = new(
+        "workflow.parallel_branch_arrival.insert",
+        """
+        INSERT INTO fn_workflow_parallel_branch_arrival
+            (Id, ParallelJoinId, BranchKey, ArrivedAtUtc)
+        VALUES
+            (@Id, @ParallelJoinId, @BranchKey, @ArrivedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>原子递增汇合到达分支数，并在全部到达时完成汇合。</summary>
+    public static readonly SqlStatement IncrementParallelJoinArrival = new(
+        "workflow.parallel_join.increment_arrival",
+        """
+        UPDATE fn_workflow_parallel_join
+        SET ArrivedBranchCount = ArrivedBranchCount + 1,
+            Revision = Revision + 1,
+            StatusKey = CASE
+                WHEN ArrivedBranchCount + 1 >= RequiredBranchCount THEN 'completed'
+                ELSE StatusKey END,
+            CompletedAtUtc = CASE
+                WHEN ArrivedBranchCount + 1 >= RequiredBranchCount THEN @CompletedAtUtc
+                ELSE CompletedAtUtc END
+        WHERE Id = @Id
+          AND InstanceId = @InstanceId
+          AND StatusKey = 'waiting'
+          AND Revision = @Revision
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>读取实例上的并行汇合状态。</summary>
+    public static readonly SqlStatement FindParallelJoinById = new(
+        "workflow.parallel_join.find_by_id",
+        """
+        SELECT joinState.Id, joinState.InstanceId, joinState.ForkNodeKey, joinState.JoinNodeKey,
+               joinState.RequiredBranchCount, joinState.ArrivedBranchCount, joinState.StatusKey,
+               joinState.Revision, joinState.CreatedAtUtc, joinState.CompletedAtUtc
+        FROM fn_workflow_parallel_join AS joinState
+        WHERE joinState.Id = @Id
+          AND joinState.InstanceId = @InstanceId
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>列出实例上的并行汇合状态及分支到达情况。</summary>
+    public static readonly SqlStatement ListParallelJoinsByInstance = new(
+        "workflow.parallel_join.list_by_instance",
+        """
+        SELECT joinState.Id, joinState.ForkNodeKey, joinState.JoinNodeKey,
+               joinState.RequiredBranchCount, joinState.ArrivedBranchCount, joinState.StatusKey,
+               arrival.BranchKey, arrival.ArrivedAtUtc
+        FROM fn_workflow_parallel_join AS joinState
+        LEFT JOIN fn_workflow_parallel_branch_arrival AS arrival
+            ON arrival.ParallelJoinId = joinState.Id
+        WHERE joinState.InstanceId = @InstanceId
+        ORDER BY joinState.CreatedAtUtc, arrival.BranchKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>取消实例上仍在等待的并行汇合状态。</summary>
+    public static readonly SqlStatement CancelWaitingParallelJoinsByInstance = new(
+        "workflow.parallel_join.cancel_waiting_by_instance",
+        """
+        UPDATE fn_workflow_parallel_join
+        SET StatusKey = 'cancelled',
+            Revision = Revision + 1,
+            CompletedAtUtc = @CompletedAtUtc
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'waiting'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入已经同步完成的并行网关步骤。</summary>
+    public static readonly SqlStatement InsertCompletedParallelGatewayStep = new(
+        "workflow.step.insert_completed_parallel_gateway",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence,
+             ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'gateway.parallel', 'completed', NULL,
+             NULL, 0, 1, @ExecutionSequence,
+             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, @CompletedAtUtc)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>写入携带并行上下文的人工审批步骤。</summary>
+    public static readonly SqlStatement InsertParallelApprovalStep = new(
+        "workflow.parallel_approval_step.insert",
+        """
+        INSERT INTO fn_workflow_step
+            (Id, InstanceId, NodeKey, NodeTypeKey, StatusKey, AssignedUserId,
+             DueAtUtc, AttemptCount, Revision, ExecutionSequence,
+             ApprovalModeKey, RequiredApprovalCount, ApprovalSlotCount,
+             ParallelJoinId, ParallelBranchKey, StartedAtUtc, CompletedAtUtc)
+        VALUES
+            (@Id, @InstanceId, @NodeKey, 'human.approval', 'active', @AssignedUserId,
+             NULL, 0, 1, @ExecutionSequence,
+             @ApprovalModeKey, @RequiredApprovalCount, @ApprovalSlotCount,
+             @ParallelJoinId, @ParallelBranchKey, @StartedAtUtc, NULL)
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>按实例和汇合节点键查找仍在等待的并行汇合状态。</summary>
+    public static readonly SqlStatement FindWaitingParallelJoinByInstanceAndJoinNode = new(
+        "workflow.parallel_join.find_waiting_by_instance_and_join_node",
+        """
+        SELECT joinState.Id
+        FROM fn_workflow_parallel_join AS joinState
+        WHERE joinState.InstanceId = @InstanceId
+          AND joinState.JoinNodeKey = @JoinNodeKey
+          AND joinState.StatusKey = 'waiting'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>关闭实例上全部活动待办，供并行分支驳回或取消时收敛兄弟分支。</summary>
+    public static readonly SqlStatement CancelAllActiveTodosByInstance = new(
+        "workflow.todo.cancel_all_active_by_instance",
+        """
+        UPDATE fn_workflow_todo
+        SET StatusKey = 'cancelled',
+            CompletedAtUtc = @CompletedAtUtc,
+            ResultActionKey = @ResultActionKey,
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'active'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>关闭实例上全部活动步骤，供并行分支驳回或取消时收敛兄弟分支。</summary>
+    public static readonly SqlStatement CancelAllActiveStepsByInstance = new(
+        "workflow.step.cancel_all_active_by_instance",
+        """
+        UPDATE fn_workflow_step
+        SET StatusKey = @StatusKey,
+            CompletedAtUtc = @CompletedAtUtc,
+            Revision = Revision + 1
+        WHERE InstanceId = @InstanceId
+          AND StatusKey = 'active'
         """,
         SqlDataScope.Global);
 }

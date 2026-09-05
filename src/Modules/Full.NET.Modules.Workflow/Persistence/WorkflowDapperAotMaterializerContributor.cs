@@ -37,6 +37,8 @@ internal sealed class WorkflowDapperAotMaterializerContributor
         registrar.Register<WorkflowCountersignChainRecord>(ReadCountersignChain);
         registrar.Register<WorkflowCountersignItemRecord>(ReadCountersignItem);
         registrar.Register<WorkflowCountersignItemContextRecord>(ReadCountersignItemContext);
+        registrar.Register<WorkflowParallelJoinRecord>(ReadParallelJoin);
+        registrar.Register<WorkflowParallelJoinStatusRecord>(ReadParallelJoinStatus);
     }
 
     private static WorkflowDefinitionRecord ReadDefinition(DbDataReader reader) =>
@@ -158,7 +160,10 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             reader.GetInt64(10),
             AotDataReaderExtensions.ReadNullableString(reader, 11),
             reader.IsDBNull(12) ? null : reader.GetInt32(12),
-            reader.IsDBNull(13) ? null : reader.GetInt32(13));
+            reader.IsDBNull(13) ? null : reader.GetInt32(13),
+            reader.IsDBNull(14) ? null : reader.GetGuid(14),
+            AotDataReaderExtensions.ReadNullableString(reader, 15),
+            AotDataReaderExtensions.ReadNullableString(reader, 16));
 
     /// <summary>按显式 SQL 投影顺序物化审批席位。</summary>
     /// <param name="reader">定位到当前行的数据读取器。</param>
@@ -323,5 +328,35 @@ internal sealed class WorkflowDapperAotMaterializerContributor
             AotDataReaderExtensions.ReadNullableGuid(reader, 4), reader.GetString(5),
             reader.GetString(6), reader.GetGuid(7), reader.GetGuid(8), reader.GetGuid(9),
             reader.GetString(10));
+
+    /// <summary>按显式 SQL 投影顺序物化并行汇合状态。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的汇合状态投影。</returns>
+    private static WorkflowParallelJoinRecord ReadParallelJoin(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetInt32(4),
+            reader.GetInt32(5),
+            reader.GetString(6),
+            reader.GetInt64(7),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9));
+
+    /// <summary>按实例详情投影顺序物化并行汇合与分支到达状态。</summary>
+    /// <param name="reader">定位到当前行的数据读取器。</param>
+    /// <returns>Native AOT 安全的汇合分支投影。</returns>
+    private static WorkflowParallelJoinStatusRecord ReadParallelJoinStatus(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetInt32(3),
+            reader.GetInt32(4),
+            reader.GetString(5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7));
 }
 #endif

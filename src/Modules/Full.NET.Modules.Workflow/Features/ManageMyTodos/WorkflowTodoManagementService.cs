@@ -29,6 +29,8 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="approvalActivationWriter">人工审批等待点激活写入器。</param>
 /// <param name="approvalAssigneeCoordinator">办理人解析协调器。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
+/// <param name="transitionExecutor">审批迁移执行器。</param>
+/// <param name="parallelJoinCoordinator">并行汇合协调器。</param>
 internal sealed class WorkflowTodoManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -41,7 +43,9 @@ internal sealed class WorkflowTodoManagementService(
     WorkflowApprovalActivationWriter approvalActivationWriter,
     WorkflowApprovalAssigneeCoordinator approvalAssigneeCoordinator,
     WorkflowNotificationOutboxPublisher notificationPublisher,
-    WorkflowTodoCountersignService countersignService)
+    WorkflowTodoCountersignService countersignService,
+    WorkflowApprovalTransitionExecutor transitionExecutor,
+    WorkflowParallelJoinCoordinator parallelJoinCoordinator)
 {
     public async Task<Result<IReadOnlyList<WorkflowTodoResponse>>> ListMineAsync(
         Guid actorUserId,
@@ -437,7 +441,11 @@ internal sealed class WorkflowTodoManagementService(
                 patchedSubmission,
                 WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement);
             if (patchedValues is null ||
-                !runtimePlan!.TryResolveApproval(todo.NodeKey, patchedValues, out transition))
+                !runtimePlan!.TryResolveApproval(
+                    todo.NodeKey,
+                    patchedValues,
+                    todo.ParallelJoinNodeKey,
+                    out transition))
             {
                 return Failure(WorkflowErrorCodes.SchemaInvalid, ErrorType.BusinessRule);
             }
@@ -499,35 +507,69 @@ internal sealed class WorkflowTodoManagementService(
             return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
         }
 
+        if (actionKey == "reject")
+        {
+            await commandExecutor.ExecuteAsync(
+                WorkflowSql.CancelAllActiveTodosByInstance,
+                WorkflowSqlParameters.Create(
+                    ("InstanceId", instance.Id),
+                    ("CompletedAtUtc", now),
+                    ("ResultActionKey", "cancelled")), token).ConfigureAwait(false);
+            await commandExecutor.ExecuteAsync(
+                WorkflowSql.CancelAllActiveStepsByInstance,
+                WorkflowSqlParameters.Create(
+                    ("InstanceId", instance.Id),
+                    ("StatusKey", "cancelled"),
+                    ("CompletedAtUtc", now)), token).ConfigureAwait(false);
+            await parallelJoinCoordinator.CancelWaitingJoinsAsync(instance.Id, now, token)
+                .ConfigureAwait(false);
+        }
+
         var nextExecutionSequence = actionKey == "approve"
             ? await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 WorkflowSql.FindNextStepExecutionSequence,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false)
             : 0;
-        var approvalExecutionSequence = actionKey == "approve"
-            ? await automaticTransitionWriter.WriteAsync(
-                instance.Id,
-                scope.TenantScopeKey,
-                transition.AutomaticNodes,
-                nextExecutionSequence,
-                now,
-                token).ConfigureAwait(false)
-            : 0;
-        if (advancesToNextApproval)
+        if (actionKey == "approve")
         {
-            var activationResult = await ActivateNextApprovalAsync(
+            var patchedValues = JsonSerializer.Deserialize(
+                patchedSubmission,
+                WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement) ?? [];
+            var execution = await transitionExecutor.ExecuteAsync(
                 instance,
                 scope,
+                runtimePlan!,
                 transition,
-                approvalExecutionSequence,
+                patchedValues,
+                nextExecutionSequence,
                 now,
+                instance.StartedById,
+                todo.ParallelJoinId,
+                todo.ParallelBranchKey,
                 token).ConfigureAwait(false);
-            if (!activationResult.IsSuccess)
+            if (!execution.IsSuccess)
             {
-                return Result<WorkflowInstanceResponse>.Failure(activationResult.Error!);
+                return Result<WorkflowInstanceResponse>.Failure(execution.Error!);
             }
 
-            nextTodoId = activationResult.Value;
+            nextTodoId = execution.Value!.FirstTodoId;
+            if (execution.Value.CompletesInstance)
+            {
+                var completed = await commandExecutor.ExecuteAsync(
+                    WorkflowSql.CompleteInstanceWithRevision,
+                    WorkflowSqlParameters.Create(
+                        ("Id", instance.Id),
+                        ("TenantScopeKey", scope.TenantScopeKey),
+                        ("StatusKey", "completed"),
+                        ("CompletedAtUtc", now),
+                        ("Revision", instance.Revision + 1)), token).ConfigureAwait(false);
+                if (completed != 1)
+                {
+                    return Failure(WorkflowErrorCodes.RevisionConflict, ErrorType.Conflict);
+                }
+
+                instanceStatus = "completed";
+            }
         }
 
         await commandExecutor.ExecuteAsync(WorkflowSql.InsertActionRecord,

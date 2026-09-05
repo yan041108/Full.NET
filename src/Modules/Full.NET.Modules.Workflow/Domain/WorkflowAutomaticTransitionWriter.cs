@@ -52,6 +52,41 @@ internal sealed class WorkflowAutomaticTransitionWriter(
 
             if (node.NodeTypeKey != "gateway.exclusive" || string.IsNullOrWhiteSpace(node.OutcomeKey))
             {
+                if (node.NodeTypeKey == "gateway.parallel")
+                {
+                    var parallelStepId = idGenerator.NewId();
+                    await commandExecutor.ExecuteAsync(
+                        WorkflowSql.InsertCompletedParallelGatewayStep,
+                        WorkflowSqlParameters.Create(
+                            ("Id", parallelStepId),
+                            ("InstanceId", instanceId),
+                            ("NodeKey", node.NodeKey),
+                            ("ExecutionSequence", executionSequence),
+                            ("ParallelJoinId", null),
+                            ("ParallelBranchKey", node.OutcomeKey),
+                            ("StartedAtUtc", occurredAtUtc),
+                            ("CompletedAtUtc", occurredAtUtc)),
+                        cancellationToken).ConfigureAwait(false);
+                    var transitionKey = string.IsNullOrWhiteSpace(node.OutcomeKey) ||
+                        node.OutcomeKey == "joined"
+                            ? "node.gateway.parallel.join"
+                            : "node.gateway.parallel.fork";
+                    await commandExecutor.ExecuteAsync(
+                        WorkflowSql.InsertExecutionLog,
+                        WorkflowSqlParameters.Create(
+                            ("Id", idGenerator.NewId()),
+                            ("InstanceId", instanceId),
+                            ("StepId", parallelStepId),
+                            ("TransitionKey", transitionKey),
+                            ("FromStatusKey", null),
+                            ("ToStatusKey", "completed"),
+                            ("IdempotencyKey", null),
+                            ("Summary", node.OutcomeKey is null ? null : $"branch:{node.OutcomeKey}"),
+                            ("CreatedAtUtc", occurredAtUtc)),
+                        cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
                 throw new InvalidOperationException($"Unsupported workflow automatic node '{node.NodeTypeKey}'.");
             }
 

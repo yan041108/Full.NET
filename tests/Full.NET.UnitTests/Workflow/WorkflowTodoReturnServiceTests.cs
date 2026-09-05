@@ -247,7 +247,10 @@ public sealed class WorkflowTodoReturnServiceTests
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
             WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,
-            WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant));
+            WorkflowTodoManagementTestDependencies.CreateCountersignService(query, command, tenant),
+            WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
+                query, command, ids, outbox),
+            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids));
         return new ReturnFixture(service, query, command, outbox, todoId, resolvedActorId);
     }
 

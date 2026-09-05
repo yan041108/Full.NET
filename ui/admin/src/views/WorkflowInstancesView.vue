@@ -32,7 +32,16 @@ const executionLogs = ref<WorkflowExecutionLogResponse[]>([]);
 const problem = ref<FullNetProblemDetails>();
 let loadController: AbortController | undefined;
 
-const timeoutStatusKeys = new Set(['scheduled', 'overdue', 'escalated', 'not_configured']);
+/** 把执行轨迹迁移键映射为可读标签，并行网关使用专用文案。 */
+function transitionLabel(transitionKey: string): string {
+  if (transitionKey === 'node.gateway.parallel.fork') {
+    return t('workflowInstances.parallelFork');
+  }
+  if (transitionKey === 'node.gateway.parallel.join') {
+    return t('workflowInstances.parallelJoin');
+  }
+  return transitionKey;
+}
 
 /** 把服务端稳定机器码映射为当前语言文案，未知值安全回落为未配置。 */
 function timeoutStatusLabel(statusKey: string | undefined): string {
@@ -461,7 +470,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
             <span class="workflow-instances__marker" aria-hidden="true"></span>
             <div class="workflow-instances__event">
               <div class="workflow-instances__event-heading">
-                <strong translate="no">{{ log.transitionKey }}</strong>
+                <strong translate="no">{{ transitionLabel(log.transitionKey) }}</strong>
                 <time :datetime="log.createdAtUtc">{{ log.createdAtUtc }}</time>
               </div>
               <div class="workflow-instances__transition">

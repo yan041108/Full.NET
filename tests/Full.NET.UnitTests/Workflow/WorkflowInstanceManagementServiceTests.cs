@@ -277,7 +277,10 @@ public sealed class WorkflowInstanceManagementServiceTests
             new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
             WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
-            notificationPublisher);
+            notificationPublisher,
+            WorkflowTodoManagementTestDependencies.CreateTransitionExecutor(
+                query, command, ids, outbox ?? Substitute.For<IOutboxWriter>()),
+            WorkflowTodoManagementTestDependencies.CreateParallelJoinCoordinator(query, command, ids));
     }
 
     /// <summary>构造暂停/恢复路径需要的实例、回执和活动工作查询。</summary>
