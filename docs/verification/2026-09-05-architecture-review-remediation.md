@@ -7,7 +7,7 @@
 - Notifications 按可信 Host/Tenant 作用域批量解析活动收件人，Tenant 路径不会回退到全局 Host 用户目录，且一次请求只执行一次目录查询。
 - Workflow 内建通知模板使用稳定的系统审计主体创建和发布，不再把事件收件人伪装成模板作者。
 - 架构测试使用统一的 14 个官方业务模块程序集清单；Global SQL 治理由该清单扫描，并精确登记 60 条 Workflow 全局语句。
-- Mermaid 模块依赖图现已由治理测试逐字校验生成结果；缓存文档恢复为 Redis Backplane 与 TTL/版本兜底语义，不再错误声称使用 Outbox 修复缓存失效。
+- Mermaid 模块依赖图现已由治理测试在规范化平台行尾后逐字校验生成结果；缓存文档恢复为 Redis Backplane 与 TTL/版本兜底语义，不再错误声称使用 Outbox 修复缓存失效。
 
 ## 兼容性与治理边界
 
