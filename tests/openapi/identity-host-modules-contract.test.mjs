@@ -17,6 +17,14 @@ const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Identity/Features/QueryHostModuleCatalog/Endpoint.cs'
 );
+const selectionEndpointSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Identity/Features/QueryHostModuleSelection/Endpoint.cs'
+);
+const selectionContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Identity.Contracts/ModuleSelectionContracts.cs'
+);
 
 async function loadContract() {
   return JSON.parse(await readFile(contractPath, 'utf8'));
@@ -41,6 +49,8 @@ test('Host 模块清单 OpenAPI 夹具与 C# 契约和端点源码一致', async
   const contract = await loadContract();
   const contractsSource = await readFile(contractsSourcePath, 'utf8');
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
+  const selectionEndpointSource = await readFile(selectionEndpointSourcePath, 'utf8');
+  const selectionContractsSource = await readFile(selectionContractsSourcePath, 'utf8');
 
   assert.match(contractsSource, /record ModuleCatalogEntryResponse/u);
   assert.match(contractsSource, /identity\.modules\.read/u);
@@ -48,22 +58,36 @@ test('Host 模块清单 OpenAPI 夹具与 C# 契约和端点源码一致', async
     endpointSource,
     /MapGroup\("\/api\/v1\/identity\/modules"\)/u
   );
+  assert.match(selectionContractsSource, /record ModuleSelectionAnalysisResponse/u);
+  assert.match(
+    selectionEndpointSource,
+    /MapGroup\("\/api\/v1\/identity\/modules\/selection"\)/u
+  );
 
   const relativeRoutes = new Map([
     ['/api/v1/identity/modules', new Map([['GET', 'MapGet("/",']])],
     ['/api/v1/identity/modules/{moduleKey}', new Map([
       ['GET', 'MapGet("/{moduleKey}",']
+    ])],
+    ['/api/v1/identity/modules/selection/runtime', new Map([
+      ['GET', 'MapGet("/runtime",']
+    ])],
+    ['/api/v1/identity/modules/selection/validate', new Map([
+      ['POST', 'MapPost("/validate",']
     ])]
   ]);
 
   for (const entry of contract.paths) {
     const routes = relativeRoutes.get(entry.path);
     assert.ok(routes, `未登记的路由组：${entry.path}`);
+    const source = entry.path.includes('/selection/')
+      ? selectionEndpointSource
+      : endpointSource;
     for (const operation of entry.operations) {
       const marker = routes.get(operation.method);
       assert.ok(marker, `${entry.path} 缺少 ${operation.method}`);
       assert.match(
-        endpointSource,
+        source,
         new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u')
       );
     }
@@ -73,10 +97,13 @@ test('Host 模块清单 OpenAPI 夹具与 C# 契约和端点源码一致', async
     if (schemaName === 'ModuleCatalogEntryResponseArray') {
       continue;
     }
+    const csharpSource = schemaName.startsWith('ModuleSelection')
+      ? selectionContractsSource
+      : contractsSource;
     for (const property of schema.properties) {
       const pascal = property.charAt(0).toUpperCase() + property.slice(1);
       assert.match(
-        contractsSource,
+        csharpSource,
         new RegExp(`${pascal}`, 'u'),
         `${schemaName}.${property} 未在 C# 契约中找到`
       );

@@ -372,6 +372,17 @@ internal sealed class IdentityAuthorizationContributor
             40,
             IdentityOAuthProviderPermissions.Read),
         new NavigationDefinition(
+            "module-selection",
+            null,
+            "module-selection",
+            "/identity/module-selection",
+            "module-selection",
+            "模块启用预览",
+            "Module Selection",
+            "setting",
+            37,
+            ModuleCatalogPermissions.Read),
+        new NavigationDefinition(
             "modules",
             null,
             "modules",

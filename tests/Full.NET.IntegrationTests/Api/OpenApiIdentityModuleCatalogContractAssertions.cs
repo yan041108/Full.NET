@@ -80,6 +80,7 @@ internal static class OpenApiIdentityModuleCatalogContractAssertions
         foreach (var candidate in openApiSchemas.EnumerateObject())
         {
             if (candidate.Name.Contains("ModuleCatalog", StringComparison.Ordinal)
+                || candidate.Name.Contains("ModuleSelection", StringComparison.Ordinal)
                 || candidate.Name.EndsWith(schemaName, StringComparison.Ordinal))
             {
                 schema = candidate.Value;

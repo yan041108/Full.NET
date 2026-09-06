@@ -102,6 +102,11 @@ export function createAppRouter(
         component: () => import('../views/ModuleCatalogView.vue')
       },
       {
+        name: 'module-selection',
+        path: '/identity/module-selection',
+        component: () => import('../views/ModuleSelectionPreviewView.vue')
+      },
+      {
         name: 'roles',
         path: '/identity/roles',
         component: () => import('../views/RolesView.vue')

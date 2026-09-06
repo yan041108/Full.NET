@@ -609,6 +609,18 @@
       "status": "generated"
     },
     {
+      "operationId": "identityGetModuleSelectionRuntime",
+      "apiModule": "ui/admin/src/api/module-selection.ts",
+      "generatedGroup": "identity-module-selection",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityValidateModuleSelection",
+      "apiModule": "ui/admin/src/api/module-selection.ts",
+      "generatedGroup": "identity-module-selection",
+      "status": "generated"
+    },
+    {
       "operationId": "identityGetCurrentUser",
       "apiModule": "ui/admin/src/api/me.ts",
       "generatedGroup": "identity-me",

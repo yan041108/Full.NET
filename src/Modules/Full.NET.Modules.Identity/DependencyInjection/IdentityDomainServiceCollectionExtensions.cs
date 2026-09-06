@@ -16,6 +16,7 @@ using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Features.ManageRegistrationWays;
 using Full.NET.Modules.Identity.Features.PublicRegistrationWays;
 using Full.NET.Modules.Identity.Features.QueryHostModuleCatalog;
+using Full.NET.Modules.Identity.Features.QueryHostModuleSelection;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
@@ -100,6 +101,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddSingleton<OAuth.IOidcClient, OAuth.HttpOidcClient>();
         services.TryAddSingleton<OAuth.OAuthReturnUrlValidator>();
         services.TryAddScoped<HostModuleCatalogQueryService>();
+        services.TryAddScoped<HostModuleSelectionQueryService>();
         services.TryAddScoped<
             Features.GetHostDashboardSummary.HostDashboardQueryService>();
         services.AddHostUserDirectory();

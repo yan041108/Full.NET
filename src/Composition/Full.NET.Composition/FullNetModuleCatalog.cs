@@ -98,6 +98,8 @@ public static class FullNetModuleCatalog
 
                 // 只读模块清单必须在全部模块注册后物化，禁止运行时再追加或编译加载。
                 services.AddFullNetModuleCatalogSnapshot(CreateOfficialDescriptor);
+                services.AddSingleton<IFullNetModuleSelectionPreview>(
+                    _ => new FullNetModuleSelectionPreview(CreateAllModules()));
                 break;
 
             case FullNetHostProfile.Migrator:

@@ -1659,6 +1659,36 @@ export interface ModuleCatalogEntryResponse {
   readonly version: string;
 }
 
+export interface ModuleSelectionAnalysisResponse {
+  readonly deploymentNotice: string;
+  readonly enabledModuleKeys: Array<string>;
+  readonly issues: Array<ModuleSelectionIssueResponse>;
+  readonly isValid: boolean;
+  readonly modules: Array<ModuleSelectionModuleStateResponse>;
+  readonly officialModuleKeys: Array<string>;
+  readonly preset: null | string;
+  readonly sourceKind: string;
+}
+
+export interface ModuleSelectionIssueResponse {
+  readonly code: string;
+  readonly message: string;
+  readonly moduleKey: null | string;
+  readonly relatedModuleKey: null | string;
+}
+
+export interface ModuleSelectionModuleStateResponse {
+  readonly dependencies: Array<string>;
+  readonly isEnabled: boolean;
+  readonly missingDependencies: Array<string>;
+  readonly moduleKey: string;
+}
+
+export interface ModuleSelectionValidateRequest {
+  readonly enabled?: null | Array<string>;
+  readonly preset?: null | string;
+}
+
 export interface MyReleaseNoteResponse {
   readonly content: string;
   readonly id: string;

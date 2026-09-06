@@ -70,6 +70,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/modules'
   },
   {
+    componentKey: 'module-selection',
+    routeName: 'module-selection',
+    path: '/identity/module-selection'
+  },
+  {
     componentKey: 'roles',
     routeName: 'roles',
     path: '/identity/roles'

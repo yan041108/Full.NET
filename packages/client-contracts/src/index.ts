@@ -936,6 +936,17 @@ export type {
 } from './identity-module-catalog.js';
 
 export {
+  isIdentityModuleSelectionAnalysis
+} from './identity-module-selection.js';
+
+export type {
+  IdentityModuleSelectionAnalysis,
+  IdentityModuleSelectionIssue,
+  IdentityModuleSelectionModuleState,
+  IdentityModuleSelectionValidateRequest
+} from './identity-module-selection.js';
+
+export {
   HOST_ROLE_ASSIGNABLE_PERMISSIONS,
   ROLE_DATA_SCOPE_KINDS,
   isHostRole,

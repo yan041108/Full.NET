@@ -27,6 +27,28 @@
           ]
         }
       ]
+    },
+    {
+      "path": "/api/v1/identity/modules/selection/runtime",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.modules.read",
+          "successStatus": 200,
+          "responseSchema": "ModuleSelectionAnalysisResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/modules/selection/validate",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.modules.read",
+          "successStatus": 200,
+          "responseSchema": "ModuleSelectionAnalysisResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -50,6 +72,24 @@
         "hostProfiles",
         "sourceClassification",
         "healthCapability"
+      ]
+    },
+    "ModuleSelectionAnalysisResponse": {
+      "properties": [
+        "isValid",
+        "sourceKind",
+        "preset",
+        "enabledModuleKeys",
+        "officialModuleKeys",
+        "issues",
+        "modules",
+        "deploymentNotice"
+      ]
+    },
+    "ModuleSelectionValidateRequest": {
+      "properties": [
+        "preset",
+        "enabled"
       ]
     }
   }

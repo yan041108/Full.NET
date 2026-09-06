@@ -203,6 +203,10 @@ import type {
   LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  ModuleSelectionAnalysisResponse,
+  ModuleSelectionIssueResponse,
+  ModuleSelectionModuleStateResponse,
+  ModuleSelectionValidateRequest,
   MyReleaseNoteResponse,
   NotificationBindingResponse,
   NotificationBindingTargetInput,
@@ -484,6 +488,7 @@ import {
   readLocalePreferenceResponse,
   readLogFileTail,
   readModuleCatalogEntryResponse,
+  readModuleSelectionAnalysisResponse,
   readMyReleaseNoteResponse,
   readNotificationBindingResponse,
   readNotificationDeliveryResponse,
@@ -3019,6 +3024,24 @@ export async function identityGetHostUserRoles(
   return readHostUserRolesResponse(value);
 }
 
+export interface IdentityGetModuleSelectionRuntimeParameters {
+
+}
+
+export async function identityGetModuleSelectionRuntime(
+  http: HttpClient,
+  parameters: IdentityGetModuleSelectionRuntimeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ModuleSelectionAnalysisResponse> {
+  const path = `/api/v1/identity/modules/selection/runtime`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readModuleSelectionAnalysisResponse(value);
+}
+
 export interface IdentityGetTotpEnrollmentStatusParameters {
 
 }
@@ -3717,6 +3740,28 @@ export async function identityUpdatePreferredLocale(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readLocalePreferenceResponse(value);
+}
+
+export interface IdentityValidateModuleSelectionParameters {
+  readonly body: ModuleSelectionValidateRequest;
+}
+
+export async function identityValidateModuleSelection(
+  http: HttpClient,
+  parameters: IdentityValidateModuleSelectionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ModuleSelectionAnalysisResponse> {
+  const path = `/api/v1/identity/modules/selection/validate`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readModuleSelectionAnalysisResponse(value);
 }
 
 export interface JobsBatchPauseHostJobSchedulesParameters {

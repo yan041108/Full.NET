@@ -491,6 +491,9 @@ public sealed class IdentityModuleRegistrationTests
             IdentityFeatures.QueryHostModuleCatalog.HostModuleCatalogQueryService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<
+            IdentityFeatures.QueryHostModuleSelection.HostModuleSelectionQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<
             IdentityFeatures.GetHostDashboardSummary.HostDashboardQueryService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserDirectory>(ServiceLifetime.Scoped),

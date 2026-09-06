@@ -290,6 +290,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/identity/online-sessions/{sessionId}/revoke", "identityRevokeHostOnlineSession", IdentityHostOnlineSessionsTag),
         new("GET", "/api/v1/identity/modules", "identityListHostModules", IdentityHostModulesTag),
         new("GET", "/api/v1/identity/modules/{moduleKey}", "identityGetHostModule", IdentityHostModulesTag),
+        new("GET", "/api/v1/identity/modules/selection/runtime", "identityGetModuleSelectionRuntime", IdentityHostModulesTag),
+        new("POST", "/api/v1/identity/modules/selection/validate", "identityValidateModuleSelection", IdentityHostModulesTag),
         new("GET", "/api/v1/me", "identityGetCurrentUser", IdentityMeTag),
         new("GET", "/api/v1/me/profile", "identityGetSelfServiceProfile", IdentityMeTag),
         new("PUT", "/api/v1/me/profile", "identityUpdateSelfServiceProfile", IdentityMeTag),

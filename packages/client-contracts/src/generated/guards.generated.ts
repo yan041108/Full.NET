@@ -202,6 +202,10 @@ import type {
   LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  ModuleSelectionAnalysisResponse,
+  ModuleSelectionIssueResponse,
+  ModuleSelectionModuleStateResponse,
+  ModuleSelectionValidateRequest,
   MyReleaseNoteResponse,
   NotificationBindingResponse,
   NotificationBindingTargetInput,
@@ -2593,6 +2597,50 @@ export function readModuleCatalogEntryResponse(value: unknown): ModuleCatalogEnt
 
 function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEntryResponse {
   return isRecord(value) && (Array.isArray(value["dependencies"]) && value["dependencies"].every(item21 => typeof item21 === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["healthCapability"] === 'string') && (Array.isArray(value["hostProfiles"]) && value["hostProfiles"].every(item21 => typeof item21 === 'string')) && (typeof value["moduleKey"] === 'string') && (typeof value["sourceClassification"] === 'string') && (typeof value["version"] === 'string');
+}
+
+export function readModuleSelectionAnalysisResponse(value: unknown): ModuleSelectionAnalysisResponse {
+  if (!(isModuleSelectionAnalysisResponse(value))) {
+    throw new Error('client.invalid_module_selection_analysis_response');
+  }
+  return value;
+}
+
+function isModuleSelectionAnalysisResponse(value: unknown): value is ModuleSelectionAnalysisResponse {
+  return isRecord(value) && (typeof value["deploymentNotice"] === 'string') && (Array.isArray(value["enabledModuleKeys"]) && value["enabledModuleKeys"].every(item26 => typeof item26 === 'string')) && (Array.isArray(value["issues"]) && value["issues"].every(item15 => isModuleSelectionIssueResponse(item15))) && (typeof value["isValid"] === 'boolean') && (Array.isArray(value["modules"]) && value["modules"].every(item16 => isModuleSelectionModuleStateResponse(item16))) && (Array.isArray(value["officialModuleKeys"]) && value["officialModuleKeys"].every(item27 => typeof item27 === 'string')) && ((value["preset"] === null) || (typeof value["preset"] === 'string')) && (typeof value["sourceKind"] === 'string');
+}
+
+export function readModuleSelectionIssueResponse(value: unknown): ModuleSelectionIssueResponse {
+  if (!(isModuleSelectionIssueResponse(value))) {
+    throw new Error('client.invalid_module_selection_issue_response');
+  }
+  return value;
+}
+
+function isModuleSelectionIssueResponse(value: unknown): value is ModuleSelectionIssueResponse {
+  return isRecord(value) && (typeof value["code"] === 'string') && (typeof value["message"] === 'string') && ((value["moduleKey"] === null) || (typeof value["moduleKey"] === 'string')) && ((value["relatedModuleKey"] === null) || (typeof value["relatedModuleKey"] === 'string'));
+}
+
+export function readModuleSelectionModuleStateResponse(value: unknown): ModuleSelectionModuleStateResponse {
+  if (!(isModuleSelectionModuleStateResponse(value))) {
+    throw new Error('client.invalid_module_selection_module_state_response');
+  }
+  return value;
+}
+
+function isModuleSelectionModuleStateResponse(value: unknown): value is ModuleSelectionModuleStateResponse {
+  return isRecord(value) && (Array.isArray(value["dependencies"]) && value["dependencies"].every(item21 => typeof item21 === 'string')) && (typeof value["isEnabled"] === 'boolean') && (Array.isArray(value["missingDependencies"]) && value["missingDependencies"].every(item28 => typeof item28 === 'string')) && (typeof value["moduleKey"] === 'string');
+}
+
+export function readModuleSelectionValidateRequest(value: unknown): ModuleSelectionValidateRequest {
+  if (!(isModuleSelectionValidateRequest(value))) {
+    throw new Error('client.invalid_module_selection_validate_request');
+  }
+  return value;
+}
+
+function isModuleSelectionValidateRequest(value: unknown): value is ModuleSelectionValidateRequest {
+  return isRecord(value) && (value["enabled"] === undefined || ((value["enabled"] === null) || (Array.isArray(value["enabled"]) && value["enabled"].every(item16 => typeof item16 === 'string')))) && (value["preset"] === undefined || ((value["preset"] === null) || (typeof value["preset"] === 'string')));
 }
 
 export function readMyReleaseNoteResponse(value: unknown): MyReleaseNoteResponse {

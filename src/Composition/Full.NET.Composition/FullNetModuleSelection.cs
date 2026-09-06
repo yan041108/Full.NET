@@ -188,6 +188,243 @@ public static class FullNetModuleSelection
     }
 
     /// <summary>
+    /// 部署期生效说明：启用集仅通过配置裁剪注册，禁止运行时动态加载程序集。
+    /// </summary>
+    public const string DeploymentNotice =
+        "Module enablement is applied at deployment time via FullNet:Modules; "
+        + "Api, Worker, and Migrator must be restarted and runtime assembly loading is not supported.";
+
+    /// <summary>
+    /// 分析当前配置下的启用集，不修改 DI 注册。
+    /// </summary>
+    /// <param name="configuration">宿主配置根。</param>
+    /// <param name="allModules">官方模块全集实例。</param>
+    public static ModuleSelectionAnalysis AnalyzeConfiguration(
+        IConfiguration configuration,
+        IReadOnlyList<IFullNetModule> allModules)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(allModules);
+
+        var options = configuration
+            .GetSection(FullNetModuleSelectionOptions.SectionName)
+            .Get<FullNetModuleSelectionOptions>()
+            ?? new FullNetModuleSelectionOptions();
+        return AnalyzeOptions(options, allModules);
+    }
+
+    /// <summary>
+    /// 分析候选 <c>FullNet:Modules</c> 配置，不修改 DI 注册。
+    /// </summary>
+    /// <param name="options">候选裁剪配置。</param>
+    /// <param name="allModules">官方模块全集实例。</param>
+    public static ModuleSelectionAnalysis AnalyzeOptions(
+        FullNetModuleSelectionOptions options,
+        IReadOnlyList<IFullNetModule> allModules)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(allModules);
+
+        var issues = new List<ModuleSelectionIssue>();
+        var resolution = ResolveCandidateNames(options);
+        var enabledNames = resolution.EnabledNames;
+        CollectEnabledNameIssues(enabledNames, issues);
+        var enabledSet = enabledNames
+            .Where(name => !string.IsNullOrWhiteSpace(name)
+                && OfficialModuleNames.Contains(name, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        CollectDependencyIssues(
+            FilterModules(allModules, enabledSet),
+            enabledSet,
+            issues);
+        var moduleStates = BuildModuleStates(allModules, enabledSet);
+        return new ModuleSelectionAnalysis
+        {
+            IsValid = issues.Count == 0,
+            SourceKind = resolution.SourceKind,
+            Preset = resolution.Preset,
+            EnabledModuleKeys = enabledSet
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray(),
+            OfficialModuleKeys = OfficialModuleNames.ToArray(),
+            Issues = issues
+                .OrderBy(issue => issue.Code, StringComparer.Ordinal)
+                .ThenBy(issue => issue.ModuleKey, StringComparer.Ordinal)
+                .ToArray(),
+            ModuleStates = moduleStates,
+            DeploymentNotice = DeploymentNotice,
+        };
+    }
+
+    private static (string SourceKind, string? Preset, IReadOnlyList<string> EnabledNames)
+        ResolveCandidateNames(FullNetModuleSelectionOptions options)
+    {
+        if (options.Enabled is { Length: > 0 })
+        {
+            return (
+                ModuleSelectionSourceKinds.Explicit,
+                null,
+                options.Enabled);
+        }
+
+        if (string.Equals(
+                options.Preset,
+                FullNetModuleSelectionOptions.Presets.Minimal,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                ModuleSelectionSourceKinds.Preset,
+                FullNetModuleSelectionOptions.Presets.Minimal,
+                MinimalPresetModuleNames);
+        }
+
+        if (string.Equals(
+                options.Preset,
+                FullNetModuleSelectionOptions.Presets.Platform,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                ModuleSelectionSourceKinds.Preset,
+                FullNetModuleSelectionOptions.Presets.Platform,
+                PlatformPresetModuleNames);
+        }
+
+        if (string.Equals(
+                options.Preset,
+                FullNetModuleSelectionOptions.Presets.Content,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return (
+                ModuleSelectionSourceKinds.Preset,
+                FullNetModuleSelectionOptions.Presets.Content,
+                ContentPresetModuleNames);
+        }
+
+        return (
+            ModuleSelectionSourceKinds.Preset,
+            string.IsNullOrWhiteSpace(options.Preset)
+                ? FullNetModuleSelectionOptions.Presets.Full
+                : options.Preset,
+            OfficialModuleNames);
+    }
+
+    private static void CollectEnabledNameIssues(
+        IReadOnlyList<string> enabledNames,
+        IList<ModuleSelectionIssue> issues)
+    {
+        if (enabledNames.Count == 0)
+        {
+            issues.Add(new ModuleSelectionIssue(
+                ModuleSelectionIssueCodes.EmptyEnabled,
+                "FullNet:Modules enabled set must not be empty.",
+                null,
+                null));
+            return;
+        }
+
+        var official = OfficialModuleNames.ToHashSet(StringComparer.Ordinal);
+        var enabled = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var name in enabledNames)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                issues.Add(new ModuleSelectionIssue(
+                    ModuleSelectionIssueCodes.BlankModuleName,
+                    "FullNet:Modules:Enabled contains a blank module name.",
+                    null,
+                    null));
+                continue;
+            }
+
+            if (!official.Contains(name))
+            {
+                issues.Add(new ModuleSelectionIssue(
+                    ModuleSelectionIssueCodes.UnknownModule,
+                    $"Unknown module '{name}' in FullNet:Modules.",
+                    name,
+                    null));
+                continue;
+            }
+
+            if (!enabled.Add(name))
+            {
+                issues.Add(new ModuleSelectionIssue(
+                    ModuleSelectionIssueCodes.DuplicateModule,
+                    $"Duplicate module '{name}' in FullNet:Modules:Enabled.",
+                    name,
+                    null));
+            }
+        }
+
+        if (!enabled.Contains("Identity"))
+        {
+            issues.Add(new ModuleSelectionIssue(
+                ModuleSelectionIssueCodes.MissingIdentity,
+                "FullNet:Modules must include Identity.",
+                "Identity",
+                null));
+        }
+    }
+
+    private static void CollectDependencyIssues(
+        IReadOnlyList<IFullNetModule> enabledModules,
+        IReadOnlySet<string> enabledNames,
+        IList<ModuleSelectionIssue> issues)
+    {
+        foreach (var module in enabledModules)
+        {
+            foreach (var optionalDependency in module.OptionalContractDependencies)
+            {
+                if (!OfficialModuleNames.Contains(optionalDependency, StringComparer.Ordinal) ||
+                    module.Dependencies.Contains(optionalDependency, StringComparer.Ordinal))
+                {
+                    issues.Add(new ModuleSelectionIssue(
+                        ModuleSelectionIssueCodes.InvalidOptionalDependency,
+                        $"Module '{module.Name}' declares invalid optional contract dependency "
+                            + $"'{optionalDependency}'.",
+                        module.Name,
+                        optionalDependency));
+                }
+            }
+
+            foreach (var dependency in module.Dependencies)
+            {
+                if (!enabledNames.Contains(dependency))
+                {
+                    issues.Add(new ModuleSelectionIssue(
+                        ModuleSelectionIssueCodes.MissingDependency,
+                        $"Module '{module.Name}' depends on '{dependency}', "
+                            + "which is not included in FullNet:Modules.",
+                        module.Name,
+                        dependency));
+                }
+            }
+        }
+    }
+
+    private static IReadOnlyList<ModuleSelectionModuleState> BuildModuleStates(
+        IReadOnlyList<IFullNetModule> allModules,
+        IReadOnlySet<string> enabledNames) =>
+        allModules
+            .OrderBy(module => module.Name, StringComparer.Ordinal)
+            .Select(module =>
+            {
+                var missing = module.Dependencies
+                    .Where(dependency => !enabledNames.Contains(dependency))
+                    .OrderBy(dependency => dependency, StringComparer.Ordinal)
+                    .ToArray();
+                return new ModuleSelectionModuleState(
+                    module.Name,
+                    enabledNames.Contains(module.Name),
+                    module.Dependencies
+                        .OrderBy(dependency => dependency, StringComparer.Ordinal)
+                        .ToArray(),
+                    missing);
+            })
+            .ToArray();
+
+    /// <summary>
     /// 组合解析与过滤：先解析启用名称，再筛选模块实例，最后校验依赖 DAG 在启用集内闭合。
     /// </summary>
     /// <param name="configuration">宿主配置根。</param>
