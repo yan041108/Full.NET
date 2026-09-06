@@ -1628,6 +1628,45 @@ export interface ImportAdministrativeRegionsRequest {
   readonly sourceDigest?: string;
 }
 
+export interface ImportExportTaskDetailResponse {
+  readonly createdAtUtc: string;
+  readonly errorCode?: null | string;
+  readonly id: string;
+  readonly invalidRowCount: number | string;
+  readonly previewCompletedAtUtc?: null | string;
+  readonly previewRows: Array<StaticImportRowPreviewResult>;
+  readonly requestedByUserId: string;
+  readonly schemaDisplayName: string;
+  readonly schemaKey: string;
+  readonly sourceFileId: string;
+  readonly sourceFileName?: null | string;
+  readonly statusKey: string;
+  readonly tenantId: string;
+  readonly totalRows: number | string;
+  readonly validRowCount: number | string;
+  readonly version: number | string;
+  readonly worksheetKey: string;
+}
+
+export interface ImportExportTaskResponse {
+  readonly createdAtUtc: string;
+  readonly errorCode?: null | string;
+  readonly id: string;
+  readonly invalidRowCount: number | string;
+  readonly previewCompletedAtUtc?: null | string;
+  readonly requestedByUserId: string;
+  readonly schemaDisplayName: string;
+  readonly schemaKey: string;
+  readonly sourceFileId: string;
+  readonly sourceFileName?: null | string;
+  readonly statusKey: string;
+  readonly tenantId: string;
+  readonly totalRows: number | string;
+  readonly validRowCount: number | string;
+  readonly version: number | string;
+  readonly worksheetKey: string;
+}
+
 export interface ImportHostUserRowResult {
   readonly errorCode: null | string;
   readonly line: number;
@@ -2151,6 +2190,13 @@ export interface PagedResultOfHostUserResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfImportExportTaskResponse {
+  readonly items: Array<ImportExportTaskResponse>;
+  readonly page: number | string;
+  readonly pageSize: number | string;
+  readonly total: number | string;
+}
+
 export interface PagedResultOfInboxMessageResponse {
   readonly items: Array<InboxMessageResponse>;
   readonly page: number;
@@ -2630,6 +2676,27 @@ export interface StartWorkflowInstanceRequest {
   readonly definitionVersionId: string;
   readonly idempotencyKey: string;
   readonly initialValues: JsonElement;
+}
+
+export interface StaticImportRowPreviewResult {
+  readonly errorCode?: null | string;
+  readonly isValid: boolean;
+  readonly lineNumber: number | string;
+  readonly message?: null | string;
+}
+
+export interface StaticImportSchemaDefinition {
+  readonly displayName: string;
+  readonly requiredPermission: string;
+  readonly schemaKey: string;
+  readonly scopeKey: string;
+  readonly worksheets: Array<StaticImportWorksheetDefinition>;
+}
+
+export interface StaticImportWorksheetDefinition {
+  readonly displayName: string;
+  readonly headerColumns: Array<string>;
+  readonly worksheetKey: string;
 }
 
 export type Stream = Blob;

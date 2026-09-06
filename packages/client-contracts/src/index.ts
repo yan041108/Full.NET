@@ -447,6 +447,22 @@ export type {
 } from './document-preview-tasks.js';
 
 export {
+  isImportExportTaskDetailResponse,
+  isImportExportTaskPage,
+  isImportExportTaskResponse,
+  isStaticImportSchemaDefinition
+} from './import-export.js';
+
+export type {
+  ImportExportTaskDetailResponse,
+  ImportExportTaskPage,
+  ImportExportTaskResponse,
+  StaticImportRowPreviewResult,
+  StaticImportSchemaDefinition,
+  StaticImportWorksheetDefinition
+} from './import-export.js';
+
+export {
   isHostDocumentPermissionEntry,
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,

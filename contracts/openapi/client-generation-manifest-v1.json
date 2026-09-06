@@ -2187,6 +2187,42 @@
       "status": "manual"
     },
     {
+      "operationId": "importExportListStaticSchemas",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportGetStaticSchema",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportDownloadStaticSchemaTemplate",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportCreateImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportListImportTasks",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportGetImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

@@ -1,0 +1,114 @@
+{
+  "id": "import-export-v1",
+  "version": 1,
+  "description": "ImportExport 静态 Schema 导入任务 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/import-export/schemas",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "import_export.static_schemas.read",
+          "successStatus": 200,
+          "responseSchema": "StaticImportSchemaDefinitionList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/schemas/{schemaKey}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "import_export.static_schemas.read",
+          "successStatus": 200,
+          "responseSchema": "StaticImportSchemaDefinition"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/schemas/{schemaKey}/worksheets/{worksheetKey}/template",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "import_export.static_schemas.read",
+          "successStatus": 200,
+          "responseSchema": "Stream"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/tasks",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "import_export.import_tasks.create",
+          "successStatus": 201,
+          "requestSchema": "ImportExportCreateTaskMultipart",
+          "responseSchema": "ImportExportTaskDetailResponse"
+        },
+        {
+          "method": "GET",
+          "permission": "import_export.import_tasks.read",
+          "successStatus": 200,
+          "responseSchema": "ImportExportTaskResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/tasks/{taskId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "import_export.import_tasks.read",
+          "successStatus": 200,
+          "responseSchema": "ImportExportTaskDetailResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "StaticImportSchemaDefinition": {
+      "properties": [
+        "schemaKey",
+        "displayName",
+        "scopeKey",
+        "requiredPermission",
+        "worksheets"
+      ]
+    },
+    "StaticImportSchemaDefinitionList": {
+      "properties": [],
+      "itemSchema": "StaticImportSchemaDefinition"
+    },
+    "ImportExportTaskDetailResponse": {
+      "properties": [
+        "id",
+        "tenantId",
+        "schemaKey",
+        "schemaDisplayName",
+        "worksheetKey",
+        "sourceFileId",
+        "sourceFileName",
+        "statusKey",
+        "totalRows",
+        "validRowCount",
+        "invalidRowCount",
+        "errorCode",
+        "requestedByUserId",
+        "createdAtUtc",
+        "previewCompletedAtUtc",
+        "previewRows",
+        "version"
+      ]
+    },
+    "ImportExportTaskResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "ImportExportTaskResponse"
+    }
+  }
+}

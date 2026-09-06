@@ -196,6 +196,8 @@ import type {
   ImportAdministrativeRegionsApplyResponse,
   ImportAdministrativeRegionsPreviewResponse,
   ImportAdministrativeRegionsRequest,
+  ImportExportTaskDetailResponse,
+  ImportExportTaskResponse,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
@@ -257,6 +259,7 @@ import type {
   PagedResultOfHostReleaseNoteResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
+  PagedResultOfImportExportTaskResponse,
   PagedResultOfInboxMessageResponse,
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
@@ -330,6 +333,9 @@ import type {
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
+  StaticImportRowPreviewResult,
+  StaticImportSchemaDefinition,
+  StaticImportWorksheetDefinition,
   Stream,
   SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
@@ -487,6 +493,8 @@ import {
   readIdentitySessionPolicyResponse,
   readImportAdministrativeRegionsApplyResponse,
   readImportAdministrativeRegionsPreviewResponse,
+  readImportExportListStaticSchemasResponse,
+  readImportExportTaskDetailResponse,
   readImportHostUsersResponse,
   readInboxMessageResponse,
   readInboxUnreadCountResponse,
@@ -536,6 +544,7 @@ import {
   readPagedResultOfHostReleaseNoteResponse,
   readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
+  readPagedResultOfImportExportTaskResponse,
   readPagedResultOfInboxMessageResponse,
   readPagedResultOfMyReleaseNoteResponse,
   readPagedResultOfNotificationBindingResponse,
@@ -578,6 +587,7 @@ import {
   readSettingsListHostDictItemsByTypeCodeResponse,
   readSettingsListHostEnumCatalogsResponse,
   readSettingsListTenantDictItemsByTypeCodeResponse,
+  readStaticImportSchemaDefinition,
   readSuperAdministratorChangeResponse,
   readTenantPackageSummary,
   readTenantSummary,
@@ -3915,6 +3925,135 @@ export async function identityValidateModuleSelection(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readModuleSelectionAnalysisResponse(value);
+}
+
+export interface ImportExportCreateImportTaskParameters {
+  readonly file: IFormFile;
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+}
+
+export async function importExportCreateImportTask(
+  http: HttpClient,
+  parameters: ImportExportCreateImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  body.append('schemaKey', String(parameters.schemaKey));
+  body.append('worksheetKey', String(parameters.worksheetKey));
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
+}
+
+export interface ImportExportDownloadStaticSchemaTemplateParameters {
+  readonly schemaKey: string;
+  readonly worksheetKey: string;
+}
+
+export async function importExportDownloadStaticSchemaTemplate(
+  http: HttpClient,
+  parameters: ImportExportDownloadStaticSchemaTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/import-export/schemas/${encodeURIComponent(String(parameters.schemaKey))}/worksheets/${encodeURIComponent(String(parameters.worksheetKey))}/template`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface ImportExportGetImportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function importExportGetImportTask(
+  http: HttpClient,
+  parameters: ImportExportGetImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
+}
+
+export interface ImportExportGetStaticSchemaParameters {
+  readonly schemaKey: string;
+}
+
+export async function importExportGetStaticSchema(
+  http: HttpClient,
+  parameters: ImportExportGetStaticSchemaParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<StaticImportSchemaDefinition> {
+  const path = `/api/v1/import-export/schemas/${encodeURIComponent(String(parameters.schemaKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readStaticImportSchemaDefinition(value);
+}
+
+export interface ImportExportListImportTasksParameters {
+  readonly page?: number | string;
+  readonly pageSize?: number | string;
+  readonly schemaKey?: null | string;
+}
+
+export async function importExportListImportTasks(
+  http: HttpClient,
+  parameters: ImportExportListImportTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfImportExportTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.schemaKey !== undefined) {
+    query.set('schemaKey', String(parameters.schemaKey));
+  }
+  const path = query.size === 0 ? `/api/v1/import-export/tasks` : `/api/v1/import-export/tasks?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfImportExportTaskResponse(value);
+}
+
+export interface ImportExportListStaticSchemasParameters {
+
+}
+
+export async function importExportListStaticSchemas(
+  http: HttpClient,
+  parameters: ImportExportListStaticSchemasParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<StaticImportSchemaDefinition>> {
+  const path = `/api/v1/import-export/schemas`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportListStaticSchemasResponse(value);
 }
 
 export interface JobsBatchPauseHostJobSchedulesParameters {

@@ -195,6 +195,8 @@ import type {
   ImportAdministrativeRegionsApplyResponse,
   ImportAdministrativeRegionsPreviewResponse,
   ImportAdministrativeRegionsRequest,
+  ImportExportTaskDetailResponse,
+  ImportExportTaskResponse,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
@@ -256,6 +258,7 @@ import type {
   PagedResultOfHostReleaseNoteResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
+  PagedResultOfImportExportTaskResponse,
   PagedResultOfInboxMessageResponse,
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
@@ -329,6 +332,9 @@ import type {
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
+  StaticImportRowPreviewResult,
+  StaticImportSchemaDefinition,
+  StaticImportWorksheetDefinition,
   Stream,
   SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
@@ -2528,6 +2534,28 @@ function isImportAdministrativeRegionsRequest(value: unknown): value is ImportAd
   return isRecord(value) && (value["datasetKey"] === undefined || (typeof value["datasetKey"] === 'string')) && (value["datasetVersion"] === undefined || (typeof value["datasetVersion"] === 'string')) && (value["items"] === undefined || (Array.isArray(value["items"]) && value["items"].every(item14 => isImportAdministrativeRegionItem(item14)))) && (value["mergeMode"] === undefined || (typeof value["mergeMode"] === 'string')) && (value["sourceDigest"] === undefined || (typeof value["sourceDigest"] === 'string'));
 }
 
+export function readImportExportTaskDetailResponse(value: unknown): ImportExportTaskDetailResponse {
+  if (!(isImportExportTaskDetailResponse(value))) {
+    throw new Error('client.invalid_import_export_task_detail_response');
+  }
+  return value;
+}
+
+function isImportExportTaskDetailResponse(value: unknown): value is ImportExportTaskDetailResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (value["errorCode"] === undefined || ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string'))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((typeof value["invalidRowCount"] === 'number' && Number.isInteger(value["invalidRowCount"])) || (typeof value["invalidRowCount"] === 'string')) && (value["previewCompletedAtUtc"] === undefined || ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string'))) && (Array.isArray(value["previewRows"]) && value["previewRows"].every(item20 => isStaticImportRowPreviewResult(item20))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && (value["sourceFileName"] === undefined || ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string'))) && (typeof value["statusKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((typeof value["totalRows"] === 'number' && Number.isInteger(value["totalRows"])) || (typeof value["totalRows"] === 'string')) && ((typeof value["validRowCount"] === 'number' && Number.isInteger(value["validRowCount"])) || (typeof value["validRowCount"] === 'string')) && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string')) && (typeof value["worksheetKey"] === 'string');
+}
+
+export function readImportExportTaskResponse(value: unknown): ImportExportTaskResponse {
+  if (!(isImportExportTaskResponse(value))) {
+    throw new Error('client.invalid_import_export_task_response');
+  }
+  return value;
+}
+
+function isImportExportTaskResponse(value: unknown): value is ImportExportTaskResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (value["errorCode"] === undefined || ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string'))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((typeof value["invalidRowCount"] === 'number' && Number.isInteger(value["invalidRowCount"])) || (typeof value["invalidRowCount"] === 'string')) && (value["previewCompletedAtUtc"] === undefined || ((value["previewCompletedAtUtc"] === null) || (typeof value["previewCompletedAtUtc"] === 'string'))) && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["schemaDisplayName"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && (value["sourceFileName"] === undefined || ((value["sourceFileName"] === null) || (typeof value["sourceFileName"] === 'string'))) && (typeof value["statusKey"] === 'string') && (typeof value["tenantId"] === 'string' && guidPattern.test(value["tenantId"])) && ((typeof value["totalRows"] === 'number' && Number.isInteger(value["totalRows"])) || (typeof value["totalRows"] === 'string')) && ((typeof value["validRowCount"] === 'number' && Number.isInteger(value["validRowCount"])) || (typeof value["validRowCount"] === 'string')) && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string')) && (typeof value["worksheetKey"] === 'string');
+}
+
 export function readImportHostUserRowResult(value: unknown): ImportHostUserRowResult {
   if (!(isImportHostUserRowResult(value))) {
     throw new Error('client.invalid_import_host_user_row_result');
@@ -3197,6 +3225,17 @@ export function readPagedResultOfHostUserResponse(value: unknown): PagedResultOf
 
 function isPagedResultOfHostUserResponse(value: unknown): value is PagedResultOfHostUserResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostUserResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfImportExportTaskResponse(value: unknown): PagedResultOfImportExportTaskResponse {
+  if (!(isPagedResultOfImportExportTaskResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_import_export_task_response');
+  }
+  return value;
+}
+
+function isPagedResultOfImportExportTaskResponse(value: unknown): value is PagedResultOfImportExportTaskResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isImportExportTaskResponse(item14))) && ((typeof value["page"] === 'number' && Number.isInteger(value["page"])) || (typeof value["page"] === 'string')) && ((typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) || (typeof value["pageSize"] === 'string')) && ((typeof value["total"] === 'number' && Number.isInteger(value["total"])) || (typeof value["total"] === 'string'));
 }
 
 export function readPagedResultOfInboxMessageResponse(value: unknown): PagedResultOfInboxMessageResponse {
@@ -4000,6 +4039,39 @@ export function readStartWorkflowInstanceRequest(value: unknown): StartWorkflowI
 
 function isStartWorkflowInstanceRequest(value: unknown): value is StartWorkflowInstanceRequest {
   return isRecord(value) && (typeof value["businessId"] === 'string') && (value["businessTitle"] === undefined || ((value["businessTitle"] === null) || (typeof value["businessTitle"] === 'string'))) && (typeof value["businessType"] === 'string') && (typeof value["definitionVersionId"] === 'string' && guidPattern.test(value["definitionVersionId"])) && (typeof value["idempotencyKey"] === 'string') && (isJsonElement(value["initialValues"]));
+}
+
+export function readStaticImportRowPreviewResult(value: unknown): StaticImportRowPreviewResult {
+  if (!(isStaticImportRowPreviewResult(value))) {
+    throw new Error('client.invalid_static_import_row_preview_result');
+  }
+  return value;
+}
+
+function isStaticImportRowPreviewResult(value: unknown): value is StaticImportRowPreviewResult {
+  return isRecord(value) && (value["errorCode"] === undefined || ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string'))) && (typeof value["isValid"] === 'boolean') && ((typeof value["lineNumber"] === 'number' && Number.isInteger(value["lineNumber"])) || (typeof value["lineNumber"] === 'string')) && (value["message"] === undefined || ((value["message"] === null) || (typeof value["message"] === 'string')));
+}
+
+export function readStaticImportSchemaDefinition(value: unknown): StaticImportSchemaDefinition {
+  if (!(isStaticImportSchemaDefinition(value))) {
+    throw new Error('client.invalid_static_import_schema_definition');
+  }
+  return value;
+}
+
+function isStaticImportSchemaDefinition(value: unknown): value is StaticImportSchemaDefinition {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["requiredPermission"] === 'string') && (typeof value["schemaKey"] === 'string') && (typeof value["scopeKey"] === 'string') && (Array.isArray(value["worksheets"]) && value["worksheets"].every(item19 => isStaticImportWorksheetDefinition(item19)));
+}
+
+export function readStaticImportWorksheetDefinition(value: unknown): StaticImportWorksheetDefinition {
+  if (!(isStaticImportWorksheetDefinition(value))) {
+    throw new Error('client.invalid_static_import_worksheet_definition');
+  }
+  return value;
+}
+
+function isStaticImportWorksheetDefinition(value: unknown): value is StaticImportWorksheetDefinition {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (Array.isArray(value["headerColumns"]) && value["headerColumns"].every(item22 => typeof item22 === 'string')) && (typeof value["worksheetKey"] === 'string');
 }
 
 export function readStream(value: unknown): Stream {
@@ -4968,6 +5040,13 @@ export function readIdentityListSuperAdministratorsResponse(value: unknown): Arr
     throw new Error('client.invalid_identity_list_super_administrators_response');
   }
   return value as Array<SuperAdministratorResponse>;
+}
+
+export function readImportExportListStaticSchemasResponse(value: unknown): Array<StaticImportSchemaDefinition> {
+  if (!(Array.isArray(value) && value.every(item5 => isStaticImportSchemaDefinition(item5)))) {
+    throw new Error('client.invalid_import_export_list_static_schemas_response');
+  }
+  return value as Array<StaticImportSchemaDefinition>;
 }
 
 export function readJobsListHostJobGroupsResponse(value: unknown): Array<HostJobGroupResponse> {

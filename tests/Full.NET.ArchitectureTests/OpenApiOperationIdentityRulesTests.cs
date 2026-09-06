@@ -95,6 +95,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string DocumentPublicSharesTag = "DocumentPublicShares";
     private const string DocumentHostAccessLogsTag = "DocumentHostAccessLogs";
     private const string DocumentHostPreviewTasksTag = "DocumentHostPreviewTasks";
+    private const string ImportExportStaticSchemasTag = "ImportExportStaticSchemas";
+    private const string ImportExportTasksTag = "ImportExportTasks";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
     private const string DataApprovalRequestsTag = "DataApprovalRequests";
     private const string DataApprovalScenariosTag = "DataApprovalScenarios";
@@ -365,6 +367,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/organization/positions/import-template", "organizationDownloadTenantPositionImportTemplate", OrganizationTenantPositionsTag),
         new("POST", "/api/v1/organization/positions/import", "organizationImportTenantPositions", OrganizationTenantPositionsTag),
         new("POST", "/api/v1/organization/positions/import-file", "organizationImportTenantPositionsWorkbook", OrganizationTenantPositionsTag),
+        new("GET", "/api/v1/import-export/schemas", "importExportListStaticSchemas", ImportExportStaticSchemasTag),
+        new("GET", "/api/v1/import-export/schemas/{schemaKey}", "importExportGetStaticSchema", ImportExportStaticSchemasTag),
+        new("GET", "/api/v1/import-export/schemas/{schemaKey}/worksheets/{worksheetKey}/template", "importExportDownloadStaticSchemaTemplate", ImportExportStaticSchemasTag),
+        new("POST", "/api/v1/import-export/tasks", "importExportCreateImportTask", ImportExportTasksTag),
+        new("GET", "/api/v1/import-export/tasks", "importExportListImportTasks", ImportExportTasksTag),
+        new("GET", "/api/v1/import-export/tasks/{taskId}", "importExportGetImportTask", ImportExportTasksTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

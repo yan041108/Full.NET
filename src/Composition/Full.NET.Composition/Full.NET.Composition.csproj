@@ -5,6 +5,8 @@
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Identity\Full.NET.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Tenancy\Full.NET.Modules.Tenancy.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.ImportExport\Full.NET.Modules.ImportExport.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.ImportExport.Contracts\Full.NET.Modules.ImportExport.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Settings\Full.NET.Modules.Settings.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Auditing\Full.NET.Modules.Auditing.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Files\Full.NET.Modules.Files.csproj" />

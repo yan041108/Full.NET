@@ -16,6 +16,7 @@ using Full.NET.Modules.Messaging;
 using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.DataApproval;
+using Full.NET.Modules.ImportExport;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Mqtt;
@@ -153,6 +154,7 @@ public static class FullNetModuleCatalog
         new MessagingModule(),
         new TenancyModule(),
         new OrganizationModule(),
+        new ImportExportModule(),
         new SettingsModule(),
         new CodeGenerationModule(),
         new SerialNumbersModule(),

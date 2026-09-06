@@ -12,7 +12,6 @@ namespace Full.NET.IntegrationTests.Document;
 internal static class DocumentAdminNetParityAssertions
 {
     private const string ItemsPath = "/api/v1/document/host/items";
-    private const string ItemsPath = "/api/v1/document/host/items";
     private const string RecycleBinPath = "/api/v1/document/host/recycle-bin";
     private const string PermissionsPath = "/api/v1/document/host/permissions";
     private const string SharesPath = "/api/v1/document/host/shares";

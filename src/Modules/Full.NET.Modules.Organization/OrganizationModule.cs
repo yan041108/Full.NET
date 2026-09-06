@@ -14,7 +14,9 @@ using Full.NET.Modules.Organization.Features.ManageTenantPositionLevels;
 using Full.NET.Modules.Organization.Features.ManageTenantPositions;
 using Full.NET.Modules.Organization.Features.ManageTenantUnits;
 using Full.NET.Modules.Organization.Features.ManageTenantUserPositions;
+using Full.NET.Modules.Organization.Features.ImportExport;
 using Full.NET.Modules.Organization.Features.ManageTenantUserUnits;
+using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Organization.Resources;
 using Full.NET.Modules.Organization.Serialization;
 using Microsoft.AspNetCore.Builder;
@@ -85,6 +87,10 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddSingleton<
             IIdentityOrganizationDataScopeSqlProjection,
             IdentityOrganizationDataScopeSqlProjection>();
+        services.TryAddScoped<TenantPositionImportPreviewService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IStaticImportSchemaHandler,
+            TenantPositionsStaticImportSchemaHandler>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
