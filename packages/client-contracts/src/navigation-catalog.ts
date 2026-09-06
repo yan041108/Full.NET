@@ -310,6 +310,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/observability/cache-policies'
   },
   {
+    componentKey: 'observability-elasticsearch-health',
+    routeName: 'observability-elasticsearch-health',
+    path: '/observability/elasticsearch-health'
+  },
+  {
     componentKey: 'operation-logs',
     routeName: 'operation-logs',
     path: '/auditing/operation-logs'

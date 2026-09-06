@@ -22,6 +22,12 @@ public static class ObservabilityCachePolicyPermissions
     public const string Invalidate = "observability.cache_policies.invalidate";
 }
 
+/// <summary>Elasticsearch 日志管道健康检查的精确权限码。</summary>
+public static class ObservabilityElasticsearchPermissions
+{
+    public const string Read = "observability.elasticsearch.read";
+}
+
 /// <summary>Host 日志控制面的稳定错误码。</summary>
 public static class ObservabilityAdminErrorCodes
 {

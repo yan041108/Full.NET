@@ -347,6 +347,11 @@ export function createAppRouter(
         component: () => import('../views/ObservabilityCachePoliciesView.vue')
       },
       {
+        name: 'observability-elasticsearch-health',
+        path: '/observability/elasticsearch-health',
+        component: () => import('../views/ObservabilityElasticsearchHealthView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

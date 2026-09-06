@@ -13,7 +13,9 @@ internal static class FullNetLoggingPipeline
         LoggingOptions options,
         FullNetLoggingMonitors monitors,
         Action<LoggerAuditSinkConfiguration> configureGeneralSink,
-        Action<LoggerAuditSinkConfiguration> configureHighPrioritySink)
+        Action<LoggerAuditSinkConfiguration> configureHighPrioritySink,
+        Action<LoggerSinkConfiguration>? configureGeneralWriteTo = null,
+        Action<LoggerSinkConfiguration>? configureHighPriorityWriteTo = null)
     {
         configuration
             .MinimumLevel.Information()
@@ -21,10 +23,12 @@ internal static class FullNetLoggingPipeline
             .Enrich.FromLogContext()
             .Enrich.WithProperty("Application", applicationName);
 
-        var generalSink = CreateSink(configureGeneralSink);
+        var generalSink = CreateSink(configureGeneralSink, configureGeneralWriteTo);
         try
         {
-            var highPrioritySink = CreateSink(configureHighPrioritySink);
+            var highPrioritySink = CreateSink(
+                configureHighPrioritySink,
+                configureHighPriorityWriteTo);
             configuration.WriteTo.Sink(
                 new FullNetLoggingPipelineSink(
                     generalSink,
@@ -46,11 +50,13 @@ internal static class FullNetLoggingPipeline
     }
 
     private static ILogEventSink CreateSink(
-        Action<LoggerAuditSinkConfiguration> configureSink)
+        Action<LoggerAuditSinkConfiguration> configureAuditSink,
+        Action<LoggerSinkConfiguration>? configureWriteTo = null)
     {
         var configuration = new LoggerConfiguration()
             .MinimumLevel.Verbose();
-        configureSink(configuration.AuditTo);
+        configureAuditSink(configuration.AuditTo);
+        configureWriteTo?.Invoke(configuration.WriteTo);
         return configuration.CreateLogger();
     }
 }

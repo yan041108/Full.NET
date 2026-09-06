@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
+using Full.NET.Modules.ObservabilityAdmin.Features.MonitorElasticsearchLogPipeline;
 using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 
 namespace Full.NET.Modules.ObservabilityAdmin.Serialization;
@@ -22,5 +23,6 @@ namespace Full.NET.Modules.ObservabilityAdmin.Serialization;
 [JsonSerializable(typeof(CacheInvalidationRequest))]
 [JsonSerializable(typeof(CacheInvalidationResult))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
+[JsonSerializable(typeof(ElasticsearchLogPipelineHealthResponse))]
 internal partial class ObservabilityAdminJsonSerializerContext
     : JsonSerializerContext;

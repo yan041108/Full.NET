@@ -583,6 +583,14 @@ export type {
 } from './platform-backup-executor.js';
 
 export {
+  isElasticsearchLogPipelineHealth
+} from './observability-elasticsearch-log-pipeline.js';
+
+export type {
+  ElasticsearchLogPipelineHealth
+} from './observability-elasticsearch-log-pipeline.js';
+
+export {
   isMyReleaseNote,
   isMyReleaseNotePage
 } from './my-release-notes.js';

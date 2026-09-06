@@ -83,6 +83,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string ObservabilityLogFilesTag = "ObservabilityLogFiles";
     private const string ObservabilityServerMonitorTag = "ObservabilityServerMonitor";
     private const string ObservabilityCachePoliciesTag = "ObservabilityCachePolicies";
+    private const string ObservabilityElasticsearchLogPipelineTag = "ObservabilityElasticsearchLogPipeline";
     private const string DocumentHostCategoriesTag = "DocumentHostCategories";
     private const string DocumentHostItemsTag = "DocumentHostItems";
     private const string DocumentHostTagsTag = "DocumentHostTags";
@@ -567,6 +568,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/observability/cache-policies", "observabilityListCachePolicies", ObservabilityCachePoliciesTag),
         new("GET", "/api/v1/observability/cache-policies/{entryName}", "observabilityGetCachePolicy", ObservabilityCachePoliciesTag),
         new("POST", "/api/v1/observability/cache-policies/{entryName}/invalidations", "observabilityInvalidateCachePolicy", ObservabilityCachePoliciesTag),
+        new("GET", "/api/v1/observability/elasticsearch-log-pipeline/health", "observabilityGetElasticsearchLogPipelineHealth", ObservabilityElasticsearchLogPipelineTag),
         new("GET", "/api/v1/document/host/categories", "documentHostListCategories", DocumentHostCategoriesTag),
         new("POST", "/api/v1/document/host/categories", "documentHostCreateCategory", DocumentHostCategoriesTag),
         new("PUT", "/api/v1/document/host/categories/{categoryId}", "documentHostUpdateCategory", DocumentHostCategoriesTag),

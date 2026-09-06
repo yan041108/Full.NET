@@ -74,16 +74,50 @@ public static class ServiceDefaultsExtensions
 
         var loggingMonitors = new FullNetLoggingMonitors();
         builder.Services.AddSingleton(loggingMonitors);
-        builder.Services.AddSerilog((services, configuration) =>
+        var elasticsearchRegistration = new ElasticsearchLogPipelineRegistration();
+        builder.Services.AddSingleton(elasticsearchRegistration);
+        builder.Services.AddSingleton<IElasticsearchLogPipelineStatus>(elasticsearchRegistration);
+        builder.Services.AddOptions<ElasticsearchLoggingOptions>()
+            .BindConfiguration(ElasticsearchLoggingOptions.SectionName)
+            .ValidateOnStart();
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<ElasticsearchLoggingOptions>,
+            ElasticsearchLoggingOptionsValidator>());
+        var elasticsearchOptions = builder.Configuration
+                .GetSection(ElasticsearchLoggingOptions.SectionName)
+                .Get<ElasticsearchLoggingOptions>()
+            ?? new ElasticsearchLoggingOptions();
+        elasticsearchRegistration.IsEnabled = elasticsearchOptions.Enabled;
+        builder.Services.AddSerilog((services, loggerConfiguration) =>
         {
-            configuration.ReadFrom.Services(services);
+            var resolvedElasticsearchOptions = builder.Configuration
+                    .GetSection(ElasticsearchLoggingOptions.SectionName)
+                    .Get<ElasticsearchLoggingOptions>()
+                ?? new ElasticsearchLoggingOptions();
+            loggerConfiguration.ReadFrom.Services(services);
             FullNetLoggingPipeline.Configure(
-                configuration,
+                loggerConfiguration,
                 builder.Environment.ApplicationName,
                 loggingOptions,
                 loggingMonitors,
-                sink => sink.Console(new CompactJsonFormatter()),
-                sink => sink.Console(new CompactJsonFormatter()));
+                sink =>
+                {
+                    sink.Console(new CompactJsonFormatter());
+                },
+                sink =>
+                {
+                    sink.Console(new CompactJsonFormatter());
+                },
+                writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
+                    writeTo,
+                    resolvedElasticsearchOptions),
+                writeTo => ElasticsearchSerilogSinkConfigurator.AppendIfEnabled(
+                    writeTo,
+                    resolvedElasticsearchOptions));
+            if (resolvedElasticsearchOptions.Enabled)
+            {
+                elasticsearchRegistration.IsSinkRegistered = true;
+            }
         });
 
         builder.Services.AddProblemDetails();

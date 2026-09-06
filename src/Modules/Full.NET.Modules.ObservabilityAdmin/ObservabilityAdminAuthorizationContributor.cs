@@ -31,6 +31,10 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             ObservabilityCachePolicyPermissions.Invalidate,
             "执行已登记缓存精确失效操作",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            ObservabilityElasticsearchPermissions.Read,
+            "读取 Elasticsearch 日志管道健康状态",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -68,6 +72,17 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             "monitor",
             60,
             ObservabilityCachePolicyPermissions.Read),
+        new NavigationDefinition(
+            "observability-elasticsearch-health",
+            null,
+            "observability-elasticsearch-health",
+            "/observability/elasticsearch-health",
+            "observability-elasticsearch-health",
+            "Elasticsearch 日志",
+            "Elasticsearch Logs",
+            "monitor",
+            55,
+            ObservabilityElasticsearchPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

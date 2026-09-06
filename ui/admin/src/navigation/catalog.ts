@@ -268,6 +268,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.observabilityCachePolicies.title',
     captionKey: 'navigation.observabilityCachePolicies.caption'
   }],
+  ['observability-elasticsearch-health', {
+    titleKey: 'navigation.observabilityElasticsearchHealth.title',
+    captionKey: 'navigation.observabilityElasticsearchHealth.caption'
+  }],
   ['operation-logs', {
     titleKey: 'navigation.operationLogs.title',
     captionKey: 'navigation.operationLogs.caption'
