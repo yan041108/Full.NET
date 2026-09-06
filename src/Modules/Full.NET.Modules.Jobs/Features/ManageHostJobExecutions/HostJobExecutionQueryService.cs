@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Jobs.Features.ManageHostJobExecutions;
 /// Host 任务执行记录分页查询、按 Id 查找与终态记录清空服务。
 /// 列表响应聚合执行耗时（FinishedAtUtc - StartedAtUtc）、状态（Pending/Running/Succeeded/Failed）、
 /// 错误消息（ErrorMessage 截断避免前端溢出，ErrorMessage > 2000 字符时由映射层省略尾部）；
-/// 清空操作仅删除指定定义下的 succeeded/failed 终态记录，保留 pending/running 以避免丢失运行证据。
+/// 清空操作仅删除指定定义下的 succeeded/failed/cancelled 终态记录，保留 pending/running/cancelling 以避免丢失运行证据。
 /// </summary>
 internal sealed class HostJobExecutionQueryService(
     IQueryExecutor queryExecutor,
@@ -76,8 +76,8 @@ internal sealed class HostJobExecutionQueryService(
     }
 
     /// <summary>
-    /// 清空指定作业定义下的终态执行记录（succeeded/failed），对应 Admin.NET ClearJobTriggerRecord。
-    /// 保留 pending/running 记录以避免丢失正在运行的任务证据。
+    /// 清空指定作业定义下的终态执行记录（succeeded/failed/cancelled），对应 Admin.NET ClearJobTriggerRecord。
+    /// 保留 pending/running/cancelling 记录以避免丢失正在运行的任务证据。
     /// </summary>
     public Task<Result<bool>> ClearAsync(
         Guid jobDefinitionId,

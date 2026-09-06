@@ -12,6 +12,7 @@
   <data name="jobs.definition_has_active_dependents" xml:space="preserve"><value>任务定义仍存在活跃计划或执行记录，禁止删除。</value></data>
   <data name="jobs.handler_not_found" xml:space="preserve"><value>未找到任务处理器。</value></data>
   <data name="jobs.execution_not_found" xml:space="preserve"><value>未找到任务执行记录。</value></data>
+  <data name="jobs.execution_not_cancellable" xml:space="preserve"><value>该执行记录当前状态不支持取消。</value></data>
   <data name="jobs.schedule_not_found" xml:space="preserve"><value>未找到任务计划。</value></data>
   <data name="jobs.schedule_concurrency_conflict" xml:space="preserve"><value>任务计划已被其他操作更新，请刷新后重试。</value></data>
   <data name="jobs.schedule_validation_failed" xml:space="preserve"><value>任务计划、Cron 表达式或时区无效。</value></data>

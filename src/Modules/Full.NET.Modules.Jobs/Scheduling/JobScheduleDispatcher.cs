@@ -63,7 +63,8 @@ internal sealed class JobScheduleDispatcher(
                         JobsSqlParameters.Create(
                             ("JobDefinitionId", schedule.JobDefinitionId),
                             ("Now", now),
-                            ("RunningStatus", JobExecutionStatuses.Running)
+                            ("RunningStatus", JobExecutionStatuses.Running),
+                            ("CancellingStatus", JobExecutionStatuses.Cancelling)
                         ),
                         cancellationToken)
                     .ConfigureAwait(false);

@@ -36,6 +36,9 @@ public static class JobsErrorCodes
     /// <summary>执行标识不存在或属于其他租户。</summary>
     public const string ExecutionNotFound = "jobs.execution_not_found";
 
+    /// <summary>执行已终结或当前状态不支持取消。</summary>
+    public const string ExecutionNotCancellable = "jobs.execution_not_cancellable";
+
     /// <summary>计划标识不存在或已被删除。</summary>
     public const string ScheduleNotFound = "jobs.schedule_not_found";
 
@@ -63,6 +66,7 @@ public static class JobsErrorCodes
         DefinitionHasActiveDependents,
         HandlerNotFound,
         ExecutionNotFound,
+        ExecutionNotCancellable,
         ScheduleNotFound,
         ScheduleConcurrencyConflict,
         ScheduleValidationFailed,

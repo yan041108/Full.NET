@@ -6,6 +6,7 @@ import {
   isHostJobGroupList,
   JOB_HANDLER_KINDS,
   jobsClearHostJobExecutions,
+  jobsCancelHostJobExecution,
   jobsCreateHostJobDefinition,
   jobsDeleteHostJobDefinition,
   jobsDisableHostJobDefinition,
@@ -208,6 +209,23 @@ export async function getHostJobExecution(
   signal?: AbortSignal
 ): Promise<HostJobExecution> {
   const value = await jobsGetHostJobExecution(
+    http,
+    { executionId: id },
+    signal
+  );
+  if (!isHostJobExecution(value)) {
+    throw new Error('client.invalid_host_job_execution');
+  }
+
+  return value;
+}
+
+/** 请求取消 Host 作业执行；pending 直接终态，running 进入 cancelling 并由 Worker 协作停止。 */
+export async function cancelHostJobExecution(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostJobExecution> {
+  const value = await jobsCancelHostJobExecution(
     http,
     { executionId: id },
     signal

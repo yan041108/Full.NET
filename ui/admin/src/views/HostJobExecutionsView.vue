@@ -5,6 +5,7 @@ import {
   ElCard,
   ElDatePicker,
   ElDrawer,
+  ElMessage,
   ElOption,
   ElPagination,
   ElSelect,
@@ -13,10 +14,11 @@ import {
   ElTag
 } from 'element-plus';
 import type { FullNetProblemDetails, HostJobDefinition, HostJobExecution, HostJobSchedule } from '@fullnet/client-contracts';
-import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import { isFullNetProblemDetails, isHostJobExecutionCancellable } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
+  cancelHostJobExecution,
   getHostJobExecution,
   listHostJobDefinitions,
   listHostJobExecutions
@@ -42,8 +44,10 @@ const filterRange = ref<[Date, Date] | null>(null);
 const detailOpen = ref(false);
 const detailLoading = ref(false);
 const detail = ref<HostJobExecution | null>(null);
+const cancellingId = ref('');
 
 const canRead = computed(() => session.can('jobs.executions.read'));
+const canCancel = computed(() => session.can('jobs.executions.cancel'));
 
 const scheduleOptions = computed(() => {
   if (!filterDefinitionId.value) {
@@ -57,6 +61,8 @@ const scheduleOptions = computed(() => {
 const statusOptions = [
   'pending',
   'running',
+  'cancelling',
+  'cancelled',
   'succeeded',
   'failed'
 ] as const;
@@ -94,6 +100,40 @@ async function loadExecutions(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+async function cancelExecution(row: HostJobExecution): Promise<void> {
+  if (!canCancel.value || !isHostJobExecutionCancellable(row.status)) {
+    return;
+  }
+  cancellingId.value = row.id;
+  problem.value = undefined;
+  try {
+    const updated = await cancelHostJobExecution(row.id);
+    const index = executions.value.findIndex(item => item.id === row.id);
+    if (index >= 0) {
+      executions.value[index] = updated;
+    }
+    if (detail.value?.id === row.id) {
+      detail.value = updated;
+    }
+    ElMessage.success(t('hostJobExecutions.cancelRequested'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    cancellingId.value = '';
+  }
+}
+
+function canShowCancelAction(row: HostJobExecution): boolean {
+  return canCancel.value && isHostJobExecutionCancellable(row.status);
+}
+
+function cancelActionLabel(status: HostJobExecution['status']): string {
+  if (status === 'cancelling') {
+    return t('hostJobExecutions.cancelInProgress');
+  }
+  return t('hostJobExecutions.cancelAction');
 }
 
 async function openDetail(row: HostJobExecution): Promise<void> {
@@ -172,9 +212,12 @@ function statusTagType(status: HostJobExecution['status']): 'info' | 'warning' |
     case 'pending':
       return 'info';
     case 'running':
+    case 'cancelling':
       return 'warning';
     case 'succeeded':
       return 'success';
+    case 'cancelled':
+      return 'info';
     default:
       return 'danger';
   }
@@ -186,6 +229,10 @@ function statusLabel(status: HostJobExecution['status']): string {
       return t('hostJobExecutions.status.pending');
     case 'running':
       return t('hostJobExecutions.status.running');
+    case 'cancelling':
+      return t('hostJobExecutions.status.cancelling');
+    case 'cancelled':
+      return t('hostJobExecutions.status.cancelled');
     case 'succeeded':
       return t('hostJobExecutions.status.succeeded');
     case 'failed':
@@ -327,6 +374,31 @@ onMounted(async () => {
         <ElTableColumn :label="t('hostJobExecutions.columnCreatedAt')" min-width="160">
           <template #default="{ row }">{{ formatUtc(row.createdAtUtc) }}</template>
         </ElTableColumn>
+        <ElTableColumn
+          v-if="canCancel"
+          :label="t('hostJobExecutions.columnActions')"
+          width="140"
+          align="center"
+        >
+          <template #default="{ row }">
+            <ElButton
+              v-if="canShowCancelAction(row)"
+              link
+              type="danger"
+              :loading="cancellingId === row.id"
+              data-testid="host-job-executions-cancel"
+              @click.stop="cancelExecution(row)"
+            >
+              {{ cancelActionLabel(row.status) }}
+            </ElButton>
+            <span v-else-if="row.status === 'cancelled'">
+              {{ t('hostJobExecutions.cancelUnsupported') }}
+            </span>
+            <span v-else-if="row.status === 'cancelling'">
+              {{ t('hostJobExecutions.cancelInProgress') }}
+            </span>
+          </template>
+        </ElTableColumn>
       </ElTable>
       <ElPagination
         v-model:current-page="page"
@@ -368,6 +440,16 @@ onMounted(async () => {
           <dt>{{ t('hostJobExecutions.detailError') }}</dt>
           <dd translate="no">{{ formatExecutionError(detail.status, detail.errorMessage) }}</dd>
         </dl>
+        <div v-if="detail && canShowCancelAction(detail)" class="host-job-executions-detail-actions">
+          <ElButton
+            type="danger"
+            :loading="cancellingId === detail.id"
+            data-testid="host-job-executions-detail-cancel"
+            @click="cancelExecution(detail)"
+          >
+            {{ cancelActionLabel(detail.status) }}
+          </ElButton>
+        </div>
       </div>
     </ElDrawer>
   </section>
@@ -392,5 +474,9 @@ onMounted(async () => {
 
 .host-job-executions-detail dt {
   font-weight: 600;
+}
+
+.host-job-executions-detail-actions {
+  margin-top: 16px;
 }
 </style>

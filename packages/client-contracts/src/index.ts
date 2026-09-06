@@ -440,6 +440,8 @@ export {
   isHostJobDefinition,
   isHostJobDefinitionPage,
   isHostJobExecution,
+  isHostJobExecutionCancellable,
+  isHostJobExecutionCancellationState,
   isHostJobExecutionPage,
   isHostJobGroup,
   isHostJobGroupList,

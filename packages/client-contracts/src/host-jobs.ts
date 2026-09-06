@@ -24,7 +24,7 @@ export interface HostJobExecution {
   id: string;
   jobDefinitionId: string;
   jobScheduleId: string | null;
-  status: 'pending' | 'running' | 'succeeded' | 'failed';
+  status: 'pending' | 'running' | 'cancelling' | 'cancelled' | 'succeeded' | 'failed';
   triggerKind: string;
   scheduledForUtc: string | null;
   errorMessage: string | null;
@@ -416,6 +416,8 @@ export function isHostJobExecution(value: unknown): value is HostJobExecution {
     && (value.jobScheduleId === null || isGuid(value.jobScheduleId))
     && (value.status === 'pending'
       || value.status === 'running'
+      || value.status === 'cancelling'
+      || value.status === 'cancelled'
       || value.status === 'succeeded'
       || value.status === 'failed')
     && isNonEmptyString(value.triggerKind)
@@ -437,6 +439,20 @@ export function isHostJobExecutionPage(
     && Number.isInteger(value.page)
     && Number.isInteger(value.pageSize)
     && Number.isInteger(value.total);
+}
+
+/** 判断执行记录是否仍可发起取消请求。 */
+export function isHostJobExecutionCancellable(
+  status: HostJobExecution['status']
+): boolean {
+  return status === 'pending' || status === 'running';
+}
+
+/** 判断执行记录是否处于取消相关状态。 */
+export function isHostJobExecutionCancellationState(
+  status: HostJobExecution['status']
+): boolean {
+  return status === 'cancelling' || status === 'cancelled';
 }
 
 export function isCreateHostJobDefinitionRequest(

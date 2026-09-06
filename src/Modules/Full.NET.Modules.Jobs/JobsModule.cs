@@ -46,6 +46,7 @@ public sealed class JobsModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostJobDefinitions.HostJobDefinitionQueryService>();
         services.TryAddScoped<Features.ManageHostJobDefinitions.HostJobDefinitionManagementService>();
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobExecutionQueryService>();
+        services.TryAddScoped<Features.ManageHostJobExecutions.HostJobExecutionCancelService>();
         services.TryAddScoped<Features.ManageHostJobExecutions.HostJobTriggerService>();
         services.TryAddScoped<Features.ManageHostJobSchedules.HostJobScheduleService>();
         services.TryAddScoped<Features.ManageHostJobHealth.HostJobHealthQueryService>();

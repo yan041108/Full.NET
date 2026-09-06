@@ -36,6 +36,8 @@ internal sealed class JobExecutionRunner(
         CancellationToken cancellationToken = default)
     {
         batchSize = Math.Clamp(batchSize, 1, 50);
+        await FinalizeExpiredCancellationRequestsAsync(cancellationToken)
+            .ConfigureAwait(false);
         var leaseId = idGenerator.NewId();
         var now = clock.UtcNow;
         var leaseExpiresAt = now.AddSeconds(_workerOptions.LeaseSeconds);
@@ -207,6 +209,7 @@ internal sealed class JobExecutionRunner(
                     definitionsById,
                     leaseId,
                     cancellationToken,
+                    queryExecutor,
                     services.GetRequiredService<JobHandlerKindRegistry>(),
                     services.GetRequiredService<ICommandExecutor>(),
                     services.GetRequiredService<IClock>(),
@@ -237,7 +240,8 @@ internal sealed class JobExecutionRunner(
                     JobsSqlParameters.Create(
                         ("LeaseId", leaseId),
                         ("LeaseExpiresAtUtc", clock.UtcNow.Add(leaseDuration)),
-                        ("RunningStatus", JobExecutionStatuses.Running)
+                        ("RunningStatus", JobExecutionStatuses.Running),
+                        ("CancellingStatus", JobExecutionStatuses.Cancelling)
                     ),
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -259,6 +263,7 @@ internal sealed class JobExecutionRunner(
             definitionsById,
             leaseId,
             cancellationToken,
+            queryExecutor,
             handlerKindRegistry,
             commandExecutor,
             clock,
@@ -271,6 +276,7 @@ internal sealed class JobExecutionRunner(
         IReadOnlyDictionary<Guid, JobDefinitionRecord> definitionsById,
         Guid leaseId,
         CancellationToken cancellationToken,
+        IQueryExecutor scopedQueryExecutor,
         JobHandlerKindRegistry scopedHandlerKindRegistry,
         ICommandExecutor scopedCommandExecutor,
         IClock scopedClock,
@@ -307,6 +313,13 @@ internal sealed class JobExecutionRunner(
             return;
         }
 
+        using var executionCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var cancelPollTask = PollCancellationRequestedAsync(
+            execution.Id,
+            executionCancellation,
+            scopedQueryExecutor,
+            cancellationToken);
         try
         {
             var context = new JobExecutionContext(
@@ -316,7 +329,8 @@ internal sealed class JobExecutionRunner(
                 definition.HandlerKind,
                 definition.ArgsJson,
                 execution.TriggerKind);
-            await executor.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
+            await executor.ExecuteAsync(context, executionCancellation.Token)
+                .ConfigureAwait(false);
             var succeededRows = await MarkSucceededAsync(
                     execution.Id,
                     leaseId,
@@ -327,6 +341,22 @@ internal sealed class JobExecutionRunner(
             if (succeededRows > 0)
             {
                 JobsTelemetry.RecordSucceeded();
+            }
+        }
+        catch (OperationCanceledException)
+            when (executionCancellation.IsCancellationRequested
+                  && !cancellationToken.IsCancellationRequested)
+        {
+            var cancelledRows = await MarkCancelledAsync(
+                    execution.Id,
+                    leaseId,
+                    cancellationToken,
+                    scopedCommandExecutor,
+                    scopedClock)
+                .ConfigureAwait(false);
+            if (cancelledRows > 0)
+            {
+                JobsTelemetry.RecordCancelled();
             }
         }
         catch (OperationCanceledException)
@@ -408,6 +438,66 @@ internal sealed class JobExecutionRunner(
                     .ConfigureAwait(false);
             }
         }
+        finally
+        {
+            executionCancellation.Cancel();
+            try
+            {
+                await cancelPollTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                // 宿主退出时取消轮询属于预期路径。
+            }
+        }
+    }
+
+    private async Task FinalizeExpiredCancellationRequestsAsync(
+        CancellationToken cancellationToken) =>
+        await commandExecutor.ExecuteAsync(
+                JobSql.FinalizeExpiredCancellationRequests,
+                JobsSqlParameters.Create(
+                    ("Now", clock.UtcNow),
+                    ("CancellingStatus", JobExecutionStatuses.Cancelling),
+                    ("CancelledStatus", JobExecutionStatuses.Cancelled),
+                    ("FinishedAtUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    private static async Task PollCancellationRequestedAsync(
+        Guid executionId,
+        CancellationTokenSource executionCancellation,
+        IQueryExecutor scopedQueryExecutor,
+        CancellationToken hostCancellationToken)
+    {
+        try
+        {
+            while (!executionCancellation.IsCancellationRequested)
+            {
+                await Task.Delay(
+                        TimeSpan.FromMilliseconds(250),
+                        hostCancellationToken)
+                    .ConfigureAwait(false);
+                var requested = await scopedQueryExecutor.QuerySingleOrDefaultAsync<long>(
+                        JobSql.IsExecutionCancellationRequested,
+                        JobsSqlParameters.Create(
+                            ("Id", executionId),
+                            ("CancellingStatus", JobExecutionStatuses.Cancelling)),
+                        hostCancellationToken)
+                    .ConfigureAwait(false);
+                if (requested > 0)
+                {
+                    executionCancellation.Cancel();
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+            when (hostCancellationToken.IsCancellationRequested)
+        {
+            executionCancellation.Cancel();
+        }
     }
 
     private async Task<IReadOnlyList<JobExecutionRecord>> AcquireAsync(
@@ -423,7 +513,8 @@ internal sealed class JobExecutionRunner(
             ("Now", now),
             ("LeaseExpiresAtUtc", leaseExpiresAt),
             ("PendingStatus", JobExecutionStatuses.Pending),
-            ("RunningStatus", JobExecutionStatuses.Running)
+            ("RunningStatus", JobExecutionStatuses.Running),
+            ("CancellingStatus", JobExecutionStatuses.Cancelling)
         );
 
         if (databaseOptions.Value.Provider == DatabaseProvider.SqlServer)
@@ -545,6 +636,24 @@ internal sealed class JobExecutionRunner(
                 ("PendingStatus", JobExecutionStatuses.Pending),
                 ("NextAttemptAtUtc", nextAttemptAtUtc),
                 ("ErrorMessage", BoundErrorMessage(errorMessage))
+            ),
+            cancellationToken);
+
+    private static Task<int> MarkCancelledAsync(
+        Guid executionId,
+        Guid leaseId,
+        CancellationToken cancellationToken,
+        ICommandExecutor scopedCommandExecutor,
+        IClock scopedClock) =>
+        scopedCommandExecutor.ExecuteAsync(
+            JobSql.MarkExecutionCancelled,
+            JobsSqlParameters.Create(
+                ("Id", executionId),
+                ("LeaseId", leaseId),
+                ("RunningStatus", JobExecutionStatuses.Running),
+                ("CancellingStatus", JobExecutionStatuses.Cancelling),
+                ("CancelledStatus", JobExecutionStatuses.Cancelled),
+                ("FinishedAtUtc", scopedClock.UtcNow)
             ),
             cancellationToken);
 

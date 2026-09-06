@@ -3411,6 +3411,24 @@ export async function identityUpdatePreferredLocale(
   return readLocalePreferenceResponse(value);
 }
 
+export interface JobsCancelHostJobExecutionParameters {
+  readonly executionId: string;
+}
+
+export async function jobsCancelHostJobExecution(
+  http: HttpClient,
+  parameters: JobsCancelHostJobExecutionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostJobExecutionResponse> {
+  const path = `/api/v1/jobs/host-executions/${encodeURIComponent(String(parameters.executionId))}/cancel`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostJobExecutionResponse(value);
+}
+
 export interface JobsClearHostJobExecutionsParameters {
   readonly jobDefinitionId: string;
 }

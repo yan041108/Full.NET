@@ -54,6 +54,9 @@ internal static class JobsTelemetry
             }
         });
 
+    public static void RecordCancelled() =>
+        Record(() => RecordTransition("cancelled"));
+
     public static void RecordRetryScheduled(double delaySeconds) =>
         Record(() =>
         {

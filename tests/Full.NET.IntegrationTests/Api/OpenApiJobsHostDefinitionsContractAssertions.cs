@@ -151,6 +151,14 @@ internal static class OpenApiJobsHostDefinitionsContractAssertions
             "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document,
+            "/api/v1/jobs/host-executions/{executionId}/cancel",
+            HttpMethod.Post,
+            "jobsCancelHostJobExecution",
+            executionsTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
             "/api/v1/jobs/host-executions/clear",
             HttpMethod.Post,
             "jobsClearHostJobExecutions",

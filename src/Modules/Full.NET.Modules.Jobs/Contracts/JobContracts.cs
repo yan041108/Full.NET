@@ -31,6 +31,9 @@ public static class HostJobPermissions
     /// <summary>允许批量清理已完成或失败的作业执行历史。</summary>
     public const string ExecutionsClear = "jobs.executions.clear";
 
+    /// <summary>允许请求取消待处理或运行中的作业执行。</summary>
+    public const string ExecutionsCancel = "jobs.executions.cancel";
+
     /// <summary>允许读取作业调度健康检查与积压摘要。</summary>
     public const string HealthRead = "jobs.health.read";
 
@@ -145,6 +148,32 @@ public static class JobExecutionStatuses
 
     /// <summary>执行失败；超过最大重试次数仍未成功。</summary>
     public const string Failed = "failed";
+
+    /// <summary>取消中；已收到取消请求，Worker 正在协作停止。</summary>
+    public const string Cancelling = "cancelling";
+
+    /// <summary>已取消；执行被用户请求终止且未视为业务失败。</summary>
+    public const string Cancelled = "cancelled";
+
+    /// <summary>判断执行是否已进入不可再取消的终态。</summary>
+    /// <param name="status">执行状态稳定机器码。</param>
+    public static bool IsTerminal(string status) =>
+        string.Equals(status, Succeeded, StringComparison.Ordinal)
+        || string.Equals(status, Failed, StringComparison.Ordinal)
+        || string.Equals(status, Cancelled, StringComparison.Ordinal);
+
+    /// <summary>判断执行是否仍可接受新的取消请求。</summary>
+    /// <param name="status">执行状态稳定机器码。</param>
+    public static bool IsCancellable(string status) =>
+        string.Equals(status, Pending, StringComparison.Ordinal)
+        || string.Equals(status, Running, StringComparison.Ordinal);
+
+    /// <summary>判断执行是否仍占用并发或租约槽位。</summary>
+    /// <param name="status">执行状态稳定机器码。</param>
+    public static bool IsActive(string status) =>
+        string.Equals(status, Pending, StringComparison.Ordinal)
+        || string.Equals(status, Running, StringComparison.Ordinal)
+        || string.Equals(status, Cancelling, StringComparison.Ordinal);
 }
 
 /// <summary>

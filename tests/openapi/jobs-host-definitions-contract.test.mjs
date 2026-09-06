@@ -38,7 +38,7 @@ function isValidJobsPermission(permission) {
   if (/^jobs\.definitions\.(read|create|update|disable|delete|trigger)$/u.test(permission)) {
     return true;
   }
-  if (/^jobs\.executions\.(read|clear)$/u.test(permission) || permission === 'jobs.health.read') {
+  if (/^jobs\.executions\.(read|clear|cancel)$/u.test(permission) || permission === 'jobs.health.read') {
     return true;
   }
   return /^jobs\.schedules\.(read|create|update|delete|pause|resume)$/u.test(permission);
@@ -91,6 +91,7 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     'jobs.definitions.trigger',
     'jobs.executions.read',
     'jobs.executions.clear',
+    'jobs.executions.cancel',
     'jobs.health.read',
     'jobs.schedules.read',
     'jobs.schedules.create',
@@ -114,6 +115,7 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(executionsEndpoint, /WithTags\("JobsHostJobExecutions"\)/u);
   assert.match(executionsEndpoint, /WithName\("jobsListHostJobExecutions"\)/u);
   assert.match(executionsEndpoint, /WithName\("jobsGetHostJobExecution"\)/u);
+  assert.match(executionsEndpoint, /WithName\("jobsCancelHostJobExecution"\)/u);
   assert.match(executionsEndpoint, /WithName\("jobsClearHostJobExecutions"\)/u);
   assert.match(schedulesEndpoint, /MapGroup\("\/api\/v1\/jobs\/host-schedules"\)/u);
   assert.match(schedulesEndpoint, /WithTags\("JobsHostJobSchedules"\)/u);
@@ -151,6 +153,10 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['GET /api/v1/jobs/host-definitions/groups', 'MapGet("/groups",'],
     ['GET /api/v1/jobs/host-executions', 'MapGet("/",'],
     ['GET /api/v1/jobs/host-executions/{executionId}', 'MapGet("/{executionId:guid}",'],
+    [
+      'POST /api/v1/jobs/host-executions/{executionId}/cancel',
+      'MapPost("/{executionId:guid}/cancel",'
+    ],
     ['POST /api/v1/jobs/host-executions/clear', 'MapPost("/clear",'],
     ['GET /api/v1/jobs/host-health', '"/api/v1/jobs/host-health"'],
     ['GET /api/v1/jobs/host-schedules', 'MapGet("/",'],

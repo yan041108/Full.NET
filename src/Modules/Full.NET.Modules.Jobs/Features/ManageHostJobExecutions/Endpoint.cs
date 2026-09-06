@@ -89,5 +89,24 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsClear));
+
+        group.MapPost("/{executionId:guid}/cancel", async (
+            Guid executionId,
+            HostJobExecutionCancelService cancelService,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await cancelService.CancelAsync(executionId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("jobsCancelHostJobExecution")
+        .Produces<HostJobExecutionResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostJobPermissions.ExecutionsCancel));
     }
 }

@@ -200,5 +200,6 @@ internal sealed class NativeWorkerJobExecutionState
 
     public bool IsTerminal =>
         string.Equals(Status, JobExecutionStatuses.Succeeded, StringComparison.Ordinal)
-        || string.Equals(Status, JobExecutionStatuses.Failed, StringComparison.Ordinal);
+        || string.Equals(Status, JobExecutionStatuses.Failed, StringComparison.Ordinal)
+        || string.Equals(Status, JobExecutionStatuses.Cancelled, StringComparison.Ordinal);
 }

@@ -107,6 +107,17 @@
       ]
     },
     {
+      "path": "/api/v1/jobs/host-executions/{executionId}/cancel",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.executions.cancel",
+          "successStatus": 200,
+          "responseSchema": "HostJobExecutionResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/jobs/host-executions/clear",
       "operations": [
         {

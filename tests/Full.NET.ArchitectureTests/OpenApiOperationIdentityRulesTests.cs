@@ -404,6 +404,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/jobs/host-definitions/{definitionId}/trigger", "jobsTriggerHostJobDefinition", JobsHostJobDefinitionsTag),
         new("GET", "/api/v1/jobs/host-executions", "jobsListHostJobExecutions", JobsHostJobExecutionsTag),
         new("GET", "/api/v1/jobs/host-executions/{executionId}", "jobsGetHostJobExecution", JobsHostJobExecutionsTag),
+        new("POST", "/api/v1/jobs/host-executions/{executionId}/cancel", "jobsCancelHostJobExecution", JobsHostJobExecutionsTag),
         new("POST", "/api/v1/jobs/host-executions/clear", "jobsClearHostJobExecutions", JobsHostJobExecutionsTag),
         new("GET", "/api/v1/jobs/host-schedules", "jobsListHostJobSchedules", JobsHostJobSchedulesTag),
         new("GET", "/api/v1/jobs/host-schedules/definition-options", "jobsListHostJobScheduleDefinitionOptions", JobsHostJobSchedulesTag),

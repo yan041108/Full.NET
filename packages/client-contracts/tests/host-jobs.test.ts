@@ -7,6 +7,7 @@ import {
   isHostJobDefinition,
   isHostJobDefinitionPage,
   isHostJobExecution,
+  isHostJobExecutionCancellable,
   isHostJobExecutionPage,
   isHostJobSchedule,
   isHostJobScheduleCronPreview,
@@ -81,6 +82,10 @@ describe('host-jobs contracts', () => {
       version: 1
     })).toBe(true);
     expect(isDisableHostJobDefinitionRequest({ version: 1 })).toBe(true);
+    expect(isHostJobExecution({ ...execution, status: 'cancelling' })).toBe(true);
+    expect(isHostJobExecution({ ...execution, status: 'cancelled' })).toBe(true);
+    expect(isHostJobExecutionCancellable('running')).toBe(true);
+    expect(isHostJobExecutionCancellable('cancelled')).toBe(false);
   });
 
   it('rejects invalid job keys', () => {

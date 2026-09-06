@@ -43,6 +43,10 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "清空任务执行记录",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            HostJobPermissions.ExecutionsCancel,
+            "取消任务执行",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             HostJobPermissions.HealthRead,
             "查询任务健康状态",
             AuthorizationScope.Host),
@@ -199,5 +203,12 @@ internal sealed class JobsAuthorizationContributor : IAuthorizationCatalogContri
             "清空执行记录",
             "clear",
             50),
+        new AuthorizationActionDefinition(
+            "jobs.executions.cancel",
+            "host-job-executions",
+            HostJobPermissions.ExecutionsCancel,
+            "取消执行",
+            "cancel",
+            10),
     ];
 }

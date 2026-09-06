@@ -7,6 +7,7 @@ import { getHostJobExecution, listHostJobDefinitions, listHostJobExecutions } fr
 import { listHostJobSchedules } from '../api/host-job-schedules';
 
 vi.mock('../api/host-jobs', () => ({
+  cancelHostJobExecution: vi.fn(),
   getHostJobExecution: vi.fn(),
   listHostJobDefinitions: vi.fn(),
   listHostJobExecutions: vi.fn()
@@ -160,6 +161,20 @@ describe('HostJobExecutionsView', () => {
     expect(drawer?.textContent).toContain('失败原因不可展示');
     expect(drawer?.textContent).not.toContain('upstream timeout');
     expect(drawer?.textContent).toMatch(/2(\.00)? 秒|2000 毫秒/);
+    wrapper.unmount();
+  });
+
+  it('有 cancel 权限且执行中记录显示取消按钮', async () => {
+    listExecutionsMock.mockResolvedValue({
+      items: [{ ...execution, status: 'running' }],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+    const wrapper = mountWithPermissions(['jobs.executions.read', 'jobs.executions.cancel']);
+    await flushPromises();
+    expect(wrapper.get('[data-testid="host-job-executions-cancel"]').text())
+      .toContain('取消');
     wrapper.unmount();
   });
 });

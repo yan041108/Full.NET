@@ -599,7 +599,7 @@ internal static class JobSql
                                FROM fn_jobs_execution r WITH (READPAST)
                                WHERE r.TenantId IS NULL
                                  AND r.JobDefinitionId = e.JobDefinitionId
-                                 AND r.Status = @RunningStatus
+                                 AND r.Status IN (@RunningStatus, @CancellingStatus)
                                  AND r.LeaseExpiresAtUtc > @Now
                            )
                        ))
@@ -672,7 +672,7 @@ internal static class JobSql
                                FROM fn_jobs_execution r
                                WHERE r.TenantId IS NULL
                                  AND r.JobDefinitionId = inner_e.JobDefinitionId
-                                 AND r.Status = @RunningStatus
+                                 AND r.Status IN (@RunningStatus, @CancellingStatus)
                                  AND r.LeaseExpiresAtUtc > @Now
                            )
                        ))
@@ -728,7 +728,82 @@ internal static class JobSql
             SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
             WHERE TenantId IS NULL
               AND LeaseId = @LeaseId
+              AND Status IN (@RunningStatus, @CancellingStatus)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CancelPendingExecution =
+        new(
+            "jobs.cancel_pending_host_execution",
+            """
+            UPDATE fn_jobs_execution
+            SET Status = @CancelledStatus,
+                FinishedAtUtc = @FinishedAtUtc,
+                LeaseId = NULL,
+                LeaseExpiresAtUtc = NULL,
+                NextAttemptAtUtc = NULL,
+                ErrorMessage = NULL
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND Status = @PendingStatus
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RequestCancelRunningExecution =
+        new(
+            "jobs.request_cancel_running_host_execution",
+            """
+            UPDATE fn_jobs_execution
+            SET Status = @CancellingStatus
+            WHERE Id = @Id
+              AND TenantId IS NULL
               AND Status = @RunningStatus
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement IsExecutionCancellationRequested =
+        new(
+            "jobs.is_host_execution_cancellation_requested",
+            """
+            SELECT COUNT(*)
+            FROM fn_jobs_execution
+            WHERE Id = @Id
+              AND TenantId IS NULL
+              AND Status = @CancellingStatus
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement MarkExecutionCancelled =
+        new(
+            "jobs.mark_host_execution_cancelled",
+            """
+            UPDATE fn_jobs_execution
+            SET Status = @CancelledStatus,
+                FinishedAtUtc = @FinishedAtUtc,
+                LeaseId = NULL,
+                LeaseExpiresAtUtc = NULL,
+                NextAttemptAtUtc = NULL,
+                ErrorMessage = NULL
+            WHERE Id = @Id
+              AND LeaseId = @LeaseId
+              AND Status IN (@RunningStatus, @CancellingStatus)
+            """,
+            SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FinalizeExpiredCancellationRequests =
+        new(
+            "jobs.finalize_expired_host_execution_cancellations",
+            """
+            UPDATE fn_jobs_execution
+            SET Status = @CancelledStatus,
+                FinishedAtUtc = @FinishedAtUtc,
+                LeaseId = NULL,
+                LeaseExpiresAtUtc = NULL,
+                NextAttemptAtUtc = NULL,
+                ErrorMessage = NULL
+            WHERE TenantId IS NULL
+              AND Status = @CancellingStatus
+              AND LeaseExpiresAtUtc <= @Now
             """,
             SqlDataScope.HostOnly);
 
@@ -810,7 +885,7 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
-    /// <summary>统计作业定义下未终结的执行记录数（pending/running），用于删除前置校验。</summary>
+    /// <summary>统计作业定义下未终结的执行记录数（pending/running/cancelling），用于删除前置校验。</summary>
     public static readonly SqlStatement CountActiveExecutionsByDefinition =
         new(
             "jobs.count_active_executions_by_definition",
@@ -819,12 +894,12 @@ internal static class JobSql
             FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND JobDefinitionId = @JobDefinitionId
-              AND Status IN ('pending', 'running')
+              AND Status IN ('pending', 'running', 'cancelling')
             """,
             SqlDataScope.HostOnly);
 
     /// <summary>
-    /// 判断作业定义是否已有有效 running 租约，供调度物化 gate 使用。
+    /// 判断作业定义是否已有有效 running/cancelling 租约，供调度物化 gate 使用。
     /// </summary>
     public static readonly SqlStatement HasActiveRunningForDefinition =
         new(
@@ -834,7 +909,7 @@ internal static class JobSql
             FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND JobDefinitionId = @JobDefinitionId
-              AND Status = @RunningStatus
+              AND Status IN (@RunningStatus, @CancellingStatus)
               AND LeaseExpiresAtUtc > @Now
             """,
             SqlDataScope.HostOnly);
@@ -872,7 +947,7 @@ internal static class JobSql
             FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND JobScheduleId = @JobScheduleId
-              AND Status IN ('pending', 'running')
+              AND Status IN ('pending', 'running', 'cancelling')
             """,
             SqlDataScope.HostOnly);
 
@@ -888,7 +963,7 @@ internal static class JobSql
             """,
             SqlDataScope.HostOnly);
 
-    /// <summary>清空作业定义下的终态执行记录（成功/失败），保留 pending/running。</summary>
+    /// <summary>清空作业定义下的终态执行记录（成功/失败/已取消），保留 pending/running/cancelling。</summary>
     public static readonly SqlStatement ClearExecutionsByDefinition =
         new(
             "jobs.clear_executions_by_definition",
@@ -896,7 +971,7 @@ internal static class JobSql
             DELETE FROM fn_jobs_execution
             WHERE TenantId IS NULL
               AND JobDefinitionId = @JobDefinitionId
-              AND Status IN ('succeeded', 'failed')
+              AND Status IN ('succeeded', 'failed', 'cancelled')
             """,
             SqlDataScope.HostOnly);
 

@@ -258,8 +258,10 @@ function formatDateTime(value: string | null | undefined): string {
 function statusTagType(status: HostJobExecution['status']): 'info' | 'warning' | 'success' | 'danger' {
   switch (status) {
     case 'pending': return 'info';
-    case 'running': return 'warning';
+    case 'running':
+    case 'cancelling': return 'warning';
     case 'succeeded': return 'success';
+    case 'cancelled': return 'info';
     case 'failed': return 'danger';
   }
 }
@@ -268,6 +270,8 @@ function statusLabel(status: HostJobExecution['status']): string {
   switch (status) {
     case 'pending': return t('hostJobs.columnStatusPending');
     case 'running': return t('hostJobs.columnStatusRunning');
+    case 'cancelling': return t('hostJobExecutions.status.cancelling');
+    case 'cancelled': return t('hostJobExecutions.status.cancelled');
     case 'succeeded': return t('hostJobs.columnStatusSucceeded');
     case 'failed': return t('hostJobs.columnStatusFailed');
   }

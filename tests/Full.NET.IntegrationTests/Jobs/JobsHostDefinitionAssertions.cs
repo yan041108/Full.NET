@@ -57,6 +57,9 @@ internal static class JobsHostDefinitionAssertions
         await JobsActiveLeaseRenewalAssertions.VerifyAsync(
             factory,
             cancellationToken);
+        await JobsExecutionCancelAssertions.VerifyAsync(
+            factory,
+            cancellationToken);
         await JobsScheduleAssertions.VerifyAsync(
             factory,
             client,

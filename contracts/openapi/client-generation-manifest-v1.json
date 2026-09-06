@@ -1496,6 +1496,12 @@
       "status": "generated"
     },
     {
+      "operationId": "jobsCancelHostJobExecution",
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "generatedGroup": "jobs-host-jobs",
+      "status": "generated"
+    },
+    {
       "operationId": "jobsClearHostJobExecutions",
       "apiModule": "ui/admin/src/api/host-jobs.ts",
       "generatedGroup": "jobs-host-jobs",

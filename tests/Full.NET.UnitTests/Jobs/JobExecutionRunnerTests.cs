@@ -931,9 +931,17 @@ public sealed class JobExecutionRunnerTests
         public Task<T?> QuerySingleOrDefaultAsync<T>(
             SqlStatement statement,
             object? parameters = null,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken cancellationToken = default)
+        {
+            if (typeof(T) == typeof(long)
+                && statement == JobSql.IsExecutionCancellationRequested)
+            {
+                return Task.FromResult<T?>((T)(object)0L);
+            }
+
             throw new InvalidOperationException(
                 $"Unexpected single-row statement '{statement.Name}'.");
+        }
 
         public Task<IReadOnlyList<T>> QueryAsync<T>(
             SqlStatement statement,
@@ -968,9 +976,17 @@ public sealed class JobExecutionRunnerTests
         public Task<T?> QuerySingleOrDefaultAsync<T>(
             SqlStatement statement,
             object? parameters = null,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken cancellationToken = default)
+        {
+            if (typeof(T) == typeof(long)
+                && statement == JobSql.IsExecutionCancellationRequested)
+            {
+                return Task.FromResult<T?>((T)(object)0L);
+            }
+
             throw new InvalidOperationException(
                 $"Unexpected single-row statement '{statement.Name}'.");
+        }
 
         public Task<IReadOnlyList<T>> QueryAsync<T>(
             SqlStatement statement,
@@ -1020,9 +1036,17 @@ public sealed class JobExecutionRunnerTests
         public Task<T?> QuerySingleOrDefaultAsync<T>(
             SqlStatement statement,
             object? parameters = null,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken cancellationToken = default)
+        {
+            if (typeof(T) == typeof(long)
+                && statement == JobSql.IsExecutionCancellationRequested)
+            {
+                return Task.FromResult<T?>((T)(object)0L);
+            }
+
             throw new InvalidOperationException(
                 $"Unexpected single-row statement '{statement.Name}'.");
+        }
 
         public Task<IReadOnlyList<T>> QueryAsync<T>(
             SqlStatement statement,
