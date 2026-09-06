@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="cryptography.key.not_found" xml:space="preserve"><value>The cryptography key was not found.</value></data>
+  <data name="cryptography.key.retired" xml:space="preserve"><value>The cryptography key is retired.</value></data>
+  <data name="cryptography.key.private_key_not_configured" xml:space="preserve"><value>The cryptography key private material is not configured.</value></data>
+  <data name="cryptography.sm2.sign_validation_failed" xml:space="preserve"><value>The SM2 sign request failed validation.</value></data>
+  <data name="cryptography.sm2.verify_validation_failed" xml:space="preserve"><value>The SM2 verify request failed validation.</value></data>
+  <data name="cryptography.sm2.signature_invalid" xml:space="preserve"><value>The SM2 signature is invalid.</value></data>
+</root>

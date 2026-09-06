@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="cryptography.key.not_found" xml:space="preserve"><value>未找到该国密密钥。</value></data>
+  <data name="cryptography.key.retired" xml:space="preserve"><value>该国密密钥已退役，禁止新签名。</value></data>
+  <data name="cryptography.key.private_key_not_configured" xml:space="preserve"><value>该密钥私钥材料尚未在部署配置中注入。</value></data>
+  <data name="cryptography.sm2.sign_validation_failed" xml:space="preserve"><value>SM2 签名请求校验失败。</value></data>
+  <data name="cryptography.sm2.verify_validation_failed" xml:space="preserve"><value>SM2 验签请求校验失败。</value></data>
+  <data name="cryptography.sm2.signature_invalid" xml:space="preserve"><value>SM2 签名无效。</value></data>
+</root>

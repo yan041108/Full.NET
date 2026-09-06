@@ -607,6 +607,22 @@ export type {
 } from './mqtt-control-plane.js';
 
 export {
+  isCryptographyStatus,
+  isCryptographyKey,
+  isSm2SignResponse,
+  isSm2VerifyResponse
+} from './cryptography-gm-keys.js';
+
+export type {
+  CryptographyStatus,
+  CryptographyKey,
+  Sm2SignRequest,
+  Sm2SignResponse,
+  Sm2VerifyRequest,
+  Sm2VerifyResponse
+} from './cryptography-gm-keys.js';
+
+export {
   isMyReleaseNote,
   isMyReleaseNotePage
 } from './my-release-notes.js';

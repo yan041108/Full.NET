@@ -33,6 +33,7 @@ public static class FullNetModuleSelection
         "ObservabilityAdmin",
         "Workflow",
         "Mqtt",
+        "Cryptography",
     ];
 
     /// <summary>
@@ -65,6 +66,7 @@ public static class FullNetModuleSelection
         "Messaging",
         "ObservabilityAdmin",
         "Mqtt",
+        "Cryptography",
     ];
 
     /// <summary>
@@ -87,6 +89,7 @@ public static class FullNetModuleSelection
         "Document",
         "ObservabilityAdmin",
         "Mqtt",
+        "Cryptography",
     ];
 
     /// <summary>

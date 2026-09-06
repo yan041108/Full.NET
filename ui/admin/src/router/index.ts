@@ -357,6 +357,11 @@ export function createAppRouter(
         component: () => import('../views/MqttControlPlaneView.vue')
       },
       {
+        name: 'cryptography-gm-keys',
+        path: '/cryptography/gm-keys',
+        component: () => import('../views/CryptographyGmKeysView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

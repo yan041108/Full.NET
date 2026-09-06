@@ -276,6 +276,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.mqttControlPlane.title',
     captionKey: 'navigation.mqttControlPlane.caption'
   }],
+  ['cryptography-gm-keys', {
+    titleKey: 'navigation.cryptographyGmKeys.title',
+    captionKey: 'navigation.cryptographyGmKeys.caption'
+  }],
   ['operation-logs', {
     titleKey: 'navigation.operationLogs.title',
     captionKey: 'navigation.operationLogs.caption'

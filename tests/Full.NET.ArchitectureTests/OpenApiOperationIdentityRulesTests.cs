@@ -85,6 +85,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string ObservabilityCachePoliciesTag = "ObservabilityCachePolicies";
     private const string ObservabilityElasticsearchLogPipelineTag = "ObservabilityElasticsearchLogPipeline";
     private const string MqttControlPlaneTag = "MqttControlPlane";
+    private const string CryptographyGmKeysTag = "CryptographyGmKeys";
     private const string DocumentHostCategoriesTag = "DocumentHostCategories";
     private const string DocumentHostItemsTag = "DocumentHostItems";
     private const string DocumentHostTagsTag = "DocumentHostTags";
@@ -576,6 +577,11 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/mqtt/messages", "mqttListMessages", MqttControlPlaneTag),
         new("GET", "/api/v1/mqtt/messages/{messageId}", "mqttGetMessage", MqttControlPlaneTag),
         new("POST", "/api/v1/mqtt/messages/publish", "mqttPublishMessage", MqttControlPlaneTag),
+        new("GET", "/api/v1/cryptography/status", "cryptographyGetStatus", CryptographyGmKeysTag),
+        new("GET", "/api/v1/cryptography/keys", "cryptographyListKeys", CryptographyGmKeysTag),
+        new("GET", "/api/v1/cryptography/keys/{keyId}", "cryptographyGetKey", CryptographyGmKeysTag),
+        new("POST", "/api/v1/cryptography/sm2/sign", "cryptographySm2Sign", CryptographyGmKeysTag),
+        new("POST", "/api/v1/cryptography/sm2/verify", "cryptographySm2Verify", CryptographyGmKeysTag),
         new("GET", "/api/v1/document/host/categories", "documentHostListCategories", DocumentHostCategoriesTag),
         new("POST", "/api/v1/document/host/categories", "documentHostCreateCategory", DocumentHostCategoriesTag),
         new("PUT", "/api/v1/document/host/categories/{categoryId}", "documentHostUpdateCategory", DocumentHostCategoriesTag),
