@@ -352,6 +352,11 @@ export function createAppRouter(
         component: () => import('../views/ObservabilityElasticsearchHealthView.vue')
       },
       {
+        name: 'mqtt-control-plane',
+        path: '/mqtt/control-plane',
+        component: () => import('../views/MqttControlPlaneView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

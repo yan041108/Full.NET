@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="mqtt.broker.unavailable" xml:space="preserve"><value>MQTT Broker 未启用或不可用。</value></data>
+  <data name="mqtt.client.not_found" xml:space="preserve"><value>未找到该 MQTT 客户端。</value></data>
+  <data name="mqtt.message.not_found" xml:space="preserve"><value>未找到该 MQTT 消息记录。</value></data>
+  <data name="mqtt.topic.forbidden" xml:space="preserve"><value>当前作用域不允许向该 MQTT 主题发布。</value></data>
+  <data name="mqtt.payload.too_large" xml:space="preserve"><value>MQTT 载荷超过配置的最大字节数。</value></data>
+  <data name="mqtt.publish.rate_limited" xml:space="preserve"><value>MQTT 发布频率超过限额。</value></data>
+  <data name="mqtt.publish.idempotency_conflict" xml:space="preserve"><value>幂等键已被不同发布参数占用。</value></data>
+  <data name="mqtt.publish.validation_failed" xml:space="preserve"><value>MQTT 发布请求校验失败。</value></data>
+</root>

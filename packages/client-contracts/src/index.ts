@@ -591,6 +591,22 @@ export type {
 } from './observability-elasticsearch-log-pipeline.js';
 
 export {
+  isMqttBrokerStatus,
+  isMqttClient,
+  isMqttMessage,
+  isMqttMessagePage
+} from './mqtt-control-plane.js';
+
+export type {
+  MqttBrokerStatus,
+  MqttClient,
+  MqttMessage,
+  MqttMessageListQuery,
+  MqttMessagePage,
+  PublishMqttMessageRequest
+} from './mqtt-control-plane.js';
+
+export {
   isMyReleaseNote,
   isMyReleaseNotePage
 } from './my-release-notes.js';

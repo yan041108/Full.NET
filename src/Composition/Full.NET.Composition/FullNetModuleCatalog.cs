@@ -18,6 +18,7 @@ using Full.NET.Modules.SerialNumbers;
 using Full.NET.Modules.DataApproval;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
+using Full.NET.Modules.Mqtt;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -157,6 +158,7 @@ public static class FullNetModuleCatalog
         new ObservabilityAdminModule(),
         new WorkflowModule(),
         new DataApprovalModule(),
+        new MqttModule(),
     ];
 
     private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>

@@ -272,6 +272,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.observabilityElasticsearchHealth.title',
     captionKey: 'navigation.observabilityElasticsearchHealth.caption'
   }],
+  ['mqtt-control-plane', {
+    titleKey: 'navigation.mqttControlPlane.title',
+    captionKey: 'navigation.mqttControlPlane.caption'
+  }],
   ['operation-logs', {
     titleKey: 'navigation.operationLogs.title',
     captionKey: 'navigation.operationLogs.caption'

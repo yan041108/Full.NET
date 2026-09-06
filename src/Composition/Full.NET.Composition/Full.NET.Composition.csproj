@@ -20,5 +20,6 @@
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.DataApproval\Full.NET.Modules.DataApproval.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.ObservabilityAdmin\Full.NET.Modules.ObservabilityAdmin.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Workflow\Full.NET.Modules.Workflow.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.Mqtt\Full.NET.Modules.Mqtt.csproj" />
   </ItemGroup>
 </Project>
