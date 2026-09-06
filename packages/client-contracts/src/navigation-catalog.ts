@@ -55,6 +55,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/registration-ways'
   },
   {
+    componentKey: 'ldap-connections',
+    routeName: 'ldap-connections',
+    path: '/identity/ldap-connections'
+  },
+  {
     componentKey: 'modules',
     routeName: 'modules',
     path: '/identity/modules'

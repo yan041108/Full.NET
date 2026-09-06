@@ -227,6 +227,30 @@ internal sealed class IdentityAuthorizationContributor
             "删除注册方式",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityLdapConnectionPermissions.Read,
+            "查看 LDAP 连接",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityLdapConnectionPermissions.Create,
+            "创建 LDAP 连接",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityLdapConnectionPermissions.Update,
+            "更新 LDAP 连接",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityLdapConnectionPermissions.Delete,
+            "删除 LDAP 连接",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityLdapConnectionPermissions.Test,
+            "测试 LDAP 连接",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityLdapConnectionPermissions.PreviewSync,
+            "预览 LDAP 同步",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             ModuleCatalogPermissions.Read,
             "查看官方模块清单",
             AuthorizationScope.Host),
@@ -309,6 +333,17 @@ internal sealed class IdentityAuthorizationContributor
             "user-add",
             38,
             IdentityRegistrationWayPermissions.Read),
+        new NavigationDefinition(
+            "ldap-connections",
+            null,
+            "ldap-connections",
+            "/identity/ldap-connections",
+            "ldap-connections",
+            "LDAP 连接",
+            "LDAP Connections",
+            "link",
+            39,
+            IdentityLdapConnectionPermissions.Read),
         new NavigationDefinition(
             "modules",
             null,
@@ -616,5 +651,40 @@ internal sealed class IdentityAuthorizationContributor
             "删除注册方式",
             "delete",
             30),
+        new AuthorizationActionDefinition(
+            "identity.ldap_connections.create",
+            "ldap-connections",
+            IdentityLdapConnectionPermissions.Create,
+            "创建 LDAP 连接",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.ldap_connections.update",
+            "ldap-connections",
+            IdentityLdapConnectionPermissions.Update,
+            "编辑 LDAP 连接",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.ldap_connections.delete",
+            "ldap-connections",
+            IdentityLdapConnectionPermissions.Delete,
+            "删除 LDAP 连接",
+            "delete",
+            30),
+        new AuthorizationActionDefinition(
+            "identity.ldap_connections.test",
+            "ldap-connections",
+            IdentityLdapConnectionPermissions.Test,
+            "测试 LDAP 连接",
+            "test",
+            40),
+        new AuthorizationActionDefinition(
+            "identity.ldap_connections.preview_sync",
+            "ldap-connections",
+            IdentityLdapConnectionPermissions.PreviewSync,
+            "预览 LDAP 同步",
+            "preview-sync",
+            50),
     ];
 }

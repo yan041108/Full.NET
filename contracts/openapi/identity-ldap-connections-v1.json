@@ -1,0 +1,173 @@
+{
+  "id": "identity-ldap-connections-v1",
+  "version": 1,
+  "description": "LDAP 连接 HTTP 契约冻结夹具；与 IdentityLdapConnectionContracts 和管理端点对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/ldap-connections",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.ldap_connections.read",
+          "successStatus": 200,
+          "responseSchema": "LdapConnectionResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.ldap_connections.create",
+          "successStatus": 201,
+          "requestSchema": "CreateLdapConnectionRequest",
+          "responseSchema": "LdapConnectionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/ldap-connections/{connectionId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.ldap_connections.read",
+          "successStatus": 200,
+          "responseSchema": "LdapConnectionResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.ldap_connections.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateLdapConnectionRequest",
+          "responseSchema": "LdapConnectionResponse"
+        },
+        {
+          "method": "DELETE",
+          "permission": "identity.ldap_connections.delete",
+          "successStatus": 204
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/ldap-connections/{connectionId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.ldap_connections.update",
+          "successStatus": 200,
+          "responseSchema": "LdapConnectionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/ldap-connections/{connectionId}/test-connection",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.ldap_connections.test",
+          "successStatus": 200,
+          "responseSchema": "TestLdapConnectionResult"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/ldap-connections/{connectionId}/test-authentication",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.ldap_connections.test",
+          "successStatus": 200,
+          "requestSchema": "TestLdapAuthenticationRequest",
+          "responseSchema": "TestLdapAuthenticationResult"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/ldap-connections/{connectionId}/preview-sync",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.ldap_connections.preview_sync",
+          "successStatus": 200,
+          "requestSchema": "PreviewLdapSyncRequest",
+          "responseSchema": "PreviewLdapSyncResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "LdapConnectionResponse": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "host",
+        "port",
+        "useTls",
+        "baseDn",
+        "bindDn",
+        "userSearchFilter",
+        "userAccountAttribute",
+        "syncSearchBaseDn",
+        "isEnabled",
+        "createdAtUtc",
+        "version"
+      ]
+    },
+    "LdapConnectionResponsePage": {
+      "type": "object",
+      "required": ["items", "page", "pageSize", "total"]
+    },
+    "CreateLdapConnectionRequest": {
+      "type": "object",
+      "required": [
+        "name",
+        "host",
+        "port",
+        "useTls",
+        "baseDn",
+        "bindDn",
+        "bindPassword",
+        "userSearchFilter",
+        "userAccountAttribute",
+        "syncSearchBaseDn",
+        "isEnabled"
+      ]
+    },
+    "UpdateLdapConnectionRequest": {
+      "type": "object",
+      "required": [
+        "name",
+        "host",
+        "port",
+        "useTls",
+        "baseDn",
+        "bindDn",
+        "userSearchFilter",
+        "userAccountAttribute",
+        "syncSearchBaseDn",
+        "isEnabled",
+        "version"
+      ]
+    },
+    "TestLdapConnectionResult": {
+      "type": "object",
+      "required": ["succeeded", "message"]
+    },
+    "TestLdapAuthenticationRequest": {
+      "type": "object",
+      "required": ["account", "password"]
+    },
+    "TestLdapAuthenticationResult": {
+      "type": "object",
+      "required": ["succeeded", "message"]
+    },
+    "PreviewLdapSyncRequest": {
+      "type": "object"
+    },
+    "PreviewLdapSyncResponse": {
+      "type": "object",
+      "required": ["searchBaseDn", "entries"]
+    },
+    "LdapSyncPreviewEntry": {
+      "type": "object",
+      "required": ["dn", "entryKind"]
+    }
+  }
+}

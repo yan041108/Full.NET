@@ -331,6 +331,37 @@ public static class IdentityErrorCodes
     public const string RegistrationWayPositionNotFound =
         "identity.registration_ways.position_not_found";
 
+    /// <summary>LDAP 连接不存在。</summary>
+    public const string LdapConnectionNotFound = "identity.ldap_connections.not_found";
+
+    /// <summary>LDAP 连接并发版本冲突。</summary>
+    public const string LdapConnectionVersionConflict =
+        "identity.ldap_connections.version_conflict";
+
+    /// <summary>同一租户或 Host 作用域已存在 LDAP 连接。</summary>
+    public const string LdapConnectionScopeAlreadyConfigured =
+        "identity.ldap_connections.scope_already_configured";
+
+    /// <summary>LDAP 连接引用的租户不存在或未激活。</summary>
+    public const string LdapConnectionTenantInactive =
+        "identity.ldap_connections.tenant_inactive";
+
+    /// <summary>同步搜索根 DN 不在目录根 DN 允许范围内。</summary>
+    public const string LdapConnectionInvalidSyncSearchBase =
+        "identity.ldap_connections.invalid_sync_search_base";
+
+    /// <summary>LDAP 连接元数据无效。</summary>
+    public const string LdapConnectionInvalidMetadata =
+        "identity.ldap_connections.invalid_metadata";
+
+    /// <summary>创建 LDAP 连接时缺少绑定密码。</summary>
+    public const string LdapConnectionBindPasswordRequired =
+        "identity.ldap_connections.bind_password_required";
+
+    /// <summary>LDAP 预览搜索根 DN 不在白名单范围内。</summary>
+    public const string LdapConnectionPreviewSearchBaseOutOfScope =
+        "identity.ldap_connections.preview_search_base_out_of_scope";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -435,5 +466,13 @@ public static class IdentityErrorCodes
         RegistrationWayRoleNotFound,
         RegistrationWayOrganizationUnitNotFound,
         RegistrationWayPositionNotFound,
+        LdapConnectionNotFound,
+        LdapConnectionVersionConflict,
+        LdapConnectionScopeAlreadyConfigured,
+        LdapConnectionTenantInactive,
+        LdapConnectionInvalidSyncSearchBase,
+        LdapConnectionInvalidMetadata,
+        LdapConnectionBindPasswordRequired,
+        LdapConnectionPreviewSearchBaseOutOfScope,
     ]);
 }

@@ -295,6 +295,28 @@ export type {
 } from './registration-ways.js';
 
 export {
+  isLdapConnection,
+  isLdapConnectionPage,
+  isPreviewLdapSyncResponse,
+  isTestLdapAuthenticationResult,
+  isTestLdapConnectionResult
+} from './ldap-connections.js';
+
+export type {
+  CreateLdapConnectionRequest,
+  LdapConnection,
+  LdapConnectionListQuery,
+  LdapConnectionPage,
+  LdapSyncPreviewEntry,
+  PreviewLdapSyncRequest,
+  PreviewLdapSyncResponse,
+  TestLdapAuthenticationRequest,
+  TestLdapAuthenticationResult,
+  TestLdapConnectionResult,
+  UpdateLdapConnectionRequest
+} from './ldap-connections.js';
+
+export {
   isHostFile,
   isHostFilePage
 } from './host-files.js';

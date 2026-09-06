@@ -30,6 +30,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityOpenAccessClientsTag = "IdentityOpenAccessClients";
     private const string IdentityRegistrationPolicyTag = "IdentityRegistrationPolicy";
     private const string IdentityRegistrationWaysTag = "IdentityRegistrationWays";
+    private const string IdentityLdapConnectionsTag = "IdentityLdapConnections";
     private const string IdentityPublicRegistrationTag = "IdentityPublicRegistration";
     private const string IdentityHostOnlineSessionsTag = "IdentityHostOnlineSessions";
     private const string IdentityHostModulesTag = "IdentityHostModules";
@@ -259,6 +260,15 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/identity/registration-ways", "identityCreateRegistrationWay", IdentityRegistrationWaysTag),
         new("PUT", "/api/v1/identity/registration-ways/{wayId}", "identityUpdateRegistrationWay", IdentityRegistrationWaysTag),
         new("DELETE", "/api/v1/identity/registration-ways/{wayId}", "identityDeleteRegistrationWay", IdentityRegistrationWaysTag),
+        new("GET", "/api/v1/identity/ldap-connections", "identityListLdapConnections", IdentityLdapConnectionsTag),
+        new("GET", "/api/v1/identity/ldap-connections/{connectionId}", "identityGetLdapConnection", IdentityLdapConnectionsTag),
+        new("POST", "/api/v1/identity/ldap-connections", "identityCreateLdapConnection", IdentityLdapConnectionsTag),
+        new("PUT", "/api/v1/identity/ldap-connections/{connectionId}", "identityUpdateLdapConnection", IdentityLdapConnectionsTag),
+        new("DELETE", "/api/v1/identity/ldap-connections/{connectionId}", "identityDeleteLdapConnection", IdentityLdapConnectionsTag),
+        new("POST", "/api/v1/identity/ldap-connections/{connectionId}/disable", "identityDisableLdapConnection", IdentityLdapConnectionsTag),
+        new("POST", "/api/v1/identity/ldap-connections/{connectionId}/test-connection", "identityTestLdapConnection", IdentityLdapConnectionsTag),
+        new("POST", "/api/v1/identity/ldap-connections/{connectionId}/test-authentication", "identityTestLdapAuthentication", IdentityLdapConnectionsTag),
+        new("POST", "/api/v1/identity/ldap-connections/{connectionId}/preview-sync", "identityPreviewLdapSync", IdentityLdapConnectionsTag),
         new("GET", "/api/v1/identity/public/registration-ways", "identityListPublicRegistrationWays", IdentityPublicRegistrationTag),
         new("GET", "/api/v1/identity/session-policy", "identityGetHostSessionPolicy", IdentityHostOnlineSessionsTag),
         new("GET", "/api/v1/identity/online-sessions", "identityListHostOnlineSessions", IdentityHostOnlineSessionsTag),

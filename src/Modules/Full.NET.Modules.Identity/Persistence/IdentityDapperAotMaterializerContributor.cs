@@ -53,6 +53,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<OpenAccessClientUsageCountRow>(ReadOpenAccessClientUsageCountRow);
         registrar.Register<RegistrationPolicyRecord>(ReadRegistrationPolicyRecord);
         registrar.Register<RegistrationWayRecord>(ReadRegistrationWayRecord);
+        registrar.Register<LdapConnectionRecord>(ReadLdapConnectionRecord);
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
@@ -70,6 +71,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<InsertIdentityRole>(BindInsertIdentityRole);
         DapperAotParameterRegistry.Register<InsertIdentityNavigation>(BindInsertIdentityNavigation);
         DapperAotParameterRegistry.Register<RegistrationWayRecord>(BindRegistrationWayRecord);
+        DapperAotParameterRegistry.Register<LdapConnectionRecord>(BindLdapConnectionRecord);
     }
 
     private static IdentityUserRecord ReadIdentityUserRecord(DbDataReader reader) =>
@@ -514,6 +516,61 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         command.Parameters.AddWithValue(
             "@Remark",
             value.Remark is null ? DBNull.Value : value.Remark);
+        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
+        command.Parameters.AddWithValue(
+            "@UpdatedAtUtc",
+            value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
+        command.Parameters.AddWithValue("@Version", value.Version);
+    }
+
+    private static LdapConnectionRecord ReadLdapConnectionRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            TenantId = AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            Name = reader.GetString(2),
+            Host = reader.GetString(3),
+            Port = AotDataReaderExtensions.ReadInt32(reader, 4),
+            UseTls = AotDataReaderExtensions.ReadBoolean(reader, 5),
+            BaseDn = reader.GetString(6),
+            BindDn = reader.GetString(7),
+            BindPasswordProtected = reader.GetString(8),
+            UserSearchFilter = reader.GetString(9),
+            UserAccountAttribute = reader.GetString(10),
+            EmployeeIdAttribute = AotDataReaderExtensions.ReadNullableString(reader, 11),
+            DepartmentCodeAttribute = AotDataReaderExtensions.ReadNullableString(reader, 12),
+            SyncSearchBaseDn = reader.GetString(13),
+            IsEnabled = AotDataReaderExtensions.ReadBoolean(reader, 14),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
+            UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
+            Version = AotDataReaderExtensions.ReadInt32(reader, 17),
+        };
+
+    private static void BindLdapConnectionRecord(
+        DbCommand command,
+        LdapConnectionRecord value)
+    {
+        command.Parameters.AddWithValue("@Id", value.Id);
+        command.Parameters.AddWithValue(
+            "@TenantId",
+            value.TenantId is null ? DBNull.Value : value.TenantId);
+        command.Parameters.AddWithValue("@Name", value.Name);
+        command.Parameters.AddWithValue("@Host", value.Host);
+        command.Parameters.AddWithValue("@Port", value.Port);
+        command.Parameters.AddWithValue("@UseTls", value.UseTls);
+        command.Parameters.AddWithValue("@BaseDn", value.BaseDn);
+        command.Parameters.AddWithValue("@BindDn", value.BindDn);
+        command.Parameters.AddWithValue("@BindPasswordProtected", value.BindPasswordProtected);
+        command.Parameters.AddWithValue("@UserSearchFilter", value.UserSearchFilter);
+        command.Parameters.AddWithValue("@UserAccountAttribute", value.UserAccountAttribute);
+        command.Parameters.AddWithValue(
+            "@EmployeeIdAttribute",
+            value.EmployeeIdAttribute is null ? DBNull.Value : value.EmployeeIdAttribute);
+        command.Parameters.AddWithValue(
+            "@DepartmentCodeAttribute",
+            value.DepartmentCodeAttribute is null ? DBNull.Value : value.DepartmentCodeAttribute);
+        command.Parameters.AddWithValue("@SyncSearchBaseDn", value.SyncSearchBaseDn);
+        command.Parameters.AddWithValue("@IsEnabled", value.IsEnabled);
         command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
         command.Parameters.AddWithValue(
             "@UpdatedAtUtc",

@@ -82,6 +82,11 @@ export function createAppRouter(
         component: () => import('../views/RegistrationWaysView.vue')
       },
       {
+        name: 'ldap-connections',
+        path: '/identity/ldap-connections',
+        component: () => import('../views/LdapConnectionsView.vue')
+      },
+      {
         name: 'modules',
         path: '/identity/modules',
         component: () => import('../views/ModuleCatalogView.vue')

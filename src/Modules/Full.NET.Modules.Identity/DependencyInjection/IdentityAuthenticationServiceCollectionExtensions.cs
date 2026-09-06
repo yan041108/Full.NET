@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Directory;
 using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.Security;
@@ -32,6 +33,8 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         services.TryAddScoped<FullNetJwtBearerEvents>();
         // Data Protection 由宿主 AddFullNetDataProtection 统一配置共享 Key Ring，禁止此处裸注册。
         services.TryAddSingleton<TotpSecretProtector>();
+        services.TryAddSingleton<LdapBindPasswordProtector>();
+        services.TryAddSingleton<ILdapDirectoryClient, DirectoryServicesLdapClient>();
 
         var enableTotpStrongReauthentication = configuration.GetValue(
             $"{IdentityOptions.SectionName}:EnableTotpStrongReauthentication",

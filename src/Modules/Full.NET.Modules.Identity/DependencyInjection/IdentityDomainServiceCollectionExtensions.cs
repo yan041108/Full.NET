@@ -8,6 +8,7 @@ using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
 using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
+using Full.NET.Modules.Identity.Features.ManageLdapConnections;
 using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
 using Full.NET.Modules.Identity.Features.ManageRegistrationWays;
 using Full.NET.Modules.Identity.Features.PublicRegistrationWays;
@@ -84,6 +85,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<RegistrationWayQueryService>();
         services.TryAddScoped<RegistrationWayManagementService>();
         services.TryAddScoped<PublicRegistrationWayQueryService>();
+        services.TryAddScoped<LdapConnectionQueryService>();
+        services.TryAddScoped<LdapConnectionManagementService>();
+        services.TryAddScoped<LdapConnectionOperationsService>();
         services.TryAddScoped<HostModuleCatalogQueryService>();
         services.TryAddScoped<
             Features.GetHostDashboardSummary.HostDashboardQueryService>();

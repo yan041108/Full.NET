@@ -137,6 +137,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ManageOpenAccessClients.Endpoint.Map(endpoints);
         Features.ManageRegistrationPolicy.Endpoint.Map(endpoints);
         Features.ManageRegistrationWays.Endpoint.Map(endpoints);
+        Features.ManageLdapConnections.Endpoint.Map(endpoints);
         Features.PublicRegistrationWays.Endpoint.Map(endpoints);
         Features.QueryHostModuleCatalog.Endpoint.Map(endpoints);
         Features.GetHostDashboardSummary.Endpoint.Map(endpoints);

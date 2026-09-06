@@ -48,5 +48,16 @@ public sealed class IdentityAuthorizationContributorTests
                     action => action.ClientActionKey,
                     action => action.PermissionCode,
                     StringComparer.Ordinal));
+
+        CollectionAssert.Contains(
+            catalog.Permissions.Select(permission => permission.Code).ToArray(),
+            IdentityLdapConnectionPermissions.Read);
+        CollectionAssert.Contains(
+            catalog.Permissions.Select(permission => permission.Code).ToArray(),
+            IdentityLdapConnectionPermissions.PreviewSync);
+
+        var ldapConnections = catalog.Navigation.Single(item => item.Id == "ldap-connections");
+        Assert.AreEqual("/identity/ldap-connections", ldapConnections.Path);
+        Assert.AreEqual(IdentityLdapConnectionPermissions.Read, ldapConnections.RequiredPermission);
     }
 }
