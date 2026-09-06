@@ -242,6 +242,16 @@ export function createAppRouter(
         component: () => import('../views/PersonalSchedulesView.vue')
       },
       {
+        name: 'host-release-notes',
+        path: '/platform/host-release-notes',
+        component: () => import('../views/HostReleaseNotesView.vue')
+      },
+      {
+        name: 'my-release-notes',
+        path: '/platform/my-release-notes',
+        component: () => import('../views/MyReleaseNotesView.vue')
+      },
+      {
         name: 'code-generation-templates',
         path: '/code-generation/templates',
         component: () => import('../views/CodeGenerationTemplatesView.vue')

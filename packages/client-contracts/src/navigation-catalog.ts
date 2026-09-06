@@ -220,6 +220,16 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/calendar/personal-schedules'
   },
   {
+    componentKey: 'host-release-notes',
+    routeName: 'host-release-notes',
+    path: '/platform/host-release-notes'
+  },
+  {
+    componentKey: 'my-release-notes',
+    routeName: 'my-release-notes',
+    path: '/platform/my-release-notes'
+  },
+  {
     componentKey: 'code-generation-templates',
     routeName: 'code-generation-templates',
     path: '/code-generation/templates'

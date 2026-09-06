@@ -1,0 +1,188 @@
+{
+  "id": "platform-release-notes-v1",
+  "version": 1,
+  "description": "平台更新日志 HTTP 契约冻结夹具；与 Platform 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/platform/host-release-notes",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "platform.release_notes.read",
+          "successStatus": 200,
+          "responseSchema": "HostReleaseNoteResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "platform.release_notes.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostReleaseNoteRequest",
+          "responseSchema": "HostReleaseNoteResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/host-release-notes/{releaseNoteId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "platform.release_notes.read",
+          "successStatus": 200,
+          "responseSchema": "HostReleaseNoteResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "platform.release_notes.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostReleaseNoteRequest",
+          "responseSchema": "HostReleaseNoteResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/host-release-notes/{releaseNoteId}/publish",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "platform.release_notes.publish",
+          "successStatus": 200,
+          "requestSchema": "PublishHostReleaseNoteRequest",
+          "responseSchema": "HostReleaseNoteResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/host-release-notes/{releaseNoteId}/retract",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "platform.release_notes.retract",
+          "successStatus": 200,
+          "requestSchema": "RetractHostReleaseNoteRequest",
+          "responseSchema": "HostReleaseNoteResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/host-release-notes/{releaseNoteId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "platform.release_notes.delete",
+          "successStatus": 204,
+          "requestSchema": "DeleteHostReleaseNoteRequest"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/my-release-notes",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "platform.release_notes.read",
+          "successStatus": 200,
+          "responseSchema": "MyReleaseNoteResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/my-release-notes/latest-unread",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "platform.release_notes.read",
+          "successStatus": 200,
+          "responseSchema": "MyReleaseNoteResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/my-release-notes/{releaseNoteId}/read",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "platform.release_notes.mark_read",
+          "successStatus": 200,
+          "responseSchema": "MyReleaseNoteResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostReleaseNoteResponse": {
+      "properties": [
+        "id",
+        "versionLabel",
+        "versionSortKey",
+        "title",
+        "content",
+        "status",
+        "publishedAtUtc",
+        "publishedByUserId",
+        "retractedAtUtc",
+        "retractedByUserId",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "HostReleaseNoteResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "MyReleaseNoteResponse": {
+      "properties": [
+        "id",
+        "versionLabel",
+        "versionSortKey",
+        "title",
+        "content",
+        "publishedAtUtc",
+        "isRead",
+        "readAtUtc"
+      ]
+    },
+    "MyReleaseNoteResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateHostReleaseNoteRequest": {
+      "properties": [
+        "versionLabel",
+        "title",
+        "content"
+      ]
+    },
+    "UpdateHostReleaseNoteRequest": {
+      "properties": [
+        "versionLabel",
+        "title",
+        "content",
+        "version"
+      ]
+    },
+    "PublishHostReleaseNoteRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "RetractHostReleaseNoteRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "DeleteHostReleaseNoteRequest": {
+      "properties": [
+        "version"
+      ]
+    }
+  }
+}

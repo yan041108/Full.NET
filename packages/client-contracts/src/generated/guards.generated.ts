@@ -75,6 +75,7 @@ import type {
   CreateHostJobDefinitionRequest,
   CreateHostJobScheduleRequest,
   CreateHostMenuRequest,
+  CreateHostReleaseNoteRequest,
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
@@ -103,6 +104,7 @@ import type {
   DeleteHostDocumentTagRequest,
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
+  DeleteHostReleaseNoteRequest,
   DiagnosticPolicyResponse,
   DiagnosticPolicyRuleRequest,
   DiagnosticPolicyRuleResponse,
@@ -159,6 +161,7 @@ import type {
   HostMenuResponse,
   HostNavigationCatalogSyncResponse,
   HostOnlineSessionResponse,
+  HostReleaseNoteResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
@@ -184,6 +187,7 @@ import type {
   LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  MyReleaseNoteResponse,
   NotificationBindingResponse,
   NotificationBindingTargetInput,
   NotificationDeliveryAttemptResponse,
@@ -223,9 +227,11 @@ import type {
   PagedResultOfHostJobScheduleResponse,
   PagedResultOfHostMenuResponse,
   PagedResultOfHostOnlineSessionResponse,
+  PagedResultOfHostReleaseNoteResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   PagedResultOfInboxMessageResponse,
+  PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
   PagedResultOfNotificationProviderProfileResponse,
@@ -252,6 +258,7 @@ import type {
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
+  PublishHostReleaseNoteRequest,
   PublishNotificationBindingRequest,
   PublishNotificationProviderProfileRequest,
   PublishNotificationTemplateRequest,
@@ -268,6 +275,7 @@ import type {
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
+  RetractHostReleaseNoteRequest,
   RetryDataApprovalRequestBody,
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
@@ -317,6 +325,7 @@ import type {
   UpdateHostJobDefinitionRequest,
   UpdateHostJobScheduleRequest,
   UpdateHostMenuRequest,
+  UpdateHostReleaseNoteRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
   UpdateHostTenantPackageRequest,
@@ -1168,6 +1177,17 @@ function isCreateHostMenuRequest(value: unknown): value is CreateHostMenuRequest
   return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["routeName"] === 'string') && (typeof value["title"] === 'string');
 }
 
+export function readCreateHostReleaseNoteRequest(value: unknown): CreateHostReleaseNoteRequest {
+  if (!(isCreateHostReleaseNoteRequest(value))) {
+    throw new Error('client.invalid_create_host_release_note_request');
+  }
+  return value;
+}
+
+function isCreateHostReleaseNoteRequest(value: unknown): value is CreateHostReleaseNoteRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string') && (typeof value["versionLabel"] === 'string');
+}
+
 export function readCreateHostRoleRequest(value: unknown): CreateHostRoleRequest {
   if (!(isCreateHostRoleRequest(value))) {
     throw new Error('client.invalid_create_host_role_request');
@@ -1474,6 +1494,17 @@ export function readDeleteHostJobDefinitionRequest(value: unknown): DeleteHostJo
 
 function isDeleteHostJobDefinitionRequest(value: unknown): value is DeleteHostJobDefinitionRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostReleaseNoteRequest(value: unknown): DeleteHostReleaseNoteRequest {
+  if (!(isDeleteHostReleaseNoteRequest(value))) {
+    throw new Error('client.invalid_delete_host_release_note_request');
+  }
+  return value;
+}
+
+function isDeleteHostReleaseNoteRequest(value: unknown): value is DeleteHostReleaseNoteRequest {
+  return isRecord(value) && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string'));
 }
 
 export function readDiagnosticPolicyResponse(value: unknown): DiagnosticPolicyResponse {
@@ -2092,6 +2123,17 @@ function isHostOnlineSessionResponse(value: unknown): value is HostOnlineSession
   return isRecord(value) && ((value["activeTenantId"] === null) || (typeof value["activeTenantId"] === 'string' && guidPattern.test(value["activeTenantId"]))) && (typeof value["clientId"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["expiresAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
+export function readHostReleaseNoteResponse(value: unknown): HostReleaseNoteResponse {
+  if (!(isHostReleaseNoteResponse(value))) {
+    throw new Error('client.invalid_host_release_note_response');
+  }
+  return value;
+}
+
+function isHostReleaseNoteResponse(value: unknown): value is HostReleaseNoteResponse {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && ((value["publishedAtUtc"] === null) || (typeof value["publishedAtUtc"] === 'string')) && ((value["publishedByUserId"] === null) || (typeof value["publishedByUserId"] === 'string' && guidPattern.test(value["publishedByUserId"]))) && ((value["retractedAtUtc"] === null) || (typeof value["retractedAtUtc"] === 'string')) && ((value["retractedByUserId"] === null) || (typeof value["retractedByUserId"] === 'string' && guidPattern.test(value["retractedByUserId"]))) && (typeof value["status"] === 'string') && (typeof value["title"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string')) && (typeof value["versionLabel"] === 'string') && ((typeof value["versionSortKey"] === 'number' && Number.isInteger(value["versionSortKey"])) || (typeof value["versionSortKey"] === 'string'));
+}
+
 export function readHostRoleDataScopeResponse(value: unknown): HostRoleDataScopeResponse {
   if (!(isHostRoleDataScopeResponse(value))) {
     throw new Error('client.invalid_host_role_data_scope_response');
@@ -2365,6 +2407,17 @@ export function readModuleCatalogEntryResponse(value: unknown): ModuleCatalogEnt
 
 function isModuleCatalogEntryResponse(value: unknown): value is ModuleCatalogEntryResponse {
   return isRecord(value) && (Array.isArray(value["dependencies"]) && value["dependencies"].every(item21 => typeof item21 === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["healthCapability"] === 'string') && (Array.isArray(value["hostProfiles"]) && value["hostProfiles"].every(item21 => typeof item21 === 'string')) && (typeof value["moduleKey"] === 'string') && (typeof value["sourceClassification"] === 'string') && (typeof value["version"] === 'string');
+}
+
+export function readMyReleaseNoteResponse(value: unknown): MyReleaseNoteResponse {
+  if (!(isMyReleaseNoteResponse(value))) {
+    throw new Error('client.invalid_my_release_note_response');
+  }
+  return value;
+}
+
+function isMyReleaseNoteResponse(value: unknown): value is MyReleaseNoteResponse {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["isRead"] === 'boolean') && (typeof value["publishedAtUtc"] === 'string') && ((value["readAtUtc"] === null) || (typeof value["readAtUtc"] === 'string')) && (typeof value["title"] === 'string') && (typeof value["versionLabel"] === 'string') && ((typeof value["versionSortKey"] === 'number' && Number.isInteger(value["versionSortKey"])) || (typeof value["versionSortKey"] === 'string'));
 }
 
 export function readNotificationBindingResponse(value: unknown): NotificationBindingResponse {
@@ -2796,6 +2849,17 @@ function isPagedResultOfHostOnlineSessionResponse(value: unknown): value is Page
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostOnlineSessionResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfHostReleaseNoteResponse(value: unknown): PagedResultOfHostReleaseNoteResponse {
+  if (!(isPagedResultOfHostReleaseNoteResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_release_note_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostReleaseNoteResponse(value: unknown): value is PagedResultOfHostReleaseNoteResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostReleaseNoteResponse(item14))) && ((typeof value["page"] === 'number' && Number.isInteger(value["page"])) || (typeof value["page"] === 'string')) && ((typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) || (typeof value["pageSize"] === 'string')) && ((typeof value["total"] === 'number' && Number.isInteger(value["total"])) || (typeof value["total"] === 'string'));
+}
+
 export function readPagedResultOfHostRoleResponse(value: unknown): PagedResultOfHostRoleResponse {
   if (!(isPagedResultOfHostRoleResponse(value))) {
     throw new Error('client.invalid_paged_result_of_host_role_response');
@@ -2827,6 +2891,17 @@ export function readPagedResultOfInboxMessageResponse(value: unknown): PagedResu
 
 function isPagedResultOfInboxMessageResponse(value: unknown): value is PagedResultOfInboxMessageResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isInboxMessageResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfMyReleaseNoteResponse(value: unknown): PagedResultOfMyReleaseNoteResponse {
+  if (!(isPagedResultOfMyReleaseNoteResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_my_release_note_response');
+  }
+  return value;
+}
+
+function isPagedResultOfMyReleaseNoteResponse(value: unknown): value is PagedResultOfMyReleaseNoteResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isMyReleaseNoteResponse(item14))) && ((typeof value["page"] === 'number' && Number.isInteger(value["page"])) || (typeof value["page"] === 'string')) && ((typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) || (typeof value["pageSize"] === 'string')) && ((typeof value["total"] === 'number' && Number.isInteger(value["total"])) || (typeof value["total"] === 'string'));
 }
 
 export function readPagedResultOfNotificationBindingResponse(value: unknown): PagedResultOfNotificationBindingResponse {
@@ -3115,6 +3190,17 @@ function isPublishHostAnnouncementRequest(value: unknown): value is PublishHostA
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readPublishHostReleaseNoteRequest(value: unknown): PublishHostReleaseNoteRequest {
+  if (!(isPublishHostReleaseNoteRequest(value))) {
+    throw new Error('client.invalid_publish_host_release_note_request');
+  }
+  return value;
+}
+
+function isPublishHostReleaseNoteRequest(value: unknown): value is PublishHostReleaseNoteRequest {
+  return isRecord(value) && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string'));
+}
+
 export function readPublishNotificationBindingRequest(value: unknown): PublishNotificationBindingRequest {
   if (!(isPublishNotificationBindingRequest(value))) {
     throw new Error('client.invalid_publish_notification_binding_request');
@@ -3289,6 +3375,17 @@ export function readResumeWorkflowInstanceRequest(value: unknown): ResumeWorkflo
 
 function isResumeWorkflowInstanceRequest(value: unknown): value is ResumeWorkflowInstanceRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
+export function readRetractHostReleaseNoteRequest(value: unknown): RetractHostReleaseNoteRequest {
+  if (!(isRetractHostReleaseNoteRequest(value))) {
+    throw new Error('client.invalid_retract_host_release_note_request');
+  }
+  return value;
+}
+
+function isRetractHostReleaseNoteRequest(value: unknown): value is RetractHostReleaseNoteRequest {
+  return isRecord(value) && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string'));
 }
 
 export function readRetryDataApprovalRequestBody(value: unknown): RetryDataApprovalRequestBody {
@@ -3828,6 +3925,17 @@ export function readUpdateHostMenuRequest(value: unknown): UpdateHostMenuRequest
 
 function isUpdateHostMenuRequest(value: unknown): value is UpdateHostMenuRequest {
   return isRecord(value) && (typeof value["caption"] === 'string') && (typeof value["componentKey"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["icon"] === 'string') && (value["isAffix"] === undefined || (typeof value["isAffix"] === 'boolean')) && (value["isEmbedded"] === undefined || (typeof value["isEmbedded"] === 'boolean')) && (value["isHidden"] === undefined || (typeof value["isHidden"] === 'boolean')) && (value["isKeepAlive"] === undefined || (typeof value["isKeepAlive"] === 'boolean')) && (value["linkUrl"] === undefined || ((value["linkUrl"] === null) || (typeof value["linkUrl"] === 'string'))) && (value["menuType"] === undefined || (typeof value["menuType"] === 'string')) && ((value["parentId"] === null) || (typeof value["parentId"] === 'string')) && (typeof value["path"] === 'string') && (value["redirect"] === undefined || ((value["redirect"] === null) || (typeof value["redirect"] === 'string'))) && (value["remark"] === undefined || ((value["remark"] === null) || (typeof value["remark"] === 'string'))) && (typeof value["requiredPermission"] === 'string') && (typeof value["title"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdateHostReleaseNoteRequest(value: unknown): UpdateHostReleaseNoteRequest {
+  if (!(isUpdateHostReleaseNoteRequest(value))) {
+    throw new Error('client.invalid_update_host_release_note_request');
+  }
+  return value;
+}
+
+function isUpdateHostReleaseNoteRequest(value: unknown): value is UpdateHostReleaseNoteRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["title"] === 'string') && ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (typeof value["version"] === 'string')) && (typeof value["versionLabel"] === 'string');
 }
 
 export function readUpdateHostRoleDataScopeRequest(value: unknown): UpdateHostRoleDataScopeRequest {

@@ -428,6 +428,38 @@ export type {
 } from './host-announcements.js';
 
 export {
+  isCreateHostReleaseNoteRequest,
+  isDeleteHostReleaseNoteRequest,
+  isHostReleaseNote,
+  isHostReleaseNotePage,
+  isPublishHostReleaseNoteRequest,
+  isRetractHostReleaseNoteRequest,
+  isUpdateHostReleaseNoteRequest
+} from './host-release-notes.js';
+
+export type {
+  CreateHostReleaseNoteRequest,
+  DeleteHostReleaseNoteRequest,
+  HostReleaseNote,
+  HostReleaseNoteListQuery,
+  HostReleaseNotePage,
+  PublishHostReleaseNoteRequest,
+  ReleaseNoteStatus,
+  RetractHostReleaseNoteRequest,
+  UpdateHostReleaseNoteRequest
+} from './host-release-notes.js';
+
+export {
+  isMyReleaseNote,
+  isMyReleaseNotePage
+} from './my-release-notes.js';
+
+export type {
+  MyReleaseNote,
+  MyReleaseNotePage
+} from './my-release-notes.js';
+
+export {
   JOB_HANDLER_KINDS,
   JOB_MISFIRE_POLICIES,
   JOB_TRIGGER_KINDS,

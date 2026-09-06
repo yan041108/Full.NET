@@ -23,6 +23,7 @@ import { useSessionStore } from './auth/session';
 import { createElementLocaleController } from './i18n/elementLocale';
 import { useAdminI18n } from './i18n/adminI18n';
 import ArtAdminShell from './framework/art-design/layout/ArtAdminShell.vue';
+import ReleaseNoteUnreadPrompt from './components/ReleaseNoteUnreadPrompt.vue';
 import { buildShellNavigation } from './framework/art-design/adapters/fullNetShellAdapter';
 import { localNavigationFor } from './navigation/catalog';
 import {
@@ -300,6 +301,7 @@ watch(
       v-if="showComponentLocaleFixture && session.state === 'authenticated'"
       :is="ComponentLocaleFixture"
     />
+    <ReleaseNoteUnreadPrompt v-if="session.state === 'authenticated'" />
   </el-config-provider>
 </template>
 

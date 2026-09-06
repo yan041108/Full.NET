@@ -549,6 +549,12 @@ export interface CreateHostMenuRequest {
   readonly title: string;
 }
 
+export interface CreateHostReleaseNoteRequest {
+  readonly content: string;
+  readonly title: string;
+  readonly versionLabel: string;
+}
+
 export interface CreateHostRoleRequest {
   readonly code: string;
   readonly name: string;
@@ -746,6 +752,10 @@ export interface DeleteHostFolderRequest {
 
 export interface DeleteHostJobDefinitionRequest {
   readonly version: number;
+}
+
+export interface DeleteHostReleaseNoteRequest {
+  readonly version: number | string;
 }
 
 export interface DiagnosticPolicyResponse {
@@ -1289,6 +1299,22 @@ export interface HostOnlineSessionResponse {
   readonly username: string;
 }
 
+export interface HostReleaseNoteResponse {
+  readonly content: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly publishedAtUtc: null | string;
+  readonly publishedByUserId: null | string;
+  readonly retractedAtUtc: null | string;
+  readonly retractedByUserId: null | string;
+  readonly status: string;
+  readonly title: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number | string;
+  readonly versionLabel: string;
+  readonly versionSortKey: number | string;
+}
+
 export interface HostRoleDataScopeResponse {
   readonly dataScopeKind: string;
   readonly roleId: string;
@@ -1487,6 +1513,17 @@ export interface ModuleCatalogEntryResponse {
   readonly moduleKey: string;
   readonly sourceClassification: string;
   readonly version: string;
+}
+
+export interface MyReleaseNoteResponse {
+  readonly content: string;
+  readonly id: string;
+  readonly isRead: boolean;
+  readonly publishedAtUtc: string;
+  readonly readAtUtc: null | string;
+  readonly title: string;
+  readonly versionLabel: string;
+  readonly versionSortKey: number | string;
 }
 
 export interface NotificationBindingResponse {
@@ -1861,6 +1898,13 @@ export interface PagedResultOfHostOnlineSessionResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfHostReleaseNoteResponse {
+  readonly items: Array<HostReleaseNoteResponse>;
+  readonly page: number | string;
+  readonly pageSize: number | string;
+  readonly total: number | string;
+}
+
 export interface PagedResultOfHostRoleResponse {
   readonly items: Array<HostRoleResponse>;
   readonly page: number;
@@ -1880,6 +1924,13 @@ export interface PagedResultOfInboxMessageResponse {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+}
+
+export interface PagedResultOfMyReleaseNoteResponse {
+  readonly items: Array<MyReleaseNoteResponse>;
+  readonly page: number | string;
+  readonly pageSize: number | string;
+  readonly total: number | string;
 }
 
 export interface PagedResultOfNotificationBindingResponse {
@@ -2066,6 +2117,10 @@ export interface PublishHostAnnouncementRequest {
   readonly version: number;
 }
 
+export interface PublishHostReleaseNoteRequest {
+  readonly version: number | string;
+}
+
 export interface PublishNotificationBindingRequest {
   readonly version: number;
 }
@@ -2149,6 +2204,10 @@ export interface ResumeWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: null | string;
+}
+
+export interface RetractHostReleaseNoteRequest {
+  readonly version: number | string;
 }
 
 export interface RetryDataApprovalRequestBody {
@@ -2522,6 +2581,13 @@ export interface UpdateHostMenuRequest {
   readonly requiredPermission: string;
   readonly title: string;
   readonly version: number;
+}
+
+export interface UpdateHostReleaseNoteRequest {
+  readonly content: string;
+  readonly title: string;
+  readonly version: number | string;
+  readonly versionLabel: string;
 }
 
 export interface UpdateHostRoleDataScopeRequest {

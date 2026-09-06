@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2108,
+      "minimum": 2120,
       "timeout": "10m",
       "selections": {
         "code-generation-realtime": {
@@ -22,7 +22,7 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 145,
+      "minimum": 156,
       "timeout": "10m",
       "selections": {
         "api-native-aot": {
@@ -380,6 +380,12 @@
       },
       "133": {
         "filter": "FullyQualifiedName~Migration133CalendarPersonalScheduleActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration133CalendarPersonalScheduleActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "134": {
+        "filter": "FullyQualifiedName~Migration134PlatformReleaseNoteRecoveryTests.MySql_|FullyQualifiedName~Migration134PlatformReleaseNoteRecoveryTests.SqlServer_"
+      },
+      "135": {
+        "filter": "FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -397,17 +403,17 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 70,
+        "minimum": 72,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 70,
+        "minimum": 72,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 371,
+        "minimum": 379,
         "timeout": "90m"
       },
       "infrastructure": {

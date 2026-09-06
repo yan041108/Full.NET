@@ -58,6 +58,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string JobsHostJobSchedulesTag = "JobsHostJobSchedules";
     private const string JobsHostJobHealthTag = "JobsHostJobHealth";
     private const string CalendarMyPersonalSchedulesTag = "CalendarMyPersonalSchedules";
+    private const string PlatformHostReleaseNotesTag = "PlatformHostReleaseNotes";
+    private const string PlatformMyReleaseNotesTag = "PlatformMyReleaseNotes";
     private const string NotificationsHostAnnouncementsTag = "NotificationsHostAnnouncements";
     private const string NotificationsMyInboxMessagesTag = "NotificationsMyInboxMessages";
     private const string NotificationsHostInboxMessagesTag = "NotificationsHostInboxMessages";
@@ -424,6 +426,16 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/calendar/my-personal-schedules/{scheduleId}", "calendarUpdateMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
         new("POST", "/api/v1/calendar/my-personal-schedules/{scheduleId}/delete", "calendarDeleteMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
         new("POST", "/api/v1/calendar/my-personal-schedules/{scheduleId}/status", "calendarSetMyPersonalScheduleStatus", CalendarMyPersonalSchedulesTag),
+        new("GET", "/api/v1/platform/host-release-notes", "platformListHostReleaseNotes", PlatformHostReleaseNotesTag),
+        new("GET", "/api/v1/platform/host-release-notes/{releaseNoteId}", "platformGetHostReleaseNote", PlatformHostReleaseNotesTag),
+        new("POST", "/api/v1/platform/host-release-notes", "platformCreateHostReleaseNote", PlatformHostReleaseNotesTag),
+        new("PUT", "/api/v1/platform/host-release-notes/{releaseNoteId}", "platformUpdateHostReleaseNote", PlatformHostReleaseNotesTag),
+        new("POST", "/api/v1/platform/host-release-notes/{releaseNoteId}/publish", "platformPublishHostReleaseNote", PlatformHostReleaseNotesTag),
+        new("POST", "/api/v1/platform/host-release-notes/{releaseNoteId}/retract", "platformRetractHostReleaseNote", PlatformHostReleaseNotesTag),
+        new("POST", "/api/v1/platform/host-release-notes/{releaseNoteId}/delete", "platformDeleteHostReleaseNote", PlatformHostReleaseNotesTag),
+        new("GET", "/api/v1/platform/my-release-notes", "platformListMyReleaseNotes", PlatformMyReleaseNotesTag),
+        new("GET", "/api/v1/platform/my-release-notes/latest-unread", "platformGetLatestUnreadReleaseNote", PlatformMyReleaseNotesTag),
+        new("POST", "/api/v1/platform/my-release-notes/{releaseNoteId}/read", "platformMarkMyReleaseNoteRead", PlatformMyReleaseNotesTag),
         new("GET", "/api/v1/notifications/host-announcements", "notificationsListHostAnnouncements", NotificationsHostAnnouncementsTag),
         new("POST", "/api/v1/notifications/host-announcements", "notificationsCreateHostAnnouncement", NotificationsHostAnnouncementsTag),
         new("PUT", "/api/v1/notifications/host-announcements/{announcementId}", "notificationsUpdateHostAnnouncement", NotificationsHostAnnouncementsTag),

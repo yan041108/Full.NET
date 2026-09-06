@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="platform.release_note_not_found" xml:space="preserve"><value>未找到该更新日志。</value></data>
+  <data name="platform.release_note_validation_failed" xml:space="preserve"><value>更新日志内容校验失败。</value></data>
+  <data name="platform.release_note_concurrency_conflict" xml:space="preserve"><value>更新日志已被其他操作修改，请刷新后重试。</value></data>
+  <data name="platform.release_note_invalid_status" xml:space="preserve"><value>当前更新日志状态不允许执行该操作。</value></data>
+  <data name="platform.release_note_version_label_conflict" xml:space="preserve"><value>版本标签已被其他更新日志占用。</value></data>
+  <data name="platform.release_note_invalid_version_label" xml:space="preserve"><value>版本标签格式无效。</value></data>
+</root>

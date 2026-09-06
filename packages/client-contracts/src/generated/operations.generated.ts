@@ -76,6 +76,7 @@ import type {
   CreateHostJobDefinitionRequest,
   CreateHostJobScheduleRequest,
   CreateHostMenuRequest,
+  CreateHostReleaseNoteRequest,
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
@@ -104,6 +105,7 @@ import type {
   DeleteHostDocumentTagRequest,
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
+  DeleteHostReleaseNoteRequest,
   DiagnosticPolicyResponse,
   DiagnosticPolicyRuleRequest,
   DiagnosticPolicyRuleResponse,
@@ -160,6 +162,7 @@ import type {
   HostMenuResponse,
   HostNavigationCatalogSyncResponse,
   HostOnlineSessionResponse,
+  HostReleaseNoteResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
   HostRoleResponse,
@@ -185,6 +188,7 @@ import type {
   LogFileTail,
   LoginRequest,
   ModuleCatalogEntryResponse,
+  MyReleaseNoteResponse,
   NotificationBindingResponse,
   NotificationBindingTargetInput,
   NotificationDeliveryAttemptResponse,
@@ -224,9 +228,11 @@ import type {
   PagedResultOfHostJobScheduleResponse,
   PagedResultOfHostMenuResponse,
   PagedResultOfHostOnlineSessionResponse,
+  PagedResultOfHostReleaseNoteResponse,
   PagedResultOfHostRoleResponse,
   PagedResultOfHostUserResponse,
   PagedResultOfInboxMessageResponse,
+  PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
   PagedResultOfNotificationProviderProfileResponse,
@@ -253,6 +259,7 @@ import type {
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
+  PublishHostReleaseNoteRequest,
   PublishNotificationBindingRequest,
   PublishNotificationProviderProfileRequest,
   PublishNotificationTemplateRequest,
@@ -269,6 +276,7 @@ import type {
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
   ResumeWorkflowInstanceRequest,
+  RetractHostReleaseNoteRequest,
   RetryDataApprovalRequestBody,
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
@@ -318,6 +326,7 @@ import type {
   UpdateHostJobDefinitionRequest,
   UpdateHostJobScheduleRequest,
   UpdateHostMenuRequest,
+  UpdateHostReleaseNoteRequest,
   UpdateHostRoleDataScopeRequest,
   UpdateHostRoleRequest,
   UpdateHostTenantPackageRequest,
@@ -422,6 +431,7 @@ import {
   readHostMenuResponse,
   readHostNavigationCatalogSyncResponse,
   readHostOnlineSessionResponse,
+  readHostReleaseNoteResponse,
   readHostRoleDataScopeResponse,
   readHostRoleFieldGrantsResponse,
   readHostRoleResponse,
@@ -445,6 +455,7 @@ import {
   readLocalePreferenceResponse,
   readLogFileTail,
   readModuleCatalogEntryResponse,
+  readMyReleaseNoteResponse,
   readNotificationBindingResponse,
   readNotificationDeliveryResponse,
   readNotificationProviderProfileResponse,
@@ -478,9 +489,11 @@ import {
   readPagedResultOfHostJobScheduleResponse,
   readPagedResultOfHostMenuResponse,
   readPagedResultOfHostOnlineSessionResponse,
+  readPagedResultOfHostReleaseNoteResponse,
   readPagedResultOfHostRoleResponse,
   readPagedResultOfHostUserResponse,
   readPagedResultOfInboxMessageResponse,
+  readPagedResultOfMyReleaseNoteResponse,
   readPagedResultOfNotificationBindingResponse,
   readPagedResultOfNotificationDeliveryResponse,
   readPagedResultOfNotificationProviderProfileResponse,
@@ -5816,6 +5829,52 @@ export async function organizationUpdateTenantUserUnit(
   return readOrganizationUserUnitResponse(value);
 }
 
+export interface PlatformCreateHostReleaseNoteParameters {
+  readonly body: CreateHostReleaseNoteRequest;
+}
+
+export async function platformCreateHostReleaseNote(
+  http: HttpClient,
+  parameters: PlatformCreateHostReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostReleaseNoteResponse> {
+  const path = `/api/v1/platform/host-release-notes`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostReleaseNoteResponse(value);
+}
+
+export interface PlatformDeleteHostReleaseNoteParameters {
+  readonly releaseNoteId: string;
+  readonly body: DeleteHostReleaseNoteRequest;
+}
+
+export async function platformDeleteHostReleaseNote(
+  http: HttpClient,
+  parameters: PlatformDeleteHostReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/platform/host-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
 export interface PlatformGetHostDashboardSummaryParameters {
 
 }
@@ -5832,6 +5891,193 @@ export async function platformGetHostDashboardSummary(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostDashboardSummaryResponse(value);
+}
+
+export interface PlatformGetHostReleaseNoteParameters {
+  readonly releaseNoteId: string;
+}
+
+export async function platformGetHostReleaseNote(
+  http: HttpClient,
+  parameters: PlatformGetHostReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostReleaseNoteResponse> {
+  const path = `/api/v1/platform/host-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostReleaseNoteResponse(value);
+}
+
+export interface PlatformGetLatestUnreadReleaseNoteParameters {
+
+}
+
+export async function platformGetLatestUnreadReleaseNote(
+  http: HttpClient,
+  parameters: PlatformGetLatestUnreadReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<MyReleaseNoteResponse> {
+  const path = `/api/v1/platform/my-release-notes/latest-unread`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readMyReleaseNoteResponse(value);
+}
+
+export interface PlatformListHostReleaseNotesParameters {
+  readonly page?: number | string;
+  readonly pageSize?: number | string;
+  readonly title?: string;
+  readonly status?: string;
+  readonly versionLabel?: string;
+}
+
+export async function platformListHostReleaseNotes(
+  http: HttpClient,
+  parameters: PlatformListHostReleaseNotesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfHostReleaseNoteResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.title !== undefined) {
+    query.set('title', String(parameters.title));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  if (parameters.versionLabel !== undefined) {
+    query.set('versionLabel', String(parameters.versionLabel));
+  }
+  const path = query.size === 0 ? `/api/v1/platform/host-release-notes` : `/api/v1/platform/host-release-notes?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfHostReleaseNoteResponse(value);
+}
+
+export interface PlatformListMyReleaseNotesParameters {
+  readonly page?: number | string;
+  readonly pageSize?: number | string;
+}
+
+export async function platformListMyReleaseNotes(
+  http: HttpClient,
+  parameters: PlatformListMyReleaseNotesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfMyReleaseNoteResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/platform/my-release-notes` : `/api/v1/platform/my-release-notes?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfMyReleaseNoteResponse(value);
+}
+
+export interface PlatformMarkMyReleaseNoteReadParameters {
+  readonly releaseNoteId: string;
+}
+
+export async function platformMarkMyReleaseNoteRead(
+  http: HttpClient,
+  parameters: PlatformMarkMyReleaseNoteReadParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<MyReleaseNoteResponse> {
+  const path = `/api/v1/platform/my-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}/read`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readMyReleaseNoteResponse(value);
+}
+
+export interface PlatformPublishHostReleaseNoteParameters {
+  readonly releaseNoteId: string;
+  readonly body: PublishHostReleaseNoteRequest;
+}
+
+export async function platformPublishHostReleaseNote(
+  http: HttpClient,
+  parameters: PlatformPublishHostReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostReleaseNoteResponse> {
+  const path = `/api/v1/platform/host-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostReleaseNoteResponse(value);
+}
+
+export interface PlatformRetractHostReleaseNoteParameters {
+  readonly releaseNoteId: string;
+  readonly body: RetractHostReleaseNoteRequest;
+}
+
+export async function platformRetractHostReleaseNote(
+  http: HttpClient,
+  parameters: PlatformRetractHostReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostReleaseNoteResponse> {
+  const path = `/api/v1/platform/host-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}/retract`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostReleaseNoteResponse(value);
+}
+
+export interface PlatformUpdateHostReleaseNoteParameters {
+  readonly releaseNoteId: string;
+  readonly body: UpdateHostReleaseNoteRequest;
+}
+
+export async function platformUpdateHostReleaseNote(
+  http: HttpClient,
+  parameters: PlatformUpdateHostReleaseNoteParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostReleaseNoteResponse> {
+  const path = `/api/v1/platform/host-release-notes/${encodeURIComponent(String(parameters.releaseNoteId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostReleaseNoteResponse(value);
 }
 
 export interface SerialNumbersCreateRuleParameters {
