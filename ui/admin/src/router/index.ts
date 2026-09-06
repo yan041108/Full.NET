@@ -297,6 +297,16 @@ export function createAppRouter(
         component: () => import('../views/GoViewPreviewView.vue')
       },
       {
+        name: 'k3cloud-connection-configs',
+        path: '/k3cloud/connection-configs',
+        component: () => import('../views/K3CloudConnectionConfigsView.vue')
+      },
+      {
+        name: 'k3cloud-document-syncs',
+        path: '/k3cloud/document-syncs',
+        component: () => import('../views/K3CloudDocumentSyncsView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

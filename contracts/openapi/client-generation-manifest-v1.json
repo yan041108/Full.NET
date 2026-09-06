@@ -2679,6 +2679,60 @@
       "status": "manual"
     },
     {
+      "operationId": "k3cloudListConnectionConfigs",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudGetConnectionConfig",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudCreateConnectionConfig",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudUpdateConnectionConfig",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudTestConnectionConfig",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudListDocumentSyncs",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudGetDocumentSync",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudCreateDocumentSync",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
+      "operationId": "k3cloudRetryDocumentSync",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "generatedGroup": "k3cloud",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

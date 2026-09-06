@@ -17,6 +17,8 @@
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Payments.Contracts\Full.NET.Modules.Payments.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.GoView\Full.NET.Modules.GoView.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.GoView.Contracts\Full.NET.Modules.GoView.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.K3Cloud\Full.NET.Modules.K3Cloud.csproj" />
+    <ProjectReference Include="..\..\Modules\Full.NET.Modules.K3Cloud.Contracts\Full.NET.Modules.K3Cloud.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Settings\Full.NET.Modules.Settings.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Auditing\Full.NET.Modules.Auditing.csproj" />
     <ProjectReference Include="..\..\Modules\Full.NET.Modules.Files\Full.NET.Modules.Files.csproj" />

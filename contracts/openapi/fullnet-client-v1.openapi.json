@@ -31283,6 +31283,148 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["GoViewPreviews"]
       }
+    },
+    "/api/v1/k3cloud/connection-configs": {
+      "get": {
+        "operationId": "k3cloudListConnectionConfigs",
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/K3CloudConnectionConfigResponse" } } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudConnectionConfigs"]
+      },
+      "post": {
+        "operationId": "k3cloudCreateConnectionConfig",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateK3CloudConnectionConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/K3CloudConnectionConfigResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudConnectionConfigs"]
+      }
+    },
+    "/api/v1/k3cloud/connection-configs/{connectionConfigId}": {
+      "get": {
+        "operationId": "k3cloudGetConnectionConfig",
+        "parameters": [
+          { "in": "path", "name": "connectionConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/K3CloudConnectionConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudConnectionConfigs"]
+      },
+      "put": {
+        "operationId": "k3cloudUpdateConnectionConfig",
+        "parameters": [
+          { "in": "path", "name": "connectionConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateK3CloudConnectionConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/K3CloudConnectionConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudConnectionConfigs"]
+      }
+    },
+    "/api/v1/k3cloud/connection-configs/{connectionConfigId}/test": {
+      "post": {
+        "operationId": "k3cloudTestConnectionConfig",
+        "parameters": [
+          { "in": "path", "name": "connectionConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestK3CloudConnectionConfigResult" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudConnectionConfigs"]
+      }
+    },
+    "/api/v1/k3cloud/document-syncs": {
+      "get": {
+        "operationId": "k3cloudListDocumentSyncs",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": ["null", "integer", "string"] } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": ["null", "integer", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfK3CloudDocumentSyncResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudDocumentSyncs"]
+      },
+      "post": {
+        "operationId": "k3cloudCreateDocumentSync",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateK3CloudDocumentSyncRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/K3CloudDocumentSyncResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudDocumentSyncs"]
+      }
+    },
+    "/api/v1/k3cloud/document-syncs/{syncId}": {
+      "get": {
+        "operationId": "k3cloudGetDocumentSync",
+        "parameters": [
+          { "in": "path", "name": "syncId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/K3CloudDocumentSyncResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudDocumentSyncs"]
+      }
+    },
+    "/api/v1/k3cloud/document-syncs/{syncId}/retry": {
+      "post": {
+        "operationId": "k3cloudRetryDocumentSync",
+        "parameters": [
+          { "in": "path", "name": "syncId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/K3CloudDocumentSyncResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["K3CloudDocumentSyncs"]
+      }
     }
   },
   "components": {
@@ -47521,6 +47663,105 @@
           "generatedAtUtc": { "format": "date-time", "type": "string" }
         },
         "required": ["projectId", "projectKey", "projectName", "versionNumber", "canvasJson", "generatedAtUtc"],
+        "type": "object"
+      },
+      "K3CloudConnectionConfigResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "name": { "type": "string" },
+          "baseUrl": { "type": "string" },
+          "acctId": { "type": "string" },
+          "username": { "type": "string" },
+          "lcid": { "format": "int32", "type": ["integer", "string"] },
+          "hasPassword": { "type": "boolean" },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "lastTestedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "lastTestStatusKey": { "type": ["null", "string"] },
+          "lastTestMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "baseUrl", "acctId", "username", "lcid", "hasPassword", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreateK3CloudConnectionConfigRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "baseUrl": { "type": "string" },
+          "acctId": { "type": "string" },
+          "username": { "type": "string" },
+          "password": { "type": "string" },
+          "lcid": { "format": "int32", "type": ["integer", "string"] },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["name", "baseUrl", "acctId", "username", "password", "lcid", "isDefault", "isEnabled"],
+        "type": "object"
+      },
+      "UpdateK3CloudConnectionConfigRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "baseUrl": { "type": "string" },
+          "acctId": { "type": "string" },
+          "username": { "type": "string" },
+          "password": { "type": ["null", "string"] },
+          "lcid": { "format": "int32", "type": ["integer", "string"] },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "baseUrl", "acctId", "username", "lcid", "isDefault", "isEnabled", "version"],
+        "type": "object"
+      },
+      "TestK3CloudConnectionConfigResult": {
+        "properties": {
+          "succeeded": { "type": "boolean" },
+          "message": { "type": "string" }
+        },
+        "required": ["succeeded", "message"],
+        "type": "object"
+      },
+      "K3CloudDocumentSyncResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "connectionConfigId": { "format": "uuid", "type": "string" },
+          "documentTypeKey": { "type": "string" },
+          "businessKey": { "type": "string" },
+          "statusKey": { "type": "string" },
+          "lastStepKey": { "type": ["null", "string"] },
+          "externalBillId": { "type": ["null", "string"] },
+          "externalBillNo": { "type": ["null", "string"] },
+          "lastErrorCode": { "type": ["null", "string"] },
+          "lastErrorMessage": { "type": ["null", "string"] },
+          "submittedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "createdByUserId": { "format": "uuid", "type": "string" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "connectionConfigId", "documentTypeKey", "businessKey", "statusKey", "createdAtUtc", "createdByUserId", "version"],
+        "type": "object"
+      },
+      "CreateK3CloudDocumentSyncRequest": {
+        "properties": {
+          "connectionConfigId": { "format": "uuid", "type": "string" },
+          "documentTypeKey": { "type": "string" },
+          "businessKey": { "type": "string" },
+          "payloadJson": { "type": "string" }
+        },
+        "required": ["connectionConfigId", "documentTypeKey", "businessKey", "payloadJson"],
+        "type": "object"
+      },
+      "PagedResultOfK3CloudDocumentSyncResponse": {
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/K3CloudDocumentSyncResponse" } },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
         "type": "object"
       },
       "AiModelConfigListItem": {

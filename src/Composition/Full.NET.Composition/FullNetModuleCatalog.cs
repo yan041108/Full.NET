@@ -22,6 +22,7 @@ using Full.NET.Modules.Printing;
 using Full.NET.Modules.Ai;
 using Full.NET.Modules.Payments;
 using Full.NET.Modules.GoView;
+using Full.NET.Modules.K3Cloud;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Mqtt;
@@ -165,6 +166,7 @@ public static class FullNetModuleCatalog
         new AiModule(),
         new PaymentsModule(),
         new GoViewModule(),
+        new K3CloudModule(),
         new SettingsModule(),
         new CodeGenerationModule(),
         new SerialNumbersModule(),

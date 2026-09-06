@@ -647,6 +647,22 @@ export type {
 } from './goview-projects.js';
 
 export {
+  isK3CloudConnectionConfig,
+  isK3CloudDocumentSync,
+  isK3CloudDocumentSyncPage
+} from './k3cloud.js';
+
+export type {
+  CreateK3CloudConnectionConfigRequest,
+  CreateK3CloudDocumentSyncRequest,
+  K3CloudConnectionConfig,
+  K3CloudDocumentSync,
+  K3CloudDocumentSyncPage,
+  TestK3CloudConnectionConfigResult,
+  UpdateK3CloudConnectionConfigRequest
+} from './k3cloud.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest
