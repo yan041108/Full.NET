@@ -58,6 +58,39 @@ internal static class OpenApiCodeGenerationCatalogContractAssertions
             "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document,
+            "/api/v1/code-generation/catalog/views",
+            HttpMethod.Get,
+            "codeGenerationListCatalogViews",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/catalog/objects",
+            HttpMethod.Get,
+            "codeGenerationListCatalogObjects",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/catalog/objects/{objectName}/metadata",
+            HttpMethod.Get,
+            "codeGenerationGetCatalogMetadata",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/code-generation/catalog/migration-draft",
+            HttpMethod.Post,
+            "codeGenerationGenerateCatalogMigrationDraft",
+            tag,
+            200,
+            "application/json",
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
             "/api/v1/code-generation/catalog/tables/{tableName}/columns",
             HttpMethod.Get,
             "codeGenerationListCatalogColumns",

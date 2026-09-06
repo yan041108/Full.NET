@@ -63,6 +63,17 @@ internal sealed class CodeGenerationAuthorizationContributor
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
     [
         new NavigationDefinition(
+            "code-generation-catalog",
+            null,
+            "code-generation-catalog",
+            "/code-generation/catalog",
+            "code-generation-catalog",
+            "数据库目录",
+            "Database Catalog",
+            "database",
+            68,
+            CodeGenerationCatalogPermissions.Read),
+        new NavigationDefinition(
             "code-generation-templates",
             null,
             "code-generation-templates",

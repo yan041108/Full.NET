@@ -1686,6 +1686,264 @@
         ]
       }
     },
+    "/api/v1/code-generation/catalog/views": {
+      "get": {
+        "operationId": "codeGenerationListCatalogViews",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CodeGenerationCatalogObjectResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "CodeGenerationCatalog"
+        ]
+      }
+    },
+    "/api/v1/code-generation/catalog/objects": {
+      "get": {
+        "operationId": "codeGenerationListCatalogObjects",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CodeGenerationCatalogObjectResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "CodeGenerationCatalog"
+        ]
+      }
+    },
+    "/api/v1/code-generation/catalog/objects/{objectName}/metadata": {
+      "get": {
+        "operationId": "codeGenerationGetCatalogMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "objectName",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeGenerationCatalogMetadataResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "CodeGenerationCatalog"
+        ]
+      }
+    },
+    "/api/v1/code-generation/catalog/migration-draft": {
+      "post": {
+        "operationId": "codeGenerationGenerateCatalogMigrationDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeGenerationCatalogMigrationDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeGenerationCatalogMigrationDraftResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "CodeGenerationCatalog"
+        ]
+      }
+    },
     "/api/v1/code-generation/previews": {
       "post": {
         "operationId": "codeGenerationPreviewCrud",
@@ -29246,6 +29504,130 @@
         },
         "required": [
           "tableName"
+        ],
+        "type": "object"
+      },
+      "CodeGenerationCatalogObjectResponse": {
+        "properties": {
+          "objectKind": {
+            "type": "string"
+          },
+          "objectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "objectName",
+          "objectKind"
+        ],
+        "type": "object"
+      },
+      "CodeGenerationCatalogMetadataColumnResponse": {
+        "properties": {
+          "columnName": {
+            "type": "string"
+          },
+          "columnType": {
+            "type": "string"
+          },
+          "dataType": {
+            "type": "string"
+          },
+          "isNullable": {
+            "type": "boolean"
+          },
+          "maxLength": {
+            "type": [
+              "null",
+              "integer",
+              "number"
+            ]
+          },
+          "numericPrecision": {
+            "type": [
+              "null",
+              "integer"
+            ]
+          },
+          "numericScale": {
+            "type": [
+              "null",
+              "integer"
+            ]
+          },
+          "ordinalPosition": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "columnName",
+          "dataType",
+          "columnType",
+          "isNullable",
+          "maxLength",
+          "ordinalPosition",
+          "numericPrecision",
+          "numericScale"
+        ],
+        "type": "object"
+      },
+      "CodeGenerationCatalogMetadataResponse": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/CodeGenerationCatalogMetadataColumnResponse"
+            },
+            "type": "array"
+          },
+          "objectKind": {
+            "type": "string"
+          },
+          "objectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "objectName",
+          "objectKind",
+          "columns"
+        ],
+        "type": "object"
+      },
+      "CodeGenerationCatalogMigrationDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "tableName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tableName"
+        ],
+        "type": "object"
+      },
+      "CodeGenerationCatalogMigrationDraftResponse": {
+        "properties": {
+          "mySqlDraft": {
+            "type": "string"
+          },
+          "sqlServerDraft": {
+            "type": "string"
+          },
+          "tableName": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tableName",
+          "sqlServerDraft",
+          "mySqlDraft",
+          "warnings"
         ],
         "type": "object"
       },

@@ -292,6 +292,11 @@ export function createAppRouter(
         component: () => import('../views/AdministrativeRegionsView.vue')
       },
       {
+        name: 'code-generation-catalog',
+        path: '/code-generation/catalog',
+        component: () => import('../views/CodeGenerationCatalogView.vue')
+      },
+      {
         name: 'code-generation-templates',
         path: '/code-generation/templates',
         component: () => import('../views/CodeGenerationTemplatesView.vue')

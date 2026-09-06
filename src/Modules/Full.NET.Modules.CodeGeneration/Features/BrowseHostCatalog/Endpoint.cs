@@ -37,6 +37,88 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             CodeGenerationCatalogPermissions.Read));
 
+        group.MapGet("/views", async (
+            CodeGenerationCatalogQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListViewsAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("codeGenerationListCatalogViews")
+        .Produces<IReadOnlyList<CodeGenerationCatalogObjectResponse>>(
+            StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationCatalogPermissions.Read));
+
+        group.MapGet("/objects", async (
+            CodeGenerationCatalogQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListObjectsAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("codeGenerationListCatalogObjects")
+        .Produces<IReadOnlyList<CodeGenerationCatalogObjectResponse>>(
+            StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationCatalogPermissions.Read));
+
+        group.MapGet("/objects/{objectName}/metadata", async (
+            string objectName,
+            CodeGenerationCatalogQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GetMetadataAsync(
+                    objectName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("codeGenerationGetCatalogMetadata")
+        .Produces<CodeGenerationCatalogMetadataResponse>(
+            StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationCatalogPermissions.Read));
+
+        group.MapPost("/migration-draft", async (
+            CodeGenerationCatalogMigrationDraftRequest request,
+            CodeGenerationCatalogQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GenerateMigrationDraftAsync(
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("codeGenerationGenerateCatalogMigrationDraft")
+        .Produces<CodeGenerationCatalogMigrationDraftResponse>(
+            StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            CodeGenerationCatalogPermissions.Read));
+
         group.MapGet("/tables/{tableName}/columns", async (
             string tableName,
             CodeGenerationCatalogQueryService queries,

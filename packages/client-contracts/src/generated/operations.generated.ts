@@ -41,6 +41,11 @@ import type {
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
+  CodeGenerationCatalogMetadataColumnResponse,
+  CodeGenerationCatalogMetadataResponse,
+  CodeGenerationCatalogMigrationDraftRequest,
+  CodeGenerationCatalogMigrationDraftResponse,
+  CodeGenerationCatalogObjectResponse,
   CodeGenerationCatalogTableResponse,
   CodeGenerationClientRouteTargetRequest,
   CodeGenerationEntityCapabilitiesRequest,
@@ -401,7 +406,11 @@ import {
   readCachePolicySummary,
   readCodeGenerationCatalogColumnListResponse,
   readCodeGenerationCatalogColumnSyncResponse,
+  readCodeGenerationCatalogMetadataResponse,
+  readCodeGenerationCatalogMigrationDraftResponse,
+  readCodeGenerationListCatalogObjectsResponse,
   readCodeGenerationListCatalogTablesResponse,
+  readCodeGenerationListCatalogViewsResponse,
   readCodeGenerationPreviewResponse,
   readCodeGenerationRunApplyResponse,
   readCodeGenerationRunPreviewResponse,
@@ -1051,6 +1060,46 @@ export async function codeGenerationDownloadRunArtifacts(
     : await http.requestBlob(path, init, signal, options);
 }
 
+export interface CodeGenerationGenerateCatalogMigrationDraftParameters {
+  readonly body: CodeGenerationCatalogMigrationDraftRequest;
+}
+
+export async function codeGenerationGenerateCatalogMigrationDraft(
+  http: HttpClient,
+  parameters: CodeGenerationGenerateCatalogMigrationDraftParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CodeGenerationCatalogMigrationDraftResponse> {
+  const path = `/api/v1/code-generation/catalog/migration-draft`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationCatalogMigrationDraftResponse(value);
+}
+
+export interface CodeGenerationGetCatalogMetadataParameters {
+  readonly objectName: string;
+}
+
+export async function codeGenerationGetCatalogMetadata(
+  http: HttpClient,
+  parameters: CodeGenerationGetCatalogMetadataParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CodeGenerationCatalogMetadataResponse> {
+  const path = `/api/v1/code-generation/catalog/objects/${encodeURIComponent(String(parameters.objectName))}/metadata`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationCatalogMetadataResponse(value);
+}
+
 export interface CodeGenerationGetTemplateParameters {
   readonly templateId: string;
 }
@@ -1087,6 +1136,24 @@ export async function codeGenerationListCatalogColumns(
   return readCodeGenerationCatalogColumnListResponse(value);
 }
 
+export interface CodeGenerationListCatalogObjectsParameters {
+
+}
+
+export async function codeGenerationListCatalogObjects(
+  http: HttpClient,
+  parameters: CodeGenerationListCatalogObjectsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<CodeGenerationCatalogObjectResponse>> {
+  const path = `/api/v1/code-generation/catalog/objects`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationListCatalogObjectsResponse(value);
+}
+
 export interface CodeGenerationListCatalogTablesParameters {
 
 }
@@ -1103,6 +1170,24 @@ export async function codeGenerationListCatalogTables(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readCodeGenerationListCatalogTablesResponse(value);
+}
+
+export interface CodeGenerationListCatalogViewsParameters {
+
+}
+
+export async function codeGenerationListCatalogViews(
+  http: HttpClient,
+  parameters: CodeGenerationListCatalogViewsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<CodeGenerationCatalogObjectResponse>> {
+  const path = `/api/v1/code-generation/catalog/views`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCodeGenerationListCatalogViewsResponse(value);
 }
 
 export interface CodeGenerationListRunsParameters {

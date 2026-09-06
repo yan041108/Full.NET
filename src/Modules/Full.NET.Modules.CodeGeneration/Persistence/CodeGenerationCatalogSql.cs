@@ -18,6 +18,16 @@ internal static class CodeGenerationCatalogSql
         DatabaseCatalogQueries.ListTablesMySql,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListViewsSqlServer = new(
+        "codegen.catalog.list_views.sql_server",
+        DatabaseCatalogQueries.ListViewsSqlServer,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListViewsMySql = new(
+        "codegen.catalog.list_views.my_sql",
+        DatabaseCatalogQueries.ListViewsMySql,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListColumnsSqlServer = new(
         "codegen.catalog.list_columns.sql_server",
         DatabaseCatalogQueries.ListColumnsSqlServer,

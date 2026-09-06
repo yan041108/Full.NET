@@ -20,13 +20,139 @@ internal sealed class CodeGenerationCatalogQueryService(
     public async Task<Result<IReadOnlyList<CodeGenerationCatalogTableResponse>>>
         ListTablesAsync(CancellationToken cancellationToken = default)
     {
-        var tables = await ReadTableNamesAsync(cancellationToken)
+        var tables = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.Table,
+                cancellationToken)
             .ConfigureAwait(false);
         return Result<IReadOnlyList<CodeGenerationCatalogTableResponse>>.Success(
             tables
                 .Select(tableName => new CodeGenerationCatalogTableResponse(
                     tableName))
                 .ToArray());
+    }
+
+    /// <summary>
+    /// 列举当前库视图，过滤不安全名称并稳定排序；只读，不执行 DDL。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<CodeGenerationCatalogObjectResponse>>>
+        ListViewsAsync(CancellationToken cancellationToken = default)
+    {
+        var views = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.View,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<CodeGenerationCatalogObjectResponse>>.Success(
+            views
+                .Select(viewName => new CodeGenerationCatalogObjectResponse(
+                    viewName,
+                    CodeGenerationCatalogObjectKinds.View))
+                .ToArray());
+    }
+
+    /// <summary>
+    /// 合并列举基础表与视图，供元数据检查页浏览。
+    /// </summary>
+    public async Task<Result<IReadOnlyList<CodeGenerationCatalogObjectResponse>>>
+        ListObjectsAsync(CancellationToken cancellationToken = default)
+    {
+        var tables = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.Table,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var views = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.View,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var objects = tables
+            .Select(name => new CodeGenerationCatalogObjectResponse(
+                name,
+                CodeGenerationCatalogObjectKinds.Table))
+            .Concat(views.Select(name => new CodeGenerationCatalogObjectResponse(
+                name,
+                CodeGenerationCatalogObjectKinds.View)))
+            .OrderBy(item => item.ObjectName, StringComparer.Ordinal)
+            .ToArray();
+        return Result<IReadOnlyList<CodeGenerationCatalogObjectResponse>>.Success(
+            objects);
+    }
+
+    /// <summary>
+    /// 返回表或视图的原始 INFORMATION_SCHEMA 列元数据，不做代码生成映射。
+    /// </summary>
+    public async Task<Result<CodeGenerationCatalogMetadataResponse>>
+        GetMetadataAsync(
+            string objectName,
+            CancellationToken cancellationToken = default)
+    {
+        var resolved = await ResolveObjectAsync(objectName, cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolved.IsSuccess)
+        {
+            return Result<CodeGenerationCatalogMetadataResponse>.Failure(
+                resolved.Error!);
+        }
+
+        var columns = await ReadRawColumnsAsync(
+                resolved.Value!.Name,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return Result<CodeGenerationCatalogMetadataResponse>.Success(
+            new CodeGenerationCatalogMetadataResponse(
+                resolved.Value!.Name,
+                resolved.Value!.Kind,
+                columns
+                    .Select(column => new CodeGenerationCatalogMetadataColumnResponse(
+                        column.Name,
+                        column.DataType,
+                        column.ColumnType,
+                        column.IsNullable,
+                        column.MaxLength,
+                        column.OrdinalPosition,
+                        column.NumericPrecision,
+                        column.NumericScale))
+                    .ToArray()));
+    }
+
+    /// <summary>
+    /// 基于基础表当前列形态生成双库迁移草案文本，不执行 DDL。
+    /// </summary>
+    public async Task<Result<CodeGenerationCatalogMigrationDraftResponse>>
+        GenerateMigrationDraftAsync(
+            CodeGenerationCatalogMigrationDraftRequest request,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var resolved = await ResolveTableAsync(
+                request.TableName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolved.IsSuccess)
+        {
+            return Result<CodeGenerationCatalogMigrationDraftResponse>.Failure(
+                resolved.Error!);
+        }
+
+        var columns = await ReadRawColumnsAsync(
+                resolved.Value!,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var provider = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => DatabaseMetadataProvider.SqlServer,
+            DatabaseProvider.MySql => DatabaseMetadataProvider.MySql,
+            _ => throw new InvalidOperationException(
+                "The configured database provider is not supported."),
+        };
+        var draft = CatalogMigrationDraftGenerator.Generate(
+            resolved.Value!,
+            provider,
+            columns);
+        return Result<CodeGenerationCatalogMigrationDraftResponse>.Success(
+            new CodeGenerationCatalogMigrationDraftResponse(
+                resolved.Value!,
+                draft.SqlServerDraft,
+                draft.MySqlDraft,
+                draft.Warnings));
     }
 
     /// <summary>
@@ -132,7 +258,9 @@ internal sealed class CodeGenerationCatalogQueryService(
                 ErrorType.Validation));
         }
 
-        var tables = await ReadTableNamesAsync(cancellationToken)
+        var tables = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.Table,
+                cancellationToken)
             .ConfigureAwait(false);
         var match = tables.FirstOrDefault(candidate =>
             string.Equals(candidate, tableName, StringComparison.Ordinal));
@@ -144,14 +272,59 @@ internal sealed class CodeGenerationCatalogQueryService(
             : Result<string>.Success(match);
     }
 
-    private async Task<IReadOnlyList<string>> ReadTableNamesAsync(
+    private async Task<Result<(string Name, string Kind)>> ResolveObjectAsync(
+        string objectName,
         CancellationToken cancellationToken)
     {
-        var statement = databaseOptions.Value.Provider switch
+        if (!DatabaseCatalogQueries.IsSafeTableName(objectName))
         {
-            DatabaseProvider.SqlServer =>
+            return Result<(string Name, string Kind)>.Failure(new Error(
+                CodeGenerationCatalogErrorCodes.InvalidTable,
+                "The catalog object name is invalid.",
+                ErrorType.Validation));
+        }
+
+        var tables = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.Table,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var tableMatch = tables.FirstOrDefault(candidate =>
+            string.Equals(candidate, objectName, StringComparison.Ordinal));
+        if (tableMatch is not null)
+        {
+            return Result<(string Name, string Kind)>.Success(
+                (tableMatch, CodeGenerationCatalogObjectKinds.Table));
+        }
+
+        var views = await ReadObjectNamesAsync(
+                CodeGenerationCatalogObjectKinds.View,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var viewMatch = views.FirstOrDefault(candidate =>
+            string.Equals(candidate, objectName, StringComparison.Ordinal));
+        return viewMatch is null
+            ? Result<(string Name, string Kind)>.Failure(new Error(
+                CodeGenerationCatalogErrorCodes.ObjectNotFound,
+                "The catalog object was not found.",
+                ErrorType.NotFound))
+            : Result<(string Name, string Kind)>.Success(
+                (viewMatch, CodeGenerationCatalogObjectKinds.View));
+    }
+
+    private async Task<IReadOnlyList<string>> ReadObjectNamesAsync(
+        string objectKind,
+        CancellationToken cancellationToken)
+    {
+        var statement = (databaseOptions.Value.Provider, objectKind) switch
+        {
+            (DatabaseProvider.SqlServer, CodeGenerationCatalogObjectKinds.Table) =>
                 CodeGenerationCatalogSql.ListTablesSqlServer,
-            DatabaseProvider.MySql => CodeGenerationCatalogSql.ListTablesMySql,
+            (DatabaseProvider.MySql, CodeGenerationCatalogObjectKinds.Table) =>
+                CodeGenerationCatalogSql.ListTablesMySql,
+            (DatabaseProvider.SqlServer, CodeGenerationCatalogObjectKinds.View) =>
+                CodeGenerationCatalogSql.ListViewsSqlServer,
+            (DatabaseProvider.MySql, CodeGenerationCatalogObjectKinds.View) =>
+                CodeGenerationCatalogSql.ListViewsMySql,
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
@@ -168,12 +341,9 @@ internal sealed class CodeGenerationCatalogQueryService(
             .ToArray();
     }
 
-    private async Task<(
-            IReadOnlyList<CodeGenerationPreviewColumnRequest> Columns,
-            IReadOnlyList<string> SkippedColumnNames)>
-        MapColumnsAsync(
-            string tableName,
-            CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<DatabaseColumnMetadata>> ReadRawColumnsAsync(
+        string tableName,
+        CancellationToken cancellationToken)
     {
         var statement = databaseOptions.Value.Provider switch
         {
@@ -183,24 +353,15 @@ internal sealed class CodeGenerationCatalogQueryService(
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };
-        var provider = databaseOptions.Value.Provider switch
-        {
-            DatabaseProvider.SqlServer => DatabaseMetadataProvider.SqlServer,
-            DatabaseProvider.MySql => DatabaseMetadataProvider.MySql,
-            _ => throw new InvalidOperationException(
-                "The configured database provider is not supported."),
-        };
         var rows = await queryExecutor
             .QueryAsync<CodeGenerationCatalogColumnRow>(
                 statement,
                 CodeGenerationSqlParameters.Create(("TableName", tableName)),
                 cancellationToken)
             .ConfigureAwait(false);
-        var columns = new List<CodeGenerationPreviewColumnRequest>();
-        var skipped = new List<string>();
-        foreach (var row in rows.OrderBy(item => item.OrdinalPosition))
-        {
-            var metadata = new DatabaseColumnMetadata(
+        return rows
+            .OrderBy(item => item.OrdinalPosition)
+            .Select(row => new DatabaseColumnMetadata(
                 row.ColumnName,
                 row.DataType,
                 row.ColumnType,
@@ -211,13 +372,36 @@ internal sealed class CodeGenerationCatalogQueryService(
                 row.MaxLength,
                 row.OrdinalPosition,
                 row.NumericPrecision,
-                row.NumericScale);
+                row.NumericScale))
+            .ToArray();
+    }
+
+    private async Task<(
+            IReadOnlyList<CodeGenerationPreviewColumnRequest> Columns,
+            IReadOnlyList<string> SkippedColumnNames)>
+        MapColumnsAsync(
+            string tableName,
+            CancellationToken cancellationToken)
+    {
+        var provider = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => DatabaseMetadataProvider.SqlServer,
+            DatabaseProvider.MySql => DatabaseMetadataProvider.MySql,
+            _ => throw new InvalidOperationException(
+                "The configured database provider is not supported."),
+        };
+        var rawColumns = await ReadRawColumnsAsync(tableName, cancellationToken)
+            .ConfigureAwait(false);
+        var columns = new List<CodeGenerationPreviewColumnRequest>();
+        var skipped = new List<string>();
+        foreach (var metadata in rawColumns)
+        {
             if (!DatabaseColumnMetadataMapper.TryMap(
                     provider,
                     metadata,
                     out var mapped))
             {
-                skipped.Add(row.ColumnName);
+                skipped.Add(metadata.Name);
                 continue;
             }
 

@@ -40,6 +40,11 @@ import type {
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
+  CodeGenerationCatalogMetadataColumnResponse,
+  CodeGenerationCatalogMetadataResponse,
+  CodeGenerationCatalogMigrationDraftRequest,
+  CodeGenerationCatalogMigrationDraftResponse,
+  CodeGenerationCatalogObjectResponse,
   CodeGenerationCatalogTableResponse,
   CodeGenerationClientRouteTargetRequest,
   CodeGenerationEntityCapabilitiesRequest,
@@ -806,6 +811,61 @@ export function readCodeGenerationCatalogColumnSyncResponse(value: unknown): Cod
 
 function isCodeGenerationCatalogColumnSyncResponse(value: unknown): value is CodeGenerationCatalogColumnSyncResponse {
   return isRecord(value) && (Array.isArray(value["addedColumnNames"]) && value["addedColumnNames"].every(item25 => typeof item25 === 'string')) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isCodeGenerationPreviewColumnRequest(item16))) && (Array.isArray(value["removedColumnNames"]) && value["removedColumnNames"].every(item27 => typeof item27 === 'string')) && (Array.isArray(value["skippedColumnNames"]) && value["skippedColumnNames"].every(item27 => typeof item27 === 'string')) && (typeof value["tableName"] === 'string');
+}
+
+export function readCodeGenerationCatalogMetadataColumnResponse(value: unknown): CodeGenerationCatalogMetadataColumnResponse {
+  if (!(isCodeGenerationCatalogMetadataColumnResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_metadata_column_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogMetadataColumnResponse(value: unknown): value is CodeGenerationCatalogMetadataColumnResponse {
+  return isRecord(value) && (typeof value["columnName"] === 'string') && (typeof value["columnType"] === 'string') && (typeof value["dataType"] === 'string') && (typeof value["isNullable"] === 'boolean') && ((value["maxLength"] === null) || (typeof value["maxLength"] === 'number' && Number.isInteger(value["maxLength"])) || (typeof value["maxLength"] === 'number' && Number.isFinite(value["maxLength"]))) && ((value["numericPrecision"] === null) || (typeof value["numericPrecision"] === 'number' && Number.isInteger(value["numericPrecision"]))) && ((value["numericScale"] === null) || (typeof value["numericScale"] === 'number' && Number.isInteger(value["numericScale"]))) && (typeof value["ordinalPosition"] === 'number' && Number.isInteger(value["ordinalPosition"]));
+}
+
+export function readCodeGenerationCatalogMetadataResponse(value: unknown): CodeGenerationCatalogMetadataResponse {
+  if (!(isCodeGenerationCatalogMetadataResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_metadata_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogMetadataResponse(value: unknown): value is CodeGenerationCatalogMetadataResponse {
+  return isRecord(value) && (Array.isArray(value["columns"]) && value["columns"].every(item16 => isCodeGenerationCatalogMetadataColumnResponse(item16))) && (typeof value["objectKind"] === 'string') && (typeof value["objectName"] === 'string');
+}
+
+export function readCodeGenerationCatalogMigrationDraftRequest(value: unknown): CodeGenerationCatalogMigrationDraftRequest {
+  if (!(isCodeGenerationCatalogMigrationDraftRequest(value))) {
+    throw new Error('client.invalid_code_generation_catalog_migration_draft_request');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogMigrationDraftRequest(value: unknown): value is CodeGenerationCatalogMigrationDraftRequest {
+  return isRecord(value) && (typeof value["tableName"] === 'string');
+}
+
+export function readCodeGenerationCatalogMigrationDraftResponse(value: unknown): CodeGenerationCatalogMigrationDraftResponse {
+  if (!(isCodeGenerationCatalogMigrationDraftResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_migration_draft_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogMigrationDraftResponse(value: unknown): value is CodeGenerationCatalogMigrationDraftResponse {
+  return isRecord(value) && (typeof value["mySqlDraft"] === 'string') && (typeof value["sqlServerDraft"] === 'string') && (typeof value["tableName"] === 'string') && (Array.isArray(value["warnings"]) && value["warnings"].every(item17 => typeof item17 === 'string'));
+}
+
+export function readCodeGenerationCatalogObjectResponse(value: unknown): CodeGenerationCatalogObjectResponse {
+  if (!(isCodeGenerationCatalogObjectResponse(value))) {
+    throw new Error('client.invalid_code_generation_catalog_object_response');
+  }
+  return value;
+}
+
+function isCodeGenerationCatalogObjectResponse(value: unknown): value is CodeGenerationCatalogObjectResponse {
+  return isRecord(value) && (typeof value["objectKind"] === 'string') && (typeof value["objectName"] === 'string');
 }
 
 export function readCodeGenerationCatalogTableResponse(value: unknown): CodeGenerationCatalogTableResponse {
@@ -4636,11 +4696,25 @@ function isWorkflowTodoRuntimeResponse(value: unknown): value is WorkflowTodoRun
   return isRecord(value) && (typeof value["approvalModeKey"] === 'string') && (typeof value["approvedCount"] === 'number' && Number.isInteger(value["approvedCount"])) && (typeof value["assigneeUserId"] === 'string' && guidPattern.test(value["assigneeUserId"])) && (isRecord(value["fieldPolicies"])) && (isJsonElement(value["formSchema"])) && (typeof value["formSchemaHash"] === 'string') && (typeof value["formVersionId"] === 'string' && guidPattern.test(value["formVersionId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["instanceId"] === 'string' && guidPattern.test(value["instanceId"])) && (typeof value["pendingCount"] === 'number' && Number.isInteger(value["pendingCount"])) && (typeof value["rejectedCount"] === 'number' && Number.isInteger(value["rejectedCount"])) && (typeof value["requiredApprovalCount"] === 'number' && Number.isInteger(value["requiredApprovalCount"])) && (typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) && (typeof value["statusKey"] === 'string') && (typeof value["stepId"] === 'string' && guidPattern.test(value["stepId"])) && (isJsonElement(value["submission"])) && (typeof value["submissionRevision"] === 'number' && Number.isInteger(value["submissionRevision"]));
 }
 
+export function readCodeGenerationListCatalogObjectsResponse(value: unknown): Array<CodeGenerationCatalogObjectResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogObjectResponse(item5)))) {
+    throw new Error('client.invalid_code_generation_list_catalog_objects_response');
+  }
+  return value as Array<CodeGenerationCatalogObjectResponse>;
+}
+
 export function readCodeGenerationListCatalogTablesResponse(value: unknown): Array<CodeGenerationCatalogTableResponse> {
   if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogTableResponse(item5)))) {
     throw new Error('client.invalid_code_generation_list_catalog_tables_response');
   }
   return value as Array<CodeGenerationCatalogTableResponse>;
+}
+
+export function readCodeGenerationListCatalogViewsResponse(value: unknown): Array<CodeGenerationCatalogObjectResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isCodeGenerationCatalogObjectResponse(item5)))) {
+    throw new Error('client.invalid_code_generation_list_catalog_views_response');
+  }
+  return value as Array<CodeGenerationCatalogObjectResponse>;
 }
 
 export function readDataApprovalsListScenariosResponse(value: unknown): Array<DataApprovalScenarioResponse> {

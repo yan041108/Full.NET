@@ -43,6 +43,12 @@ public sealed class CodeGenerationCatalogContractTests
         Assert.AreEqual(
             DatabaseCatalogQueries.ListTablesSqlServer,
             CodeGenerationCatalogSql.ListTablesSqlServer.Text);
+        Assert.AreEqual(
+            SqlDataScope.HostOnly,
+            CodeGenerationCatalogSql.ListViewsSqlServer.Scope);
+        Assert.AreEqual(
+            DatabaseCatalogQueries.ListViewsSqlServer,
+            CodeGenerationCatalogSql.ListViewsSqlServer.Text);
         Assert.IsFalse(DatabaseCatalogQueries.IsSafeTableName("../etc"));
         Assert.IsTrue(
             DatabaseCatalogQueries.IsSafeTableName("fn_codegeneration_template"));

@@ -23,6 +23,24 @@ public static class DatabaseCatalogQueries
           AND TABLE_TYPE = 'BASE TABLE'
         """;
 
+    /// <summary>SQL Server 默认 dbo 视图。</summary>
+    public const string ListViewsSqlServer =
+        """
+        SELECT TABLE_NAME AS TableName
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = 'dbo'
+          AND TABLE_TYPE = 'VIEW'
+        """;
+
+    /// <summary>MySQL 当前库视图。</summary>
+    public const string ListViewsMySql =
+        """
+        SELECT TABLE_NAME AS TableName
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_TYPE = 'VIEW'
+        """;
+
     /// <summary>SQL Server 单表列元数据，按序数排序。</summary>
     public const string ListColumnsSqlServer =
         """

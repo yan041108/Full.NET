@@ -260,6 +260,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/regions/administrative-regions'
   },
   {
+    componentKey: 'code-generation-catalog',
+    routeName: 'code-generation-catalog',
+    path: '/code-generation/catalog'
+  },
+  {
     componentKey: 'code-generation-templates',
     routeName: 'code-generation-templates',
     path: '/code-generation/templates'

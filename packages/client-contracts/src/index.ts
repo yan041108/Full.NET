@@ -1103,6 +1103,9 @@ export {
 export {
   isCodeGenerationCatalogColumnListResponse,
   isCodeGenerationCatalogColumnSyncResponse,
+  isCodeGenerationCatalogMetadataResponse,
+  isCodeGenerationCatalogMigrationDraftResponse,
+  isCodeGenerationCatalogObjectResponse,
   isCodeGenerationCatalogTableResponse
 } from './code-generation-catalog.js';
 
@@ -1172,6 +1175,11 @@ export type {
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
   CodeGenerationCatalogColumnSyncResponse,
+  CodeGenerationCatalogMetadataColumnResponse,
+  CodeGenerationCatalogMetadataResponse,
+  CodeGenerationCatalogMigrationDraftRequest,
+  CodeGenerationCatalogMigrationDraftResponse,
+  CodeGenerationCatalogObjectResponse,
   CodeGenerationCatalogTableResponse
 } from './code-generation-catalog.js';
 

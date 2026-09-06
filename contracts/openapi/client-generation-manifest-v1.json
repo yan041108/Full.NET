@@ -1905,6 +1905,30 @@
       "status": "generated"
     },
     {
+      "operationId": "codeGenerationListCatalogViews",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationListCatalogObjects",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationGetCatalogMetadata",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
+      "operationId": "codeGenerationGenerateCatalogMigrationDraft",
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "generatedGroup": "code-generation-catalog",
+      "status": "generated"
+    },
+    {
       "operationId": "serialNumbersListRules",
       "apiModule": "ui/admin/src/api/serial-number-rules.ts",
       "generatedGroup": "serial-numbers-rules",

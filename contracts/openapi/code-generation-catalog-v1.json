@@ -3,6 +3,18 @@
     "/api/v1/code-generation/catalog/tables": {
       "get": ["200", "401", "403"]
     },
+    "/api/v1/code-generation/catalog/views": {
+      "get": ["200", "401", "403"]
+    },
+    "/api/v1/code-generation/catalog/objects": {
+      "get": ["200", "401", "403"]
+    },
+    "/api/v1/code-generation/catalog/objects/{objectName}/metadata": {
+      "get": ["200", "400", "401", "403", "404"]
+    },
+    "/api/v1/code-generation/catalog/migration-draft": {
+      "post": ["200", "400", "401", "403", "404"]
+    },
     "/api/v1/code-generation/catalog/tables/{tableName}/columns": {
       "get": ["200", "400", "401", "403", "404"]
     },

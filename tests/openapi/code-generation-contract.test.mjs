@@ -94,9 +94,17 @@ test('代码生成目录 OpenAPI 夹具覆盖目录读取与字段同步端点',
   assert.match(endpoint, /MapGroup\("\/api\/v1\/code-generation\/catalog"\)/u);
   assert.match(endpoint, /\.WithTags\("CodeGenerationCatalog"\)/u);
   assert.match(endpoint, /\.WithName\("codeGenerationListCatalogTables"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationListCatalogViews"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationListCatalogObjects"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationGetCatalogMetadata"\)/u);
+  assert.match(endpoint, /\.WithName\("codeGenerationGenerateCatalogMigrationDraft"\)/u);
   assert.match(endpoint, /\.WithName\("codeGenerationListCatalogColumns"\)/u);
   assert.match(endpoint, /\.WithName\("codeGenerationSyncCatalogColumns"\)/u);
   assert.match(endpoint, /MapGet\("\/tables"/u);
+  assert.match(endpoint, /MapGet\("\/views"/u);
+  assert.match(endpoint, /MapGet\("\/objects"/u);
+  assert.match(endpoint, /MapGet\("\/objects\/\{objectName\}\/metadata"/u);
+  assert.match(endpoint, /MapPost\("\/migration-draft"/u);
   assert.match(endpoint, /MapGet\("\/tables\/\{tableName\}\/columns"/u);
   assert.match(endpoint, /MapPost\("\/column-sync"/u);
 });

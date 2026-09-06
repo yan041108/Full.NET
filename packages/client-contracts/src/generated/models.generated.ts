@@ -255,6 +255,39 @@ export interface CodeGenerationCatalogColumnSyncResponse {
   readonly tableName: string;
 }
 
+export interface CodeGenerationCatalogMetadataColumnResponse {
+  readonly columnName: string;
+  readonly columnType: string;
+  readonly dataType: string;
+  readonly isNullable: boolean;
+  readonly maxLength: null | number;
+  readonly numericPrecision: null | number;
+  readonly numericScale: null | number;
+  readonly ordinalPosition: number;
+}
+
+export interface CodeGenerationCatalogMetadataResponse {
+  readonly columns: Array<CodeGenerationCatalogMetadataColumnResponse>;
+  readonly objectKind: string;
+  readonly objectName: string;
+}
+
+export interface CodeGenerationCatalogMigrationDraftRequest {
+  readonly tableName: string;
+}
+
+export interface CodeGenerationCatalogMigrationDraftResponse {
+  readonly mySqlDraft: string;
+  readonly sqlServerDraft: string;
+  readonly tableName: string;
+  readonly warnings: Array<string>;
+}
+
+export interface CodeGenerationCatalogObjectResponse {
+  readonly objectKind: string;
+  readonly objectName: string;
+}
+
 export interface CodeGenerationCatalogTableResponse {
   readonly tableName: string;
 }
