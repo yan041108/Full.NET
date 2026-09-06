@@ -257,6 +257,11 @@ export function createAppRouter(
         component: () => import('../views/AiModelConfigsView.vue')
       },
       {
+        name: 'ai-chat',
+        path: '/ai/chat',
+        component: () => import('../views/AiChatView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

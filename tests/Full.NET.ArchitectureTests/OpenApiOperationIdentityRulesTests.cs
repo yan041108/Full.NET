@@ -106,6 +106,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string PrintingFormSchemasTag = "PrintingFormSchemas";
     private const string AiModelConfigsTag = "AiModelConfigs";
     private const string AiTenantQuotasTag = "AiTenantQuotas";
+    private const string AiChatSessionsTag = "AiChatSessions";
     private const string PrintingTemplatesTag = "PrintingTemplates";
     private const string PrintingPreviewsTag = "PrintingPreviews";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
@@ -434,6 +435,13 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/ai/tenant-quotas", "aiListTenantQuotas", AiTenantQuotasTag),
         new("GET", "/api/v1/ai/tenant-quotas/{tenantId}", "aiGetTenantQuota", AiTenantQuotasTag),
         new("PUT", "/api/v1/ai/tenant-quotas/{tenantId}", "aiUpsertTenantQuota", AiTenantQuotasTag),
+        new("GET", "/api/v1/ai/chat/sessions", "aiListChatSessions", AiChatSessionsTag),
+        new("GET", "/api/v1/ai/chat/sessions/{sessionId}", "aiGetChatSession", AiChatSessionsTag),
+        new("POST", "/api/v1/ai/chat/sessions", "aiCreateChatSession", AiChatSessionsTag),
+        new("PUT", "/api/v1/ai/chat/sessions/{sessionId}", "aiUpdateChatSession", AiChatSessionsTag),
+        new("DELETE", "/api/v1/ai/chat/sessions/{sessionId}", "aiDeleteChatSession", AiChatSessionsTag),
+        new("POST", "/api/v1/ai/chat/sessions/{sessionId}/messages/stream", "aiStreamChatMessage", AiChatSessionsTag),
+        new("POST", "/api/v1/ai/chat/sessions/{sessionId}/cancel", "aiCancelChatGeneration", AiChatSessionsTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

@@ -573,6 +573,25 @@ export type {
 } from './ai-model-configs.js';
 
 export {
+  isAiChatSession,
+  isAiChatSessionPage
+} from './ai-chat.js';
+
+export type {
+  AiChatMessage,
+  AiChatSession,
+  AiChatSessionListItem,
+  AiChatSessionListQuery,
+  AiChatSessionPage,
+  AiChatStreamDeltaEvent,
+  AiChatStreamDoneEvent,
+  AiChatStreamErrorEvent,
+  CreateAiChatSessionRequest,
+  StreamAiChatMessageRequest,
+  UpdateAiChatSessionRequest
+} from './ai-chat.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

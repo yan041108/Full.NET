@@ -26,4 +26,28 @@ public static class AiErrorCodes
 
     /// <summary>租户不存在或不可用。</summary>
     public const string TenantNotFound = "ai.tenant.not_found";
+
+    /// <summary>聊天会话不存在。</summary>
+    public const string ChatSessionNotFound = "ai.chat_session.not_found";
+
+    /// <summary>聊天会话元数据校验失败。</summary>
+    public const string ChatSessionInvalid = "ai.chat_session.invalid";
+
+    /// <summary>聊天会话并发版本冲突。</summary>
+    public const string ChatSessionConcurrencyConflict = "ai.chat_session.concurrency_conflict";
+
+    /// <summary>聊天消息校验失败。</summary>
+    public const string ChatMessageInvalid = "ai.chat_message.invalid";
+
+    /// <summary>聊天生成正在进行中。</summary>
+    public const string ChatGenerationInProgress = "ai.chat_generation.in_progress";
+
+    /// <summary>聊天生成未在进行中。</summary>
+    public const string ChatGenerationNotActive = "ai.chat_generation.not_active";
+
+    /// <summary>租户 AI 配额已用尽。</summary>
+    public const string TenantQuotaExceeded = "ai.tenant_quota.exceeded";
+
+    /// <summary>模型配置不可用。</summary>
+    public const string ModelConfigUnavailable = "ai.model_config.unavailable";
 }

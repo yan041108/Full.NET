@@ -17,6 +17,12 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiModelPermissions.Test, "测试 AI 模型连通性", AuthorizationScope.Host),
         new(AiTenantQuotaPermissions.Read, "读取 AI 租户配额", AuthorizationScope.Host),
         new(AiTenantQuotaPermissions.Update, "更新 AI 租户配额", AuthorizationScope.Host),
+        new(AiChatPermissions.Read, "读取 AI 聊天会话", AuthorizationScope.Host),
+        new(AiChatPermissions.Create, "创建 AI 聊天会话", AuthorizationScope.Host),
+        new(AiChatPermissions.Update, "更新 AI 聊天会话", AuthorizationScope.Host),
+        new(AiChatPermissions.Delete, "删除 AI 聊天会话", AuthorizationScope.Host),
+        new(AiChatPermissions.Send, "发送 AI 聊天消息", AuthorizationScope.Host),
+        new(AiChatPermissions.Cancel, "取消 AI 聊天生成", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -32,6 +38,17 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
             "cpu",
             10,
             AiModelPermissions.Read),
+        new NavigationDefinition(
+            "ai-chat",
+            null,
+            "ai-chat",
+            "/ai/chat",
+            "ai-chat",
+            "AI 对话",
+            "AI Chat",
+            "chat-dot-round",
+            20,
+            AiChatPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -64,5 +81,26 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
             "编辑租户配额",
             "quota",
             40),
+        new AuthorizationActionDefinition(
+            "ai.chat.sessions.create",
+            "ai-chat",
+            AiChatPermissions.Create,
+            "新建会话",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "ai.chat.messages.send",
+            "ai-chat",
+            AiChatPermissions.Send,
+            "发送消息",
+            "send",
+            20),
+        new AuthorizationActionDefinition(
+            "ai.chat.messages.cancel",
+            "ai-chat",
+            AiChatPermissions.Cancel,
+            "停止生成",
+            "cancel",
+            30),
     ];
 }

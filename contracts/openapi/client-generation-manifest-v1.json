@@ -2499,6 +2499,48 @@
       "status": "manual"
     },
     {
+      "operationId": "aiListChatSessions",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetChatSession",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCreateChatSession",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiUpdateChatSession",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiDeleteChatSession",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiStreamChatMessage",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCancelChatGeneration",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "generatedGroup": "ai-chat",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

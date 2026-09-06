@@ -30740,6 +30740,123 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["AiTenantQuotas"]
       }
+    },
+    "/api/v1/ai/chat/sessions": {
+      "get": {
+        "operationId": "aiListChatSessions",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfAiChatSessionListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      },
+      "post": {
+        "operationId": "aiCreateChatSession",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAiChatSessionRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiChatSessionResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      }
+    },
+    "/api/v1/ai/chat/sessions/{sessionId}": {
+      "get": {
+        "operationId": "aiGetChatSession",
+        "parameters": [
+          { "in": "path", "name": "sessionId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiChatSessionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      },
+      "put": {
+        "operationId": "aiUpdateChatSession",
+        "parameters": [
+          { "in": "path", "name": "sessionId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateAiChatSessionRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiChatSessionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      },
+      "delete": {
+        "operationId": "aiDeleteChatSession",
+        "parameters": [
+          { "in": "path", "name": "sessionId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "boolean" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      }
+    },
+    "/api/v1/ai/chat/sessions/{sessionId}/messages/stream": {
+      "post": {
+        "operationId": "aiStreamChatMessage",
+        "parameters": [
+          { "in": "path", "name": "sessionId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StreamAiChatMessageRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "text/event-stream": { "schema": { "type": "string" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      }
+    },
+    "/api/v1/ai/chat/sessions/{sessionId}/cancel": {
+      "post": {
+        "operationId": "aiCancelChatGeneration",
+        "parameters": [
+          { "in": "path", "name": "sessionId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "boolean" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiChatSessions"]
+      }
     }
   },
   "components": {
@@ -47033,6 +47150,87 @@
       "PagedResultOfAiTenantQuotaListItem": {
         "properties": {
           "items": { "items": { "$ref": "#/components/schemas/AiTenantQuotaListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "AiChatSessionListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "ownerUserId": { "format": "uuid", "type": "string" },
+          "modelConfigId": { "format": "uuid", "type": "string" },
+          "modelName": { "type": "string" },
+          "title": { "type": "string" },
+          "messageCount": { "format": "int32", "type": ["integer", "string"] },
+          "lastMessageAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "ownerUserId", "modelConfigId", "modelName", "title", "messageCount", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "AiChatMessageResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "sessionId": { "format": "uuid", "type": "string" },
+          "roleKey": { "type": "string" },
+          "content": { "type": "string" },
+          "statusKey": { "type": "string" },
+          "promptTokens": { "format": "int32", "type": ["null", "integer", "string"] },
+          "completionTokens": { "format": "int32", "type": ["null", "integer", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["id", "sessionId", "roleKey", "content", "statusKey", "createdAtUtc"],
+        "type": "object"
+      },
+      "AiChatSessionResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "ownerUserId": { "format": "uuid", "type": "string" },
+          "modelConfigId": { "format": "uuid", "type": "string" },
+          "modelName": { "type": "string" },
+          "title": { "type": "string" },
+          "isGenerating": { "type": "boolean" },
+          "messages": { "items": { "$ref": "#/components/schemas/AiChatMessageResponse" }, "type": "array" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "ownerUserId", "modelConfigId", "modelName", "title", "isGenerating", "messages", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreateAiChatSessionRequest": {
+        "properties": {
+          "modelConfigId": { "format": "uuid", "type": "string" },
+          "title": { "type": ["null", "string"] }
+        },
+        "required": ["modelConfigId"],
+        "type": "object"
+      },
+      "UpdateAiChatSessionRequest": {
+        "properties": {
+          "title": { "type": "string" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["title", "version"],
+        "type": "object"
+      },
+      "StreamAiChatMessageRequest": {
+        "properties": {
+          "content": { "type": "string" }
+        },
+        "required": ["content"],
+        "type": "object"
+      },
+      "PagedResultOfAiChatSessionListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/AiChatSessionListItem" }, "type": "array" },
           "page": { "format": "int32", "type": ["integer", "string"] },
           "pageSize": { "format": "int32", "type": ["integer", "string"] },
           "total": { "format": "int64", "type": ["integer", "string"] }

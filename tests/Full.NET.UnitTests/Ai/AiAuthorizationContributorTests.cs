@@ -21,6 +21,12 @@ public sealed class AiAuthorizationContributorTests
                 AiModelPermissions.Test,
                 AiTenantQuotaPermissions.Read,
                 AiTenantQuotaPermissions.Update,
+                AiChatPermissions.Read,
+                AiChatPermissions.Create,
+                AiChatPermissions.Update,
+                AiChatPermissions.Delete,
+                AiChatPermissions.Send,
+                AiChatPermissions.Cancel,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 

@@ -15,4 +15,11 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiTenantQuotaResponse))]
 [JsonSerializable(typeof(UpdateAiTenantQuotaRequest))]
 [JsonSerializable(typeof(PagedResult<AiTenantQuotaListItem>))]
+[JsonSerializable(typeof(AiChatSessionListItem))]
+[JsonSerializable(typeof(AiChatSessionResponse))]
+[JsonSerializable(typeof(AiChatMessageResponse))]
+[JsonSerializable(typeof(CreateAiChatSessionRequest))]
+[JsonSerializable(typeof(UpdateAiChatSessionRequest))]
+[JsonSerializable(typeof(StreamAiChatMessageRequest))]
+[JsonSerializable(typeof(PagedResult<AiChatSessionListItem>))]
 internal partial class AiJsonSerializerContext : JsonSerializerContext;

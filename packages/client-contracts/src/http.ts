@@ -26,6 +26,12 @@ export interface HttpClient {
     signal?: AbortSignal,
     options?: RequestOptions
   ): Promise<Blob>;
+  requestResponse(
+    path: string,
+    init?: RequestInit,
+    signal?: AbortSignal,
+    options?: RequestOptions
+  ): Promise<Response>;
 }
 
 /** 创建携带凭据的 Full.NET 浏览器 HTTP 客户端；各管理端只注入 API 基址。 */
@@ -107,6 +113,32 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
     return await response.blob();
   }
 
+  async function requestResponse(
+    path: string,
+    init: RequestInit = {},
+    signal?: AbortSignal,
+    options: RequestOptions = {}
+  ): Promise<Response> {
+    const response = await send(path, init, signal, options);
+    const authenticationBridge = authentication;
+    const shouldRetry = options.retryUnauthorized !== false
+      && response.status === 401
+      && authenticationBridge !== undefined;
+    if (shouldRetry) {
+      refreshInFlight ??= authenticationBridge.refresh().finally(() => {
+        refreshInFlight = undefined;
+      });
+      if (await refreshInFlight) {
+        return await requestResponse(path, init, signal, {
+          ...options,
+          retryUnauthorized: false
+        });
+      }
+    }
+
+    return response;
+  }
+
   async function send(
     path: string,
     init: RequestInit,
@@ -144,6 +176,7 @@ export function createHttpClient(apiBaseUrl = ''): HttpClient {
     configureAuthentication,
     configureRequestLocale,
     request,
-    requestBlob
+    requestBlob,
+    requestResponse
   };
 }

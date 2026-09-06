@@ -54,6 +54,33 @@ internal static class AiTenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement IncrementUsage = new(
+        "ai.increment_tenant_quota_usage",
+        """
+        UPDATE fn_ai_tenant_quota
+        SET UsedTokensThisMonth = UsedTokensThisMonth + @TokenDelta,
+            UsedRequestsThisMonth = UsedRequestsThisMonth + @RequestDelta,
+            QuotaMonthKey = @QuotaMonthKey,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE TenantId = @TenantId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ResetMonthlyUsage = new(
+        "ai.reset_tenant_quota_monthly_usage",
+        """
+        UPDATE fn_ai_tenant_quota
+        SET UsedTokensThisMonth = 0,
+            UsedRequestsThisMonth = 0,
+            QuotaMonthKey = @QuotaMonthKey,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE TenantId = @TenantId
+          AND QuotaMonthKey <> @QuotaMonthKey
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly string CountSqlServer = """
         SELECT COUNT(1)
         FROM fn_ai_tenant_quota AS quota

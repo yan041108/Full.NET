@@ -14,6 +14,8 @@ export const configureRequestLocale = http.configureRequestLocale.bind(http);
 export const request = http.request.bind(http);
 /** 发送二进制请求，供文件下载与预览场景复用。 */
 export const requestBlob = http.requestBlob.bind(http);
+/** 发送请求并返回原始 Response，供 SSE 等流式场景复用。 */
+export const requestResponse = http.requestResponse.bind(http);
 
 /** 导出底层 HTTP 客户端实例，供共享测试替身和少量高级封装复用；普通 API 模块优先使用上面的稳定包装器。 */
 export { http };

@@ -3,10 +3,12 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Ai.Connectivity;
+using Full.NET.Modules.Ai.Features.ManageChatSessions;
 using Full.NET.Modules.Ai.Features.ManageModelConfigs;
 using Full.NET.Modules.Ai.Features.ManageTenantQuotas;
 using Full.NET.Modules.Ai.Security;
 using Full.NET.Modules.Ai.Serialization;
+using Full.NET.Modules.Ai.Streaming;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -37,12 +39,20 @@ public sealed class AiModule : IFullNetModule
         services.TryAddSingleton<AiApiKeySecretProtector>();
         services.AddHttpClient(AiModelConnectivityTester.HttpClientName)
             .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddHttpClient(AiChatCompletionStreamer.HttpClientName)
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromMinutes(3));
         services.TryAddSingleton<AiModelConnectivityTester>();
+        services.TryAddSingleton<AiChatGenerationRegistry>();
+        services.TryAddSingleton<AiChatCompletionStreamer>();
+        services.TryAddSingleton<AiChatQuotaGuard>();
         services.TryAddScoped<AiModelConfigQueryService>();
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();
         services.TryAddScoped<AiTenantQuotaQueryService>();
         services.TryAddScoped<AiTenantQuotaManagementService>();
+        services.TryAddScoped<AiChatSessionQueryService>();
+        services.TryAddScoped<AiChatSessionManagementService>();
+        services.TryAddScoped<AiChatStreamService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -53,5 +63,6 @@ public sealed class AiModule : IFullNetModule
     {
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
+        Features.ManageChatSessions.Endpoint.Map(endpoints);
     }
 }
