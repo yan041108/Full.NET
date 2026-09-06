@@ -43,6 +43,22 @@ internal sealed class NotificationsAuthorizationContributor
             "撤回公告",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            HostAnnouncementPermissions.ReceivedRead,
+            "查看我收到的公告",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostAnnouncementPermissions.ReceivedMarkRead,
+            "标记公告已读",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostAnnouncementPermissions.ReceivedMarkAllRead,
+            "全部标记公告已读",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostAnnouncementPermissions.ReadStats,
+            "查看公告阅读统计",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             InboxPermissions.Read,
             "查询站内信",
             PlatformScopes),
@@ -96,6 +112,17 @@ internal sealed class NotificationsAuthorizationContributor
             55,
             HostAnnouncementPermissions.Read),
         new NavigationDefinition(
+            "my-host-announcements",
+            null,
+            "my-host-announcements",
+            "/notifications/my-host-announcements",
+            "my-host-announcements",
+            "我收到的公告",
+            "MyAnnouncements",
+            "message",
+            54,
+            HostAnnouncementPermissions.ReceivedRead),
+        new NavigationDefinition(
             "inbox-messages",
             null,
             "inbox-messages",
@@ -143,6 +170,27 @@ internal sealed class NotificationsAuthorizationContributor
             "撤回公告",
             "retract",
             40),
+        new AuthorizationActionDefinition(
+            "notifications.announcements.read_stats",
+            "host-announcements",
+            HostAnnouncementPermissions.ReadStats,
+            "阅读统计",
+            "read_stats",
+            50),
+        new AuthorizationActionDefinition(
+            "notifications.announcements.received.mark_read",
+            "my-host-announcements",
+            HostAnnouncementPermissions.ReceivedMarkRead,
+            "标记已读",
+            "mark_read",
+            10),
+        new AuthorizationActionDefinition(
+            "notifications.announcements.received.mark_all_read",
+            "my-host-announcements",
+            HostAnnouncementPermissions.ReceivedMarkAllRead,
+            "全部标记已读",
+            "mark_all_read",
+            20),
         new AuthorizationActionDefinition(
             "notifications.inbox.send",
             "inbox-messages",

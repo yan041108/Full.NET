@@ -155,6 +155,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostUsers.HostUserDirectory>();
         services.TryAddScoped<IHostUserDirectory>(provider =>
             provider.GetRequiredService<HostUsers.HostUserDirectory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostActiveUserCountReader,
+            HostUsers.HostActiveUserCountReader>());
         return services;
     }
 

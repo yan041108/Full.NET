@@ -22,6 +22,9 @@ public static class NotificationsErrorCodes
 
     public const string AnnouncementAudienceInvalid = "notifications.announcement_audience_invalid";
 
+    /// <summary>当前用户不在公告受众范围内。</summary>
+    public const string AnnouncementNotRecipient = "notifications.announcement_not_recipient";
+
     /// <summary>站内信未找到。</summary>
     public const string InboxMessageNotFound = "notifications.inbox_message_not_found";
 
@@ -185,6 +188,7 @@ public static class NotificationsErrorCodes
         AnnouncementInvalidStatus,
         AnnouncementValidationFailed,
         AnnouncementAudienceInvalid,
+        AnnouncementNotRecipient,
         InboxMessageNotFound,
         InboxRecipientNotFound,
         InboxValidationFailed,

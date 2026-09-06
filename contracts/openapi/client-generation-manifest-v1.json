@@ -1586,6 +1586,48 @@
       "status": "generated"
     },
     {
+      "operationId": "notificationsGetHostAnnouncementReadStats",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListHostAnnouncementReadReceipts",
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsListMyHostAnnouncements",
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetMyHostAnnouncementUnreadCount",
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsGetMyHostAnnouncement",
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsMarkMyHostAnnouncementRead",
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
+      "operationId": "notificationsMarkAllMyHostAnnouncementsRead",
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "generatedGroup": "notifications-host-announcement-receipts",
+      "status": "generated"
+    },
+    {
       "operationId": "notificationsListMyInboxMessages",
       "apiModule": "ui/admin/src/api/inbox-messages.ts",
       "generatedGroup": "notifications-inbox-messages",

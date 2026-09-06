@@ -31,7 +31,9 @@ internal static class NotificationsHostAnnouncementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyReceivedAnnouncementReadLifecycleAsync(client, cancellationToken);
         await OpenApiNotificationsHostAnnouncementsContractAssertions.VerifyAsync(client, cancellationToken);
+        await OpenApiNotificationsHostAnnouncementReceiptsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
@@ -161,6 +163,83 @@ internal static class NotificationsHostAnnouncementAssertions
         Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
         Assert.IsTrue(page.Items.All(item => item.Status == AnnouncementStatuses.Retracted));
     }
+
+    private static async Task VerifyReceivedAnnouncementReadLifecycleAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var title = $"收件公告-{Guid.NewGuid():N}"[..24];
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/notifications/host-announcements",
+            adminToken,
+            new CreateHostAnnouncementRequest(title, "收件正文"));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<HostAnnouncementResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+        using var publishRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}/publish",
+            adminToken,
+            new PublishHostAnnouncementRequest(created.Version));
+        using var publishResponse = await client.SendAsync(publishRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, publishResponse.StatusCode);
+
+        using var unreadRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/my-host-announcements/unread-count");
+        unreadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var unreadResponse = await client.SendAsync(unreadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, unreadResponse.StatusCode);
+        var unread = await unreadResponse.Content.ReadFromJsonAsync<HostAnnouncementUnreadCountResponse>(
+            cancellationToken);
+        Assert.IsNotNull(unread);
+        Assert.IsTrue(unread.UnreadCount >= 1);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/notifications/my-host-announcements?page=1&pageSize=20&isRead=false");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedReceivedHostAnnouncementListItems>(
+            cancellationToken);
+        Assert.IsNotNull(page);
+        Assert.IsTrue(page.Items.Any(item => item.Id == created.Id && !item.IsRead));
+
+        using var readRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/notifications/my-host-announcements/{created.Id:D}/read");
+        readRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var readResponse = await client.SendAsync(readRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, readResponse.StatusCode);
+        var readDetail = await readResponse.Content.ReadFromJsonAsync<ReceivedHostAnnouncementDetailResponse>(
+            cancellationToken);
+        Assert.IsNotNull(readDetail);
+        Assert.IsTrue(readDetail.IsRead);
+        Assert.IsNotNull(readDetail.ReadAtUtc);
+
+        using var statsRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/notifications/host-announcements/{created.Id:D}/read-stats");
+        statsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var statsResponse = await client.SendAsync(statsRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, statsResponse.StatusCode);
+        var stats = await statsResponse.Content.ReadFromJsonAsync<HostAnnouncementReadStatsResponse>(
+            cancellationToken);
+        Assert.IsNotNull(stats);
+        Assert.IsTrue(stats.ReadCount >= 1);
+        Assert.IsTrue(stats.EligibleRecipientCount >= stats.ReadCount);
+    }
+
+    private sealed record PagedReceivedHostAnnouncementListItems(
+        ReceivedHostAnnouncementListItemResponse[] Items,
+        int Page,
+        int PageSize,
+        long Total);
 
     private static async Task VerifyExactAnnouncementActionPermissionBoundariesAsync(
         FullNetApiFactory factory,

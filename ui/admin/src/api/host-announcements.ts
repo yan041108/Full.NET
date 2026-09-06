@@ -1,10 +1,14 @@
 import {
   isHostAnnouncement,
   isHostAnnouncementPage,
+  isHostAnnouncementReadReceiptPage,
+  isHostAnnouncementReadStats,
   type CreateHostAnnouncementRequest,
   type HostAnnouncement,
   type HostAnnouncementListQuery,
   type HostAnnouncementPage,
+  type HostAnnouncementReadReceiptPage,
+  type HostAnnouncementReadStats,
   type UpdateHostAnnouncementRequest
 } from '@fullnet/client-contracts';
 import { request } from './http';
@@ -132,5 +136,50 @@ export async function retractHostAnnouncement(
   return value;
 }
 
+/** 查询 Host 公告阅读统计。 */
+export async function getHostAnnouncementReadStats(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostAnnouncementReadStats> {
+  const value = await request<unknown>(
+    `/api/v1/notifications/host-announcements/${id}/read-stats`,
+    { method: 'GET' },
+    signal
+  );
+  if (!isHostAnnouncementReadStats(value)) {
+    throw new Error('client.invalid_host_announcement_read_stats');
+  }
+
+  return value;
+}
+
+/** 分页查询 Host 公告已读回执明细。 */
+export async function listHostAnnouncementReadReceipts(
+  id: string,
+  page = 1,
+  pageSize = 20,
+  signal?: AbortSignal
+): Promise<HostAnnouncementReadReceiptPage> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  });
+  const value = await request<unknown>(
+    `/api/v1/notifications/host-announcements/${id}/read-receipts?${params.toString()}`,
+    { method: 'GET' },
+    signal
+  );
+  if (!isHostAnnouncementReadReceiptPage(value)) {
+    throw new Error('client.invalid_host_announcement_read_receipt_page');
+  }
+
+  return value;
+}
+
 /** 导出公告列表与单条公告模型，供公告管理页列表、编辑器与发布流程复用同一契约。 */
-export type { HostAnnouncement, HostAnnouncementPage };
+export type {
+  HostAnnouncement,
+  HostAnnouncementPage,
+  HostAnnouncementReadReceiptPage,
+  HostAnnouncementReadStats
+};

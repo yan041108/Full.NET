@@ -71,6 +71,9 @@ public sealed class OrganizationModule : IFullNetModule
             provider.GetRequiredService<TenantUnits.OrganizationUnitProjectionCatalog>());
         services.TryAddScoped<ITenantOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            ITenantOrganizationUserMembershipReader,
+            HostDashboard.TenantOrganizationUserMembershipReader>());
         services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
         services.TryAddScoped<IIdentityOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());

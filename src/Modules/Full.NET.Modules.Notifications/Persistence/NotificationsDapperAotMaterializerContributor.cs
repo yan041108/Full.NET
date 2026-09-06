@@ -18,6 +18,8 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<AnnouncementRecord>(ReadAnnouncementRecord);
         registrar.Register<AnnouncementTargetUserRecord>(ReadAnnouncementTargetUserRecord);
         registrar.Register<AnnouncementTargetOrganizationRecord>(ReadAnnouncementTargetOrganizationRecord);
+        registrar.Register<ReceivedHostAnnouncementRecord>(ReadReceivedHostAnnouncementRecord);
+        registrar.Register<AnnouncementReadReceiptRecord>(ReadAnnouncementReadReceiptRecord);
         registrar.Register<InboxMessageRecord>(ReadInboxMessageRecord);
         registrar.Register<NotificationTemplateRecord>(ReadTemplate);
         registrar.Register<NotificationTemplateListRecord>(ReadTemplateList);
@@ -84,6 +86,28 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             AnnouncementId = reader.GetGuid(1),
             TenantId = reader.GetGuid(2),
             OrganizationUnitId = reader.GetGuid(3),
+        };
+
+    private static ReceivedHostAnnouncementRecord ReadReceivedHostAnnouncementRecord(
+        DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            Title = reader.GetString(1),
+            Content = reader.GetString(2),
+            Kind = reader.GetString(3),
+            AudienceKind = reader.GetString(4),
+            PublishedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
+            PublishedByUserId = AotDataReaderExtensions.ReadNullableGuid(reader, 6),
+            ReadAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7),
+        };
+
+    private static AnnouncementReadReceiptRecord ReadAnnouncementReadReceiptRecord(
+        DbDataReader reader) =>
+        new()
+        {
+            UserId = reader.GetGuid(0),
+            ReadAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 1),
         };
 
     private static InboxMessageRecord ReadInboxMessageRecord(DbDataReader reader) =>

@@ -90,3 +90,46 @@ public sealed record HostAnnouncementListFilter(
     string? Status = null,
     string? Kind = null,
     string? AudienceKind = null);
+
+/// <summary>我收到的 Host 公告列表项。</summary>
+public sealed record ReceivedHostAnnouncementListItemResponse(
+    Guid Id,
+    string Title,
+    string Kind,
+    string AudienceKind,
+    DateTimeOffset PublishedAtUtc,
+    bool IsRead,
+    DateTimeOffset? ReadAtUtc);
+
+/// <summary>我收到的 Host 公告详情。</summary>
+public sealed record ReceivedHostAnnouncementDetailResponse(
+    Guid Id,
+    string Title,
+    string Content,
+    string Kind,
+    string AudienceKind,
+    DateTimeOffset PublishedAtUtc,
+    Guid? PublishedByUserId,
+    bool IsRead,
+    DateTimeOffset? ReadAtUtc);
+
+/// <summary>我收到的 Host 公告未读计数。</summary>
+public sealed record HostAnnouncementUnreadCountResponse(int UnreadCount);
+
+/// <summary>我收到的 Host 公告列表筛选条件。</summary>
+public sealed record ReceivedHostAnnouncementListFilter(
+    string? Title = null,
+    bool? IsRead = null);
+
+/// <summary>Host 公告阅读统计摘要。</summary>
+public sealed record HostAnnouncementReadStatsResponse(
+    long EligibleRecipientCount,
+    long ReadCount,
+    long UnreadCount);
+
+/// <summary>Host 公告单条已读回执。</summary>
+public sealed record HostAnnouncementReadReceiptResponse(
+    Guid UserId,
+    string? Username,
+    string? DisplayName,
+    DateTimeOffset ReadAtUtc);

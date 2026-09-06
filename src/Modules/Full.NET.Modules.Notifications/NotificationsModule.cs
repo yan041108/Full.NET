@@ -74,6 +74,10 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementQueryService>();
         services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementAudienceValidator>();
         services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementManagementService>();
+        services.TryAddScoped<Features.ManageHostAnnouncements.HostAnnouncementReadStatsQueryService>();
+        services.TryAddScoped<Features.ManageMyHostAnnouncements.HostAnnouncementRecipientGuard>();
+        services.TryAddScoped<Features.ManageMyHostAnnouncements.MyHostAnnouncementQueryService>();
+        services.TryAddScoped<Features.ManageMyHostAnnouncements.MyHostAnnouncementManagementService>();
         services.TryAddScoped<Features.ManageMyInboxMessages.MyInboxQueryService>();
         services.TryAddScoped<Features.ManageMyInboxMessages.MyInboxManagementService>();
         services.TryAddScoped<Features.SendHostInboxMessages.HostInboxMessageService>();
@@ -131,6 +135,7 @@ public sealed class NotificationsModule : IFullNetModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         Features.ManageHostAnnouncements.Endpoint.Map(endpoints);
+        Features.ManageMyHostAnnouncements.Endpoint.Map(endpoints);
         Features.ManageMyInboxMessages.Endpoint.Map(endpoints);
         Features.SendHostInboxMessages.Endpoint.Map(endpoints);
         Features.SendTenantInboxMessages.Endpoint.Map(endpoints);

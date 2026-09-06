@@ -467,6 +467,18 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>统计活动 Host 用户总数，供公告受众估算等跨模块只读场景使用。</summary>
+    public static readonly SqlStatement CountActiveHostUsers = new(
+        "identity.count_active_host_users",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user
+        WHERE ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsActive = 1
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ListHostUsersSqlServer = new(
         "identity.list_host_users.sql_server",
         """

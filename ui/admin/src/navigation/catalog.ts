@@ -144,6 +144,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.hostAnnouncements.title',
     captionKey: 'navigation.hostAnnouncements.caption'
   }],
+  ['my-host-announcements', {
+    titleKey: 'navigation.myHostAnnouncements.title',
+    captionKey: 'navigation.myHostAnnouncements.caption'
+  }],
   ['inbox-messages', {
     titleKey: 'navigation.inboxMessages.title',
     captionKey: 'navigation.inboxMessages.caption'

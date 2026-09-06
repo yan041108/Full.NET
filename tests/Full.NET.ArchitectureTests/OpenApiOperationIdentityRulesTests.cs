@@ -63,6 +63,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string PlatformMyReleaseNotesTag = "PlatformMyReleaseNotes";
     private const string RegionsAdministrativeRegionsTag = "RegionsAdministrativeRegions";
     private const string NotificationsHostAnnouncementsTag = "NotificationsHostAnnouncements";
+    private const string NotificationsMyHostAnnouncementsTag = "NotificationsMyHostAnnouncements";
     private const string NotificationsMyInboxMessagesTag = "NotificationsMyInboxMessages";
     private const string NotificationsHostInboxMessagesTag = "NotificationsHostInboxMessages";
     private const string CodeGenerationPreviewsTag = "CodeGenerationPreviews";
@@ -462,6 +463,13 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/notifications/host-announcements/{announcementId}", "notificationsUpdateHostAnnouncement", NotificationsHostAnnouncementsTag),
         new("POST", "/api/v1/notifications/host-announcements/{announcementId}/publish", "notificationsPublishHostAnnouncement", NotificationsHostAnnouncementsTag),
         new("POST", "/api/v1/notifications/host-announcements/{announcementId}/retract", "notificationsRetractHostAnnouncement", NotificationsHostAnnouncementsTag),
+        new("GET", "/api/v1/notifications/host-announcements/{announcementId}/read-stats", "notificationsGetHostAnnouncementReadStats", NotificationsHostAnnouncementsTag),
+        new("GET", "/api/v1/notifications/host-announcements/{announcementId}/read-receipts", "notificationsListHostAnnouncementReadReceipts", NotificationsHostAnnouncementsTag),
+        new("GET", "/api/v1/notifications/my-host-announcements", "notificationsListMyHostAnnouncements", NotificationsMyHostAnnouncementsTag),
+        new("GET", "/api/v1/notifications/my-host-announcements/unread-count", "notificationsGetMyHostAnnouncementUnreadCount", NotificationsMyHostAnnouncementsTag),
+        new("GET", "/api/v1/notifications/my-host-announcements/{announcementId}", "notificationsGetMyHostAnnouncement", NotificationsMyHostAnnouncementsTag),
+        new("POST", "/api/v1/notifications/my-host-announcements/{announcementId}/read", "notificationsMarkMyHostAnnouncementRead", NotificationsMyHostAnnouncementsTag),
+        new("POST", "/api/v1/notifications/my-host-announcements/read-all", "notificationsMarkAllMyHostAnnouncementsRead", NotificationsMyHostAnnouncementsTag),
         new("GET", "/api/v1/notifications/my-inbox-messages", "notificationsListMyInboxMessages", NotificationsMyInboxMessagesTag),
         new("GET", "/api/v1/notifications/my-inbox-messages/unread-count", "notificationsGetMyInboxUnreadCount", NotificationsMyInboxMessagesTag),
         new("POST", "/api/v1/notifications/my-inbox-messages/{messageId}/read", "notificationsMarkMyInboxMessageRead", NotificationsMyInboxMessagesTag),

@@ -68,6 +68,59 @@ export interface HostAnnouncementListQuery {
   audienceKind?: AnnouncementAudienceKind | '';
 }
 
+export interface ReceivedHostAnnouncementListItem {
+  id: string;
+  title: string;
+  kind: AnnouncementKind;
+  audienceKind: AnnouncementAudienceKind;
+  publishedAtUtc: string;
+  isRead: boolean;
+  readAtUtc: string | null;
+}
+
+export interface ReceivedHostAnnouncementDetail extends ReceivedHostAnnouncementListItem {
+  content: string;
+  publishedByUserId: string | null;
+}
+
+export interface ReceivedHostAnnouncementPage {
+  items: ReceivedHostAnnouncementListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface HostAnnouncementUnreadCount {
+  unreadCount: number;
+}
+
+export interface HostAnnouncementReadStats {
+  eligibleRecipientCount: number;
+  readCount: number;
+  unreadCount: number;
+}
+
+export interface HostAnnouncementReadReceipt {
+  userId: string;
+  username: string | null;
+  displayName: string | null;
+  readAtUtc: string;
+}
+
+export interface HostAnnouncementReadReceiptPage {
+  items: HostAnnouncementReadReceipt[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface ReceivedHostAnnouncementListQuery {
+  page?: number;
+  pageSize?: number;
+  title?: string;
+  isRead?: boolean;
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isHostAnnouncement(value: unknown): value is HostAnnouncement {
@@ -129,6 +182,69 @@ export function isRetractHostAnnouncementRequest(
   value: unknown
 ): value is RetractHostAnnouncementRequest {
   return isRecord(value) && Number.isInteger(value.version);
+}
+
+export function isReceivedHostAnnouncementListItem(
+  value: unknown
+): value is ReceivedHostAnnouncementListItem {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isNonEmptyString(value.title)
+    && (value.kind === 'notice' || value.kind === 'announcement')
+    && (value.audienceKind === 'all' || value.audienceKind === 'users' || value.audienceKind === 'organizations')
+    && typeof value.publishedAtUtc === 'string'
+    && typeof value.isRead === 'boolean'
+    && (value.readAtUtc === null || typeof value.readAtUtc === 'string');
+}
+
+export function isReceivedHostAnnouncementDetail(
+  value: unknown
+): value is ReceivedHostAnnouncementDetail {
+  return isReceivedHostAnnouncementListItem(value)
+    && isNonEmptyString((value as ReceivedHostAnnouncementDetail).content)
+    && ((value as ReceivedHostAnnouncementDetail).publishedByUserId === null
+      || isGuid((value as ReceivedHostAnnouncementDetail).publishedByUserId));
+}
+
+export function isReceivedHostAnnouncementPage(
+  value: unknown
+): value is ReceivedHostAnnouncementPage {
+  return isRecord(value)
+    && Array.isArray(value.items)
+    && value.items.every(isReceivedHostAnnouncementListItem)
+    && Number.isInteger(value.page)
+    && Number.isInteger(value.pageSize)
+    && Number.isInteger(value.total);
+}
+
+export function isHostAnnouncementUnreadCount(
+  value: unknown
+): value is HostAnnouncementUnreadCount {
+  return isRecord(value) && Number.isInteger(value.unreadCount);
+}
+
+export function isHostAnnouncementReadStats(
+  value: unknown
+): value is HostAnnouncementReadStats {
+  return isRecord(value)
+    && Number.isInteger(value.eligibleRecipientCount)
+    && Number.isInteger(value.readCount)
+    && Number.isInteger(value.unreadCount);
+}
+
+export function isHostAnnouncementReadReceiptPage(
+  value: unknown
+): value is HostAnnouncementReadReceiptPage {
+  return isRecord(value)
+    && Array.isArray(value.items)
+    && value.items.every((item) => isRecord(item)
+      && isGuid(item.userId)
+      && (item.username === null || typeof item.username === 'string')
+      && (item.displayName === null || typeof item.displayName === 'string')
+      && typeof item.readAtUtc === 'string')
+    && Number.isInteger(value.page)
+    && Number.isInteger(value.pageSize)
+    && Number.isInteger(value.total);
 }
 
 function isHostAnnouncementTargetOrganization(

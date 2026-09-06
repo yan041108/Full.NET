@@ -18,6 +18,10 @@ public sealed class NotificationsAuthorizationContributorTests
                 HostAnnouncementPermissions.Create,
                 HostAnnouncementPermissions.Publish,
                 HostAnnouncementPermissions.Read,
+                HostAnnouncementPermissions.ReadStats,
+                HostAnnouncementPermissions.ReceivedMarkAllRead,
+                HostAnnouncementPermissions.ReceivedMarkRead,
+                HostAnnouncementPermissions.ReceivedRead,
                 HostAnnouncementPermissions.Retract,
                 HostAnnouncementPermissions.Update,
                 InboxPermissions.MarkAllRead,
@@ -41,9 +45,25 @@ public sealed class NotificationsAuthorizationContributorTests
                 HostAnnouncementPermissions.Update,
                 HostAnnouncementPermissions.Publish,
                 HostAnnouncementPermissions.Retract,
+                HostAnnouncementPermissions.ReadStats,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-announcements")
+                .OrderBy(action => action.Order)
+                .Select(action => action.PermissionCode)
+                .ToArray());
+
+        var myHostAnnouncements = catalog.Navigation.Single(item => item.Id == "my-host-announcements");
+        Assert.AreEqual(HostAnnouncementPermissions.ReceivedRead, myHostAnnouncements.RequiredPermission);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                HostAnnouncementPermissions.ReceivedMarkRead,
+                HostAnnouncementPermissions.ReceivedMarkAllRead,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "my-host-announcements")
                 .OrderBy(action => action.Order)
                 .Select(action => action.PermissionCode)
                 .ToArray());

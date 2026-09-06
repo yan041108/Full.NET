@@ -192,6 +192,11 @@ export function createAppRouter(
         component: () => import('../views/HostAnnouncementsView.vue')
       },
       {
+        name: 'my-host-announcements',
+        path: '/notifications/my-host-announcements',
+        component: () => import('../views/MyHostAnnouncementsView.vue')
+      },
+      {
         name: 'inbox-messages',
         path: '/notifications/inbox-messages',
         component: () => import('../views/InboxMessagesView.vue')

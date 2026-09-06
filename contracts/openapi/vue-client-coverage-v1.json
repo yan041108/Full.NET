@@ -133,6 +133,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/host-announcements.ts"
+      ],
+      "openApiFixture": "contracts/openapi/notifications-host-announcement-receipts-v1.json",
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/my-host-announcements"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/document-categories.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-categories-tags-v1.json",

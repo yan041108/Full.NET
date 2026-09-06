@@ -178,6 +178,42 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Retract));
+
+        group.MapGet("/{announcementId:guid}/read-stats", async (
+            Guid announcementId,
+            HostAnnouncementReadStatsQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.GetStatsAsync(announcementId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("notificationsGetHostAnnouncementReadStats")
+        .Produces<HostAnnouncementReadStatsResponse>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReadStats));
+
+        group.MapGet("/{announcementId:guid}/read-receipts", async (
+            Guid announcementId,
+            int? page,
+            int? pageSize,
+            HostAnnouncementReadStatsQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.ListReceiptsAsync(
+                    announcementId,
+                    page ?? 1,
+                    pageSize ?? 20,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("notificationsListHostAnnouncementReadReceipts")
+        .Produces<PagedResult<HostAnnouncementReadReceiptResponse>>(StatusCodes.Status200OK)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReadStats));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

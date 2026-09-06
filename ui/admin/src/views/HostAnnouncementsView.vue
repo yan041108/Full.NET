@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
+  ElDialog,
   ElForm,
   ElFormItem,
   ElInput,
@@ -21,6 +22,8 @@ import type { FormInstance } from 'element-plus';
 import type {
   FullNetProblemDetails,
   HostAnnouncement,
+  HostAnnouncementReadReceipt,
+  HostAnnouncementReadStats,
   HostAnnouncementTargetOrganization,
   HostUser,
   AnnouncementAudienceKind,
@@ -40,6 +43,8 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostAnnouncement,
+  getHostAnnouncementReadStats,
+  listHostAnnouncementReadReceipts,
   listHostAnnouncements,
   publishHostAnnouncement,
   retractHostAnnouncement,
@@ -186,6 +191,15 @@ const canCreate = computed(() => session.can('notifications.announcements.create
 const canUpdate = computed(() => session.can('notifications.announcements.update'));
 const canPublish = computed(() => session.can('notifications.announcements.publish'));
 const canRetract = computed(() => session.can('notifications.announcements.retract'));
+const canReadStats = computed(() => session.can('notifications.announcements.read_stats'));
+const readStatsOpen = ref(false);
+const readStatsLoading = ref(false);
+const readStatsItem = ref<HostAnnouncement | null>(null);
+const readStats = ref<HostAnnouncementReadStats | null>(null);
+const readReceipts = ref<HostAnnouncementReadReceipt[]>([]);
+const readReceiptPage = ref(1);
+const readReceiptPageSize = ref(20);
+const readReceiptTotal = ref(0);
 
 watch([page, pageSize], () => {
   void load();
@@ -645,9 +659,75 @@ async function retract(item: HostAnnouncement): Promise<void> {
   }
 }
 
+function canShowReadStats(status: HostAnnouncement['status']): boolean {
+  return status === 'published' || status === 'retracted';
+}
+
+function receiptUserLabel(receipt: HostAnnouncementReadReceipt): string {
+  if (receipt.displayName?.trim()) {
+    return receipt.displayName;
+  }
+  if (receipt.username?.trim()) {
+    return receipt.username;
+  }
+  return receipt.userId;
+}
+
+async function openReadStats(item: HostAnnouncement): Promise<void> {
+  if (!canReadStats.value || !canShowReadStats(item.status)) {
+    return;
+  }
+  readStatsItem.value = item;
+  readStatsOpen.value = true;
+  readReceiptPage.value = 1;
+  await loadReadStats();
+}
+
+async function loadReadStats(): Promise<void> {
+  if (!readStatsItem.value) {
+    return;
+  }
+  readStatsLoading.value = true;
+  try {
+    const [stats, receipts] = await Promise.all([
+      getHostAnnouncementReadStats(readStatsItem.value.id),
+      listHostAnnouncementReadReceipts(
+        readStatsItem.value.id,
+        readReceiptPage.value,
+        readReceiptPageSize.value
+      )
+    ]);
+    readStats.value = stats;
+    readReceipts.value = receipts.items;
+    readReceiptTotal.value = receipts.total;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'hostAnnouncements.readStatsLoadFailed');
+    closeReadStats();
+  } finally {
+    readStatsLoading.value = false;
+  }
+}
+
+function closeReadStats(): void {
+  readStatsOpen.value = false;
+  readStatsItem.value = null;
+  readStats.value = null;
+  readReceipts.value = [];
+  readReceiptPage.value = 1;
+  readReceiptTotal.value = 0;
+}
+
+async function handleReadReceiptPageChange(nextPage: number): Promise<void> {
+  readReceiptPage.value = nextPage;
+  await loadReadStats();
+}
+
 function toProblem(
   error: unknown,
-  fallbackKey: 'hostAnnouncements.loadFailed' | 'hostAnnouncements.operationFailed' = 'hostAnnouncements.loadFailed'
+  fallbackKey:
+    | 'hostAnnouncements.loadFailed'
+    | 'hostAnnouncements.operationFailed'
+    | 'hostAnnouncements.readStatsLoadFailed' = 'hostAnnouncements.loadFailed'
 ): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -783,7 +863,7 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="120"
+              width="168"
               fixed="right"
               align="center"
             >
@@ -808,8 +888,8 @@ function toProblem(
                     />
                   </PermissionGate>
                 </ArtTableActionGroup>
-                <ArtTableActionGroup v-else-if="row.status === 'published'">
-                  <PermissionGate code="notifications.announcements.retract">
+                <ArtTableActionGroup v-else-if="canShowReadStats(row.status)">
+                  <PermissionGate v-if="row.status === 'published'" code="notifications.announcements.retract">
                     <ArtTableActionButton
                       type="delete"
                       test-id="host-announcements-retract"
@@ -817,6 +897,17 @@ function toProblem(
                       :disabled="changing"
                   @click="retract(row as HostAnnouncement)"
                     />
+                  </PermissionGate>
+                  <PermissionGate code="notifications.announcements.read_stats">
+                    <el-button
+                      plain
+                      size="small"
+                      data-testid="host-announcements-read-stats"
+                      :disabled="changing"
+                      @click="openReadStats(row as HostAnnouncement)"
+                    >
+                      {{ t('hostAnnouncements.readStats') }}
+                    </el-button>
                   </PermissionGate>
                 </ArtTableActionGroup>
               </template>
@@ -968,6 +1059,63 @@ function toProblem(
         </el-form-item>
       </el-form>
     </ArtFormDialog>
+
+    <el-dialog
+      :model-value="readStatsOpen"
+      :title="t('hostAnnouncements.readStatsTitle', { title: readStatsItem?.title ?? '' })"
+      width="min(760px, 94vw)"
+      data-testid="host-announcements-read-stats-dialog"
+      @close="closeReadStats"
+    >
+      <div v-loading="readStatsLoading">
+        <dl v-if="readStats" class="host-announcements-read-stats">
+          <div>
+            <dt>{{ t('hostAnnouncements.readStatsEligibleRecipients') }}</dt>
+            <dd translate="no">{{ readStats.eligibleRecipientCount }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('hostAnnouncements.readStatsReadCount') }}</dt>
+            <dd translate="no">{{ readStats.readCount }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('hostAnnouncements.readStatsUnreadCount') }}</dt>
+            <dd translate="no">{{ readStats.unreadCount }}</dd>
+          </div>
+        </dl>
+
+        <h3 class="host-announcements-read-stats__receipts-title">
+          {{ t('hostAnnouncements.readStatsReceiptsTitle') }}
+        </h3>
+        <el-table :data="readReceipts" size="small" stripe>
+          <el-table-column :label="t('hostAnnouncements.readStatsReceiptUser')" min-width="160">
+            <template #default="{ row }">
+              <span translate="no">{{ receiptUserLabel(row as HostAnnouncementReadReceipt) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('hostAnnouncements.readStatsReceiptUsername')" width="140">
+            <template #default="{ row }">
+              <span translate="no">{{ (row as HostAnnouncementReadReceipt).username ?? '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('hostAnnouncements.readStatsReceiptReadAt')" width="168">
+            <template #default="{ row }">
+              <span translate="no">{{ formatDateTime((row as HostAnnouncementReadReceipt).readAtUtc) }}</span>
+            </template>
+          </el-table-column>
+          <template #empty>{{ t('hostAnnouncements.readStatsReceiptsEmpty') }}</template>
+        </el-table>
+        <el-pagination
+          v-if="readReceiptTotal > 0"
+          class="host-announcements-read-stats__pagination"
+          background
+          layout="total, prev, pager, next"
+          :current-page="readReceiptPage"
+          :page-size="readReceiptPageSize"
+          :total="readReceiptTotal"
+          @current-change="handleReadReceiptPageChange"
+        />
+      </div>
+    </el-dialog>
   </section>
 </template>
 
@@ -988,6 +1136,41 @@ function toProblem(
 
 .host-announcements-editor-form {
   padding-top: 8px;
+}
+
+.host-announcements-read-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.host-announcements-read-stats > div {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+
+.host-announcements-read-stats dt {
+  margin: 0 0 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.host-announcements-read-stats dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.host-announcements-read-stats__receipts-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.host-announcements-read-stats__pagination {
+  margin-top: 12px;
+  justify-content: flex-end;
 }
 
 .art-sr-heading {

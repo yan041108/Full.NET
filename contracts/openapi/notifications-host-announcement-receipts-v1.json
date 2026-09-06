@@ -1,0 +1,146 @@
+{
+  "id": "notifications-host-announcement-receipts-v1",
+  "version": 1,
+  "description": "Host 公告收件与阅读统计 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/my-host-announcements",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.received.read",
+          "successStatus": 200,
+          "responseSchema": "ReceivedHostAnnouncementListItemPage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-host-announcements/unread-count",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.received.read",
+          "successStatus": 200,
+          "responseSchema": "HostAnnouncementUnreadCountResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-host-announcements/{announcementId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.received.read",
+          "successStatus": 200,
+          "responseSchema": "ReceivedHostAnnouncementDetailResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-host-announcements/{announcementId}/read",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.received.mark_read",
+          "successStatus": 200,
+          "responseSchema": "ReceivedHostAnnouncementDetailResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/my-host-announcements/read-all",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.announcements.received.mark_all_read",
+          "successStatus": 200,
+          "responseSchema": "HostAnnouncementUnreadCountResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}/read-stats",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.read_stats",
+          "successStatus": 200,
+          "responseSchema": "HostAnnouncementReadStatsResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/host-announcements/{announcementId}/read-receipts",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.announcements.read_stats",
+          "successStatus": 200,
+          "responseSchema": "HostAnnouncementReadReceiptPage"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "ReceivedHostAnnouncementListItemResponse": {
+      "properties": [
+        "id",
+        "title",
+        "kind",
+        "audienceKind",
+        "publishedAtUtc",
+        "isRead",
+        "readAtUtc"
+      ]
+    },
+    "ReceivedHostAnnouncementListItemPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ReceivedHostAnnouncementDetailResponse": {
+      "properties": [
+        "id",
+        "title",
+        "content",
+        "kind",
+        "audienceKind",
+        "publishedAtUtc",
+        "publishedByUserId",
+        "isRead",
+        "readAtUtc"
+      ]
+    },
+    "HostAnnouncementUnreadCountResponse": {
+      "properties": [
+        "unreadCount"
+      ]
+    },
+    "HostAnnouncementReadStatsResponse": {
+      "properties": [
+        "eligibleRecipientCount",
+        "readCount",
+        "unreadCount"
+      ]
+    },
+    "HostAnnouncementReadReceiptResponse": {
+      "properties": [
+        "userId",
+        "username",
+        "displayName",
+        "readAtUtc"
+      ]
+    },
+    "HostAnnouncementReadReceiptPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    }
+  }
+}

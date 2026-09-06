@@ -439,7 +439,12 @@ export {
   isCreateHostAnnouncementRequest,
   isHostAnnouncement,
   isHostAnnouncementPage,
+  isHostAnnouncementReadReceiptPage,
+  isHostAnnouncementReadStats,
+  isHostAnnouncementUnreadCount,
   isPublishHostAnnouncementRequest,
+  isReceivedHostAnnouncementDetail,
+  isReceivedHostAnnouncementPage,
   isRetractHostAnnouncementRequest,
   isUpdateHostAnnouncementRequest
 } from './host-announcements.js';
@@ -452,8 +457,16 @@ export type {
   HostAnnouncement,
   HostAnnouncementListQuery,
   HostAnnouncementPage,
+  HostAnnouncementReadReceipt,
+  HostAnnouncementReadReceiptPage,
+  HostAnnouncementReadStats,
   HostAnnouncementTargetOrganization,
+  HostAnnouncementUnreadCount,
   PublishHostAnnouncementRequest,
+  ReceivedHostAnnouncementDetail,
+  ReceivedHostAnnouncementListItem,
+  ReceivedHostAnnouncementListQuery,
+  ReceivedHostAnnouncementPage,
   RetractHostAnnouncementRequest,
   UpdateHostAnnouncementRequest
 } from './host-announcements.js';
