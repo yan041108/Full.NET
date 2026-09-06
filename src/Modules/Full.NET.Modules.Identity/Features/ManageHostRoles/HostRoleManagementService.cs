@@ -71,6 +71,22 @@ internal sealed class HostRoleManagementService(
             token => CopyCoreAsync(sourceRoleId, actorUserId, request, token),
             cancellationToken);
 
+    /// <summary>重新启用已禁用的自定义 Host 角色。</summary>
+    public Task<Result<HostRoleResponse>> EnableAsync(
+        Guid roleId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => EnableCoreAsync(roleId, token),
+            cancellationToken);
+
+    /// <summary>删除无成员引用的自定义 Host 角色。</summary>
+    public Task<Result<bool>> DeleteAsync(
+        Guid roleId,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => DeleteCoreAsync(roleId, token),
+            cancellationToken);
+
     private async Task<Result<HostRoleResponse>> CreateCoreAsync(
         CreateHostRoleRequest request,
         CancellationToken cancellationToken)
@@ -296,6 +312,114 @@ internal sealed class HostRoleManagementService(
             .ConfigureAwait(false);
 
         return await LoadResponseAsync(roleId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<HostRoleResponse>> EnableCoreAsync(
+        Guid roleId,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return NotFound();
+        }
+
+        if (record.IsSystem || record.IsSuperAdministrator)
+        {
+            return SystemLocked();
+        }
+
+        if (record.IsActive)
+        {
+            return await LoadResponseAsync(roleId, cancellationToken).ConfigureAwait(false);
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.EnableHostRole,
+                IdentitySqlParameters.Create(("RoleId", roleId), ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return SystemLocked();
+        }
+
+        return await LoadResponseAsync(roleId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Result<bool>> DeleteCoreAsync(
+        Guid roleId,
+        CancellationToken cancellationToken)
+    {
+        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null)
+        {
+            return Result<bool>.Failure(new Error(
+                IdentityErrorCodes.RoleNotFound,
+                "The host role was not found.",
+                ErrorType.NotFound));
+        }
+
+        if (record.IsSystem || record.IsSuperAdministrator)
+        {
+            return Result<bool>.Failure(new Error(
+                IdentityErrorCodes.RoleSystemLocked,
+                "System roles are protected and cannot be changed.",
+                ErrorType.BusinessRule));
+        }
+
+        var memberCount = await queryExecutor.QuerySingleOrDefaultAsync<long>(
+                IdentitySql.CountHostRoleMembers,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (memberCount > 0)
+        {
+            return Result<bool>.Failure(new Error(
+                IdentityErrorCodes.RoleHasMembers,
+                "The role still has assigned members and cannot be deleted.",
+                ErrorType.Conflict));
+        }
+
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.DeleteRolePermissions,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.DeleteAllHostRoleFieldGrants,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        await commandExecutor.ExecuteAsync(
+                IdentitySql.DeleteRoleDataScopeUnits,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.DeleteHostRole,
+                IdentitySqlParameters.Create(("RoleId", roleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return Result<bool>.Failure(new Error(
+                IdentityErrorCodes.RoleSystemLocked,
+                "System roles are protected and cannot be changed.",
+                ErrorType.BusinessRule));
+        }
+
+        return Result<bool>.Success(true);
     }
 
     private async Task<Result<HostRoleResponse>> CopyCoreAsync(

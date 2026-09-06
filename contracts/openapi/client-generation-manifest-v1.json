@@ -416,6 +416,30 @@
       "status": "generated"
     },
     {
+      "operationId": "identityEnableHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityDeleteHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityListHostRoleMembers",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityReplaceHostRoleMembers",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "generated"
+    },
+    {
       "operationId": "identityGetHostRoleDataScope",
       "apiModule": "ui/admin/src/api/roles.ts",
       "generatedGroup": "identity-host-roles",

@@ -443,6 +443,105 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement EnableHostRole = new(
+        "identity.enable_host_role",
+        """
+        UPDATE fn_identity_role
+        SET IsActive = 1,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @RoleId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND IsSuperAdministrator = 0
+          AND IsActive = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteHostRole = new(
+        "identity.delete_host_role",
+        """
+        DELETE FROM fn_identity_role
+        WHERE Id = @RoleId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND IsSystem = 0
+          AND IsSuperAdministrator = 0
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountHostRoleMembers = new(
+        "identity.count_host_role_members",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_user AS identityUser
+            ON identityUser.Id = userRole.UserId
+        WHERE userRole.RoleId = @RoleId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostRoleMembersSqlServer = new(
+        "identity.list_host_role_members.sql_server",
+        """
+        SELECT identityUser.Id AS UserId,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.IsActive
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_user AS identityUser
+            ON identityUser.Id = userRole.UserId
+        WHERE userRole.RoleId = @RoleId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostRoleMembersMySql = new(
+        "identity.list_host_role_members.mysql",
+        """
+        SELECT identityUser.Id AS UserId,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.IsActive
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_user AS identityUser
+            ON identityUser.Id = userRole.UserId
+        WHERE userRole.RoleId = @RoleId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostRoleMemberUserIds = new(
+        "identity.list_host_role_member_user_ids",
+        """
+        SELECT userRole.UserId
+        FROM fn_identity_user_role AS userRole
+        INNER JOIN fn_identity_user AS identityUser
+            ON identityUser.Id = userRole.UserId
+        WHERE userRole.RoleId = @RoleId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+        ORDER BY userRole.UserId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteHostRoleMemberAssignments = new(
+        "identity.delete_host_role_member_assignments",
+        """
+        DELETE FROM fn_identity_user_role
+        WHERE RoleId = @RoleId
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement DeleteRolePermissions = new(
         "identity.delete_role_permissions",
         """
@@ -1453,6 +1552,14 @@ internal static class IdentitySql
         """
         DELETE FROM fn_identity_role_field_grant
         WHERE RoleId = @RoleId AND ResourceKey = @ResourceKey
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement DeleteAllHostRoleFieldGrants = new(
+        "identity.delete_all_host_role_field_grants",
+        """
+        DELETE FROM fn_identity_role_field_grant
+        WHERE RoleId = @RoleId
         """,
         SqlDataScope.HostOnly);
 

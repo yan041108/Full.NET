@@ -417,6 +417,8 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostRoleQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostRoleMembersService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleDataScopeService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<FieldProjectionCatalog>(

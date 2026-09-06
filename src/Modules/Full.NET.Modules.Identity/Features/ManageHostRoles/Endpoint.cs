@@ -169,6 +169,81 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Disable);
 
+        group.MapPost("/{roleId:guid}/enable", async (
+            Guid roleId,
+            HostRoleManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.EnableAsync(roleId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityEnableHostRole")
+        .Produces<HostRoleResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Enable);
+
+        group.MapDelete("/{roleId:guid}", async (
+            Guid roleId,
+            HostRoleManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.DeleteAsync(roleId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityDeleteHostRole")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Delete);
+
+        group.MapGet("/{roleId:guid}/members", async (
+            Guid roleId,
+            int? page,
+            int? pageSize,
+            HostRoleMembersService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ListAsync(
+                    roleId,
+                    page ?? 1,
+                    pageSize ?? 20,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityListHostRoleMembers")
+        .Produces<HostRoleMembersPageResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Read);
+
+        group.MapPut("/{roleId:guid}/members", async (
+            Guid roleId,
+            ReplaceHostRoleMembersRequest request,
+            HostRoleMembersService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ReplaceAsync(roleId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityReplaceHostRoleMembers")
+        .Produces<HostRoleMembersAssignmentResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityRoleMemberManagementPermissions.ReplaceMembers);
+
         group.MapGet("/{roleId:guid}/data-scope", async (
             Guid roleId,
             HostRoleDataScopeService service,

@@ -35,6 +35,7 @@ import {
   type FieldProjectionFieldDefinition,
   type FullNetProblemDetails,
   type HostRole,
+  type HostUser,
   type OrganizationUnit,
   type RoleDataScopeKind
 } from '@fullnet/client-contracts';
@@ -57,17 +58,22 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostRole,
   copyHostRole,
+  deleteHostRole,
   disableHostRole,
+  enableHostRole,
   getAuthorizationTree,
   getFieldProjectionCatalog,
   getHostRoleDataScope,
   getHostRoleFieldGrants,
+  listHostRoleMembers,
   listHostRoles,
+  replaceHostRoleMembers,
   replaceHostRolePermissions,
   replaceHostRoleFieldGrants,
   updateHostRole,
   updateHostRoleDataScope
 } from '../api/roles';
+import { listHostUsers } from '../api/users';
 import { listOrganizationUnits } from '../api/org-units';
 
 defineOptions({ name: 'RolesView' });
@@ -122,6 +128,10 @@ const editorFormRef = ref<FormInstance>();
 const permissionsVisible = ref(false);
 const dataScopeVisible = ref(false);
 const fieldGrantsVisible = ref(false);
+const membersVisible = ref(false);
+const selectableUsers = ref<HostUser[]>([]);
+const selectedMemberUserIds = ref<string[]>([]);
+const membersVersion = ref(0);
 const permissionTreeNodes = ref<PermissionTreeNode[]>([]);
 const selectedPermissions = ref<string[]>([]);
 const unknownPermissions = ref<string[]>([]);
@@ -219,6 +229,9 @@ const tableHeaderCellStyle = computed(() => ({
 const canCreate = computed(() => session.can('identity.roles.create'));
 const canCopy = computed(() => session.can('identity.roles.copy'));
 const canUpdate = computed(() => session.can('identity.roles.update'));
+const canEnable = computed(() => session.can('identity.roles.enable'));
+const canDelete = computed(() => session.can('identity.roles.delete'));
+const canReplaceMembers = computed(() => session.can('identity.roles.replace_members'));
 const canSavePermissions = computed(() => unknownPermissions.value.length === 0);
 const canReadFieldGrants = computed(() => session.can('identity.role_field_grants.read'));
 const inTenantContext = computed(() => !!session.currentUser?.tenantId);
@@ -797,6 +810,130 @@ async function disable(role: HostRole): Promise<void> {
   }
 }
 
+async function enableRole(role: HostRole): Promise<void> {
+  if (changing.value || role.isActive || role.isSystem || !canEnable.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('roles.confirmEnable', { name: role.code }),
+      t('roles.enable'),
+      {
+        type: 'warning',
+        confirmButtonText: t('roles.enable'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    changing.value = true;
+    await enableHostRole(role.id);
+    ElMessage.success(t('roles.enableSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function removeRole(role: HostRole): Promise<void> {
+  if (changing.value || role.isSystem || !canDelete.value) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('roles.confirmDelete', { name: role.code }),
+      t('roles.delete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('roles.delete'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    changing.value = true;
+    await deleteHostRole(role.id);
+    ElMessage.success(t('roles.deleteSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'roles.operationFailed');
+    if (isFullNetProblemDetails(error) && error.code === 'identity.roles.has_members') {
+      ElMessage.warning(t('roles.hasMembers'));
+    }
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function fetchAllHostUsers(): Promise<HostUser[]> {
+  const pageSizeLimit = 100;
+  const firstPage = await listHostUsers(1, pageSizeLimit);
+  const items = [...firstPage.items];
+  const totalPages = Math.ceil(firstPage.total / pageSizeLimit);
+
+  for (let current = 2; current <= totalPages; current += 1) {
+    const nextPage = await listHostUsers(current, pageSizeLimit);
+    items.push(...nextPage.items);
+  }
+
+  return items.filter(user => user.isActive);
+}
+
+async function openMembers(role: HostRole): Promise<void> {
+  if (role.isSystem || role.isSuperAdministrator || changing.value || !role.isActive) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const [membersPage, users] = await Promise.all([
+      listHostRoleMembers(role.id, 1, 100),
+      fetchAllHostUsers()
+    ]);
+    editingRole.value = role;
+    selectableUsers.value = users;
+    selectedMemberUserIds.value = membersPage.items.map(item => item.userId);
+    membersVersion.value = membersPage.version;
+    membersVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function saveMembers(): Promise<void> {
+  const role = editingRole.value;
+  if (!role || changing.value || !canReplaceMembers.value) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await replaceHostRoleMembers(
+      role.id,
+      [...selectedMemberUserIds.value].sort(),
+      membersVersion.value
+    );
+    membersVisible.value = false;
+    editingRole.value = null;
+    ElMessage.success(t('roles.membersSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function avatarText(role: HostRole): string {
   return role.code.slice(0, 2).toUpperCase();
 }
@@ -956,7 +1093,7 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="280"
+              width="360"
               fixed="right"
               align="center"
             >
@@ -1015,6 +1152,28 @@ function toProblem(
                       {{ t('roles.fieldGrants') }}
                     </el-button>
                   </PermissionGate>
+                  <PermissionGate code="identity.roles.replace_members">
+                    <el-button
+                      v-if="!row.isSystem && !row.isSuperAdministrator && row.isActive"
+                      link
+                      type="primary"
+                      data-testid="roles-action-members"
+                      @click="openMembers(row as HostRole)"
+                    >
+                      {{ t('roles.members') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate v-if="!row.isActive" code="identity.roles.enable">
+                    <el-button
+                      v-if="!row.isSystem"
+                      link
+                      type="primary"
+                      data-testid="roles-action-enable"
+                      @click="enableRole(row as HostRole)"
+                    >
+                      {{ t('roles.enable') }}
+                    </el-button>
+                  </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="identity.roles.disable">
                     <ArtTableActionButton
                       v-if="!row.isSystem"
@@ -1023,6 +1182,17 @@ function toProblem(
                       :title="t('roles.disable')"
                   @click="disable(row as HostRole)"
                     />
+                  </PermissionGate>
+                  <PermissionGate code="identity.roles.delete">
+                    <el-button
+                      v-if="!row.isSystem && !row.isSuperAdministrator"
+                      link
+                      type="danger"
+                      data-testid="roles-action-delete"
+                      @click="removeRole(row as HostRole)"
+                    >
+                      {{ t('roles.delete') }}
+                    </el-button>
                   </PermissionGate>
                 </ArtTableActionGroup>
               </template>
@@ -1238,6 +1408,31 @@ function toProblem(
             @click="saveFieldGrants"
           >
             {{ t('roles.saveFieldGrants') }}
+          </el-button>
+        </PermissionGate>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="membersVisible" :title="t('roles.membersTitle')" width="560px">
+      <p v-if="selectableUsers.length === 0" class="art-dialog-hint">
+        {{ t('roles.membersEmpty') }}
+      </p>
+      <el-checkbox-group v-else v-model="selectedMemberUserIds" class="art-dialog-grid">
+        <el-checkbox v-for="user in selectableUsers" :key="user.id" :label="user.id">
+          <span translate="no">{{ user.displayName }}</span>
+          <code translate="no">{{ user.username }}</code>
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="membersVisible = false">{{ t('status.back') }}</el-button>
+        <PermissionGate code="identity.roles.replace_members">
+          <el-button
+            type="primary"
+            :loading="changing"
+            data-testid="roles-save-members"
+            @click="saveMembers"
+          >
+            {{ t('roles.saveMembers') }}
           </el-button>
         </PermissionGate>
       </template>

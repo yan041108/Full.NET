@@ -27,6 +27,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<RefreshSessionRecord>(ReadRefreshSessionRecord);
         registrar.Register<HostUserDirectoryRecord>(ReadHostUserDirectoryRecord);
         registrar.Register<HostUserListRow>(ReadHostUserListRow);
+        registrar.Register<HostRoleMemberRow>(ReadHostRoleMemberRow);
         registrar.Register<HostUserPreferredLocaleRow>(ReadHostUserPreferredLocaleRow);
         registrar.Register<HostUserFailedLoginCountRow>(ReadHostUserFailedLoginCountRow);
         registrar.Register<HostUserLockoutEndUtcRow>(ReadHostUserLockoutEndUtcRow);
@@ -159,6 +160,15 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
 
         return row;
     }
+
+    private static HostRoleMemberRow ReadHostRoleMemberRow(DbDataReader reader) =>
+        new()
+        {
+            UserId = ReadGuidByName(reader, "UserId"),
+            Username = ReadStringByName(reader, "Username"),
+            DisplayName = ReadStringByName(reader, "DisplayName"),
+            IsActive = ReadBooleanByName(reader, "IsActive"),
+        };
 
     private static HostUserPreferredLocaleRow ReadHostUserPreferredLocaleRow(DbDataReader reader) =>
         new()

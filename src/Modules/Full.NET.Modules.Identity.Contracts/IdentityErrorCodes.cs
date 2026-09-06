@@ -127,6 +127,9 @@ public static class IdentityErrorCodes
     /// <summary>超级管理员角色不能作为复制来源。</summary>
     public const string RoleCopySourceNotAllowed = "identity.roles.copy_source_not_allowed";
 
+    /// <summary>角色仍有关联成员，禁止删除。</summary>
+    public const string RoleHasMembers = "identity.roles.has_members";
+
     /// <summary>操作权限缺少父页面读取权限。</summary>
     public const string ActionRequiresPage = "identity.roles.action_requires_page";
 
@@ -318,6 +321,7 @@ public static class IdentityErrorCodes
         RoleNotFound,
         RoleSystemLocked,
         RoleCopySourceNotAllowed,
+        RoleHasMembers,
         ActionRequiresPage,
         FieldProjectionInvalid,
         FieldProjectionVersionConflict,

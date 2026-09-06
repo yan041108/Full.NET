@@ -350,6 +350,92 @@ public sealed class HostRoleManagementServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Enable_activates_inactive_custom_role()
+    {
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(fixture.DefaultRole with { IsActive = false });
+
+        var result = await fixture.Service.EnableAsync(RoleId);
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.Command.Received(1).ExecuteAsync(
+            IdentitySql.EnableHostRole,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Enable_rejects_system_role()
+    {
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(fixture.DefaultRole with { IsSystem = true });
+
+        var result = await fixture.Service.EnableAsync(RoleId);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RoleSystemLocked, result.Error!.Code);
+        await fixture.Command.DidNotReceive().ExecuteAsync(
+            IdentitySql.EnableHostRole,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Delete_rejects_role_with_members()
+    {
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<long>(
+                IdentitySql.CountHostRoleMembers,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(2);
+
+        var result = await fixture.Service.DeleteAsync(RoleId);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RoleHasMembers, result.Error!.Code);
+        await fixture.Command.DidNotReceive().ExecuteAsync(
+            IdentitySql.DeleteHostRole,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Delete_cascades_permissions_and_field_grants_when_no_members()
+    {
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<long>(
+                IdentitySql.CountHostRoleMembers,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(0);
+
+        var result = await fixture.Service.DeleteAsync(RoleId);
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.Command.Received(1).ExecuteAsync(
+            IdentitySql.DeleteRolePermissions,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+        await fixture.Command.Received(1).ExecuteAsync(
+            IdentitySql.DeleteAllHostRoleFieldGrants,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+        await fixture.Command.Received(1).ExecuteAsync(
+            IdentitySql.DeleteHostRole,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
     private sealed class Fixture
     {
         public Fixture()

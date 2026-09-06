@@ -1,4 +1,13 @@
 import {
+  deleteHostRole as deleteHostRoleRequest,
+  enableHostRole as enableHostRoleRequest,
+  listHostRoleMembers as listHostRoleMembersRequest,
+  replaceHostRoleMembers as replaceHostRoleMembersRequest,
+  type HostRoleMembersAssignment,
+  type HostRoleMembersPage,
+  type ReplaceHostRoleMembersRequest
+} from '@fullnet/client-contracts';
+import {
   copyHostRole as copyHostRoleRequest,
   identityCreateHostRole,
   identityDisableHostRole,
@@ -94,6 +103,38 @@ export async function disableHostRole(
   return identityDisableHostRole(http, { roleId: id }, signal);
 }
 
+export async function enableHostRole(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostRole> {
+  return enableHostRoleRequest(http, id, signal);
+}
+
+export async function deleteHostRole(
+  id: string,
+  signal?: AbortSignal
+): Promise<void> {
+  return deleteHostRoleRequest(http, id, signal);
+}
+
+export async function listHostRoleMembers(
+  roleId: string,
+  page = 1,
+  pageSize = 20,
+  signal?: AbortSignal
+): Promise<HostRoleMembersPage> {
+  return listHostRoleMembersRequest(http, roleId, page, pageSize, signal);
+}
+
+export async function replaceHostRoleMembers(
+  roleId: string,
+  userIds: string[],
+  version: number,
+  signal?: AbortSignal
+): Promise<HostRoleMembersAssignment> {
+  return replaceHostRoleMembersRequest(http, roleId, { userIds, version }, signal);
+}
+
 /** 读取 Host 角色数据权限范围，并对返回机器码做失败关闭校验。 */
 export async function getHostRoleDataScope(
   id: string,
@@ -181,5 +222,8 @@ export type {
   HostRoleDataScope,
   HostRoleFieldGrants,
   HostRolePage,
+  HostRoleMembersPage,
+  HostRoleMembersAssignment,
+  ReplaceHostRoleMembersRequest,
   RoleDataScopeKind
 };

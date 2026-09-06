@@ -57,6 +57,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostUserRolesService>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
+        services.TryAddScoped<HostRoleMembersService>();
         services.TryAddScoped<HostRoleDataScopeService>();
         services.TryAddSingleton(_ => FieldProjectionCatalog.CreateDefault());
         services.TryAddScoped<IUserFieldProjectionResolver, UserFieldProjectionResolver>();

@@ -695,6 +695,23 @@ export type {
 } from './host-roles.js';
 
 export {
+  isHostRoleMember,
+  isHostRoleMembersAssignment,
+  isHostRoleMembersPage,
+  deleteHostRole,
+  enableHostRole,
+  listHostRoleMembers,
+  replaceHostRoleMembers
+} from './host-role-members.js';
+
+export type {
+  HostRoleMember,
+  HostRoleMembersAssignment,
+  HostRoleMembersPage,
+  ReplaceHostRoleMembersRequest
+} from './host-role-members.js';
+
+export {
   HOST_MENU_COMPONENT_OPTIONS,
   HOST_MENU_ICON_OPTIONS,
   HOST_MENU_TYPES,

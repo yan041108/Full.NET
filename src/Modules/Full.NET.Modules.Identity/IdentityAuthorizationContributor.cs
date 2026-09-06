@@ -99,6 +99,18 @@ internal sealed class IdentityAuthorizationContributor
             "复制 Host 角色",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityRoleManagementPermissions.Enable,
+            "启用 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleManagementPermissions.Delete,
+            "删除 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRoleMemberManagementPermissions.ReplaceMembers,
+            "管理 Host 角色成员",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityUserManagementPermissions.Export,
             "导出 Host 用户",
             AuthorizationScope.Host),
@@ -395,6 +407,20 @@ internal sealed class IdentityAuthorizationContributor
             "disable",
             40),
         new AuthorizationActionDefinition(
+            "identity.roles.enable",
+            "roles",
+            IdentityRoleManagementPermissions.Enable,
+            "启用角色",
+            "enable",
+            45),
+        new AuthorizationActionDefinition(
+            "identity.roles.delete",
+            "roles",
+            IdentityRoleManagementPermissions.Delete,
+            "删除角色",
+            "delete",
+            50),
+        new AuthorizationActionDefinition(
             "identity.roles.assign-data-scope",
             "roles",
             IdentityRoleManagementPermissions.AssignDataScope,
@@ -408,6 +434,13 @@ internal sealed class IdentityAuthorizationContributor
             "字段授权",
             "replace-field-grants",
             60),
+        new AuthorizationActionDefinition(
+            "identity.roles.replace-members",
+            "roles",
+            IdentityRoleMemberManagementPermissions.ReplaceMembers,
+            "成员管理",
+            "replace-members",
+            70),
         new AuthorizationActionDefinition(
             "identity.menus.create",
             "menus",

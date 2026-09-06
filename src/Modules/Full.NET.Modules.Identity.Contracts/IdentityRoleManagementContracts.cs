@@ -26,6 +26,12 @@ public static class IdentityRoleManagementPermissions
     /// <summary>复制 Host 角色权限、数据范围与字段授权。</summary>
     public const string Copy = "identity.roles.copy";
 
+    /// <summary>重新启用已禁用的 Host 角色。</summary>
+    public const string Enable = "identity.roles.enable";
+
+    /// <summary>删除无成员引用的 Host 自定义角色。</summary>
+    public const string Delete = "identity.roles.delete";
+
     /// <summary>迁移 055 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.roles.write";
 }

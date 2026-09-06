@@ -47,6 +47,17 @@ internal sealed record IdentityRoleFieldGrantRow(
     string ResourceKey,
     string FieldKey);
 
+internal sealed class HostRoleMemberRow
+{
+    public Guid UserId { get; set; }
+
+    public string Username { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; }
+}
+
 internal sealed record IdentityUserRole(
     Guid UserId,
     Guid RoleId);
