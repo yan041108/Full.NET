@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
 using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 
@@ -14,5 +15,12 @@ namespace Full.NET.Modules.ObservabilityAdmin.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<ServerInstanceCatalogEntry>))]
 [JsonSerializable(typeof(ServerRuntimeMetric))]
 [JsonSerializable(typeof(ServerRuntimeSnapshot))]
+[JsonSerializable(typeof(CachePolicySummary))]
+[JsonSerializable(typeof(IReadOnlyList<CachePolicySummary>))]
+[JsonSerializable(typeof(CacheInvalidationOperationSummary))]
+[JsonSerializable(typeof(CacheInvalidationParameterSummary))]
+[JsonSerializable(typeof(CacheInvalidationRequest))]
+[JsonSerializable(typeof(CacheInvalidationResult))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class ObservabilityAdminJsonSerializerContext
     : JsonSerializerContext;

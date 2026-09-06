@@ -4185,6 +4185,13 @@ export function readNotificationsListProviderTypesResponse(value: unknown): Arra
   return value as Array<NotificationProviderTypeDescriptor>;
 }
 
+export function readObservabilityListCachePoliciesResponse(value: unknown): Array<CachePolicySummary> {
+  if (!(Array.isArray(value) && value.every(item5 => isCachePolicySummary(item5)))) {
+    throw new Error('client.invalid_observability_list_cache_policies_response');
+  }
+  return value as Array<CachePolicySummary>;
+}
+
 export function readObservabilityListLogFilesResponse(value: unknown): Array<LogFileSummary> {
   if (!(Array.isArray(value) && value.every(item5 => isLogFileSummary(item5)))) {
     throw new Error('client.invalid_observability_list_log_files_response');

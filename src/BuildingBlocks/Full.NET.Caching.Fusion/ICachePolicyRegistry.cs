@@ -9,6 +9,9 @@ public interface ICachePolicyRegistry
     /// <summary>获取已注册策略；未知条目必须失败。</summary>
     CacheEntryPolicy GetRequired(string entryName);
 
+    /// <summary>返回当前进程已登记的全部缓存策略目录，供管理控制面只读展示。</summary>
+    IReadOnlyList<CacheEntryPolicy> ListPolicies();
+
     /// <summary>解析访问路径；C0/N0 分别返回 AuthorityRead/Bypass。</summary>
     CacheAccessDecision ResolveAccess(string entryName);
 

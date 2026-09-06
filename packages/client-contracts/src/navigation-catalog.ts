@@ -245,6 +245,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/observability/server-monitor'
   },
   {
+    componentKey: 'observability-cache-policies',
+    routeName: 'observability-cache-policies',
+    path: '/observability/cache-policies'
+  },
+  {
     componentKey: 'operation-logs',
     routeName: 'operation-logs',
     path: '/auditing/operation-logs'

@@ -37,6 +37,19 @@ public sealed class CachePolicyRegistryTests
     }
 
     [TestMethod]
+    public void ListPolicies_returns_all_registered_entries_in_stable_order()
+    {
+        var registry = CachePolicyRegistry.Create(new CacheOptions());
+        var policies = registry.ListPolicies();
+
+        Assert.IsGreaterThanOrEqualTo(policies.Count, 3);
+        Assert.IsTrue(
+            policies.Zip(policies.OrderBy(policy => policy.EntryName, StringComparer.OrdinalIgnoreCase))
+                .All(pair => pair.First.EntryName == pair.Second.EntryName));
+        Assert.IsTrue(policies.Any(policy => policy.EntryName == CacheEntryNames.TenantResolution));
+    }
+
+    [TestMethod]
     public void S0_L2_disables_memory_cache()
     {
         var registry = CachePolicyRegistry.Create(

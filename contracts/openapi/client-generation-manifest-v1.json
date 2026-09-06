@@ -272,6 +272,24 @@
       "status": "generated"
     },
     {
+      "operationId": "observabilityListCachePolicies",
+      "apiModule": "ui/admin/src/api/observability-cache-policies.ts",
+      "generatedGroup": "observability-cache-policies",
+      "status": "generated"
+    },
+    {
+      "operationId": "observabilityGetCachePolicy",
+      "apiModule": "ui/admin/src/api/observability-cache-policies.ts",
+      "generatedGroup": "observability-cache-policies",
+      "status": "generated"
+    },
+    {
+      "operationId": "observabilityInvalidateCachePolicy",
+      "apiModule": "ui/admin/src/api/observability-cache-policies.ts",
+      "generatedGroup": "observability-cache-policies",
+      "status": "generated"
+    },
+    {
       "operationId": "identityListHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",

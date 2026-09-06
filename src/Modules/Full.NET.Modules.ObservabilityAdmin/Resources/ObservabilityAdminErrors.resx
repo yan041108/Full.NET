@@ -6,4 +6,7 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="observability.log_files.not_found" xml:space="preserve"><value>日志文件不存在或已轮换。</value></data>
   <data name="observability.server_instances.not_found" xml:space="preserve"><value>服务器实例不存在或无法从当前进程查询。</value></data>
+  <data name="observability.cache_policies.not_found" xml:space="preserve"><value>缓存策略不存在。</value></data>
+  <data name="observability.cache_policies.not_invalidatable" xml:space="preserve"><value>该缓存策略不允许通过管理控制面失效。</value></data>
+  <data name="observability.cache_policies.invalidation_invalid" xml:space="preserve"><value>缓存失效请求无效或包含未登记参数。</value></data>
 </root>

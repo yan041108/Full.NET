@@ -71,6 +71,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'observability-server-monitor',
       path: '/observability/server-monitor'
     });
+    expect(catalog.localNavigationFor('observability-cache-policies')).toEqual({
+      componentKey: 'observability-cache-policies',
+      routeName: 'observability-cache-policies',
+      path: '/observability/cache-policies'
+    });
     expect(catalog.localNavigationFor('workflow-todos')).toEqual({
       componentKey: 'workflow-todos',
       routeName: 'workflow-todos',

@@ -272,6 +272,11 @@ export function createAppRouter(
         component: () => import('../views/ObservabilityServerMonitorView.vue')
       },
       {
+        name: 'observability-cache-policies',
+        path: '/observability/cache-policies',
+        component: () => import('../views/ObservabilityCachePoliciesView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

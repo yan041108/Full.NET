@@ -6,4 +6,7 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="observability.log_files.not_found" xml:space="preserve"><value>The log file was not found or has been rotated.</value></data>
   <data name="observability.server_instances.not_found" xml:space="preserve"><value>The server instance was not found or cannot be queried from the current process.</value></data>
+  <data name="observability.cache_policies.not_found" xml:space="preserve"><value>The cache policy was not found.</value></data>
+  <data name="observability.cache_policies.not_invalidatable" xml:space="preserve"><value>The cache policy cannot be invalidated from the admin control plane.</value></data>
+  <data name="observability.cache_policies.invalidation_invalid" xml:space="preserve"><value>The cache invalidation request is invalid or contains unregistered parameters.</value></data>
 </root>

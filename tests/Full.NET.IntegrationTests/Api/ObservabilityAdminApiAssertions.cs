@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Full.NET.Caching.Fusion;
+using Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
 using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 
@@ -117,15 +119,83 @@ internal static class ObservabilityAdminApiAssertions
             remoteRuntimeRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NotFound, remoteRuntimeResponse.StatusCode);
+
+        using (var deniedPolicies = await client.GetAsync(
+                   "/api/v1/observability/cache-policies",
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Unauthorized, deniedPolicies.StatusCode);
+        }
+
+        var cacheReadToken = await factory.CreateHostAccessTokenAsync(
+            ["observability.cache_policies.read"],
+            cancellationToken);
+        using var policiesRequest = AuthorizedRequest(
+            HttpMethod.Get,
+            "/api/v1/observability/cache-policies",
+            cacheReadToken);
+        using var policiesResponse = await client.SendAsync(policiesRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, policiesResponse.StatusCode);
+        var policies = await policiesResponse.Content.ReadFromJsonAsync<CachePolicySummary[]>(
+            cancellationToken);
+        Assert.IsNotNull(policies);
+        Assert.IsGreaterThan(policies.Length, 0);
+        var tenantPolicy = policies.Single(policy => policy.EntryName == CacheEntryNames.TenantResolution);
+        Assert.IsTrue(tenantPolicy.CanInvalidate);
+        var policyPayload = await policiesResponse.Content.ReadAsStringAsync(cancellationToken);
+        Assert.DoesNotContain("RedisConnectionString", policyPayload, StringComparison.OrdinalIgnoreCase);
+
+        using var deniedInvalidateRequest = AuthorizedRequest(
+            HttpMethod.Post,
+            $"/api/v1/observability/cache-policies/{tenantPolicy.EntryName}/invalidations",
+            cacheReadToken,
+            new CacheInvalidationRequest(
+                "by-tenant",
+                new Dictionary<string, string>
+                {
+                    ["tenantId"] = Guid.Empty.ToString(),
+                    ["domain"] = "invalid",
+                },
+                null));
+        using var deniedInvalidateResponse = await client.SendAsync(
+            deniedInvalidateRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, deniedInvalidateResponse.StatusCode);
+
+        var cacheInvalidateToken = await factory.CreateHostAccessTokenAsync(
+            ["observability.cache_policies.invalidate"],
+            cancellationToken);
+        using var invalidInvalidateRequest = AuthorizedRequest(
+            HttpMethod.Post,
+            $"/api/v1/observability/cache-policies/{tenantPolicy.EntryName}/invalidations",
+            cacheInvalidateToken,
+            new CacheInvalidationRequest(
+                "by-tenant",
+                new Dictionary<string, string>
+                {
+                    ["tenantId"] = Guid.Empty.ToString(),
+                    ["domain"] = "invalid",
+                },
+                null));
+        using var invalidInvalidateResponse = await client.SendAsync(
+            invalidInvalidateRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, invalidInvalidateResponse.StatusCode);
     }
 
     private static HttpRequestMessage AuthorizedRequest(
         HttpMethod method,
         string path,
-        string token)
+        string token,
+        object? body = null)
     {
         var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
         return request;
     }
 }

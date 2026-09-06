@@ -14,6 +14,14 @@ public static class ObservabilityServerPermissions
     public const string Read = "observability.server.read";
 }
 
+/// <summary>缓存策略目录与精确失效的精确权限码。</summary>
+public static class ObservabilityCachePolicyPermissions
+{
+    public const string Read = "observability.cache_policies.read";
+
+    public const string Invalidate = "observability.cache_policies.invalidate";
+}
+
 /// <summary>Host 日志控制面的稳定错误码。</summary>
 public static class ObservabilityAdminErrorCodes
 {
@@ -23,6 +31,18 @@ public static class ObservabilityAdminErrorCodes
 
     public const string ServerInstanceNotFound = "observability.server_instances.not_found";
 
+    public const string CachePolicyNotFound = "observability.cache_policies.not_found";
+
+    public const string CachePolicyNotInvalidatable = "observability.cache_policies.not_invalidatable";
+
+    public const string CacheInvalidationInvalid = "observability.cache_policies.invalidation_invalid";
+
     public static IReadOnlyList<string> All { get; } =
-        Array.AsReadOnly([LogFileNotFound, ServerInstanceNotFound]);
+        Array.AsReadOnly([
+            LogFileNotFound,
+            ServerInstanceNotFound,
+            CachePolicyNotFound,
+            CachePolicyNotInvalidatable,
+            CacheInvalidationInvalid,
+        ]);
 }

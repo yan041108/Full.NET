@@ -8,6 +8,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Caching.Fusion\Full.NET.Caching.Fusion.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />

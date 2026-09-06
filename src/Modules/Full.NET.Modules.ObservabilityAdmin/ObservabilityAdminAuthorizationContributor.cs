@@ -23,6 +23,14 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             ObservabilityServerPermissions.Read,
             "读取服务器实例目录与运行时监控信息",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            ObservabilityCachePolicyPermissions.Read,
+            "读取已登记缓存策略目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            ObservabilityCachePolicyPermissions.Invalidate,
+            "执行已登记缓存精确失效操作",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -49,6 +57,17 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             "monitor",
             70,
             ObservabilityServerPermissions.Read),
+        new NavigationDefinition(
+            "observability-cache-policies",
+            null,
+            "observability-cache-policies",
+            "/observability/cache-policies",
+            "observability-cache-policies",
+            "缓存管理",
+            "Cache Policies",
+            "monitor",
+            60,
+            ObservabilityCachePolicyPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -59,6 +78,13 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             ObservabilityLogFilePermissions.Download,
             "下载日志",
             "download",
+            10),
+        new AuthorizationActionDefinition(
+            "observability.cache_policies.invalidate",
+            "observability-cache-policies",
+            ObservabilityCachePolicyPermissions.Invalidate,
+            "失效缓存",
+            "invalidate",
             10),
     ];
 }

@@ -56,6 +56,12 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
     }
 
     /// <inheritdoc />
+    public IReadOnlyList<CacheEntryPolicy> ListPolicies() =>
+        _policies.Values
+            .OrderBy(policy => policy.EntryName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    /// <inheritdoc />
     public CacheAccessDecision ResolveAccess(string entryName)
     {
         var policy = GetRequired(entryName);

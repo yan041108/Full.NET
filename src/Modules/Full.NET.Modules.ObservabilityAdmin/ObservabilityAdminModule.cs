@@ -2,6 +2,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ObservabilityAdmin.Configuration;
+using Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
 using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 using Full.NET.Modules.ObservabilityAdmin.Resources;
@@ -40,6 +41,7 @@ public sealed class ObservabilityAdminModule : IFullNetModule
         services.TryAddSingleton<LogFileControlPlane>();
         services.TryAddSingleton<ServerRuntimeReader>();
         services.TryAddSingleton<ServerMonitorService>();
+        services.TryAddSingleton<CachePolicyControlPlane>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -50,5 +52,6 @@ public sealed class ObservabilityAdminModule : IFullNetModule
     {
         Features.ManageLogFiles.Endpoint.Map(endpoints);
         Features.MonitorServer.Endpoint.Map(endpoints);
+        Features.ManageCachePolicies.Endpoint.Map(endpoints);
     }
 }

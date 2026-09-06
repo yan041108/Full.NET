@@ -187,6 +187,9 @@
       "name": "ObservabilityServerMonitor"
     },
     {
+      "name": "ObservabilityCachePolicies"
+    },
+    {
       "name": "SerialNumbersHostRules"
     },
     {
@@ -12919,6 +12922,213 @@
         ],
         "tags": [
           "ObservabilityServerMonitor"
+        ]
+      }
+    },
+    "/api/v1/observability/cache-policies": {
+      "get": {
+        "operationId": "observabilityListCachePolicies",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CachePolicySummary"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "ObservabilityCachePolicies"
+        ]
+      }
+    },
+    "/api/v1/observability/cache-policies/{entryName}": {
+      "get": {
+        "operationId": "observabilityGetCachePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entryName",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CachePolicySummary"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "ObservabilityCachePolicies"
+        ]
+      }
+    },
+    "/api/v1/observability/cache-policies/{entryName}/invalidations": {
+      "post": {
+        "operationId": "observabilityInvalidateCachePolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entryName",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheInvalidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheInvalidationResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "ObservabilityCachePolicies"
         ]
       }
     },
@@ -31513,6 +31723,152 @@
           "capturedAtUtc",
           "uptimeSeconds",
           "metrics"
+        ],
+        "type": "object"
+      },
+      "CacheInvalidationParameterSummary": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "valueType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "valueType",
+          "required"
+        ],
+        "type": "object"
+      },
+      "CacheInvalidationOperationSummary": {
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "operationKey": {
+            "type": "string"
+          },
+          "parameters": {
+            "items": {
+              "$ref": "#/components/schemas/CacheInvalidationParameterSummary"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "operationKey",
+          "displayName",
+          "parameters"
+        ],
+        "type": "object"
+      },
+      "CacheInvalidationRequest": {
+        "properties": {
+          "operationKey": {
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "operationKey"
+        ],
+        "type": "object"
+      },
+      "CacheInvalidationResult": {
+        "properties": {
+          "entryName": {
+            "type": "string"
+          },
+          "invalidatedTargets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operationKey": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entryName",
+          "operationKey",
+          "scope",
+          "invalidatedTargets"
+        ],
+        "type": "object"
+      },
+      "CachePolicySummary": {
+        "properties": {
+          "accessKind": {
+            "type": "string"
+          },
+          "canInvalidate": {
+            "type": "boolean"
+          },
+          "consistencyClass": {
+            "type": "string"
+          },
+          "entryName": {
+            "type": "string"
+          },
+          "invalidationOperations": {
+            "items": {
+              "$ref": "#/components/schemas/CacheInvalidationOperationSummary"
+            },
+            "type": "array"
+          },
+          "l1DurationSeconds": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string",
+              "null"
+            ]
+          },
+          "l2DurationSeconds": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string",
+              "null"
+            ]
+          },
+          "ownerModule": {
+            "type": "string"
+          },
+          "requiresDirectInvalidation": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entryName",
+          "ownerModule",
+          "consistencyClass",
+          "accessKind",
+          "requiresDirectInvalidation",
+          "canInvalidate",
+          "invalidationOperations"
         ],
         "type": "object"
       },

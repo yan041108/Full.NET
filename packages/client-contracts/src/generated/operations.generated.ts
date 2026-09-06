@@ -343,6 +343,8 @@ import {
   readAccessLogCursorPageResponse,
   readBatchHostUserStatusResponse,
   readBeginTotpEnrollmentResponse,
+  readCacheInvalidationResult,
+  readCachePolicySummary,
   readCodeGenerationCatalogColumnListResponse,
   readCodeGenerationCatalogColumnSyncResponse,
   readCodeGenerationListCatalogTablesResponse,
@@ -419,6 +421,7 @@ import {
   readNotificationsListMyRecipientEndpointsResponse,
   readNotificationsListProviderTypesResponse,
   readNotificationTemplateResponse,
+  readObservabilityListCachePoliciesResponse,
   readObservabilityListLogFilesResponse,
   readObservabilityListServerInstancesResponse,
   readOrganizationPositionLevelResponse,
@@ -4464,6 +4467,24 @@ export async function observabilityDownloadLogFile(
     : await http.requestBlob(path, init, signal, options);
 }
 
+export interface ObservabilityGetCachePolicyParameters {
+  readonly entryName: string;
+}
+
+export async function observabilityGetCachePolicy(
+  http: HttpClient,
+  parameters: ObservabilityGetCachePolicyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CachePolicySummary> {
+  const path = `/api/v1/observability/cache-policies/${encodeURIComponent(String(parameters.entryName))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCachePolicySummary(value);
+}
+
 export interface ObservabilityGetServerRuntimeParameters {
   readonly instanceKey: string;
 }
@@ -4480,6 +4501,47 @@ export async function observabilityGetServerRuntime(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readServerRuntimeSnapshot(value);
+}
+
+export interface ObservabilityInvalidateCachePolicyParameters {
+  readonly entryName: string;
+  readonly body: CacheInvalidationRequest;
+}
+
+export async function observabilityInvalidateCachePolicy(
+  http: HttpClient,
+  parameters: ObservabilityInvalidateCachePolicyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<CacheInvalidationResult> {
+  const path = `/api/v1/observability/cache-policies/${encodeURIComponent(String(parameters.entryName))}/invalidations`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readCacheInvalidationResult(value);
+}
+
+export interface ObservabilityListCachePoliciesParameters {
+
+}
+
+export async function observabilityListCachePolicies(
+  http: HttpClient,
+  parameters: ObservabilityListCachePoliciesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<CachePolicySummary>> {
+  const path = `/api/v1/observability/cache-policies`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readObservabilityListCachePoliciesResponse(value);
 }
 
 export interface ObservabilityListLogFilesParameters {
