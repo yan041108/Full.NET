@@ -519,6 +519,20 @@ export type {
 } from './reporting-executions.js';
 
 export {
+  isReportingExportTask,
+  isReportingExportTaskDetail,
+  isReportingExportTaskPage
+} from './reporting-export-tasks.js';
+
+export type {
+  CreateReportingExportTaskRequest,
+  ReportingExportTask,
+  ReportingExportTaskDetail,
+  ReportingExportTaskPage,
+  ReportingExportTaskParameterValue
+} from './reporting-export-tasks.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

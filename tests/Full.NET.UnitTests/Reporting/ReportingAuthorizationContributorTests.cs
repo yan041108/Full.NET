@@ -32,6 +32,9 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingQueryPortPermissions.Read,
                 ReportingExecutionPermissions.Run,
                 ReportingExecutionPermissions.ColumnSchemaName,
+                ReportingExportTaskPermissions.Create,
+                ReportingExportTaskPermissions.Read,
+                ReportingExportTaskPermissions.Download,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -46,6 +49,10 @@ public sealed class ReportingAuthorizationContributorTests
         var execute = catalog.Navigation.Single(item => item.Id == "reporting-execute");
         Assert.AreEqual(ReportingExecutionPermissions.Run, execute.RequiredPermission);
         Assert.AreEqual("/reporting/execute", execute.Path);
+
+        var exportTasks = catalog.Navigation.Single(item => item.Id == "reporting-export-tasks");
+        Assert.AreEqual(ReportingExportTaskPermissions.Read, exportTasks.RequiredPermission);
+        Assert.AreEqual("/reporting/export-tasks", exportTasks.Path);
 
         CollectionAssert.AreEquivalent(
             new Dictionary<string, string>(StringComparer.Ordinal)

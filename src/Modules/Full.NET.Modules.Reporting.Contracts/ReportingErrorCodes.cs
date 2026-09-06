@@ -68,4 +68,22 @@ public static class ReportingErrorCodes
 
     /// <summary>报表执行分页参数无效。</summary>
     public const string ExecutionPaginationInvalid = "reporting.execution.pagination_invalid";
+
+    /// <summary>报表导出任务不存在。</summary>
+    public const string ExportTaskNotFound = "reporting.export_task.not_found";
+
+    /// <summary>报表导出格式不受支持。</summary>
+    public const string ExportFormatUnsupported = "reporting.export_task.format_unsupported";
+
+    /// <summary>报表导出任务尚未完成，无法下载。</summary>
+    public const string ExportTaskNotReady = "reporting.export_task.not_ready";
+
+    /// <summary>报表导出行数超过上限。</summary>
+    public const string ExportRowLimitExceeded = "reporting.export_task.row_limit_exceeded";
+
+    /// <summary>报表导出文件超过大小上限。</summary>
+    public const string ExportSizeLimitExceeded = "reporting.export_task.size_limit_exceeded";
+
+    /// <summary>报表导出执行失败。</summary>
+    public const string ExportFailed = "reporting.export_task.failed";
 }

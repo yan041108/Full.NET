@@ -30346,6 +30346,76 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["ReportingExecutions"]
       }
+    },
+    "/api/v1/reporting/export-tasks": {
+      "post": {
+        "operationId": "reportingCreateExportTask",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportingExportTaskRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingExportTaskDetailResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingExportTasks"]
+      },
+      "get": {
+        "operationId": "reportingListExportTasks",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": ["integer", "string"] } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": ["integer", "string"] } },
+          { "in": "query", "name": "definitionId", "schema": { "format": "uuid", "type": ["null", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfReportingExportTaskResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingExportTasks"]
+      }
+    },
+    "/api/v1/reporting/export-tasks/{taskId}": {
+      "get": {
+        "operationId": "reportingGetExportTask",
+        "parameters": [
+          { "in": "path", "name": "taskId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingExportTaskDetailResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingExportTasks"]
+      }
+    },
+    "/api/v1/reporting/export-tasks/{taskId}/download": {
+      "get": {
+        "operationId": "reportingDownloadExportTask",
+        "parameters": [
+          { "in": "path", "name": "taskId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": { "schema": { "format": "binary", "type": "string" } }
+            },
+            "description": "OK"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingExportTasks"]
+      }
     }
   },
   "components": {
@@ -46346,6 +46416,68 @@
           "executedAtUtc": { "format": "date-time", "type": "string" }
         },
         "required": ["definitionId", "definitionKey", "definitionName", "versionNumber", "queryPortKey", "columns", "rows", "page", "pageSize", "hasMore", "commandTimeoutSeconds", "executedAtUtc"],
+        "type": "object"
+      },
+      "CreateReportingExportTaskRequest": {
+        "properties": {
+          "definitionId": { "format": "uuid", "type": "string" },
+          "formatKey": { "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["null", "integer", "string"] },
+          "parameters": {
+            "items": { "$ref": "#/components/schemas/ReportingExecutionParameterValue" },
+            "type": "array"
+          }
+        },
+        "required": ["definitionId", "formatKey", "parameters"],
+        "type": "object"
+      },
+      "ReportingExportTaskResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "definitionId": { "format": "uuid", "type": "string" },
+          "definitionKey": { "type": "string" },
+          "definitionName": { "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "formatKey": { "type": "string" },
+          "statusKey": { "type": "string" },
+          "rowCount": { "format": "int32", "type": ["integer", "string"] },
+          "outputFileName": { "type": ["null", "string"] },
+          "errorCode": { "type": ["null", "string"] },
+          "errorMessage": { "type": ["null", "string"] },
+          "requestedByUserId": { "format": "uuid", "type": "string" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "completedAtUtc": { "format": "date-time", "type": ["null", "string"] }
+        },
+        "required": ["id", "definitionId", "definitionKey", "definitionName", "versionNumber", "formatKey", "statusKey", "rowCount", "requestedByUserId", "createdAtUtc"],
+        "type": "object"
+      },
+      "ReportingExportTaskDetailResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ReportingExportTaskResponse" },
+          {
+            "properties": {
+              "outputFileId": { "format": "uuid", "type": ["null", "string"] },
+              "parameters": {
+                "items": { "$ref": "#/components/schemas/ReportingExecutionParameterValue" },
+                "type": "array"
+              }
+            },
+            "required": ["parameters"],
+            "type": "object"
+          }
+        ]
+      },
+      "PagedResultOfReportingExportTaskResponse": {
+        "properties": {
+          "items": {
+            "items": { "$ref": "#/components/schemas/ReportingExportTaskResponse" },
+            "type": "array"
+          },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
         "type": "object"
       },
       "PagedResultOfReportingDataSourceListItem": {

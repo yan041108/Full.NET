@@ -4,12 +4,14 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Features.BrowseQueryPorts;
 using Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageDataSources;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
+using Full.NET.Modules.Reporting.Features.ManageExportTasks;
 using Full.NET.Modules.Reporting.Features.ManageGroups;
 using Full.NET.Modules.Reporting.Security;
 using Full.NET.Modules.Reporting.Serialization;
@@ -29,6 +31,7 @@ public sealed class ReportingModule : IFullNetModule
     public IReadOnlyCollection<string> Dependencies =>
     [
         "Identity",
+        "Files",
         "Tenancy",
     ];
 
@@ -54,6 +57,8 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingDefinitionQueryService>();
         services.TryAddScoped<ReportingDefinitionManagementService>();
         services.TryAddScoped<ReportingDefinitionExecutionService>();
+        services.TryAddScoped<ReportingExportTaskQueryService>();
+        services.TryAddScoped<ReportingExportTaskManagementService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -67,5 +72,6 @@ public sealed class ReportingModule : IFullNetModule
         Features.BrowseQueryPorts.Endpoint.Map(endpoints);
         Features.ManageDefinitions.Endpoint.Map(endpoints);
         Features.ExecuteDefinitions.Endpoint.Map(endpoints);
+        Features.ManageExportTasks.Endpoint.Map(endpoints);
     }
 }

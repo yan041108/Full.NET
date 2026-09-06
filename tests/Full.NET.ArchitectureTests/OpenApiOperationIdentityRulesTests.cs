@@ -102,6 +102,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string ReportingQueryPortsTag = "ReportingQueryPorts";
     private const string ReportingDefinitionsTag = "ReportingDefinitions";
     private const string ReportingExecutionsTag = "ReportingExecutions";
+    private const string ReportingExportTasksTag = "ReportingExportTasks";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
     private const string DataApprovalRequestsTag = "DataApprovalRequests";
     private const string DataApprovalScenariosTag = "DataApprovalScenarios";
@@ -405,6 +406,10 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/reporting/definitions/{definitionId}/versions", "reportingListDefinitionVersions", ReportingDefinitionsTag),
         new("GET", "/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}", "reportingGetDefinitionVersion", ReportingDefinitionsTag),
         new("POST", "/api/v1/reporting/definitions/{definitionId}/execute", "reportingExecuteDefinition", ReportingExecutionsTag),
+        new("POST", "/api/v1/reporting/export-tasks", "reportingCreateExportTask", ReportingExportTasksTag),
+        new("GET", "/api/v1/reporting/export-tasks", "reportingListExportTasks", ReportingExportTasksTag),
+        new("GET", "/api/v1/reporting/export-tasks/{taskId}", "reportingGetExportTask", ReportingExportTasksTag),
+        new("GET", "/api/v1/reporting/export-tasks/{taskId}/download", "reportingDownloadExportTask", ReportingExportTasksTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

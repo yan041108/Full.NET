@@ -28,6 +28,9 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
         new(ReportingQueryPortPermissions.Read, "读取静态 Query Port 目录", AuthorizationScope.Host),
         new(ReportingExecutionPermissions.Run, "执行已发布报表", AuthorizationScope.Host),
         new(ReportingExecutionPermissions.ColumnSchemaName, "读取 Schema 清单列", AuthorizationScope.Host),
+        new(ReportingExportTaskPermissions.Create, "创建报表导出任务", AuthorizationScope.Host),
+        new(ReportingExportTaskPermissions.Read, "读取报表导出任务", AuthorizationScope.Host),
+        new(ReportingExportTaskPermissions.Download, "下载报表导出文件", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -65,6 +68,17 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
             "monitor",
             30,
             ReportingExecutionPermissions.Run),
+        new NavigationDefinition(
+            "reporting-export-tasks",
+            null,
+            "reporting-export-tasks",
+            "/reporting/export-tasks",
+            "reporting-export-tasks",
+            "报表导出",
+            "Reporting Export",
+            "download",
+            40,
+            ReportingExportTaskPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

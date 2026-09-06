@@ -2361,6 +2361,30 @@
       "status": "manual"
     },
     {
+      "operationId": "reportingCreateExportTask",
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "generatedGroup": "reporting-export-tasks",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingListExportTasks",
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "generatedGroup": "reporting-export-tasks",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingGetExportTask",
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "generatedGroup": "reporting-export-tasks",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingDownloadExportTask",
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "generatedGroup": "reporting-export-tasks",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",
