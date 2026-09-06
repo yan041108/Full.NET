@@ -29,6 +29,8 @@ import {
   getCodeGenerationTemplate,
   listCodeGenerationTemplates
 } from '../api/code-generation-templates';
+import { syncCodeGenerationCatalogColumns } from '../api/code-generation-catalog';
+import type { CodeGenerationCatalogColumnSyncResponse } from '@fullnet/client-contracts';
 
 const session = useSessionStore();
 const route = useRoute();
@@ -137,6 +139,9 @@ const canExecuteRuns = computed(() => session.can('codegen.runs.execute'));
 const canApplyRuns = computed(() => session.can('codegen.runs.apply'));
 const canRollbackRuns = computed(() => session.can('codegen.runs.rollback'));
 const canDownloadRuns = computed(() => session.can('codegen.runs.download'));
+const canReadCatalog = computed(() => session.can('codegen.catalog.read'));
+const catalogSyncLoading = ref(false);
+const catalogSyncPreview = ref<CodeGenerationCatalogColumnSyncResponse>();
 
 const selectedArtifact = computed<CodeGenerationPreviewArtifact | undefined>(
   () => preview.value?.artifacts.find(
@@ -324,6 +329,62 @@ async function generatePreview(): Promise<void> {
 
 function invalidateReviewedPreview(): void {
   reviewedPreview.value = undefined;
+}
+
+async function previewCatalogColumnSync(): Promise<void> {
+  if (catalogSyncLoading.value || !canReadCatalog.value) {
+    return;
+  }
+
+  problem.value = undefined;
+  const input = readSchema();
+  if (!input) {
+    return;
+  }
+
+  catalogSyncLoading.value = true;
+  catalogSyncPreview.value = undefined;
+  try {
+    catalogSyncPreview.value = await syncCodeGenerationCatalogColumns(
+      input.databaseTableName,
+      input.columns
+    );
+  } catch (error: unknown) {
+    problem.value = readProblem(error, 'client.codegen_catalog_sync_failed');
+  } finally {
+    catalogSyncLoading.value = false;
+  }
+}
+
+function applyCatalogColumnSync(): void {
+  const previewSync = catalogSyncPreview.value;
+  if (!previewSync) {
+    return;
+  }
+
+  const input = readSchema();
+  if (!input) {
+    return;
+  }
+
+  schemaText.value = JSON.stringify(
+    {
+      ...input,
+      columns: previewSync.columns
+    },
+    null,
+    2
+  );
+  catalogSyncPreview.value = undefined;
+  invalidateReviewedPreview();
+}
+
+function hasCatalogSyncChanges(
+  previewSync: CodeGenerationCatalogColumnSyncResponse
+): boolean {
+  return previewSync.addedColumnNames.length > 0
+    || previewSync.removedColumnNames.length > 0
+    || previewSync.skippedColumnNames.length > 0;
 }
 
 async function applyReviewedPreview(): Promise<void> {
@@ -550,6 +611,63 @@ function readProblem(
           :aria-label="t('codeGeneration.schemaTitle')"
           @update:model-value="invalidateReviewedPreview"
         />
+        <section
+          v-if="canReadCatalog"
+          class="codegen-workbench__catalog-sync"
+          data-testid="codegen-catalog-sync"
+        >
+          <div class="codegen-workbench__catalog-sync-header">
+            <div>
+              <h3>{{ t('codeGeneration.catalogSyncTitle') }}</h3>
+              <p class="art-muted">{{ t('codeGeneration.catalogSyncHint') }}</p>
+            </div>
+            <ElButton
+              plain
+              :loading="catalogSyncLoading"
+              data-testid="codegen-catalog-sync-preview"
+              @click="previewCatalogColumnSync"
+            >
+              {{ t('codeGeneration.catalogSyncPreview') }}
+            </ElButton>
+          </div>
+          <div
+            v-if="catalogSyncPreview"
+            class="codegen-workbench__catalog-diff"
+            data-testid="codegen-catalog-sync-diff"
+          >
+            <p v-if="!hasCatalogSyncChanges(catalogSyncPreview)">
+              {{ t('codeGeneration.catalogSyncNoChanges') }}
+            </p>
+            <dl v-else class="codegen-workbench__catalog-diff-list">
+              <div v-if="catalogSyncPreview.addedColumnNames.length">
+                <dt>{{ t('codeGeneration.catalogSyncAdded') }}</dt>
+                <dd translate="no">
+                  {{ catalogSyncPreview.addedColumnNames.join(', ') }}
+                </dd>
+              </div>
+              <div v-if="catalogSyncPreview.removedColumnNames.length">
+                <dt>{{ t('codeGeneration.catalogSyncRemoved') }}</dt>
+                <dd translate="no">
+                  {{ catalogSyncPreview.removedColumnNames.join(', ') }}
+                </dd>
+              </div>
+              <div v-if="catalogSyncPreview.skippedColumnNames.length">
+                <dt>{{ t('codeGeneration.catalogSyncSkipped') }}</dt>
+                <dd translate="no">
+                  {{ catalogSyncPreview.skippedColumnNames.join(', ') }}
+                </dd>
+              </div>
+            </dl>
+            <ElButton
+              type="primary"
+              plain
+              data-testid="codegen-catalog-sync-apply"
+              @click="applyCatalogColumnSync"
+            >
+              {{ t('codeGeneration.catalogSyncApply') }}
+            </ElButton>
+          </div>
+        </section>
         <div class="codegen-workbench__action">
           <span>{{ t('codeGeneration.explicitScopeHint') }}</span>
           <PermissionGate code="codegen.runs.execute">
@@ -910,6 +1028,50 @@ function readProblem(
   color: var(--codegen-ink);
   font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
   tab-size: 2;
+}
+
+.codegen-workbench__catalog-sync {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--codegen-ink) 12%, transparent);
+}
+
+.codegen-workbench__catalog-sync-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.codegen-workbench__catalog-sync h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.codegen-workbench__catalog-diff {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--fullnet-color-line);
+  background: var(--fullnet-color-canvas);
+}
+
+.codegen-workbench__catalog-diff-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.codegen-workbench__catalog-diff-list dt {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.codegen-workbench__catalog-diff-list dd {
+  margin: 0;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 .codegen-workbench__action {

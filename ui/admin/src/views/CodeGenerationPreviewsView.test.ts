@@ -13,6 +13,7 @@ import {
   listCodeGenerationTemplates,
   updateCodeGenerationTemplate
 } from '../api/code-generation-templates';
+import { syncCodeGenerationCatalogColumns } from '../api/code-generation-catalog';
 
 const permissionState = vi.hoisted(() => ({
   grants: new Set<string>()
@@ -51,6 +52,9 @@ vi.mock('../api/code-generation-templates', () => ({
   listCodeGenerationTemplates: vi.fn(),
   updateCodeGenerationTemplate: vi.fn()
 }));
+vi.mock('../api/code-generation-catalog', () => ({
+  syncCodeGenerationCatalogColumns: vi.fn()
+}));
 
 const trackedPreviewMock = vi.mocked(previewTrackedCodeGeneration);
 const applyMock = vi.mocked(applyTrackedCodeGeneration);
@@ -59,6 +63,7 @@ const listTemplatesMock = vi.mocked(listCodeGenerationTemplates);
 const createTemplateMock = vi.mocked(createCodeGenerationTemplate);
 const updateTemplateMock = vi.mocked(updateCodeGenerationTemplate);
 const deleteTemplateMock = vi.mocked(deleteCodeGenerationTemplate);
+const catalogSyncMock = vi.mocked(syncCodeGenerationCatalogColumns);
 const template = {
   id: '0198f36e-f7a7-7c52-9cbb-774e67411205',
   name: 'Product CRUD',
@@ -164,6 +169,37 @@ describe('Vue 代码生成预览页', () => {
       version: 2
     });
     deleteTemplateMock.mockReset().mockResolvedValue();
+    catalogSyncMock.mockReset().mockResolvedValue({
+      tableName: 'acme_catalog_product',
+      columns: [
+        template.schema.columns[0],
+        {
+          databaseName: 'Name',
+          clrPropertyName: 'Name',
+          jsonPropertyName: 'displayName',
+          scalarType: 'string',
+          isNullable: false,
+          maxLength: 200,
+          numericPrecision: null,
+          numericScale: null,
+          ui: {
+            controlKind: 'textarea',
+            showInList: true,
+            includeInCreate: true,
+            includeInUpdate: true,
+            required: true,
+            sortable: true,
+            queryable: true,
+            queryKind: 'contains',
+            unique: false,
+            includeInImportExport: true
+          }
+        }
+      ],
+      addedColumnNames: ['Name'],
+      removedColumnNames: [],
+      skippedColumnNames: []
+    });
   });
 
   it('read-only 模板目录只显示加载列表，不显示写入控件', async () => {
@@ -281,5 +317,39 @@ describe('Vue 代码生成预览页', () => {
       previewRunId: '0198f36e-f7a7-7c52-9cbb-774e67411212'
     });
     confirm.mockRestore();
+  });
+
+  it('无 catalog.read 时不显示表结构同步入口', async () => {
+    permissionState.grants = new Set([
+      'codegen.previews.read',
+      'codegen.runs.execute'
+    ]);
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="codegen-catalog-sync"]').exists()).toBe(false);
+  });
+
+  it('预览列同步差异后可合并到 Schema 编辑器', async () => {
+    permissionState.grants.add('codegen.catalog.read');
+    const wrapper = mount(CodeGenerationPreviewsView);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="codegen-catalog-sync-preview"]').trigger('click');
+    await flushPromises();
+
+    expect(catalogSyncMock).toHaveBeenCalledWith(
+      'acme_catalog_product',
+      expect.any(Array)
+    );
+    expect(wrapper.get('[data-testid="codegen-catalog-sync-diff"]').text())
+      .toContain('Name');
+
+    await wrapper.get('[data-testid="codegen-catalog-sync-apply"]').trigger('click');
+    const schema = JSON.parse(
+      (wrapper.get('[data-testid="codegen-schema"]').element as HTMLTextAreaElement).value
+    );
+    expect(schema.columns).toHaveLength(2);
+    expect(schema.columns[1].ui.controlKind).toBe('textarea');
   });
 });
