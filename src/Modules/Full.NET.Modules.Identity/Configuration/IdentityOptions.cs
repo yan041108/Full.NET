@@ -81,6 +81,9 @@ internal sealed class IdentityOptions
     /// Refresh/Logout 等会话变更端点每分钟允许的请求数。
     /// </summary>
     public int SessionMutationRateLimitPermitLimitPerMinute { get; set; } = 30;
+
+    /// <summary>密码到期天数；0 表示不启用到期强制改密。</summary>
+    public int PasswordExpirationDays { get; set; }
 }
 
 /// <summary>

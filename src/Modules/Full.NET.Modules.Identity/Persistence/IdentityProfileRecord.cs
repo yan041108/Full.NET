@@ -18,4 +18,8 @@ internal sealed class IdentityProfileRecord
     public string PreferredLocale { get; set; } = string.Empty;
 
     public int ProfileVersion { get; set; }
+
+    public bool MustChangePassword { get; set; }
+
+    public DateTimeOffset? PasswordChangedAtUtc { get; set; }
 }

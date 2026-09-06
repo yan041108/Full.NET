@@ -26,7 +26,9 @@ internal sealed class IdentityUserRecord
         int version,
         string preferredLocale = LocaleCatalog.DefaultLocale,
         int profileVersion = 1,
-        string accountType = IdentityAccountTypes.NormalUser)
+        string accountType = IdentityAccountTypes.NormalUser,
+        bool mustChangePassword = false,
+        DateTimeOffset? passwordChangedAtUtc = null)
     {
         Id = id;
         TenantId = tenantId;
@@ -45,6 +47,8 @@ internal sealed class IdentityUserRecord
         PreferredLocale = preferredLocale;
         ProfileVersion = profileVersion;
         AccountType = accountType;
+        MustChangePassword = mustChangePassword;
+        PasswordChangedAtUtc = passwordChangedAtUtc;
     }
 
     public Guid Id { get; set; }
@@ -80,4 +84,8 @@ internal sealed class IdentityUserRecord
     public int ProfileVersion { get; set; }
 
     public string AccountType { get; set; } = IdentityAccountTypes.NormalUser;
+
+    public bool MustChangePassword { get; set; }
+
+    public DateTimeOffset? PasswordChangedAtUtc { get; set; }
 }

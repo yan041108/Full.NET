@@ -106,6 +106,8 @@ internal sealed class IdentityBootstrapService(
             {
                 PasswordHash = passwordHasher.HashPassword(user, password),
                 AccountType = IdentityAccountTypes.SysAdmin,
+                MustChangePassword = false,
+                PasswordChangedAtUtc = now,
             };
 
             await RequireExactlyOneAsync(

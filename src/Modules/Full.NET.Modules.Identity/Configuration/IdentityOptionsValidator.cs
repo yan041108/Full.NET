@@ -56,6 +56,11 @@ internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
                 "SessionMutationRateLimitPermitLimitPerMinute must be at least 1.");
         }
 
+        if (options.PasswordExpirationDays < 0)
+        {
+            failures.Add("PasswordExpirationDays must be zero or greater.");
+        }
+
         if (options.SigningKeys is null)
         {
             failures.Add("Identity SigningKeys configuration is required.");

@@ -25,6 +25,8 @@ namespace Full.NET.Modules.Identity.Domain;
 /// <param name="PreferredLocale">用户偏好界面语言。</param>
 /// <param name="ProfileVersion">扩展资料版本号。</param>
 /// <param name="AccountType">账号类型：普通用户或外部同步账号。</param>
+/// <param name="MustChangePassword">是否必须在下次登录后完成改密。</param>
+/// <param name="PasswordChangedAtUtc">最近一次成功改密时间（UTC）。</param>
 internal sealed record IdentityUser(
     Guid Id,
     Guid? TenantId,
@@ -42,4 +44,6 @@ internal sealed record IdentityUser(
     int Version,
     string PreferredLocale = LocaleCatalog.DefaultLocale,
     int ProfileVersion = 1,
-    string AccountType = IdentityAccountTypes.NormalUser);
+    string AccountType = IdentityAccountTypes.NormalUser,
+    bool MustChangePassword = false,
+    DateTimeOffset? PasswordChangedAtUtc = null);

@@ -106,6 +106,7 @@ internal sealed class Handler(
                     ("ScopeKey", scopeKey),
                     ("PasswordHash", passwordHash),
                     ("SecurityStamp", securityStamp),
+                    ("PasswordChangedAtUtc", now),
                     ("UpdatedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -201,6 +202,8 @@ internal sealed class Handler(
             SecurityStamp = securityStamp,
             FailedLoginCount = 0,
             LockoutEndUtc = null,
+            MustChangePassword = false,
+            PasswordChangedAtUtc = now,
             UpdatedAtUtc = now,
             Version = refreshedSession.UserVersion,
         };
@@ -351,7 +354,9 @@ internal sealed class Handler(
         record.UserUpdatedAtUtc,
         record.UserVersion,
         record.PreferredLocale,
-        record.ProfileVersion);
+        record.ProfileVersion,
+        MustChangePassword: record.MustChangePassword,
+        PasswordChangedAtUtc: record.PasswordChangedAtUtc);
 
     private static string? Truncate(string? value, int maxLength) =>
         string.IsNullOrWhiteSpace(value)

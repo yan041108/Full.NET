@@ -232,7 +232,9 @@ internal sealed class IdentitySessionContextService(
         record.UserUpdatedAtUtc,
         record.UserVersion,
         record.PreferredLocale,
-        record.ProfileVersion);
+        record.ProfileVersion,
+        MustChangePassword: record.MustChangePassword,
+        PasswordChangedAtUtc: record.PasswordChangedAtUtc);
 
     private static Result<TenantContextTokenResponse> SessionNotActive() =>
         Failure(

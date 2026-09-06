@@ -108,6 +108,9 @@ public static class IdentityErrorCodes
     /// <summary>已禁用用户须通过启用操作恢复，禁止借解锁间接启用。</summary>
     public const string UnlockInactiveUserRejected = "identity.users.unlock_inactive_user_rejected";
 
+    /// <summary>当前账号必须先完成改密后才能访问普通业务 API。</summary>
+    public const string PasswordChangeRequired = "identity.password_change_required";
+
     /// <summary>导入行试图授予超级管理员，已拒绝。</summary>
     public const string SuperAdministratorImportRejected =
         "identity.users.super_administrator_import_rejected";
@@ -291,6 +294,7 @@ public static class IdentityErrorCodes
         UserNotFound,
         LoginNotLocked,
         UnlockInactiveUserRejected,
+        PasswordChangeRequired,
         SuperAdministratorImportRejected,
         RoleCodeExists,
         RoleNotFound,

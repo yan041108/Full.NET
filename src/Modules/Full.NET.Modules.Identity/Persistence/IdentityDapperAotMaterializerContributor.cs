@@ -79,7 +79,9 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadInt32(reader, 13),
             reader.GetString(14),
             AotDataReaderExtensions.ReadInt32(reader, 15),
-            reader.GetString(16));
+            reader.GetString(16),
+            AotDataReaderExtensions.ReadBoolean(reader, 17),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18));
 
     private static IdentityAuthorizationRow ReadIdentityAuthorizationRow(DbDataReader reader) =>
         new(
@@ -96,6 +98,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             IsActive = AotDataReaderExtensions.ReadBoolean(reader, 4),
             PreferredLocale = reader.GetString(5),
             ProfileVersion = AotDataReaderExtensions.ReadInt32(reader, 6),
+            MustChangePassword = AotDataReaderExtensions.ReadBoolean(reader, 7),
+            PasswordChangedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
         };
 
     private static RefreshSessionRecord ReadRefreshSessionRecord(DbDataReader reader) =>
@@ -128,6 +132,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             UserVersion = AotDataReaderExtensions.ReadInt32(reader, 24),
             PreferredLocale = reader.GetString(25),
             ProfileVersion = AotDataReaderExtensions.ReadInt32(reader, 26),
+            MustChangePassword = AotDataReaderExtensions.ReadBoolean(reader, 27),
+            PasswordChangedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 28),
         };
 
     private static HostUserDirectoryRecord ReadHostUserDirectoryRecord(DbDataReader reader) =>
@@ -515,6 +521,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("PreferredLocale", record.PreferredLocale);
         parameters.Add("ProfileVersion", record.ProfileVersion);
         parameters.Add("AccountType", record.AccountType);
+        parameters.Add("MustChangePassword", record.MustChangePassword);
+        parameters.Add("PasswordChangedAtUtc", record.PasswordChangedAtUtc);
         return parameters;
     }
 

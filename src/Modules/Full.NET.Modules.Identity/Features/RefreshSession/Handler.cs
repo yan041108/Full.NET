@@ -284,7 +284,9 @@ internal sealed class Handler(
         record.UserUpdatedAtUtc,
         record.UserVersion,
         record.PreferredLocale,
-        record.ProfileVersion);
+        record.ProfileVersion,
+        MustChangePassword: record.MustChangePassword,
+        PasswordChangedAtUtc: record.PasswordChangedAtUtc);
 
     private static string? Truncate(string? value, int maxLength) =>
         string.IsNullOrWhiteSpace(value)

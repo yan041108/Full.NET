@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -53,19 +54,31 @@ internal sealed class JwtAccessTokenIssuer(
             claims[IdentityClaimTypes.TenantId] = effectiveTenantId.Value.ToString("D");
         }
 
-        if (isSuperAdministrator)
+        var passwordChangeRequired = PasswordChangeRequirementEvaluator.IsRequired(
+            user.MustChangePassword,
+            user.PasswordChangedAtUtc,
+            issuedAt,
+            _options.PasswordExpirationDays);
+        if (passwordChangeRequired)
         {
-            claims[IdentityClaimTypes.SuperAdministrator] = true;
+            claims[FullNetIdentityClaimTypes.PasswordChangeRequired] = true;
         }
-
-        var normalizedPermissions = permissions
-            .Where(permission => !string.IsNullOrWhiteSpace(permission))
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(permission => permission, StringComparer.Ordinal)
-            .ToArray();
-        if (!isSuperAdministrator && normalizedPermissions.Length > 0)
+        else
         {
-            claims[IdentityClaimTypes.Permission] = normalizedPermissions;
+            if (isSuperAdministrator)
+            {
+                claims[IdentityClaimTypes.SuperAdministrator] = true;
+            }
+
+            var normalizedPermissions = permissions
+                .Where(permission => !string.IsNullOrWhiteSpace(permission))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(permission => permission, StringComparer.Ordinal)
+                .ToArray();
+            if (!isSuperAdministrator && normalizedPermissions.Length > 0)
+            {
+                claims[IdentityClaimTypes.Permission] = normalizedPermissions;
+            }
         }
 
         var descriptor = new SecurityTokenDescriptor

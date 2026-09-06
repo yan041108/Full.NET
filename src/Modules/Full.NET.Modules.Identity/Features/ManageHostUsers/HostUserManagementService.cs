@@ -290,6 +290,7 @@ internal sealed class HostUserManagementService(
         {
             PasswordHash = passwordHasher.HashPassword(user, password),
             AccountType = accountType,
+            MustChangePassword = true,
         };
         var record = new IdentityUserRecord(
             user.Id,
@@ -308,7 +309,9 @@ internal sealed class HostUserManagementService(
             user.Version,
             user.PreferredLocale,
             user.ProfileVersion,
-            user.AccountType);
+            user.AccountType,
+            user.MustChangePassword,
+            user.PasswordChangedAtUtc);
         var affectedRows = await commandExecutor.ExecuteAsync(
                 IdentitySql.InsertUser,
                 record,

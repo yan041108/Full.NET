@@ -397,6 +397,18 @@ export function createIdentitySession(
       throw new TypeError('当前用户响应不符合契约。');
     }
 
+    if (operationGeneration !== sessionGeneration) {
+      return false;
+    }
+
+    currentUser = userValue;
+    i18n.setLocale(userValue.preferredLocale);
+    if (userValue.passwordChangeRequired) {
+      navigation = [];
+      availableTenants = [];
+      return true;
+    }
+
     const navigationValue = await http.request<unknown>('/api/v1/navigation');
     if (!isNavigationTree(navigationValue)
       || !isSupportedNavigationTree(navigationValue)) {

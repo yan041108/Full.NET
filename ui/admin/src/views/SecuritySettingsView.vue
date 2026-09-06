@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElButton, ElCard, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
@@ -9,8 +10,13 @@ import { isIdentityPasswordValid } from '../auth/identity-password-policy';
 defineOptions({ name: 'SecuritySettingsView' });
 
 const session = useSessionStore();
+const route = useRoute();
+const router = useRouter();
 const { t } = useAdminI18n();
 const saving = ref(false);
+const forced = computed(() =>
+  session.currentUser?.passwordChangeRequired === true
+  || route.query.forced === '1');
 const form = reactive({
   currentPassword: '',
   newPassword: '',
@@ -38,6 +44,9 @@ async function submit(): Promise<void> {
     form.newPassword = '';
     form.confirmPassword = '';
     ElMessage.success(t('securitySettings.changeSuccess'));
+    if (forced.value) {
+      await router.replace('/');
+    }
   } catch (error: unknown) {
     if (isFullNetProblemDetails(error)) {
       ElMessage.error(error.title || error.detail || t('securitySettings.changeFailed'));
@@ -55,7 +64,9 @@ async function submit(): Promise<void> {
     <el-card shadow="never" class="security-settings-card">
       <template #header>
         <h1 class="security-settings-card__title">{{ t('securitySettings.title') }}</h1>
-        <p class="security-settings-card__subtitle">{{ t('securitySettings.subtitle') }}</p>
+        <p class="security-settings-card__subtitle">
+          {{ forced ? t('securitySettings.forcedSubtitle') : t('securitySettings.subtitle') }}
+        </p>
       </template>
 
       <el-form label-width="120px" class="security-settings-form" @submit.prevent="submit">

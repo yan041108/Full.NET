@@ -12,6 +12,7 @@ using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
+using Full.NET.Modules.Identity.Middleware;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Seeding.Abstractions;
@@ -132,6 +133,15 @@ public sealed class IdentityModule : IFullNetModule
         Features.QueryHostModuleCatalog.Endpoint.Map(endpoints);
         Features.GetHostDashboardSummary.Endpoint.Map(endpoints);
         Features.OrganizationUnitProjection.Endpoint.Map(endpoints);
+    }
+
+    /// <inheritdoc />
+    public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
+    {
+        if (stage == ModulePipelineStage.BeforeAuthorization)
+        {
+            app.UseMiddleware<PasswordChangeRequiredMiddleware>();
+        }
     }
 
     /// <summary>注册 Worker 消费机构单元投影事件所需的最小后台能力。</summary>

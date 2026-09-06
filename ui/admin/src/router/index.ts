@@ -316,6 +316,12 @@ export function createAppRouter(
   /** 已认证用户只能访问服务端已下发并被本地白名单认可的导航路径。 */
   router.beforeEach(to => {
     const session = useSessionStore(pinia);
+    if (session.isAuthenticated
+      && session.currentUser?.passwordChangeRequired
+      && to.path !== '/account/security') {
+      return '/account/security?forced=1';
+    }
+
     if (!session.isAuthenticated || statusPaths.has(to.path) || selfServicePaths.has(to.path)) {
       return true;
     }

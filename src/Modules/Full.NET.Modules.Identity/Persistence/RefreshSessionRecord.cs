@@ -55,4 +55,8 @@ internal sealed class RefreshSessionRecord
     public string PreferredLocale { get; set; } = string.Empty;
 
     public int ProfileVersion { get; set; }
+
+    public bool MustChangePassword { get; set; }
+
+    public DateTimeOffset? PasswordChangedAtUtc { get; set; }
 }

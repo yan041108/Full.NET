@@ -10,7 +10,8 @@ internal static class IdentitySql
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
                SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
-               PreferredLocale, ProfileVersion, AccountType
+               PreferredLocale, ProfileVersion, AccountType,
+               MustChangePassword, PasswordChangedAtUtc
         FROM fn_identity_user
         WHERE ScopeKey = @ScopeKey AND NormalizedUsername = @NormalizedUsername
         """,
@@ -22,7 +23,8 @@ internal static class IdentitySql
         SELECT Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
                PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
                SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
-               PreferredLocale, ProfileVersion, AccountType
+               PreferredLocale, ProfileVersion, AccountType,
+               MustChangePassword, PasswordChangedAtUtc
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = 'host' AND TenantId IS NULL
         """,
@@ -234,12 +236,14 @@ internal static class IdentitySql
             (Id, TenantId, ScopeKey, Username, NormalizedUsername, DisplayName,
              PasswordHash, IsActive, FailedLoginCount, LockoutEndUtc,
              SecurityStamp, CreatedAtUtc, UpdatedAtUtc, Version,
-             PreferredLocale, ProfileVersion, AccountType)
+             PreferredLocale, ProfileVersion, AccountType,
+             MustChangePassword, PasswordChangedAtUtc)
         VALUES
             (@Id, @TenantId, @ScopeKey, @Username, @NormalizedUsername, @DisplayName,
              @PasswordHash, @IsActive, @FailedLoginCount, NULL,
              @SecurityStamp, @CreatedAtUtc, NULL, @Version,
-             @PreferredLocale, @ProfileVersion, @AccountType)
+             @PreferredLocale, @ProfileVersion, @AccountType,
+             @MustChangePassword, @PasswordChangedAtUtc)
         """,
         SqlDataScope.HostOnly);
 
@@ -342,6 +346,7 @@ internal static class IdentitySql
             SecurityStamp = @SecurityStamp,
             FailedLoginCount = 0,
             LockoutEndUtc = NULL,
+            MustChangePassword = 1,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @UserId
@@ -708,7 +713,9 @@ internal static class IdentitySql
                identityUser.UpdatedAtUtc AS UserUpdatedAtUtc,
                identityUser.Version AS UserVersion,
                identityUser.PreferredLocale,
-               identityUser.ProfileVersion
+               identityUser.ProfileVersion,
+               identityUser.MustChangePassword,
+               identityUser.PasswordChangedAtUtc
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
         WHERE session.Id = @SessionId
@@ -1082,6 +1089,8 @@ internal static class IdentitySql
             SecurityStamp = @SecurityStamp,
             FailedLoginCount = 0,
             LockoutEndUtc = NULL,
+            MustChangePassword = 0,
+            PasswordChangedAtUtc = @PasswordChangedAtUtc,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @UserId
@@ -1432,7 +1441,9 @@ internal static class IdentitySql
                identityUser.UpdatedAtUtc AS UserUpdatedAtUtc,
                identityUser.Version AS UserVersion,
                identityUser.PreferredLocale,
-               identityUser.ProfileVersion
+               identityUser.ProfileVersion,
+               identityUser.MustChangePassword,
+               identityUser.PasswordChangedAtUtc
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
         WHERE session.TokenHash = @TokenHash
@@ -1468,7 +1479,8 @@ internal static class IdentitySql
         "identity.find_profile_by_verified_identity",
         """
         SELECT Id, ScopeKey, Username, DisplayName, IsActive,
-               PreferredLocale, ProfileVersion
+               PreferredLocale, ProfileVersion,
+               MustChangePassword, PasswordChangedAtUtc
         FROM fn_identity_user
         WHERE Id = @UserId AND ScopeKey = @ScopeKey
         """,

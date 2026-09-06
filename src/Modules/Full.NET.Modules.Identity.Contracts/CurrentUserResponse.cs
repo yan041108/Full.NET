@@ -14,6 +14,7 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <param name="SessionId">当前刷新会话标识。</param>
 /// <param name="PreferredLocale">账号已保存的规范语言偏好。</param>
 /// <param name="ProfileVersion">只保护展示资料更新的乐观并发版本。</param>
+/// <param name="PasswordChangeRequired">当前账号是否必须先完成改密后才能访问普通业务 API。</param>
 public sealed record CurrentUserResponse(
     Guid Id,
     string Username,
@@ -25,4 +26,5 @@ public sealed record CurrentUserResponse(
     IReadOnlyCollection<string> Permissions,
     Guid SessionId,
     string PreferredLocale,
-    int ProfileVersion);
+    int ProfileVersion,
+    bool PasswordChangeRequired);

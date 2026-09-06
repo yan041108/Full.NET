@@ -16,6 +16,7 @@ export interface CurrentUserResponse {
   sessionId: string;
   preferredLocale: SupportedLocale;
   profileVersion: number;
+  passwordChangeRequired: boolean;
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';
@@ -59,7 +60,8 @@ export function isCurrentUserResponse(value: unknown): value is CurrentUserRespo
     && value.permissions.every(permission => typeof permission === 'string')
     && typeof value.sessionId === 'string'
     && isSupportedLocale(value.preferredLocale)
-    && isPositiveInteger(value.profileVersion);
+    && isPositiveInteger(value.profileVersion)
+    && typeof value.passwordChangeRequired === 'boolean';
 }
 
 /** 校验语言偏好更新响应，避免损坏响应造成客户端乐观切换。 */

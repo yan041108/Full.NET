@@ -125,7 +125,10 @@ internal sealed class TotpStrongReauthenticationProvider(
         record.UpdatedAtUtc,
         record.Version,
         record.PreferredLocale,
-        record.ProfileVersion);
+        record.ProfileVersion,
+        record.AccountType,
+        record.MustChangePassword,
+        record.PasswordChangedAtUtc);
 
     private static Result<IdentityUser> ReauthenticationFailed() =>
         Result<IdentityUser>.Failure(new Error(

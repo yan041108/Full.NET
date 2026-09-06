@@ -53,4 +53,7 @@ public static class FullNetIdentityClaimTypes
     /// 获取 API Key 凭据标识 Claim 名称；仅由 API Key 认证中间件写入。
     /// </summary>
     public const string ApiKeyId = "fullnet_api_key_id";
+
+    /// <summary>获取账号必须先完成改密后才能访问普通业务 API 的标记 Claim 名称。</summary>
+    public const string PasswordChangeRequired = "fullnet_password_change_required";
 }

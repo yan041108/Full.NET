@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Time;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
@@ -9,6 +11,7 @@ using Full.NET.Modules.Identity.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Features.GetCurrentUser;
@@ -24,6 +27,8 @@ internal static class Endpoint
             IQueryExecutor queryExecutor,
             PermissionClaimEvaluator permissionClaimEvaluator,
             IApiResultMapper mapper,
+            IClock clock,
+            IOptions<IdentityOptions> options,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
@@ -64,9 +69,17 @@ internal static class Endpoint
                 ? parsedTenantId
                 : (Guid?)null;
             var scope = principal.FindFirstValue(IdentityClaimTypes.Scope) ?? string.Empty;
-            var isSuperAdministrator =
-                PermissionClaimEvaluator.IsSuperAdministrator(principal);
-            var permissions = permissionClaimEvaluator.ResolvePermissions(principal);
+            var identityOptions = options.Value;
+            var passwordChangeRequired = PasswordChangeRequirementEvaluator.IsRequired(
+                profile.MustChangePassword,
+                profile.PasswordChangedAtUtc,
+                clock.UtcNow,
+                identityOptions.PasswordExpirationDays);
+            var isSuperAdministrator = !passwordChangeRequired
+                && PermissionClaimEvaluator.IsSuperAdministrator(principal);
+            var permissions = passwordChangeRequired
+                ? Array.Empty<string>()
+                : permissionClaimEvaluator.ResolvePermissions(principal);
             var response = new CurrentUserResponse(
                 userId,
                 profile.Username,
@@ -78,7 +91,8 @@ internal static class Endpoint
                 permissions,
                 sessionId,
                 profile.PreferredLocale,
-                profile.ProfileVersion);
+                profile.ProfileVersion,
+                passwordChangeRequired);
             return mapper.Map(Result<CurrentUserResponse>.Success(response), httpContext);
         })
         .WithName("identityGetCurrentUser")
