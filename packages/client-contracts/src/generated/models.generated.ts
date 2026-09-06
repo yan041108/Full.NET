@@ -1071,6 +1071,17 @@ export interface HostDashboardSummaryResponse {
   readonly todayRequestCount: number;
 }
 
+export interface HostDocumentAccessLogResponse {
+  readonly accessTypeKey: string;
+  readonly actorUserId?: null | string;
+  readonly clientIpFingerprint?: null | string;
+  readonly documentItemId: string;
+  readonly documentTitle: string;
+  readonly id: string;
+  readonly occurredAtUtc: string;
+  readonly sourceKey: string;
+}
+
 export interface HostDocumentCategoryResponse {
   readonly code: null | string;
   readonly color: null | string;
@@ -2015,6 +2026,13 @@ export interface PagedResultOfHostAnnouncementResponse {
 
 export interface PagedResultOfHostApiKeyResponse {
   readonly items: Array<HostApiKeyResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfHostDocumentAccessLogResponse {
+  readonly items: Array<HostDocumentAccessLogResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;

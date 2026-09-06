@@ -424,6 +424,16 @@ export type {
 } from './document-tags.js';
 
 export {
+  isHostDocumentAccessLogPage,
+  isHostDocumentAccessLogResponse
+} from './document-access-logs.js';
+
+export type {
+  HostDocumentAccessLogPage,
+  HostDocumentAccessLogResponse
+} from './document-access-logs.js';
+
+export {
   isHostDocumentPermissionEntry,
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,

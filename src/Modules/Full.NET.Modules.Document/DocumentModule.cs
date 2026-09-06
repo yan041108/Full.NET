@@ -75,6 +75,8 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.TryAddScoped<Features.DocumentAccessLogs.DocumentAccessLogRecorder>();
+        services.TryAddScoped<Features.QueryHostDocumentAccessLogs.HostDocumentAccessLogQueryService>();
         services.AddOptions<DocumentVersionRetentionOptions>()
             .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
             .ValidateOnStart();
@@ -117,6 +119,7 @@ public sealed class DocumentModule : IFullNetModule
         Features.ManageHostDocumentPermissions.Endpoint.Map(endpoints);
         Features.ManageHostDocumentShares.Endpoint.Map(endpoints);
         Features.QueryHostDocumentStatistics.Endpoint.Map(endpoints);
+        Features.QueryHostDocumentAccessLogs.Endpoint.Map(endpoints);
     }
 
     /// <summary>

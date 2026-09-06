@@ -93,6 +93,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string DocumentHostRecycleBinTag = "DocumentHostRecycleBin";
     private const string DocumentHostSharesTag = "DocumentHostShares";
     private const string DocumentPublicSharesTag = "DocumentPublicShares";
+    private const string DocumentHostAccessLogsTag = "DocumentHostAccessLogs";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
     private const string DataApprovalRequestsTag = "DataApprovalRequests";
     private const string DataApprovalScenariosTag = "DataApprovalScenarios";
@@ -582,6 +583,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/cryptography/keys/{keyId}", "cryptographyGetKey", CryptographyGmKeysTag),
         new("POST", "/api/v1/cryptography/sm2/sign", "cryptographySm2Sign", CryptographyGmKeysTag),
         new("POST", "/api/v1/cryptography/sm2/verify", "cryptographySm2Verify", CryptographyGmKeysTag),
+        new("GET", "/api/v1/document/host/access-logs", "documentHostListDocumentAccessLogs", DocumentHostAccessLogsTag),
         new("GET", "/api/v1/document/host/categories", "documentHostListCategories", DocumentHostCategoriesTag),
         new("POST", "/api/v1/document/host/categories", "documentHostCreateCategory", DocumentHostCategoriesTag),
         new("PUT", "/api/v1/document/host/categories/{categoryId}", "documentHostUpdateCategory", DocumentHostCategoriesTag),

@@ -247,6 +247,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/document-access-logs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-access-logs-v1.json",
+      "apiModule": "ui/admin/src/api/document-access-logs.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/access-logs"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/document-statistics.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-parity-v1.json",

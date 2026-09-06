@@ -36,6 +36,7 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentSharePermissions.Create, "创建 Host 文档分享", AuthorizationScope.Host),
         new(HostDocumentSharePermissions.UpdateStatus, "更新 Host 文档分享状态", AuthorizationScope.Host),
         new(HostDocumentStatisticsPermissions.Read, "读取 Host 文档统计", AuthorizationScope.Host),
+        new(HostDocumentAccessLogPermissions.Read, "读取 Host 文档访问日志", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

@@ -20,6 +20,7 @@ public sealed class DocumentAuthorizationContributorTests
                 HostDocumentCategoryPermissions.Delete,
                 HostDocumentCategoryPermissions.Read,
                 HostDocumentCategoryPermissions.Update,
+                HostDocumentAccessLogPermissions.Read,
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Create,
                 HostDocumentPermissions.Delete,

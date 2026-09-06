@@ -49,6 +49,7 @@ internal static class DocumentHostItemAssertions
                 HostDocumentPermissions.Restore,
                 HostDocumentPermissions.RollbackVersion,
                 HostDocumentPermissions.DeleteVersion,
+                HostDocumentAccessLogPermissions.Read,
             ],
             cancellationToken);
 
@@ -303,6 +304,22 @@ internal static class DocumentHostItemAssertions
         Assert.AreEqual(
             DocumentErrorCodes.PreviewNotSupported,
             unsupportedProblem.RootElement.GetProperty("code").GetString());
+
+        using (var logsResponse = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"/api/v1/document/host/access-logs?page=1&pageSize=20&documentItemId={item.Id:D}",
+                       token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, logsResponse.StatusCode);
+            var logs = await logsResponse.Content.ReadFromJsonAsync<PagedResult<HostDocumentAccessLogResponse>>(
+                cancellationToken);
+            Assert.IsNotNull(logs);
+            Assert.IsTrue(logs.Items.Any(entry =>
+                entry.DocumentItemId == item.Id
+                && entry.AccessTypeKey == HostDocumentAccessTypeKeys.Preview));
+        }
     }
 
     private static async Task VerifyInvalidFileReferenceAsync(

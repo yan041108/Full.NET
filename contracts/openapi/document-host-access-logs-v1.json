@@ -1,0 +1,41 @@
+{
+  "id": "document-host-access-logs-v1",
+  "version": 1,
+  "description": "Host 文档访问日志 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/access-logs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_access_logs.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentAccessLogResponsePage"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostDocumentAccessLogResponse": {
+      "properties": [
+        "id",
+        "documentItemId",
+        "documentTitle",
+        "accessTypeKey",
+        "sourceKey",
+        "actorUserId",
+        "occurredAtUtc",
+        "clientIpFingerprint"
+      ]
+    },
+    "HostDocumentAccessLogResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentAccessLogResponse"
+    }
+  }
+}

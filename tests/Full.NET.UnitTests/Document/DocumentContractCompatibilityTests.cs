@@ -70,7 +70,8 @@ public sealed class DocumentContractCompatibilityTests
             null!,
             null!,
             null!,
-            NullPasswordHasher.Instance);
+            NullPasswordHasher.Instance,
+            null!);
 
         var result = await service.CreateAsync(
             new CreateHostDocumentShareRequest(Guid.CreateVersion7(), 7, "secret"));

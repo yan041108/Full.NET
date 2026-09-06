@@ -141,6 +141,7 @@ import type {
   HostApiKeyResponse,
   HostDashboardActivityResponse,
   HostDashboardSummaryResponse,
+  HostDocumentAccessLogResponse,
   HostDocumentCategoryResponse,
   HostDocumentItemResponse,
   HostDocumentPermissionEntry,
@@ -239,6 +240,7 @@ import type {
   PagedResultOfExceptionLogResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
+  PagedResultOfHostDocumentAccessLogResponse,
   PagedResultOfHostDocumentItemResponse,
   PagedResultOfHostDocumentShareResponse,
   PagedResultOfHostFileReferenceClaimResponse,
@@ -1929,6 +1931,17 @@ function isHostDashboardSummaryResponse(value: unknown): value is HostDashboardS
   return isRecord(value) && (typeof value["activeTenantCount"] === 'number' && Number.isInteger(value["activeTenantCount"])) && (typeof value["onlineSessionCount"] === 'number' && Number.isInteger(value["onlineSessionCount"])) && (Array.isArray(value["recentActivities"]) && value["recentActivities"].every(item25 => isHostDashboardActivityResponse(item25))) && ((typeof value["todayErrorRate"] === 'number' && Number.isFinite(value["todayErrorRate"])) || (typeof value["todayErrorRate"] === 'string')) && (typeof value["todayRequestCount"] === 'number' && Number.isInteger(value["todayRequestCount"]));
 }
 
+export function readHostDocumentAccessLogResponse(value: unknown): HostDocumentAccessLogResponse {
+  if (!(isHostDocumentAccessLogResponse(value))) {
+    throw new Error('client.invalid_host_document_access_log_response');
+  }
+  return value;
+}
+
+function isHostDocumentAccessLogResponse(value: unknown): value is HostDocumentAccessLogResponse {
+  return isRecord(value) && (typeof value["accessTypeKey"] === 'string') && (value["actorUserId"] === undefined || ((value["actorUserId"] === null) || (typeof value["actorUserId"] === 'string' && guidPattern.test(value["actorUserId"])))) && (value["clientIpFingerprint"] === undefined || ((value["clientIpFingerprint"] === null) || (typeof value["clientIpFingerprint"] === 'string'))) && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["occurredAtUtc"] === 'string') && (typeof value["sourceKey"] === 'string');
+}
+
 export function readHostDocumentCategoryResponse(value: unknown): HostDocumentCategoryResponse {
   if (!(isHostDocumentCategoryResponse(value))) {
     throw new Error('client.invalid_host_document_category_response');
@@ -3005,6 +3018,17 @@ export function readPagedResultOfHostApiKeyResponse(value: unknown): PagedResult
 
 function isPagedResultOfHostApiKeyResponse(value: unknown): value is PagedResultOfHostApiKeyResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostApiKeyResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostDocumentAccessLogResponse(value: unknown): PagedResultOfHostDocumentAccessLogResponse {
+  if (!(isPagedResultOfHostDocumentAccessLogResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_document_access_log_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostDocumentAccessLogResponse(value: unknown): value is PagedResultOfHostDocumentAccessLogResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentAccessLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostDocumentItemResponse(value: unknown): PagedResultOfHostDocumentItemResponse {

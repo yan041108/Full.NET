@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Document.Features;
+using Full.NET.Modules.Document.Features.DocumentAccessLogs;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Files.Contracts;
 using Microsoft.Extensions.Options;
@@ -17,6 +18,7 @@ internal sealed class HostDocumentItemQueryService(
     IMultiResultQueryExecutor multiResultQueryExecutor,
     IQueryExecutor queryExecutor,
     IHostFileContentReader hostFileContentReader,
+    DocumentAccessLogRecorder accessLogRecorder,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<HostDocumentItemResponse>>> ListAsync(
@@ -68,6 +70,7 @@ internal sealed class HostDocumentItemQueryService(
 
     public async Task<Result<HostFileContent>> OpenCurrentVersionContentAsync(
         Guid itemId,
+        DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default)
     {
         var record = await queryExecutor
@@ -86,9 +89,16 @@ internal sealed class HostDocumentItemQueryService(
             return Result<HostFileContent>.Failure(NoCurrentVersionError());
         }
 
-        return await hostFileContentReader
+        var contentResult = await hostFileContentReader
             .OpenReadyContentAsync(record.FileId.Value, cancellationToken)
             .ConfigureAwait(false);
+        if (!contentResult.IsSuccess)
+        {
+            return contentResult;
+        }
+
+        await TryRecordAccessAsync(record, accessObservation, cancellationToken).ConfigureAwait(false);
+        return contentResult;
     }
 
     public async Task<Result<IReadOnlyList<HostDocumentVersionResponse>>> ListVersionsAsync(
@@ -120,8 +130,20 @@ internal sealed class HostDocumentItemQueryService(
     public async Task<Result<HostFileContent>> OpenVersionPreviewAsync(
         Guid itemId,
         Guid? versionId,
+        DocumentAccessObservation? accessObservation = null,
         CancellationToken cancellationToken = default)
     {
+        var item = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentItemDetailRecord>(
+                DocumentItemSql.FindActiveById,
+                DocumentSqlParameters.Create(("Id", itemId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (item is null)
+        {
+            return Result<HostFileContent>.Failure(NotFoundError());
+        }
+
         var fileIdResult = await ResolvePreviewFileIdAsync(itemId, versionId, cancellationToken)
             .ConfigureAwait(false);
         if (!fileIdResult.IsSuccess)
@@ -143,6 +165,7 @@ internal sealed class HostDocumentItemQueryService(
             return Result<HostFileContent>.Failure(PreviewNotSupportedError());
         }
 
+        await TryRecordAccessAsync(item, accessObservation, cancellationToken).ConfigureAwait(false);
         return contentResult;
     }
 
@@ -184,6 +207,26 @@ internal sealed class HostDocumentItemQueryService(
         }
 
         return Result<Guid>.Success(version.FileId);
+    }
+
+    private Task TryRecordAccessAsync(
+        DocumentItemDetailRecord item,
+        DocumentAccessObservation? accessObservation,
+        CancellationToken cancellationToken)
+    {
+        if (accessObservation is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return accessLogRecorder.RecordAsync(
+            item.Id,
+            item.Title,
+            accessObservation.AccessTypeKey,
+            accessObservation.SourceKey,
+            accessObservation.ActorUserId,
+            accessObservation.ClientIpFingerprint,
+            cancellationToken);
     }
 
     private static bool IsPreviewSupportedMime(string contentType)

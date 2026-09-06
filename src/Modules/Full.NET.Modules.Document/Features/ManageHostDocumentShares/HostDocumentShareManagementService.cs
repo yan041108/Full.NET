@@ -4,6 +4,8 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Features;
+using Full.NET.Modules.Document.Features.DocumentAccessLogs;
 using Full.NET.Modules.Document.Persistence;
 using Full.NET.Modules.Document.Security;
 using System.Security.Cryptography;
@@ -27,7 +29,8 @@ internal sealed class HostDocumentShareManagementService(
     HostDocumentShareQueryService queries,
     IClock clock,
     IIdGenerator idGenerator,
-    IDocumentSharePasswordHasher passwordHasher)
+    IDocumentSharePasswordHasher passwordHasher,
+    DocumentAccessLogRecorder accessLogRecorder)
 {
     /// <summary>ShareCode 字符表：大写字母+小写字母+数字共 62 个字符，保证 URL 安全且无歧义。</summary>
     private const string ShareCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -78,6 +81,7 @@ internal sealed class HostDocumentShareManagementService(
     public async Task<Result<HostDocumentShareAccessResponse>> AccessAnonymousAsync(
         string shareCode,
         AccessHostDocumentShareRequest request,
+        string? clientIpFingerprint,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(shareCode))
@@ -124,10 +128,27 @@ internal sealed class HostDocumentShareManagementService(
 
         // 中文注释：只有验证通过、权限有效的情况下才执行原子计数自增；
         // 错误口令永不进入计数，避免被并发利用做存在性 oracle。
-        return await transaction.ExecuteResultAsync(
+        var result = await transaction.ExecuteResultAsync(
                 token => ConsumeAnonymousAccessAsync(share, hasPassword, now, token),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        await accessLogRecorder
+            .RecordAsync(
+                result.Value!.DocumentId,
+                result.Value.Title,
+                HostDocumentAccessTypeKeys.ShareAccess,
+                HostDocumentAccessSourceKeys.Share,
+                actorUserId: null,
+                clientIpFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result;
     }
 
     private async Task<Result<HostDocumentShareAccessResponse>> ConsumeAnonymousAccessAsync(

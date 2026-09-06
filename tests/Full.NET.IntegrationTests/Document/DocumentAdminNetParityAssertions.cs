@@ -36,6 +36,7 @@ internal static class DocumentAdminNetParityAssertions
                 HostDocumentRecycleBinPermissions.Read,
                 HostDocumentSharePermissions.Read,
                 HostDocumentStatisticsPermissions.Read,
+                HostDocumentAccessLogPermissions.Read,
                 HostDocumentPermissionManagementPermissions.Read,
             ],
             cancellationToken);
@@ -58,6 +59,7 @@ internal static class DocumentAdminNetParityAssertions
         await OpenApiDocumentHostPermissionsContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostRecycleBinContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostStatisticsContractAssertions.VerifyAsync(client, cancellationToken);
+        await OpenApiDocumentHostAccessLogsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
     private static IReadOnlyCollection<string> FullManagerPermissions() =>

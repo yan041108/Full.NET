@@ -15,6 +15,8 @@ namespace Full.NET.Modules.Document.Serialization;
 [JsonSerializable(typeof(RestoreHostDocumentItemRequest))]
 [JsonSerializable(typeof(RollbackHostDocumentVersionRequest))]
 [JsonSerializable(typeof(DeleteHostDocumentVersionRequest))]
+[JsonSerializable(typeof(HostDocumentAccessLogResponse))]
+[JsonSerializable(typeof(PagedResult<HostDocumentAccessLogResponse>))]
 [JsonSerializable(typeof(PagedResult<HostDocumentItemResponse>))]
 [JsonSerializable(typeof(HostDocumentCategoryResponse))]
 [JsonSerializable(typeof(CreateHostDocumentCategoryRequest))]

@@ -142,6 +142,7 @@ import type {
   HostApiKeyResponse,
   HostDashboardActivityResponse,
   HostDashboardSummaryResponse,
+  HostDocumentAccessLogResponse,
   HostDocumentCategoryResponse,
   HostDocumentItemResponse,
   HostDocumentPermissionEntry,
@@ -240,6 +241,7 @@ import type {
   PagedResultOfExceptionLogResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
+  PagedResultOfHostDocumentAccessLogResponse,
   PagedResultOfHostDocumentItemResponse,
   PagedResultOfHostDocumentShareResponse,
   PagedResultOfHostFileReferenceClaimResponse,
@@ -516,6 +518,7 @@ import {
   readPagedResultOfExceptionLogResponse,
   readPagedResultOfHostAnnouncementResponse,
   readPagedResultOfHostApiKeyResponse,
+  readPagedResultOfHostDocumentAccessLogResponse,
   readPagedResultOfHostDocumentItemResponse,
   readPagedResultOfHostDocumentShareResponse,
   readPagedResultOfHostFileReferenceClaimResponse,
@@ -1853,6 +1856,36 @@ export async function documentHostListCategories(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readDocumentHostListCategoriesResponse(value);
+}
+
+export interface DocumentHostListDocumentAccessLogsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly documentItemId?: string;
+}
+
+export async function documentHostListDocumentAccessLogs(
+  http: HttpClient,
+  parameters: DocumentHostListDocumentAccessLogsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfHostDocumentAccessLogResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.documentItemId !== undefined) {
+    query.set('documentItemId', String(parameters.documentItemId));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/access-logs` : `/api/v1/document/host/access-logs?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfHostDocumentAccessLogResponse(value);
 }
 
 export interface DocumentHostListDocumentPermissionsParameters {

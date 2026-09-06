@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -103,7 +104,13 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.AccessAnonymousAsync(shareCode, request, cancellationToken)
+            var result = await service
+                .AccessAnonymousAsync(
+                    shareCode,
+                    request,
+                    HttpOperationLogSanitizer.FingerprintClientIp(
+                        httpContext.Connection.RemoteIpAddress?.ToString()),
+                    cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

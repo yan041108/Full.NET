@@ -2157,6 +2157,12 @@
       "status": "generated"
     },
     {
+      "operationId": "documentHostListDocumentAccessLogs",
+      "apiModule": "ui/admin/src/api/document-access-logs.ts",
+      "generatedGroup": "document-host-access-logs",
+      "status": "generated"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

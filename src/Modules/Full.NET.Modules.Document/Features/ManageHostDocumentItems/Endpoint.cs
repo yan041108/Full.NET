@@ -1,6 +1,8 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Hosting.Observability;
 using Full.NET.Modules.Document.Contracts;
+using Full.NET.Modules.Document.Features.DocumentAccessLogs;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -199,7 +201,13 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.OpenVersionPreviewAsync(itemId, null, cancellationToken)
+            _ = TryResolveUserId(httpContext, out var userId);
+            var observation = CreateAuthenticatedObservation(
+                httpContext,
+                userId,
+                HostDocumentAccessTypeKeys.Preview);
+            var result = await queries
+                .OpenVersionPreviewAsync(itemId, null, observation, cancellationToken)
                 .ConfigureAwait(false);
             return MapPreviewResult(result, mapper, httpContext);
         })
@@ -218,7 +226,13 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.OpenVersionPreviewAsync(itemId, versionId, cancellationToken)
+            _ = TryResolveUserId(httpContext, out var userId);
+            var observation = CreateAuthenticatedObservation(
+                httpContext,
+                userId,
+                HostDocumentAccessTypeKeys.Preview);
+            var result = await queries
+                .OpenVersionPreviewAsync(itemId, versionId, observation, cancellationToken)
                 .ConfigureAwait(false);
             return MapPreviewResult(result, mapper, httpContext);
         })
@@ -236,7 +250,13 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await queries.OpenCurrentVersionContentAsync(itemId, cancellationToken)
+            _ = TryResolveUserId(httpContext, out var userId);
+            var observation = CreateAuthenticatedObservation(
+                httpContext,
+                userId,
+                HostDocumentAccessTypeKeys.Download);
+            var result = await queries
+                .OpenCurrentVersionContentAsync(itemId, observation, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -383,6 +403,17 @@ internal static class Endpoint
         var subject = httpContext.User.FindFirst("sub")?.Value;
         return Guid.TryParse(subject, out userId);
     }
+
+    private static DocumentAccessObservation CreateAuthenticatedObservation(
+        HttpContext httpContext,
+        Guid userId,
+        string accessTypeKey) =>
+        new(
+            userId == Guid.Empty ? null : userId,
+            HttpOperationLogSanitizer.FingerprintClientIp(
+                httpContext.Connection.RemoteIpAddress?.ToString()),
+            accessTypeKey,
+            HostDocumentAccessSourceKeys.Authenticated);
 
     private static IResult MapPreviewResult(
         Result<HostFileContent> result,

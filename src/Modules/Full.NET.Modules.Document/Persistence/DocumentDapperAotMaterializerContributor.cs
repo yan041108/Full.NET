@@ -20,6 +20,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentItemDetailRecord>(ReadItemDetail);
         registrar.Register<DocumentVersionRecord>(ReadVersion);
         registrar.Register<DocumentVersionRetentionCandidateRecord>(ReadRetentionCandidate);
+        registrar.Register<DocumentAccessLogRecord>(ReadAccessLog);
         registrar.Register<DocumentPermissionRecord>(ReadPermission);
         registrar.Register<DocumentShareRecord>(ReadShare);
         registrar.Register<DocumentStatisticsSummaryRecord>(ReadStatisticsSummary);
@@ -150,6 +151,18 @@ internal sealed class DocumentDapperAotMaterializerContributor
         DocumentItemId = ReadGuid(reader, "DocumentItemId"),
         CurrentVersionId = ReadGuid(reader, "CurrentVersionId"),
         HistoryCount = ReadInt32(reader, "HistoryCount"),
+    };
+
+    private static DocumentAccessLogRecord ReadAccessLog(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        DocumentItemId = ReadGuid(reader, "DocumentItemId"),
+        DocumentTitle = ReadString(reader, "DocumentTitle"),
+        AccessTypeKey = ReadString(reader, "AccessTypeKey"),
+        SourceKey = ReadString(reader, "SourceKey"),
+        ActorUserId = ReadNullableGuid(reader, "ActorUserId"),
+        OccurredAtUtc = ReadDateTimeOffset(reader, "OccurredAtUtc"),
+        ClientIpFingerprint = ReadNullableString(reader, "ClientIpFingerprint"),
     };
 
     private static DocumentPermissionRecord ReadPermission(DbDataReader reader) => new()

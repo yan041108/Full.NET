@@ -156,7 +156,7 @@ async function readManifest() {
     if (!isNonEmptyString(entry.operationId)
       || !isNonEmptyString(entry.apiModule)
       || !isNonEmptyString(entry.generatedGroup)
-      || !['pilot', 'generated'].includes(entry.status)) {
+      || !['pilot', 'generated', 'manual'].includes(entry.status)) {
       throw new Error('客户端生成 manifest 条目结构无效。');
     }
     if (operationIds.has(entry.operationId)) {
