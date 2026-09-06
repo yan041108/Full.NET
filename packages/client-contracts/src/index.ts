@@ -663,6 +663,22 @@ export type {
 } from './k3cloud.js';
 
 export {
+  isOcrIdCardTask,
+  isOcrIdCardTaskPage,
+  isOcrProviderConfig
+} from './ocr.js';
+
+export type {
+  ConfirmOcrIdCardTaskRequest,
+  CreateOcrIdCardTaskRequest,
+  OcrIdCardTask,
+  OcrIdCardTaskPage,
+  OcrProviderConfig,
+  TestOcrProviderConfigResult,
+  UpdateOcrProviderConfigRequest
+} from './ocr.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

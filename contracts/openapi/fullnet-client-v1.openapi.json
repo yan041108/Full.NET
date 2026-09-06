@@ -31425,6 +31425,146 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["K3CloudDocumentSyncs"]
       }
+    },
+    "/api/v1/ocr/provider-configs/{providerKey}": {
+      "get": {
+        "operationId": "ocrGetProviderConfig",
+        "parameters": [
+          { "in": "path", "name": "providerKey", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrProviderConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrProviderConfigs"]
+      },
+      "put": {
+        "operationId": "ocrUpdateProviderConfig",
+        "parameters": [
+          { "in": "path", "name": "providerKey", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateOcrProviderConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrProviderConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrProviderConfigs"]
+      }
+    },
+    "/api/v1/ocr/provider-configs/{providerKey}/test": {
+      "post": {
+        "operationId": "ocrTestProviderConfig",
+        "parameters": [
+          { "in": "path", "name": "providerKey", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestOcrProviderConfigResult" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrProviderConfigs"]
+      }
+    },
+    "/api/v1/ocr/id-card-tasks": {
+      "get": {
+        "operationId": "ocrListIdCardTasks",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": ["null", "integer", "string"] } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": ["null", "integer", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfOcrIdCardTaskResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrIdCardTasks"]
+      },
+      "post": {
+        "operationId": "ocrCreateIdCardTask",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateOcrIdCardTaskRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrIdCardTaskResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrIdCardTasks"]
+      }
+    },
+    "/api/v1/ocr/id-card-tasks/{taskId}": {
+      "get": {
+        "operationId": "ocrGetIdCardTask",
+        "parameters": [
+          { "in": "path", "name": "taskId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrIdCardTaskResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrIdCardTasks"]
+      }
+    },
+    "/api/v1/ocr/id-card-tasks/{taskId}/confirm": {
+      "post": {
+        "operationId": "ocrConfirmIdCardTask",
+        "parameters": [
+          { "in": "path", "name": "taskId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfirmOcrIdCardTaskRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrIdCardTaskResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrIdCardTasks"]
+      }
+    },
+    "/api/v1/ocr/id-card-tasks/{taskId}/reject": {
+      "post": {
+        "operationId": "ocrRejectIdCardTask",
+        "parameters": [
+          { "in": "path", "name": "taskId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfirmOcrIdCardTaskRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OcrIdCardTaskResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["OcrIdCardTasks"]
+      }
     }
   },
   "components": {
@@ -47757,6 +47897,102 @@
       "PagedResultOfK3CloudDocumentSyncResponse": {
         "properties": {
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/K3CloudDocumentSyncResponse" } },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "OcrProviderConfigResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "providerKey": { "type": "string" },
+          "name": { "type": "string" },
+          "baseUrl": { "type": "string" },
+          "hasApiKey": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "lastTestedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "lastTestStatusKey": { "type": ["null", "string"] },
+          "lastTestMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "providerKey", "name", "baseUrl", "hasApiKey", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "UpdateOcrProviderConfigRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "baseUrl": { "type": "string" },
+          "apiKey": { "type": ["null", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "baseUrl", "isEnabled", "version"],
+        "type": "object"
+      },
+      "TestOcrProviderConfigResult": {
+        "properties": {
+          "succeeded": { "type": "boolean" },
+          "message": { "type": "string" }
+        },
+        "required": ["succeeded", "message"],
+        "type": "object"
+      },
+      "OcrIdCardTaskResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "sourceFileId": { "format": "uuid", "type": "string" },
+          "statusKey": { "type": "string" },
+          "recognizedName": { "type": ["null", "string"] },
+          "recognizedIdNumber": { "type": ["null", "string"] },
+          "recognizedGender": { "type": ["null", "string"] },
+          "recognizedNation": { "type": ["null", "string"] },
+          "recognizedAddress": { "type": ["null", "string"] },
+          "recognizedBirthDate": { "type": ["null", "string"] },
+          "confirmedName": { "type": ["null", "string"] },
+          "confirmedIdNumber": { "type": ["null", "string"] },
+          "confirmedGender": { "type": ["null", "string"] },
+          "confirmedNation": { "type": ["null", "string"] },
+          "confirmedAddress": { "type": ["null", "string"] },
+          "confirmedBirthDate": { "type": ["null", "string"] },
+          "failureMessage": { "type": ["null", "string"] },
+          "recognizedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "confirmedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "rejectedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "createdByUserId": { "format": "uuid", "type": "string" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "sourceFileId", "statusKey", "createdAtUtc", "createdByUserId", "version"],
+        "type": "object"
+      },
+      "CreateOcrIdCardTaskRequest": {
+        "properties": {
+          "sourceFileId": { "format": "uuid", "type": "string" }
+        },
+        "required": ["sourceFileId"],
+        "type": "object"
+      },
+      "ConfirmOcrIdCardTaskRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "idNumber": { "type": "string" },
+          "gender": { "type": ["null", "string"] },
+          "nation": { "type": ["null", "string"] },
+          "address": { "type": ["null", "string"] },
+          "birthDate": { "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "idNumber", "version"],
+        "type": "object"
+      },
+      "PagedResultOfOcrIdCardTaskResponse": {
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/OcrIdCardTaskResponse" } },
           "page": { "format": "int32", "type": ["integer", "string"] },
           "pageSize": { "format": "int32", "type": ["integer", "string"] },
           "total": { "format": "int64", "type": ["integer", "string"] }

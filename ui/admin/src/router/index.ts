@@ -307,6 +307,16 @@ export function createAppRouter(
         component: () => import('../views/K3CloudDocumentSyncsView.vue')
       },
       {
+        name: 'ocr-provider-config',
+        path: '/ocr/provider-config',
+        component: () => import('../views/OcrProviderConfigView.vue')
+      },
+      {
+        name: 'ocr-id-card-tasks',
+        path: '/ocr/id-card-tasks',
+        component: () => import('../views/OcrIdCardTasksView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

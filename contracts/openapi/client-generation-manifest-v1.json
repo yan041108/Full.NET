@@ -2733,6 +2733,54 @@
       "status": "manual"
     },
     {
+      "operationId": "ocrGetProviderConfig",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrUpdateProviderConfig",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrTestProviderConfig",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrListIdCardTasks",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrGetIdCardTask",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrCreateIdCardTask",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrConfirmIdCardTask",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
+      "operationId": "ocrRejectIdCardTask",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "generatedGroup": "ocr",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

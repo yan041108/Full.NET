@@ -81,6 +81,8 @@
     <Project Path="src/Modules/Full.NET.Modules.GoView.Contracts/Full.NET.Modules.GoView.Contracts.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.K3Cloud/Full.NET.Modules.K3Cloud.csproj" />
     <Project Path="src/Modules/Full.NET.Modules.K3Cloud.Contracts/Full.NET.Modules.K3Cloud.Contracts.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Ocr/Full.NET.Modules.Ocr.csproj" />
+    <Project Path="src/Modules/Full.NET.Modules.Ocr.Contracts/Full.NET.Modules.Ocr.Contracts.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj" />

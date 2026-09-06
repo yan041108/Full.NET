@@ -55,6 +55,8 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.GoView.Contracts\Full.NET.Modules.GoView.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.K3Cloud\Full.NET.Modules.K3Cloud.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.K3Cloud.Contracts\Full.NET.Modules.K3Cloud.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Ocr\Full.NET.Modules.Ocr.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Ocr.Contracts\Full.NET.Modules.Ocr.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
   </ItemGroup>
   <ItemGroup>
