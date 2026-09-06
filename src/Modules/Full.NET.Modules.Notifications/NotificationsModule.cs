@@ -290,5 +290,19 @@ public sealed class NotificationsModule : IFullNetModule
                 services.TryAddSingleton<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncCallbackVerifier>();
             }
         }
+
+        if (configuration.GetValue<bool>("Notifications:Providers:WeCom:Enabled"))
+        {
+            services.TryAddSingleton<Providers.Smtp.INotificationSecretResolver,
+                Providers.Smtp.EnvironmentNotificationSecretResolver>();
+            services.AddHttpClient(Providers.WeCom.HttpWeComTransport.HttpClientName)
+                .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.TryAddSingleton<Providers.WeCom.IWeComTransport,
+                Providers.WeCom.HttpWeComTransport>();
+            services.TryAddSingleton<Providers.WeCom.WeComAccessTokenCache>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationProviderAdapter,
+                Providers.WeCom.WeComNotificationProviderAdapter>());
+        }
     }
 }

@@ -27,7 +27,7 @@ import {
 
 defineOptions({ name: 'NotificationPreferencesView' });
 
-/** 当前切片开放 SMTP 邮箱、阿里云短信与钉钉 userId 端点；静默时段和营销同意继续保持诚实的未交付状态。 */
+/** 当前切片开放 SMTP 邮箱、阿里云短信、钉钉与企微 userId 端点；静默时段和营销同意继续保持诚实的未交付状态。 */
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const profiles = ref<NotificationProviderProfileResponse[]>([]);
@@ -49,7 +49,8 @@ const canUpdate = computed(() => session.can('notifications.preferences.update')
 const availableProfiles = computed(() => profiles.value.filter(profile =>
   (profile.providerTypeKey === 'email.smtp'
     || profile.providerTypeKey === 'sms.aliyun'
-    || profile.providerTypeKey === 'im.dingtalk')
+    || profile.providerTypeKey === 'im.dingtalk'
+    || profile.providerTypeKey === 'im.wecom')
   && profile.isEnabled
   && profile.latestPublishedVersionId !== null
 ));
@@ -63,6 +64,8 @@ const selectedEndpointKind = computed(() => {
       return 'sms';
     case 'im.dingtalk':
       return 'dingtalk';
+    case 'im.wecom':
+      return 'wecom';
     default:
       return 'email';
   }
@@ -73,6 +76,8 @@ const selectedEndpointInputTestId = computed(() => {
       return 'notification-preferences-phone';
     case 'dingtalk':
       return 'notification-preferences-dingtalk-user-id';
+    case 'wecom':
+      return 'notification-preferences-wecom-user-id';
     default:
       return 'notification-preferences-email';
   }
@@ -93,6 +98,8 @@ const selectedEndpointPlaceholder = computed(() => {
       return t('notificationPreferences.phonePlaceholder');
     case 'dingtalk':
       return t('notificationPreferences.dingtalkUserIdPlaceholder');
+    case 'wecom':
+      return t('notificationPreferences.wecomUserIdPlaceholder');
     default:
       return t('notificationPreferences.emailPlaceholder');
   }
@@ -369,7 +376,7 @@ function profileLabel(profileVersionId: string): string {
               {{ statusText(endpoint.verificationStatusKey) }}
             </ElTag>
             <div
-              v-if="canUpdate && endpoint.verificationStatusKey === 'pending' && endpoint.endpointKindKey !== 'dingtalk'"
+              v-if="canUpdate && endpoint.verificationStatusKey === 'pending' && endpoint.endpointKindKey !== 'dingtalk' && endpoint.endpointKindKey !== 'wecom'"
               class="recipient-endpoint-verify"
             >
               <ElInput
