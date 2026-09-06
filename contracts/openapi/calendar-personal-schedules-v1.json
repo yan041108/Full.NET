@@ -1,0 +1,115 @@
+{
+  "id": "calendar-personal-schedules-v1",
+  "version": 1,
+  "description": "个人日程 HTTP 契约冻结夹具；与 Calendar 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/calendar/my-personal-schedules",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "calendar.personal_schedules.read",
+          "successStatus": 200,
+          "responseSchema": "PersonalScheduleResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "calendar.personal_schedules.create",
+          "successStatus": 201,
+          "requestSchema": "CreatePersonalScheduleRequest",
+          "responseSchema": "PersonalScheduleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/calendar/my-personal-schedules/{scheduleId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "calendar.personal_schedules.read",
+          "successStatus": 200,
+          "responseSchema": "PersonalScheduleResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "calendar.personal_schedules.update",
+          "successStatus": 200,
+          "requestSchema": "UpdatePersonalScheduleRequest",
+          "responseSchema": "PersonalScheduleResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/calendar/my-personal-schedules/{scheduleId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "calendar.personal_schedules.delete",
+          "successStatus": 204,
+          "requestSchema": "ChangePersonalScheduleRequest"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/calendar/my-personal-schedules/{scheduleId}/status",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "calendar.personal_schedules.set_status",
+          "successStatus": 200,
+          "requestSchema": "SetPersonalScheduleStatusRequest",
+          "responseSchema": "PersonalScheduleResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "PersonalScheduleResponse": {
+      "properties": [
+        "id",
+        "content",
+        "startAtUtc",
+        "endAtUtc",
+        "status",
+        "completedAtUtc",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "PersonalScheduleResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreatePersonalScheduleRequest": {
+      "properties": [
+        "content",
+        "startAtUtc",
+        "endAtUtc"
+      ]
+    },
+    "UpdatePersonalScheduleRequest": {
+      "properties": [
+        "content",
+        "startAtUtc",
+        "endAtUtc",
+        "version"
+      ]
+    },
+    "ChangePersonalScheduleRequest": {
+      "properties": [
+        "version"
+      ]
+    },
+    "SetPersonalScheduleStatusRequest": {
+      "properties": [
+        "status",
+        "version"
+      ]
+    }
+  }
+}

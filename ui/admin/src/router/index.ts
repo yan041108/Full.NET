@@ -237,6 +237,11 @@ export function createAppRouter(
         component: () => import('../views/HostJobHealthView.vue')
       },
       {
+        name: 'personal-schedules',
+        path: '/calendar/personal-schedules',
+        component: () => import('../views/PersonalSchedulesView.vue')
+      },
+      {
         name: 'code-generation-templates',
         path: '/code-generation/templates',
         component: () => import('../views/CodeGenerationTemplatesView.vue')

@@ -8,6 +8,7 @@ using Full.NET.Modules.Auditing;
 using Full.NET.Modules.Files;
 using Full.NET.Modules.Document;
 using Full.NET.Modules.Notifications;
+using Full.NET.Modules.Calendar;
 using Full.NET.Modules.Jobs;
 using Full.NET.Modules.Messaging;
 using Full.NET.Modules.CodeGeneration;
@@ -139,6 +140,7 @@ public static class FullNetModuleCatalog
         new FilesModule(),
         new DocumentModule(),
         new NotificationsModule(),
+        new CalendarModule(),
         new JobsModule(),
         new MessagingModule(),
         new TenancyModule(),

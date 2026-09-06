@@ -215,6 +215,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/jobs/host-health'
   },
   {
+    componentKey: 'personal-schedules',
+    routeName: 'personal-schedules',
+    path: '/calendar/personal-schedules'
+  },
+  {
     componentKey: 'code-generation-templates',
     routeName: 'code-generation-templates',
     path: '/code-generation/templates'

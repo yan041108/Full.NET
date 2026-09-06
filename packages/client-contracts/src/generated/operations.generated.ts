@@ -32,6 +32,7 @@ import type {
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
+  ChangePersonalScheduleRequest,
   ChangeSerialNumberRuleStatusRequest,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
@@ -87,6 +88,7 @@ import type {
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
+  CreatePersonalScheduleRequest,
   CreateSerialNumberRuleRequest,
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
@@ -237,6 +239,7 @@ import type {
   PagedResultOfOrganizationUserPositionResponse,
   PagedResultOfOrganizationUserUnitResponse,
   PagedResultOfOutboundCallLogResponse,
+  PagedResultOfPersonalScheduleResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
@@ -244,6 +247,7 @@ import type {
   PagedResultOfWorkflowRecoveryTaskResponse,
   PagedResultOfWorkflowTodoListItemResponse,
   PauseWorkflowInstanceRequest,
+  PersonalScheduleResponse,
   PreviewSerialNumberRequest,
   PreviewWorkflowAssigneeRequest,
   ProblemDetails,
@@ -285,6 +289,7 @@ import type {
   ServerRuntimeSnapshot,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
+  SetPersonalScheduleStatusRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
@@ -327,6 +332,7 @@ import type {
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
+  UpdatePersonalScheduleRequest,
   UpdateSerialNumberRuleRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
@@ -487,12 +493,14 @@ import {
   readPagedResultOfOrganizationUserPositionResponse,
   readPagedResultOfOrganizationUserUnitResponse,
   readPagedResultOfOutboundCallLogResponse,
+  readPagedResultOfPersonalScheduleResponse,
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
   readPagedResultOfWorkflowInstanceListItemResponse,
   readPagedResultOfWorkflowRecoveryTaskResponse,
   readPagedResultOfWorkflowTodoListItemResponse,
+  readPersonalScheduleResponse,
   readRecipientEndpointResponse,
   readRevokeAllHostUserSessionsResponse,
   readSendRecipientEndpointVerificationResponse,
@@ -767,6 +775,154 @@ export async function auditingListHostOutboundCallLogs(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfOutboundCallLogResponse(value);
+}
+
+export interface CalendarCreateMyPersonalScheduleParameters {
+  readonly body: CreatePersonalScheduleRequest;
+}
+
+export async function calendarCreateMyPersonalSchedule(
+  http: HttpClient,
+  parameters: CalendarCreateMyPersonalScheduleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PersonalScheduleResponse> {
+  const path = `/api/v1/calendar/my-personal-schedules`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPersonalScheduleResponse(value);
+}
+
+export interface CalendarDeleteMyPersonalScheduleParameters {
+  readonly scheduleId: string;
+  readonly body: ChangePersonalScheduleRequest;
+}
+
+export async function calendarDeleteMyPersonalSchedule(
+  http: HttpClient,
+  parameters: CalendarDeleteMyPersonalScheduleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/calendar/my-personal-schedules/${encodeURIComponent(String(parameters.scheduleId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
+export interface CalendarGetMyPersonalScheduleParameters {
+  readonly scheduleId: string;
+}
+
+export async function calendarGetMyPersonalSchedule(
+  http: HttpClient,
+  parameters: CalendarGetMyPersonalScheduleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PersonalScheduleResponse> {
+  const path = `/api/v1/calendar/my-personal-schedules/${encodeURIComponent(String(parameters.scheduleId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPersonalScheduleResponse(value);
+}
+
+export interface CalendarListMyPersonalSchedulesParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly status?: string;
+  readonly fromUtc?: string;
+  readonly toUtc?: string;
+}
+
+export async function calendarListMyPersonalSchedules(
+  http: HttpClient,
+  parameters: CalendarListMyPersonalSchedulesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfPersonalScheduleResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.status !== undefined) {
+    query.set('status', String(parameters.status));
+  }
+  if (parameters.fromUtc !== undefined) {
+    query.set('fromUtc', String(parameters.fromUtc));
+  }
+  if (parameters.toUtc !== undefined) {
+    query.set('toUtc', String(parameters.toUtc));
+  }
+  const path = query.size === 0 ? `/api/v1/calendar/my-personal-schedules` : `/api/v1/calendar/my-personal-schedules?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfPersonalScheduleResponse(value);
+}
+
+export interface CalendarSetMyPersonalScheduleStatusParameters {
+  readonly scheduleId: string;
+  readonly body: SetPersonalScheduleStatusRequest;
+}
+
+export async function calendarSetMyPersonalScheduleStatus(
+  http: HttpClient,
+  parameters: CalendarSetMyPersonalScheduleStatusParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PersonalScheduleResponse> {
+  const path = `/api/v1/calendar/my-personal-schedules/${encodeURIComponent(String(parameters.scheduleId))}/status`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPersonalScheduleResponse(value);
+}
+
+export interface CalendarUpdateMyPersonalScheduleParameters {
+  readonly scheduleId: string;
+  readonly body: UpdatePersonalScheduleRequest;
+}
+
+export async function calendarUpdateMyPersonalSchedule(
+  http: HttpClient,
+  parameters: CalendarUpdateMyPersonalScheduleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PersonalScheduleResponse> {
+  const path = `/api/v1/calendar/my-personal-schedules/${encodeURIComponent(String(parameters.scheduleId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPersonalScheduleResponse(value);
 }
 
 export interface CodeGenerationApplyRunParameters {

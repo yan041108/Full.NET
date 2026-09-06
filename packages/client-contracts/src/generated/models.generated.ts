@@ -177,6 +177,10 @@ export interface ChangeHostJobScheduleStateRequest {
   readonly version: number;
 }
 
+export interface ChangePersonalScheduleRequest {
+  readonly version: number;
+}
+
 export interface ChangeSerialNumberRuleStatusRequest {
   readonly version: number;
 }
@@ -626,6 +630,12 @@ export interface CreateOrganizationUserUnitRequest {
   readonly isPrimary: boolean;
   readonly unitId: string;
   readonly userId: string;
+}
+
+export interface CreatePersonalScheduleRequest {
+  readonly content: string;
+  readonly endAtUtc: string;
+  readonly startAtUtc: string;
 }
 
 export interface CreateSerialNumberRuleRequest {
@@ -1956,6 +1966,13 @@ export interface PagedResultOfOutboundCallLogResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfPersonalScheduleResponse {
+  readonly items: Array<PersonalScheduleResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfSerialNumberRuleResponse {
   readonly items: Array<SerialNumberRuleResponse>;
   readonly page: number;
@@ -2002,6 +2019,18 @@ export interface PauseWorkflowInstanceRequest {
   readonly expectedRevision: number;
   readonly idempotencyKey: string;
   readonly reason: null | string;
+}
+
+export interface PersonalScheduleResponse {
+  readonly completedAtUtc: null | string;
+  readonly content: string;
+  readonly createdAtUtc: string;
+  readonly endAtUtc: string;
+  readonly id: string;
+  readonly startAtUtc: string;
+  readonly status: string;
+  readonly updatedAtUtc: null | string;
+  readonly version: number;
 }
 
 export interface PreviewSerialNumberRequest {
@@ -2263,6 +2292,11 @@ export interface SetHostDocumentPermissionsRequest {
 }
 
 export interface SetNotificationProviderProfileEnabledRequest {
+  readonly version: number;
+}
+
+export interface SetPersonalScheduleStatusRequest {
+  readonly status: string;
   readonly version: number;
 }
 
@@ -2573,6 +2607,13 @@ export interface UpdateOrganizationUserPositionRequest {
 
 export interface UpdateOrganizationUserUnitRequest {
   readonly isPrimary: boolean;
+  readonly version: number;
+}
+
+export interface UpdatePersonalScheduleRequest {
+  readonly content: string;
+  readonly endAtUtc: string;
+  readonly startAtUtc: string;
   readonly version: number;
 }
 

@@ -624,6 +624,7 @@
     { "apiModule": "ui/admin/src/api/module-catalog.ts", "consumers": ["ui/admin/src/views/ModuleCatalogView.vue"] },
     { "apiModule": "ui/admin/src/api/notification-platform.ts", "consumers": ["ui/admin/src/views/NotificationTemplatesView.vue", "ui/admin/src/views/NotificationProviderProfilesView.vue", "ui/admin/src/views/NotificationBindingsView.vue", "ui/admin/src/views/NotificationDeliveriesView.vue"] },
     { "apiModule": "ui/admin/src/api/online-sessions.ts", "consumers": ["ui/admin/src/views/OnlineSessionsView.vue"] },
+    { "apiModule": "ui/admin/src/api/personal-schedules.ts", "consumers": ["ui/admin/src/views/PersonalSchedulesView.vue"] },
     { "apiModule": "ui/admin/src/api/observability-log-files.ts", "consumers": ["ui/admin/src/views/ObservabilityLogFilesView.vue"] },
     { "apiModule": "ui/admin/src/api/observability-server-monitor.ts", "consumers": ["ui/admin/src/views/ObservabilityServerMonitorView.vue"] },
     { "apiModule": "ui/admin/src/api/observability-cache-policies.ts", "consumers": ["ui/admin/src/views/ObservabilityCachePoliciesView.vue"] },

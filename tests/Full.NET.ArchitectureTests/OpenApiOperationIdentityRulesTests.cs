@@ -57,6 +57,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string JobsHostJobExecutionsTag = "JobsHostJobExecutions";
     private const string JobsHostJobSchedulesTag = "JobsHostJobSchedules";
     private const string JobsHostJobHealthTag = "JobsHostJobHealth";
+    private const string CalendarMyPersonalSchedulesTag = "CalendarMyPersonalSchedules";
     private const string NotificationsHostAnnouncementsTag = "NotificationsHostAnnouncements";
     private const string NotificationsMyInboxMessagesTag = "NotificationsMyInboxMessages";
     private const string NotificationsHostInboxMessagesTag = "NotificationsHostInboxMessages";
@@ -417,6 +418,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/jobs/host-schedules/{scheduleId}/resume", "jobsResumeHostJobSchedule", JobsHostJobSchedulesTag),
         new("POST", "/api/v1/jobs/host-schedules/{scheduleId}/delete", "jobsDeleteHostJobSchedule", JobsHostJobSchedulesTag),
         new("GET", "/api/v1/jobs/host-health", "jobsGetHostJobHealth", JobsHostJobHealthTag),
+        new("GET", "/api/v1/calendar/my-personal-schedules", "calendarListMyPersonalSchedules", CalendarMyPersonalSchedulesTag),
+        new("GET", "/api/v1/calendar/my-personal-schedules/{scheduleId}", "calendarGetMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
+        new("POST", "/api/v1/calendar/my-personal-schedules", "calendarCreateMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
+        new("PUT", "/api/v1/calendar/my-personal-schedules/{scheduleId}", "calendarUpdateMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
+        new("POST", "/api/v1/calendar/my-personal-schedules/{scheduleId}/delete", "calendarDeleteMyPersonalSchedule", CalendarMyPersonalSchedulesTag),
+        new("POST", "/api/v1/calendar/my-personal-schedules/{scheduleId}/status", "calendarSetMyPersonalScheduleStatus", CalendarMyPersonalSchedulesTag),
         new("GET", "/api/v1/notifications/host-announcements", "notificationsListHostAnnouncements", NotificationsHostAnnouncementsTag),
         new("POST", "/api/v1/notifications/host-announcements", "notificationsCreateHostAnnouncement", NotificationsHostAnnouncementsTag),
         new("PUT", "/api/v1/notifications/host-announcements/{announcementId}", "notificationsUpdateHostAnnouncement", NotificationsHostAnnouncementsTag),

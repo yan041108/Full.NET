@@ -515,6 +515,23 @@ export type {
 } from './inbox-messages.js';
 
 export {
+  isPersonalSchedule,
+  isPersonalSchedulePage,
+  isPersonalScheduleStatus,
+  PERSONAL_SCHEDULE_STATUSES
+} from './personal-schedules.js';
+
+export type {
+  ChangePersonalScheduleRequest,
+  CreatePersonalScheduleRequest,
+  PersonalSchedule,
+  PersonalSchedulePage,
+  PersonalScheduleStatus,
+  SetPersonalScheduleStatusRequest,
+  UpdatePersonalScheduleRequest
+} from './personal-schedules.js';
+
+export {
   isCreateHostTenantRequest,
   isHostTenant,
   isHostTenantPage,

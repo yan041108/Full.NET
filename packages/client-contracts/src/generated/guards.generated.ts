@@ -31,6 +31,7 @@ import type {
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
+  ChangePersonalScheduleRequest,
   ChangeSerialNumberRuleStatusRequest,
   CodeGenerationCatalogColumnListResponse,
   CodeGenerationCatalogColumnSyncRequest,
@@ -86,6 +87,7 @@ import type {
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
+  CreatePersonalScheduleRequest,
   CreateSerialNumberRuleRequest,
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
@@ -236,6 +238,7 @@ import type {
   PagedResultOfOrganizationUserPositionResponse,
   PagedResultOfOrganizationUserUnitResponse,
   PagedResultOfOutboundCallLogResponse,
+  PagedResultOfPersonalScheduleResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
@@ -243,6 +246,7 @@ import type {
   PagedResultOfWorkflowRecoveryTaskResponse,
   PagedResultOfWorkflowTodoListItemResponse,
   PauseWorkflowInstanceRequest,
+  PersonalScheduleResponse,
   PreviewSerialNumberRequest,
   PreviewWorkflowAssigneeRequest,
   ProblemDetails,
@@ -284,6 +288,7 @@ import type {
   ServerRuntimeSnapshot,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
+  SetPersonalScheduleStatusRequest,
   SetWorkflowDefinitionStatusRequest,
   SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
@@ -326,6 +331,7 @@ import type {
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
+  UpdatePersonalScheduleRequest,
   UpdateSerialNumberRuleRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
@@ -675,6 +681,17 @@ export function readChangeHostJobScheduleStateRequest(value: unknown): ChangeHos
 }
 
 function isChangeHostJobScheduleStateRequest(value: unknown): value is ChangeHostJobScheduleStateRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readChangePersonalScheduleRequest(value: unknown): ChangePersonalScheduleRequest {
+  if (!(isChangePersonalScheduleRequest(value))) {
+    throw new Error('client.invalid_change_personal_schedule_request');
+  }
+  return value;
+}
+
+function isChangePersonalScheduleRequest(value: unknown): value is ChangePersonalScheduleRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
@@ -1281,6 +1298,17 @@ export function readCreateOrganizationUserUnitRequest(value: unknown): CreateOrg
 
 function isCreateOrganizationUserUnitRequest(value: unknown): value is CreateOrganizationUserUnitRequest {
   return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["unitId"] === 'string' && guidPattern.test(value["unitId"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readCreatePersonalScheduleRequest(value: unknown): CreatePersonalScheduleRequest {
+  if (!(isCreatePersonalScheduleRequest(value))) {
+    throw new Error('client.invalid_create_personal_schedule_request');
+  }
+  return value;
+}
+
+function isCreatePersonalScheduleRequest(value: unknown): value is CreatePersonalScheduleRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["startAtUtc"] === 'string');
 }
 
 export function readCreateSerialNumberRuleRequest(value: unknown): CreateSerialNumberRuleRequest {
@@ -2933,6 +2961,17 @@ function isPagedResultOfOutboundCallLogResponse(value: unknown): value is PagedR
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isOutboundCallLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
+export function readPagedResultOfPersonalScheduleResponse(value: unknown): PagedResultOfPersonalScheduleResponse {
+  if (!(isPagedResultOfPersonalScheduleResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_personal_schedule_response');
+  }
+  return value;
+}
+
+function isPagedResultOfPersonalScheduleResponse(value: unknown): value is PagedResultOfPersonalScheduleResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isPersonalScheduleResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
 export function readPagedResultOfSerialNumberRuleResponse(value: unknown): PagedResultOfSerialNumberRuleResponse {
   if (!(isPagedResultOfSerialNumberRuleResponse(value))) {
     throw new Error('client.invalid_paged_result_of_serial_number_rule_response');
@@ -3008,6 +3047,17 @@ export function readPauseWorkflowInstanceRequest(value: unknown): PauseWorkflowI
 
 function isPauseWorkflowInstanceRequest(value: unknown): value is PauseWorkflowInstanceRequest {
   return isRecord(value) && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (typeof value["idempotencyKey"] === 'string') && ((value["reason"] === null) || (typeof value["reason"] === 'string'));
+}
+
+export function readPersonalScheduleResponse(value: unknown): PersonalScheduleResponse {
+  if (!(isPersonalScheduleResponse(value))) {
+    throw new Error('client.invalid_personal_schedule_response');
+  }
+  return value;
+}
+
+function isPersonalScheduleResponse(value: unknown): value is PersonalScheduleResponse {
+  return isRecord(value) && ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string')) && (typeof value["content"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["startAtUtc"] === 'string') && (typeof value["status"] === 'string') && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readPreviewSerialNumberRequest(value: unknown): PreviewSerialNumberRequest {
@@ -3459,6 +3509,17 @@ export function readSetNotificationProviderProfileEnabledRequest(value: unknown)
 
 function isSetNotificationProviderProfileEnabledRequest(value: unknown): value is SetNotificationProviderProfileEnabledRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readSetPersonalScheduleStatusRequest(value: unknown): SetPersonalScheduleStatusRequest {
+  if (!(isSetPersonalScheduleStatusRequest(value))) {
+    throw new Error('client.invalid_set_personal_schedule_status_request');
+  }
+  return value;
+}
+
+function isSetPersonalScheduleStatusRequest(value: unknown): value is SetPersonalScheduleStatusRequest {
+  return isRecord(value) && (typeof value["status"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readSetWorkflowDefinitionStatusRequest(value: unknown): SetWorkflowDefinitionStatusRequest {
@@ -3921,6 +3982,17 @@ export function readUpdateOrganizationUserUnitRequest(value: unknown): UpdateOrg
 
 function isUpdateOrganizationUserUnitRequest(value: unknown): value is UpdateOrganizationUserUnitRequest {
   return isRecord(value) && (typeof value["isPrimary"] === 'boolean') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readUpdatePersonalScheduleRequest(value: unknown): UpdatePersonalScheduleRequest {
+  if (!(isUpdatePersonalScheduleRequest(value))) {
+    throw new Error('client.invalid_update_personal_schedule_request');
+  }
+  return value;
+}
+
+function isUpdatePersonalScheduleRequest(value: unknown): value is UpdatePersonalScheduleRequest {
+  return isRecord(value) && (typeof value["content"] === 'string') && (typeof value["endAtUtc"] === 'string') && (typeof value["startAtUtc"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readUpdateSerialNumberRuleRequest(value: unknown): UpdateSerialNumberRuleRequest {
