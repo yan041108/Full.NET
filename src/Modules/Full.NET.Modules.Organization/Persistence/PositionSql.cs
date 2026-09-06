@@ -11,6 +11,25 @@ namespace Full.NET.Modules.Organization.Persistence;
 /// </remarks>
 internal static class PositionSql
 {
+    public static readonly SqlStatement FindActiveByTenantAndId = new(
+        "organization.find_active_position_by_tenant_and_id",
+        """
+        SELECT positionObject.Id, positionObject.TenantId,
+               positionObject.Code, positionObject.Name,
+               positionObject.UnitId, NULL AS UnitCode,
+               NULL AS UnitName, positionObject.PositionLevelId,
+               NULL AS PositionLevelCode,
+               NULL AS PositionLevelName,
+               positionObject.DisplayOrder,
+               positionObject.IsActive, positionObject.CreatedAtUtc,
+               positionObject.UpdatedAtUtc, positionObject.Version
+        FROM fn_organization_position AS positionObject
+        WHERE positionObject.Id = @PositionId
+          AND positionObject.TenantId = @TenantId
+          AND positionObject.IsActive = 1
+        """,
+        SqlDataScope.Global);
+
     public static readonly SqlStatement FindById = new(
         "organization.find_position_by_id",
         """

@@ -279,6 +279,22 @@ export type {
 } from './open-access-clients.js';
 
 export {
+  isRegistrationPolicy,
+  isRegistrationWay,
+  isRegistrationWayPage
+} from './registration-ways.js';
+
+export type {
+  CreateRegistrationWayRequest,
+  RegistrationPolicy,
+  RegistrationWay,
+  RegistrationWayListQuery,
+  RegistrationWayPage,
+  UpdateRegistrationPolicyRequest,
+  UpdateRegistrationWayRequest
+} from './registration-ways.js';
+
+export {
   isHostFile,
   isHostFilePage
 } from './host-files.js';

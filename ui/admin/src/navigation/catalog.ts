@@ -48,6 +48,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.openAccessClients.title',
     captionKey: 'navigation.openAccessClients.caption'
   }],
+  ['registration-ways', {
+    titleKey: 'navigation.registrationWays.title',
+    captionKey: 'navigation.registrationWays.caption'
+  }],
   ['modules', {
     titleKey: 'navigation.modules.title',
     captionKey: 'navigation.modules.caption'

@@ -51,6 +51,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<OpenAccessClientAccessKeyRow>(ReadOpenAccessClientAccessKeyRow);
         registrar.Register<OpenAccessClientQuotaRow>(ReadOpenAccessClientQuotaRow);
         registrar.Register<OpenAccessClientUsageCountRow>(ReadOpenAccessClientUsageCountRow);
+        registrar.Register<RegistrationPolicyRecord>(ReadRegistrationPolicyRecord);
+        registrar.Register<RegistrationWayRecord>(ReadRegistrationWayRecord);
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
@@ -67,6 +69,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<IdentityUserRecord>(BindIdentityUserRecord);
         DapperAotParameterRegistry.Register<InsertIdentityRole>(BindInsertIdentityRole);
         DapperAotParameterRegistry.Register<InsertIdentityNavigation>(BindInsertIdentityNavigation);
+        DapperAotParameterRegistry.Register<RegistrationWayRecord>(BindRegistrationWayRecord);
     }
 
     private static IdentityUserRecord ReadIdentityUserRecord(DbDataReader reader) =>
@@ -467,6 +470,56 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             SuccessCount = reader.IsDBNull(0) ? 0 : reader.GetInt64(0),
             FailureCount = reader.IsDBNull(1) ? 0 : reader.GetInt64(1),
         };
+
+    private static RegistrationPolicyRecord ReadRegistrationPolicyRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadBoolean(reader, 1),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 2),
+            AotDataReaderExtensions.ReadInt32(reader, 3));
+
+    private static RegistrationWayRecord ReadRegistrationWayRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            TenantId = reader.GetGuid(1),
+            Name = reader.GetString(2),
+            Code = reader.GetString(3),
+            IsEnabled = AotDataReaderExtensions.ReadBoolean(reader, 4),
+            RoleId = reader.GetGuid(5),
+            OrganizationUnitId = reader.GetGuid(6),
+            PositionId = AotDataReaderExtensions.ReadNullableGuid(reader, 7),
+            SortOrder = AotDataReaderExtensions.ReadInt32(reader, 8),
+            Remark = AotDataReaderExtensions.ReadNullableString(reader, 9),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 10),
+            UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            Version = AotDataReaderExtensions.ReadInt32(reader, 12),
+        };
+
+    private static void BindRegistrationWayRecord(
+        DbCommand command,
+        RegistrationWayRecord value)
+    {
+        command.Parameters.AddWithValue("@Id", value.Id);
+        command.Parameters.AddWithValue("@TenantId", value.TenantId);
+        command.Parameters.AddWithValue("@Name", value.Name);
+        command.Parameters.AddWithValue("@Code", value.Code);
+        command.Parameters.AddWithValue("@IsEnabled", value.IsEnabled);
+        command.Parameters.AddWithValue("@RoleId", value.RoleId);
+        command.Parameters.AddWithValue("@OrganizationUnitId", value.OrganizationUnitId);
+        command.Parameters.AddWithValue(
+            "@PositionId",
+            value.PositionId is null ? DBNull.Value : value.PositionId);
+        command.Parameters.AddWithValue("@SortOrder", value.SortOrder);
+        command.Parameters.AddWithValue(
+            "@Remark",
+            value.Remark is null ? DBNull.Value : value.Remark);
+        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
+        command.Parameters.AddWithValue(
+            "@UpdatedAtUtc",
+            value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
+        command.Parameters.AddWithValue("@Version", value.Version);
+    }
 
     private static IdentityUserTotpRecord ReadIdentityUserTotpRecord(DbDataReader reader) =>
         new(

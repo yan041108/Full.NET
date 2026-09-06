@@ -77,6 +77,11 @@ export function createAppRouter(
         component: () => import('../views/OpenAccessClientsView.vue')
       },
       {
+        name: 'registration-ways',
+        path: '/identity/registration-ways',
+        component: () => import('../views/RegistrationWaysView.vue')
+      },
+      {
         name: 'modules',
         path: '/identity/modules',
         component: () => import('../views/ModuleCatalogView.vue')

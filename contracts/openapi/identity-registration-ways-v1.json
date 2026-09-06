@@ -1,0 +1,133 @@
+{
+  "id": "identity-registration-ways-v1",
+  "version": 1,
+  "description": "注册策略与注册方式 HTTP 契约冻结夹具；与 IdentityRegistrationContracts 和管理端点对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/registration-policy",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.registration_policy.read",
+          "successStatus": 200,
+          "responseSchema": "RegistrationPolicyResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.registration_policy.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateRegistrationPolicyRequest",
+          "responseSchema": "RegistrationPolicyResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/registration-ways",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.registration_ways.read",
+          "successStatus": 200,
+          "responseSchema": "RegistrationWayResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.registration_ways.create",
+          "successStatus": 201,
+          "requestSchema": "CreateRegistrationWayRequest",
+          "responseSchema": "RegistrationWayResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/registration-ways/{wayId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.registration_ways.read",
+          "successStatus": 200,
+          "responseSchema": "RegistrationWayResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.registration_ways.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateRegistrationWayRequest",
+          "responseSchema": "RegistrationWayResponse"
+        },
+        {
+          "method": "DELETE",
+          "permission": "identity.registration_ways.delete",
+          "successStatus": 204
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/public/registration-ways",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": null,
+          "successStatus": 200,
+          "responseSchema": "PublicRegistrationWayResponseList"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "RegistrationPolicyResponse": {
+      "type": "object",
+      "required": ["id", "isPublicRegistrationEnabled", "updatedAtUtc", "version"]
+    },
+    "UpdateRegistrationPolicyRequest": {
+      "type": "object",
+      "required": ["isPublicRegistrationEnabled", "version"]
+    },
+    "RegistrationWayResponse": {
+      "type": "object",
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "code",
+        "isEnabled",
+        "roleId",
+        "organizationUnitId",
+        "sortOrder",
+        "createdAtUtc",
+        "version"
+      ]
+    },
+    "RegistrationWayResponsePage": {
+      "type": "object",
+      "required": ["items", "page", "pageSize", "total"]
+    },
+    "CreateRegistrationWayRequest": {
+      "type": "object",
+      "required": [
+        "tenantId",
+        "name",
+        "code",
+        "isEnabled",
+        "roleId",
+        "organizationUnitId",
+        "sortOrder"
+      ]
+    },
+    "UpdateRegistrationWayRequest": {
+      "type": "object",
+      "required": [
+        "name",
+        "code",
+        "isEnabled",
+        "roleId",
+        "organizationUnitId",
+        "sortOrder",
+        "version"
+      ]
+    },
+    "PublicRegistrationWayResponseList": {
+      "type": "array"
+    }
+  }
+}

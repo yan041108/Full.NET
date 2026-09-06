@@ -203,6 +203,30 @@ internal sealed class IdentityAuthorizationContributor
             "调试 OpenAccess 接入方 HMAC 签名",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityRegistrationPolicyPermissions.Read,
+            "查看注册策略",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRegistrationPolicyPermissions.Update,
+            "更新注册策略",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRegistrationWayPermissions.Read,
+            "查看注册方式",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRegistrationWayPermissions.Create,
+            "创建注册方式",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRegistrationWayPermissions.Update,
+            "更新注册方式",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityRegistrationWayPermissions.Delete,
+            "删除注册方式",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             ModuleCatalogPermissions.Read,
             "查看官方模块清单",
             AuthorizationScope.Host),
@@ -274,6 +298,17 @@ internal sealed class IdentityAuthorizationContributor
             "connection",
             37,
             IdentityOpenAccessClientPermissions.Read),
+        new NavigationDefinition(
+            "registration-ways",
+            null,
+            "registration-ways",
+            "/identity/registration-ways",
+            "registration-ways",
+            "注册方式",
+            "Registration Ways",
+            "user-add",
+            38,
+            IdentityRegistrationWayPermissions.Read),
         new NavigationDefinition(
             "modules",
             null,
@@ -560,5 +595,26 @@ internal sealed class IdentityAuthorizationContributor
             "签名调试",
             "debug-signature",
             50),
+        new AuthorizationActionDefinition(
+            "identity.registration_ways.create",
+            "registration-ways",
+            IdentityRegistrationWayPermissions.Create,
+            "创建注册方式",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.registration_ways.update",
+            "registration-ways",
+            IdentityRegistrationWayPermissions.Update,
+            "编辑注册方式",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.registration_ways.delete",
+            "registration-ways",
+            IdentityRegistrationWayPermissions.Delete,
+            "删除注册方式",
+            "delete",
+            30),
     ];
 }

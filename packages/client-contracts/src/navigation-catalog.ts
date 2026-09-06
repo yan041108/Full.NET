@@ -50,6 +50,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/open-access-clients'
   },
   {
+    componentKey: 'registration-ways',
+    routeName: 'registration-ways',
+    path: '/identity/registration-ways'
+  },
+  {
     componentKey: 'modules',
     routeName: 'modules',
     path: '/identity/modules'

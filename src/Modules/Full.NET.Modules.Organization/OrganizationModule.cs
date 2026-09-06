@@ -77,6 +77,9 @@ public sealed class OrganizationModule : IFullNetModule
         services.TryAddScoped<IWorkflowUnitLeaderDirectory, TenantUnits.WorkflowUnitLeaderDirectory>();
         services.TryAddScoped<IIdentityOrganizationUnitDirectory>(provider =>
             provider.GetRequiredService<TenantUnits.TenantOrganizationUnitDirectory>());
+        services.TryAddScoped<TenantUnits.OrganizationPositionDirectory>();
+        services.TryAddScoped<IIdentityOrganizationPositionDirectory>(provider =>
+            provider.GetRequiredService<TenantUnits.OrganizationPositionDirectory>());
         services.TryAddScoped<IOrganizationOwnedEntityWriteAuthorizer,
             OrganizationOwnedEntityWriteAuthorizer>();
         services.TryAddSingleton<

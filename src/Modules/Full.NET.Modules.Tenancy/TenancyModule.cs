@@ -80,6 +80,9 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantDirectoryQueryService>();
+        services.TryAddScoped<Directories.ActiveTenantDirectory>();
+        services.TryAddScoped<IIdentityActiveTenantDirectory>(provider =>
+            provider.GetRequiredService<Directories.ActiveTenantDirectory>());
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.AddScoped<Features.TenantBranding.TenantBrandingService>();

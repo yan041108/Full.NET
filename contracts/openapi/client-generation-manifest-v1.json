@@ -4,6 +4,7 @@
     "identityLogin",
     "identityRefreshSession",
     "identityLogout",
+    "identityListPublicRegistrationWays",
     "documentPublicAccessDocumentShare"
   ],
   "entries": [

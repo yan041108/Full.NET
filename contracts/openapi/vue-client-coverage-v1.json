@@ -23,6 +23,17 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/registration-ways.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-registration-ways-v1.json",
+      "apiModule": "ui/admin/src/api/registration-ways.ts",
+      "routePrefixes": [
+        "/api/v1/identity/registration-policy",
+        "/api/v1/identity/registration-ways"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/host-api-keys.ts"
       ],
       "openApiFixture": "contracts/openapi/identity-host-api-keys-v1.json",

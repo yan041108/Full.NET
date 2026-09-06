@@ -28,6 +28,9 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityHostMenusTag = "IdentityHostMenus";
     private const string IdentityHostApiKeysTag = "IdentityHostApiKeys";
     private const string IdentityOpenAccessClientsTag = "IdentityOpenAccessClients";
+    private const string IdentityRegistrationPolicyTag = "IdentityRegistrationPolicy";
+    private const string IdentityRegistrationWaysTag = "IdentityRegistrationWays";
+    private const string IdentityPublicRegistrationTag = "IdentityPublicRegistration";
     private const string IdentityHostOnlineSessionsTag = "IdentityHostOnlineSessions";
     private const string IdentityHostModulesTag = "IdentityHostModules";
     private const string IdentityMeTag = "IdentityMe";
@@ -249,6 +252,14 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/identity/open-access-clients/{clientId}/access-logs", "identityListOpenAccessClientAccessLogs", IdentityOpenAccessClientsTag),
         new("GET", "/api/v1/identity/open-access-clients/{clientId}/usage", "identityGetOpenAccessClientUsage", IdentityOpenAccessClientsTag),
         new("POST", "/api/v1/identity/open-access-clients/{clientId}/signature-debug", "identityDebugOpenAccessClientSignature", IdentityOpenAccessClientsTag),
+        new("GET", "/api/v1/identity/registration-policy", "identityGetRegistrationPolicy", IdentityRegistrationPolicyTag),
+        new("PUT", "/api/v1/identity/registration-policy", "identityUpdateRegistrationPolicy", IdentityRegistrationPolicyTag),
+        new("GET", "/api/v1/identity/registration-ways", "identityListRegistrationWays", IdentityRegistrationWaysTag),
+        new("GET", "/api/v1/identity/registration-ways/{wayId}", "identityGetRegistrationWay", IdentityRegistrationWaysTag),
+        new("POST", "/api/v1/identity/registration-ways", "identityCreateRegistrationWay", IdentityRegistrationWaysTag),
+        new("PUT", "/api/v1/identity/registration-ways/{wayId}", "identityUpdateRegistrationWay", IdentityRegistrationWaysTag),
+        new("DELETE", "/api/v1/identity/registration-ways/{wayId}", "identityDeleteRegistrationWay", IdentityRegistrationWaysTag),
+        new("GET", "/api/v1/identity/public/registration-ways", "identityListPublicRegistrationWays", IdentityPublicRegistrationTag),
         new("GET", "/api/v1/identity/session-policy", "identityGetHostSessionPolicy", IdentityHostOnlineSessionsTag),
         new("GET", "/api/v1/identity/online-sessions", "identityListHostOnlineSessions", IdentityHostOnlineSessionsTag),
         new("POST", "/api/v1/identity/online-sessions/users/{userId}/revoke-all", "identityRevokeAllHostUserOnlineSessions", IdentityHostOnlineSessionsTag),

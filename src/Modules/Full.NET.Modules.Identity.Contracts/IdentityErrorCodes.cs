@@ -294,6 +294,43 @@ public static class IdentityErrorCodes
     /// <summary>Host 用户证件类型与号码组合已被目录内其他用户占用。</summary>
     public const string UserIdCardExists = "identity.users.id_card_exists";
 
+    /// <summary>注册策略单例不存在。</summary>
+    public const string RegistrationPolicyNotFound = "identity.registration_policy.not_found";
+
+    /// <summary>注册策略并发版本冲突。</summary>
+    public const string RegistrationPolicyVersionConflict =
+        "identity.registration_policy.version_conflict";
+
+    /// <summary>公开注册入口已关闭。</summary>
+    public const string PublicRegistrationDisabled = "identity.registration.public_disabled";
+
+    /// <summary>注册方式不存在。</summary>
+    public const string RegistrationWayNotFound = "identity.registration_ways.not_found";
+
+    /// <summary>注册方式并发版本冲突。</summary>
+    public const string RegistrationWayVersionConflict =
+        "identity.registration_ways.version_conflict";
+
+    /// <summary>注册方式机器码无效。</summary>
+    public const string RegistrationWayInvalidCode = "identity.registration_ways.invalid_code";
+
+    /// <summary>注册方式机器码在租户内已存在。</summary>
+    public const string RegistrationWayCodeExists = "identity.registration_ways.code_exists";
+
+    /// <summary>注册方式引用的租户不存在或未激活。</summary>
+    public const string RegistrationWayTenantInactive = "identity.registration_ways.tenant_inactive";
+
+    /// <summary>注册方式引用的角色不存在、未激活或跨租户。</summary>
+    public const string RegistrationWayRoleNotFound = "identity.registration_ways.role_not_found";
+
+    /// <summary>注册方式引用的机构单元不存在、未激活或跨租户。</summary>
+    public const string RegistrationWayOrganizationUnitNotFound =
+        "identity.registration_ways.organization_unit_not_found";
+
+    /// <summary>注册方式引用的职位不存在、未激活或跨租户。</summary>
+    public const string RegistrationWayPositionNotFound =
+        "identity.registration_ways.position_not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -387,5 +424,16 @@ public static class IdentityErrorCodes
         UserEmailExists,
         UserEmployeeNumberExists,
         UserIdCardExists,
+        RegistrationPolicyNotFound,
+        RegistrationPolicyVersionConflict,
+        PublicRegistrationDisabled,
+        RegistrationWayNotFound,
+        RegistrationWayVersionConflict,
+        RegistrationWayInvalidCode,
+        RegistrationWayCodeExists,
+        RegistrationWayTenantInactive,
+        RegistrationWayRoleNotFound,
+        RegistrationWayOrganizationUnitNotFound,
+        RegistrationWayPositionNotFound,
     ]);
 }
