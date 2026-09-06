@@ -507,6 +507,18 @@ export type {
 } from './reporting-definitions.js';
 
 export {
+  isReportingExecutionPage
+} from './reporting-executions.js';
+
+export type {
+  ExecuteReportingDefinitionRequest,
+  ReportingExecutionColumnDefinition,
+  ReportingExecutionPage,
+  ReportingExecutionParameterValue,
+  ReportingExecutionRow
+} from './reporting-executions.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

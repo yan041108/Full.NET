@@ -53,4 +53,19 @@ public static class ReportingErrorCodes
 
     /// <summary>报表定义版本不存在。</summary>
     public const string DefinitionVersionNotFound = "reporting.definition_version.not_found";
+
+    /// <summary>报表定义尚未发布，无法执行。</summary>
+    public const string DefinitionNotPublished = "reporting.definition.not_published";
+
+    /// <summary>报表执行参数无效。</summary>
+    public const string ExecutionParametersInvalid = "reporting.execution.parameters_invalid";
+
+    /// <summary>报表执行失败；SQL 或连接错误时立即失败，不返回部分结果。</summary>
+    public const string ExecutionFailed = "reporting.execution.failed";
+
+    /// <summary>报表执行结果列全部被列权限拒绝。</summary>
+    public const string ExecutionColumnsDenied = "reporting.execution.columns_denied";
+
+    /// <summary>报表执行分页参数无效。</summary>
+    public const string ExecutionPaginationInvalid = "reporting.execution.pagination_invalid";
 }

@@ -237,6 +237,11 @@ export function createAppRouter(
         component: () => import('../views/ReportingDefinitionsView.vue')
       },
       {
+        name: 'reporting-execute',
+        path: '/reporting/execute',
+        component: () => import('../views/ReportingExecuteView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

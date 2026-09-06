@@ -172,6 +172,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.reportingDefinitions.title',
     captionKey: 'navigation.reportingDefinitions.caption'
   }],
+  ['reporting-execute', {
+    titleKey: 'navigation.reportingExecute.title',
+    captionKey: 'navigation.reportingExecute.caption'
+  }],
   ['host-messaging-ops', {
     titleKey: 'navigation.hostMessagingOps.title',
     captionKey: 'navigation.hostMessagingOps.caption'

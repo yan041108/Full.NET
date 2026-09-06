@@ -26,6 +26,8 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
         new(ReportingDefinitionPermissions.Delete, "删除报表定义", AuthorizationScope.Host),
         new(ReportingDefinitionPermissions.Publish, "发布报表定义", AuthorizationScope.Host),
         new(ReportingQueryPortPermissions.Read, "读取静态 Query Port 目录", AuthorizationScope.Host),
+        new(ReportingExecutionPermissions.Run, "执行已发布报表", AuthorizationScope.Host),
+        new(ReportingExecutionPermissions.ColumnSchemaName, "读取 Schema 清单列", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -52,6 +54,17 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
             "document",
             20,
             ReportingDefinitionPermissions.Read),
+        new NavigationDefinition(
+            "reporting-execute",
+            null,
+            "reporting-execute",
+            "/reporting/execute",
+            "reporting-execute",
+            "报表执行",
+            "Reporting Execute",
+            "monitor",
+            30,
+            ReportingExecutionPermissions.Run),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

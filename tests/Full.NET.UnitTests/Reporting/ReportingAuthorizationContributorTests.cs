@@ -30,6 +30,8 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingDefinitionPermissions.Delete,
                 ReportingDefinitionPermissions.Publish,
                 ReportingQueryPortPermissions.Read,
+                ReportingExecutionPermissions.Run,
+                ReportingExecutionPermissions.ColumnSchemaName,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -40,6 +42,10 @@ public sealed class ReportingAuthorizationContributorTests
         var definitions = catalog.Navigation.Single(item => item.Id == "reporting-definitions");
         Assert.AreEqual(ReportingDefinitionPermissions.Read, definitions.RequiredPermission);
         Assert.AreEqual("/reporting/definitions", definitions.Path);
+
+        var execute = catalog.Navigation.Single(item => item.Id == "reporting-execute");
+        Assert.AreEqual(ReportingExecutionPermissions.Run, execute.RequiredPermission);
+        Assert.AreEqual("/reporting/execute", execute.Path);
 
         CollectionAssert.AreEquivalent(
             new Dictionary<string, string>(StringComparer.Ordinal)

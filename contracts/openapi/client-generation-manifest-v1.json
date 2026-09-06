@@ -2355,6 +2355,12 @@
       "status": "manual"
     },
     {
+      "operationId": "reportingExecuteDefinition",
+      "apiModule": "ui/admin/src/api/reporting-executions.ts",
+      "generatedGroup": "reporting-executions",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",
