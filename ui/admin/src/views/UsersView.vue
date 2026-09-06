@@ -31,7 +31,11 @@ import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/com
 import ArtTableActionButton from '../framework/art-design/components/ArtTableActionButton.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import { ART_TABLE_ACTION_COLUMN_WIDTH } from '../framework/art-design/components/artTableActions';
-import ArtTableHeader, { type ArtTableColumnOption } from '../framework/art-design/components/ArtTableHeader.vue';
+import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
+import ArtTableColumnEditor, {
+  type ArtTableColumnEditorItem
+} from '../framework/art-design/components/ArtTableColumnEditor.vue';
+import UsersGridDataColumn from './components/UsersGridDataColumn.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import UserEditorDialog from './components/UserEditorDialog.vue';
 
@@ -76,6 +80,16 @@ import {
   loadHostUserProfileDictOptions,
   type HostUserProfileDictOption
 } from '../users/profile-dict-options';
+import { gridPreferencesApi } from '../api/grid-preferences';
+import {
+  applyUsersGridPreference,
+  createDefaultUsersGridColumns,
+  resetUsersGridColumns,
+  toUsersGridPreferenceColumns,
+  USERS_GRID_KEY,
+  type UsersGridColumnKey,
+  type UsersGridColumnState
+} from '../users/users-grid-columns';
 
 type EditorTab = 'basic' | 'roles' | 'org-units' | 'org-positions' | 'profile' | 'binding';
 type EditorMode = 'create' | 'edit';
@@ -212,64 +226,109 @@ const tableSize = ref<'large' | 'default' | 'small'>('default');
 const tableZebra = ref(true);
 const tableBorder = ref(true);
 const tableHeaderBackground = ref(true);
-type UserTableColumnKey =
-  | 'gender'
-  | 'roles'
-  | 'org'
-  | 'position'
-  | 'employeeNumber'
-  | 'accountType'
-  | 'sortOrder'
-  | 'phone'
-  | 'createdAt';
-const columnVisibility = ref<Record<UserTableColumnKey, boolean>>({
-  gender: true,
-  roles: true,
-  org: true,
-  position: true,
-  employeeNumber: true,
-  accountType: true,
-  sortOrder: true,
-  phone: true,
-  createdAt: true
-});
+const gridColumns = ref<UsersGridColumnState[]>([]);
+const gridPreferenceVersion = ref(0);
+const columnEditorOpen = ref(false);
+const gridPreferenceSaving = ref(false);
+const gridPreferenceResetting = ref(false);
 const userRoleLabelsById = ref<Record<string, string>>({});
 let roleLabelsRequestId = 0;
 
-const tableColumns = computed<ArtTableColumnOption[]>({
-  get: () => [
-    { key: 'gender', label: t('users.gender'), visible: columnVisibility.value.gender },
-    { key: 'roles', label: t('users.columnRoles'), visible: columnVisibility.value.roles },
-    { key: 'org', label: t('users.columnOrg'), visible: columnVisibility.value.org },
-    { key: 'position', label: t('users.columnPosition'), visible: columnVisibility.value.position },
-    {
-      key: 'employeeNumber',
-      label: t('users.employeeNumber'),
-      visible: columnVisibility.value.employeeNumber
-    },
-    {
-      key: 'accountType',
-      label: t('users.accountType'),
-      visible: columnVisibility.value.accountType
-    },
-    { key: 'sortOrder', label: t('users.columnSortOrder'), visible: columnVisibility.value.sortOrder },
-    { key: 'phone', label: t('users.phone'), visible: columnVisibility.value.phone },
-    { key: 'createdAt', label: t('users.createdAt'), visible: columnVisibility.value.createdAt }
-  ].filter(column => isColumnAuthorized(column.key as UserTableColumnKey)),
-  set: (columns) => {
-    for (const column of columns) {
-      if (column.key in columnVisibility.value) {
-        columnVisibility.value[column.key as UserTableColumnKey] = column.visible !== false;
-      }
-    }
-  }
-});
-
-function isColumnVisible(key: UserTableColumnKey): boolean {
-  return columnVisibility.value[key] && isColumnAuthorized(key);
+function usersGridColumnLabel(key: UsersGridColumnKey): string {
+  const labels: Record<UsersGridColumnKey, string> = {
+    gender: t('users.gender'),
+    roles: t('users.columnRoles'),
+    org: t('users.columnOrg'),
+    position: t('users.columnPosition'),
+    employeeNumber: t('users.employeeNumber'),
+    accountType: t('users.accountType'),
+    sortOrder: t('users.columnSortOrder'),
+    phone: t('users.phone'),
+    createdAt: t('users.createdAt')
+  };
+  return labels[key];
 }
 
-function isColumnAuthorized(key: UserTableColumnKey): boolean {
+function rebuildGridColumns(preference?: Awaited<ReturnType<typeof gridPreferencesApi.load>>): void {
+  const defaults = createDefaultUsersGridColumns(usersGridColumnLabel, isColumnAuthorized);
+  gridColumns.value = applyUsersGridPreference(defaults, preference);
+}
+
+async function loadGridPreference(): Promise<void> {
+  try {
+    const preference = await gridPreferencesApi.load(USERS_GRID_KEY);
+    if (preference) {
+      gridPreferenceVersion.value = preference.version;
+    }
+    rebuildGridColumns(preference);
+  } catch {
+    rebuildGridColumns();
+  }
+}
+
+const columnEditorItems = computed<ArtTableColumnEditorItem[]>(() =>
+  gridColumns.value.map(column => ({
+    key: column.key,
+    label: column.label,
+    visible: column.visible,
+    fixed: column.fixed,
+    disabled: column.disabled
+  })));
+
+const visibleGridColumns = computed(() =>
+  gridColumns.value.filter(column => column.visible && isColumnAuthorized(column.key)));
+
+async function saveColumnEditor(editorItems: ArtTableColumnEditorItem[]): Promise<void> {
+  const byKey = new Map(editorItems.map((item, index) => [item.key, { ...item, order: index }]));
+  const nextColumns = gridColumns.value
+    .map(column => {
+      const edited = byKey.get(column.key);
+      return edited
+        ? {
+            ...column,
+            visible: edited.visible,
+            fixed: edited.fixed,
+            order: edited.order
+          }
+        : column;
+    })
+    .sort((left, right) => left.order - right.order);
+  gridPreferenceSaving.value = true;
+  try {
+    const saved = await gridPreferencesApi.save(USERS_GRID_KEY, {
+      schemaVersion: 2,
+      columns: toUsersGridPreferenceColumns(nextColumns),
+      version: gridPreferenceVersion.value
+    });
+    gridPreferenceVersion.value = saved.version;
+    gridColumns.value = applyUsersGridPreference(nextColumns, saved);
+    columnEditorOpen.value = false;
+    ElMessage.success(t('table.columnEditorSaveSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    gridPreferenceSaving.value = false;
+  }
+}
+
+async function resetColumnEditor(): Promise<void> {
+  gridPreferenceResetting.value = true;
+  try {
+    const saved = await gridPreferencesApi.reset(USERS_GRID_KEY);
+    gridPreferenceVersion.value = saved.version;
+    gridColumns.value = applyUsersGridPreference(
+      resetUsersGridColumns(usersGridColumnLabel, isColumnAuthorized),
+      saved);
+    columnEditorOpen.value = false;
+    ElMessage.success(t('table.columnEditorResetSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'users.operationFailed');
+  } finally {
+    gridPreferenceResetting.value = false;
+  }
+}
+
+function isColumnAuthorized(key: UsersGridColumnKey): boolean {
   const fieldKey = profileColumnFieldMap[key as keyof typeof profileColumnFieldMap];
   return !fieldKey || hasEffectiveField(fieldKey);
 }
@@ -620,6 +679,7 @@ onMounted(() => {
       };
     });
   void load();
+  void loadGridPreference();
   updateTableHeight();
   window.addEventListener('resize', updateTableHeight);
 });
@@ -1998,14 +2058,13 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
 
         <div ref="tableMainRef" class="users-table-main">
           <ArtTableHeader
-            v-model:columns="tableColumns"
             v-model:table-size="tableSize"
             v-model:zebra="tableZebra"
             v-model:border="tableBorder"
             v-model:header-background="tableHeaderBackground"
             :loading="loading"
             full-class="users-table-main"
-            layout="refresh,size,fullscreen,columns,settings"
+            layout="refresh,size,fullscreen,settings"
             @refresh="load"
           >
             <template #left>
@@ -2077,7 +2136,24 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 </el-button>
               </PermissionGate>
             </template>
+            <template #right>
+              <el-button
+                data-testid="users-action-column-editor"
+                @click="columnEditorOpen = true"
+              >
+                {{ t('table.columns') }}
+              </el-button>
+            </template>
           </ArtTableHeader>
+
+          <ArtTableColumnEditor
+            v-model:open="columnEditorOpen"
+            :columns="columnEditorItems"
+            :saving="gridPreferenceSaving"
+            :resetting="gridPreferenceResetting"
+            @save="saveColumnEditor"
+            @reset="resetColumnEditor"
+          />
 
           <div class="art-table" :class="{ 'is-empty': pagedUsers.length === 0 }">
             <el-table
@@ -2113,110 +2189,23 @@ function toSubmitProblem(error: unknown): FullNetProblemDetails {
                 </template>
               </el-table-column>
 
-              <el-table-column
-                v-if="isColumnVisible('gender')"
-                :label="t('users.gender')"
-                width="88"
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ genderLabel(row.profile?.gender) }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('roles')"
-                :label="t('users.columnRoles')"
-                min-width="160"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ row.roleLabels || t('users.fieldEmpty') }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('org')"
-                :label="t('users.columnOrg')"
-                min-width="140"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ row.orgLabel }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('position')"
-                :label="t('users.columnPosition')"
-                min-width="120"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ row.positionLabel }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('employeeNumber')"
-                :label="t('users.employeeNumber')"
-                width="120"
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ profileText(row.profile?.employeeNumber) }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('accountType')"
-                :label="t('users.accountType')"
-                width="110"
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ accountTypeLabel(row as UserRow) }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('sortOrder')"
-                :label="t('users.columnSortOrder')"
-                width="88"
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ sortOrderText(row.profile?.sortOrder) }}
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('phone')"
-                :label="t('users.phone')"
-                width="140"
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ profileText(row.profile?.phoneNumber) }}
-                </template>
-              </el-table-column>
+              <UsersGridDataColumn
+                v-for="column in visibleGridColumns"
+                :key="column.key"
+                :column="column"
+                :gender-label="genderLabel"
+                :profile-text="profileText"
+                :sort-order-text="sortOrderText"
+                :account-type-label="accountTypeLabel"
+                :format-date="formatDate"
+                :empty-label="t('users.fieldEmpty')"
+              />
 
               <el-table-column :label="t('users.status')" width="100" align="center">
                 <template #default="{ row }">
                   <el-tag size="small" :type="row.isActive ? 'success' : 'info'">
                     {{ t(row.isActive ? 'users.active' : 'users.inactive') }}
                   </el-tag>
-                </template>
-              </el-table-column>
-
-              <el-table-column
-                v-if="isColumnVisible('createdAt')"
-                :label="t('users.createdAt')"
-                width="180"
-                align="center"
-              >
-                <template #default="{ row }">
-                  {{ formatDate(row.createdAtUtc) }}
                 </template>
               </el-table-column>
 

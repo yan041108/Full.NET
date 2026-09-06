@@ -231,7 +231,7 @@ internal static class NativeApiSettingsE2EAssertions
             token,
             new UpdateGridPreferenceRequest(
                 current.SchemaVersion,
-                [new GridColumnPreference("displayName", 0, 160, true, null)],
+                [new GridColumnPreference("employeeNumber", 0, 160, true, null)],
                 current.Version));
         using var putResponse = await client.SendAsync(putRequest, cancellationToken)
             .ConfigureAwait(false);

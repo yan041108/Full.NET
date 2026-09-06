@@ -30,12 +30,17 @@ export interface GridPreferenceDefinition {
 const definitions = new Map<string, Readonly<GridPreferenceDefinition>>([
   ['identity.users', Object.freeze({
     gridKey: 'identity.users',
-    schemaVersion: 1,
+    schemaVersion: 2,
     columnKeys: Object.freeze([
-      'displayName',
-      'username',
-      'status',
-      'actions'
+      'gender',
+      'roles',
+      'org',
+      'position',
+      'employeeNumber',
+      'accountType',
+      'sortOrder',
+      'phone',
+      'createdAt'
     ])
   })]
 ]);

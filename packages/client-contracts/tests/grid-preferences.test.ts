@@ -11,7 +11,7 @@ describe('grid preference contracts', () => {
 
     expect(definition).toMatchObject({
       gridKey: 'identity.users',
-      schemaVersion: 1
+      schemaVersion: 2
     });
     expect(gridPreferenceDefinitionFor('identity.remote-script')).toBeUndefined();
     expect(() => createGridPreferenceRequest(
@@ -27,8 +27,8 @@ describe('grid preference contracts', () => {
     expect(() => createGridPreferenceRequest(
       definition,
       [
-        { columnKey: 'username', order: 1, width: 120, visible: true, fixed: null },
-        { columnKey: 'username', order: 2, width: 180, visible: false, fixed: 'left' }
+        { columnKey: 'phone', order: 1, width: 120, visible: true, fixed: null },
+        { columnKey: 'phone', order: 2, width: 180, visible: false, fixed: 'left' }
       ],
       0
     )).toThrow(/duplicate column/u);
@@ -36,15 +36,15 @@ describe('grid preference contracts', () => {
     expect(createGridPreferenceRequest(
       definition,
       [
-        { columnKey: 'status', order: 2, width: 140, visible: false, fixed: 'right' },
-        { columnKey: 'username', order: 0, width: 240, visible: true, fixed: 'left' }
+        { columnKey: 'createdAt', order: 2, width: 140, visible: false, fixed: 'right' },
+        { columnKey: 'phone', order: 0, width: 240, visible: true, fixed: 'left' }
       ],
       3
     )).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       columns: [
-        { columnKey: 'username', order: 0, width: 240, visible: true, fixed: 'left' },
-        { columnKey: 'status', order: 2, width: 140, visible: false, fixed: 'right' }
+        { columnKey: 'phone', order: 0, width: 240, visible: true, fixed: 'left' },
+        { columnKey: 'createdAt', order: 2, width: 140, visible: false, fixed: 'right' }
       ],
       version: 3
     });
@@ -53,17 +53,17 @@ describe('grid preference contracts', () => {
   it('validates the stable response shape', () => {
     expect(isGridPreferenceResponse({
       gridKey: 'identity.users',
-      schemaVersion: 1,
+      schemaVersion: 2,
       columns: [
-        { columnKey: 'username', order: 0, width: 240, visible: true, fixed: null }
+        { columnKey: 'phone', order: 0, width: 240, visible: true, fixed: null }
       ],
       version: 1
     })).toBe(true);
     expect(isGridPreferenceResponse({
       gridKey: 'identity.users',
-      schemaVersion: 1,
+      schemaVersion: 2,
       columns: [
-        { columnKey: 'username', order: 0, width: -1, visible: true, fixed: 'center' }
+        { columnKey: 'phone', order: 0, width: -1, visible: true, fixed: 'center' }
       ],
       version: 1
     })).toBe(false);

@@ -68,7 +68,7 @@ internal static class SettingsGridPreferenceAssertions
             Path,
             token,
             new UpdateGridPreferenceRequest(
-                1,
+                2,
                 [new GridColumnPreference("remoteScript", 0, 120, true, null)],
                 0));
         using var unknownColumnResponse = await client.SendAsync(
@@ -84,10 +84,10 @@ internal static class SettingsGridPreferenceAssertions
             Path,
             token,
             new UpdateGridPreferenceRequest(
-                1,
+                2,
                 [
-                    new GridColumnPreference("username", 0, 120, true, null),
-                    new GridColumnPreference("username", 1, 180, false, "left"),
+                    new GridColumnPreference("phone", 0, 120, true, null),
+                    new GridColumnPreference("phone", 1, 180, false, "left"),
                 ],
                 0));
         using var duplicateResponse = await client.SendAsync(
@@ -123,10 +123,10 @@ internal static class SettingsGridPreferenceAssertions
             Path,
             firstToken,
             new UpdateGridPreferenceRequest(
-                1,
+                2,
                 [
-                    new GridColumnPreference("status", 1, 140, false, "right"),
-                    new GridColumnPreference("username", 0, 240, true, "left"),
+                    new GridColumnPreference("createdAt", 1, 140, false, "right"),
+                    new GridColumnPreference("phone", 0, 240, true, "left"),
                 ],
                 0));
         using var putResponse = await client.SendAsync(put, cancellationToken);
@@ -136,7 +136,7 @@ internal static class SettingsGridPreferenceAssertions
         Assert.IsNotNull(created);
         Assert.AreEqual(1, created.Version);
         CollectionAssert.AreEqual(
-            new[] { "username", "status" },
+            new[] { "phone", "createdAt" },
             created.Columns.Select(column => column.ColumnKey).ToArray());
 
         using var secondGet = Authorized(HttpMethod.Get, Path, secondToken);
@@ -162,8 +162,8 @@ internal static class SettingsGridPreferenceAssertions
         Assert.AreEqual(HttpStatusCode.OK, primeResponse.StatusCode);
 
         var updateBody = new UpdateGridPreferenceRequest(
-            1,
-            [new GridColumnPreference("displayName", 0, 320, false, null)],
+            2,
+            [new GridColumnPreference("employeeNumber", 0, 320, false, null)],
             created.Version);
         using var update = AuthorizedJson(HttpMethod.Put, Path, token, updateBody);
         using var updateResponse = await client.SendAsync(update, cancellationToken);
@@ -225,8 +225,8 @@ internal static class SettingsGridPreferenceAssertions
             [],
             cancellationToken);
         var body = new UpdateGridPreferenceRequest(
-            1,
-            [new GridColumnPreference("username", 0, 180, true, null)],
+            2,
+            [new GridColumnPreference("phone", 0, 180, true, null)],
             0);
         var requests = Enumerable.Range(0, 8)
             .Select(_ => AuthorizedJson(

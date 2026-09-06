@@ -17,9 +17,19 @@ internal static class GridPreferenceCatalog
         {
             ["identity.users"] = new(
                 "identity.users",
-                1,
+                2,
                 new HashSet<string>(
-                    ["displayName", "username", "status", "actions"],
+                    [
+                        "gender",
+                        "roles",
+                        "org",
+                        "position",
+                        "employeeNumber",
+                        "accountType",
+                        "sortOrder",
+                        "phone",
+                        "createdAt",
+                    ],
                     StringComparer.Ordinal)),
         };
 

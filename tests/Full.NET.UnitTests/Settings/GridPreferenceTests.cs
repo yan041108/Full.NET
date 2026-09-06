@@ -20,8 +20,28 @@ public sealed class GridPreferenceTests
     public void Catalog_rejects_unknown_grid_keys()
     {
         Assert.IsTrue(GridPreferenceCatalog.TryGet("identity.users", out var definition));
-        Assert.AreEqual(1, definition.SchemaVersion);
+        Assert.AreEqual(2, definition.SchemaVersion);
         Assert.IsFalse(GridPreferenceCatalog.TryGet("identity.remote-script", out _));
+    }
+
+    [TestMethod]
+    public void Catalog_publishes_users_view_column_keys()
+    {
+        var definition = GridPreferenceCatalog.GetRequired("identity.users");
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "gender",
+                "roles",
+                "org",
+                "position",
+                "employeeNumber",
+                "accountType",
+                "sortOrder",
+                "phone",
+                "createdAt",
+            },
+            definition.ColumnKeys.ToArray());
     }
 
     [TestMethod]
@@ -39,8 +59,8 @@ public sealed class GridPreferenceTests
             new UpdateGridPreferenceRequest(
                 definition.SchemaVersion,
                 [
-                    new GridColumnPreference("username", 0, 120, true, null),
-                    new GridColumnPreference("username", 1, 180, false, "left"),
+                    new GridColumnPreference("phone", 0, 120, true, null),
+                    new GridColumnPreference("phone", 1, 180, false, "left"),
                 ],
                 0));
         var missingColumns = GridPreferencePolicy.ValidateAndNormalize(
@@ -79,15 +99,15 @@ public sealed class GridPreferenceTests
             new UpdateGridPreferenceRequest(
                 definition.SchemaVersion,
                 [
-                    new GridColumnPreference("status", 2, 140, false, "right"),
-                    new GridColumnPreference("username", 0, 240, true, "left"),
+                    new GridColumnPreference("createdAt", 2, 140, false, "right"),
+                    new GridColumnPreference("phone", 0, 240, true, "left"),
                 ],
                 0));
 
         Assert.IsTrue(result.IsSuccess);
         var normalized = result.Value!;
         CollectionAssert.AreEqual(
-            new[] { "username", "status" },
+            new[] { "phone", "createdAt" },
             normalized.Select(column => column.ColumnKey).ToArray());
         Assert.AreEqual(240, normalized[0].Width);
         Assert.AreEqual("left", normalized[0].Fixed);
@@ -103,7 +123,7 @@ public sealed class GridPreferenceTests
             persistedSchemaVersion: definition.SchemaVersion - 1,
             persistedVersion: 7,
             [
-                new GridColumnPreference("username", 0, 320, false, "left"),
+                new GridColumnPreference("phone", 0, 320, false, "left"),
             ]);
 
         Assert.AreEqual("identity.users", restored.GridKey);
@@ -191,7 +211,7 @@ public sealed class GridPreferenceTests
         var result = await service.PutAsync(
             Guid.CreateVersion7(),
             "identity.users",
-            new UpdateGridPreferenceRequest(1, [], 0));
+            new UpdateGridPreferenceRequest(2, [], 0));
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual(
