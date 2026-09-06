@@ -63,5 +63,21 @@ public sealed class DingTalkAccessTokenCacheTests
             DingTalkCreateAndDeliverCommand command,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult(command.OutTrackId);
+
+        public ValueTask<string> CreateProcessInstanceAsync(
+            string accessToken,
+            DingTalkCreateProcessInstanceCommand command,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult("process-001");
+
+        public ValueTask<DingTalkProcessInstanceSnapshot> GetProcessInstanceAsync(
+            string accessToken,
+            string processInstanceId,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new DingTalkProcessInstanceSnapshot(
+                processInstanceId,
+                "RUNNING",
+                null,
+                null));
     }
 }

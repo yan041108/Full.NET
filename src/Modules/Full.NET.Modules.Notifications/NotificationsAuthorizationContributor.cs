@@ -96,6 +96,9 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformPermission(NotificationPlatformPermissions.PreferencesRead, "查询本人通知偏好"),
         PlatformPermission(NotificationPlatformPermissions.PreferencesUpdate, "更新本人通知偏好"),
         PlatformPermission(NotificationPlatformPermissions.PreferencesManage, "代管用户通知偏好"),
+        PlatformPermission(NotificationPlatformPermissions.DingTalkApprovalSyncRead, "查询钉钉审批镜像同步"),
+        PlatformPermission(NotificationPlatformPermissions.DingTalkApprovalSyncCreate, "登记钉钉审批镜像同步"),
+        PlatformPermission(NotificationPlatformPermissions.DingTalkApprovalSyncRetry, "补偿钉钉审批镜像出站"),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -138,6 +141,7 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformNavigation("notification-bindings", "/notifications/bindings", "场景绑定", "Bindings", 59, NotificationPlatformPermissions.BindingsRead),
         PlatformNavigation("notification-deliveries", "/notifications/deliveries", "投递运维", "Deliveries", 60, NotificationPlatformPermissions.DeliveriesRead),
         PlatformNavigation("notification-preferences", "/notifications/preferences", "通知偏好", "Preferences", 61, NotificationPlatformPermissions.PreferencesRead),
+        PlatformNavigation("notification-dingtalk-approval-sync", "/notifications/dingtalk-approval-sync", "钉钉审批同步", "DingTalkApprovalSync", 62, NotificationPlatformPermissions.DingTalkApprovalSyncRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -228,6 +232,8 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformAction("notifications.deliveries.dead_letter", "notification-deliveries", NotificationPlatformPermissions.DeliveriesDeadLetter, "死信处置", "dead_letter", 20),
         PlatformAction("notifications.preferences.update", "notification-preferences", NotificationPlatformPermissions.PreferencesUpdate, "更新偏好", "update", 10),
         PlatformAction("notifications.preferences.manage", "notification-preferences", NotificationPlatformPermissions.PreferencesManage, "代管偏好", "manage", 20),
+        PlatformAction("notifications.dingtalk_approval_sync.create", "notification-dingtalk-approval-sync", NotificationPlatformPermissions.DingTalkApprovalSyncCreate, "登记同步", "create", 10),
+        PlatformAction("notifications.dingtalk_approval_sync.retry", "notification-dingtalk-approval-sync", NotificationPlatformPermissions.DingTalkApprovalSyncRetry, "补偿重试", "retry", 20),
     ];
 
     private static PermissionDefinition PlatformPermission(string code, string name) =>

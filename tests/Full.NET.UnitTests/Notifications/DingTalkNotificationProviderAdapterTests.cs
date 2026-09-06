@@ -137,6 +137,22 @@ public sealed class DingTalkNotificationProviderAdapterTests
             LastCommand = command;
             return ValueTask.FromResult(outTrackId);
         }
+
+        public ValueTask<string> CreateProcessInstanceAsync(
+            string accessToken,
+            DingTalkCreateProcessInstanceCommand command,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult("process-001");
+
+        public ValueTask<DingTalkProcessInstanceSnapshot> GetProcessInstanceAsync(
+            string accessToken,
+            string processInstanceId,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new DingTalkProcessInstanceSnapshot(
+                processInstanceId,
+                "RUNNING",
+                null,
+                null));
     }
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock

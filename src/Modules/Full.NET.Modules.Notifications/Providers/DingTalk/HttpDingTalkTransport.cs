@@ -97,6 +97,121 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         }
     }
 
+    public async ValueTask<string> CreateProcessInstanceAsync(
+        string accessToken,
+        DingTalkCreateProcessInstanceCommand command,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formValues = new List<Dictionary<string, string>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["name"] = "标题",
+                ["value"] = command.Title,
+            },
+        };
+        if (!string.IsNullOrWhiteSpace(command.Summary))
+        {
+            formValues.Add(new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["name"] = "摘要",
+                ["value"] = command.Summary!,
+            });
+        }
+
+        var payload = JsonSerializer.Serialize(new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["originatorUserId"] = command.OriginatorUserId,
+            ["processCode"] = command.ProcessCode,
+            ["deptId"] = command.DeptId,
+            ["microappAgentId"] = command.AgentId,
+            ["formComponentValues"] = formValues,
+            ["requestId"] = command.RequestId,
+        });
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "https://api.dingtalk.com/v1.0/workflow/processInstances")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("x-acs-dingtalk-access-token", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            throw new DingTalkTransportException(
+                DingTalkTransportFailureKind.Transient,
+                "The DingTalk workflow endpoint could not be reached.");
+        }
+
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new DingTalkTransportException(
+                    ClassifyHttpStatus(response.StatusCode),
+                    "The DingTalk workflow endpoint returned an error response.");
+            }
+
+            return ParseCreateProcessInstanceResponse(body);
+        }
+    }
+
+    public async ValueTask<DingTalkProcessInstanceSnapshot> GetProcessInstanceAsync(
+        string accessToken,
+        string processInstanceId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var client = httpClientFactory.CreateClient(HttpClientName);
+        var url =
+            $"https://api.dingtalk.com/v1.0/workflow/processInstances?processInstanceId={Uri.EscapeDataString(processInstanceId)}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("x-acs-dingtalk-access-token", accessToken);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            throw new DingTalkTransportException(
+                DingTalkTransportFailureKind.Transient,
+                "The DingTalk workflow endpoint could not be reached.");
+        }
+
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new DingTalkTransportException(
+                    ClassifyHttpStatus(response.StatusCode),
+                    "The DingTalk workflow endpoint returned an error response.");
+            }
+
+            return ParseProcessInstanceSnapshot(body, processInstanceId);
+        }
+    }
+
     private static string BuildPayload(DingTalkCreateAndDeliverCommand command)
     {
         var cardParamMap = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -204,6 +319,75 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
             throw new DingTalkTransportException(
                 DingTalkTransportFailureKind.Transient,
                 "The DingTalk card response was invalid.");
+        }
+    }
+
+    private static string ParseCreateProcessInstanceResponse(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            if (root.TryGetProperty("instanceId", out var instanceElement)
+                && instanceElement.GetString() is { Length: > 0 } instanceId)
+            {
+                return instanceId;
+            }
+
+            throw new DingTalkTransportException(
+                DingTalkTransportFailureKind.Transient,
+                "The DingTalk workflow response did not include a process instance identifier.");
+        }
+        catch (JsonException)
+        {
+            throw new DingTalkTransportException(
+                DingTalkTransportFailureKind.Transient,
+                "The DingTalk workflow response was invalid.");
+        }
+    }
+
+    private static DingTalkProcessInstanceSnapshot ParseProcessInstanceSnapshot(
+        string body,
+        string processInstanceId)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("result", out var resultElement))
+            {
+                throw new DingTalkTransportException(
+                    DingTalkTransportFailureKind.Transient,
+                    "The DingTalk workflow response did not include a result payload.");
+            }
+
+            var status = resultElement.TryGetProperty("status", out var statusElement)
+                ? statusElement.GetString() ?? string.Empty
+                : string.Empty;
+            var result = resultElement.TryGetProperty("result", out var resultValueElement)
+                ? resultValueElement.GetString()
+                : null;
+            var businessId = resultElement.TryGetProperty("businessId", out var businessIdElement)
+                ? businessIdElement.GetString()
+                : null;
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                throw new DingTalkTransportException(
+                    DingTalkTransportFailureKind.Transient,
+                    "The DingTalk workflow response did not include a status.");
+            }
+
+            return new DingTalkProcessInstanceSnapshot(
+                processInstanceId,
+                status,
+                result,
+                businessId);
+        }
+        catch (JsonException)
+        {
+            throw new DingTalkTransportException(
+                DingTalkTransportFailureKind.Transient,
+                "The DingTalk workflow response was invalid.");
         }
     }
 

@@ -76,4 +76,8 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(IReadOnlyList<NotificationDeliveryAttemptResponse>))]
 [JsonSerializable(typeof(RetryNotificationDeliveryRequest))]
 [JsonSerializable(typeof(NotificationReceiptAcceptedResponse))]
+[JsonSerializable(typeof(CreateDingTalkApprovalSyncRequest))]
+[JsonSerializable(typeof(DingTalkApprovalSyncResponse))]
+[JsonSerializable(typeof(PagedResult<DingTalkApprovalSyncResponse>))]
+[JsonSerializable(typeof(DingTalkApprovalSyncCallbackAcceptedResponse))]
 internal partial class NotificationsJsonSerializerContext : JsonSerializerContext;

@@ -192,6 +192,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.notificationPreferences.title',
     captionKey: 'navigation.notificationPreferences.caption'
   }],
+  ['notification-dingtalk-approval-sync', {
+    titleKey: 'navigation.dingtalkApprovalSync.title',
+    captionKey: 'navigation.dingtalkApprovalSync.caption'
+  }],
   ['host-jobs', {
     titleKey: 'navigation.hostJobs.title',
     captionKey: 'navigation.hostJobs.caption'

@@ -20,6 +20,24 @@ internal interface IDingTalkTransport
         string accessToken,
         DingTalkCreateAndDeliverCommand command,
         CancellationToken cancellationToken);
+
+    /// <summary>发起钉钉 OA 审批实例并返回 processInstanceId。</summary>
+    /// <param name="accessToken">当前有效的 access_token。</param>
+    /// <param name="command">闭合创建命令。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    ValueTask<string> CreateProcessInstanceAsync(
+        string accessToken,
+        DingTalkCreateProcessInstanceCommand command,
+        CancellationToken cancellationToken);
+
+    /// <summary>查询钉钉 OA 审批实例镜像状态。</summary>
+    /// <param name="accessToken">当前有效的 access_token。</param>
+    /// <param name="processInstanceId">钉钉审批实例标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    ValueTask<DingTalkProcessInstanceSnapshot> GetProcessInstanceAsync(
+        string accessToken,
+        string processInstanceId,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>钉钉 access_token 及其绝对过期时间。</summary>
@@ -33,6 +51,23 @@ internal sealed record DingTalkCreateAndDeliverCommand(
     string RobotCode,
     string? CallbackRouteKey,
     IReadOnlyDictionary<string, string> CardParamMap);
+
+/// <summary>一次钉钉 OA 审批实例创建所需的闭合参数。</summary>
+internal sealed record DingTalkCreateProcessInstanceCommand(
+    string OriginatorUserId,
+    string ProcessCode,
+    long DeptId,
+    long AgentId,
+    string Title,
+    string? Summary,
+    string RequestId);
+
+/// <summary>钉钉审批实例查询投影；只保留镜像同步所需字段。</summary>
+internal sealed record DingTalkProcessInstanceSnapshot(
+    string ProcessInstanceId,
+    string Status,
+    string? Result,
+    string? BusinessId);
 
 /// <summary>钉钉传输失败分类；Adapter 映射为 Worker 重试语义。</summary>
 internal enum DingTalkTransportFailureKind

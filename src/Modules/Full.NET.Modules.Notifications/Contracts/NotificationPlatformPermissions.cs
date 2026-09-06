@@ -53,6 +53,12 @@ public static class NotificationPlatformPermissions
     public const string PreferencesUpdate = "notifications.preferences.update";
     /// <summary>管理员代为管理或重置任意用户的通知偏好。</summary>
     public const string PreferencesManage = "notifications.preferences.manage";
+    /// <summary>查询钉钉审批镜像同步记录。</summary>
+    public const string DingTalkApprovalSyncRead = DingTalkApprovalSyncPermissions.Read;
+    /// <summary>登记钉钉审批镜像同步。</summary>
+    public const string DingTalkApprovalSyncCreate = DingTalkApprovalSyncPermissions.Create;
+    /// <summary>补偿重试钉钉审批镜像出站。</summary>
+    public const string DingTalkApprovalSyncRetry = DingTalkApprovalSyncPermissions.Retry;
 
     /// <summary>当前版本已注册的全部稳定权限码集合；顺序作为枚举列表的稳定投影。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
@@ -79,5 +85,8 @@ public static class NotificationPlatformPermissions
         PreferencesRead,
         PreferencesUpdate,
         PreferencesManage,
+        DingTalkApprovalSyncRead,
+        DingTalkApprovalSyncCreate,
+        DingTalkApprovalSyncRetry,
     ]);
 }

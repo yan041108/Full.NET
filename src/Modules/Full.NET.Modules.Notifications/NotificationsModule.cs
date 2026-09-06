@@ -5,6 +5,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Notifications.Configuration;
 using Full.NET.Modules.Notifications.Execution;
 using Full.NET.Modules.Notifications.RateLimiting;
 using Full.NET.Modules.Notifications.Resources;
@@ -135,6 +136,10 @@ public sealed class NotificationsModule : IFullNetModule
             .AddOpenTelemetry()
             .WithMetrics(metrics =>
                 metrics.AddMeter(NotificationDeliveryTelemetry.MeterName));
+        if (configuration.GetValue<bool>("Notifications:Providers:DingTalk:Workflow:Enabled"))
+        {
+            services.AddHostedService<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncHostedProcessor>();
+        }
     }
 
     /// <summary>映射 Notifications 模块全部受保护和公开 HTTP 路由。</summary>
@@ -154,6 +159,7 @@ public sealed class NotificationsModule : IFullNetModule
         Features.ReceiveProviderReceipts.Endpoint.Map(endpoints);
         Features.ManageRecipientEndpoints.Endpoint.Map(endpoints);
         Features.VerifyRecipientEndpoints.Endpoint.Map(endpoints);
+        Features.ManageDingTalkApprovalSync.Endpoint.Map(endpoints);
     }
 
     private static void RegisterRealtimeHandlers(IServiceCollection services)
@@ -272,6 +278,17 @@ public sealed class NotificationsModule : IFullNetModule
             services.TryAddEnumerable(ServiceDescriptor.Singleton<
                 Providers.INotificationReceiptVerifier,
                 Providers.DingTalk.DingTalkReceiptVerifier>());
+            if (configuration.GetValue<bool>("Notifications:Providers:DingTalk:Workflow:Enabled"))
+            {
+                services.AddOptions<DingTalkApprovalSyncOptions>()
+                    .Bind(configuration.GetSection(DingTalkApprovalSyncOptions.SectionName))
+                    .ValidateOnStart();
+                services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                    IValidateOptions<DingTalkApprovalSyncOptions>,
+                    DingTalkApprovalSyncOptionsValidator>());
+                services.TryAddScoped<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncService>();
+                services.TryAddSingleton<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncCallbackVerifier>();
+            }
         }
     }
 }

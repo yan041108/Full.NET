@@ -257,6 +257,11 @@ export function createAppRouter(
         component: () => import('../views/NotificationPreferencesView.vue')
       },
       {
+        name: 'notification-dingtalk-approval-sync',
+        path: '/notifications/dingtalk-approval-sync',
+        component: () => import('../views/DingTalkApprovalSyncView.vue')
+      },
+      {
         name: 'host-jobs',
         path: '/jobs/host-definitions',
         component: () => import('../views/HostJobsView.vue')
