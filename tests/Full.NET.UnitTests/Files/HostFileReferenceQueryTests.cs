@@ -56,9 +56,9 @@ public sealed class HostFileReferenceQueryTests
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(new[] { claim });
-        var service = new HostFileQueryService(
+        var service = FilesTestSupport.CreateFileQueryService(
             queryExecutor,
-            Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }));
+            DatabaseProvider.SqlServer);
 
         var result = await service.ListReferencesAsync(fileId, 1, 20, CancellationToken.None);
 

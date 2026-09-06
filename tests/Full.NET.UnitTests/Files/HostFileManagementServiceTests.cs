@@ -33,12 +33,7 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             new OneAffectedCommandExecutor(),
             transaction,
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             CreateFolderQueryService(),
             claimService,
             CreateRegistry(storage),
@@ -144,12 +139,7 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             commandExecutor,
             new ImmediateTransaction(),
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(storage),
@@ -232,12 +222,8 @@ public sealed class HostFileManagementServiceTests
             var service = new HostFileManagementService(
                 new ZeroAffectedCommandExecutor(),
                 new ImmediateTransaction(),
-                new HostFileQueryService(
-                    Substitute.For<IQueryExecutor>(),
-                    Options.Create(new DatabaseOptions
-                    {
-                        Provider = DatabaseProvider.SqlServer,
-                    })),
+                FilesTestSupport.CreateFileQueryService(
+                    Substitute.For<IQueryExecutor>()),
                 CreateFolderQueryService(),
             CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
@@ -329,12 +315,7 @@ public sealed class HostFileManagementServiceTests
             var service = new HostFileManagementService(
                 new TwoAffectedCommandExecutor(),
                 new ImmediateTransaction(),
-                new HostFileQueryService(
-                    queryExecutor,
-                    Options.Create(new DatabaseOptions
-                    {
-                        Provider = DatabaseProvider.SqlServer,
-                    })),
+                FilesTestSupport.CreateFileQueryService(queryExecutor),
                 CreateFolderQueryService(),
             CreateClaimService(),
                 CreateRegistry(blobStorage),
@@ -389,12 +370,8 @@ public sealed class HostFileManagementServiceTests
             var service = new HostFileManagementService(
                 new RecordingCommandExecutor(),
                 new ImmediateTransaction(),
-                new HostFileQueryService(
-                    Substitute.For<IQueryExecutor>(),
-                    Options.Create(new DatabaseOptions
-                    {
-                        Provider = DatabaseProvider.SqlServer,
-                    })),
+                FilesTestSupport.CreateFileQueryService(
+                    Substitute.For<IQueryExecutor>()),
                 CreateFolderQueryService(),
             CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
@@ -465,12 +442,7 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             new RecordingCommandExecutor(),
             new ImmediateTransaction(),
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new AcceptingBlobStorage()),
@@ -537,12 +509,7 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             commandExecutor,
             new ImmediateTransaction(),
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new AcceptingBlobStorage()),
@@ -591,12 +558,8 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             Substitute.For<ICommandExecutor>(),
             Substitute.For<ICommandTransaction>(),
-            new HostFileQueryService(
-                Substitute.For<IQueryExecutor>(),
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(
+                Substitute.For<IQueryExecutor>()),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new FailingSaveBlobStorage()),
@@ -641,12 +604,8 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             Substitute.For<ICommandExecutor>(),
             Substitute.For<ICommandTransaction>(),
-            new HostFileQueryService(
-                Substitute.For<IQueryExecutor>(),
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(
+                Substitute.For<IQueryExecutor>()),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new CancelingSaveBlobStorage(requestCancellation)),
@@ -698,12 +657,7 @@ public sealed class HostFileManagementServiceTests
             var service = new HostFileManagementService(
                 new OneAffectedCommandExecutor(),
                 new CancelingTransaction(requestCancellation, cancelOnInvocation: 3),
-                new HostFileQueryService(
-                    queryExecutor,
-                    Options.Create(new DatabaseOptions
-                    {
-                        Provider = DatabaseProvider.SqlServer,
-                    })),
+                FilesTestSupport.CreateFileQueryService(queryExecutor),
                 CreateFolderQueryService(),
             CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
@@ -781,12 +735,7 @@ public sealed class HostFileManagementServiceTests
         var service = new HostFileManagementService(
             new OneAffectedCommandExecutor(),
             new ImmediateTransaction(),
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(local, archive),
@@ -864,12 +813,7 @@ public sealed class HostFileManagementServiceTests
         return new HostFileManagementService(
             commandExecutor ?? new OneAffectedCommandExecutor(),
             transaction,
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions
-                {
-                    Provider = DatabaseProvider.SqlServer,
-                })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(storage),

@@ -59,6 +59,42 @@ export interface HostFileReferenceClaimPage {
   total: number;
 }
 
+export interface BatchUploadHostFileItem {
+  originalFileName: string;
+  succeeded: boolean;
+  file: HostFile | null;
+  errorCode: string | null;
+  message: string | null;
+}
+
+export interface BatchUploadHostFilesResponse {
+  succeededCount: number;
+  results: BatchUploadHostFileItem[];
+}
+
+export interface BatchDeleteHostFileItem {
+  fileId: string;
+  succeeded: boolean;
+  errorCode: string | null;
+  message: string | null;
+}
+
+export interface BatchDeleteHostFilesResponse {
+  succeededCount: number;
+  results: BatchDeleteHostFileItem[];
+}
+
+export function isPreviewableHostFile(contentType: string): boolean {
+  const normalized = contentType.split(';', 2)[0].trim().toLowerCase();
+  if (normalized === 'text/html' || normalized === 'image/svg+xml') {
+    return false;
+  }
+
+  return normalized.startsWith('text/')
+    || normalized.startsWith('image/')
+    || normalized === 'application/pdf';
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isHostFile(value: unknown): value is HostFile {

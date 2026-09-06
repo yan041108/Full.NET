@@ -17,6 +17,10 @@ const folderContractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Files.Contracts/HostFolderContracts.cs'
 );
+const batchContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Files.Contracts/HostFileBatchContracts.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Files/Features/ManageHostFiles/Endpoint.cs'
@@ -52,6 +56,7 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
   const contract = await loadContract();
   const contractsSource = await readFile(contractsSourcePath, 'utf8');
   const folderContractsSource = await readFile(folderContractsSourcePath, 'utf8');
+  const batchContractsSource = await readFile(batchContractsSourcePath, 'utf8');
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record HostFileResponse/u);
@@ -68,6 +73,12 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
     ])],
+    ['/api/v1/files/host-files/batch-upload', new Map([
+      ['POST', 'MapPost("/batch-upload",']
+    ])],
+    ['/api/v1/files/host-files/batch-delete', new Map([
+      ['POST', 'MapPost("/batch-delete",']
+    ])],
     ['/api/v1/files/host-files/{fileId}', new Map([
       ['GET', 'MapGet("/{fileId:guid}",']
     ])],
@@ -79,6 +90,9 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
     ])],
     ['/api/v1/files/host-files/{fileId}/content', new Map([
       ['GET', 'MapGet("/{fileId:guid}/content",']
+    ])],
+    ['/api/v1/files/host-files/{fileId}/preview', new Map([
+      ['GET', 'MapGet("/{fileId:guid}/preview",']
     ])],
     ['/api/v1/files/host-files/{fileId}/delete', new Map([
       ['POST', 'MapPost("/{fileId:guid}/delete",']
@@ -97,7 +111,12 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
 
     const sourceBySchema = new Map([
       ['UpdateHostFileMetadataRequest', folderContractsSource],
-      ['HostFileReferenceClaimResponse', folderContractsSource]
+      ['HostFileReferenceClaimResponse', folderContractsSource],
+      ['BatchDeleteHostFilesRequest', batchContractsSource],
+      ['BatchDeleteHostFilesResponse', batchContractsSource],
+      ['BatchDeleteHostFileItem', batchContractsSource],
+      ['BatchUploadHostFilesResponse', batchContractsSource],
+      ['BatchUploadHostFileItem', batchContractsSource]
     ]);
 
     for (const [schemaName, schema] of Object.entries(contract.schemas)) {

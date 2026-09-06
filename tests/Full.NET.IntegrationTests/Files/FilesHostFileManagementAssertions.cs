@@ -42,6 +42,10 @@ internal static class FilesHostFileManagementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyBatchUploadDeleteAndPreviewAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiFilesHostFilesContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiFilesHostFoldersContractAssertions.VerifyAsync(client, cancellationToken);
     }
@@ -783,6 +787,125 @@ internal static class FilesHostFileManagementAssertions
             deleteEmptyFolderRequest,
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, deleteEmptyFolderResponse.StatusCode);
+    }
+
+    private static async Task VerifyBatchUploadDeleteAndPreviewAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var firstPayload = Encoding.UTF8.GetBytes($"batch-one-{Guid.NewGuid():N}");
+        var secondPayload = Encoding.UTF8.GetBytes($"batch-two-{Guid.NewGuid():N}");
+
+        using var uploadContent = new MultipartFormDataContent();
+        var firstFile = new ByteArrayContent(firstPayload);
+        firstFile.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadContent.Add(firstFile, "files", "batch-one.txt");
+        var secondFile = new ByteArrayContent(secondPayload);
+        secondFile.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadContent.Add(secondFile, "files", "batch-two.txt");
+
+        using var batchUploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/files/host-files/batch-upload")
+        {
+            Content = uploadContent,
+        };
+        batchUploadRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var batchUploadResponse = await client.SendAsync(
+            batchUploadRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, batchUploadResponse.StatusCode);
+        var batchUpload = await batchUploadResponse.Content
+            .ReadFromJsonAsync<BatchUploadHostFilesResponse>(cancellationToken);
+        Assert.IsNotNull(batchUpload);
+        Assert.AreEqual(2, batchUpload.SucceededCount);
+        Assert.AreEqual(2, batchUpload.Results.Count(item => item.Succeeded));
+        var uploadedIds = batchUpload.Results
+            .Where(item => item.Succeeded && item.File is not null)
+            .Select(item => item.File!.Id)
+            .ToArray();
+        Assert.AreEqual(2, uploadedIds.Length);
+
+        using var previewRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/files/host-files/{uploadedIds[0]:D}/preview");
+        previewRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var previewResponse = await client.SendAsync(previewRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, previewResponse.StatusCode);
+        Assert.AreEqual(
+            "text/plain",
+            previewResponse.Content.Headers.ContentType?.MediaType);
+        var previewBody = await previewResponse.Content.ReadAsByteArrayAsync(cancellationToken);
+        CollectionAssert.AreEqual(firstPayload, previewBody);
+
+        var consumerReferenceId = Guid.CreateVersion7();
+        var idempotencyKey =
+            HostFileReferenceClaimIdempotencyKeys.DocumentVersion(consumerReferenceId);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var claimService = scope.ServiceProvider
+                .GetRequiredService<IHostFileReferenceClaimService>();
+            var claimResult = await claimService.ClaimAsync(
+                new HostFileReferenceClaimRequest(
+                    idempotencyKey,
+                    HostFileReferenceClaimConsumerModules.Document,
+                    consumerReferenceId,
+                    uploadedIds[1]),
+                cancellationToken);
+            Assert.IsTrue(claimResult.IsSuccess);
+            var confirmResult = await claimService.ConfirmAsync(
+                idempotencyKey,
+                cancellationToken);
+            Assert.IsTrue(confirmResult.IsSuccess);
+        }
+
+        using var batchDeleteRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/files/host-files/batch-delete",
+            adminToken,
+            new BatchDeleteHostFilesRequest(uploadedIds));
+        using var batchDeleteResponse = await client.SendAsync(
+            batchDeleteRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, batchDeleteResponse.StatusCode);
+        var batchDelete = await batchDeleteResponse.Content
+            .ReadFromJsonAsync<BatchDeleteHostFilesResponse>(cancellationToken);
+        Assert.IsNotNull(batchDelete);
+        Assert.AreEqual(1, batchDelete.SucceededCount);
+        Assert.IsFalse(batchDelete.Results[1].Succeeded);
+        Assert.AreEqual(
+            FilesErrorCodes.FileReferenced,
+            batchDelete.Results[1].ErrorCode);
+
+        await using (var releaseScope = factory.Services.CreateAsyncScope())
+        {
+            var claimService = releaseScope.ServiceProvider
+                .GetRequiredService<IHostFileReferenceClaimService>();
+            var releaseResult = await claimService.ReleaseAsync(
+                idempotencyKey,
+                cancellationToken);
+            Assert.IsTrue(releaseResult.IsSuccess);
+        }
+
+        using var secondDeleteRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/files/host-files/batch-delete",
+            adminToken,
+            new BatchDeleteHostFilesRequest([uploadedIds[1]]));
+        using var secondDeleteResponse = await client.SendAsync(
+            secondDeleteRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondDeleteResponse.StatusCode);
+        var secondDelete = await secondDeleteResponse.Content
+            .ReadFromJsonAsync<BatchDeleteHostFilesResponse>(cancellationToken);
+        Assert.IsNotNull(secondDelete);
+        Assert.AreEqual(1, secondDelete.SucceededCount);
     }
 
     private static bool ContainsFolder(

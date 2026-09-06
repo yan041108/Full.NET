@@ -13,4 +13,6 @@
   <data name="files.folder.name_conflict" xml:space="preserve"><value>同级目录名称已存在。</value></data>
   <data name="files.folder.not_empty" xml:space="preserve"><value>目录仍包含子目录或文件，无法删除。</value></data>
   <data name="files.folder.invalid" xml:space="preserve"><value>目录请求无效。</value></data>
+  <data name="files.file.invalid_batch" xml:space="preserve"><value>批量文件请求无效或超出允许数量。</value></data>
+  <data name="files.file.preview_not_supported" xml:space="preserve"><value>该文件类型不支持安全预览。</value></data>
 </root>

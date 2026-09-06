@@ -111,6 +111,63 @@ internal static class Endpoint
         .DisableAntiforgery()
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Upload));
 
+        group.MapPost("/batch-upload", async (
+            HttpRequest request,
+            Guid? folderId,
+            HostFileManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var files = request.Form.Files;
+            if (files.Count == 0)
+            {
+                return mapper.Map(
+                    Result<BatchUploadHostFilesResponse>.Failure(new Error(
+                        FilesErrorCodes.InvalidUpload,
+                        "Multipart file field is required.",
+                        ErrorType.Validation)),
+                    httpContext);
+            }
+
+            var result = await service.BatchUploadAsync(
+                    userId,
+                    files,
+                    folderId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("filesBatchUploadHostFiles")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<BatchUploadHostFilesResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .DisableAntiforgery()
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Upload));
+
+        group.MapPost("/batch-delete", async (
+            BatchDeleteHostFilesRequest request,
+            HostFileManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.BatchDeleteAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("filesBatchDeleteHostFiles")
+        .Produces<BatchDeleteHostFilesResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Delete));
+
         group.MapPost("/{fileId:guid}/update", async (
             Guid fileId,
             UpdateHostFileMetadataRequest request,
@@ -197,6 +254,23 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Download));
 
+        group.MapGet("/{fileId:guid}/preview", async (
+            Guid fileId,
+            HostFileQueryService queries,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await queries.OpenPreviewAsync(fileId, cancellationToken)
+                .ConfigureAwait(false);
+            return MapPreviewResult(result, mapper, httpContext);
+        })
+        .WithName("filesPreviewHostFileContent")
+        .Produces<Stream>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Read));
+
         group.MapPost("/{fileId:guid}/delete", async (
             Guid fileId,
             HostFileManagementService service,
@@ -227,5 +301,25 @@ internal static class Endpoint
         return subjects.Length == 1
             && Guid.TryParse(subjects[0].Value, out userId)
             && userId != Guid.Empty;
+    }
+
+    private static IResult MapPreviewResult(
+        Result<HostFileContent> result,
+        IApiResultMapper mapper,
+        HttpContext httpContext)
+    {
+        if (!result.IsSuccess)
+        {
+            return mapper.Map(
+                Result<HostFileResponse>.Failure(result.Error!),
+                httpContext);
+        }
+
+        var content = result.Value!;
+        httpContext.Response.Headers.ContentDisposition = "inline";
+        return Results.File(
+            content.Content,
+            content.ContentType,
+            enableRangeProcessing: true);
     }
 }

@@ -8,6 +8,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.ManageHostFolders;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Files.Features.ManageHostFiles;
@@ -308,6 +309,106 @@ internal sealed class HostFileManagementService(
             .ConfigureAwait(false);
     }
 
+    /// <summary>按顺序批量上传；单项失败不阻断其余文件。</summary>
+    public async Task<Result<BatchUploadHostFilesResponse>> BatchUploadAsync(
+        Guid createdByUserId,
+        IReadOnlyList<IFormFile> files,
+        Guid? folderId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (files.Count == 0)
+        {
+            return InvalidBatch<BatchUploadHostFilesResponse>(
+                "At least one file is required.");
+        }
+
+        if (files.Count > HostFileBatchLimits.MaxUploadCount)
+        {
+            return InvalidBatch<BatchUploadHostFilesResponse>(
+                $"A maximum of {HostFileBatchLimits.MaxUploadCount} files is allowed per batch upload.");
+        }
+
+        var results = new List<BatchUploadHostFileItem>(files.Count);
+        var succeeded = 0;
+        foreach (var file in files)
+        {
+            await using var stream = file.OpenReadStream();
+            var uploadResult = await UploadAsync(
+                    createdByUserId,
+                    file.FileName,
+                    file.ContentType,
+                    stream,
+                    file.Length,
+                    folderId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (uploadResult.IsSuccess)
+            {
+                succeeded++;
+                results.Add(new BatchUploadHostFileItem(
+                    file.FileName,
+                    true,
+                    uploadResult.Value,
+                    null,
+                    null));
+                continue;
+            }
+
+            results.Add(new BatchUploadHostFileItem(
+                file.FileName,
+                false,
+                null,
+                uploadResult.Error?.Code,
+                uploadResult.Error?.Message));
+        }
+
+        return Result<BatchUploadHostFilesResponse>.Success(
+            new BatchUploadHostFilesResponse(succeeded, results));
+    }
+
+    /// <summary>按顺序批量软删除；引用中的文件返回 <see cref="FilesErrorCodes.FileReferenced"/>。</summary>
+    public async Task<Result<BatchDeleteHostFilesResponse>> BatchDeleteAsync(
+        BatchDeleteHostFilesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var fileIds = request.FileIds ?? [];
+        if (fileIds.Count == 0)
+        {
+            return InvalidBatch<BatchDeleteHostFilesResponse>(
+                "At least one file id is required.");
+        }
+
+        if (fileIds.Count > HostFileBatchLimits.MaxDeleteCount)
+        {
+            return InvalidBatch<BatchDeleteHostFilesResponse>(
+                $"A maximum of {HostFileBatchLimits.MaxDeleteCount} file ids is allowed per batch delete.");
+        }
+
+        var results = new List<BatchDeleteHostFileItem>(fileIds.Count);
+        var succeeded = 0;
+        foreach (var fileId in fileIds)
+        {
+            var deleteResult = await DeleteAsync(fileId, cancellationToken)
+                .ConfigureAwait(false);
+            if (deleteResult.IsSuccess)
+            {
+                succeeded++;
+                results.Add(new BatchDeleteHostFileItem(fileId, true, null, null));
+                continue;
+            }
+
+            results.Add(new BatchDeleteHostFileItem(
+                fileId,
+                false,
+                deleteResult.Error?.Code,
+                deleteResult.Error?.Message));
+        }
+
+        return Result<BatchDeleteHostFilesResponse>.Success(
+            new BatchDeleteHostFilesResponse(succeeded, results));
+    }
+
     public async Task<Result<HostFileResponse>> DeleteAsync(
         Guid fileId,
         CancellationToken cancellationToken = default)
@@ -529,6 +630,12 @@ internal sealed class HostFileManagementService(
             FilesErrorCodes.FileNotFound,
             "The file was not found.",
             ErrorType.NotFound));
+
+    private static Result<T> InvalidBatch<T>(string message) =>
+        Result<T>.Failure(new Error(
+            FilesErrorCodes.InvalidBatch,
+            message,
+            ErrorType.Validation));
 
     private sealed record DeleteOutcome(
         Result<HostFileResponse> Result,

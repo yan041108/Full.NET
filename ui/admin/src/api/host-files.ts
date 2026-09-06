@@ -9,6 +9,8 @@ import {
   filesUpdateHostFileMetadata,
   filesUpdateHostFolder,
   filesUploadHostFile,
+  type BatchDeleteHostFilesResponse,
+  type BatchUploadHostFilesResponse,
   type HostFile,
   type HostFilePage,
   type HostFileReferenceClaimResponse,
@@ -47,6 +49,55 @@ export async function uploadHostFile(
   signal?: AbortSignal
 ): Promise<HostFile> {
   return filesUploadHostFile(http, { file, folderId }, signal);
+}
+
+/** 批量上传 Host 文件并返回逐条结果。 */
+export async function batchUploadHostFiles(
+  files: File[],
+  folderId?: string,
+  signal?: AbortSignal
+): Promise<BatchUploadHostFilesResponse> {
+  const body = new FormData();
+  for (const file of files) {
+    body.append('files', file, file.name);
+  }
+  if (folderId) {
+    body.append('folderId', folderId);
+  }
+
+  return http.request<BatchUploadHostFilesResponse>(
+    '/api/v1/files/host-files/batch-upload',
+    { method: 'POST', body },
+    signal
+  );
+}
+
+/** 批量删除 Host 文件并返回逐条结果。 */
+export async function batchDeleteHostFiles(
+  fileIds: string[],
+  signal?: AbortSignal
+): Promise<BatchDeleteHostFilesResponse> {
+  return http.request<BatchDeleteHostFilesResponse>(
+    '/api/v1/files/host-files/batch-delete',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileIds })
+    },
+    signal
+  );
+}
+
+/** 拉取可安全预览的文件内容。 */
+export async function previewHostFileContent(
+  id: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  return http.requestBlob(
+    `/api/v1/files/host-files/${id}/preview`,
+    { method: 'GET' },
+    signal
+  );
 }
 
 /** 更新 Host 文件元数据。 */
@@ -147,5 +198,7 @@ export type {
   HostFolderTreeNode,
   HostFolderResponse,
   HostFileReferenceClaimResponse,
-  PagedResultOfHostFileReferenceClaimResponse
+  PagedResultOfHostFileReferenceClaimResponse,
+  BatchUploadHostFilesResponse,
+  BatchDeleteHostFilesResponse
 };

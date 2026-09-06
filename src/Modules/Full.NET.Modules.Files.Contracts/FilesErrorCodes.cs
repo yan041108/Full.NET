@@ -51,6 +51,12 @@ public static class FilesErrorCodes
     /// <summary>虚拟目录请求参数无效。</summary>
     public const string InvalidFolder = "files.folder.invalid";
 
+    /// <summary>批量上传或批量删除请求超出有界上限或结构无效。</summary>
+    public const string InvalidBatch = "files.file.invalid_batch";
+
+    /// <summary>文件内容类型不在安全预览白名单内。</summary>
+    public const string PreviewNotSupported = "files.file.preview_not_supported";
+
     /// <summary>已发布的全部 Files 错误码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -67,5 +73,7 @@ public static class FilesErrorCodes
         FolderNameConflict,
         FolderNotEmpty,
         InvalidFolder,
+        InvalidBatch,
+        PreviewNotSupported,
     ]);
 }

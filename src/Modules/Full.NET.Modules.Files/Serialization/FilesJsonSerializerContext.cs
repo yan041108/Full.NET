@@ -17,4 +17,9 @@ namespace Full.NET.Modules.Files.Serialization;
 [JsonSerializable(typeof(CreateHostFolderRequest))]
 [JsonSerializable(typeof(UpdateHostFolderRequest))]
 [JsonSerializable(typeof(DeleteHostFolderRequest))]
+[JsonSerializable(typeof(BatchDeleteHostFilesRequest))]
+[JsonSerializable(typeof(BatchDeleteHostFilesResponse))]
+[JsonSerializable(typeof(BatchDeleteHostFileItem))]
+[JsonSerializable(typeof(BatchUploadHostFilesResponse))]
+[JsonSerializable(typeof(BatchUploadHostFileItem))]
 internal partial class FilesJsonSerializerContext : JsonSerializerContext;

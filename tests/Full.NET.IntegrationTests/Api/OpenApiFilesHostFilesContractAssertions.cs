@@ -77,9 +77,12 @@ internal static class OpenApiFilesHostFilesContractAssertions
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files", HttpMethod.Get, "filesListHostFiles", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}", HttpMethod.Get, "filesGetHostFile", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files", HttpMethod.Post, "filesUploadHostFile", tag, 201, "application/json", "multipart/form-data");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/batch-upload", HttpMethod.Post, "filesBatchUploadHostFiles", tag, 200, "application/json", "multipart/form-data");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/batch-delete", HttpMethod.Post, "filesBatchDeleteHostFiles", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/update", HttpMethod.Post, "filesUpdateHostFileMetadata", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/references", HttpMethod.Get, "filesListHostFileReferences", tag, 200, "application/json");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/content", HttpMethod.Get, "filesDownloadHostFileContent", tag, 200, "application/octet-stream");
+        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/preview", HttpMethod.Get, "filesPreviewHostFileContent", tag, 200, "application/octet-stream");
         OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/delete", HttpMethod.Post, "filesDeleteHostFile", tag, 200, "application/json");
     }
 

@@ -10,6 +10,7 @@ namespace Full.NET.Modules.Files.Features.ManageHostFiles;
 /// <summary>Host 文件元数据分页列表、详情与引用声明只读查询。</summary>
 internal sealed class HostFileQueryService(
     IQueryExecutor queryExecutor,
+    IHostFileContentReader hostFileContentReader,
     IOptions<DatabaseOptions> databaseOptions)
 {
     public async Task<Result<PagedResult<HostFileResponse>>> ListAsync(
@@ -125,6 +126,31 @@ internal sealed class HostFileQueryService(
         var items = rows.Select(MapReference).ToArray();
         return Result<PagedResult<HostFileReferenceClaimResponse>>.Success(
             new PagedResult<HostFileReferenceClaimResponse>(items, page, pageSize, total));
+    }
+
+    /// <summary>打开可安全内联预览的文件内容；调用方负责释放返回流。</summary>
+    public async Task<Result<HostFileContent>> OpenPreviewAsync(
+        Guid fileId,
+        CancellationToken cancellationToken = default)
+    {
+        var detailResult = await GetDetailByIdAsync(fileId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!detailResult.IsSuccess)
+        {
+            return Result<HostFileContent>.Failure(detailResult.Error!);
+        }
+
+        if (!HostFilePreviewSupport.IsSupportedContentType(detailResult.Value!.ContentType))
+        {
+            return Result<HostFileContent>.Failure(new Error(
+                FilesErrorCodes.PreviewNotSupported,
+                "Preview is not supported for this content type.",
+                ErrorType.BusinessRule));
+        }
+
+        return await hostFileContentReader
+            .OpenReadyContentAsync(fileId, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<bool> TryAcquireHostFileRowLockAsync(

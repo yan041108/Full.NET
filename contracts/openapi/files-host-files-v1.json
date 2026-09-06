@@ -1,6 +1,6 @@
 {
   "id": "files-host-files-v1",
-  "version": 2,
+  "version": 3,
   "description": "Host 文件元数据 HTTP 契约冻结夹具；与 Files 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {
@@ -17,6 +17,29 @@
           "permission": "files.files.upload",
           "successStatus": 201,
           "responseSchema": "HostFileResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/batch-upload",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.files.upload",
+          "successStatus": 200,
+          "responseSchema": "BatchUploadHostFilesResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/batch-delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.files.delete",
+          "successStatus": 200,
+          "requestSchema": "BatchDeleteHostFilesRequest",
+          "responseSchema": "BatchDeleteHostFilesResponse"
         }
       ]
     },
@@ -60,6 +83,16 @@
         {
           "method": "GET",
           "permission": "files.files.download",
+          "successStatus": 200
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/{fileId}/preview",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.files.read",
           "successStatus": 200
         }
       ]
@@ -126,6 +159,40 @@
         "updatedAtUtc",
         "confirmedAtUtc",
         "releasedAtUtc"
+      ]
+    },
+    "BatchDeleteHostFilesRequest": {
+      "properties": [
+        "fileIds"
+      ]
+    },
+    "BatchDeleteHostFilesResponse": {
+      "properties": [
+        "succeededCount",
+        "results"
+      ]
+    },
+    "BatchDeleteHostFileItem": {
+      "properties": [
+        "fileId",
+        "succeeded",
+        "errorCode",
+        "message"
+      ]
+    },
+    "BatchUploadHostFilesResponse": {
+      "properties": [
+        "succeededCount",
+        "results"
+      ]
+    },
+    "BatchUploadHostFileItem": {
+      "properties": [
+        "originalFileName",
+        "succeeded",
+        "file",
+        "errorCode",
+        "message"
       ]
     }
   }

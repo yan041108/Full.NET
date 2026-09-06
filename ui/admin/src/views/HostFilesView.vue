@@ -15,7 +15,14 @@ import {
   ElTableColumn,
   ElTree
 } from 'element-plus';
-import type { FullNetProblemDetails, HostFile, HostFileReferenceClaimResponse, HostFolderTreeNode } from '@fullnet/client-contracts';
+import type {
+  BatchDeleteHostFilesResponse,
+  BatchUploadHostFilesResponse,
+  FullNetProblemDetails,
+  HostFile,
+  HostFileReferenceClaimResponse,
+  HostFolderTreeNode
+} from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -26,6 +33,8 @@ import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
+  batchDeleteHostFiles,
+  batchUploadHostFiles,
   createHostFolder,
   deleteHostFile,
   deleteHostFolder,
@@ -34,10 +43,12 @@ import {
   listHostFiles,
   listHostFolderTree,
   openHostFileBlob,
+  previewHostFileContent,
   updateHostFileMetadata,
   updateHostFolder,
   uploadHostFile
 } from '../api/host-files';
+import { isPreviewableHostFile } from '@fullnet/client-contracts/host-files';
 
 defineOptions({ name: 'HostFilesView' });
 
@@ -58,7 +69,12 @@ const { t } = useAdminI18n();
 const items = ref<HostFile[]>([]);
 const folderTree = ref<TreeNode[]>([]);
 const selectedFolder = ref<HostFolderTreeNode | null>(null);
-const selectedFile = ref<File | null>(null);
+const selectedFiles = ref<File[]>([]);
+const uploadResults = ref<BatchUploadHostFilesResponse | null>(null);
+const selectedRows = ref<HostFile[]>([]);
+const previewDialogVisible = ref(false);
+const previewUrl = ref<string | null>(null);
+const previewTitle = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -78,6 +94,8 @@ const canReadReferences = computed(() => session.can('files.file_references.read
 const canCreateFolder = computed(() => session.can('files.folders.create'));
 const canUpdateFolder = computed(() => session.can('files.folders.update'));
 const canDeleteFolder = computed(() => session.can('files.folders.delete'));
+const canPreview = computed(() => session.can('files.files.read'));
+const hasSelectedRows = computed(() => selectedRows.value.length > 0);
 
 const {
   tableMainRef,
@@ -190,25 +208,115 @@ function resetSearch(): void {
 
 function onFileSelected(event: Event): void {
   const input = event.target as HTMLInputElement;
-  selectedFile.value = input.files?.[0] ?? null;
+  selectedFiles.value = input.files ? Array.from(input.files) : [];
 }
 
 async function upload(): Promise<void> {
-  if (changing.value || !selectedFile.value || !canUpload.value) {
+  if (changing.value || selectedFiles.value.length === 0 || !canUpload.value) {
     return;
   }
   changing.value = true;
   problem.value = undefined;
   try {
-    await uploadHostFile(selectedFile.value, selectedFolder.value?.id);
-    selectedFile.value = null;
-    ElMessage.success(t('hostFiles.uploadSuccess'));
+    const folderId = selectedFolder.value?.id;
+    if (selectedFiles.value.length === 1) {
+      await uploadHostFile(selectedFiles.value[0], folderId);
+      uploadResults.value = null;
+      ElMessage.success(t('hostFiles.uploadSuccess'));
+    } else {
+      const result = await batchUploadHostFiles(selectedFiles.value, folderId);
+      uploadResults.value = result;
+      ElMessage.success(
+        t('hostFiles.batchUploadSummary', {
+          succeeded: result.succeededCount,
+          total: result.results.length
+        })
+      );
+    }
+    selectedFiles.value = [];
     await load();
   } catch (error: unknown) {
-    problem.value = toProblem(error, 'hostFiles.operationFailed');
+    problem.value = toProblem(error);
+    ElMessage.error(t('hostFiles.operationFailed'));
   } finally {
     changing.value = false;
   }
+}
+
+async function removeSelected(): Promise<void> {
+  if (changing.value || !canDelete.value || selectedRows.value.length === 0) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      t('hostFiles.confirmBatchDelete', { count: selectedRows.value.length }),
+      { type: 'warning' }
+    );
+  } catch {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const result = await batchDeleteHostFiles(selectedRows.value.map(row => row.id));
+    ElMessage.success(
+      t('hostFiles.batchDeleteSummary', {
+        succeeded: result.succeededCount,
+        total: result.results.length
+      })
+    );
+    if (result.succeededCount < result.results.length) {
+      const failed = result.results.filter(item => !item.succeeded);
+      ElMessage.warning(
+        failed.map(item => `${item.fileId}: ${item.errorCode ?? item.message ?? ''}`).join('\n')
+      );
+    }
+    selectedRows.value = [];
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+    ElMessage.error(t('hostFiles.operationFailed'));
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function preview(file: HostFile): Promise<void> {
+  if (changing.value || !canPreview.value || !isPreviewableHostFile(file.contentType)) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value);
+      previewUrl.value = null;
+    }
+    const blob = await previewHostFileContent(file.id);
+    previewUrl.value = URL.createObjectURL(blob);
+    previewTitle.value = file.originalFileName;
+    previewDialogVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+    ElMessage.error(t('hostFiles.previewFailed'));
+  } finally {
+    changing.value = false;
+  }
+}
+
+function closePreviewDialog(): void {
+  previewDialogVisible.value = false;
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = null;
+  }
+}
+
+function canPreviewFile(file: HostFile): boolean {
+  return canPreview.value && isPreviewableHostFile(file.contentType);
 }
 
 async function createFolder(): Promise<void> {
@@ -443,17 +551,31 @@ function toProblem(
             <div><h2 id="upload-host-file-title">{{ t('hostFiles.uploadTitle') }}</h2></div>
             <label>
               <span>{{ t('hostFiles.chooseFile') }}</span>
-              <input type="file" data-testid="host-files-file-input" @change="onFileSelected" />
+              <input type="file" multiple data-testid="host-files-file-input" @change="onFileSelected" />
             </label>
             <el-button
               type="primary"
               data-testid="host-files-upload"
               :loading="changing"
-              :disabled="!selectedFile"
+              :disabled="selectedFiles.length === 0"
               @click="upload"
             >
               {{ t('hostFiles.upload') }}
             </el-button>
+            <el-table
+              v-if="uploadResults"
+              :data="uploadResults.results"
+              size="small"
+              class="host-files-upload-results"
+            >
+              <el-table-column prop="originalFileName" :label="t('hostFiles.fileName')" />
+              <el-table-column :label="t('hostFiles.uploadResult')" width="120">
+                <template #default="{ row }">
+                  {{ row.succeeded ? t('hostFiles.uploadSucceeded') : t('hostFiles.uploadFailed') }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="errorCode" :label="t('hostFiles.errorCode')" />
+            </el-table>
           </el-card>
         </PermissionGate>
 
@@ -479,7 +601,21 @@ function toProblem(
               full-class="art-crud-table-main"
               layout="refresh,size,fullscreen,settings"
               @refresh="load"
-            />
+            >
+              <template #left>
+                <PermissionGate code="files.files.delete">
+                  <el-button
+                    type="danger"
+                    plain
+                    :disabled="!hasSelectedRows || changing"
+                    data-testid="host-files-batch-delete"
+                    @click="removeSelected"
+                  >
+                    {{ t('hostFiles.batchDelete') }}
+                  </el-button>
+                </PermissionGate>
+              </template>
+            </ArtTableHeader>
 
             <div class="art-table" :class="{ 'is-empty': pagedItems.length === 0 }">
               <el-table
@@ -492,7 +628,9 @@ function toProblem(
                 :header-cell-style="tableHeaderCellStyle"
                 class="art-crud-data-table"
                 :class="{ 'art-table--header-bg': tableHeaderBackground }"
+                @selection-change="rows => { selectedRows = rows as HostFile[]; }"
               >
+                <el-table-column type="selection" width="48" />
                 <el-table-column :label="t('users.columnIndex')" width="72" align="center">
                   <template #default="{ $index }">{{ rowIndex($index) }}</template>
                 </el-table-column>
@@ -520,6 +658,17 @@ function toProblem(
                       <PermissionGate code="files.file_references.read">
                         <el-button plain size="small" :disabled="changing" @click="openReferences(row as HostFile)">
                           {{ t('hostFiles.references') }}
+                        </el-button>
+                      </PermissionGate>
+                      <PermissionGate code="files.files.read">
+                        <el-button
+                          v-if="canPreviewFile(row as HostFile)"
+                          plain
+                          size="small"
+                          :disabled="changing"
+                          @click="preview(row as HostFile)"
+                        >
+                          {{ t('hostFiles.preview') }}
                         </el-button>
                       </PermissionGate>
                       <PermissionGate code="files.files.download">
@@ -585,6 +734,20 @@ function toProblem(
       </template>
     </el-dialog>
 
+    <el-dialog
+      v-model="previewDialogVisible"
+      :title="previewTitle"
+      width="70%"
+      @closed="closePreviewDialog"
+    >
+      <iframe
+        v-if="previewUrl"
+        :src="previewUrl"
+        class="host-files-preview-frame"
+        title="preview"
+      />
+    </el-dialog>
+
     <el-drawer v-model="referencesDrawerVisible" :title="t('hostFiles.references')" size="40%">
       <el-table :data="references" size="small">
         <el-table-column prop="consumerModule" :label="t('hostFiles.referenceModule')" />
@@ -627,5 +790,15 @@ function toProblem(
   display: grid;
   gap: 8px;
   margin-top: 12px;
+}
+
+.host-files-upload-results {
+  margin-top: 12px;
+}
+
+.host-files-preview-frame {
+  width: 100%;
+  min-height: 480px;
+  border: 0;
 }
 </style>

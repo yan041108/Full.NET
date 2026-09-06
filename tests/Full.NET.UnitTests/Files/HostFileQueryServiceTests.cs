@@ -11,12 +11,7 @@ public sealed class HostFileQueryServiceTests
     public async Task List_keeps_extreme_page_offset_outside_int_overflow()
     {
         var queryExecutor = new RecordingQueryExecutor();
-        var service = new HostFileQueryService(
-            queryExecutor,
-            Options.Create(new DatabaseOptions
-            {
-                Provider = DatabaseProvider.SqlServer,
-            }));
+        var service = FilesTestSupport.CreateFileQueryService(queryExecutor);
 
         _ = await service.ListAsync(int.MaxValue, 100, HostFileListFilter.All);
 

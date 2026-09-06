@@ -69,9 +69,7 @@ public sealed class HostFileMetadataUpdateTests
         var service = new HostFileManagementService(
             commandExecutor,
             new ImmediateMetadataTransaction(),
-            new HostFileQueryService(
-                queryExecutor,
-                Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer })),
+            FilesTestSupport.CreateFileQueryService(queryExecutor),
             FilesTestSupport.CreateFolderQueryService(),
             Substitute.For<IHostFileReferenceClaimService>(),
             new FileStorageProviderRegistry(
