@@ -22,6 +22,9 @@ public sealed class PaymentsAuthorizationContributorTests
                 PaymentMerchantPermissions.Update,
                 PaymentOrderPermissions.Read,
                 PaymentOrderPermissions.Create,
+                PaymentOrderPermissions.Reconcile,
+                PaymentRefundPermissions.Read,
+                PaymentRefundPermissions.Create,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 

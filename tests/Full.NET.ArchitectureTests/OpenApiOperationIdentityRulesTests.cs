@@ -110,6 +110,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string AiAgentToolsTag = "AiAgentTools";
     private const string PaymentMerchantConfigsTag = "PaymentMerchantConfigs";
     private const string PaymentOrdersTag = "PaymentOrders";
+    private const string PaymentRefundsTag = "PaymentRefunds";
+    private const string PaymentWeChatNotifyTag = "PaymentWeChatNotify";
     private const string PrintingTemplatesTag = "PrintingTemplates";
     private const string PrintingPreviewsTag = "PrintingPreviews";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
@@ -456,6 +458,11 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/payments/orders", "paymentsListOrders", PaymentOrdersTag),
         new("GET", "/api/v1/payments/orders/{orderId}", "paymentsGetOrder", PaymentOrdersTag),
         new("POST", "/api/v1/payments/orders", "paymentsCreateOrder", PaymentOrdersTag),
+        new("POST", "/api/v1/payments/orders/{orderId}/reconcile", "paymentsReconcileOrder", PaymentOrdersTag),
+        new("POST", "/api/v1/payments/orders/{orderId}/refunds", "paymentsCreateRefund", PaymentOrdersTag),
+        new("GET", "/api/v1/payments/refunds", "paymentsListRefunds", PaymentRefundsTag),
+        new("GET", "/api/v1/payments/refunds/{refundId}", "paymentsGetRefund", PaymentRefundsTag),
+        new("POST", "/api/v1/payments/wechat-native/notify/{merchantConfigId}", "paymentsWeChatNativeNotify", PaymentWeChatNotifyTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

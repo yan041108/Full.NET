@@ -14,4 +14,9 @@ namespace Full.NET.Modules.Payments.Serialization;
 [JsonSerializable(typeof(PaymentOrderResponse))]
 [JsonSerializable(typeof(CreatePaymentOrderRequest))]
 [JsonSerializable(typeof(PagedResult<PaymentOrderListItem>))]
+[JsonSerializable(typeof(PaymentRefundListItem))]
+[JsonSerializable(typeof(PaymentRefundResponse))]
+[JsonSerializable(typeof(CreatePaymentRefundRequest))]
+[JsonSerializable(typeof(PagedResult<PaymentRefundListItem>))]
+[JsonSerializable(typeof(WeChatPayNotifyAckResponse))]
 internal partial class PaymentsJsonSerializerContext : JsonSerializerContext;

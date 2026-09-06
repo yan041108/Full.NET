@@ -16,6 +16,9 @@ internal sealed class PaymentsAuthorizationContributor : IAuthorizationCatalogCo
         new(PaymentMerchantPermissions.Update, "更新支付商户配置", AuthorizationScope.Host),
         new(PaymentOrderPermissions.Read, "读取支付订单", AuthorizationScope.Host),
         new(PaymentOrderPermissions.Create, "创建支付订单", AuthorizationScope.Host),
+        new(PaymentOrderPermissions.Reconcile, "对账同步支付订单", AuthorizationScope.Host),
+        new(PaymentRefundPermissions.Read, "读取支付退款", AuthorizationScope.Host),
+        new(PaymentRefundPermissions.Create, "创建支付退款", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -42,6 +45,17 @@ internal sealed class PaymentsAuthorizationContributor : IAuthorizationCatalogCo
             "money",
             20,
             PaymentOrderPermissions.Read),
+        new NavigationDefinition(
+            "payments-refunds",
+            null,
+            "payments-refunds",
+            "/payments/refunds",
+            "payments-refunds",
+            "支付退款",
+            "Payment Refunds",
+            "refresh-left",
+            30,
+            PaymentRefundPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -67,5 +81,19 @@ internal sealed class PaymentsAuthorizationContributor : IAuthorizationCatalogCo
             "创建支付订单",
             "create",
             10),
+        new AuthorizationActionDefinition(
+            "payments.orders.reconcile",
+            "payments-orders",
+            PaymentOrderPermissions.Reconcile,
+            "对账同步订单",
+            "reconcile",
+            20),
+        new AuthorizationActionDefinition(
+            "payments.orders.refund",
+            "payments-orders",
+            PaymentRefundPermissions.Create,
+            "发起退款",
+            "refund",
+            30),
     ];
 }

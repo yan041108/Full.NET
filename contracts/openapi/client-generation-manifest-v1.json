@@ -2607,6 +2607,30 @@
       "status": "manual"
     },
     {
+      "operationId": "paymentsReconcileOrder",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsCreateRefund",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsListRefunds",
+      "apiModule": "ui/admin/src/api/payment-refunds.ts",
+      "generatedGroup": "payment-refunds",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsGetRefund",
+      "apiModule": "ui/admin/src/api/payment-refunds.ts",
+      "generatedGroup": "payment-refunds",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

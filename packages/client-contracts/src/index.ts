@@ -607,12 +607,15 @@ export {
   isPaymentMerchantConfig,
   isPaymentMerchantConfigPage,
   isPaymentOrder,
-  isPaymentOrderPage
+  isPaymentOrderPage,
+  isPaymentRefund,
+  isPaymentRefundPage
 } from './payments.js';
 
 export type {
   CreatePaymentMerchantConfigRequest,
   CreatePaymentOrderRequest,
+  CreatePaymentRefundRequest,
   PaymentMerchantConfig,
   PaymentMerchantConfigListItem,
   PaymentMerchantConfigListQuery,
@@ -621,6 +624,10 @@ export type {
   PaymentOrderListItem,
   PaymentOrderListQuery,
   PaymentOrderPage,
+  PaymentRefund,
+  PaymentRefundListItem,
+  PaymentRefundListQuery,
+  PaymentRefundPage,
   UpdatePaymentMerchantConfigRequest
 } from './payments.js';
 

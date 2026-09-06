@@ -48,6 +48,30 @@ internal static class PaymentOrderSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindByOutTradeNo = new(
+        "payments.find_order_by_out_trade_no",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_payment_order AS orders
+        WHERE orders.OutTradeNo = @OutTradeNo
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateTradeState = new(
+        "payments.update_order_trade_state",
+        """
+        UPDATE fn_payment_order
+        SET TradeStateKey = @TradeStateKey,
+            ProviderTransactionId = COALESCE(@ProviderTransactionId, ProviderTransactionId),
+            FailMessage = @FailMessage,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            PaidAtUtc = COALESCE(@PaidAtUtc, PaidAtUtc),
+            Version = Version + 1
+        WHERE Id = @OrderId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement UpdateProviderResult = new(
         "payments.update_order_provider_result",
         """

@@ -277,6 +277,11 @@ export function createAppRouter(
         component: () => import('../views/PaymentOrdersView.vue')
       },
       {
+        name: 'payment-refunds',
+        path: '/payments/refunds',
+        component: () => import('../views/PaymentRefundsView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

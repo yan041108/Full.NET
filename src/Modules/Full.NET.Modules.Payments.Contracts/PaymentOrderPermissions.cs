@@ -8,4 +8,7 @@ public static class PaymentOrderPermissions
 
     /// <summary>创建支付订单。</summary>
     public const string Create = "payments.orders.create";
+
+    /// <summary>与渠道对账并同步订单状态。</summary>
+    public const string Reconcile = "payments.orders.reconcile";
 }

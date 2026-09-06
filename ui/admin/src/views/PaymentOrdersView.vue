@@ -21,7 +21,7 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { createPaymentOrder, listPaymentOrders } from '../api/payment-orders';
+import { createPaymentOrder, listPaymentOrders, reconcilePaymentOrder, createPaymentRefund } from '../api/payment-orders';
 
 defineOptions({ name: 'PaymentOrdersView' });
 
@@ -34,6 +34,12 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const createOpen = ref(false);
+const refundOpen = ref(false);
+const refundOrderId = ref('');
+const refundForm = reactive({
+  amountYuan: '',
+  reason: ''
+});
 const createForm = reactive({
   tenantId: '',
   merchantConfigId: '',
@@ -120,6 +126,52 @@ async function submitCreate(): Promise<void> {
   }
 }
 
+async function reconcileOrder(orderId: string): Promise<void> {
+  changing.value = true;
+  try {
+    await reconcilePaymentOrder(orderId);
+    ElMessage.success(t('paymentOrders.reconcileSuccess'));
+    await load();
+  } catch (error: unknown) {
+    ElMessage.error(toProblem(error, 'paymentOrders.reconcileFailed').title);
+  } finally {
+    changing.value = false;
+  }
+}
+
+function openRefund(orderId: string): void {
+  refundOrderId.value = orderId;
+  Object.assign(refundForm, { amountYuan: '', reason: '' });
+  refundOpen.value = true;
+}
+
+async function submitRefund(): Promise<void> {
+  if (!refundForm.reason.trim()) {
+    ElMessage.warning(t('paymentOrders.refundValidationFailed'));
+    return;
+  }
+  const amountYuan = refundForm.amountYuan.trim();
+  const amountMinor = amountYuan ? Math.round(Number.parseFloat(amountYuan) * 100) : null;
+  if (amountYuan && (Number.isNaN(amountMinor) || amountMinor <= 0)) {
+    ElMessage.warning(t('paymentOrders.refundValidationFailed'));
+    return;
+  }
+  changing.value = true;
+  try {
+    await createPaymentRefund(refundOrderId.value, {
+      amountMinor,
+      reason: refundForm.reason.trim()
+    });
+    ElMessage.success(t('paymentOrders.refundSuccess'));
+    refundOpen.value = false;
+    await load();
+  } catch (error: unknown) {
+    ElMessage.error(toProblem(error, 'paymentOrders.refundFailed').title);
+  } finally {
+    changing.value = false;
+  }
+}
+
 onMounted(() => {
   void load();
 });
@@ -170,6 +222,30 @@ onMounted(() => {
           </el-table-column>
           <el-table-column prop="createdAtUtc" :label="t('paymentOrders.fieldCreatedAt')" min-width="180" />
           <el-table-column prop="failMessage" :label="t('paymentOrders.fieldFailMessage')" min-width="160" />
+          <el-table-column :label="t('paymentOrders.actions')" width="220" fixed="right">
+            <template #default="{ row }">
+              <PermissionGate code="payments.orders.reconcile">
+                <el-button
+                  link
+                  type="primary"
+                  :data-testid="`payment-order-reconcile-${row.id}`"
+                  @click="reconcileOrder(row.id)"
+                >
+                  {{ t('paymentOrders.reconcile') }}
+                </el-button>
+              </PermissionGate>
+              <PermissionGate code="payments.orders.refund">
+                <el-button
+                  link
+                  type="warning"
+                  :data-testid="`payment-order-refund-${row.id}`"
+                  @click="openRefund(row.id)"
+                >
+                  {{ t('paymentOrders.refund') }}
+                </el-button>
+              </PermissionGate>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
 
@@ -203,6 +279,22 @@ onMounted(() => {
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldDescription')">
           <el-input v-model="createForm.description" type="textarea" :rows="3" />
+        </el-form-item>
+      </el-form>
+    </ArtFormDialog>
+
+    <ArtFormDialog
+      v-model="refundOpen"
+      :title="t('paymentOrders.refundTitle')"
+      :loading="changing"
+      @submit="submitRefund"
+    >
+      <el-form label-width="120px">
+        <el-form-item :label="t('paymentOrders.refundReason')" required>
+          <el-input v-model="refundForm.reason" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item :label="t('paymentOrders.refundAmountYuan')">
+          <el-input v-model="refundForm.amountYuan" />
         </el-form-item>
       </el-form>
     </ArtFormDialog>

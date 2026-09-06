@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Payments.Contracts;
+using Full.NET.Modules.Payments.Features.ManageRefunds;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -87,5 +88,53 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
         .RequireAuthorization(FullNetPermissionPolicies.For(PaymentOrderPermissions.Create));
+
+        group.MapPost("/{orderId:guid}/reconcile", async (
+            Guid orderId,
+            PaymentOrderReconciliationService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ReconcileAsync(orderId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("paymentsReconcileOrder")
+        .Produces<PaymentOrderResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(PaymentOrderPermissions.Reconcile));
+
+        group.MapPost("/{orderId:guid}/refunds", async (
+            Guid orderId,
+            CreatePaymentRefundRequest request,
+            PaymentRefundManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.CreateForOrderAsync(orderId, request, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.Created(
+                $"/api/v1/payments/refunds/{result.Value!.Id:D}",
+                result.Value);
+        })
+        .WithName("paymentsCreateRefund")
+        .Produces<PaymentRefundResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(PaymentRefundPermissions.Create));
     }
 }

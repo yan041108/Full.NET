@@ -1,10 +1,13 @@
 import {
   isPaymentOrder,
   isPaymentOrderPage,
+  isPaymentRefund,
   type CreatePaymentOrderRequest,
+  type CreatePaymentRefundRequest,
   type PaymentOrder,
   type PaymentOrderListQuery,
-  type PaymentOrderPage
+  type PaymentOrderPage,
+  type PaymentRefund
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
@@ -65,6 +68,37 @@ export async function createPaymentOrder(
   );
   if (!isPaymentOrder(value)) {
     throw new Error('client.invalid_payment_order');
+  }
+  return value;
+}
+
+export async function reconcilePaymentOrder(
+  id: string,
+  signal?: AbortSignal
+): Promise<PaymentOrder> {
+  const value = await request<unknown>(
+    `/api/v1/payments/orders/${encodeURIComponent(id)}/reconcile`,
+    { method: 'POST' },
+    signal
+  );
+  if (!isPaymentOrder(value)) {
+    throw new Error('client.invalid_payment_order');
+  }
+  return value;
+}
+
+export async function createPaymentRefund(
+  orderId: string,
+  body: CreatePaymentRefundRequest,
+  signal?: AbortSignal
+): Promise<PaymentRefund> {
+  const value = await request<unknown>(
+    `/api/v1/payments/orders/${encodeURIComponent(orderId)}/refunds`,
+    { method: 'POST', body },
+    signal
+  );
+  if (!isPaymentRefund(value)) {
+    throw new Error('client.invalid_payment_refund');
   }
   return value;
 }

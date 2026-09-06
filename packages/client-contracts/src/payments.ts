@@ -144,6 +144,63 @@ export interface PaymentOrderListQuery {
   outTradeNoContains?: string;
 }
 
+export interface PaymentRefundListItem {
+  id: string;
+  tenantId: string;
+  orderId: string;
+  outTradeNo: string;
+  outRefundNo: string;
+  refundStateKey: string;
+  amountMinor: number;
+  currency: string;
+  reason: string;
+  providerRefundId: string | null;
+  failMessage: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  completedAtUtc: string | null;
+  version: number;
+}
+
+export interface PaymentRefund {
+  id: string;
+  tenantId: string;
+  orderId: string;
+  merchantConfigId: string;
+  outTradeNo: string;
+  outRefundNo: string;
+  refundStateKey: string;
+  amountMinor: number;
+  currency: string;
+  reason: string;
+  providerRefundId: string | null;
+  failMessage: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  completedAtUtc: string | null;
+  version: number;
+}
+
+export interface PaymentRefundPage {
+  items: PaymentRefundListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface CreatePaymentRefundRequest {
+  amountMinor?: number | null;
+  reason: string;
+}
+
+export interface PaymentRefundListQuery {
+  page?: number;
+  pageSize?: number;
+  tenantId?: string;
+  orderId?: string;
+  refundStateKey?: string;
+}
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isGuid(value: unknown): value is string {
@@ -206,6 +263,31 @@ export function isPaymentOrderPage(value: unknown): value is PaymentOrderPage {
   return isRecord(value)
     && Array.isArray(value.items)
     && value.items.every(isPaymentOrderListItem)
+    && typeof value.page === 'number'
+    && typeof value.pageSize === 'number'
+    && typeof value.total === 'number';
+}
+
+export function isPaymentRefundListItem(value: unknown): value is PaymentRefundListItem {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.tenantId)
+    && isGuid(value.orderId)
+    && typeof value.outRefundNo === 'string'
+    && typeof value.refundStateKey === 'string';
+}
+
+export function isPaymentRefund(value: unknown): value is PaymentRefund {
+  return isRecord(value)
+    && isGuid(value.id)
+    && isGuid(value.orderId)
+    && typeof value.outRefundNo === 'string';
+}
+
+export function isPaymentRefundPage(value: unknown): value is PaymentRefundPage {
+  return isRecord(value)
+    && Array.isArray(value.items)
+    && value.items.every(isPaymentRefundListItem)
     && typeof value.page === 'number'
     && typeof value.pageSize === 'number'
     && typeof value.total === 'number';

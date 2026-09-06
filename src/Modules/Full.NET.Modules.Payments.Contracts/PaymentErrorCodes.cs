@@ -29,4 +29,22 @@ public static class PaymentErrorCodes
 
     /// <summary>租户不存在或不可用。</summary>
     public const string TenantNotFound = "payments.tenant.not_found";
+
+    /// <summary>支付通知验签或解密失败。</summary>
+    public const string NotifyInvalid = "payments.notify.invalid";
+
+    /// <summary>支付通知业务校验失败。</summary>
+    public const string NotifyRejected = "payments.notify.rejected";
+
+    /// <summary>退款记录不存在。</summary>
+    public const string RefundNotFound = "payments.refund.not_found";
+
+    /// <summary>退款请求校验失败。</summary>
+    public const string RefundInvalid = "payments.refund.invalid";
+
+    /// <summary>退款渠道调用失败。</summary>
+    public const string RefundProviderFailed = "payments.refund.provider_failed";
+
+    /// <summary>订单状态不允许当前操作。</summary>
+    public const string OrderStateInvalid = "payments.order.state_invalid";
 }

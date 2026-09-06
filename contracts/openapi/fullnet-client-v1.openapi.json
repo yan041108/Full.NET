@@ -31052,6 +31052,97 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["PaymentOrders"]
       }
+    },
+    "/api/v1/payments/orders/{orderId}/reconcile": {
+      "post": {
+        "operationId": "paymentsReconcileOrder",
+        "parameters": [
+          { "in": "path", "name": "orderId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentOrderResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentOrders"]
+      }
+    },
+    "/api/v1/payments/orders/{orderId}/refunds": {
+      "post": {
+        "operationId": "paymentsCreateRefund",
+        "parameters": [
+          { "in": "path", "name": "orderId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePaymentRefundRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRefundResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentOrders"]
+      }
+    },
+    "/api/v1/payments/refunds": {
+      "get": {
+        "operationId": "paymentsListRefunds",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": "string" } },
+          { "in": "query", "name": "orderId", "schema": { "format": "uuid", "type": "string" } },
+          { "in": "query", "name": "refundStateKey", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfPaymentRefundListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentRefunds"]
+      }
+    },
+    "/api/v1/payments/refunds/{refundId}": {
+      "get": {
+        "operationId": "paymentsGetRefund",
+        "parameters": [
+          { "in": "path", "name": "refundId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRefundResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentRefunds"]
+      }
+    },
+    "/api/v1/payments/wechat-native/notify/{merchantConfigId}": {
+      "post": {
+        "operationId": "paymentsWeChatNativeNotify",
+        "parameters": [
+          { "in": "path", "name": "merchantConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WeChatPayNotifyAckResponse" } } }, "description": "OK" }
+        },
+        "tags": ["PaymentWeChatNotify"]
+      }
     }
   },
   "components": {
@@ -47633,6 +47724,76 @@
           "total": { "format": "int64", "type": ["integer", "string"] }
         },
         "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "PaymentRefundListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": "string" },
+          "orderId": { "format": "uuid", "type": "string" },
+          "outTradeNo": { "type": "string" },
+          "outRefundNo": { "type": "string" },
+          "refundStateKey": { "type": "string" },
+          "amountMinor": { "format": "int64", "type": ["integer", "string"] },
+          "currency": { "type": "string" },
+          "reason": { "type": "string" },
+          "providerRefundId": { "type": ["null", "string"] },
+          "failMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "completedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "tenantId", "orderId", "outTradeNo", "outRefundNo", "refundStateKey", "amountMinor", "currency", "reason", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "PaymentRefundResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": "string" },
+          "orderId": { "format": "uuid", "type": "string" },
+          "merchantConfigId": { "format": "uuid", "type": "string" },
+          "outTradeNo": { "type": "string" },
+          "outRefundNo": { "type": "string" },
+          "refundStateKey": { "type": "string" },
+          "amountMinor": { "format": "int64", "type": ["integer", "string"] },
+          "currency": { "type": "string" },
+          "reason": { "type": "string" },
+          "providerRefundId": { "type": ["null", "string"] },
+          "failMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "completedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "tenantId", "orderId", "merchantConfigId", "outTradeNo", "outRefundNo", "refundStateKey", "amountMinor", "currency", "reason", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreatePaymentRefundRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": { "format": "int64", "type": ["null", "integer", "string"] },
+          "reason": { "type": "string" }
+        },
+        "required": ["reason"],
+        "type": "object"
+      },
+      "PagedResultOfPaymentRefundListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/PaymentRefundListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "WeChatPayNotifyAckResponse": {
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["code", "message"],
         "type": "object"
       },
       "PagedResultOfReportingDataSourceListItem": {

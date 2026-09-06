@@ -17,4 +17,10 @@ public static class PaymentTradeStateKeys
 
     /// <summary>创建或渠道调用失败。</summary>
     public const string Failed = "failed";
+
+    /// <summary>退款处理中。</summary>
+    public const string Refunding = "refunding";
+
+    /// <summary>已退款。</summary>
+    public const string Refunded = "refunded";
 }
