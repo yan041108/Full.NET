@@ -675,9 +675,11 @@ export {
   isHostRole,
   isHostRoleDataScope,
   isHostRolePage,
+  isCopyHostRoleRequest,
   isReplaceHostRolePermissionsRequest,
   isUpdateHostRoleDataScopeRequest,
-  isUpdateHostRoleRequest
+  isUpdateHostRoleRequest,
+  copyHostRole
 } from './host-roles.js';
 
 export type {
@@ -685,6 +687,7 @@ export type {
   HostRoleAssignablePermission,
   HostRoleDataScope,
   HostRolePage,
+  CopyHostRoleRequest,
   ReplaceHostRolePermissionsRequest,
   RoleDataScopeKind,
   UpdateHostRoleDataScopeRequest,

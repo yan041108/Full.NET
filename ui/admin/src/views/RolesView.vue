@@ -56,6 +56,7 @@ import {
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   createHostRole,
+  copyHostRole,
   disableHostRole,
   getAuthorizationTree,
   getFieldProjectionCatalog,
@@ -78,7 +79,7 @@ interface AppliedFilters {
   roleType: '' | 'system' | 'custom';
 }
 
-type EditorMode = 'create' | 'edit';
+type EditorMode = 'create' | 'edit' | 'copy';
 type RoleTableColumnKey = 'code' | 'status' | 'roleType' | 'permissionCount' | 'createdAt';
 
 const session = useSessionStore();
@@ -165,7 +166,7 @@ const editorFormRules = computed<FormRules>(() => {
     ]
   };
 
-  if (editorMode.value === 'create') {
+  if (editorMode.value === 'create' || editorMode.value === 'copy') {
     rules.code = [
       {
         validator: (_rule, value, callback) => {
@@ -216,6 +217,7 @@ const tableHeaderCellStyle = computed(() => ({
 }));
 
 const canCreate = computed(() => session.can('identity.roles.create'));
+const canCopy = computed(() => session.can('identity.roles.copy'));
 const canUpdate = computed(() => session.can('identity.roles.update'));
 const canSavePermissions = computed(() => unknownPermissions.value.length === 0);
 const canReadFieldGrants = computed(() => session.can('identity.role_field_grants.read'));
@@ -396,6 +398,19 @@ function openEdit(role: HostRole): void {
   void nextTick(() => editorFormRef.value?.clearValidate());
 }
 
+function openCopy(role: HostRole): void {
+  if (changing.value || role.isSuperAdministrator || !role.isActive || !canCopy.value) {
+    return;
+  }
+
+  editorMode.value = 'copy';
+  editingRole.value = role;
+  editorForm.code = `${normalizeRoleCode(role.code)}-copy`;
+  editorForm.name = `${role.name}${t('roles.copyNameSuffix')}`;
+  editorOpen.value = true;
+  void nextTick(() => editorFormRef.value?.clearValidate());
+}
+
 function normalizeRoleCode(value: string): string {
   return value
     .trim()
@@ -407,7 +422,7 @@ function normalizeRoleCode(value: string): string {
 }
 
 function onEditorCodeBlur(): void {
-  if (editorMode.value !== 'create') {
+  if (editorMode.value !== 'create' && editorMode.value !== 'copy') {
     return;
   }
   editorForm.code = normalizeRoleCode(editorForm.code);
@@ -415,7 +430,7 @@ function onEditorCodeBlur(): void {
 }
 
 async function validateEditorForm(): Promise<boolean> {
-  if (editorMode.value === 'create') {
+  if (editorMode.value === 'create' || editorMode.value === 'copy') {
     editorForm.code = normalizeRoleCode(editorForm.code);
   }
 
@@ -448,7 +463,39 @@ async function submitEditor(): Promise<void> {
     return;
   }
 
+  if (editorMode.value === 'copy') {
+    await submitCopy();
+    return;
+  }
+
   await saveEdit();
+}
+
+async function submitCopy(): Promise<void> {
+  const sourceRole = editingRole.value;
+  if (!sourceRole || !canCopy.value) {
+    return;
+  }
+
+  const code = normalizeRoleCode(editorForm.code);
+  const name = editorForm.name.trim();
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await copyHostRole(sourceRole.id, code, name);
+    editorOpen.value = false;
+    editingRole.value = null;
+    ElMessage.success(t('roles.copySuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'roles.operationFailed');
+    if (isFullNetProblemDetails(error) && error.code === 'identity.roles.code_exists') {
+      ElMessage.warning(t('roles.codeConflict'));
+    }
+  } finally {
+    changing.value = false;
+  }
 }
 
 async function create(): Promise<void> {
@@ -909,7 +956,7 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="220"
+              width="280"
               fixed="right"
               align="center"
             >
@@ -923,6 +970,17 @@ function toProblem(
                       :title="t('roles.edit')"
                   @click="openEdit(row as HostRole)"
                     />
+                  </PermissionGate>
+                  <PermissionGate code="identity.roles.copy">
+                    <el-button
+                      v-if="!row.isSuperAdministrator && row.isActive"
+                      link
+                      type="primary"
+                      data-testid="roles-action-copy"
+                      @click="openCopy(row as HostRole)"
+                    >
+                      {{ t('roles.copy') }}
+                    </el-button>
                   </PermissionGate>
                   <PermissionGate code="identity.roles.assign_permissions">
                     <el-button
@@ -1001,7 +1059,11 @@ function toProblem(
       <template #header>
         <div class="roles-editor-dialog__header">
           <span>
-            {{ editorMode === 'create' ? t('roles.createTitle') : t('roles.editTitle') }}
+            {{ editorMode === 'create'
+              ? t('roles.createTitle')
+              : editorMode === 'copy'
+                ? t('roles.copyTitle')
+                : t('roles.editTitle') }}
           </span>
           <button type="button" class="roles-editor-dialog__close" @click="editorOpen = false">
             x
@@ -1019,7 +1081,7 @@ function toProblem(
         @submit.prevent="submitEditor"
       >
         <el-form-item
-          v-if="editorMode === 'create'"
+          v-if="editorMode === 'create' || editorMode === 'copy'"
           :label="t('roles.code')"
           prop="code"
         >
@@ -1054,7 +1116,7 @@ function toProblem(
             data-testid="roles-editor-submit"
             @click="submitEditor"
           >
-            {{ t(editorMode === 'create' ? 'roles.create' : 'roles.edit') }}
+            {{ t(editorMode === 'create' ? 'roles.create' : editorMode === 'copy' ? 'roles.copy' : 'roles.edit') }}
           </el-button>
         </div>
       </template>

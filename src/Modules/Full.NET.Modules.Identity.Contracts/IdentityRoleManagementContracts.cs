@@ -23,6 +23,9 @@ public static class IdentityRoleManagementPermissions
     /// <summary>更新 Host 角色数据范围。</summary>
     public const string AssignDataScope = "identity.roles.assign_data_scope";
 
+    /// <summary>复制 Host 角色权限、数据范围与字段授权。</summary>
+    public const string Copy = "identity.roles.copy";
+
     /// <summary>迁移 055 前遗留的粗粒度写权限；不再进入可分配目录。</summary>
     public const string Write = "identity.roles.write";
 }
@@ -31,6 +34,13 @@ public static class IdentityRoleManagementPermissions
 /// <param name="Code">稳定角色编码；在 Host 作用域内唯一且不可更改。</param>
 /// <param name="Name">面向管理员展示的角色名称。</param>
 public sealed record CreateHostRoleRequest(
+    string Code,
+    string Name);
+
+/// <summary>复制 Host 角色请求；新角色不继承系统或超级管理员标记。</summary>
+/// <param name="Code">新角色稳定编码；在 Host 作用域内唯一。</param>
+/// <param name="Name">新角色展示名称。</param>
+public sealed record CopyHostRoleRequest(
     string Code,
     string Name);
 

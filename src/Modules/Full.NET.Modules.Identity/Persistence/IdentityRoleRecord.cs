@@ -43,6 +43,10 @@ internal sealed record IdentityRolePermission(
     Guid RoleId,
     string PermissionCode);
 
+internal sealed record IdentityRoleFieldGrantRow(
+    string ResourceKey,
+    string FieldKey);
+
 internal sealed record IdentityUserRole(
     Guid UserId,
     Guid RoleId);

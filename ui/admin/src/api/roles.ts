@@ -1,4 +1,5 @@
 import {
+  copyHostRole as copyHostRoleRequest,
   identityCreateHostRole,
   identityDisableHostRole,
   identityGetAuthorizationTree,
@@ -45,6 +46,16 @@ export async function createHostRole(
   signal?: AbortSignal
 ): Promise<HostRole> {
   return identityCreateHostRole(http, { body: { code, name } }, signal);
+}
+
+/** 复制 Host 角色权限、数据范围与字段授权到新角色。 */
+export async function copyHostRole(
+  sourceRoleId: string,
+  code: string,
+  name: string,
+  signal?: AbortSignal
+): Promise<HostRole> {
+  return copyHostRoleRequest(http, sourceRoleId, { code, name }, signal);
 }
 
 /** 更新 Host 角色名称，并携带版本号维持乐观并发。 */

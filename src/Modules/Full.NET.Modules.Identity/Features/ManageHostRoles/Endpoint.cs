@@ -5,6 +5,8 @@ using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.Security.Claims;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostRoles;
 
@@ -76,6 +78,40 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.Create);
+
+        group.MapPost("/{sourceRoleId:guid}/copy", async (
+            Guid sourceRoleId,
+            CopyHostRoleRequest request,
+            HostRoleManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetSubject(httpContext.User, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.CopyAsync(
+                    sourceRoleId,
+                    actorUserId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            return Results.Created(
+                $"/api/v1/identity/roles/{result.Value!.Id:D}",
+                result.Value);
+        })
+        .WithName("identityCopyHostRole")
+        .Produces<HostRoleResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireFullNetPermission(IdentityRoleManagementPermissions.Copy);
 
         group.MapPut("/{roleId:guid}", async (
             Guid roleId,
@@ -167,5 +203,14 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityRoleManagementPermissions.AssignDataScope);
+    }
+
+    private static bool TryGetSubject(ClaimsPrincipal principal, out Guid userId)
+    {
+        userId = Guid.Empty;
+        var subjects = principal.FindAll(JwtRegisteredClaimNames.Sub).ToArray();
+        return subjects.Length == 1
+            && Guid.TryParse(subjects[0].Value, out userId)
+            && userId != Guid.Empty;
     }
 }

@@ -17,6 +17,7 @@ export const HOST_ROLE_ASSIGNABLE_PERMISSIONS = [
   'identity.roles.assign_permissions',
   'identity.roles.disable',
   'identity.roles.assign_data_scope',
+  'identity.roles.copy',
   'identity.role_field_grants.read',
   'identity.role_field_grants.replace',
   'identity.menus.read',
@@ -94,6 +95,12 @@ export interface UpdateHostRoleRequest {
   version: number;
 }
 
+/** 复制 Host 角色请求。 */
+export interface CopyHostRoleRequest {
+  code: string;
+  name: string;
+}
+
 export interface ReplaceHostRolePermissionsRequest {
   permissionCodes: string[];
   version: number;
@@ -111,6 +118,38 @@ export interface UpdateHostRoleDataScopeRequest {
   unitIds: string[] | null;
   version: number;
   tenantId: string | null;
+}
+
+/** 校验不可信 JSON 是否为 Host 角色复制请求。 */
+export function isCopyHostRoleRequest(value: unknown): value is CopyHostRoleRequest {
+  return isRecord(value)
+    && typeof value.code === 'string'
+    && value.code.length > 0
+    && typeof value.name === 'string'
+    && value.name.length > 0;
+}
+
+/** 复制 Host 角色并返回新角色快照。 */
+export async function copyHostRole(
+  http: import('./http.js').HttpClient,
+  sourceRoleId: string,
+  request: CopyHostRoleRequest,
+  signal?: AbortSignal
+): Promise<HostRole> {
+  const value = await http.request<unknown>(
+    `/api/v1/identity/roles/${sourceRoleId}/copy`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request)
+    },
+    signal,
+    { retryUnauthorized: false }
+  );
+  if (!isHostRole(value)) {
+    throw new TypeError('角色复制响应不符合 HostRole 契约。');
+  }
+
+  return value;
 }
 
 /** 校验不可信 JSON 是否为 Host 角色更新请求。 */

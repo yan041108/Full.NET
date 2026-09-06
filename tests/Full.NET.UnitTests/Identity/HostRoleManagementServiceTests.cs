@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
+using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Organization.Contracts;
@@ -20,6 +21,165 @@ namespace Full.NET.UnitTests.Identity;
 public sealed class HostRoleManagementServiceTests
 {
     private static readonly Guid RoleId = Guid.CreateVersion7();
+    private static readonly Guid ActorUserId = Guid.CreateVersion7();
+
+    [TestMethod]
+    public async Task Copy_rejects_super_administrator_source()
+    {
+        var sourceRoleId = Guid.CreateVersion7();
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var parameters = callInfo.Arg<object>();
+                var roleId = ExtractRoleId(parameters);
+                if (roleId == sourceRoleId)
+                {
+                    return new IdentityRoleRecord(
+                        sourceRoleId,
+                        null,
+                        "host",
+                        "host-administrator",
+                        "超级管理员",
+                        true,
+                        true,
+                        true,
+                        RoleDataScopeKinds.All,
+                        DateTimeOffset.UtcNow,
+                        null,
+                        1);
+                }
+
+                return fixture.DefaultRole;
+            });
+
+        var result = await fixture.Service.CopyAsync(
+            sourceRoleId,
+            ActorUserId,
+            new CopyHostRoleRequest("copied-role", "复制角色"));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(IdentityErrorCodes.RoleCopySourceNotAllowed, result.Error!.Code);
+        await fixture.Command.DidNotReceive().ExecuteAsync(
+            IdentitySql.InsertRole,
+            Arg.Any<object>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Copy_intersects_permissions_with_actor_when_not_super_administrator()
+    {
+        var sourceRoleId = Guid.CreateVersion7();
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var roleId = ExtractRoleId(callInfo.Arg<object>());
+                return roleId == sourceRoleId
+                    ? fixture.DefaultRole with { Id = sourceRoleId, Code = "source", Name = "源角色" }
+                    : fixture.DefaultRole;
+            });
+        fixture.PermissionSnapshots.ReadAsync(
+                ActorUserId,
+                "host",
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(new PermissionSnapshot(
+                [IdentityUserManagementPermissions.Read],
+                false));
+        fixture.Query.QueryAsync<string>(
+                IdentitySql.GetRolePermissionCodes,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var roleId = ExtractRoleId(callInfo.Arg<object>());
+                return roleId == sourceRoleId
+                    ? new[]
+                    {
+                        IdentityUserManagementPermissions.Read,
+                        IdentityUserManagementPermissions.ResetPassword,
+                    }
+                    : new[] { IdentityUserManagementPermissions.Read };
+            });
+        fixture.Query.QueryAsync<HostRoleListRow>(
+                Arg.Any<SqlStatement>(),
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<HostRoleListRow>());
+
+        var result = await fixture.Service.CopyAsync(
+            sourceRoleId,
+            ActorUserId,
+            new CopyHostRoleRequest("copied-role", "复制角色"));
+
+        Assert.IsTrue(result.IsSuccess);
+        CollectionAssert.AreEqual(
+            new[] { IdentityUserManagementPermissions.Read },
+            result.Value!.PermissionCodes.ToArray());
+        await fixture.Command.Received(1).ExecuteAsync(
+            IdentitySql.EnsureRolePermission,
+            Arg.Is<IdentityRolePermission>(item =>
+                item != null
+                && item.PermissionCode == IdentityUserManagementPermissions.Read),
+            Arg.Any<CancellationToken>());
+        await fixture.Command.DidNotReceive().ExecuteAsync(
+            IdentitySql.EnsureRolePermission,
+            Arg.Is<IdentityRolePermission>(item =>
+                item != null
+                && item.PermissionCode == IdentityUserManagementPermissions.ResetPassword),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Copy_creates_non_system_role_without_super_administrator_flag()
+    {
+        var sourceRoleId = Guid.CreateVersion7();
+        var fixture = new Fixture();
+        fixture.Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var roleId = ExtractRoleId(callInfo.Arg<object>());
+                return roleId == sourceRoleId
+                    ? fixture.DefaultRole with
+                    {
+                        Id = sourceRoleId,
+                        DataScopeKind = RoleDataScopeKinds.Self,
+                    }
+                    : fixture.DefaultRole;
+            });
+        fixture.Query.QueryAsync<string>(
+                IdentitySql.GetRolePermissionCodes,
+                Arg.Any<object>(),
+                Arg.Any<CancellationToken>())
+            .Returns([IdentityUserManagementPermissions.Read]);
+
+        var result = await fixture.Service.CopyAsync(
+            sourceRoleId,
+            ActorUserId,
+            new CopyHostRoleRequest("copied-role", "复制角色"));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsFalse(result.Value!.IsSystem);
+        Assert.IsFalse(result.Value.IsSuperAdministrator);
+        await fixture.Command.Received(1).ExecuteAsync(
+            IdentitySql.InsertRole,
+            Arg.Is<InsertIdentityRole>(role =>
+                role != null
+                && role.IsSystem == false
+                && role.IsSuperAdministrator == false
+                && role.DataScopeKind == RoleDataScopeKinds.Self),
+            Arg.Any<CancellationToken>());
+    }
 
     [TestMethod]
     public async Task ReplacePermissions_rejects_action_without_parent_page_permission()
@@ -195,23 +355,39 @@ public sealed class HostRoleManagementServiceTests
         public Fixture()
         {
             Query = Substitute.For<IQueryExecutor>();
+            DefaultRole = new IdentityRoleRecord(
+                RoleId,
+                null,
+                "host",
+                "auditor",
+                "Auditor",
+                false,
+                true,
+                false,
+                RoleDataScopeKinds.All,
+                DateTimeOffset.UtcNow,
+                null,
+                3);
             Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
                     IdentitySql.FindHostRoleById,
                     Arg.Any<object>(),
                     Arg.Any<CancellationToken>())
-                .Returns(new IdentityRoleRecord(
-                    RoleId,
-                    null,
-                    "host",
-                    "auditor",
-                    "Auditor",
-                    false,
-                    true,
-                    false,
-                    RoleDataScopeKinds.All,
-                    DateTimeOffset.UtcNow,
-                    null,
-                    3));
+                .Returns(DefaultRole);
+            Query.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                    IdentitySql.FindRoleByScopeAndCode,
+                    Arg.Any<object>(),
+                    Arg.Any<CancellationToken>())
+                .Returns((IdentityRoleRecord?)null);
+            Query.QueryAsync<IdentityRoleFieldGrantRow>(
+                    IdentitySql.ListHostRoleFieldGrantRowsByRoleId,
+                    Arg.Any<object>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Array.Empty<IdentityRoleFieldGrantRow>());
+            Query.QueryAsync<Guid>(
+                    IdentitySql.GetRoleDataScopeUnitIds,
+                    Arg.Any<object>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Array.Empty<Guid>());
             Command = Substitute.For<ICommandExecutor>();
             Command.ExecuteAsync(
                     Arg.Any<SqlStatement>(),
@@ -228,6 +404,18 @@ public sealed class HostRoleManagementServiceTests
                     new TenancyAuthorizationContributor(),
                     new OrganizationAuthorizationContributor(),
                 ]);
+            PermissionSnapshots = Substitute.For<IPermissionSnapshotReader>();
+            PermissionSnapshots.ReadAsync(
+                    Arg.Any<Guid>(),
+                    "host",
+                    null,
+                    Arg.Any<CancellationToken>())
+                .Returns(new PermissionSnapshot(
+                    catalog.Permissions
+                        .Where(permission => (permission.Scope & AuthorizationScope.Host) != 0)
+                        .Select(permission => permission.Code)
+                        .ToArray(),
+                    true));
             var roleQueries = new HostRoleQueryService(
                 Query,
                 Options.Create(new DatabaseOptions
@@ -241,15 +429,33 @@ public sealed class HostRoleManagementServiceTests
                 new PassThroughTransaction(),
                 roleQueries,
                 catalog,
+                FieldProjectionCatalog.CreateDefault(),
+                PermissionSnapshots,
                 clock,
                 ids);
         }
 
+        public IdentityRoleRecord DefaultRole { get; }
+
         public ICommandExecutor Command { get; }
+
+        public IPermissionSnapshotReader PermissionSnapshots { get; }
 
         public IQueryExecutor Query { get; }
 
         public HostRoleManagementService Service { get; }
+    }
+
+    private static Guid ExtractRoleId(object? parameters)
+    {
+        if (parameters is Dictionary<string, object?> dictionary
+            && dictionary.TryGetValue("RoleId", out var value)
+            && value is Guid roleId)
+        {
+            return roleId;
+        }
+
+        return Guid.Empty;
     }
 
     private sealed class PassThroughTransaction : ICommandTransaction

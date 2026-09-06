@@ -1203,6 +1203,20 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListHostRoleFieldGrantRowsByRoleId = new(
+        "identity.list_host_role_field_grant_rows_by_role_id",
+        """
+        SELECT fieldGrant.ResourceKey, fieldGrant.FieldKey
+        FROM fn_identity_role_field_grant AS fieldGrant
+        INNER JOIN fn_identity_role AS roleObject
+            ON roleObject.Id = fieldGrant.RoleId
+        WHERE fieldGrant.RoleId = @RoleId
+          AND roleObject.ScopeKey = 'host'
+          AND roleObject.TenantId IS NULL
+        ORDER BY fieldGrant.ResourceKey, fieldGrant.FieldKey
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindHostUserProjectionBaseById = new(
         "identity.find_host_user_projection_base_by_id",
         """

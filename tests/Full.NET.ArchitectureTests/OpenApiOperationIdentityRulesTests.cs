@@ -205,6 +205,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/identity/field-projections/catalog", "identityListFieldProjectionCatalog", IdentityHostRolesTag),
         new("GET", "/api/v1/identity/roles", "identityListHostRoles", IdentityHostRolesTag),
         new("POST", "/api/v1/identity/roles", "identityCreateHostRole", IdentityHostRolesTag),
+        new("POST", "/api/v1/identity/roles/{sourceRoleId}/copy", "identityCopyHostRole", IdentityHostRolesTag),
         new("GET", "/api/v1/identity/roles/{roleId}", "identityGetHostRole", IdentityHostRolesTag),
         new("PUT", "/api/v1/identity/roles/{roleId}", "identityUpdateHostRole", IdentityHostRolesTag),
         new("PUT", "/api/v1/identity/roles/{roleId}/permissions", "identityReplaceHostRolePermissions", IdentityHostRolesTag),

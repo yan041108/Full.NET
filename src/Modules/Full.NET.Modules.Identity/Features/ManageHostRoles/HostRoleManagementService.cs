@@ -6,12 +6,13 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Persistence;
 
 namespace Full.NET.Modules.Identity.Features.ManageHostRoles;
 
 /// <summary>
-/// Host 角色创建、更新、权限替换与禁用；系统角色受不变量保护。
+/// Host 角色创建、更新、权限替换、复制与禁用；系统角色受不变量保护。
 /// </summary>
 internal sealed class HostRoleManagementService(
     IQueryExecutor queryExecutor,
@@ -19,6 +20,8 @@ internal sealed class HostRoleManagementService(
     ICommandTransaction transaction,
     HostRoleQueryService roleQueries,
     AuthorizationCatalog authorizationCatalog,
+    FieldProjectionCatalog fieldProjectionCatalog,
+    IPermissionSnapshotReader permissionSnapshots,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -56,6 +59,16 @@ internal sealed class HostRoleManagementService(
         CancellationToken cancellationToken = default) =>
         transaction.ExecuteAsync(
             token => DisableCoreAsync(roleId, token),
+            cancellationToken);
+
+    /// <summary>复制源角色的权限、数据范围与字段授权到新角色；不继承系统或超级管理员标记。</summary>
+    public Task<Result<HostRoleResponse>> CopyAsync(
+        Guid sourceRoleId,
+        Guid actorUserId,
+        CopyHostRoleRequest request,
+        CancellationToken cancellationToken = default) =>
+        transaction.ExecuteAsync(
+            token => CopyCoreAsync(sourceRoleId, actorUserId, request, token),
             cancellationToken);
 
     private async Task<Result<HostRoleResponse>> CreateCoreAsync(
@@ -285,6 +298,226 @@ internal sealed class HostRoleManagementService(
         return await LoadResponseAsync(roleId, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<Result<HostRoleResponse>> CopyCoreAsync(
+        Guid sourceRoleId,
+        Guid actorUserId,
+        CopyHostRoleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var source = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindHostRoleById,
+                IdentitySqlParameters.Create(("RoleId", sourceRoleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (source is null || !source.IsActive)
+        {
+            return NotFound();
+        }
+
+        if (source.IsSuperAdministrator)
+        {
+            return CopySourceNotAllowed();
+        }
+
+        var code = request.Code?.Trim() ?? string.Empty;
+        var name = request.Name?.Trim() ?? string.Empty;
+        if (!RoleCodePattern.IsMatch(code) || name.Length is < 1 or > 128)
+        {
+            return Result<HostRoleResponse>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Role code or name is invalid.",
+                ErrorType.Validation));
+        }
+
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<IdentityRoleRecord>(
+                IdentitySql.FindRoleByScopeAndCode,
+                IdentitySqlParameters.Create(("ScopeKey", HostScope), ("Code", code)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return CodeConflict();
+        }
+
+        var sourcePermissionCodes = await roleQueries.LoadPermissionCodesAsync(
+                sourceRoleId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var actorSnapshot = await permissionSnapshots.ReadAsync(
+                actorUserId,
+                HostScope,
+                tenantId: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var copiedPermissionCodes = FilterCopyPermissionCodes(
+            sourcePermissionCodes,
+            actorSnapshot);
+        var hierarchyError = ValidatePageActionHierarchy(copiedPermissionCodes);
+        if (hierarchyError is not null)
+        {
+            return hierarchyError;
+        }
+
+        var sourceUnitIds = (await queryExecutor.QueryAsync<Guid>(
+                    IdentitySql.GetRoleDataScopeUnitIds,
+                    IdentitySqlParameters.Create(("RoleId", sourceRoleId)),
+                    cancellationToken)
+                .ConfigureAwait(false)).ToArray();
+        var sourceFieldGrantRows = await queryExecutor.QueryAsync<IdentityRoleFieldGrantRow>(
+                IdentitySql.ListHostRoleFieldGrantRowsByRoleId,
+                IdentitySqlParameters.Create(("RoleId", sourceRoleId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var copiedFieldGrants = FilterCopyFieldGrants(sourceFieldGrantRows);
+
+        var now = clock.UtcNow;
+        var newRoleId = idGenerator.NewId();
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentitySql.InsertRole,
+                new InsertIdentityRole(
+                    newRoleId,
+                    null,
+                    HostScope,
+                    code,
+                    name,
+                    false,
+                    true,
+                    false,
+                    source.DataScopeKind,
+                    now,
+                    null,
+                    1),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            throw new InvalidOperationException(
+                $"Host role copy insert affected {affectedRows} rows instead of one.");
+        }
+
+        foreach (var permissionCode in copiedPermissionCodes)
+        {
+            await commandExecutor.ExecuteAsync(
+                    IdentitySql.EnsureRolePermission,
+                    new IdentityRolePermission(newRoleId, permissionCode),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (var unitId in sourceUnitIds)
+        {
+            await commandExecutor.ExecuteAsync(
+                    IdentitySql.InsertRoleDataScopeUnit,
+                    IdentitySqlParameters.Create(("RoleId", newRoleId), ("UnitId", unitId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (var grant in copiedFieldGrants)
+        {
+            var grantRows = await commandExecutor.ExecuteAsync(
+                    IdentitySql.InsertHostRoleFieldGrant,
+                    IdentitySqlParameters.Create(
+                        ("Id", idGenerator.NewId()),
+                        ("RoleId", newRoleId),
+                        ("ResourceKey", grant.ResourceKey),
+                        ("FieldKey", grant.FieldKey),
+                        ("CreatedAtUtc", now),
+                        ("CreatedById", actorUserId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (grantRows != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Role field grant copy insert affected {grantRows} rows instead of one.");
+            }
+        }
+
+        return await LoadResponseAsync(newRoleId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private string[] FilterCopyPermissionCodes(
+        IReadOnlyList<string> sourcePermissionCodes,
+        PermissionSnapshot actorSnapshot)
+    {
+        var assignableCodes = authorizationCatalog.Permissions
+            .Where(permission => (permission.Scope & AuthorizationScope.Host) != 0)
+            .Select(permission => permission.Code)
+            .Where(code => !code.StartsWith(
+                "identity.super_administrators.",
+                StringComparison.Ordinal))
+            .ToHashSet(StringComparer.Ordinal);
+        var actorCodes = actorSnapshot.IsSuperAdministrator
+            ? null
+            : actorSnapshot.Permissions.ToHashSet(StringComparer.Ordinal);
+        var filtered = sourcePermissionCodes
+            .Select(code => code.Trim())
+            .Where(code => assignableCodes.Contains(code))
+            .Where(code => actorCodes is null || actorCodes.Contains(code))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        return RemoveOrphanActionPermissions(filtered);
+    }
+
+    private IReadOnlyList<IdentityRoleFieldGrantRow> FilterCopyFieldGrants(
+        IReadOnlyList<IdentityRoleFieldGrantRow> sourceFieldGrants)
+    {
+        var copied = new List<IdentityRoleFieldGrantRow>();
+        foreach (var grant in sourceFieldGrants)
+        {
+            if (!fieldProjectionCatalog.TryGetResource(grant.ResourceKey, out var resource))
+            {
+                continue;
+            }
+
+            var assignable = resource.Fields
+                .Where(field => field.Assignable)
+                .Select(field => field.FieldKey)
+                .ToHashSet(StringComparer.Ordinal);
+            if (assignable.Contains(grant.FieldKey))
+            {
+                copied.Add(grant);
+            }
+        }
+
+        return copied;
+    }
+
+    private string[] RemoveOrphanActionPermissions(IReadOnlyList<string> permissionCodes)
+    {
+        var granted = permissionCodes.ToHashSet(StringComparer.Ordinal);
+        var pagePermissionByNavigationId = authorizationCatalog.Navigation
+            .ToDictionary(
+                item => item.Id,
+                item => item.RequiredPermission,
+                StringComparer.Ordinal);
+        foreach (var action in authorizationCatalog.Actions)
+        {
+            if (!granted.Contains(action.PermissionCode))
+            {
+                continue;
+            }
+
+            if (!pagePermissionByNavigationId.TryGetValue(
+                    action.NavigationId,
+                    out var pagePermission))
+            {
+                granted.Remove(action.PermissionCode);
+                continue;
+            }
+
+            if (!granted.Contains(pagePermission))
+            {
+                granted.Remove(action.PermissionCode);
+            }
+        }
+
+        return granted
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
+
     private async Task InvalidateRoleMembersAsync(
         Guid roleId,
         DateTimeOffset now,
@@ -444,6 +677,12 @@ internal sealed class HostRoleManagementService(
         Result<HostRoleResponse>.Failure(new Error(
             IdentityErrorCodes.RoleSystemLocked,
             "System roles are protected and cannot be changed.",
+            ErrorType.BusinessRule));
+
+    private static Result<HostRoleResponse> CopySourceNotAllowed() =>
+        Result<HostRoleResponse>.Failure(new Error(
+            IdentityErrorCodes.RoleCopySourceNotAllowed,
+            "Super administrator roles cannot be used as a copy source.",
             ErrorType.BusinessRule));
 
     private static Result<HostRoleResponse> VersionConflict() =>

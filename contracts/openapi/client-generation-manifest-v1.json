@@ -386,6 +386,12 @@
       "status": "generated"
     },
     {
+      "operationId": "identityCopyHostRole",
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "generatedGroup": "identity-host-roles",
+      "status": "generated"
+    },
+    {
       "operationId": "identityGetHostRole",
       "apiModule": "ui/admin/src/api/roles.ts",
       "generatedGroup": "identity-host-roles",

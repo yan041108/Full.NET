@@ -124,6 +124,9 @@ public static class IdentityErrorCodes
     /// <summary>系统角色受保护，禁止变更。</summary>
     public const string RoleSystemLocked = "identity.roles.system_locked";
 
+    /// <summary>超级管理员角色不能作为复制来源。</summary>
+    public const string RoleCopySourceNotAllowed = "identity.roles.copy_source_not_allowed";
+
     /// <summary>操作权限缺少父页面读取权限。</summary>
     public const string ActionRequiresPage = "identity.roles.action_requires_page";
 
@@ -314,6 +317,7 @@ public static class IdentityErrorCodes
         RoleCodeExists,
         RoleNotFound,
         RoleSystemLocked,
+        RoleCopySourceNotAllowed,
         ActionRequiresPage,
         FieldProjectionInvalid,
         FieldProjectionVersionConflict,

@@ -47,6 +47,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
+        registrar.Register<IdentityRoleFieldGrantRow>(ReadIdentityRoleFieldGrantRow);
         registrar.Register<SuperAdministratorResponse>(ReadSuperAdministratorResponse);
         registrar.Register<SuperAdministratorAuditResponse>(ReadSuperAdministratorAuditResponse);
 
@@ -414,6 +415,12 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadNullableGuid(reader, 1),
             AotDataReaderExtensions.ReadBoolean(reader, 2),
             AotDataReaderExtensions.ReadNullableString(reader, 3));
+
+    private static IdentityRoleFieldGrantRow ReadIdentityRoleFieldGrantRow(
+        DbDataReader reader) =>
+        new(
+            ReadStringByName(reader, "ResourceKey"),
+            ReadStringByName(reader, "FieldKey"));
 
     private static SuperAdministratorResponse ReadSuperAdministratorResponse(
         DbDataReader reader) =>

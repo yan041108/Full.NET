@@ -95,6 +95,10 @@ internal sealed class IdentityAuthorizationContributor
             "配置 Host 角色数据范围",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityRoleManagementPermissions.Copy,
+            "复制 Host 角色",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityUserManagementPermissions.Export,
             "导出 Host 用户",
             AuthorizationScope.Host),
@@ -362,6 +366,13 @@ internal sealed class IdentityAuthorizationContributor
             "创建角色",
             "create",
             10),
+        new AuthorizationActionDefinition(
+            "identity.roles.copy",
+            "roles",
+            IdentityRoleManagementPermissions.Copy,
+            "复制角色",
+            "copy",
+            15),
         new AuthorizationActionDefinition(
             "identity.roles.update",
             "roles",

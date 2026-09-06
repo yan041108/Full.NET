@@ -45,6 +45,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.role_field_grants.replace",
                 "identity.roles.assign_data_scope",
                 "identity.roles.assign_permissions",
+                "identity.roles.copy",
                 "identity.roles.create",
                 "identity.roles.disable",
                 "identity.roles.read",
@@ -192,6 +193,7 @@ public sealed class AuthorizationCatalogTests
         var expected = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["create"] = "identity.roles.create",
+            ["copy"] = "identity.roles.copy",
             ["update"] = "identity.roles.update",
             ["assign-permissions"] = "identity.roles.assign_permissions",
             ["disable"] = "identity.roles.disable",
