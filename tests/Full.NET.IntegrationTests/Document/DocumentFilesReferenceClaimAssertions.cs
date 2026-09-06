@@ -259,7 +259,11 @@ internal static class DocumentFilesReferenceClaimAssertions
                     4,
                     null,
                     DateTimeOffset.UtcNow,
-                    Guid.CreateVersion7()));
+                    Guid.CreateVersion7(),
+                    null,
+                    0,
+                    null,
+                    null));
             }
 
             using var problem = JsonDocument.Parse(

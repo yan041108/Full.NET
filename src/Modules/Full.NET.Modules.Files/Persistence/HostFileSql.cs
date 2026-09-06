@@ -12,31 +12,86 @@ namespace Full.NET.Modules.Files.Persistence;
 /// </remarks>
 internal static class HostFileSql
 {
-    public static readonly SqlStatement CountActiveHostFiles = new(
-        "files.count_active_host_files",
-        """
-        SELECT COUNT(1)
-        FROM fn_files_file
-        WHERE TenantId IS NULL
+    private const string ActiveHostFileColumns = """
+        Id,
+        OriginalFileName,
+        ContentType,
+        SizeBytes,
+        ContentHash,
+        CreatedAtUtc,
+        CreatedByUserId,
+        FolderId,
+        Revision,
+        UpdatedAtUtc,
+        UpdatedByUserId
+        """;
+
+    private const string ActiveHostFileDetailColumns = """
+        Id,
+        OriginalFileName,
+        ContentType,
+        SizeBytes,
+        ProviderKey,
+        StorageKey,
+        ContentHash,
+        CreatedAtUtc,
+        CreatedByUserId,
+        FolderId,
+        Revision,
+        UpdatedAtUtc,
+        UpdatedByUserId
+        """;
+
+    private const string ActiveHostFileFilter = """
+        TenantId IS NULL
           AND StorageState = 'ready'
           AND DeletedAtUtc IS NULL
+        """;
+
+    private const string FolderFilterClause = """
+        (@ApplyFolderFilter = 0
+         OR (@RootOnly = 1 AND FolderId IS NULL)
+         OR (@RootOnly = 0 AND FolderId = @FolderId))
+        """;
+
+    private const string FileNameFilterClause = """
+        (@FileNameContains IS NULL OR OriginalFileName LIKE '%' + @FileNameContains + '%')
+        """;
+
+    private const string FileNameFilterClauseMySql = """
+        (@FileNameContains IS NULL OR OriginalFileName LIKE CONCAT('%', @FileNameContains, '%'))
+        """;
+
+    public static readonly SqlStatement CountActiveHostFiles = new(
+        "files.count_active_host_files",
+        $"""
+        SELECT COUNT(1)
+        FROM fn_files_file
+        WHERE {ActiveHostFileFilter}
+          AND {FolderFilterClause}
+          AND {FileNameFilterClause}
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountActiveHostFilesMySql = new(
+        "files.count_active_host_files.mysql",
+        $"""
+        SELECT COUNT(1)
+        FROM fn_files_file
+        WHERE {ActiveHostFileFilter}
+          AND {FolderFilterClause}
+          AND {FileNameFilterClauseMySql}
         """,
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement ListActiveHostFilesSqlServer = new(
         "files.list_active_host_files.sql_server",
-        """
-        SELECT Id,
-               OriginalFileName,
-               ContentType,
-               SizeBytes,
-               ContentHash,
-               CreatedAtUtc,
-               CreatedByUserId
+        $"""
+        SELECT {ActiveHostFileColumns}
         FROM fn_files_file
-        WHERE TenantId IS NULL
-          AND StorageState = 'ready'
-          AND DeletedAtUtc IS NULL
+        WHERE {ActiveHostFileFilter}
+          AND {FolderFilterClause}
+          AND {FileNameFilterClause}
         ORDER BY CreatedAtUtc DESC, Id
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
         """,
@@ -44,18 +99,12 @@ internal static class HostFileSql
 
     public static readonly SqlStatement ListActiveHostFilesMySql = new(
         "files.list_active_host_files.mysql",
-        """
-        SELECT Id,
-               OriginalFileName,
-               ContentType,
-               SizeBytes,
-               ContentHash,
-               CreatedAtUtc,
-               CreatedByUserId
+        $"""
+        SELECT {ActiveHostFileColumns}
         FROM fn_files_file
-        WHERE TenantId IS NULL
-          AND StorageState = 'ready'
-          AND DeletedAtUtc IS NULL
+        WHERE {ActiveHostFileFilter}
+          AND {FolderFilterClause}
+          AND {FileNameFilterClauseMySql}
         ORDER BY CreatedAtUtc DESC, Id
         LIMIT @PageSize OFFSET @Offset
         """,
@@ -63,21 +112,11 @@ internal static class HostFileSql
 
     public static readonly SqlStatement FindActiveById = new(
         "files.host_file.find_active_by_id",
-        """
-        SELECT Id,
-               OriginalFileName,
-               ContentType,
-               SizeBytes,
-               ProviderKey,
-               StorageKey,
-               ContentHash,
-               CreatedAtUtc,
-               CreatedByUserId
+        $"""
+        SELECT {ActiveHostFileDetailColumns}
         FROM fn_files_file
         WHERE Id = @FileId
-          AND TenantId IS NULL
-          AND StorageState = 'ready'
-          AND DeletedAtUtc IS NULL
+          AND {ActiveHostFileFilter}
         """,
         SqlDataScope.HostOnly);
 
@@ -106,11 +145,28 @@ internal static class HostFileSql
         "files.host_file.insert",
         """
         INSERT INTO fn_files_file
-            (Id, TenantId, OriginalFileName, ContentType, SizeBytes, ProviderKey, StorageKey,
-             ContentHash, StorageState, CreatedAtUtc, CreatedByUserId, DeletedAtUtc)
+            (Id, TenantId, FolderId, OriginalFileName, ContentType, SizeBytes, ProviderKey, StorageKey,
+             ContentHash, StorageState, CreatedAtUtc, CreatedByUserId, DeletedAtUtc, Revision)
         VALUES
-            (@Id, NULL, @OriginalFileName, @ContentType, @SizeBytes, @ProviderKey, @StorageKey,
-             @ContentHash, 'pending', @CreatedAtUtc, @CreatedByUserId, NULL)
+            (@Id, NULL, @FolderId, @OriginalFileName, @ContentType, @SizeBytes, @ProviderKey, @StorageKey,
+             @ContentHash, 'pending', @CreatedAtUtc, @CreatedByUserId, NULL, 0)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateMetadata = new(
+        "files.host_file.update_metadata",
+        """
+        UPDATE fn_files_file
+        SET OriginalFileName = @OriginalFileName,
+            FolderId = @FolderId,
+            Revision = Revision + 1,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            UpdatedByUserId = @UpdatedByUserId
+        WHERE Id = @FileId
+          AND TenantId IS NULL
+          AND StorageState = 'ready'
+          AND DeletedAtUtc IS NULL
+          AND Revision = @ExpectedRevision
         """,
         SqlDataScope.HostOnly);
 

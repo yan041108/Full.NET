@@ -6,10 +6,54 @@ export interface HostFile {
   contentHash: string | null;
   createdAtUtc: string;
   createdByUserId: string;
+  folderId: string | null;
+  revision: number;
+  updatedAtUtc: string | null;
+  updatedByUserId: string | null;
 }
 
 export interface HostFilePage {
   items: HostFile[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface HostFolderTreeNode {
+  id: string;
+  parentId: string | null;
+  name: string;
+  displayOrder: number;
+  revision: number;
+  children: HostFolderTreeNode[];
+}
+
+export interface HostFolder {
+  id: string;
+  parentId: string | null;
+  name: string;
+  displayOrder: number;
+  revision: number;
+  createdAtUtc: string;
+  createdByUserId: string;
+  updatedAtUtc: string | null;
+  updatedByUserId: string | null;
+}
+
+export interface HostFileReferenceClaim {
+  id: string;
+  idempotencyKey: string;
+  consumerModule: string;
+  consumerReferenceId: string;
+  state: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  confirmedAtUtc: string | null;
+  releasedAtUtc: string | null;
+}
+
+export interface HostFileReferenceClaimPage {
+  items: HostFileReferenceClaim[];
   page: number;
   pageSize: number;
   total: number;
@@ -25,7 +69,11 @@ export function isHostFile(value: unknown): value is HostFile {
     && Number.isInteger(value.sizeBytes)
     && (value.contentHash === null || typeof value.contentHash === 'string')
     && typeof value.createdAtUtc === 'string'
-    && isGuid(value.createdByUserId);
+    && isGuid(value.createdByUserId)
+    && (value.folderId === null || isGuid(value.folderId))
+    && Number.isInteger(value.revision)
+    && (value.updatedAtUtc === null || typeof value.updatedAtUtc === 'string')
+    && (value.updatedByUserId === null || isGuid(value.updatedByUserId));
 }
 
 export function isHostFilePage(value: unknown): value is HostFilePage {

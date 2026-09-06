@@ -1,6 +1,6 @@
 {
   "id": "files-host-files-v1",
-  "version": 1,
+  "version": 2,
   "description": "Host 文件元数据 HTTP 契约冻结夹具；与 Files 模块 Contracts 和 Endpoint 对齐。",
   "paths": [
     {
@@ -28,6 +28,29 @@
           "permission": "files.files.read",
           "successStatus": 200,
           "responseSchema": "HostFileResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/{fileId}/update",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.files.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostFileMetadataRequest",
+          "responseSchema": "HostFileResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-files/{fileId}/references",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.file_references.read",
+          "successStatus": 200,
+          "responseSchema": "HostFileReferenceClaimResponsePage"
         }
       ]
     },
@@ -62,7 +85,11 @@
         "sizeBytes",
         "contentHash",
         "createdAtUtc",
-        "createdByUserId"
+        "createdByUserId",
+        "folderId",
+        "revision",
+        "updatedAtUtc",
+        "updatedByUserId"
       ]
     },
     "HostFileResponsePage": {
@@ -71,6 +98,34 @@
         "page",
         "pageSize",
         "total"
+      ]
+    },
+    "UpdateHostFileMetadataRequest": {
+      "properties": [
+        "expectedRevision",
+        "originalFileName",
+        "folderId"
+      ]
+    },
+    "HostFileReferenceClaimResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ]
+    },
+    "HostFileReferenceClaimResponse": {
+      "properties": [
+        "id",
+        "idempotencyKey",
+        "consumerModule",
+        "consumerReferenceId",
+        "state",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "confirmedAtUtc",
+        "releasedAtUtc"
       ]
     }
   }

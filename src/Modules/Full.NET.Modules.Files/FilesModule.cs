@@ -48,6 +48,8 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<Features.ManageHostFiles.HostFileQueryService>();
         services.TryAddScoped<Features.ManageHostFiles.HostFileManagementService>();
+        services.TryAddScoped<Features.ManageHostFolders.HostFolderQueryService>();
+        services.TryAddScoped<Features.ManageHostFolders.HostFolderManagementService>();
         services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
         services.TryAddScoped<IHostFileDescriptorReader, Features.HostFileReferences.HostFileDescriptorReader>();
         services.TryAddScoped<IHostFileContentReader, Features.HostFileReferences.HostFileContentReader>();
@@ -63,8 +65,11 @@ public sealed class FilesModule : IFullNetModule
 #endif
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
         Features.ManageHostFiles.Endpoint.Map(endpoints);
+        Features.ManageHostFolders.Endpoint.Map(endpoints);
+    }
 
     /// <summary>
     /// 注册仅由 Worker 承载的文件后台任务，避免 API 角色隐式启动清理循环。

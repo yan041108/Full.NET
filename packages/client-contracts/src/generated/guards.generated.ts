@@ -66,6 +66,7 @@ import type {
   CreateHostDocumentItemRequest,
   CreateHostDocumentShareRequest,
   CreateHostDocumentTagRequest,
+  CreateHostFolderRequest,
   CreateHostJobDefinitionRequest,
   CreateHostJobScheduleRequest,
   CreateHostMenuRequest,
@@ -94,6 +95,7 @@ import type {
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
   DeleteHostDocumentTagRequest,
+  DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DiagnosticPolicyResponse,
   DiagnosticPolicyRuleRequest,
@@ -134,7 +136,10 @@ import type {
   HostDocumentTagResponse,
   HostDocumentType,
   HostDocumentVersionResponse,
+  HostFileReferenceClaimResponse,
   HostFileResponse,
+  HostFolderResponse,
+  HostFolderTreeNode,
   HostJobDefinitionResponse,
   HostJobExecutionResponse,
   HostJobGroupResponse,
@@ -205,6 +210,7 @@ import type {
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostDocumentItemResponse,
   PagedResultOfHostDocumentShareResponse,
+  PagedResultOfHostFileReferenceClaimResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostJobDefinitionResponse,
   PagedResultOfHostJobExecutionResponse,
@@ -297,6 +303,8 @@ import type {
   UpdateHostDocumentItemRequest,
   UpdateHostDocumentShareStatusRequest,
   UpdateHostDocumentTagRequest,
+  UpdateHostFileMetadataRequest,
+  UpdateHostFolderRequest,
   UpdateHostJobDefinitionRequest,
   UpdateHostJobScheduleRequest,
   UpdateHostMenuRequest,
@@ -1051,6 +1059,17 @@ function isCreateHostDocumentTagRequest(value: unknown): value is CreateHostDocu
   return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string');
 }
 
+export function readCreateHostFolderRequest(value: unknown): CreateHostFolderRequest {
+  if (!(isCreateHostFolderRequest(value))) {
+    throw new Error('client.invalid_create_host_folder_request');
+  }
+  return value;
+}
+
+function isCreateHostFolderRequest(value: unknown): value is CreateHostFolderRequest {
+  return isRecord(value) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (typeof value["name"] === 'string') && (value["parentId"] === undefined || ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))));
+}
+
 export function readCreateHostJobDefinitionRequest(value: unknown): CreateHostJobDefinitionRequest {
   if (!(isCreateHostJobDefinitionRequest(value))) {
     throw new Error('client.invalid_create_host_job_definition_request');
@@ -1357,6 +1376,17 @@ export function readDeleteHostDocumentTagRequest(value: unknown): DeleteHostDocu
 
 function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostFolderRequest(value: unknown): DeleteHostFolderRequest {
+  if (!(isDeleteHostFolderRequest(value))) {
+    throw new Error('client.invalid_delete_host_folder_request');
+  }
+  return value;
+}
+
+function isDeleteHostFolderRequest(value: unknown): value is DeleteHostFolderRequest {
+  return isRecord(value) && ((typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) || (typeof value["expectedRevision"] === 'string'));
 }
 
 export function readDeleteHostJobDefinitionRequest(value: unknown): DeleteHostJobDefinitionRequest {
@@ -1799,6 +1829,17 @@ function isHostDocumentVersionResponse(value: unknown): value is HostDocumentVer
   return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["createdAtUtc"] === 'string') && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"])) && (typeof value["uploadedByUserId"] === 'string' && guidPattern.test(value["uploadedByUserId"])) && (typeof value["versionNumber"] === 'number' && Number.isInteger(value["versionNumber"]));
 }
 
+export function readHostFileReferenceClaimResponse(value: unknown): HostFileReferenceClaimResponse {
+  if (!(isHostFileReferenceClaimResponse(value))) {
+    throw new Error('client.invalid_host_file_reference_claim_response');
+  }
+  return value;
+}
+
+function isHostFileReferenceClaimResponse(value: unknown): value is HostFileReferenceClaimResponse {
+  return isRecord(value) && ((value["confirmedAtUtc"] === null) || (typeof value["confirmedAtUtc"] === 'string')) && (typeof value["consumerModule"] === 'string') && (typeof value["consumerReferenceId"] === 'string' && guidPattern.test(value["consumerReferenceId"])) && (typeof value["createdAtUtc"] === 'string') && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["idempotencyKey"] === 'string') && ((value["releasedAtUtc"] === null) || (typeof value["releasedAtUtc"] === 'string')) && (typeof value["state"] === 'string') && (typeof value["updatedAtUtc"] === 'string');
+}
+
 export function readHostFileResponse(value: unknown): HostFileResponse {
   if (!(isHostFileResponse(value))) {
     throw new Error('client.invalid_host_file_response');
@@ -1807,7 +1848,29 @@ export function readHostFileResponse(value: unknown): HostFileResponse {
 }
 
 function isHostFileResponse(value: unknown): value is HostFileResponse {
-  return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"]));
+  return isRecord(value) && ((value["contentHash"] === null) || (typeof value["contentHash"] === 'string')) && (typeof value["contentType"] === 'string') && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["originalFileName"] === 'string') && ((typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) || (typeof value["revision"] === 'string')) && (typeof value["sizeBytes"] === 'number' && Number.isInteger(value["sizeBytes"])) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"])));
+}
+
+export function readHostFolderResponse(value: unknown): HostFolderResponse {
+  if (!(isHostFolderResponse(value))) {
+    throw new Error('client.invalid_host_folder_response');
+  }
+  return value;
+}
+
+function isHostFolderResponse(value: unknown): value is HostFolderResponse {
+  return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["createdByUserId"] === 'string' && guidPattern.test(value["createdByUserId"])) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) || (typeof value["revision"] === 'string')) && ((value["updatedAtUtc"] === null) || (typeof value["updatedAtUtc"] === 'string')) && ((value["updatedByUserId"] === null) || (typeof value["updatedByUserId"] === 'string' && guidPattern.test(value["updatedByUserId"])));
+}
+
+export function readHostFolderTreeNode(value: unknown): HostFolderTreeNode {
+  if (!(isHostFolderTreeNode(value))) {
+    throw new Error('client.invalid_host_folder_tree_node');
+  }
+  return value;
+}
+
+function isHostFolderTreeNode(value: unknown): value is HostFolderTreeNode {
+  return isRecord(value) && (Array.isArray(value["children"]) && value["children"].every(item17 => isHostFolderTreeNode(item17))) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["name"] === 'string') && ((value["parentId"] === null) || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && ((typeof value["revision"] === 'number' && Number.isInteger(value["revision"])) || (typeof value["revision"] === 'string'));
 }
 
 export function readHostJobDefinitionResponse(value: unknown): HostJobDefinitionResponse {
@@ -2578,6 +2641,17 @@ export function readPagedResultOfHostDocumentShareResponse(value: unknown): Page
 
 function isPagedResultOfHostDocumentShareResponse(value: unknown): value is PagedResultOfHostDocumentShareResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentShareResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostFileReferenceClaimResponse(value: unknown): PagedResultOfHostFileReferenceClaimResponse {
+  if (!(isPagedResultOfHostFileReferenceClaimResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_file_reference_claim_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostFileReferenceClaimResponse(value: unknown): value is PagedResultOfHostFileReferenceClaimResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostFileReferenceClaimResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostFileResponse(value: unknown): PagedResultOfHostFileResponse {
@@ -3592,6 +3666,28 @@ function isUpdateHostDocumentTagRequest(value: unknown): value is UpdateHostDocu
   return isRecord(value) && ((value["code"] === null) || (typeof value["code"] === 'string')) && ((value["color"] === null) || (typeof value["color"] === 'string')) && ((value["description"] === null) || (typeof value["description"] === 'string')) && ((value["icon"] === null) || (typeof value["icon"] === 'string')) && (typeof value["name"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
+export function readUpdateHostFileMetadataRequest(value: unknown): UpdateHostFileMetadataRequest {
+  if (!(isUpdateHostFileMetadataRequest(value))) {
+    throw new Error('client.invalid_update_host_file_metadata_request');
+  }
+  return value;
+}
+
+function isUpdateHostFileMetadataRequest(value: unknown): value is UpdateHostFileMetadataRequest {
+  return isRecord(value) && ((typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) || (typeof value["expectedRevision"] === 'string')) && ((value["folderId"] === null) || (typeof value["folderId"] === 'string' && guidPattern.test(value["folderId"]))) && (typeof value["originalFileName"] === 'string');
+}
+
+export function readUpdateHostFolderRequest(value: unknown): UpdateHostFolderRequest {
+  if (!(isUpdateHostFolderRequest(value))) {
+    throw new Error('client.invalid_update_host_folder_request');
+  }
+  return value;
+}
+
+function isUpdateHostFolderRequest(value: unknown): value is UpdateHostFolderRequest {
+  return isRecord(value) && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) || (typeof value["expectedRevision"] === 'string')) && (typeof value["name"] === 'string');
+}
+
 export function readUpdateHostJobDefinitionRequest(value: unknown): UpdateHostJobDefinitionRequest {
   if (!(isUpdateHostJobDefinitionRequest(value))) {
     throw new Error('client.invalid_update_host_job_definition_request');
@@ -4195,6 +4291,13 @@ export function readDocumentHostSetDocumentPermissionsResponse(value: unknown): 
     throw new Error('client.invalid_document_host_set_document_permissions_response');
   }
   return value as Array<HostDocumentPermissionResponse>;
+}
+
+export function readFilesGetHostFolderTreeResponse(value: unknown): Array<HostFolderTreeNode> {
+  if (!(Array.isArray(value) && value.every(item5 => isHostFolderTreeNode(item5)))) {
+    throw new Error('client.invalid_files_get_host_folder_tree_response');
+  }
+  return value as Array<HostFolderTreeNode>;
 }
 
 export function readIdentityExportHostUsersResponse(value: unknown): Array<HostUserResponse> {

@@ -33,6 +33,24 @@ public static class FilesErrorCodes
     /// <summary>目标文件仍存在未释放的引用声明，无法执行软删除或物理清理。</summary>
     public const string FileReferenced = "files.file.referenced";
 
+    /// <summary>乐观并发修订号与当前持久化状态不一致。</summary>
+    public const string RevisionConflict = "files.revision.conflict";
+
+    /// <summary>文件元数据更新请求无效或包含不允许的字段组合。</summary>
+    public const string InvalidMetadataUpdate = "files.file.invalid_metadata_update";
+
+    /// <summary>目标虚拟目录不存在或已软删除。</summary>
+    public const string FolderNotFound = "files.folder.not_found";
+
+    /// <summary>同级目录名称冲突。</summary>
+    public const string FolderNameConflict = "files.folder.name_conflict";
+
+    /// <summary>目录仍包含子目录或文件，无法删除。</summary>
+    public const string FolderNotEmpty = "files.folder.not_empty";
+
+    /// <summary>虚拟目录请求参数无效。</summary>
+    public const string InvalidFolder = "files.folder.invalid";
+
     /// <summary>已发布的全部 Files 错误码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -43,5 +61,11 @@ public static class FilesErrorCodes
         ClaimNotFound,
         ClaimPayloadConflict,
         FileReferenced,
+        RevisionConflict,
+        InvalidMetadataUpdate,
+        FolderNotFound,
+        FolderNameConflict,
+        FolderNotEmpty,
+        InvalidFolder,
     ]);
 }

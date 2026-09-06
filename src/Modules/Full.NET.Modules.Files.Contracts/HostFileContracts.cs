@@ -20,6 +20,12 @@ public static class HostFilePermissions
 
     /// <summary>软删除 Host 文件；存在未释放引用时拒绝删除。</summary>
     public const string Delete = "files.files.delete";
+
+    /// <summary>更新 Host 文件展示元数据与所属虚拟目录。</summary>
+    public const string Update = "files.files.update";
+
+    /// <summary>查询 Host 文件引用声明列表。</summary>
+    public const string ReferencesRead = "files.file_references.read";
 }
 
 /// <summary>Host 文件元数据列表项与详情响应。</summary>
@@ -30,6 +36,10 @@ public static class HostFilePermissions
 /// <param name="ContentHash">文件内容哈希（算法由存储后端决定）；用于去重检测与完整性校验，缺失时为 <see langword="null"/>。</param>
 /// <param name="CreatedAtUtc">文件上传完成时间（UTC）。</param>
 /// <param name="CreatedByUserId">上传者 Host 用户标识；用于审计与配额归属。</param>
+/// <param name="FolderId">所属虚拟目录；未归类时为 <see langword="null"/>。</param>
+/// <param name="Revision">元数据乐观并发修订号。</param>
+/// <param name="UpdatedAtUtc">最近元数据更新时间（UTC）。</param>
+/// <param name="UpdatedByUserId">最近元数据更新者 Host 用户标识。</param>
 public sealed record HostFileResponse(
     Guid Id,
     string OriginalFileName,
@@ -37,4 +47,8 @@ public sealed record HostFileResponse(
     long SizeBytes,
     string? ContentHash,
     DateTimeOffset CreatedAtUtc,
-    Guid CreatedByUserId);
+    Guid CreatedByUserId,
+    Guid? FolderId,
+    long Revision,
+    DateTimeOffset? UpdatedAtUtc,
+    Guid? UpdatedByUserId);

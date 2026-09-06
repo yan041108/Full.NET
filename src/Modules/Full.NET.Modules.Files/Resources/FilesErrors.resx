@@ -7,4 +7,10 @@
   <data name="files.file.not_found" xml:space="preserve"><value>未找到该文件或文件已删除。</value></data>
   <data name="files.file.invalid_upload" xml:space="preserve"><value>上传的文件无效。</value></data>
   <data name="files.file.too_large" xml:space="preserve"><value>上传的文件超过允许大小。</value></data>
+  <data name="files.revision.conflict" xml:space="preserve"><value>数据已被其他操作更新，请刷新后重试。</value></data>
+  <data name="files.file.invalid_metadata_update" xml:space="preserve"><value>文件元数据更新请求无效。</value></data>
+  <data name="files.folder.not_found" xml:space="preserve"><value>未找到该目录或目录已删除。</value></data>
+  <data name="files.folder.name_conflict" xml:space="preserve"><value>同级目录名称已存在。</value></data>
+  <data name="files.folder.not_empty" xml:space="preserve"><value>目录仍包含子目录或文件，无法删除。</value></data>
+  <data name="files.folder.invalid" xml:space="preserve"><value>目录请求无效。</value></data>
 </root>

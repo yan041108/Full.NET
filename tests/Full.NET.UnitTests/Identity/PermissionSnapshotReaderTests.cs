@@ -55,6 +55,8 @@ public sealed class PermissionSnapshotReaderTests
             {
                 "identity.navigation.read",
                 "platform.dashboard.read",
+                "tenancy.tenant_branding.read",
+                "tenancy.tenant_branding.update",
                 "tenancy.tenants.read",
                 "tenancy.tenants.switch",
             },

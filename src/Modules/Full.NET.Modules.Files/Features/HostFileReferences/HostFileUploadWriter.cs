@@ -22,6 +22,7 @@ internal sealed class HostFileUploadWriter(HostFileManagementService fileManagem
                 contentType,
                 content,
                 contentLength,
+                folderId: null,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!uploadResult.IsSuccess)

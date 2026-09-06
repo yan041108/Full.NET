@@ -2130,6 +2130,42 @@
       "apiModule": "ui/admin/src/api/data-approval-requests.ts",
       "generatedGroup": "data-approval-requests",
       "status": "generated"
+    },
+    {
+      "operationId": "filesUpdateHostFileMetadata",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesListHostFileReferences",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesGetHostFolderTree",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-folders",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesCreateHostFolder",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-folders",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesUpdateHostFolder",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-folders",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesDeleteHostFolder",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-folders",
+      "status": "generated"
     }
   ]
 }

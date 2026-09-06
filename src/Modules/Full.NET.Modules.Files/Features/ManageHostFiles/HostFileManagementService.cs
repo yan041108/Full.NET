@@ -5,6 +5,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Files.Features.ManageHostFolders;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,7 @@ internal sealed class HostFileManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     HostFileQueryService fileQueries,
+    HostFolderQueryService folderQueries,
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     FileStorageProviderRegistry storageProviders,
     IClock clock,
@@ -28,12 +30,23 @@ internal sealed class HostFileManagementService(
         string contentType,
         Stream content,
         long contentLength,
+        Guid? folderId = null,
         CancellationToken cancellationToken = default)
     {
         var normalizedName = NormalizeFileName(originalFileName);
         if (normalizedName.Length == 0)
         {
             return InvalidUpload("File name is required.");
+        }
+
+        if (folderId is Guid targetFolderId
+            && !await folderQueries.ExistsActiveAsync(targetFolderId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return Result<HostFileResponse>.Failure(new Error(
+                FilesErrorCodes.FolderNotFound,
+                "The folder was not found.",
+                ErrorType.NotFound));
         }
 
         var normalizedContentType = NormalizeContentType(contentType);
@@ -89,6 +102,7 @@ internal sealed class HostFileManagementService(
                 new Dictionary<string, object?>
                 {
                     ["Id"] = fileId,
+                    ["FolderId"] = folderId,
                     ["OriginalFileName"] = normalizedName,
                     ["ContentType"] = normalizedContentType,
                     ["SizeBytes"] = actualContentLength,
@@ -226,6 +240,72 @@ internal sealed class HostFileManagementService(
                 throw;
             }
         }
+    }
+
+    public async Task<Result<HostFileResponse>> UpdateMetadataAsync(
+        Guid fileId,
+        Guid updatedByUserId,
+        UpdateHostFileMetadataRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.ExpectedRevision < 0)
+        {
+            return InvalidMetadataUpdate("Expected revision is invalid.");
+        }
+
+        var normalizedName = NormalizeFileName(request.OriginalFileName);
+        if (normalizedName.Length == 0)
+        {
+            return InvalidMetadataUpdate("File name is required.");
+        }
+
+        if (request.FolderId is Guid targetFolderId
+            && !await folderQueries.ExistsActiveAsync(targetFolderId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return Result<HostFileResponse>.Failure(new Error(
+                FilesErrorCodes.FolderNotFound,
+                "The folder was not found.",
+                ErrorType.NotFound));
+        }
+
+        var existing = await fileQueries.GetByIdAsync(fileId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!existing.IsSuccess)
+        {
+            return existing;
+        }
+
+        if (existing.Value!.Revision != request.ExpectedRevision)
+        {
+            return RevisionConflict();
+        }
+
+        var now = clock.UtcNow;
+        var affected = await commandExecutor.ExecuteAsync(
+                HostFileSql.UpdateMetadata,
+                new Dictionary<string, object?>
+                {
+                    ["FileId"] = fileId,
+                    ["OriginalFileName"] = normalizedName,
+                    ["FolderId"] = request.FolderId,
+                    ["ExpectedRevision"] = request.ExpectedRevision,
+                    ["UpdatedAtUtc"] = now,
+                    ["UpdatedByUserId"] = updatedByUserId,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected == 0)
+        {
+            var current = await fileQueries.GetByIdAsync(fileId, cancellationToken)
+                .ConfigureAwait(false);
+            return current.IsSuccess
+                ? RevisionConflict()
+                : NotFound();
+        }
+
+        return await fileQueries.GetByIdAsync(fileId, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<Result<HostFileResponse>> DeleteAsync(
@@ -431,6 +511,24 @@ internal sealed class HostFileManagementService(
             FilesErrorCodes.InvalidUpload,
             message,
             ErrorType.Validation));
+
+    private static Result<HostFileResponse> InvalidMetadataUpdate(string message) =>
+        Result<HostFileResponse>.Failure(new Error(
+            FilesErrorCodes.InvalidMetadataUpdate,
+            message,
+            ErrorType.Validation));
+
+    private static Result<HostFileResponse> RevisionConflict() =>
+        Result<HostFileResponse>.Failure(new Error(
+            FilesErrorCodes.RevisionConflict,
+            "The file revision is out of date.",
+            ErrorType.Conflict));
+
+    private static Result<HostFileResponse> NotFound() =>
+        Result<HostFileResponse>.Failure(new Error(
+            FilesErrorCodes.FileNotFound,
+            "The file was not found.",
+            ErrorType.NotFound));
 
     private sealed record DeleteOutcome(
         Result<HostFileResponse> Result,

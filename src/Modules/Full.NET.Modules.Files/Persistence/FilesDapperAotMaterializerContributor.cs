@@ -14,6 +14,7 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
     {
         registrar.Register<HostFileListRecord>(ReadHostFileListRecord);
         registrar.Register<HostFileDetailRecord>(ReadHostFileDetailRecord);
+        registrar.Register<HostFolderRecord>(ReadHostFolderRecord);
         registrar.Register<DeletedHostFileBlobRecord>(ReadDeletedHostFileBlobRecord);
         registrar.Register<PendingHostFileRecord>(ReadPendingHostFileRecord);
         registrar.Register<HostFileReferenceClaimRecord>(ReadHostFileReferenceClaimRecord);
@@ -27,7 +28,11 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
             reader.GetInt64(3),
             AotDataReaderExtensions.ReadNullableString(reader, 4),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
-            reader.GetGuid(6));
+            reader.GetGuid(6),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 7),
+            reader.GetInt64(8),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 10));
 
     private static HostFileDetailRecord ReadHostFileDetailRecord(DbDataReader reader) =>
         new(
@@ -39,7 +44,23 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
             reader.GetString(5),
             AotDataReaderExtensions.ReadNullableString(reader, 6),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
-            reader.GetGuid(8));
+            reader.GetGuid(8),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 9),
+            reader.GetInt64(10),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 12));
+
+    private static HostFolderRecord ReadHostFolderRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 1),
+            reader.GetString(2),
+            reader.GetInt32(3),
+            reader.GetInt64(4),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
+            reader.GetGuid(6),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 8));
 
     private static DeletedHostFileBlobRecord ReadDeletedHostFileBlobRecord(DbDataReader reader) =>
         new(

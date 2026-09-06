@@ -1,0 +1,98 @@
+{
+  "id": "files-host-folders-v1",
+  "version": 1,
+  "description": "Host 虚拟目录 HTTP 契约冻结夹具；与 Files 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/files/host-folders/tree",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.files.read",
+          "successStatus": 200,
+          "responseSchema": "HostFolderTreeNodeArray"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-folders",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.folders.create",
+          "successStatus": 200,
+          "requestSchema": "CreateHostFolderRequest",
+          "responseSchema": "HostFolderResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-folders/{folderId}/update",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.folders.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateHostFolderRequest",
+          "responseSchema": "HostFolderResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/host-folders/{folderId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.folders.delete",
+          "successStatus": 200,
+          "requestSchema": "DeleteHostFolderRequest",
+          "responseSchema": "HostFolderResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "HostFolderTreeNodeArray": {
+      "properties": [
+        "id",
+        "parentId",
+        "name",
+        "displayOrder",
+        "revision",
+        "children"
+      ]
+    },
+    "HostFolderResponse": {
+      "properties": [
+        "id",
+        "parentId",
+        "name",
+        "displayOrder",
+        "revision",
+        "createdAtUtc",
+        "createdByUserId",
+        "updatedAtUtc",
+        "updatedByUserId"
+      ]
+    },
+    "CreateHostFolderRequest": {
+      "properties": [
+        "parentId",
+        "name",
+        "displayOrder"
+      ]
+    },
+    "UpdateHostFolderRequest": {
+      "properties": [
+        "expectedRevision",
+        "name",
+        "displayOrder"
+      ]
+    },
+    "DeleteHostFolderRequest": {
+      "properties": [
+        "expectedRevision"
+      ]
+    }
+  }
+}

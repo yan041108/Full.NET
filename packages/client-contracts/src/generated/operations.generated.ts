@@ -67,6 +67,7 @@ import type {
   CreateHostDocumentItemRequest,
   CreateHostDocumentShareRequest,
   CreateHostDocumentTagRequest,
+  CreateHostFolderRequest,
   CreateHostJobDefinitionRequest,
   CreateHostJobScheduleRequest,
   CreateHostMenuRequest,
@@ -95,6 +96,7 @@ import type {
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
   DeleteHostDocumentTagRequest,
+  DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DiagnosticPolicyResponse,
   DiagnosticPolicyRuleRequest,
@@ -135,7 +137,10 @@ import type {
   HostDocumentTagResponse,
   HostDocumentType,
   HostDocumentVersionResponse,
+  HostFileReferenceClaimResponse,
   HostFileResponse,
+  HostFolderResponse,
+  HostFolderTreeNode,
   HostJobDefinitionResponse,
   HostJobExecutionResponse,
   HostJobGroupResponse,
@@ -206,6 +211,7 @@ import type {
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostDocumentItemResponse,
   PagedResultOfHostDocumentShareResponse,
+  PagedResultOfHostFileReferenceClaimResponse,
   PagedResultOfHostFileResponse,
   PagedResultOfHostJobDefinitionResponse,
   PagedResultOfHostJobExecutionResponse,
@@ -298,6 +304,8 @@ import type {
   UpdateHostDocumentItemRequest,
   UpdateHostDocumentShareStatusRequest,
   UpdateHostDocumentTagRequest,
+  UpdateHostFileMetadataRequest,
+  UpdateHostFolderRequest,
   UpdateHostJobDefinitionRequest,
   UpdateHostJobScheduleRequest,
   UpdateHostMenuRequest,
@@ -383,6 +391,7 @@ import {
   readEnumCatalogDetail,
   readEnumCatalogDictGenerationPreview,
   readEnumCatalogDictGenerationResult,
+  readFilesGetHostFolderTreeResponse,
   readHostAnnouncementResponse,
   readHostApiKeyResponse,
   readHostDashboardSummaryResponse,
@@ -393,6 +402,7 @@ import {
   readHostDocumentStatisticsResponse,
   readHostDocumentTagResponse,
   readHostFileResponse,
+  readHostFolderResponse,
   readHostJobDefinitionResponse,
   readHostJobExecutionResponse,
   readHostJobHealthResponse,
@@ -450,6 +460,7 @@ import {
   readPagedResultOfHostApiKeyResponse,
   readPagedResultOfHostDocumentItemResponse,
   readPagedResultOfHostDocumentShareResponse,
+  readPagedResultOfHostFileReferenceClaimResponse,
   readPagedResultOfHostFileResponse,
   readPagedResultOfHostJobDefinitionResponse,
   readPagedResultOfHostJobExecutionResponse,
@@ -1927,6 +1938,28 @@ export async function documentPublicAccessDocumentShare(
   return readHostDocumentShareAccessResponse(value);
 }
 
+export interface FilesCreateHostFolderParameters {
+  readonly body: CreateHostFolderRequest;
+}
+
+export async function filesCreateHostFolder(
+  http: HttpClient,
+  parameters: FilesCreateHostFolderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostFolderResponse> {
+  const path = `/api/v1/files/host-folders`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostFolderResponse(value);
+}
+
 export interface FilesDeleteHostFileParameters {
   readonly fileId: string;
 }
@@ -1943,6 +1976,29 @@ export async function filesDeleteHostFile(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostFileResponse(value);
+}
+
+export interface FilesDeleteHostFolderParameters {
+  readonly folderId: string;
+  readonly body: DeleteHostFolderRequest;
+}
+
+export async function filesDeleteHostFolder(
+  http: HttpClient,
+  parameters: FilesDeleteHostFolderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostFolderResponse> {
+  const path = `/api/v1/files/host-folders/${encodeURIComponent(String(parameters.folderId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostFolderResponse(value);
 }
 
 export interface FilesDownloadHostFileContentParameters {
@@ -1983,9 +2039,56 @@ export async function filesGetHostFile(
   return readHostFileResponse(value);
 }
 
+export interface FilesGetHostFolderTreeParameters {
+
+}
+
+export async function filesGetHostFolderTree(
+  http: HttpClient,
+  parameters: FilesGetHostFolderTreeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<HostFolderTreeNode>> {
+  const path = `/api/v1/files/host-folders/tree`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readFilesGetHostFolderTreeResponse(value);
+}
+
+export interface FilesListHostFileReferencesParameters {
+  readonly fileId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function filesListHostFileReferences(
+  http: HttpClient,
+  parameters: FilesListHostFileReferencesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfHostFileReferenceClaimResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/references` : `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/references?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfHostFileReferenceClaimResponse(value);
+}
+
 export interface FilesListHostFilesParameters {
   readonly page?: number;
   readonly pageSize?: number;
+  readonly folderId?: string;
+  readonly fileNameContains?: string;
 }
 
 export async function filesListHostFiles(
@@ -2001,6 +2104,12 @@ export async function filesListHostFiles(
   if (parameters.pageSize !== undefined) {
     query.set('pageSize', String(parameters.pageSize));
   }
+  if (parameters.folderId !== undefined) {
+    query.set('folderId', String(parameters.folderId));
+  }
+  if (parameters.fileNameContains !== undefined) {
+    query.set('fileNameContains', String(parameters.fileNameContains));
+  }
   const path = query.size === 0 ? `/api/v1/files/host-files` : `/api/v1/files/host-files?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
   const value = options === undefined
@@ -2009,8 +2118,55 @@ export async function filesListHostFiles(
   return readPagedResultOfHostFileResponse(value);
 }
 
+export interface FilesUpdateHostFileMetadataParameters {
+  readonly fileId: string;
+  readonly body: UpdateHostFileMetadataRequest;
+}
+
+export async function filesUpdateHostFileMetadata(
+  http: HttpClient,
+  parameters: FilesUpdateHostFileMetadataParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostFileResponse> {
+  const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/update`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostFileResponse(value);
+}
+
+export interface FilesUpdateHostFolderParameters {
+  readonly folderId: string;
+  readonly body: UpdateHostFolderRequest;
+}
+
+export async function filesUpdateHostFolder(
+  http: HttpClient,
+  parameters: FilesUpdateHostFolderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostFolderResponse> {
+  const path = `/api/v1/files/host-folders/${encodeURIComponent(String(parameters.folderId))}/update`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostFolderResponse(value);
+}
+
 export interface FilesUploadHostFileParameters {
   readonly file?: IFormFile;
+  readonly folderId?: string;
 }
 
 export async function filesUploadHostFile(
@@ -2023,6 +2179,9 @@ export async function filesUploadHostFile(
   const body = new FormData();
   if (parameters.file !== undefined) {
     body.append('file', parameters.file);
+  }
+  if (parameters.folderId !== undefined) {
+    body.append('folderId', String(parameters.folderId));
   }
   const init: RequestInit = { method: 'POST', body };
   const value = options === undefined

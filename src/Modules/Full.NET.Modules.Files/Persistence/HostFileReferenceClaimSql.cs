@@ -119,4 +119,39 @@ internal static class HostFileReferenceClaimSql
           AND State = @PendingState
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountByFileId = new(
+        "files.file_reference_claim.count_by_file_id",
+        """
+        SELECT COUNT(1)
+        FROM fn_files_file_reference_claim
+        WHERE FileId = @FileId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListByFileIdSqlServer = new(
+        "files.file_reference_claim.list_by_file_id.sql_server",
+        """
+        SELECT Id, IdempotencyKey, FileId, ConsumerModule, ConsumerReferenceId,
+               State, ContentHash, SizeBytes, CreatedAtUtc, UpdatedAtUtc,
+               ConfirmedAtUtc, ReleasedAtUtc
+        FROM fn_files_file_reference_claim
+        WHERE FileId = @FileId
+        ORDER BY CreatedAtUtc DESC, Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListByFileIdMySql = new(
+        "files.file_reference_claim.list_by_file_id.mysql",
+        """
+        SELECT Id, IdempotencyKey, FileId, ConsumerModule, ConsumerReferenceId,
+               State, ContentHash, SizeBytes, CreatedAtUtc, UpdatedAtUtc,
+               ConfirmedAtUtc, ReleasedAtUtc
+        FROM fn_files_file_reference_claim
+        WHERE FileId = @FileId
+        ORDER BY CreatedAtUtc DESC, Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
 }

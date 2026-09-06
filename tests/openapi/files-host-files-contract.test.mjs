@@ -13,6 +13,10 @@ const contractsSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Files.Contracts/HostFileContracts.cs'
 );
+const folderContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Files.Contracts/HostFolderContracts.cs'
+);
 const endpointSourcePath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Files/Features/ManageHostFiles/Endpoint.cs'
@@ -35,7 +39,7 @@ test('Host 文件元数据 OpenAPI 夹具结构完整且路径唯一', async () 
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^files\.files\.(read|upload|download|delete)$/u);
+      assert.match(operation.permission, /^files\.(files\.(read|upload|download|delete|update)|file_references\.read|folders\.(create|update|delete))$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.responseSchema) {
         assert.ok(contract.schemas[operation.responseSchema]);
@@ -47,9 +51,11 @@ test('Host 文件元数据 OpenAPI 夹具结构完整且路径唯一', async () 
 test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', async () => {
   const contract = await loadContract();
   const contractsSource = await readFile(contractsSourcePath, 'utf8');
+  const folderContractsSource = await readFile(folderContractsSourcePath, 'utf8');
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record HostFileResponse/u);
+  assert.match(folderContractsSource, /record UpdateHostFileMetadataRequest/u);
   assert.match(contractsSource, /files\.files\.read/u);
   assert.match(contractsSource, /files\.files\.upload/u);
   assert.match(
@@ -64,6 +70,12 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
     ])],
     ['/api/v1/files/host-files/{fileId}', new Map([
       ['GET', 'MapGet("/{fileId:guid}",']
+    ])],
+    ['/api/v1/files/host-files/{fileId}/update', new Map([
+      ['POST', 'MapPost("/{fileId:guid}/update",']
+    ])],
+    ['/api/v1/files/host-files/{fileId}/references', new Map([
+      ['GET', 'MapGet("/{fileId:guid}/references",']
     ])],
     ['/api/v1/files/host-files/{fileId}/content', new Map([
       ['GET', 'MapGet("/{fileId:guid}/content",']
@@ -83,15 +95,21 @@ test('Host 文件元数据 OpenAPI 夹具与 C# 契约和端点源码一致', as
     }
   }
 
-  for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName === 'HostFileResponsePage') {
-      continue;
-    }
+    const sourceBySchema = new Map([
+      ['UpdateHostFileMetadataRequest', folderContractsSource],
+      ['HostFileReferenceClaimResponse', folderContractsSource]
+    ]);
 
+    for (const [schemaName, schema] of Object.entries(contract.schemas)) {
+      if (schemaName.endsWith('Page')) {
+        continue;
+      }
+
+      const source = sourceBySchema.get(schemaName) ?? contractsSource;
     for (const property of schema.properties) {
       const pascal = property.charAt(0).toUpperCase() + property.slice(1);
       assert.match(
-        contractsSource,
+        source,
         new RegExp(`${pascal}`, 'u'),
         `${schemaName}.${property} 未在 C# 契约中找到`
       );

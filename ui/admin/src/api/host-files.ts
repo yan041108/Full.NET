@@ -1,10 +1,20 @@
 import {
+  filesCreateHostFolder,
   filesDeleteHostFile,
+  filesDeleteHostFolder,
   filesDownloadHostFileContent,
+  filesGetHostFolderTree,
+  filesListHostFileReferences,
   filesListHostFiles,
+  filesUpdateHostFileMetadata,
+  filesUpdateHostFolder,
   filesUploadHostFile,
   type HostFile,
-  type HostFilePage
+  type HostFilePage,
+  type HostFileReferenceClaimResponse,
+  type HostFolderResponse,
+  type HostFolderTreeNode,
+  type PagedResultOfHostFileReferenceClaimResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
@@ -12,17 +22,44 @@ import { http } from './http';
 export async function listHostFiles(
   page = 1,
   pageSize = 20,
+  options?: {
+    folderId?: string;
+    fileNameContains?: string;
+  },
   signal?: AbortSignal
 ): Promise<HostFilePage> {
-  return filesListHostFiles(http, { page, pageSize }, signal);
+  return filesListHostFiles(
+    http,
+    {
+      page,
+      pageSize,
+      folderId: options?.folderId,
+      fileNameContains: options?.fileNameContains
+    },
+    signal
+  );
 }
 
 /** 上传 Host 文件。 */
 export async function uploadHostFile(
   file: File,
+  folderId?: string,
   signal?: AbortSignal
 ): Promise<HostFile> {
-  return filesUploadHostFile(http, { file }, signal);
+  return filesUploadHostFile(http, { file, folderId }, signal);
+}
+
+/** 更新 Host 文件元数据。 */
+export async function updateHostFileMetadata(
+  fileId: string,
+  body: {
+    expectedRevision: number;
+    originalFileName: string;
+    folderId: string | null;
+  },
+  signal?: AbortSignal
+): Promise<HostFile> {
+  return filesUpdateHostFileMetadata(http, { fileId, body }, signal);
 }
 
 /** 删除指定 Host 文件。 */
@@ -41,6 +78,57 @@ export async function downloadHostFileContent(
   return filesDownloadHostFileContent(http, { fileId: id }, signal);
 }
 
+/** 查询 Host 虚拟目录树。 */
+export async function listHostFolderTree(
+  signal?: AbortSignal
+): Promise<HostFolderTreeNode[]> {
+  return filesGetHostFolderTree(http, {}, signal);
+}
+
+/** 创建 Host 虚拟目录。 */
+export async function createHostFolder(
+  body: {
+    parentId?: string | null;
+    name: string;
+    displayOrder?: number;
+  },
+  signal?: AbortSignal
+): Promise<HostFolderResponse> {
+  return filesCreateHostFolder(http, { body }, signal);
+}
+
+/** 更新 Host 虚拟目录。 */
+export async function updateHostFolder(
+  folderId: string,
+  body: {
+    expectedRevision: number;
+    name: string;
+    displayOrder: number;
+  },
+  signal?: AbortSignal
+): Promise<HostFolderResponse> {
+  return filesUpdateHostFolder(http, { folderId, body }, signal);
+}
+
+/** 删除 Host 虚拟目录。 */
+export async function deleteHostFolder(
+  folderId: string,
+  body: { expectedRevision: number },
+  signal?: AbortSignal
+): Promise<HostFolderResponse> {
+  return filesDeleteHostFolder(http, { folderId, body }, signal);
+}
+
+/** 分页查询文件引用声明。 */
+export async function listHostFileReferences(
+  fileId: string,
+  page = 1,
+  pageSize = 20,
+  signal?: AbortSignal
+): Promise<PagedResultOfHostFileReferenceClaimResponse> {
+  return filesListHostFileReferences(http, { fileId, page, pageSize }, signal);
+}
+
 /** 将已下载 Blob 以短生命周期对象 URL 打开，并在窗口关闭后回收。 */
 export function openHostFileBlob(blob: Blob): void {
   const url = URL.createObjectURL(blob);
@@ -53,5 +141,11 @@ export function openHostFileBlob(blob: Blob): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-/** 导出 Host 文件明细与分页模型，供列表页、上传流程和下载结果复用同一契约。 */
-export type { HostFile, HostFilePage };
+export type {
+  HostFile,
+  HostFilePage,
+  HostFolderTreeNode,
+  HostFolderResponse,
+  HostFileReferenceClaimResponse,
+  PagedResultOfHostFileReferenceClaimResponse
+};

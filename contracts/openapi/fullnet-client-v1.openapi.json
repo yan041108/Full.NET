@@ -4591,6 +4591,20 @@
                 "string"
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "folderId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fileNameContains",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4646,6 +4660,10 @@
                 "properties": {
                   "file": {
                     "$ref": "#/components/schemas/IFormFile"
+                  },
+                  "folderId": {
+                    "type": "string",
+                    "format": "uuid"
                   }
                 },
                 "type": "object"
@@ -25511,6 +25529,395 @@
           }
         ]
       }
+    },
+    "/api/v1/files/host-files/{fileId}/update": {
+      "post": {
+        "operationId": "filesUpdateHostFileMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": "fileId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHostFileMetadataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostFileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FilesHostFiles"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/files/host-files/{fileId}/references": {
+      "get": {
+        "operationId": "filesListHostFileReferences",
+        "parameters": [
+          {
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": "fileId"
+          },
+          {
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "name": "page"
+          },
+          {
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "name": "pageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfHostFileReferenceClaimResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FilesHostFiles"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/files/host-folders/tree": {
+      "get": {
+        "operationId": "filesGetHostFolderTree",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HostFolderTreeNode"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FilesHostFolders"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/files/host-folders": {
+      "post": {
+        "operationId": "filesCreateHostFolder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHostFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostFolderResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FilesHostFolders"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/files/host-folders/{folderId}/update": {
+      "post": {
+        "operationId": "filesUpdateHostFolder",
+        "parameters": [
+          {
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": "folderId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHostFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostFolderResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FilesHostFolders"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/files/host-folders/{folderId}/delete": {
+      "post": {
+        "operationId": "filesDeleteHostFolder",
+        "parameters": [
+          {
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": "folderId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteHostFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostFolderResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "FilesHostFolders"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -30025,6 +30432,34 @@
               "integer",
               "string"
             ]
+          },
+          "folderId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "updatedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedByUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         },
         "required": [
@@ -30034,7 +30469,11 @@
           "sizeBytes",
           "contentHash",
           "createdAtUtc",
-          "createdByUserId"
+          "createdByUserId",
+          "folderId",
+          "revision",
+          "updatedAtUtc",
+          "updatedByUserId"
         ],
         "type": "object"
       },
@@ -38972,6 +39411,278 @@
         "properties": {
           "version": {
             "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "UpdateHostFileMetadataRequest": {
+        "type": "object",
+        "required": [
+          "expectedRevision",
+          "originalFileName",
+          "folderId"
+        ],
+        "properties": {
+          "expectedRevision": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "folderId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "HostFileReferenceClaimResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "idempotencyKey",
+          "consumerModule",
+          "consumerReferenceId",
+          "state",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "confirmedAtUtc",
+          "releasedAtUtc"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "consumerModule": {
+            "type": "string"
+          },
+          "consumerReferenceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "confirmedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "releasedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "PagedResultOfHostFileReferenceClaimResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostFileReferenceClaimResponse"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "HostFolderTreeNode": {
+        "type": "object",
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "displayOrder",
+          "revision",
+          "children"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostFolderTreeNode"
+            }
+          }
+        }
+      },
+      "HostFolderResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "displayOrder",
+          "revision",
+          "createdAtUtc",
+          "createdByUserId",
+          "updatedAtUtc",
+          "updatedByUserId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updatedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedByUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateHostFolderRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "integer"
+          }
+        }
+      },
+      "UpdateHostFolderRequest": {
+        "type": "object",
+        "required": [
+          "expectedRevision",
+          "name",
+          "displayOrder"
+        ],
+        "properties": {
+          "expectedRevision": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "integer"
+          }
+        }
+      },
+      "DeleteHostFolderRequest": {
+        "type": "object",
+        "required": [
+          "expectedRevision"
+        ],
+        "properties": {
+          "expectedRevision": {
+            "type": [
+              "integer",
+              "string"
+            ],
             "format": "int64"
           }
         }

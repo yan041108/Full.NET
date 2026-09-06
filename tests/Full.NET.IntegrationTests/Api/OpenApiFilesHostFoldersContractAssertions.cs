@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace Full.NET.IntegrationTests.Api;
 
 /// <summary>
-/// 校验 Host 文件元数据端点在 OpenAPI 文档中的路径、方法与核心 schema 属性。
+/// 校验 Host 虚拟目录端点在 OpenAPI 文档中的路径、方法与核心 schema 属性。
 /// </summary>
-internal static class OpenApiFilesHostFilesContractAssertions
+internal static class OpenApiFilesHostFoldersContractAssertions
 {
     public static async Task VerifyAsync(
         HttpClient client,
@@ -56,16 +56,12 @@ internal static class OpenApiFilesHostFilesContractAssertions
 
                 if (operation.TryGetProperty("responseSchema", out var responseSchema))
                 {
-                    var responseSchemaName = responseSchema.GetString()!;
-                    if (TryFindSchema(schemas, responseSchemaName, out _))
-                    {
-                        AssertSchemaProperties(
-                            schemas,
-                            responseSchemaName,
-                            contractDocument.RootElement
-                                .GetProperty("schemas")
-                                .GetProperty(responseSchemaName));
-                    }
+                    AssertSchemaProperties(
+                        schemas,
+                        responseSchema.GetString()!,
+                        contractDocument.RootElement
+                            .GetProperty("schemas")
+                            .GetProperty(responseSchema.GetString()!));
                 }
             }
         }
@@ -73,14 +69,39 @@ internal static class OpenApiFilesHostFilesContractAssertions
 
     private static void AssertPilotOperations(JsonElement document)
     {
-        const string tag = "FilesHostFiles";
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files", HttpMethod.Get, "filesListHostFiles", tag, 200, "application/json");
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}", HttpMethod.Get, "filesGetHostFile", tag, 200, "application/json");
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files", HttpMethod.Post, "filesUploadHostFile", tag, 201, "application/json", "multipart/form-data");
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/update", HttpMethod.Post, "filesUpdateHostFileMetadata", tag, 200, "application/json");
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/references", HttpMethod.Get, "filesListHostFileReferences", tag, 200, "application/json");
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/content", HttpMethod.Get, "filesDownloadHostFileContent", tag, 200, "application/octet-stream");
-        OpenApiPilotContractAssertions.AssertOperation(document, "/api/v1/files/host-files/{fileId}/delete", HttpMethod.Post, "filesDeleteHostFile", tag, 200, "application/json");
+        const string tag = "FilesHostFolders";
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/files/host-folders/tree",
+            HttpMethod.Get,
+            "filesGetHostFolderTree",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/files/host-folders",
+            HttpMethod.Post,
+            "filesCreateHostFolder",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/files/host-folders/{folderId}/update",
+            HttpMethod.Post,
+            "filesUpdateHostFolder",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/files/host-folders/{folderId}/delete",
+            HttpMethod.Post,
+            "filesDeleteHostFolder",
+            tag,
+            200,
+            "application/json");
     }
 
     private static bool HasSuccessResponse(JsonElement responses, int successStatus)
@@ -120,6 +141,11 @@ internal static class OpenApiFilesHostFilesContractAssertions
             Assert.Fail($"OpenAPI 缺少 schema：{schemaName}；现有：{available}");
         }
 
+        if (schemaName.EndsWith("Array", StringComparison.Ordinal))
+        {
+            return;
+        }
+
         var openApiProperties = openApiSchema.GetProperty("properties");
         foreach (var property in contractSchema.GetProperty("properties").EnumerateArray())
         {
@@ -139,25 +165,6 @@ internal static class OpenApiFilesHostFilesContractAssertions
         if (openApiSchemas.TryGetProperty(schemaName, out schema))
         {
             return true;
-        }
-
-        if (schemaName is "HostFileResponsePage")
-        {
-            foreach (var candidate in openApiSchemas.EnumerateObject())
-            {
-                if (!candidate.Name.Contains("HostFile", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                if (candidate.Value.TryGetProperty("properties", out var properties)
-                    && (properties.TryGetProperty("items", out _)
-                        || properties.TryGetProperty("Items", out _)))
-                {
-                    schema = candidate.Value;
-                    return true;
-                }
-            }
         }
 
         foreach (var candidate in openApiSchemas.EnumerateObject())
@@ -181,7 +188,7 @@ internal static class OpenApiFilesHostFilesContractAssertions
             repositoryRoot,
             "contracts",
             "openapi",
-            "files-host-files-v1.json");
+            "files-host-folders-v1.json");
         await using var stream = File.OpenRead(contractPath);
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
     }

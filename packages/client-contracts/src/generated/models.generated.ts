@@ -475,6 +475,12 @@ export interface CreateHostDocumentTagRequest {
   readonly name: string;
 }
 
+export interface CreateHostFolderRequest {
+  readonly displayOrder?: number;
+  readonly name: string;
+  readonly parentId?: null | string;
+}
+
 export interface CreateHostJobDefinitionRequest {
   readonly allowConcurrentExecutions?: boolean;
   readonly args: null | HttpJobArgs;
@@ -700,6 +706,10 @@ export interface DeleteHostDocumentItemRequest {
 
 export interface DeleteHostDocumentTagRequest {
   readonly version: number;
+}
+
+export interface DeleteHostFolderRequest {
+  readonly expectedRevision: number | string;
 }
 
 export interface DeleteHostJobDefinitionRequest {
@@ -1051,14 +1061,51 @@ export interface HostDocumentVersionResponse {
   readonly versionNumber: number;
 }
 
+export interface HostFileReferenceClaimResponse {
+  readonly confirmedAtUtc: null | string;
+  readonly consumerModule: string;
+  readonly consumerReferenceId: string;
+  readonly createdAtUtc: string;
+  readonly id: string;
+  readonly idempotencyKey: string;
+  readonly releasedAtUtc: null | string;
+  readonly state: string;
+  readonly updatedAtUtc: string;
+}
+
 export interface HostFileResponse {
   readonly contentHash: null | string;
   readonly contentType: string;
   readonly createdAtUtc: string;
   readonly createdByUserId: string;
+  readonly folderId: null | string;
   readonly id: string;
   readonly originalFileName: string;
+  readonly revision: number | string;
   readonly sizeBytes: number;
+  readonly updatedAtUtc: null | string;
+  readonly updatedByUserId: null | string;
+}
+
+export interface HostFolderResponse {
+  readonly createdAtUtc: string;
+  readonly createdByUserId: string;
+  readonly displayOrder: number;
+  readonly id: string;
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly revision: number | string;
+  readonly updatedAtUtc: null | string;
+  readonly updatedByUserId: null | string;
+}
+
+export interface HostFolderTreeNode {
+  readonly children: Array<HostFolderTreeNode>;
+  readonly displayOrder: number;
+  readonly id: string;
+  readonly name: string;
+  readonly parentId: null | string;
+  readonly revision: number | string;
 }
 
 export interface HostJobDefinitionResponse {
@@ -1733,6 +1780,13 @@ export interface PagedResultOfHostDocumentShareResponse {
   readonly total: number;
 }
 
+export interface PagedResultOfHostFileReferenceClaimResponse {
+  readonly items: Array<HostFileReferenceClaimResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
 export interface PagedResultOfHostFileResponse {
   readonly items: Array<HostFileResponse>;
   readonly page: number;
@@ -2358,6 +2412,18 @@ export interface UpdateHostDocumentTagRequest {
   readonly icon: null | string;
   readonly name: string;
   readonly version: number;
+}
+
+export interface UpdateHostFileMetadataRequest {
+  readonly expectedRevision: number | string;
+  readonly folderId: null | string;
+  readonly originalFileName: string;
+}
+
+export interface UpdateHostFolderRequest {
+  readonly displayOrder: number;
+  readonly expectedRevision: number | string;
+  readonly name: string;
 }
 
 export interface UpdateHostJobDefinitionRequest {

@@ -27,6 +27,26 @@ internal sealed class FilesAuthorizationContributor
             HostFilePermissions.Delete,
             "删除文件",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostFilePermissions.Update,
+            "更新文件元数据",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostFilePermissions.ReferencesRead,
+            "查询文件引用",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostFolderPermissions.Create,
+            "创建虚拟目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostFolderPermissions.Update,
+            "更新虚拟目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostFolderPermissions.Delete,
+            "删除虚拟目录",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -61,11 +81,46 @@ internal sealed class FilesAuthorizationContributor
             "download",
             20),
         new AuthorizationActionDefinition(
+            "files.files.update",
+            "host-files",
+            HostFilePermissions.Update,
+            "编辑元数据",
+            "edit",
+            25),
+        new AuthorizationActionDefinition(
+            "files.file_references.read",
+            "host-files",
+            HostFilePermissions.ReferencesRead,
+            "查看引用",
+            "references",
+            28),
+        new AuthorizationActionDefinition(
             "files.files.delete",
             "host-files",
             HostFilePermissions.Delete,
             "删除文件",
             "delete",
             30),
+        new AuthorizationActionDefinition(
+            "files.folders.create",
+            "host-files",
+            HostFolderPermissions.Create,
+            "创建目录",
+            "folder-create",
+            40),
+        new AuthorizationActionDefinition(
+            "files.folders.update",
+            "host-files",
+            HostFolderPermissions.Update,
+            "更新目录",
+            "folder-update",
+            50),
+        new AuthorizationActionDefinition(
+            "files.folders.delete",
+            "host-files",
+            HostFolderPermissions.Delete,
+            "删除目录",
+            "folder-delete",
+            60),
     ];
 }

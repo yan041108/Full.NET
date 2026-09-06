@@ -6,8 +6,8 @@ using System.Text;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
-using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Cleanup;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Persistence;
@@ -38,7 +38,12 @@ internal static class FilesHostFileManagementAssertions
             factory,
             client,
             cancellationToken);
+        await VerifyVirtualFoldersMetadataAndReferencesAsync(
+            factory,
+            client,
+            cancellationToken);
         await OpenApiFilesHostFilesContractAssertions.VerifyAsync(client, cancellationToken);
+        await OpenApiFilesHostFoldersContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
     private static async Task VerifyPendingUploadReconciliationAsync(
@@ -574,6 +579,231 @@ internal static class FilesHostFileManagementAssertions
         {
             currentTenant.Clear();
         }
+    }
+
+    private static async Task VerifyVirtualFoldersMetadataAndReferencesAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var folderName = $"integration-folder-{Guid.NewGuid():N}";
+
+        using var createFolderRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/files/host-folders",
+            adminToken,
+            new CreateHostFolderRequest(null, folderName, 0));
+        using var createFolderResponse = await client.SendAsync(
+            createFolderRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, createFolderResponse.StatusCode);
+        var folder = await createFolderResponse.Content.ReadFromJsonAsync<HostFolderResponse>(
+            cancellationToken);
+        Assert.IsNotNull(folder);
+        Assert.AreEqual(folderName, folder.Name);
+        Assert.IsTrue(folder.Revision >= 1);
+
+        using var treeRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/files/host-folders/tree");
+        treeRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var treeResponse = await client.SendAsync(treeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, treeResponse.StatusCode);
+        var tree = await treeResponse.Content.ReadFromJsonAsync<HostFolderTreeNode[]>(
+            cancellationToken);
+        Assert.IsNotNull(tree);
+        Assert.IsTrue(ContainsFolder(tree, folder.Id, folderName));
+
+        var payload = Encoding.UTF8.GetBytes($"folder-file-{Guid.NewGuid():N}");
+        var fileName = "folder-file.txt";
+        using var uploadContent = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(payload);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadContent.Add(fileContent, "file", fileName);
+        uploadContent.Add(new StringContent(folder.Id.ToString("D")), "folderId");
+
+        using var uploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/files/host-files")
+        {
+            Content = uploadContent,
+        };
+        uploadRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, uploadResponse.StatusCode);
+        var created = await uploadResponse.Content.ReadFromJsonAsync<HostFileResponse>(
+            cancellationToken);
+        Assert.IsNotNull(created);
+        Assert.AreEqual(folder.Id, created.FolderId);
+        Assert.IsTrue(created.Revision >= 1);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/files/host-files?folderId={folder.Id:D}&page=1&pageSize=20");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedHostFileResponses>(
+            cancellationToken);
+        Assert.IsNotNull(page);
+        Assert.IsTrue(page.Items.Any(item => item.Id == created.Id));
+
+        var renamed = "folder-file-renamed.txt";
+        using var updateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/files/host-files/{created.Id:D}/update",
+            adminToken,
+            new UpdateHostFileMetadataRequest(
+                created.Revision,
+                renamed,
+                folder.Id));
+        using var updateResponse = await client.SendAsync(updateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<HostFileResponse>(
+            cancellationToken);
+        Assert.IsNotNull(updated);
+        Assert.AreEqual(renamed, updated.OriginalFileName);
+        Assert.IsTrue(updated.Revision > created.Revision);
+
+        using var staleUpdateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/files/host-files/{created.Id:D}/update",
+            adminToken,
+            new UpdateHostFileMetadataRequest(
+                created.Revision,
+                "stale.txt",
+                folder.Id));
+        using var staleUpdateResponse = await client.SendAsync(
+            staleUpdateRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, staleUpdateResponse.StatusCode);
+        using var staleProblem = JsonDocument.Parse(
+            await staleUpdateResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            FilesErrorCodes.RevisionConflict,
+            staleProblem.RootElement.GetProperty("code").GetString());
+
+        var consumerReferenceId = Guid.CreateVersion7();
+        var idempotencyKey =
+            HostFileReferenceClaimIdempotencyKeys.DocumentVersion(consumerReferenceId);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+            currentTenant.SetHost();
+            try
+            {
+                var claimService = scope.ServiceProvider
+                    .GetRequiredService<IHostFileReferenceClaimService>();
+                var claimResult = await claimService.ClaimAsync(
+                    new HostFileReferenceClaimRequest(
+                        idempotencyKey,
+                        HostFileReferenceClaimConsumerModules.Document,
+                        consumerReferenceId,
+                        created.Id),
+                    cancellationToken);
+                Assert.IsTrue(claimResult.IsSuccess);
+                var confirmResult = await claimService.ConfirmAsync(
+                    idempotencyKey,
+                    cancellationToken);
+                Assert.IsTrue(confirmResult.IsSuccess);
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
+        }
+
+        using var referencesRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/files/host-files/{created.Id:D}/references?page=1&pageSize=20");
+        referencesRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            adminToken);
+        using var referencesResponse = await client.SendAsync(
+            referencesRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, referencesResponse.StatusCode);
+        var references = await referencesResponse.Content
+            .ReadFromJsonAsync<PagedResult<HostFileReferenceClaimResponse>>(cancellationToken);
+        Assert.IsNotNull(references);
+        Assert.IsTrue(references.Items.Any(item =>
+            item.IdempotencyKey == idempotencyKey
+            && item.ConsumerModule == HostFileReferenceClaimConsumerModules.Document
+            && item.ConsumerReferenceId == consumerReferenceId
+            && item.State == HostFileReferenceClaimStates.Active));
+
+        await using (var releaseScope = factory.Services.CreateAsyncScope())
+        {
+            var claimService = releaseScope.ServiceProvider
+                .GetRequiredService<IHostFileReferenceClaimService>();
+            var releaseResult = await claimService.ReleaseAsync(
+                idempotencyKey,
+                cancellationToken);
+            Assert.IsTrue(releaseResult.IsSuccess);
+        }
+
+        using var deleteFolderRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/files/host-folders/{folder.Id:D}/delete",
+            adminToken,
+            new DeleteHostFolderRequest(folder.Revision));
+        using var deleteFolderResponse = await client.SendAsync(
+            deleteFolderRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, deleteFolderResponse.StatusCode);
+        using var deleteFolderProblem = JsonDocument.Parse(
+            await deleteFolderResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            FilesErrorCodes.FolderNotEmpty,
+            deleteFolderProblem.RootElement.GetProperty("code").GetString());
+
+        using var deleteFileRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/files/host-files/{created.Id:D}/delete",
+            adminToken,
+            new { });
+        using var deleteFileResponse = await client.SendAsync(
+            deleteFileRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, deleteFileResponse.StatusCode);
+
+        using var deleteEmptyFolderRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/files/host-folders/{folder.Id:D}/delete",
+            adminToken,
+            new DeleteHostFolderRequest(folder.Revision));
+        using var deleteEmptyFolderResponse = await client.SendAsync(
+            deleteEmptyFolderRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, deleteEmptyFolderResponse.StatusCode);
+    }
+
+    private static bool ContainsFolder(
+        IEnumerable<HostFolderTreeNode> nodes,
+        Guid folderId,
+        string folderName)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.Id == folderId && node.Name == folderName)
+            {
+                return true;
+            }
+
+            if (ContainsFolder(node.Children, folderId, folderName))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private sealed record PagedHostFileResponses(

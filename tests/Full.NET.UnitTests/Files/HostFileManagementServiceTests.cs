@@ -4,6 +4,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.ManageHostFiles;
+using Full.NET.Modules.Files.Features.ManageHostFolders;
 using Full.NET.Modules.Files.Persistence;
 using Full.NET.Modules.Files.Storage;
 using Microsoft.Extensions.Options;
@@ -38,6 +39,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             claimService,
             CreateRegistry(storage),
             Substitute.For<IClock>(),
@@ -71,6 +73,7 @@ public sealed class HostFileManagementServiceTests
                 "application/octet-stream",
                 content,
                 content.Length,
+                folderId: null,
                 CancellationToken.None));
 
         Assert.AreEqual(0, storage.SaveCount);
@@ -92,6 +95,7 @@ public sealed class HostFileManagementServiceTests
                 "application/octet-stream",
                 content,
                 content.Length,
+                folderId: null,
                 CancellationToken.None));
 
         Assert.AreEqual(3, transaction.InvocationCount);
@@ -128,7 +132,11 @@ public sealed class HostFileManagementServiceTests
                 $"host/2026/08/{fileId:N}",
                 null,
                 createdAtUtc,
-                Guid.CreateVersion7()));
+                Guid.CreateVersion7(),
+                null,
+                0L,
+                null,
+                null));
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(createdAtUtc);
         var idGenerator = Substitute.For<IIdGenerator>();
@@ -142,6 +150,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(storage),
             clock,
@@ -159,6 +168,7 @@ public sealed class HostFileManagementServiceTests
             "application/octet-stream",
             content,
             content.Length,
+            folderId: null,
             CancellationToken.None);
 
         Assert.IsTrue(result.IsSuccess);
@@ -183,6 +193,7 @@ public sealed class HostFileManagementServiceTests
             "application/octet-stream",
             content,
             content.Length,
+            folderId: null,
             CancellationToken.None);
 
         Assert.IsTrue(result.IsSuccess);
@@ -227,7 +238,8 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
-                CreateClaimService(),
+                CreateFolderQueryService(),
+            CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
                 clock,
                 idGenerator,
@@ -241,6 +253,7 @@ public sealed class HostFileManagementServiceTests
                     "text/plain",
                     content,
                     content.Length,
+                    folderId: null,
                     CancellationToken.None));
 
             Assert.AreEqual(
@@ -306,7 +319,11 @@ public sealed class HostFileManagementServiceTests
                     storageKey,
                     null,
                     now,
-                    createdByUserId));
+                    createdByUserId,
+                null,
+                0L,
+                null,
+                null));
             var clock = Substitute.For<IClock>();
             clock.UtcNow.Returns(now);
             var service = new HostFileManagementService(
@@ -318,7 +335,8 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
-                CreateClaimService(),
+                CreateFolderQueryService(),
+            CreateClaimService(),
                 CreateRegistry(blobStorage),
                 clock,
                 Substitute.For<IIdGenerator>(),
@@ -377,7 +395,8 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
-                CreateClaimService(),
+                CreateFolderQueryService(),
+            CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
                 clock,
                 idGenerator,
@@ -391,6 +410,7 @@ public sealed class HostFileManagementServiceTests
                     "text/plain",
                     content,
                     content.Length,
+                    folderId: null,
                     CancellationToken.None));
 
             Assert.AreEqual(
@@ -433,7 +453,11 @@ public sealed class HostFileManagementServiceTests
                 "unused",
                 null,
                 now,
-                createdByUserId));
+                createdByUserId,
+                null,
+                0L,
+                null,
+                null));
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(now);
         var idGenerator = Substitute.For<IIdGenerator>();
@@ -447,6 +471,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new AcceptingBlobStorage()),
             clock,
@@ -464,6 +489,7 @@ public sealed class HostFileManagementServiceTests
             "text/plain",
             content,
             contentLength: 1,
+            folderId: null,
             CancellationToken.None);
 
         Assert.IsFalse(result.IsSuccess);
@@ -499,7 +525,11 @@ public sealed class HostFileManagementServiceTests
                 "unused",
                 null,
                 now,
-                createdByUserId));
+                createdByUserId,
+                null,
+                0L,
+                null,
+                null));
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(now);
         var idGenerator = Substitute.For<IIdGenerator>();
@@ -513,6 +543,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new AcceptingBlobStorage()),
             clock,
@@ -530,6 +561,7 @@ public sealed class HostFileManagementServiceTests
             "text/plain",
             content,
             contentLength: 1,
+            folderId: null,
             CancellationToken.None);
 
         Assert.IsTrue(result.IsSuccess);
@@ -565,6 +597,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new FailingSaveBlobStorage()),
             clock,
@@ -578,6 +611,7 @@ public sealed class HostFileManagementServiceTests
             "text/plain",
             content,
             contentLength: 1,
+            folderId: null,
             CancellationToken.None);
 
         Assert.IsFalse(result.IsSuccess);
@@ -613,6 +647,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(new CancelingSaveBlobStorage(requestCancellation)),
             clock,
@@ -627,6 +662,7 @@ public sealed class HostFileManagementServiceTests
                 "text/plain",
                 content,
                 content.Length,
+                folderId: null,
                 requestCancellation.Token));
 
         Assert.IsTrue(requestCancellation.IsCancellationRequested);
@@ -668,7 +704,8 @@ public sealed class HostFileManagementServiceTests
                     {
                         Provider = DatabaseProvider.SqlServer,
                     })),
-                CreateClaimService(),
+                CreateFolderQueryService(),
+            CreateClaimService(),
                 CreateRegistry(new LocalHostFileBlobStorage(storageOptions)),
                 clock,
                 idGenerator,
@@ -682,6 +719,7 @@ public sealed class HostFileManagementServiceTests
                     "text/plain",
                     content,
                     content.Length,
+                    folderId: null,
                     requestCancellation.Token));
 
             Assert.IsTrue(requestCancellation.IsCancellationRequested);
@@ -731,7 +769,11 @@ public sealed class HostFileManagementServiceTests
                 storageKey,
                 null,
                 now,
-                createdByUserId));
+                createdByUserId,
+                null,
+                0L,
+                null,
+                null));
         var local = new RecordingDeleteStorage(LocalHostFileBlobStorage.Key);
         var archive = new RecordingDeleteStorage("archive");
         var clock = Substitute.For<IClock>();
@@ -745,6 +787,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(local, archive),
             clock,
@@ -763,6 +806,9 @@ public sealed class HostFileManagementServiceTests
             new[] { storageKey },
             archive.DeletedStorageKeys);
     }
+
+    private static HostFolderQueryService CreateFolderQueryService(bool exists = true) =>
+        FilesTestSupport.CreateFolderQueryService(exists);
 
     private static FileStorageProviderRegistry CreateRegistry(
         params IFileStorageProvider[] providers) =>
@@ -805,7 +851,11 @@ public sealed class HostFileManagementServiceTests
                 $"host/2026/08/{fileId:N}",
                 null,
                 createdAtUtc,
-                Guid.CreateVersion7()));
+                Guid.CreateVersion7(),
+                null,
+                0L,
+                null,
+                null));
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(createdAtUtc);
         var idGenerator = Substitute.For<IIdGenerator>();
@@ -820,6 +870,7 @@ public sealed class HostFileManagementServiceTests
                 {
                     Provider = DatabaseProvider.SqlServer,
                 })),
+            CreateFolderQueryService(),
             CreateClaimService(),
             CreateRegistry(storage),
             clock,

@@ -16,10 +16,15 @@ public sealed class FilesAuthorizationContributorTests
         CollectionAssert.AreEqual(
             new[]
             {
+                HostFilePermissions.ReferencesRead,
                 HostFilePermissions.Delete,
                 HostFilePermissions.Download,
                 HostFilePermissions.Read,
+                HostFilePermissions.Update,
                 HostFilePermissions.Upload,
+                HostFolderPermissions.Create,
+                HostFolderPermissions.Delete,
+                HostFolderPermissions.Update,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
@@ -31,7 +36,12 @@ public sealed class FilesAuthorizationContributorTests
             {
                 HostFilePermissions.Upload,
                 HostFilePermissions.Download,
+                HostFilePermissions.Update,
+                HostFilePermissions.ReferencesRead,
                 HostFilePermissions.Delete,
+                HostFolderPermissions.Create,
+                HostFolderPermissions.Update,
+                HostFolderPermissions.Delete,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-files")

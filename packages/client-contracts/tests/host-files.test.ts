@@ -13,7 +13,11 @@ describe('host-files contracts', () => {
     sizeBytes: 12,
     contentHash: 'a'.repeat(64),
     createdAtUtc: '2026-07-26T00:00:00Z',
-    createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
+    createdByUserId: '01912345-6789-7abc-8def-0123456789ac',
+    folderId: null,
+    revision: 0,
+    updatedAtUtc: null,
+    updatedByUserId: null
   };
 
   it('accepts valid host file payloads', () => {

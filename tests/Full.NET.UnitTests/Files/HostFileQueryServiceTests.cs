@@ -18,7 +18,7 @@ public sealed class HostFileQueryServiceTests
                 Provider = DatabaseProvider.SqlServer,
             }));
 
-        _ = await service.ListAsync(int.MaxValue, 100);
+        _ = await service.ListAsync(int.MaxValue, 100, HostFileListFilter.All);
 
         var offset = ReadSqlParameter<long>(queryExecutor.Parameters, "Offset");
         Assert.IsInstanceOfType<long>(offset);

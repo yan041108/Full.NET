@@ -155,7 +155,11 @@ public sealed class HostFileReferenceClaimServiceTests
                 $"host/{fileId:N}",
                 "abc",
                 DateTimeOffset.UtcNow,
-                Guid.CreateVersion7()));
+                Guid.CreateVersion7(),
+                null,
+                0L,
+                null,
+                null));
         var commandExecutor = Substitute.For<ICommandExecutor>();
         commandExecutor.ExecuteAsync(
                 HostFileReferenceClaimSql.InsertPending,
