@@ -46,6 +46,25 @@ public sealed class SelfServiceProfileServiceTests
     }
 
     [TestMethod]
+    public async Task Get_returns_avatar_and_signature_file_ids()
+    {
+        var avatarId = Guid.CreateVersion7();
+        var signatureId = Guid.CreateVersion7();
+        var query = new TestQueryExecutor
+        {
+            User = CreateUser(),
+            Profile = CreateProfile(avatarFileId: avatarId, signatureFileId: signatureId),
+        };
+        var service = CreateService(query, Substitute.For<ICommandExecutor>());
+
+        var result = await service.GetAsync(UserId, "host", default);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(avatarId, result.Value!.AvatarFileId);
+        Assert.AreEqual(signatureId, result.Value.SignatureFileId);
+    }
+
+    [TestMethod]
     public async Task Update_rejects_read_only_profile_field_keys()
     {
         var query = new TestQueryExecutor
@@ -167,7 +186,10 @@ public sealed class SelfServiceProfileServiceTests
         Version = version,
     };
 
-    private static HostUserProfileRecord CreateProfile(string? phoneNumber = null) => new()
+    private static HostUserProfileRecord CreateProfile(
+        string? phoneNumber = null,
+        Guid? avatarFileId = null,
+        Guid? signatureFileId = null) => new()
     {
         UserId = UserId,
         Nickname = "昵称",
@@ -175,6 +197,8 @@ public sealed class SelfServiceProfileServiceTests
         Email = "demo@example.com",
         SortOrder = 100,
         Version = 1,
+        AvatarFileId = avatarFileId,
+        SignatureFileId = signatureFileId,
     };
 
     private sealed class TestQueryExecutor : IQueryExecutor

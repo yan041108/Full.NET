@@ -37,6 +37,8 @@
   <data name="identity.password_change_required" xml:space="preserve"><value>The current account must change its password before accessing this resource.</value></data>
   <data name="identity.self_service_profile.host_only" xml:space="preserve"><value>Self-service profile maintenance is only available in the host actor scope.</value></data>
   <data name="identity.self_service_profile.read_only_field_rejected" xml:space="preserve"><value>The profile update includes read-only sensitive or internal fields.</value></data>
+  <data name="identity.self_service_profile.media_invalid" xml:space="preserve"><value>The uploaded avatar or signature file type or size is not allowed.</value></data>
+  <data name="identity.self_service_profile.media_not_found" xml:space="preserve"><value>The requested profile media file is not available.</value></data>
   <data name="identity.users.super_administrator_import_rejected" xml:space="preserve"><value>Importing a super administrator is not allowed.</value></data>
   <data name="identity.roles.code_exists" xml:space="preserve"><value>A host role with this code already exists.</value></data>
   <data name="identity.roles.not_found" xml:space="preserve"><value>The host role was not found.</value></data>

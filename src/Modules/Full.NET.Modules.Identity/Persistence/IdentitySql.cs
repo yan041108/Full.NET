@@ -1220,7 +1220,7 @@ internal static class IdentitySql
                JoinDateUtc, SortOrder, IdCardType, IdCardNumber, BirthDate,
                Ethnicity, Address, GraduatedSchool, EducationLevel, PoliticalStatus,
                OfficePhone, EmergencyContact, EmergencyContactRelation, EmergencyContactPhone,
-               EmergencyContactAddress, Remark, Version
+               EmergencyContactAddress, Remark, AvatarFileId, SignatureFileId, Version
         FROM fn_identity_user_profile
         WHERE UserId IN @UserIds
         """,
@@ -1320,6 +1320,90 @@ internal static class IdentitySql
             Version = Version + 1
         WHERE UserId = @UserId
           AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostUserProfileAvatar = new(
+        "identity.update_host_user_profile_avatar",
+        """
+        UPDATE fn_identity_user_profile
+        SET AvatarFileId = @AvatarFileId,
+            Version = Version + 1
+        WHERE UserId = @UserId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateHostUserProfileSignature = new(
+        "identity.update_host_user_profile_signature",
+        """
+        UPDATE fn_identity_user_profile
+        SET SignatureFileId = @SignatureFileId,
+            Version = Version + 1
+        WHERE UserId = @UserId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ClearHostUserProfileAvatar = new(
+        "identity.clear_host_user_profile_avatar",
+        """
+        UPDATE fn_identity_user_profile
+        SET AvatarFileId = NULL,
+            Version = Version + 1
+        WHERE UserId = @UserId
+          AND AvatarFileId IS NOT NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ClearHostUserProfileSignature = new(
+        "identity.clear_host_user_profile_signature",
+        """
+        UPDATE fn_identity_user_profile
+        SET SignatureFileId = NULL,
+            Version = Version + 1
+        WHERE UserId = @UserId
+          AND SignatureFileId IS NOT NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement InsertHostUserProfileMediaShell = new(
+        "identity.insert_host_user_profile_media_shell",
+        """
+        INSERT INTO fn_identity_user_profile
+            (UserId, SortOrder, AvatarFileId, SignatureFileId, Version)
+        VALUES
+            (@UserId, 100, @AvatarFileId, @SignatureFileId, 1)
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement IsHostUserProfileFileReferenced = new(
+        "identity.is_host_user_profile_file_referenced",
+        """
+        SELECT CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM fn_identity_user_profile
+                WHERE AvatarFileId = @FileId OR SignatureFileId = @FileId) THEN 1
+            ELSE 0
+        END
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement HostUserProfileMediaExists = new(
+        "identity.host_user_profile_media_exists",
+        """
+        SELECT CASE
+            WHEN @Kind = 'avatar'
+                 AND EXISTS (
+                     SELECT 1
+                     FROM fn_identity_user_profile
+                     WHERE UserId = @UserId AND AvatarFileId = @FileId) THEN 1
+            WHEN @Kind = 'signature'
+                 AND EXISTS (
+                     SELECT 1
+                     FROM fn_identity_user_profile
+                     WHERE UserId = @UserId AND SignatureFileId = @FileId) THEN 1
+            ELSE 0
+        END
         """,
         SqlDataScope.HostOnly);
 

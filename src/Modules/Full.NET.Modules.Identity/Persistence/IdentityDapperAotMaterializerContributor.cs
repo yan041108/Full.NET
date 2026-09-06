@@ -207,6 +207,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             EmergencyContactPhone = ReadOptionalStringByName(reader, "EmergencyContactPhone"),
             EmergencyContactAddress = ReadOptionalStringByName(reader, "EmergencyContactAddress"),
             Remark = ReadOptionalStringByName(reader, "Remark"),
+            AvatarFileId = ReadOptionalGuidByName(reader, "AvatarFileId"),
+            SignatureFileId = ReadOptionalGuidByName(reader, "SignatureFileId"),
             Version = ReadInt32ByName(reader, "Version"),
         };
 
@@ -600,6 +602,16 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
 
     private static Guid ReadGuidByName(DbDataReader reader, string name) =>
         reader.GetGuid(RequiredOrdinal(reader, name));
+
+    private static Guid? ReadOptionalGuidByName(DbDataReader reader, string name)
+    {
+        if (!TryOrdinal(reader, name, out var ordinal) || reader.IsDBNull(ordinal))
+        {
+            return null;
+        }
+
+        return reader.GetGuid(ordinal);
+    }
 
     private static string ReadStringByName(DbDataReader reader, string name) =>
         reader.GetString(RequiredOrdinal(reader, name));

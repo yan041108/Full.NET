@@ -7,6 +7,7 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.DependencyInjection;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Bootstrap;
@@ -122,6 +123,7 @@ public sealed class IdentityModule : IFullNetModule
         Features.ChangePassword.Endpoint.Map(endpoints);
         Features.SelfServiceProfile.GetEndpoint.Map(endpoints);
         Features.SelfServiceProfile.UpdateEndpoint.Map(endpoints);
+        Features.SelfServiceProfile.MediaEndpoints.Map(endpoints);
         Features.GetNavigation.Endpoint.Map(endpoints);
         Features.GetAuthorizationTree.Endpoint.Map(endpoints);
         Features.ManageSuperAdministrators.Endpoint.Map(endpoints);
@@ -168,6 +170,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventSubscription,
             OrganizationUnitChangedKafkaSubscription>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            Features.HostFileReferences.IdentityUserProfileMediaReferenceProbe>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IIntegrationEventHandlerRegistry,
             global::Full.NET.Generated.IntegrationEventHandlerRegistry>());

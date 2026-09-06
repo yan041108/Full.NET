@@ -8,6 +8,8 @@ namespace Full.NET.Modules.Identity.Contracts;
 /// <param name="UserVersion">账号快照并发版本，用于展示名称更新。</param>
 /// <param name="ReadableFieldKeys">按角色字段投影裁剪后可读的档案字段键。</param>
 /// <param name="WritableFieldKeys">自助场景允许写入的档案字段键；敏感揭示字段与 HR 内部字段已排除。</param>
+/// <param name="AvatarFileId">头像文件标识；未设置时为 <see langword="null"/>。</param>
+/// <param name="SignatureFileId">签名文件标识；未设置时为 <see langword="null"/>。</param>
 /// <param name="Profile">扩展档案；无可读档案字段时为 <see langword="null"/>。</param>
 public sealed record SelfServiceProfileResponse(
     Guid UserId,
@@ -17,6 +19,8 @@ public sealed record SelfServiceProfileResponse(
     int UserVersion,
     IReadOnlyList<string> ReadableFieldKeys,
     IReadOnlyList<string> WritableFieldKeys,
+    Guid? AvatarFileId,
+    Guid? SignatureFileId,
     HostUserProfileResponse? Profile);
 
 /// <summary>当前用户自助档案更新请求。</summary>

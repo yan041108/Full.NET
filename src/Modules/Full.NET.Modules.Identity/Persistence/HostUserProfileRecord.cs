@@ -5,6 +5,10 @@ internal sealed class HostUserProfileRecord
 {
     public Guid UserId { get; set; }
 
+    public Guid? AvatarFileId { get; set; }
+
+    public Guid? SignatureFileId { get; set; }
+
     public string? Nickname { get; set; }
 
     public string? PhoneNumber { get; set; }

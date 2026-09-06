@@ -67,6 +67,8 @@ internal sealed class SelfServiceProfileService(
             user.Version,
             readableFieldKeys,
             writableFieldKeys,
+            profileRecord?.AvatarFileId,
+            profileRecord?.SignatureFileId,
             profile));
     }
 

@@ -15,9 +15,15 @@ export { readCsrfHeaders } from './csrf.js';
 export { changePassword } from './change-password.js';
 
 export {
+  deleteSelfServiceAvatar,
+  deleteSelfServiceSignature,
+  downloadSelfServiceAvatarContent,
+  downloadSelfServiceSignatureContent,
   getSelfServiceProfile,
   isSelfServiceProfileResponse,
-  updateSelfServiceProfile
+  updateSelfServiceProfile,
+  uploadSelfServiceAvatar,
+  uploadSelfServiceSignature
 } from './self-service-profile.js';
 
 export type {

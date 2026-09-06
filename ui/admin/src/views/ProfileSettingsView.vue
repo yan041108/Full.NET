@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import {
   ElButton,
   ElCard,
@@ -16,7 +16,16 @@ import {
   isMaskedHostUserPhoneNumber,
   type HostUserProfileWriteRequest
 } from '@fullnet/client-contracts';
-import { getSelfServiceProfile, updateSelfServiceProfile } from '../api/me';
+import {
+  fetchProfileAvatarBlob,
+  fetchProfileSignatureBlob,
+  getSelfServiceProfile,
+  removeProfileAvatar,
+  removeProfileSignature,
+  updateSelfServiceProfile,
+  uploadProfileAvatar,
+  uploadProfileSignature
+} from '../api/me';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
   HOST_USER_PROFILE_DICT_CODES,
@@ -29,6 +38,14 @@ defineOptions({ name: 'ProfileSettingsView' });
 const { t } = useAdminI18n();
 const loading = ref(false);
 const saving = ref(false);
+const uploadingAvatar = ref(false);
+const uploadingSignature = ref(false);
+const removingAvatar = ref(false);
+const removingSignature = ref(false);
+const avatarFileId = ref<string | null>(null);
+const signatureFileId = ref<string | null>(null);
+const avatarPreviewUrl = ref<string | null>(null);
+const signaturePreviewUrl = ref<string | null>(null);
 const username = ref('');
 const displayName = ref('');
 const userVersion = ref(0);
@@ -65,7 +82,116 @@ const profileDictOptions = ref<Record<string, HostUserProfileDictOption[]>>({
   [HOST_USER_PROFILE_DICT_CODES.emergencyContactRelation]: []
 });
 
-const canEditDisplayName = computed(() => true);
+function revokePreview(url: string | null): void {
+  if (url) {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function refreshMediaPreviews(): Promise<void> {
+  revokePreview(avatarPreviewUrl.value);
+  revokePreview(signaturePreviewUrl.value);
+  avatarPreviewUrl.value = null;
+  signaturePreviewUrl.value = null;
+
+  if (avatarFileId.value) {
+    try {
+      const blob = await fetchProfileAvatarBlob();
+      avatarPreviewUrl.value = URL.createObjectURL(blob);
+    } catch {
+      avatarPreviewUrl.value = null;
+    }
+  }
+
+  if (signatureFileId.value) {
+    try {
+      const blob = await fetchProfileSignatureBlob();
+      signaturePreviewUrl.value = URL.createObjectURL(blob);
+    } catch {
+      signaturePreviewUrl.value = null;
+    }
+  }
+}
+
+async function handleAvatarSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) {
+    return;
+  }
+
+  uploadingAvatar.value = true;
+  try {
+    const response = await uploadProfileAvatar(file);
+    avatarFileId.value = response.avatarFileId;
+    signatureFileId.value = response.signatureFileId;
+    await refreshMediaPreviews();
+    ElMessage.success(t('profileSettings.avatarUploadSuccess'));
+  } catch (error: unknown) {
+    if (isFullNetProblemDetails(error)) {
+      ElMessage.error(error.title || error.detail || t('profileSettings.avatarUploadFailed'));
+      return;
+    }
+    ElMessage.error(t('profileSettings.avatarUploadFailed'));
+  } finally {
+    uploadingAvatar.value = false;
+  }
+}
+
+async function handleSignatureSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) {
+    return;
+  }
+
+  uploadingSignature.value = true;
+  try {
+    const response = await uploadProfileSignature(file);
+    avatarFileId.value = response.avatarFileId;
+    signatureFileId.value = response.signatureFileId;
+    await refreshMediaPreviews();
+    ElMessage.success(t('profileSettings.signatureUploadSuccess'));
+  } catch (error: unknown) {
+    if (isFullNetProblemDetails(error)) {
+      ElMessage.error(error.title || error.detail || t('profileSettings.signatureUploadFailed'));
+      return;
+    }
+    ElMessage.error(t('profileSettings.signatureUploadFailed'));
+  } finally {
+    uploadingSignature.value = false;
+  }
+}
+
+async function removeAvatar(): Promise<void> {
+  removingAvatar.value = true;
+  try {
+    const response = await removeProfileAvatar();
+    avatarFileId.value = response.avatarFileId;
+    await refreshMediaPreviews();
+    ElMessage.success(t('profileSettings.avatarRemoveSuccess'));
+  } catch {
+    ElMessage.error(t('profileSettings.avatarRemoveFailed'));
+  } finally {
+    removingAvatar.value = false;
+  }
+}
+
+async function removeSignature(): Promise<void> {
+  removingSignature.value = true;
+  try {
+    const response = await removeProfileSignature();
+    signatureFileId.value = response.signatureFileId;
+    await refreshMediaPreviews();
+    ElMessage.success(t('profileSettings.signatureRemoveSuccess'));
+  } catch {
+    ElMessage.error(t('profileSettings.signatureRemoveFailed'));
+  } finally {
+    removingSignature.value = false;
+  }
+}
 const hasWritableProfileFields = computed(() => writableFieldKeys.value.length > 0);
 
 function hasField(fieldKey: string, writable = false): boolean {
@@ -108,9 +234,12 @@ async function loadProfile(): Promise<void> {
     userVersion.value = response.userVersion;
     readableFieldKeys.value = [...response.readableFieldKeys];
     writableFieldKeys.value = [...response.writableFieldKeys];
+    avatarFileId.value = response.avatarFileId;
+    signatureFileId.value = response.signatureFileId;
     if (response.profile) {
       assignProfile(response.profile);
     }
+    await refreshMediaPreviews();
   } catch (error: unknown) {
     if (isFullNetProblemDetails(error)) {
       ElMessage.error(error.title || error.detail || t('profileSettings.loadFailed'));
@@ -205,6 +334,13 @@ onMounted(async () => {
   }
   await loadProfile();
 });
+
+onUnmounted(() => {
+  revokePreview(avatarPreviewUrl.value);
+  revokePreview(signaturePreviewUrl.value);
+});
+
+const canEditDisplayName = computed(() => true);
 </script>
 
 <template>
@@ -217,6 +353,66 @@ onMounted(async () => {
     </header>
 
     <ElCard class="art-card" v-loading="loading">
+      <div class="profile-media-grid">
+        <section class="profile-media-block">
+          <h2>{{ t('profileSettings.avatar') }}</h2>
+          <div class="profile-media-preview" data-testid="profile-settings-avatar-preview">
+            <img v-if="avatarPreviewUrl" :src="avatarPreviewUrl" alt="">
+            <span v-else>{{ t('profileSettings.mediaEmpty') }}</span>
+          </div>
+          <div class="profile-media-actions">
+            <label class="profile-media-upload">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                data-testid="profile-settings-avatar-input"
+                :disabled="uploadingAvatar || removingAvatar"
+                @change="handleAvatarSelected"
+              >
+              <ElButton :loading="uploadingAvatar">{{ t('profileSettings.avatarUpload') }}</ElButton>
+            </label>
+            <ElButton
+              v-if="avatarFileId"
+              plain
+              :loading="removingAvatar"
+              data-testid="profile-settings-avatar-remove"
+              @click="removeAvatar"
+            >
+              {{ t('profileSettings.avatarRemove') }}
+            </ElButton>
+          </div>
+        </section>
+
+        <section class="profile-media-block">
+          <h2>{{ t('profileSettings.signature') }}</h2>
+          <div class="profile-media-preview" data-testid="profile-settings-signature-preview">
+            <img v-if="signaturePreviewUrl" :src="signaturePreviewUrl" alt="">
+            <span v-else>{{ t('profileSettings.mediaEmpty') }}</span>
+          </div>
+          <div class="profile-media-actions">
+            <label class="profile-media-upload">
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                data-testid="profile-settings-signature-input"
+                :disabled="uploadingSignature || removingSignature"
+                @change="handleSignatureSelected"
+              >
+              <ElButton :loading="uploadingSignature">{{ t('profileSettings.signatureUpload') }}</ElButton>
+            </label>
+            <ElButton
+              v-if="signatureFileId"
+              plain
+              :loading="removingSignature"
+              data-testid="profile-settings-signature-remove"
+              @click="removeSignature"
+            >
+              {{ t('profileSettings.signatureRemove') }}
+            </ElButton>
+          </div>
+        </section>
+      </div>
+
       <ElForm label-position="top" @submit.prevent="submit">
         <ElFormItem :label="t('profileSettings.username')">
           <ElInput :model-value="username" disabled data-testid="profile-settings-username" />
@@ -329,6 +525,47 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.profile-media-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 24px;
+}
+
+.profile-media-block h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.profile-media-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  margin-bottom: 12px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  overflow: hidden;
+}
+
+.profile-media-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+.profile-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-media-upload input {
+  display: none;
+}
+
 .art-field-hint {
   display: block;
   margin-top: 6px;

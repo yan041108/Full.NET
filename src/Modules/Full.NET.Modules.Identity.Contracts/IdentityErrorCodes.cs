@@ -252,6 +252,14 @@ public static class IdentityErrorCodes
     public const string SelfServiceProfileReadOnlyFieldRejected =
         "identity.self_service_profile.read_only_field_rejected";
 
+    /// <summary>自助资料媒体文件类型或体积不符合策略。</summary>
+    public const string SelfServiceProfileMediaInvalid =
+        "identity.self_service_profile.media_invalid";
+
+    /// <summary>自助资料媒体文件不存在或未绑定到当前用户。</summary>
+    public const string SelfServiceProfileMediaNotFound =
+        "identity.self_service_profile.media_not_found";
+
     /// <summary>新密码与当前密码相同。</summary>
     public const string NewPasswordSameAsCurrent = "identity.password.same_as_current";
 
@@ -347,6 +355,8 @@ public static class IdentityErrorCodes
         CurrentPasswordInvalid,
         SelfServiceProfileHostOnly,
         SelfServiceProfileReadOnlyFieldRejected,
+        SelfServiceProfileMediaInvalid,
+        SelfServiceProfileMediaNotFound,
         NewPasswordSameAsCurrent,
         UserPhoneNumberExists,
         UserEmailExists,

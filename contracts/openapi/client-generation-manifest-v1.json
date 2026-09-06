@@ -560,6 +560,42 @@
       "status": "generated"
     },
     {
+      "operationId": "identityUploadSelfServiceAvatar",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityDeleteSelfServiceAvatar",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityGetSelfServiceAvatarContent",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityUploadSelfServiceSignature",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityDeleteSelfServiceSignature",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityGetSelfServiceSignatureContent",
+      "apiModule": "ui/admin/src/api/me.ts",
+      "generatedGroup": "identity-me",
+      "status": "generated"
+    },
+    {
       "operationId": "identityGetTotpEnrollmentStatus",
       "apiModule": "ui/admin/src/api/totpEnrollment.ts",
       "generatedGroup": "identity-totp-enrollment",

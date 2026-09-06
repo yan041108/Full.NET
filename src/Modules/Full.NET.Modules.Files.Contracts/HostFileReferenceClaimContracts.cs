@@ -10,6 +10,9 @@ public static class HostFileReferenceClaimConsumerModules
 
     /// <summary>Workflow 模块消费者；用于表单提交附件的 claim 生命周期。</summary>
     public const string Workflow = "workflow";
+
+    /// <summary>Identity 模块消费者；用于用户头像与签名的 claim 生命周期。</summary>
+    public const string Identity = "identity";
 }
 
 /// <summary>引用 claim 状态机。</summary>
@@ -45,6 +48,18 @@ public static class HostFileReferenceClaimIdempotencyKeys
     /// <returns>形如 "workflow-form-submission-attachment:{submissionId}:{fileId}" 的幂等键。</returns>
     public static string WorkflowFormSubmissionAttachment(Guid submissionId, Guid fileId) =>
         $"workflow-form-submission-attachment:{submissionId:D}:{fileId:D}";
+
+    /// <summary>为 Identity 用户头像生成稳定幂等键。</summary>
+    /// <param name="userId">Host 用户标识。</param>
+    /// <param name="fileId">头像文件标识。</param>
+    public static string IdentityUserAvatar(Guid userId, Guid fileId) =>
+        $"identity-user-avatar:{userId:D}:{fileId:D}";
+
+    /// <summary>为 Identity 用户签名生成稳定幂等键。</summary>
+    /// <param name="userId">Host 用户标识。</param>
+    /// <param name="fileId">签名文件标识。</param>
+    public static string IdentityUserSignature(Guid userId, Guid fileId) =>
+        $"identity-user-signature:{userId:D}:{fileId:D}";
 }
 
 /// <summary>

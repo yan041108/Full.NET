@@ -14,6 +14,7 @@ using Full.NET.Modules.Identity.Features.ManageHostRoles;
 using Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Features.SelfServiceProfile;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Http;
@@ -45,7 +46,14 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostUserManagementService>();
         services.TryAddScoped<HostUserSensitiveFieldRevealService>();
         services.TryAddScoped<HostUserLoginLockoutUnlockService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileRetentionContributor,
+            Features.HostFileReferences.IdentityHostFileRetentionContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            Features.HostFileReferences.IdentityUserProfileMediaReferenceProbe>());
         services.TryAddScoped<SelfServiceProfileService>();
+        services.TryAddScoped<SelfServiceProfileMediaService>();
         services.TryAddScoped<HostUserRolesService>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();

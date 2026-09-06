@@ -8,6 +8,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Localization;
 using Full.NET.Messaging.Abstractions;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
@@ -400,7 +401,17 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserLoginLockoutUnlockService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IHostFileRetentionContributor,
+            IdentityFeatures.HostFileReferences.IdentityHostFileRetentionContributor>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IHostFileReferenceClaimProbe,
+            IdentityFeatures.HostFileReferences.IdentityUserProfileMediaReferenceProbe>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityFeatures.SelfServiceProfile.SelfServiceProfileService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.SelfServiceProfile.SelfServiceProfileMediaService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserRolesService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleQueryService>(ServiceLifetime.Scoped),

@@ -4,8 +4,14 @@ import {
   type CurrentUserResponse
 } from '@fullnet/client-contracts';
 import {
+  deleteSelfServiceAvatar,
+  deleteSelfServiceSignature,
+  downloadSelfServiceAvatarContent,
+  downloadSelfServiceSignatureContent,
   getSelfServiceProfile as getSelfServiceProfileRequest,
   updateSelfServiceProfile as updateSelfServiceProfileRequest,
+  uploadSelfServiceAvatar,
+  uploadSelfServiceSignature,
   type SelfServiceProfileResponse,
   type UpdateSelfServiceProfileRequest
 } from '@fullnet/client-contracts';
@@ -37,6 +43,40 @@ export async function updateSelfServiceProfile(
   signal?: AbortSignal
 ): Promise<SelfServiceProfileResponse> {
   return updateSelfServiceProfileRequest(http, request, signal);
+}
+
+export async function uploadProfileAvatar(
+  file: File,
+  signal?: AbortSignal
+): Promise<SelfServiceProfileResponse> {
+  return uploadSelfServiceAvatar(http, file, signal);
+}
+
+export async function uploadProfileSignature(
+  file: File,
+  signal?: AbortSignal
+): Promise<SelfServiceProfileResponse> {
+  return uploadSelfServiceSignature(http, file, signal);
+}
+
+export async function removeProfileAvatar(
+  signal?: AbortSignal
+): Promise<SelfServiceProfileResponse> {
+  return deleteSelfServiceAvatar(http, signal);
+}
+
+export async function removeProfileSignature(
+  signal?: AbortSignal
+): Promise<SelfServiceProfileResponse> {
+  return deleteSelfServiceSignature(http, signal);
+}
+
+export async function fetchProfileAvatarBlob(signal?: AbortSignal): Promise<Blob> {
+  return downloadSelfServiceAvatarContent(http, signal);
+}
+
+export async function fetchProfileSignatureBlob(signal?: AbortSignal): Promise<Blob> {
+  return downloadSelfServiceSignatureContent(http, signal);
 }
 
 /** 导出当前用户快照模型，供会话恢复、壳层渲染与权限初始化共享同一契约。 */
