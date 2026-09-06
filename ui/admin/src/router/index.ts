@@ -292,6 +292,11 @@ export function createAppRouter(
         component: () => import('../views/MyReleaseNotesView.vue')
       },
       {
+        name: 'backup-executor',
+        path: '/platform/backup-executor',
+        component: () => import('../views/BackupExecutorView.vue')
+      },
+      {
         name: 'administrative-regions',
         path: '/regions/administrative-regions',
         component: () => import('../views/AdministrativeRegionsView.vue')

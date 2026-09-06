@@ -46,6 +46,12 @@ public sealed class PlatformModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostReleaseNotes.HostReleaseNoteManagementService>();
         services.TryAddScoped<Features.ManageMyReleaseNotes.MyReleaseNoteQueryService>();
         services.TryAddScoped<Features.ManageMyReleaseNotes.MyReleaseNoteManagementService>();
+        services.Configure<Configuration.PlatformBackupExecutorOptions>(
+            configuration.GetSection(Configuration.PlatformBackupExecutorOptions.SectionName));
+        services.TryAddScoped<Features.ManageBackupExecutor.BackupExecutorStatusService>();
+        services.TryAddScoped<Features.ManageBackupExecutor.BackupTaskQueryService>();
+        services.TryAddScoped<Features.ManageBackupExecutor.BackupRunQueryService>();
+        services.TryAddScoped<Features.ManageBackupExecutor.BackupRunArtifactService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -62,5 +68,6 @@ public sealed class PlatformModule : IFullNetModule
     {
         Features.ManageHostReleaseNotes.Endpoint.Map(endpoints);
         Features.ManageMyReleaseNotes.Endpoint.Map(endpoints);
+        Features.ManageBackupExecutor.Endpoint.Map(endpoints);
     }
 }

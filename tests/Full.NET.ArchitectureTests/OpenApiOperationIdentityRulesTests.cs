@@ -69,6 +69,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string CalendarMyPersonalSchedulesTag = "CalendarMyPersonalSchedules";
     private const string PlatformHostReleaseNotesTag = "PlatformHostReleaseNotes";
     private const string PlatformMyReleaseNotesTag = "PlatformMyReleaseNotes";
+    private const string PlatformBackupExecutorTag = "PlatformBackupExecutor";
     private const string RegionsAdministrativeRegionsTag = "RegionsAdministrativeRegions";
     private const string NotificationsHostAnnouncementsTag = "NotificationsHostAnnouncements";
     private const string NotificationsMyHostAnnouncementsTag = "NotificationsMyHostAnnouncements";
@@ -487,6 +488,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/platform/my-release-notes", "platformListMyReleaseNotes", PlatformMyReleaseNotesTag),
         new("GET", "/api/v1/platform/my-release-notes/latest-unread", "platformGetLatestUnreadReleaseNote", PlatformMyReleaseNotesTag),
         new("POST", "/api/v1/platform/my-release-notes/{releaseNoteId}/read", "platformMarkMyReleaseNoteRead", PlatformMyReleaseNotesTag),
+        new("GET", "/api/v1/platform/backup-executor/status", "platformGetBackupExecutorStatus", PlatformBackupExecutorTag),
+        new("GET", "/api/v1/platform/backup-executor/tasks", "platformListBackupTasks", PlatformBackupExecutorTag),
+        new("GET", "/api/v1/platform/backup-executor/tasks/{taskId}", "platformGetBackupTask", PlatformBackupExecutorTag),
+        new("GET", "/api/v1/platform/backup-executor/runs", "platformListBackupRuns", PlatformBackupExecutorTag),
+        new("GET", "/api/v1/platform/backup-executor/runs/{runId}", "platformGetBackupRun", PlatformBackupExecutorTag),
+        new("GET", "/api/v1/platform/backup-executor/runs/{runId}/download", "platformDownloadBackupRunArtifact", PlatformBackupExecutorTag),
         new("GET", "/api/v1/regions/administrative-regions/children", "regionsListAdministrativeRegionChildren", RegionsAdministrativeRegionsTag),
         new("GET", "/api/v1/regions/administrative-regions/tree", "regionsGetAdministrativeRegionTree", RegionsAdministrativeRegionsTag),
         new("GET", "/api/v1/regions/administrative-regions", "regionsListAdministrativeRegions", RegionsAdministrativeRegionsTag),

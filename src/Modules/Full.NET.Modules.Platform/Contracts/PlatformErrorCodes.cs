@@ -25,4 +25,13 @@ public static class PlatformErrorCodes
 
     /// <summary>版本标签格式无效或超出允许范围。</summary>
     public const string ReleaseNoteInvalidVersionLabel = "platform.release_note_invalid_version_label";
+
+    /// <summary>授权备份任务未找到。</summary>
+    public const string BackupTaskNotFound = "platform.backup_task_not_found";
+
+    /// <summary>授权备份运行未找到。</summary>
+    public const string BackupRunNotFound = "platform.backup_run_not_found";
+
+    /// <summary>授权备份产物不满足受控下载条件。</summary>
+    public const string BackupRunDownloadUnavailable = "platform.backup_run_download_unavailable";
 }

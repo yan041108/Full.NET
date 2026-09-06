@@ -568,6 +568,21 @@ export type {
 } from './host-release-notes.js';
 
 export {
+  isPlatformBackupExecutorStatus,
+  isPlatformBackupRun,
+  isPlatformBackupRunPage,
+  isPlatformBackupTask
+} from './platform-backup-executor.js';
+
+export type {
+  PlatformBackupExecutorStatus,
+  PlatformBackupRun,
+  PlatformBackupRunListQuery,
+  PlatformBackupRunPage,
+  PlatformBackupTask
+} from './platform-backup-executor.js';
+
+export {
   isMyReleaseNote,
   isMyReleaseNotePage
 } from './my-release-notes.js';

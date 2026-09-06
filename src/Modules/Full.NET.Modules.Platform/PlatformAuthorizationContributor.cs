@@ -47,6 +47,18 @@ internal sealed class PlatformAuthorizationContributor
             PlatformPermissions.MarkRead,
             "标记更新日志已读",
             PlatformScopes),
+        new PermissionDefinition(
+            PlatformPermissions.BackupTasksRead,
+            "查询授权备份任务目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            PlatformPermissions.BackupRunsRead,
+            "查询授权备份运行结果",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            PlatformPermissions.BackupRunsDownload,
+            "下载授权备份产物",
+            AuthorizationScope.Host),
     ];
 
     /// <summary>Platform 模块导航定义。</summary>
@@ -74,6 +86,17 @@ internal sealed class PlatformAuthorizationContributor
             "platform",
             66,
             PlatformPermissions.Read),
+        new NavigationDefinition(
+            "backup-executor",
+            null,
+            "backup-executor",
+            "/platform/backup-executor",
+            "backup-executor",
+            "授权备份",
+            "Authorized Backup",
+            "platform",
+            67,
+            PlatformPermissions.BackupTasksRead),
     ];
 
     /// <summary>Platform 模块页面操作定义。</summary>

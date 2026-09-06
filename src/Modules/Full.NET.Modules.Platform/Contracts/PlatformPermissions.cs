@@ -25,4 +25,13 @@ public static class PlatformPermissions
 
     /// <summary>允许将已发布更新日志标记为已读。</summary>
     public const string MarkRead = "platform.release_notes.mark_read";
+
+    /// <summary>允许查询授权备份任务目录。</summary>
+    public const string BackupTasksRead = "platform.backup_tasks.read";
+
+    /// <summary>允许查询授权备份运行结果。</summary>
+    public const string BackupRunsRead = "platform.backup_runs.read";
+
+    /// <summary>允许受控下载已成功备份产物。</summary>
+    public const string BackupRunsDownload = "platform.backup_runs.download";
 }

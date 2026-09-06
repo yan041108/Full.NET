@@ -17,6 +17,8 @@ internal sealed class PlatformDapperAotMaterializerContributor
         registrar.Register<ReleaseNoteRecord>(ReadReleaseNoteRecord);
         registrar.Register<ReleaseNoteReadRecord>(ReadReleaseNoteReadRecord);
         registrar.Register<MyReleaseNoteRecord>(ReadMyReleaseNoteRecord);
+        registrar.Register<BackupTaskRecord>(ReadBackupTaskRecord);
+        registrar.Register<BackupRunRecord>(ReadBackupRunRecord);
     }
 
     private static ReleaseNoteRecord ReadReleaseNoteRecord(DbDataReader reader) => new()
@@ -56,6 +58,37 @@ internal sealed class PlatformDapperAotMaterializerContributor
         PublishedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
         IsRead = reader.GetInt32(6) != 0,
         ReadAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 7),
+    };
+
+    private static BackupTaskRecord ReadBackupTaskRecord(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        TaskKey = reader.GetString(1),
+        DisplayName = reader.GetString(2),
+        Description = AotDataReaderExtensions.ReadNullableString(reader, 3),
+        DatabaseProvider = reader.GetString(4),
+        IsEnabled = AotDataReaderExtensions.ReadBoolean(reader, 5),
+        SortOrder = reader.GetInt32(6),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+        UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
+    };
+
+    private static BackupRunRecord ReadBackupRunRecord(DbDataReader reader) => new()
+    {
+        Id = reader.GetGuid(0),
+        TaskId = reader.GetGuid(1),
+        TaskKey = reader.GetString(2),
+        TaskDisplayName = reader.GetString(3),
+        Status = reader.GetString(4),
+        StartedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 5),
+        CompletedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 6),
+        ArtifactFileName = AotDataReaderExtensions.ReadNullableString(reader, 7),
+        ArtifactSizeBytes = reader.IsDBNull(8)
+            ? null
+            : AotDataReaderExtensions.ReadInt64(reader, 8),
+        ArtifactContentType = AotDataReaderExtensions.ReadNullableString(reader, 9),
+        SummaryMessage = AotDataReaderExtensions.ReadNullableString(reader, 10),
+        CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
     };
 }
 #endif

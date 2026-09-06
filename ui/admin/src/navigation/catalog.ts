@@ -216,6 +216,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.hostReleaseNotes.title',
     captionKey: 'navigation.hostReleaseNotes.caption'
   }],
+  ['backup-executor', {
+    titleKey: 'navigation.backupExecutor.title',
+    captionKey: 'navigation.backupExecutor.caption'
+  }],
   ['my-release-notes', {
     titleKey: 'navigation.myReleaseNotes.title',
     captionKey: 'navigation.myReleaseNotes.caption'

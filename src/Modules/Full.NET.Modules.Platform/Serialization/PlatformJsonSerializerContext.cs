@@ -16,5 +16,10 @@ namespace Full.NET.Modules.Platform.Serialization;
 [JsonSerializable(typeof(PublishHostReleaseNoteRequest))]
 [JsonSerializable(typeof(RetractHostReleaseNoteRequest))]
 [JsonSerializable(typeof(UpdateHostReleaseNoteRequest))]
+[JsonSerializable(typeof(BackupTaskResponse))]
+[JsonSerializable(typeof(BackupRunResponse))]
+[JsonSerializable(typeof(BackupExecutorStatusResponse))]
+[JsonSerializable(typeof(IReadOnlyList<BackupTaskResponse>))]
+[JsonSerializable(typeof(PagedResult<BackupRunResponse>))]
 internal partial class PlatformJsonSerializerContext
     : JsonSerializerContext;

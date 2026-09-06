@@ -260,6 +260,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/platform/my-release-notes'
   },
   {
+    componentKey: 'backup-executor',
+    routeName: 'backup-executor',
+    path: '/platform/backup-executor'
+  },
+  {
     componentKey: 'administrative-regions',
     routeName: 'administrative-regions',
     path: '/regions/administrative-regions'
