@@ -142,6 +142,16 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Host_open_access_clients_follow_contract_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+
+        await IdentityOpenAccessClientAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_signature_authentication_follows_contract_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

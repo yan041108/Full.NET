@@ -1,0 +1,120 @@
+{
+  "id": "identity-open-access-clients-v1",
+  "version": 1,
+  "description": "OpenAccess 接入方应用 HTTP 契约冻结夹具；与 IdentityOpenAccessClientContracts 和 ManageOpenAccessClients.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/open-access-clients",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.open_access_clients.read",
+          "successStatus": 200,
+          "responseSchema": "OpenAccessClientResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.open_access_clients.create",
+          "successStatus": 201,
+          "requestSchema": "CreateOpenAccessClientRequest",
+          "responseSchema": "CreateOpenAccessClientResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/open-access-clients/{clientId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.open_access_clients.read",
+          "successStatus": 200,
+          "responseSchema": "OpenAccessClientResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.open_access_clients.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateOpenAccessClientRequest",
+          "responseSchema": "OpenAccessClientResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/open-access-clients/{clientId}/disable",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.open_access_clients.disable",
+          "successStatus": 200,
+          "responseSchema": "OpenAccessClientResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/open-access-clients/{clientId}/rotate",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.open_access_clients.rotate",
+          "successStatus": 200,
+          "responseSchema": "CreateOpenAccessClientResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateOpenAccessClientRequest": {
+      "properties": [
+        "userId",
+        "name",
+        "description",
+        "remark",
+        "permissions",
+        "expiresAtUtc"
+      ]
+    },
+    "UpdateOpenAccessClientRequest": {
+      "properties": [
+        "name",
+        "description",
+        "remark",
+        "permissions",
+        "expiresAtUtc",
+        "version"
+      ]
+    },
+    "OpenAccessClientResponse": {
+      "properties": [
+        "id",
+        "apiKeyId",
+        "userId",
+        "username",
+        "name",
+        "description",
+        "remark",
+        "accessKeyId",
+        "permissions",
+        "expiresAtUtc",
+        "isActive",
+        "lastUsedAtUtc",
+        "createdAtUtc",
+        "version"
+      ]
+    },
+    "CreateOpenAccessClientResponse": {
+      "properties": [
+        "client",
+        "secret"
+      ]
+    },
+    "OpenAccessClientResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "OpenAccessClientResponse"
+    }
+  }
+}

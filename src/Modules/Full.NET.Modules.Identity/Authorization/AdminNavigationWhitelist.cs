@@ -15,6 +15,7 @@ internal static class AdminNavigationWhitelist
             ["users"] = new("users", "/identity/users"),
             ["online-sessions"] = new("online-sessions", "/identity/online-sessions"),
             ["api-keys"] = new("api-keys", "/identity/api-keys"),
+            ["open-access-clients"] = new("open-access-clients", "/identity/open-access-clients"),
             ["modules"] = new("modules", "/identity/modules"),
             ["roles"] = new("roles", "/identity/roles"),
             ["menus"] = new("menus", "/identity/menus"),

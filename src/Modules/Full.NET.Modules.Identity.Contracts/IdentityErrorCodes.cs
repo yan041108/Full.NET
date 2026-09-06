@@ -169,6 +169,12 @@ public static class IdentityErrorCodes
     /// <summary>目标 API Key 不存在或已禁用。</summary>
     public const string ApiKeyNotFound = "identity.api_keys.not_found";
 
+    /// <summary>目标 OpenAccess 接入方应用不存在或已停用。</summary>
+    public const string OpenAccessClientNotFound = "identity.open_access_clients.not_found";
+
+    /// <summary>OpenAccess 接入方应用乐观并发版本冲突。</summary>
+    public const string OpenAccessClientVersionConflict = "identity.open_access_clients.version_conflict";
+
     /// <summary>API Key 权限列表无效。</summary>
     public const string ApiKeyInvalidPermissions = "identity.api_keys.invalid_permissions";
 
@@ -335,6 +341,8 @@ public static class IdentityErrorCodes
         MenuNotFound,
         MenuSystemLocked,
         ApiKeyNotFound,
+        OpenAccessClientNotFound,
+        OpenAccessClientVersionConflict,
         ApiKeyInvalidPermissions,
         ApiKeyUserNotFound,
         ApiKeyUserInactive,

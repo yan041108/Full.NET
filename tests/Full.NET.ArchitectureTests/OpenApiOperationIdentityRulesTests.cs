@@ -27,6 +27,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityHostRolesTag = "IdentityHostRoles";
     private const string IdentityHostMenusTag = "IdentityHostMenus";
     private const string IdentityHostApiKeysTag = "IdentityHostApiKeys";
+    private const string IdentityOpenAccessClientsTag = "IdentityOpenAccessClients";
     private const string IdentityHostOnlineSessionsTag = "IdentityHostOnlineSessions";
     private const string IdentityHostModulesTag = "IdentityHostModules";
     private const string IdentityMeTag = "IdentityMe";
@@ -238,6 +239,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/identity/api-keys", "identityCreateHostApiKey", IdentityHostApiKeysTag),
         new("POST", "/api/v1/identity/api-keys/{apiKeyId}/disable", "identityDisableHostApiKey", IdentityHostApiKeysTag),
         new("POST", "/api/v1/identity/api-keys/{apiKeyId}/rotate", "identityRotateHostApiKey", IdentityHostApiKeysTag),
+        new("GET", "/api/v1/identity/open-access-clients", "identityListOpenAccessClients", IdentityOpenAccessClientsTag),
+        new("GET", "/api/v1/identity/open-access-clients/{clientId}", "identityGetOpenAccessClient", IdentityOpenAccessClientsTag),
+        new("POST", "/api/v1/identity/open-access-clients", "identityCreateOpenAccessClient", IdentityOpenAccessClientsTag),
+        new("PUT", "/api/v1/identity/open-access-clients/{clientId}", "identityUpdateOpenAccessClient", IdentityOpenAccessClientsTag),
+        new("POST", "/api/v1/identity/open-access-clients/{clientId}/disable", "identityDisableOpenAccessClient", IdentityOpenAccessClientsTag),
+        new("POST", "/api/v1/identity/open-access-clients/{clientId}/rotate", "identityRotateOpenAccessClient", IdentityOpenAccessClientsTag),
         new("GET", "/api/v1/identity/session-policy", "identityGetHostSessionPolicy", IdentityHostOnlineSessionsTag),
         new("GET", "/api/v1/identity/online-sessions", "identityListHostOnlineSessions", IdentityHostOnlineSessionsTag),
         new("POST", "/api/v1/identity/online-sessions/users/{userId}/revoke-all", "identityRevokeAllHostUserOnlineSessions", IdentityHostOnlineSessionsTag),

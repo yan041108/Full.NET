@@ -13,6 +13,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/open-access-clients.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-open-access-clients-v1.json",
+      "apiModule": "ui/admin/src/api/open-access-clients.ts",
+      "routePrefixes": [
+        "/api/v1/identity/open-access-clients"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/host-api-keys.ts"
       ],
       "openApiFixture": "contracts/openapi/identity-host-api-keys-v1.json",
@@ -596,6 +606,7 @@
   "consumerModules": [
     { "apiModule": "ui/admin/src/api/access-logs.ts", "consumers": ["ui/admin/src/views/AccessLogsView.vue"] },
     { "apiModule": "ui/admin/src/api/api-keys.ts", "consumers": ["ui/admin/src/views/ApiKeysView.vue"] },
+    { "apiModule": "ui/admin/src/api/open-access-clients.ts", "consumers": ["ui/admin/src/views/OpenAccessClientsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-previews.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-runs.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-templates.ts", "consumers": ["ui/admin/src/views/CodeGenerationTemplatesView.vue", "ui/admin/src/views/CodeGenerationPreviewsView.vue"] },

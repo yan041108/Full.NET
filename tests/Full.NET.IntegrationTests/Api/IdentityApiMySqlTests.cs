@@ -142,6 +142,16 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Host_open_access_clients_follow_contract_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+
+        await IdentityOpenAccessClientAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Host_signature_authentication_follows_contract_with_mysql()
     {
         using var factory = new FullNetApiFactory(

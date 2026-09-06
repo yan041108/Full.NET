@@ -46,6 +46,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<OnlineSessionRevokeRow>(ReadOnlineSessionRevokeRow);
         registrar.Register<ApiKeyListRow>(ReadApiKeyListRow);
         registrar.Register<ApiKeyAuthenticationRow>(ReadApiKeyAuthenticationRow);
+        registrar.Register<OpenAccessClientDetailRow>(ReadOpenAccessClientDetailRow);
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
@@ -407,6 +408,25 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             SecurityStamp = reader.GetString(12),
             UserIsActive = AotDataReaderExtensions.ReadBoolean(reader, 13),
             UserLockoutEndUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 14),
+        };
+
+    private static OpenAccessClientDetailRow ReadOpenAccessClientDetailRow(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            ApiKeyId = reader.GetGuid(1),
+            Name = reader.GetString(2),
+            Description = AotDataReaderExtensions.ReadNullableString(reader, 3),
+            Remark = AotDataReaderExtensions.ReadNullableString(reader, 4),
+            UserId = reader.GetGuid(5),
+            Username = reader.GetString(6),
+            AccessKeyId = reader.GetString(7),
+            PermissionsJson = reader.GetString(8),
+            ExpiresAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 9),
+            IsActive = AotDataReaderExtensions.ReadBoolean(reader, 10),
+            LastUsedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
+            Version = AotDataReaderExtensions.ReadInt32(reader, 13),
         };
 
     private static IdentityUserTotpRecord ReadIdentityUserTotpRecord(DbDataReader reader) =>

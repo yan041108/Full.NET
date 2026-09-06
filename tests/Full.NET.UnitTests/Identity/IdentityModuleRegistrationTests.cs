@@ -22,6 +22,7 @@ using Full.NET.Modules.Identity.Features.GetAuthorizationTree;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
+using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
@@ -443,6 +444,9 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostApiKeyQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostApiKeyManagementService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OpenAccessClientQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OpenAccessClientManagementService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<
             IdentityFeatures.QueryHostModuleCatalog.HostModuleCatalogQueryService>(

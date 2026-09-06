@@ -179,6 +179,26 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 Host API Key",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOpenAccessClientPermissions.Read,
+            "查看 OpenAccess 接入方应用",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOpenAccessClientPermissions.Create,
+            "创建 OpenAccess 接入方应用",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOpenAccessClientPermissions.Update,
+            "更新 OpenAccess 接入方应用",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOpenAccessClientPermissions.Disable,
+            "停用 OpenAccess 接入方应用",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOpenAccessClientPermissions.Rotate,
+            "轮换 OpenAccess 接入方应用密钥",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             ModuleCatalogPermissions.Read,
             "查看官方模块清单",
             AuthorizationScope.Host),
@@ -239,6 +259,17 @@ internal sealed class IdentityAuthorizationContributor
             "key",
             36,
             IdentityApiKeyManagementPermissions.Read),
+        new NavigationDefinition(
+            "open-access-clients",
+            null,
+            "open-access-clients",
+            "/identity/open-access-clients",
+            "open-access-clients",
+            "接入方应用",
+            "OpenAccess Clients",
+            "connection",
+            37,
+            IdentityOpenAccessClientPermissions.Read),
         new NavigationDefinition(
             "modules",
             null,
@@ -490,5 +521,33 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 API Key",
             "rotate",
             30),
+        new AuthorizationActionDefinition(
+            "identity.open_access_clients.create",
+            "open-access-clients",
+            IdentityOpenAccessClientPermissions.Create,
+            "创建接入方应用",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.open_access_clients.update",
+            "open-access-clients",
+            IdentityOpenAccessClientPermissions.Update,
+            "编辑接入方应用",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.open_access_clients.disable",
+            "open-access-clients",
+            IdentityOpenAccessClientPermissions.Disable,
+            "停用接入方应用",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "identity.open_access_clients.rotate",
+            "open-access-clients",
+            IdentityOpenAccessClientPermissions.Rotate,
+            "轮换接入方密钥",
+            "rotate",
+            40),
     ];
 }

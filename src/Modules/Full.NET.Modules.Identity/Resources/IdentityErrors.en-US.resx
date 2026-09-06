@@ -59,6 +59,8 @@
   <data name="identity.api_keys.invalid_permissions" xml:space="preserve"><value>The API key permission list is invalid.</value></data>
   <data name="identity.api_keys.user_not_found" xml:space="preserve"><value>The host user bound to the API key was not found.</value></data>
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>The host user bound to the API key is inactive.</value></data>
+  <data name="identity.open_access_clients.not_found" xml:space="preserve"><value>The OpenAccess client was not found or is disabled.</value></data>
+  <data name="identity.open_access_clients.version_conflict" xml:space="preserve"><value>The OpenAccess client was modified by another request.</value></data>
   <data name="identity.signature.missing_headers" xml:space="preserve"><value>Signature authentication headers are incomplete.</value></data>
   <data name="identity.signature.duplicate_headers" xml:space="preserve"><value>Signature authentication headers are duplicated.</value></data>
   <data name="identity.signature.request_body_too_large" xml:space="preserve"><value>The signed request body exceeds the allowed limit.</value></data>

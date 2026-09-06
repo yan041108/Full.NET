@@ -72,6 +72,11 @@ export function createAppRouter(
         component: () => import('../views/ApiKeysView.vue')
       },
       {
+        name: 'open-access-clients',
+        path: '/identity/open-access-clients',
+        component: () => import('../views/OpenAccessClientsView.vue')
+      },
+      {
         name: 'modules',
         path: '/identity/modules',
         component: () => import('../views/ModuleCatalogView.vue')

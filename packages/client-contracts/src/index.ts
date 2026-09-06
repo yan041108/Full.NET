@@ -254,6 +254,21 @@ export type {
 } from './host-api-keys.js';
 
 export {
+  isCreateOpenAccessClientResult,
+  isOpenAccessClient,
+  isOpenAccessClientPage
+} from './open-access-clients.js';
+
+export type {
+  CreateOpenAccessClientRequest,
+  CreateOpenAccessClientResult,
+  OpenAccessClient,
+  OpenAccessClientListQuery,
+  OpenAccessClientPage,
+  UpdateOpenAccessClientRequest
+} from './open-access-clients.js';
+
+export {
   isHostFile,
   isHostFilePage
 } from './host-files.js';

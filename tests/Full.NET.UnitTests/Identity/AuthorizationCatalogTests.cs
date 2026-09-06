@@ -39,6 +39,11 @@ public sealed class AuthorizationCatalogTests
                 "identity.menus.update",
                 "identity.modules.read",
                 "identity.navigation.read",
+                "identity.open_access_clients.create",
+                "identity.open_access_clients.disable",
+                "identity.open_access_clients.read",
+                "identity.open_access_clients.rotate",
+                "identity.open_access_clients.update",
                 "identity.organization_unit_projections.reconcile_apply",
                 "identity.organization_unit_projections.reconcile_dry_run",
                 "identity.role_field_grants.read",
@@ -329,6 +334,32 @@ public sealed class AuthorizationCatalogTests
             apiKeyActions);
         Assert.IsFalse(catalog.Permissions.Any(
             permission => permission.Code == IdentityApiKeyManagementPermissions.Write));
+    }
+
+    [TestMethod]
+    public void Host_open_access_clients_actions_bind_to_exact_permissions()
+    {
+        var catalog = AuthorizationCatalog.Create(
+            [new IdentityAuthorizationContributor(), new TenancyAuthorizationContributor()]);
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["create"] = "identity.open_access_clients.create",
+            ["update"] = "identity.open_access_clients.update",
+            ["disable"] = "identity.open_access_clients.disable",
+            ["rotate"] = "identity.open_access_clients.rotate",
+        };
+
+        var clientActions = catalog.Actions
+            .Where(action => action.NavigationId == "open-access-clients")
+            .ToDictionary(
+                action => action.ClientActionKey,
+                action => action.PermissionCode,
+                StringComparer.Ordinal);
+
+        CollectionAssert.AreEquivalent(
+            expected,
+            clientActions);
     }
 
     [TestMethod]

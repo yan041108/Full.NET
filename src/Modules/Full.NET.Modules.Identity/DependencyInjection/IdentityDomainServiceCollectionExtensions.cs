@@ -7,6 +7,7 @@ using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.Login;
 using Full.NET.Modules.Identity.Features.ManageHostApiKeys;
+using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
 using Full.NET.Modules.Identity.Features.QueryHostModuleCatalog;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
@@ -72,6 +73,8 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<IdentitySessionRealtimeDelivery>();
         services.TryAddScoped<HostApiKeyQueryService>();
         services.TryAddScoped<HostApiKeyManagementService>();
+        services.TryAddScoped<OpenAccessClientQueryService>();
+        services.TryAddScoped<OpenAccessClientManagementService>();
         services.TryAddScoped<HostModuleCatalogQueryService>();
         services.TryAddScoped<
             Features.GetHostDashboardSummary.HostDashboardQueryService>();
