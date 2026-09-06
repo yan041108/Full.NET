@@ -106,12 +106,19 @@ internal static class PlatformHostDashboardAssertions
         }
 
         Assert.IsNotNull(summary);
+        Assert.IsNotNull(summary.ActiveTenantCount);
         Assert.IsTrue(summary.ActiveTenantCount >= 0);
+        Assert.IsNotNull(summary.OnlineSessionCount);
         Assert.IsTrue(summary.OnlineSessionCount >= 1);
+        Assert.IsNotNull(summary.TodayRequestCount);
         Assert.IsTrue(summary.TodayRequestCount >= 1);
+        Assert.IsNotNull(summary.TodayErrorRate);
         Assert.IsTrue(summary.TodayErrorRate >= 0m && summary.TodayErrorRate <= 1m);
         Assert.IsNotNull(summary.RecentActivities);
         Assert.HasCount(5, summary.RecentActivities);
+        Assert.IsNotNull(summary.AccessTrafficTrend);
+        Assert.IsNotNull(summary.BusinessEntries);
+        Assert.IsTrue(summary.BusinessEntries.Length >= 1);
         Assert.IsFalse(string.IsNullOrWhiteSpace(summary.RecentActivities[0].RequestPath));
         for (var index = 1; index < summary.RecentActivities.Length; index++)
         {

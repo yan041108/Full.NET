@@ -87,6 +87,9 @@ public sealed class WorkflowModule : IFullNetModule
         services.AddScoped<IWorkflowInstanceStarter, WorkflowInstanceStarterAdapter>();
         services.AddScoped<IWorkflowInstanceCanceller, WorkflowInstanceCancellerAdapter>();
         services.AddScoped<WorkflowCcManagementService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostDashboardWorkflowEntryReader,
+            HostDashboard.HostDashboardWorkflowEntryReader>());
 #if FULLNET_AOT_COMPILE
         new Persistence.WorkflowDapperAotMaterializerContributor()
             .RegisterMaterializers(

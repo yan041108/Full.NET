@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElCol, ElRow, ElButton, ElProgress, ElTag } from 'element-plus';
 import {
   DataLine,
@@ -19,6 +20,9 @@ import { getHostDashboardSummary } from '../api/platform-dashboard';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { createTrafficLineOption } from '../framework/art-design/charts/fullNetChartTheme';
 import ArtMetricCard from '../framework/art-design/components/ArtMetricCard.vue';
+import type { HostDashboardBusinessEntry } from '@fullnet/client-contracts';
+
+const router = useRouter();
 
 const FullNetChart = defineAsyncComponent(() =>
   import('../framework/art-design/charts/FullNetChart.vue')
@@ -34,55 +38,79 @@ onMounted(() => {
   void loadDashboard();
 });
 
-const metrics = computed(() => [
-  {
-    label: t('overview.metric.activeTenants'),
-    value: formatNumber(summary.value?.activeTenantCount ?? 0),
-    icon: PieChart
-  },
-  {
-    label: t('overview.metric.onlineUsers'),
-    value: formatNumber(summary.value?.onlineSessionCount ?? 0),
-    icon: User
-  },
-  {
-    label: t('overview.metric.todayRequests'),
-    value: formatNumber(summary.value?.todayRequestCount ?? 0, { notation: 'compact' }),
-    icon: TrendCharts
-  },
-  {
-    label: t('overview.metric.errorRate'),
-    value: formatPercent(summary.value?.todayErrorRate ?? 0, false),
-    icon: DataLine
+const metrics = computed(() => {
+  const items = [];
+  if (summary.value?.activeTenantCount != null) {
+    items.push({
+      label: t('overview.metric.activeTenants'),
+      value: formatNumber(summary.value.activeTenantCount),
+      icon: PieChart
+    });
   }
-]);
+  if (summary.value?.onlineSessionCount != null) {
+    items.push({
+      label: t('overview.metric.onlineUsers'),
+      value: formatNumber(summary.value.onlineSessionCount),
+      icon: User
+    });
+  }
+  if (summary.value?.todayRequestCount != null) {
+    items.push({
+      label: t('overview.metric.todayRequests'),
+      value: formatNumber(summary.value.todayRequestCount, { notation: 'compact' }),
+      icon: TrendCharts
+    });
+  }
+  if (summary.value?.todayErrorRate != null) {
+    items.push({
+      label: t('overview.metric.errorRate'),
+      value: formatPercent(summary.value.todayErrorRate, false),
+      icon: DataLine
+    });
+  }
+  return items;
+});
 
 const activities = computed(() =>
-  (summary.value?.recentActivities ?? []).map((item, index) => ({
+  (summary.value?.recentActivities ?? []).map((item) => ({
     title: `${item.httpMethod} ${item.requestPath}`,
     meta: formatDateTime(item.occurredAtUtc),
     status: item.succeeded ? t('overview.status.success') : t('overview.status.failed')
   }))
 );
 
-const trafficPoints = computed(() => [
-  { label: '00:00', value: 42000 },
-  { label: '03:00', value: 88000 },
-  { label: '06:00', value: 52000 },
-  { label: '09:00', value: 118000 },
-  { label: '12:00', value: 92000 }
-]);
+const trafficPoints = computed(() => {
+  const buckets = summary.value?.accessTrafficTrend?.buckets ?? [];
+  if (buckets.length === 0) {
+    return [];
+  }
+
+  return buckets.map(bucket => ({
+    label: formatBucketLabel(bucket.bucketStartUtc),
+    value: bucket.eventCount
+  }));
+});
 
 const trafficOption = computed(() =>
   createTrafficLineOption(trafficPoints.value, t('overview.trafficAxis'))
 );
 
-const trafficSummary = computed(() =>
-  t('overview.chartSummary', {
+const trafficSummary = computed(() => {
+  if (trafficPoints.value.length === 0) {
+    return '';
+  }
+
+  return t('overview.chartSummary', {
     peak: formatNumber(Math.max(...trafficPoints.value.map(point => point.value)), {
       notation: 'compact'
     })
-  })
+  });
+});
+
+const businessEntries = computed(() => summary.value?.businessEntries ?? []);
+
+const todoCountLabel = computed(() =>
+  t('overview.todoCountLive', { count: businessEntries.value.length })
 );
 
 const chartThemeMode = computed<'light' | 'dark'>(() =>
@@ -117,6 +145,28 @@ function formatDateTime(value: string): string {
     dateStyle: 'short',
     timeStyle: 'short'
   }).format(new Date(value));
+}
+
+function formatBucketLabel(value: string): string {
+  return new Intl.DateTimeFormat(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value));
+}
+
+function resolveBusinessEntryLabel(entry: HostDashboardBusinessEntry): string {
+  switch (entry.entryKey) {
+    case 'workflow.pending_todos':
+      return t('overview.entry.workflowPendingTodos');
+    case 'workflow.my_instances':
+      return t('overview.entry.workflowMyInstances');
+    default:
+      return entry.entryKey;
+  }
+}
+
+function openBusinessEntry(routePath: string): void {
+  void router.push(routePath);
 }
 
 async function loadDashboard(): Promise<void> {
@@ -281,7 +331,10 @@ async function loadCurrentUser(): Promise<void> {
             <button type="button" class="overview__text-action">{{ t('overview.viewAll') }}</button>
           </header>
           <ol class="overview__activity-list">
-            <li v-for="activity in activities" :key="activity.title">
+            <li v-if="activities.length === 0">
+              <span class="overview__activity-empty">{{ t('overview.emptyActivities') }}</span>
+            </li>
+            <li v-for="activity in activities" :key="`${activity.title}-${activity.meta}`">
               <div class="overview__activity-main">
                 <strong>{{ activity.title }}</strong>
                 <small>{{ activity.meta }}</small>
@@ -296,20 +349,20 @@ async function loadCurrentUser(): Promise<void> {
         <article class="art-card art-panel-card">
           <header class="art-panel-card__header">
             <h2>{{ t('overview.todoTitle') }}</h2>
-            <span class="art-panel-card__meta">{{ t('overview.todoCount') }}</span>
+            <span class="art-panel-card__meta">{{ todoCountLabel }}</span>
           </header>
           <div class="overview__todo-stack">
-            <button type="button">
-              <span>{{ t('overview.todo.permissionReview') }}</span>
-              <strong>08</strong>
-            </button>
-            <button type="button">
-              <span>{{ t('overview.todo.tenantApproval') }}</span>
-              <strong>03</strong>
-            </button>
-            <button type="button">
-              <span>{{ t('overview.todo.alertAcknowledgement') }}</span>
-              <strong>01</strong>
+            <p v-if="businessEntries.length === 0" class="overview__activity-empty">
+              {{ t('overview.todoEmpty') }}
+            </p>
+            <button
+              v-for="entry in businessEntries"
+              :key="entry.entryKey"
+              type="button"
+              @click="openBusinessEntry(entry.routePath)"
+            >
+              <span>{{ resolveBusinessEntryLabel(entry) }}</span>
+              <strong>{{ formatNumber(entry.count) }}</strong>
             </button>
           </div>
         </article>
@@ -442,6 +495,11 @@ async function loadCurrentUser(): Promise<void> {
 .overview__activity-main small {
   color: var(--art-gray-600);
   font-size: 11px;
+}
+
+.overview__activity-empty {
+  color: var(--art-gray-600);
+  font-size: 13px;
 }
 
 .overview__text-action {

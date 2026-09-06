@@ -408,12 +408,18 @@ export type {
 
 export {
   isHostDashboardActivity,
-  isHostDashboardSummary
+  isHostDashboardBusinessEntry,
+  isHostDashboardSummary,
+  isHostDashboardTrafficTrend,
+  isHostDashboardTrafficTrendBucket
 } from './platform-dashboard.js';
 
 export type {
   HostDashboardActivity,
-  HostDashboardSummary
+  HostDashboardBusinessEntry,
+  HostDashboardSummary,
+  HostDashboardTrafficTrend,
+  HostDashboardTrafficTrendBucket
 } from './platform-dashboard.js';
 
 export {

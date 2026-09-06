@@ -23,6 +23,22 @@ describe('platform-dashboard api', () => {
         requestPath: '/api/v1/settings/config-entries/1',
         succeeded: true,
         occurredAtUtc: '2026-07-25T08:00:00.000Z'
+      }],
+      accessTrafficTrend: {
+        fromUtc: '2026-07-25T00:00:00.000Z',
+        toUtc: '2026-07-25T12:00:00.000Z',
+        bucketSizeMinutes: 60,
+        buckets: [{
+          bucketStartUtc: '2026-07-25T08:00:00.000Z',
+          eventCount: 42,
+          errorCount: 2
+        }]
+      },
+      businessEntries: [{
+        entryKey: 'workflow.pending_todos',
+        count: 3,
+        routePath: '/workflow/todos',
+        requiredPermission: 'workflow.todos.read'
       }]
     });
 

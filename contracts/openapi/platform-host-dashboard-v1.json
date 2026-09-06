@@ -22,7 +22,9 @@
         "onlineSessionCount",
         "todayRequestCount",
         "todayErrorRate",
-        "recentActivities"
+        "recentActivities",
+        "accessTrafficTrend",
+        "businessEntries"
       ]
     },
     "HostDashboardActivityResponse": {
@@ -32,6 +34,29 @@
         "requestPath",
         "succeeded",
         "occurredAtUtc"
+      ]
+    },
+    "HostDashboardTrafficTrendResponse": {
+      "properties": [
+        "fromUtc",
+        "toUtc",
+        "bucketSizeMinutes",
+        "buckets"
+      ]
+    },
+    "HostDashboardTrafficTrendBucketResponse": {
+      "properties": [
+        "bucketStartUtc",
+        "eventCount",
+        "errorCount"
+      ]
+    },
+    "HostDashboardBusinessEntryResponse": {
+      "properties": [
+        "entryKey",
+        "count",
+        "routePath",
+        "requiredPermission"
       ]
     }
   }

@@ -99,6 +99,9 @@ public sealed class AuditingModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardAuditMetricsReader,
             HostDashboard.HostDashboardAuditMetricsReader>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostDashboardAuditTrendReader,
+            HostDashboard.HostDashboardAuditTrendReader>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
