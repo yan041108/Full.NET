@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import {
+  ElDialog,
   ElButton,
   ElCard,
   ElForm,
@@ -20,6 +22,7 @@ import type { FormInstance } from 'element-plus';
 import type {
   FullNetProblemDetails,
   HostTenant,
+  HostTenantMember,
   HostTenantPackage
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
@@ -40,6 +43,9 @@ import {
   assignHostTenantPackage,
   createHostTenant,
   disableHostTenant,
+  enableHostTenant,
+  listHostTenantAdministrators,
+  listHostTenantMembers,
   listHostTenants,
   updateHostTenant
 } from '../api/tenants';
@@ -59,6 +65,7 @@ interface AppliedFilters {
 const TENANT_IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 
 const session = useSessionStore();
+const router = useRouter();
 const { t } = useAdminI18n();
 const allTenants = ref<HostTenant[]>([]);
 const packages = ref<HostTenantPackage[]>([]);
@@ -92,6 +99,10 @@ const columnVisibility = ref<Record<TenantTableColumnKey, boolean>>({
   package: true,
   status: true
 });
+const membersVisible = ref(false);
+const administratorsVisible = ref(false);
+const directoryItems = ref<HostTenantMember[]>([]);
+const directoryTenant = ref<HostTenant | null>(null);
 
 const {
   tableMainRef,
@@ -181,7 +192,10 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 
 const canCreate = computed(() => session.can('tenancy.tenants.create'));
 const canUpdate = computed(() => session.can('tenancy.tenants.update'));
+const canEnable = computed(() => session.can('tenancy.tenants.enable'));
+const canReadDirectory = computed(() => session.can('tenancy.tenants.read_directory'));
 const canAssignPackage = computed(() => session.can('tenancy.tenants.assign_package'));
+const canSwitchTenant = computed(() => session.can('tenancy.tenants.switch'));
 
 watchLoading(loading);
 
@@ -463,6 +477,86 @@ async function disable(tenant: HostTenant): Promise<void> {
   }
 }
 
+async function enable(tenant: HostTenant): Promise<void> {
+  if (changing.value || tenant.isActive || !canEnable.value) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('tenants.confirmEnable', { name: tenant.identifier }),
+      t('tenants.enable'),
+      {
+        type: 'warning',
+        confirmButtonText: t('tenants.enable'),
+        cancelButtonText: t('users.cancel')
+      }
+    );
+    changing.value = true;
+    await enableHostTenant(tenant.id);
+    ElMessage.success(t('tenants.enableSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function openMembers(tenant: HostTenant): Promise<void> {
+  if (changing.value || !canReadDirectory.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const page = await listHostTenantMembers(tenant.id, 1, 100);
+    directoryTenant.value = tenant;
+    directoryItems.value = [...page.items];
+    membersVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function openAdministrators(tenant: HostTenant): Promise<void> {
+  if (changing.value || !canReadDirectory.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const page = await listHostTenantAdministrators(tenant.id, 1, 100);
+    directoryTenant.value = tenant;
+    directoryItems.value = [...page.items];
+    administratorsVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function manageTenantUsers(tenant: HostTenant): Promise<void> {
+  if (changing.value || !tenant.isActive || !canSwitchTenant.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await session.switchTenant(tenant.id);
+    await router.push('/identity/users');
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function toProblem(
   error: unknown,
   fallbackKey: 'tenants.loadFailed' | 'tenants.operationFailed'
@@ -600,12 +694,43 @@ function toProblem(
 
             <el-table-column
               :label="t('users.columnActions')"
-              width="120"
+              width="320"
               fixed="right"
               align="center"
             >
               <template #default="{ row }">
                 <ArtTableActionGroup>
+                  <PermissionGate code="tenancy.tenants.read_directory">
+                    <el-button
+                      v-if="row.isActive"
+                      link
+                      type="primary"
+                      data-testid="tenants-action-members"
+                      @click="openMembers(row as HostTenant)"
+                    >
+                      {{ t('tenants.members') }}
+                    </el-button>
+                    <el-button
+                      v-if="row.isActive"
+                      link
+                      type="primary"
+                      data-testid="tenants-action-administrators"
+                      @click="openAdministrators(row as HostTenant)"
+                    >
+                      {{ t('tenants.administrators') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate code="tenancy.tenants.switch">
+                    <el-button
+                      v-if="row.isActive"
+                      link
+                      type="primary"
+                      data-testid="tenants-action-manage-users"
+                      @click="manageTenantUsers(row as HostTenant)"
+                    >
+                      {{ t('tenants.manageUsers') }}
+                    </el-button>
+                  </PermissionGate>
                   <PermissionGate code="tenancy.tenants.update">
                     <ArtTableActionButton
                       type="edit"
@@ -614,6 +739,17 @@ function toProblem(
                       :disabled="changing || !row.isActive"
                   @click="openEdit(row as HostTenant)"
                     />
+                  </PermissionGate>
+                  <PermissionGate v-if="!row.isActive" code="tenancy.tenants.enable">
+                    <el-button
+                      link
+                      type="primary"
+                      data-testid="tenants-action-enable"
+                      :disabled="changing"
+                      @click="enable(row as HostTenant)"
+                    >
+                      {{ t('tenants.enable') }}
+                    </el-button>
                   </PermissionGate>
                   <PermissionGate v-if="row.isActive" code="tenancy.tenants.disable">
                     <ArtTableActionButton
@@ -719,6 +855,55 @@ function toProblem(
         </el-form-item>
       </el-form>
     </ArtFormDialog>
+
+    <el-dialog v-model="membersVisible" :title="t('tenants.membersTitle')" width="560px">
+      <p v-if="directoryItems.length === 0" class="art-dialog-hint">
+        {{ t('tenants.directoryEmpty') }}
+      </p>
+      <ul v-else class="tenants-directory-list">
+        <li v-for="item in directoryItems" :key="item.userId">
+          <span translate="no">{{ item.displayName }}</span>
+          <code translate="no">{{ item.username }}</code>
+        </li>
+      </ul>
+      <template #footer>
+        <el-button @click="membersVisible = false">{{ t('users.cancel') }}</el-button>
+        <PermissionGate v-if="directoryTenant?.isActive" code="tenancy.tenants.switch">
+          <el-button
+            type="primary"
+            data-testid="tenants-members-manage-users"
+            @click="directoryTenant && manageTenantUsers(directoryTenant)"
+          >
+            {{ t('tenants.manageUsers') }}
+          </el-button>
+        </PermissionGate>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="administratorsVisible" :title="t('tenants.administratorsTitle')" width="560px">
+      <p class="art-dialog-hint">{{ t('tenants.manageUsersHint') }}</p>
+      <p v-if="directoryItems.length === 0" class="art-dialog-hint">
+        {{ t('tenants.directoryEmpty') }}
+      </p>
+      <ul v-else class="tenants-directory-list">
+        <li v-for="item in directoryItems" :key="item.userId">
+          <span translate="no">{{ item.displayName }}</span>
+          <code translate="no">{{ item.username }}</code>
+        </li>
+      </ul>
+      <template #footer>
+        <el-button @click="administratorsVisible = false">{{ t('users.cancel') }}</el-button>
+        <PermissionGate v-if="directoryTenant?.isActive" code="tenancy.tenants.switch">
+          <el-button
+            type="primary"
+            data-testid="tenants-administrators-manage-users"
+            @click="directoryTenant && manageTenantUsers(directoryTenant)"
+          >
+            {{ t('tenants.manageUsers') }}
+          </el-button>
+        </PermissionGate>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -739,6 +924,15 @@ function toProblem(
 
 .tenants-editor-form {
   padding-top: 8px;
+}
+
+.tenants-directory-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.tenants-directory-list li {
+  margin-bottom: 8px;
 }
 
 .art-sr-heading {

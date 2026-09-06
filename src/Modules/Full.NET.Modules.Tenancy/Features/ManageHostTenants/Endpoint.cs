@@ -125,6 +125,75 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantManagementPermissions.Disable));
 
+        group.MapPost("/{tenantId:guid}/enable", async (
+            Guid tenantId,
+            HostTenantManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.EnableAsync(tenantId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("tenancyEnableHostTenant")
+        .Produces<TenantSummary>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            TenancyTenantManagementPermissions.Enable));
+
+        group.MapGet("/{tenantId:guid}/members", async (
+            Guid tenantId,
+            int? page,
+            int? pageSize,
+            HostTenantDirectoryQueryService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ListMembersAsync(
+                    tenantId,
+                    page ?? 1,
+                    pageSize ?? 20,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("tenancyListHostTenantMembers")
+        .Produces<HostTenantMembersPageResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            HostTenantDirectoryPermissions.ReadDirectory));
+
+        group.MapGet("/{tenantId:guid}/administrators", async (
+            Guid tenantId,
+            int? page,
+            int? pageSize,
+            HostTenantDirectoryQueryService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ListAdministratorsAsync(
+                    tenantId,
+                    page ?? 1,
+                    pageSize ?? 20,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("tenancyListHostTenantAdministrators")
+        .Produces<HostTenantAdministratorsPageResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            HostTenantDirectoryPermissions.ReadDirectory));
+
         group.MapPost("/{tenantId:guid}/package", async (
             Guid tenantId,
             AssignHostTenantPackageRequest request,

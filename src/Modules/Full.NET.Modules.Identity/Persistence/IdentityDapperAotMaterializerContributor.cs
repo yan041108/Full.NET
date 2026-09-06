@@ -26,6 +26,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityProfileRecord>(ReadIdentityProfileRecord);
         registrar.Register<RefreshSessionRecord>(ReadRefreshSessionRecord);
         registrar.Register<HostUserDirectoryRecord>(ReadHostUserDirectoryRecord);
+        registrar.Register<HostTenantUserDirectoryRecord>(ReadHostTenantUserDirectoryRecord);
         registrar.Register<HostUserListRow>(ReadHostUserListRow);
         registrar.Register<HostRoleMemberRow>(ReadHostRoleMemberRow);
         registrar.Register<HostUserPreferredLocaleRow>(ReadHostUserPreferredLocaleRow);
@@ -140,6 +141,16 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
 
     private static HostUserDirectoryRecord ReadHostUserDirectoryRecord(DbDataReader reader) =>
         new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
+
+    private static HostTenantUserDirectoryRecord ReadHostTenantUserDirectoryRecord(
+        DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadStringByName(reader, "Username"),
+            ReadStringByName(reader, "DisplayName"),
+            ReadStringByName(reader, "AccountType"),
+            ReadBooleanByName(reader, "IsActive"),
+            ReadStringByName(reader, "PreferredLocale"));
 
     private static HostUserListRow ReadHostUserListRow(DbDataReader reader)
     {

@@ -225,6 +225,217 @@ internal static class IdentitySql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement CountHostTenantUserSelections = new(
+        "identity.count_host_tenant_user_selections",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostTenantUserSelectionsSqlServer = new(
+        "identity.list_host_tenant_user_selections.sql_server",
+        """
+        SELECT identityUser.Id,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.AccountType,
+               identityUser.IsActive,
+               identityUser.PreferredLocale
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostTenantUserSelectionsMySql = new(
+        "identity.list_host_tenant_user_selections.my_sql",
+        """
+        SELECT identityUser.Id,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.AccountType,
+               identityUser.IsActive,
+               identityUser.PreferredLocale
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountHostTenantAdministratorSelections = new(
+        "identity.count_host_tenant_administrator_selections",
+        """
+        SELECT COUNT(1)
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND identityUser.AccountType = 'sys_admin'
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostTenantAdministratorSelectionsSqlServer = new(
+        "identity.list_host_tenant_administrator_selections.sql_server",
+        """
+        SELECT identityUser.Id,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.AccountType,
+               identityUser.IsActive,
+               identityUser.PreferredLocale
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND identityUser.AccountType = 'sys_admin'
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListHostTenantAdministratorSelectionsMySql = new(
+        "identity.list_host_tenant_administrator_selections.my_sql",
+        """
+        SELECT identityUser.Id,
+               identityUser.Username,
+               identityUser.DisplayName,
+               identityUser.AccountType,
+               identityUser.IsActive,
+               identityUser.PreferredLocale
+        FROM fn_identity_user AS identityUser
+        WHERE identityUser.IsActive = 1
+          AND identityUser.AccountType = 'sys_admin'
+          AND
+          (
+              (identityUser.TenantId = @TenantId
+               AND identityUser.ScopeKey = @TenantScopeKey)
+              OR
+              (
+                  identityUser.TenantId IS NULL
+                  AND identityUser.ScopeKey = 'host'
+                  AND EXISTS
+                  (
+                      SELECT 1
+                      FROM fn_identity_user_role AS userRole
+                      INNER JOIN fn_identity_role AS roleObject
+                          ON roleObject.Id = userRole.RoleId
+                      WHERE userRole.UserId = identityUser.Id
+                        AND roleObject.TenantId = @TenantId
+                        AND roleObject.ScopeKey = @TenantScopeKey
+                        AND roleObject.IsActive = 1
+                  )
+              )
+          )
+        ORDER BY identityUser.NormalizedUsername, identityUser.Id
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
     /// <remarks>
     /// 新建行的 <c>LockoutEndUtc</c> 与 <c>UpdatedAtUtc</c> 使用 SQL 字面量 NULL。Native AOT 下未标注 DbType 的空参数
     /// 在 SQL Server 上会被推断为 nvarchar，无法写入 datetimeoffset。

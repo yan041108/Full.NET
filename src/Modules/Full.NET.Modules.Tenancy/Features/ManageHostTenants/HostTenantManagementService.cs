@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Tenancy.Features.ManageHostTenants;
 
 /// <summary>
 /// Host 侧租户写操作服务。包含三项能力：Update（改名称）、AssignPackage（绑定套餐）、
-/// Disable（禁用）。并发与安全边界：
+/// Disable（禁用）、Enable（重新启用）。并发与安全边界：
 /// 1) 所有写操作包裹在 ICommandTransaction 中，按 Version 字段做乐观并发，
 ///    冲突时读取确认租户仍然存在后返回 VersionConflict，由客户端重读后重试；
 /// 2) Disable 内置最后一名活动租户保护（CountActiveTenants &lt;= 1 → LastActiveTenant 拒绝）；
@@ -64,6 +64,29 @@ internal sealed class HostTenantManagementService(
     {
         var result = await transaction.ExecuteAsync(
                 token => DisableCoreAsync(tenantId, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.IsSuccess && result.Value is { } tenant)
+        {
+            await cacheInvalidator.InvalidateAfterCommitAsync(
+                    tenant.Id,
+                    tenant.Domain,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 重新启用已禁用的租户；已活动租户幂等返回当前摘要，并失效解析缓存与写入 B0 审计。
+    /// </summary>
+    public async Task<Result<TenantSummary>> EnableAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await transaction.ExecuteAsync(
+                token => EnableCoreAsync(tenantId, token),
                 cancellationToken)
             .ConfigureAwait(false);
         if (result.IsSuccess && result.Value is { } tenant)
@@ -255,6 +278,55 @@ internal sealed class HostTenantManagementService(
         await domainAuditWriter.WriteAsync(
                 new TenancyDomainAuditWrite(
                     TenancyDomainAuditActionKeys.HostTenantDisable,
+                    tenantId,
+                    tenantId,
+                    TenancyDomainAuditOutcomes.Success,
+                    ActorUserId: null,
+                    ActorDisplayName: null,
+                    DiffSummaryJson: null),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<Result<TenantSummary>> EnableCoreAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<TenantResolutionRecord>(
+                TenantSql.FindById,
+                TenancySqlParameters.Create(("TenantId", tenantId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        if (existing.IsActive)
+        {
+            return await tenantQueries.GetByIdAsync(tenantId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                TenantSql.EnableHostTenant,
+                TenancySqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affectedRows != 1)
+        {
+            return NotFound();
+        }
+
+        await domainAuditWriter.WriteAsync(
+                new TenancyDomainAuditWrite(
+                    TenancyDomainAuditActionKeys.HostTenantEnable,
                     tenantId,
                     tenantId,
                     TenancyDomainAuditOutcomes.Success,

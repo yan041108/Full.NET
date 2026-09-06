@@ -1,4 +1,11 @@
 import {
+  enableHostTenant as enableHostTenantRequest,
+  listHostTenantAdministrators as listHostTenantAdministratorsRequest,
+  listHostTenantMembers as listHostTenantMembersRequest,
+  type HostTenantAdministratorsPage,
+  type HostTenantMembersPage
+} from '@fullnet/client-contracts';
+import {
   isHostTenant,
   isHostTenantPage,
   tenancyAssignHostTenantPackage,
@@ -66,6 +73,34 @@ export async function disableHostTenant(
   return value;
 }
 
+/** 重新启用 Host 租户。 */
+export async function enableHostTenant(
+  id: string,
+  signal?: AbortSignal
+): Promise<HostTenant> {
+  return enableHostTenantRequest(http, id, signal);
+}
+
+/** 分页查询租户成员目录。 */
+export async function listHostTenantMembers(
+  tenantId: string,
+  page = 1,
+  pageSize = 20,
+  signal?: AbortSignal
+): Promise<HostTenantMembersPage> {
+  return listHostTenantMembersRequest(http, tenantId, page, pageSize, signal);
+}
+
+/** 分页查询租户管理员目录。 */
+export async function listHostTenantAdministrators(
+  tenantId: string,
+  page = 1,
+  pageSize = 20,
+  signal?: AbortSignal
+): Promise<HostTenantAdministratorsPage> {
+  return listHostTenantAdministratorsRequest(http, tenantId, page, pageSize, signal);
+}
+
 /** 更新 Host 租户名称，并携带版本号维持乐观并发。 */
 export async function updateHostTenant(
   id: string,
@@ -105,4 +140,4 @@ export async function assignHostTenantPackage(
 }
 
 /** 导出租户详情与分页模型，供租户列表、开通弹窗与套餐分配流程共享同一契约。 */
-export type { HostTenant, HostTenantPage };
+export type { HostTenant, HostTenantPage, HostTenantMembersPage, HostTenantAdministratorsPage };

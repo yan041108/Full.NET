@@ -529,6 +529,21 @@ export type {
 } from './host-tenants.js';
 
 export {
+  enableHostTenant,
+  isHostTenantAdministratorsPage,
+  isHostTenantMember,
+  isHostTenantMembersPage,
+  listHostTenantAdministrators,
+  listHostTenantMembers
+} from './host-tenant-directory.js';
+
+export type {
+  HostTenantAdministratorsPage,
+  HostTenantMember,
+  HostTenantMembersPage
+} from './host-tenant-directory.js';
+
+export {
   isCreateHostTenantPackageRequest,
   isHostTenantPackage,
   isHostTenantPackagePage,

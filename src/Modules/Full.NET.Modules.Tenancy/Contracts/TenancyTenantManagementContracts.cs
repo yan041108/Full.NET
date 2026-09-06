@@ -20,6 +20,9 @@ public static class TenancyTenantManagementPermissions
     /// <summary>禁用 Host 租户。</summary>
     public const string Disable = "tenancy.tenants.disable";
 
+    /// <summary>重新启用已禁用的 Host 租户。</summary>
+    public const string Enable = "tenancy.tenants.enable";
+
     /// <summary>为 Host 租户分配或解除套餐绑定。</summary>
     public const string AssignPackage = "tenancy.tenants.assign_package";
 

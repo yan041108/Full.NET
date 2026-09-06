@@ -722,6 +722,24 @@
       "status": "generated"
     },
     {
+      "operationId": "tenancyEnableHostTenant",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyListHostTenantMembers",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "generated"
+    },
+    {
+      "operationId": "tenancyListHostTenantAdministrators",
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "generatedGroup": "tenancy-host-tenants",
+      "status": "generated"
+    },
+    {
       "operationId": "tenancyAssignHostTenantPackage",
       "apiModule": "ui/admin/src/api/tenants.ts",
       "generatedGroup": "tenancy-host-tenants",

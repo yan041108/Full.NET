@@ -457,6 +457,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Type<
             ITenantUserSelectionDirectory,
             TenantUserSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<HostTenantUserSelectionDirectory>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Factory<IHostTenantUserSelectionDirectory>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IWorkflowRoleMemberDirectory,
             WorkflowRoleMemberDirectory>(ServiceLifetime.Scoped),

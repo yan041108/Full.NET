@@ -195,4 +195,16 @@ internal static class TenantSql
           AND IsActive = 1
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement EnableHostTenant = new(
+        "tenancy.enable_host_tenant",
+        """
+        UPDATE fn_tenancy_tenant
+        SET IsActive = 1,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND IsActive = 0
+        """,
+        SqlDataScope.HostOnly);
 }

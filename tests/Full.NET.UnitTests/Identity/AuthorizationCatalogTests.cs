@@ -79,7 +79,9 @@ public sealed class AuthorizationCatalogTests
                 "tenancy.tenants.assign_package",
                 "tenancy.tenants.create",
                 "tenancy.tenants.disable",
+                "tenancy.tenants.enable",
                 "tenancy.tenants.read",
+                "tenancy.tenants.read_directory",
                 "tenancy.tenants.switch",
                 "tenancy.tenants.update",
             },
@@ -338,6 +340,8 @@ public sealed class AuthorizationCatalogTests
             ["create"] = "tenancy.tenants.create",
             ["update"] = "tenancy.tenants.update",
             ["disable"] = "tenancy.tenants.disable",
+            ["enable"] = "tenancy.tenants.enable",
+            ["read-directory"] = "tenancy.tenants.read_directory",
             ["assign-package"] = "tenancy.tenants.assign_package",
         };
 

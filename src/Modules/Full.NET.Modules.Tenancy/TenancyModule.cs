@@ -78,6 +78,7 @@ public sealed class TenancyModule : IFullNetModule
             TenancyDomainAuditWriter>();
         services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
+        services.AddScoped<Features.ManageHostTenants.HostTenantDirectoryQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<

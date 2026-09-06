@@ -32,6 +32,14 @@ internal sealed class TenancyAuthorizationContributor
             "禁用 Host 租户",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            TenancyTenantManagementPermissions.Enable,
+            "启用 Host 租户",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            HostTenantDirectoryPermissions.ReadDirectory,
+            "读取租户成员与管理员目录",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenancyTenantManagementPermissions.AssignPackage,
             "分配 Host 租户套餐",
             AuthorizationScope.Host),
@@ -127,6 +135,20 @@ internal sealed class TenancyAuthorizationContributor
             "禁用租户",
             "disable",
             30),
+        new AuthorizationActionDefinition(
+            "tenancy.tenants.enable",
+            "tenant-management",
+            TenancyTenantManagementPermissions.Enable,
+            "启用租户",
+            "enable",
+            35),
+        new AuthorizationActionDefinition(
+            "tenancy.tenants.read-directory",
+            "tenant-management",
+            HostTenantDirectoryPermissions.ReadDirectory,
+            "成员目录",
+            "read-directory",
+            36),
         new AuthorizationActionDefinition(
             "tenancy.tenants.assign-package",
             "tenant-management",

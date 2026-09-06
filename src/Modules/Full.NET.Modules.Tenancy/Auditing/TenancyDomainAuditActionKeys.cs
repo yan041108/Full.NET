@@ -8,6 +8,9 @@ internal static class TenancyDomainAuditActionKeys
 {
     /// <summary>Host 管理员禁用租户。</summary>
     public const string HostTenantDisable = "tenancy.host_tenant.disable";
+
+    /// <summary>Host 管理员重新启用租户。</summary>
+    public const string HostTenantEnable = "tenancy.host_tenant.enable";
 }
 
 /// <summary>Tenancy 模块 B0 域内审计记录的固定结果取值。</summary>
