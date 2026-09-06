@@ -27,6 +27,7 @@ public static class FullNetModuleSelection
         "Tenancy",
         "Organization",
         "ImportExport",
+        "Reporting",
         "Settings",
         "CodeGeneration",
         "SerialNumbers",

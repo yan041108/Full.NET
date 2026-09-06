@@ -2247,6 +2247,48 @@
       "status": "generated"
     },
     {
+      "operationId": "reportingListDataSources",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingGetDataSource",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingCreateDataSource",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingUpdateDataSource",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingDisableDataSource",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingDeleteDataSource",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingTestDataSource",
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "generatedGroup": "reporting-data-sources",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

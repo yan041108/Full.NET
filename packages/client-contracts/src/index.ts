@@ -463,7 +463,23 @@ export type {
 } from './import-export.js';
 
 export {
-  isHostDocumentPermissionEntry,
+  isReportingDataSource,
+  isReportingDataSourceListItem,
+  isReportingDataSourcePage,
+  isTestReportingDataSourceResult
+} from './reporting-data-sources.js';
+
+export type {
+  CreateReportingDataSourceRequest,
+  ReportingDataSource,
+  ReportingDataSourceListItem,
+  ReportingDataSourceListQuery,
+  ReportingDataSourcePage,
+  TestReportingDataSourceResult,
+  UpdateReportingDataSourceRequest
+} from './reporting-data-sources.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

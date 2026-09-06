@@ -29982,6 +29982,124 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["ImportExportTasks"]
       }
+    },
+    "/api/v1/reporting/data-sources": {
+      "get": {
+        "operationId": "reportingListDataSources",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": ["integer", "string"] } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": ["integer", "string"] } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": ["null", "string"] } },
+          { "in": "query", "name": "nameContains", "schema": { "type": ["null", "string"] } },
+          { "in": "query", "name": "isEnabled", "schema": { "type": ["null", "boolean"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfReportingDataSourceListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      },
+      "post": {
+        "operationId": "reportingCreateDataSource",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportingDataSourceRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDataSourceResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      }
+    },
+    "/api/v1/reporting/data-sources/{dataSourceId}": {
+      "get": {
+        "operationId": "reportingGetDataSource",
+        "parameters": [
+          { "in": "path", "name": "dataSourceId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDataSourceResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      },
+      "put": {
+        "operationId": "reportingUpdateDataSource",
+        "parameters": [
+          { "in": "path", "name": "dataSourceId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateReportingDataSourceRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDataSourceResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      },
+      "delete": {
+        "operationId": "reportingDeleteDataSource",
+        "parameters": [
+          { "in": "path", "name": "dataSourceId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "boolean" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      }
+    },
+    "/api/v1/reporting/data-sources/{dataSourceId}/disable": {
+      "post": {
+        "operationId": "reportingDisableDataSource",
+        "parameters": [
+          { "in": "path", "name": "dataSourceId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDataSourceResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      }
+    },
+    "/api/v1/reporting/data-sources/{dataSourceId}/test": {
+      "post": {
+        "operationId": "reportingTestDataSource",
+        "parameters": [
+          { "in": "path", "name": "dataSourceId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestReportingDataSourceResult" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDataSources"]
+      }
     }
   },
   "components": {
@@ -45692,9 +45810,106 @@
           "total"
         ],
         "type": "object"
+      },
+      "ReportingDataSourceListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "maskedServerEndpoint": { "type": "string" },
+          "maskedDatabaseName": { "type": "string" },
+          "maskedUsername": { "type": "string" },
+          "hasPassword": { "type": "boolean" },
+          "trustServerCertificate": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "lastTestedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "lastTestStatusKey": { "type": ["null", "string"] },
+          "lastTestMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "providerKey", "maskedServerEndpoint", "maskedDatabaseName", "maskedUsername", "hasPassword", "trustServerCertificate", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "ReportingDataSourceResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "serverHost": { "type": "string" },
+          "port": { "format": "int32", "type": ["integer", "string"] },
+          "databaseName": { "type": "string" },
+          "username": { "type": "string" },
+          "hasPassword": { "type": "boolean" },
+          "trustServerCertificate": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "lastTestedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "lastTestStatusKey": { "type": ["null", "string"] },
+          "lastTestMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "providerKey", "serverHost", "port", "databaseName", "username", "hasPassword", "trustServerCertificate", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreateReportingDataSourceRequest": {
+        "properties": {
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "serverHost": { "type": "string" },
+          "port": { "format": "int32", "type": ["integer", "string"] },
+          "databaseName": { "type": "string" },
+          "username": { "type": "string" },
+          "password": { "type": "string" },
+          "trustServerCertificate": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["name", "providerKey", "serverHost", "port", "databaseName", "username", "password", "trustServerCertificate", "isEnabled"],
+        "type": "object"
+      },
+      "UpdateReportingDataSourceRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "serverHost": { "type": "string" },
+          "port": { "format": "int32", "type": ["integer", "string"] },
+          "databaseName": { "type": "string" },
+          "username": { "type": "string" },
+          "password": { "type": ["null", "string"] },
+          "trustServerCertificate": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "providerKey", "serverHost", "port", "databaseName", "username", "trustServerCertificate", "isEnabled", "version"],
+        "type": "object"
+      },
+      "TestReportingDataSourceResult": {
+        "properties": {
+          "succeeded": { "type": "boolean" },
+          "message": { "type": "string" }
+        },
+        "required": ["succeeded", "message"],
+        "type": "object"
+      },
+      "PagedResultOfReportingDataSourceListItem": {
+        "properties": {
+          "items": {
+            "items": { "$ref": "#/components/schemas/ReportingDataSourceListItem" },
+            "type": "array"
+          },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
       }
     },
-    "securitySchemes": {
       "ApiKey": {
         "description": "通过 Authorization: ApiKey {secret} 传递 Host API Key。",
         "in": "header",

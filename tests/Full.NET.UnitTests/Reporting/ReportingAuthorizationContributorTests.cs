@@ -1,0 +1,45 @@
+using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Reporting;
+using Full.NET.Modules.Reporting.Contracts;
+
+namespace Full.NET.UnitTests.Reporting;
+
+[TestClass]
+public sealed class ReportingAuthorizationContributorTests
+{
+    [TestMethod]
+    public void Contributor_publishes_reporting_data_source_permissions_and_navigation()
+    {
+        var catalog = AuthorizationCatalog.Create([new ReportingAuthorizationContributor()]);
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                ReportingDataSourcePermissions.Read,
+                ReportingDataSourcePermissions.Create,
+                ReportingDataSourcePermissions.Update,
+                ReportingDataSourcePermissions.Delete,
+                ReportingDataSourcePermissions.Test,
+            },
+            catalog.Permissions.Select(permission => permission.Code).ToArray());
+
+        var dataSources = catalog.Navigation.Single(item => item.Id == "reporting-data-sources");
+        Assert.AreEqual(ReportingDataSourcePermissions.Read, dataSources.RequiredPermission);
+        Assert.AreEqual("/reporting/data-sources", dataSources.Path);
+
+        CollectionAssert.AreEquivalent(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["create"] = ReportingDataSourcePermissions.Create,
+                ["update"] = ReportingDataSourcePermissions.Update,
+                ["delete"] = ReportingDataSourcePermissions.Delete,
+                ["test"] = ReportingDataSourcePermissions.Test,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "reporting-data-sources")
+                .ToDictionary(
+                    action => action.ClientActionKey,
+                    action => action.PermissionCode,
+                    StringComparer.Ordinal));
+    }
+}
