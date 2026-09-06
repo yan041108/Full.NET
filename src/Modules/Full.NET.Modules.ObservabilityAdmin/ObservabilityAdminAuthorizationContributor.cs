@@ -19,6 +19,10 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             ObservabilityLogFilePermissions.Download,
             "下载 Host 日志文件",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            ObservabilityServerPermissions.Read,
+            "读取服务器实例目录与运行时监控信息",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -34,6 +38,17 @@ internal sealed class ObservabilityAdminAuthorizationContributor
             "monitor",
             80,
             ObservabilityLogFilePermissions.Read),
+        new NavigationDefinition(
+            "observability-server-monitor",
+            null,
+            "observability-server-monitor",
+            "/observability/server-monitor",
+            "observability-server-monitor",
+            "服务器监控",
+            "Server Monitor",
+            "monitor",
+            70,
+            ObservabilityServerPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

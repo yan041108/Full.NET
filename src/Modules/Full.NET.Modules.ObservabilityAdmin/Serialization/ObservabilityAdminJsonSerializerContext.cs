@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
+using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 
 namespace Full.NET.Modules.ObservabilityAdmin.Serialization;
 
@@ -9,5 +10,9 @@ namespace Full.NET.Modules.ObservabilityAdmin.Serialization;
 [JsonSerializable(typeof(LogFileSummary))]
 [JsonSerializable(typeof(IReadOnlyList<LogFileSummary>))]
 [JsonSerializable(typeof(LogFileTail))]
+[JsonSerializable(typeof(ServerInstanceCatalogEntry))]
+[JsonSerializable(typeof(IReadOnlyList<ServerInstanceCatalogEntry>))]
+[JsonSerializable(typeof(ServerRuntimeMetric))]
+[JsonSerializable(typeof(ServerRuntimeSnapshot))]
 internal partial class ObservabilityAdminJsonSerializerContext
     : JsonSerializerContext;

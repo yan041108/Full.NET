@@ -3,6 +3,7 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ObservabilityAdmin.Configuration;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
+using Full.NET.Modules.ObservabilityAdmin.Features.MonitorServer;
 using Full.NET.Modules.ObservabilityAdmin.Resources;
 using Full.NET.Modules.ObservabilityAdmin.Serialization;
 using Microsoft.AspNetCore.Routing;
@@ -37,12 +38,17 @@ public sealed class ObservabilityAdminModule : IFullNetModule
             IValidateOptions<ObservabilityAdminOptions>,
             ObservabilityAdminOptionsValidator>());
         services.TryAddSingleton<LogFileControlPlane>();
+        services.TryAddSingleton<ServerRuntimeReader>();
+        services.TryAddSingleton<ServerMonitorService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 ObservabilityAdminJsonSerializerContext.Default));
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
-        Endpoint.Map(endpoints);
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        Features.ManageLogFiles.Endpoint.Map(endpoints);
+        Features.MonitorServer.Endpoint.Map(endpoints);
+    }
 }

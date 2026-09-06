@@ -267,6 +267,11 @@ export function createAppRouter(
         component: () => import('../views/ObservabilityLogFilesView.vue')
       },
       {
+        name: 'observability-server-monitor',
+        path: '/observability/server-monitor',
+        component: () => import('../views/ObservabilityServerMonitorView.vue')
+      },
+      {
         name: 'access-logs',
         path: '/auditing/access-logs',
         component: () => import('../views/AccessLogsView.vue')

@@ -208,6 +208,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.observabilityLogFiles.title',
     captionKey: 'navigation.observabilityLogFiles.caption'
   }],
+  ['observability-server-monitor', {
+    titleKey: 'navigation.observabilityServerMonitor.title',
+    captionKey: 'navigation.observabilityServerMonitor.caption'
+  }],
   ['operation-logs', {
     titleKey: 'navigation.operationLogs.title',
     captionKey: 'navigation.operationLogs.caption'

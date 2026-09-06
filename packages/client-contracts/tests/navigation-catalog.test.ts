@@ -66,6 +66,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'observability-log-files',
       path: '/observability/log-files'
     });
+    expect(catalog.localNavigationFor('observability-server-monitor')).toEqual({
+      componentKey: 'observability-server-monitor',
+      routeName: 'observability-server-monitor',
+      path: '/observability/server-monitor'
+    });
     expect(catalog.localNavigationFor('workflow-todos')).toEqual({
       componentKey: 'workflow-todos',
       routeName: 'workflow-todos',

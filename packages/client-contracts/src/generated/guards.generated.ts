@@ -261,6 +261,9 @@ import type {
   SerialRuleFieldChange,
   SerialRuleUpdateApprovalPreviewResponse,
   SerialRuleUpdateApprovalSubmissionResponse,
+  ServerInstanceCatalogEntry,
+  ServerRuntimeMetric,
+  ServerRuntimeSnapshot,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetWorkflowDefinitionStatusRequest,
@@ -3185,6 +3188,39 @@ function isSerialRuleUpdateApprovalSubmissionResponse(value: unknown): value is 
   return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (value["beforeSnapshotJson"] === undefined || ((typeof value["beforeSnapshotJson"] === 'string') || (value["beforeSnapshotJson"] === null))) && (Array.isArray(value["changes"]) && value["changes"].every(item16 => isSerialRuleFieldChange(item16))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestVersion"] === 'number' && Number.isInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
 }
 
+export function readServerInstanceCatalogEntry(value: unknown): ServerInstanceCatalogEntry {
+  if (!(isServerInstanceCatalogEntry(value))) {
+    throw new Error('client.invalid_server_instance_catalog_entry');
+  }
+  return value;
+}
+
+function isServerInstanceCatalogEntry(value: unknown): value is ServerInstanceCatalogEntry {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["hostRole"] === 'string') && (typeof value["instanceKey"] === 'string') && (typeof value["isCurrent"] === 'boolean') && (typeof value["runtimeQueryability"] === 'string');
+}
+
+export function readServerRuntimeMetric(value: unknown): ServerRuntimeMetric {
+  if (!(isServerRuntimeMetric(value))) {
+    throw new Error('client.invalid_server_runtime_metric');
+  }
+  return value;
+}
+
+function isServerRuntimeMetric(value: unknown): value is ServerRuntimeMetric {
+  return isRecord(value) && (typeof value["availability"] === 'string') && (value["doubleValue"] === undefined || ((typeof value["doubleValue"] === 'number' && Number.isFinite(value["doubleValue"])) || (value["doubleValue"] === null))) && (typeof value["key"] === 'string') && (typeof value["label"] === 'string') && (value["longValue"] === undefined || ((typeof value["longValue"] === 'number' && Number.isInteger(value["longValue"])) || (value["longValue"] === null))) && (value["unavailableReason"] === undefined || ((typeof value["unavailableReason"] === 'string') || (value["unavailableReason"] === null))) && (value["unit"] === undefined || ((typeof value["unit"] === 'string') || (value["unit"] === null)));
+}
+
+export function readServerRuntimeSnapshot(value: unknown): ServerRuntimeSnapshot {
+  if (!(isServerRuntimeSnapshot(value))) {
+    throw new Error('client.invalid_server_runtime_snapshot');
+  }
+  return value;
+}
+
+function isServerRuntimeSnapshot(value: unknown): value is ServerRuntimeSnapshot {
+  return isRecord(value) && (typeof value["applicationVersion"] === 'string') && (typeof value["capturedAtUtc"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["frameworkDescription"] === 'string') && (typeof value["hostRole"] === 'string') && (typeof value["instanceKey"] === 'string') && (typeof value["machineName"] === 'string') && (Array.isArray(value["metrics"]) && value["metrics"].every(item16 => isServerRuntimeMetric(item16))) && (typeof value["operatingSystemDescription"] === 'string') && (typeof value["processArchitecture"] === 'string') && (typeof value["processId"] === 'number' && Number.isInteger(value["processId"])) && (typeof value["processStartedAtUtc"] === 'string') && (typeof value["uptimeSeconds"] === 'number' && Number.isInteger(value["uptimeSeconds"]));
+}
+
 export function readSetHostDocumentPermissionsRequest(value: unknown): SetHostDocumentPermissionsRequest {
   if (!(isSetHostDocumentPermissionsRequest(value))) {
     throw new Error('client.invalid_set_host_document_permissions_request');
@@ -4154,6 +4190,13 @@ export function readObservabilityListLogFilesResponse(value: unknown): Array<Log
     throw new Error('client.invalid_observability_list_log_files_response');
   }
   return value as Array<LogFileSummary>;
+}
+
+export function readObservabilityListServerInstancesResponse(value: unknown): Array<ServerInstanceCatalogEntry> {
+  if (!(Array.isArray(value) && value.every(item5 => isServerInstanceCatalogEntry(item5)))) {
+    throw new Error('client.invalid_observability_list_server_instances_response');
+  }
+  return value as Array<ServerInstanceCatalogEntry>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {

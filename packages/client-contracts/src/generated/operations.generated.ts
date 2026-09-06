@@ -262,6 +262,9 @@ import type {
   SerialRuleFieldChange,
   SerialRuleUpdateApprovalPreviewResponse,
   SerialRuleUpdateApprovalSubmissionResponse,
+  ServerInstanceCatalogEntry,
+  ServerRuntimeMetric,
+  ServerRuntimeSnapshot,
   SetHostDocumentPermissionsRequest,
   SetNotificationProviderProfileEnabledRequest,
   SetWorkflowDefinitionStatusRequest,
@@ -417,6 +420,7 @@ import {
   readNotificationsListProviderTypesResponse,
   readNotificationTemplateResponse,
   readObservabilityListLogFilesResponse,
+  readObservabilityListServerInstancesResponse,
   readOrganizationPositionLevelResponse,
   readOrganizationPositionResponse,
   readOrganizationUnitResponse,
@@ -467,6 +471,7 @@ import {
   readSerialNumberRuleResponse,
   readSerialRuleUpdateApprovalPreviewResponse,
   readSerialRuleUpdateApprovalSubmissionResponse,
+  readServerRuntimeSnapshot,
   readSettingsBatchUpdateHostConfigEntryValuesResponse,
   readSettingsListAllHostConfigEntriesResponse,
   readSettingsListAllHostDictTypesResponse,
@@ -4459,6 +4464,24 @@ export async function observabilityDownloadLogFile(
     : await http.requestBlob(path, init, signal, options);
 }
 
+export interface ObservabilityGetServerRuntimeParameters {
+  readonly instanceKey: string;
+}
+
+export async function observabilityGetServerRuntime(
+  http: HttpClient,
+  parameters: ObservabilityGetServerRuntimeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ServerRuntimeSnapshot> {
+  const path = `/api/v1/observability/server-instances/${encodeURIComponent(String(parameters.instanceKey))}/runtime`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readServerRuntimeSnapshot(value);
+}
+
 export interface ObservabilityListLogFilesParameters {
 
 }
@@ -4475,6 +4498,24 @@ export async function observabilityListLogFiles(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readObservabilityListLogFilesResponse(value);
+}
+
+export interface ObservabilityListServerInstancesParameters {
+
+}
+
+export async function observabilityListServerInstances(
+  http: HttpClient,
+  parameters: ObservabilityListServerInstancesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ServerInstanceCatalogEntry>> {
+  const path = `/api/v1/observability/server-instances`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readObservabilityListServerInstancesResponse(value);
 }
 
 export interface ObservabilityTailLogFileParameters {

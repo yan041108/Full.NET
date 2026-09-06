@@ -2097,6 +2097,40 @@ export interface SerialRuleUpdateApprovalSubmissionResponse {
   readonly workflowDefinitionVersionId: string;
 }
 
+export interface ServerInstanceCatalogEntry {
+  readonly displayName: string;
+  readonly hostRole: string;
+  readonly instanceKey: string;
+  readonly isCurrent: boolean;
+  readonly runtimeQueryability: string;
+}
+
+export interface ServerRuntimeMetric {
+  readonly availability: string;
+  readonly doubleValue?: number | null;
+  readonly key: string;
+  readonly label: string;
+  readonly longValue?: number | null;
+  readonly unavailableReason?: string | null;
+  readonly unit?: string | null;
+}
+
+export interface ServerRuntimeSnapshot {
+  readonly applicationVersion: string;
+  readonly capturedAtUtc: string;
+  readonly displayName: string;
+  readonly frameworkDescription: string;
+  readonly hostRole: string;
+  readonly instanceKey: string;
+  readonly machineName: string;
+  readonly metrics: Array<ServerRuntimeMetric>;
+  readonly operatingSystemDescription: string;
+  readonly processArchitecture: string;
+  readonly processId: number;
+  readonly processStartedAtUtc: string;
+  readonly uptimeSeconds: number;
+}
+
 export interface SetHostDocumentPermissionsRequest {
   readonly documentId: string;
   readonly permissions: Array<HostDocumentPermissionEntry>;

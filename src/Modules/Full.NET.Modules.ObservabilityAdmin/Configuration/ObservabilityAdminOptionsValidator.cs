@@ -33,6 +33,39 @@ internal sealed class ObservabilityAdminOptionsValidator
             return ValidateOptionsResult.Fail("日志尾读字节边界无效。");
         }
 
+        if (options.Instances.Count > 50)
+        {
+            return ValidateOptionsResult.Fail("实例目录登记项不能超过 50 条。");
+        }
+
+        foreach (var instance in options.Instances)
+        {
+            if (string.IsNullOrWhiteSpace(instance.InstanceKey))
+            {
+                return ValidateOptionsResult.Fail("实例目录登记项的 InstanceKey 不能为空。");
+            }
+
+            if (instance.InstanceKey.Length > 128)
+            {
+                return ValidateOptionsResult.Fail("实例目录登记项的 InstanceKey 过长。");
+            }
+        }
+
+        if (options.InstanceKey.Length > 128)
+        {
+            return ValidateOptionsResult.Fail("当前实例 InstanceKey 过长。");
+        }
+
+        if (options.InstanceDisplayName.Length > 256)
+        {
+            return ValidateOptionsResult.Fail("当前实例展示名称过长。");
+        }
+
+        if (options.HostRole.Length > 64)
+        {
+            return ValidateOptionsResult.Fail("宿主角色过长。");
+        }
+
         return ValidateOptionsResult.Success;
     }
 }

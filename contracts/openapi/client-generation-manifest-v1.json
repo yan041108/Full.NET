@@ -260,6 +260,18 @@
       "status": "generated"
     },
     {
+      "operationId": "observabilityListServerInstances",
+      "apiModule": "ui/admin/src/api/observability-server-monitor.ts",
+      "generatedGroup": "observability-server-monitor",
+      "status": "generated"
+    },
+    {
+      "operationId": "observabilityGetServerRuntime",
+      "apiModule": "ui/admin/src/api/observability-server-monitor.ts",
+      "generatedGroup": "observability-server-monitor",
+      "status": "generated"
+    },
+    {
       "operationId": "identityListHostUsers",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
