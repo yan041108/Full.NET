@@ -52,6 +52,11 @@ export function createAppRouter(
         component: () => import('../views/TenantPackagesView.vue')
       },
       {
+        name: 'tenant-branding',
+        path: '/settings/tenant-branding',
+        component: () => import('../views/TenantBrandingView.vue')
+      },
+      {
         name: 'users',
         path: '/identity/users',
         component: () => import('../views/UsersView.vue')

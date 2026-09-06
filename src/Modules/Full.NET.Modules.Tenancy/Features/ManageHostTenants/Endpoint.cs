@@ -215,5 +215,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantManagementPermissions.AssignPackage));
+
+        Features.TenantBranding.Endpoint.MapHostTenantBranding(group);
     }
 }

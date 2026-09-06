@@ -17,4 +17,7 @@
   <data name="tenancy.tenant_package.version_conflict" xml:space="preserve"><value>The tenant package record was updated concurrently.</value></data>
   <data name="tenancy.tenant_package.inactive" xml:space="preserve"><value>An inactive tenant package cannot be assigned.</value></data>
   <data name="tenancy.tenant_package.in_use" xml:space="preserve"><value>The tenant package is still assigned to one or more tenants.</value></data>
+  <data name="tenancy.tenant_branding.invalid" xml:space="preserve"><value>The tenant branding fields are invalid.</value></data>
+  <data name="tenancy.tenant_branding.logo_invalid" xml:space="preserve"><value>The uploaded logo file is invalid for tenant branding.</value></data>
+  <data name="tenancy.tenant_branding.logo_not_found" xml:space="preserve"><value>The requested tenant logo is not available.</value></data>
 </root>

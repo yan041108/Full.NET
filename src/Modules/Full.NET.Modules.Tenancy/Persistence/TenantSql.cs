@@ -207,4 +207,149 @@ internal static class TenantSql
           AND IsActive = 0
         """,
         SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindTenantBrandingById = new(
+        "tenancy.tenant_branding.find_by_id",
+        """
+        SELECT Id AS TenantId,
+               SystemTitle,
+               LogoFileId,
+               ContactPhone,
+               ContactEmail,
+               ContactAddress,
+               Copyright,
+               Version
+        FROM fn_tenancy_tenant
+        WHERE Id = @TenantId
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindTenantBrandingCurrent = new(
+        "tenancy.tenant_branding.find_current",
+        """
+        SELECT Id AS TenantId,
+               SystemTitle,
+               LogoFileId,
+               ContactPhone,
+               ContactEmail,
+               ContactAddress,
+               Copyright,
+               Version
+        FROM fn_tenancy_tenant
+        WHERE Id = @TenantId
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement UpdateTenantBranding = new(
+        "tenancy.tenant_branding.update",
+        """
+        UPDATE fn_tenancy_tenant
+        SET SystemTitle = @SystemTitle,
+            ContactPhone = @ContactPhone,
+            ContactEmail = @ContactEmail,
+            ContactAddress = @ContactAddress,
+            Copyright = @Copyright,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateTenantBrandingCurrent = new(
+        "tenancy.tenant_branding.update_current",
+        """
+        UPDATE fn_tenancy_tenant
+        SET SystemTitle = @SystemTitle,
+            ContactPhone = @ContactPhone,
+            ContactEmail = @ContactEmail,
+            ContactAddress = @ContactAddress,
+            Copyright = @Copyright,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement UpdateTenantLogo = new(
+        "tenancy.tenant_branding.update_logo",
+        """
+        UPDATE fn_tenancy_tenant
+        SET LogoFileId = @LogoFileId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement UpdateTenantLogoCurrent = new(
+        "tenancy.tenant_branding.update_logo_current",
+        """
+        UPDATE fn_tenancy_tenant
+        SET LogoFileId = @LogoFileId,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND Version = @Version
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ClearTenantLogo = new(
+        "tenancy.tenant_branding.clear_logo",
+        """
+        UPDATE fn_tenancy_tenant
+        SET LogoFileId = NULL,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND LogoFileId IS NOT NULL
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ClearTenantLogoCurrent = new(
+        "tenancy.tenant_branding.clear_logo_current",
+        """
+        UPDATE fn_tenancy_tenant
+        SET LogoFileId = NULL,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @TenantId
+          AND LogoFileId IS NOT NULL
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement TenantLogoExists = new(
+        "tenancy.tenant_branding.logo_exists",
+        """
+        SELECT CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM fn_tenancy_tenant
+                WHERE Id = @TenantId
+                  AND LogoFileId = @FileId)
+            THEN 1
+            ELSE 0
+        END
+        """,
+        SqlDataScope.Global);
+
+    public static readonly SqlStatement IsTenantLogoReferenced = new(
+        "tenancy.tenant_branding.is_logo_referenced",
+        """
+        SELECT CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM fn_tenancy_tenant
+                WHERE LogoFileId = @FileId)
+            THEN 1
+            ELSE 0
+        END
+        """,
+        SqlDataScope.Global);
 }

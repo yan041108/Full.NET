@@ -544,6 +544,28 @@ export type {
 } from './host-tenant-directory.js';
 
 export {
+  deleteCurrentTenantBrandingLogo,
+  deleteHostTenantBrandingLogo,
+  downloadCurrentTenantBrandingLogoContent,
+  downloadHostTenantBrandingLogoContent,
+  getCurrentTenantBranding,
+  getHostTenantBranding,
+  getRuntimeTenantBranding,
+  isTenantBrandingResponse,
+  isTenantRuntimeBrandingResponse,
+  updateCurrentTenantBranding,
+  updateHostTenantBranding,
+  uploadCurrentTenantBrandingLogo,
+  uploadHostTenantBrandingLogo
+} from './tenant-branding.js';
+
+export type {
+  TenantBrandingResponse,
+  TenantRuntimeBrandingResponse,
+  UpdateTenantBrandingRequest
+} from './tenant-branding.js';
+
+export {
   isCreateHostTenantPackageRequest,
   isHostTenantPackage,
   isHostTenantPackagePage,

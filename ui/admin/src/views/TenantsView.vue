@@ -49,6 +49,13 @@ import {
   listHostTenants,
   updateHostTenant
 } from '../api/tenants';
+import {
+  fetchTenantBrandingLogoBlob,
+  getTenantBranding,
+  removeTenantBrandingLogo,
+  updateTenantBranding,
+  uploadTenantBrandingLogo
+} from '../api/tenant-branding';
 
 defineOptions({ name: 'TenantsView' });
 
@@ -103,6 +110,20 @@ const membersVisible = ref(false);
 const administratorsVisible = ref(false);
 const directoryItems = ref<HostTenantMember[]>([]);
 const directoryTenant = ref<HostTenant | null>(null);
+const brandingVisible = ref(false);
+const brandingTenant = ref<HostTenant | null>(null);
+const brandingSaving = ref(false);
+const brandingUploadingLogo = ref(false);
+const brandingRemovingLogo = ref(false);
+const brandingLogoPreviewUrl = ref<string | null>(null);
+const brandingVersion = ref(0);
+const brandingForm = reactive({
+  systemTitle: '',
+  contactPhone: '',
+  contactEmail: '',
+  contactAddress: '',
+  copyright: ''
+});
 
 const {
   tableMainRef,
@@ -523,6 +544,115 @@ async function openMembers(tenant: HostTenant): Promise<void> {
   }
 }
 
+function revokeBrandingPreview(): void {
+  if (brandingLogoPreviewUrl.value) {
+    URL.revokeObjectURL(brandingLogoPreviewUrl.value);
+    brandingLogoPreviewUrl.value = null;
+  }
+}
+
+async function refreshBrandingLogoPreview(tenantId: string, hasLogo: boolean): Promise<void> {
+  revokeBrandingPreview();
+  if (!hasLogo) {
+    return;
+  }
+
+  try {
+    const blob = await fetchTenantBrandingLogoBlob(tenantId);
+    brandingLogoPreviewUrl.value = URL.createObjectURL(blob);
+  } catch {
+    brandingLogoPreviewUrl.value = null;
+  }
+}
+
+async function openBranding(tenant: HostTenant): Promise<void> {
+  if (changing.value || !canUpdate.value || !tenant.isActive) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const branding = await getTenantBranding(tenant.id);
+    brandingTenant.value = tenant;
+    brandingVersion.value = branding.version;
+    brandingForm.systemTitle = branding.systemTitle ?? '';
+    brandingForm.contactPhone = branding.contactPhone ?? '';
+    brandingForm.contactEmail = branding.contactEmail ?? '';
+    brandingForm.contactAddress = branding.contactAddress ?? '';
+    brandingForm.copyright = branding.copyright ?? '';
+    await refreshBrandingLogoPreview(tenant.id, branding.logoFileId !== null);
+    brandingVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function saveBranding(): Promise<void> {
+  if (!brandingTenant.value) {
+    return;
+  }
+
+  brandingSaving.value = true;
+  try {
+    const branding = await updateTenantBranding(brandingTenant.value.id, {
+      systemTitle: brandingForm.systemTitle || null,
+      contactPhone: brandingForm.contactPhone || null,
+      contactEmail: brandingForm.contactEmail || null,
+      contactAddress: brandingForm.contactAddress || null,
+      copyright: brandingForm.copyright || null,
+      version: brandingVersion.value
+    });
+    brandingVersion.value = branding.version;
+    ElMessage.success(t('tenantBranding.saveSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    brandingSaving.value = false;
+  }
+}
+
+async function handleBrandingLogoSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || !brandingTenant.value) {
+    return;
+  }
+
+  brandingUploadingLogo.value = true;
+  try {
+    const branding = await uploadTenantBrandingLogo(brandingTenant.value.id, file);
+    brandingVersion.value = branding.version;
+    await refreshBrandingLogoPreview(brandingTenant.value.id, true);
+    ElMessage.success(t('tenantBranding.logoUploadSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    brandingUploadingLogo.value = false;
+  }
+}
+
+async function removeBrandingLogo(): Promise<void> {
+  if (!brandingTenant.value) {
+    return;
+  }
+
+  brandingRemovingLogo.value = true;
+  try {
+    const branding = await removeTenantBrandingLogo(brandingTenant.value.id);
+    brandingVersion.value = branding.version;
+    await refreshBrandingLogoPreview(brandingTenant.value.id, false);
+    ElMessage.success(t('tenantBranding.logoRemoveSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'tenants.operationFailed');
+  } finally {
+    brandingRemovingLogo.value = false;
+  }
+}
+
 async function openAdministrators(tenant: HostTenant): Promise<void> {
   if (changing.value || !canReadDirectory.value) {
     return;
@@ -732,6 +862,16 @@ function toProblem(
                     </el-button>
                   </PermissionGate>
                   <PermissionGate code="tenancy.tenants.update">
+                    <el-button
+                      v-if="row.isActive"
+                      link
+                      type="primary"
+                      data-testid="tenants-action-branding"
+                      :disabled="changing"
+                      @click="openBranding(row as HostTenant)"
+                    >
+                      {{ t('tenants.branding') }}
+                    </el-button>
                     <ArtTableActionButton
                       type="edit"
                       test-id="tenants-action-edit"
@@ -904,10 +1044,98 @@ function toProblem(
         </PermissionGate>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="brandingVisible"
+      :title="t('tenantBranding.title')"
+      width="640px"
+      @closed="revokeBrandingPreview()"
+    >
+      <p class="art-dialog-hint">{{ t('tenantBranding.caption') }}</p>
+      <el-form label-width="120px">
+        <el-form-item :label="t('tenantBranding.logo')">
+          <div class="tenants-branding__logo-row">
+            <div v-if="brandingLogoPreviewUrl" class="tenants-branding__logo-preview">
+              <img :src="brandingLogoPreviewUrl" alt="" />
+            </div>
+            <div class="tenants-branding__logo-actions">
+              <label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  hidden
+                  :disabled="brandingUploadingLogo || brandingRemovingLogo"
+                  @change="handleBrandingLogoSelected"
+                />
+                <el-button :loading="brandingUploadingLogo">{{ t('tenantBranding.uploadLogo') }}</el-button>
+              </label>
+              <el-button
+                v-if="brandingLogoPreviewUrl"
+                :loading="brandingRemovingLogo"
+                @click="removeBrandingLogo"
+              >
+                {{ t('tenantBranding.removeLogo') }}
+              </el-button>
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item :label="t('tenantBranding.systemTitle')">
+          <el-input v-model="brandingForm.systemTitle" maxlength="128" />
+        </el-form-item>
+        <el-form-item :label="t('tenantBranding.contactPhone')">
+          <el-input v-model="brandingForm.contactPhone" maxlength="32" />
+        </el-form-item>
+        <el-form-item :label="t('tenantBranding.contactEmail')">
+          <el-input v-model="brandingForm.contactEmail" maxlength="256" />
+        </el-form-item>
+        <el-form-item :label="t('tenantBranding.contactAddress')">
+          <el-input v-model="brandingForm.contactAddress" maxlength="512" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item :label="t('tenantBranding.copyright')">
+          <el-input v-model="brandingForm.copyright" maxlength="256" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="brandingVisible = false">{{ t('users.cancel') }}</el-button>
+        <el-button type="primary" :loading="brandingSaving" @click="saveBranding">
+          {{ t('users.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <style scoped>
+.tenants-branding__logo-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tenants-branding__logo-preview {
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tenants-branding__logo-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.tenants-branding__logo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .tenants-view :deep(.art-table-card) {
   flex: 1;
   display: flex;

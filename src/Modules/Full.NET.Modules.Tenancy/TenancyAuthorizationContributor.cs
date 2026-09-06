@@ -60,6 +60,14 @@ internal sealed class TenancyAuthorizationContributor
             "禁用 Host 租户套餐",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            TenantBrandingPermissions.Read,
+            "读取租户品牌信息",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            TenantBrandingPermissions.Update,
+            "更新租户品牌信息",
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
+        new PermissionDefinition(
             TenantsSwitch,
             "切换租户上下文",
             AuthorizationScope.Host | AuthorizationScope.Tenant),
@@ -103,6 +111,17 @@ internal sealed class TenancyAuthorizationContributor
             "collection",
             22,
             TenancyTenantPackagePermissions.Read),
+        new NavigationDefinition(
+            "tenant-branding",
+            null,
+            "tenant-branding",
+            "/settings/tenant-branding",
+            "tenant-branding",
+            "租户品牌",
+            "Tenant Branding",
+            "picture",
+            23,
+            TenantBrandingPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -156,6 +175,13 @@ internal sealed class TenancyAuthorizationContributor
             "分配套餐",
             "assign-package",
             40),
+        new AuthorizationActionDefinition(
+            "tenancy.tenant_branding.update",
+            "tenant-branding",
+            TenantBrandingPermissions.Update,
+            "保存品牌",
+            "update",
+            10),
         new AuthorizationActionDefinition(
             "tenancy.tenant_packages.create",
             "tenant-packages",

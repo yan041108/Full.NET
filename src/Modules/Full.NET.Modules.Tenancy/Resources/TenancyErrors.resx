@@ -17,4 +17,7 @@
   <data name="tenancy.tenant_package.version_conflict" xml:space="preserve"><value>租户套餐记录已被其他操作更新，请刷新后重试。</value></data>
   <data name="tenancy.tenant_package.inactive" xml:space="preserve"><value>不能为租户分配已禁用的套餐。</value></data>
   <data name="tenancy.tenant_package.in_use" xml:space="preserve"><value>仍有租户绑定该套餐，请先解除绑定后再禁用。</value></data>
+  <data name="tenancy.tenant_branding.invalid" xml:space="preserve"><value>租户品牌字段无效，请检查长度与内容格式。</value></data>
+  <data name="tenancy.tenant_branding.logo_invalid" xml:space="preserve"><value>上传的 Logo 文件无效或超出允许范围。</value></data>
+  <data name="tenancy.tenant_branding.logo_not_found" xml:space="preserve"><value>未找到可用的租户 Logo。</value></data>
 </root>

@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Validation.FluentValidation\Full.NET.Validation.FluentValidation.csproj" />
     <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Files.Contracts\Full.NET.Modules.Files.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MemoryPack" />

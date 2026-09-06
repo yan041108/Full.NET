@@ -72,6 +72,8 @@ public sealed class AuthorizationCatalogTests
                 "identity.users.update",
                 "platform.dashboard.read",
                 "tenancy.host_tenants.read",
+                "tenancy.tenant_branding.read",
+                "tenancy.tenant_branding.update",
                 "tenancy.tenant_packages.create",
                 "tenancy.tenant_packages.disable",
                 "tenancy.tenant_packages.read",

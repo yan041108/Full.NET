@@ -16,6 +16,7 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
     {
         registrar.Register<HostTenantRecord>(ReadHostTenantRecord);
         registrar.Register<TenantResolutionRecord>(ReadTenantResolutionRecord);
+        registrar.Register<TenantBrandingRecord>(ReadTenantBrandingRecord);
         registrar.Register<TenantPackageRecord>(ReadTenantPackageRecord);
         registrar.Register<TenantPackageIdentityRecord>(ReadTenantPackageIdentityRecord);
         registrar.Register<LocalTenantSeedSummary>(ReadLocalTenantSeedSummary);
@@ -43,6 +44,17 @@ internal sealed class TenancyDapperAotMaterializerContributor : IDapperAotMateri
             AotDataReaderExtensions.ReadNullableGuid(reader, 7),
             AotDataReaderExtensions.ReadNullableString(reader, 8),
             AotDataReaderExtensions.ReadNullableString(reader, 9));
+
+    private static TenantBrandingRecord ReadTenantBrandingRecord(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            AotDataReaderExtensions.ReadNullableString(reader, 1),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 2),
+            AotDataReaderExtensions.ReadNullableString(reader, 3),
+            AotDataReaderExtensions.ReadNullableString(reader, 4),
+            AotDataReaderExtensions.ReadNullableString(reader, 5),
+            AotDataReaderExtensions.ReadNullableString(reader, 6),
+            reader.GetInt32(7));
 
     private static TenantPackageRecord ReadTenantPackageRecord(DbDataReader reader) =>
         new(

@@ -13,6 +13,9 @@ public static class HostFileReferenceClaimConsumerModules
 
     /// <summary>Identity 模块消费者；用于用户头像与签名的 claim 生命周期。</summary>
     public const string Identity = "identity";
+
+    /// <summary>Tenancy 模块消费者；用于租户 Logo 的 claim 生命周期。</summary>
+    public const string Tenancy = "tenancy";
 }
 
 /// <summary>引用 claim 状态机。</summary>
@@ -60,6 +63,12 @@ public static class HostFileReferenceClaimIdempotencyKeys
     /// <param name="fileId">签名文件标识。</param>
     public static string IdentityUserSignature(Guid userId, Guid fileId) =>
         $"identity-user-signature:{userId:D}:{fileId:D}";
+
+    /// <summary>为 Tenancy 租户 Logo 生成稳定幂等键。</summary>
+    /// <param name="tenantId">租户标识。</param>
+    /// <param name="fileId">Logo 文件标识。</param>
+    public static string TenancyTenantLogo(Guid tenantId, Guid fileId) =>
+        $"tenancy-tenant-logo:{tenantId:D}:{fileId:D}";
 }
 
 /// <summary>

@@ -49,6 +49,15 @@ public static class TenancyErrorCodes
     /// <summary>仍有租户绑定该套餐时不能禁用。</summary>
     public const string PackageInUse = "tenancy.tenant_package.in_use";
 
+    /// <summary>租户品牌字段校验失败。</summary>
+    public const string BrandingInvalid = "tenancy.tenant_branding.invalid";
+
+    /// <summary>租户 Logo 媒体无效或不可用。</summary>
+    public const string BrandingLogoInvalid = "tenancy.tenant_branding.logo_invalid";
+
+    /// <summary>租户 Logo 媒体不存在。</summary>
+    public const string BrandingLogoNotFound = "tenancy.tenant_branding.logo_not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -67,5 +76,8 @@ public static class TenancyErrorCodes
         PackageVersionConflict,
         PackageInactive,
         PackageInUse,
+        BrandingInvalid,
+        BrandingLogoInvalid,
+        BrandingLogoNotFound,
     ]);
 }

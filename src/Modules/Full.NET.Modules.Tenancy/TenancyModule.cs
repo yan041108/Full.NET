@@ -8,6 +8,7 @@ using Full.NET.Caching.Fusion.Serialization;
 using Full.NET.Data.Dapper;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Tenancy.Auditing;
 using Full.NET.Modules.Tenancy.Contracts;
@@ -81,6 +82,14 @@ public sealed class TenancyModule : IFullNetModule
         services.AddScoped<Features.ManageHostTenants.HostTenantDirectoryQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageQueryService>();
         services.AddScoped<Features.ManageHostTenantPackages.HostTenantPackageManagementService>();
+        services.AddScoped<Features.TenantBranding.TenantBrandingService>();
+        services.AddScoped<Features.TenantBranding.TenantBrandingMediaService>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileRetentionContributor,
+            Features.HostFileReferences.TenancyHostFileRetentionContributor>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IHostFileReferenceClaimProbe,
+            Features.HostFileReferences.TenancyTenantLogoReferenceProbe>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardTenantMetricsReader,
             HostDashboard.HostDashboardTenantMetricsReader>());
@@ -127,6 +136,7 @@ public sealed class TenancyModule : IFullNetModule
         Features.GetCurrentTenant.Endpoint.Map(group);
         Features.GetAvailableTenants.Endpoint.Map(group);
         Features.ChangeTenantContext.Endpoint.Map(group);
+        Features.TenantBranding.Endpoint.Map(group);
         Features.ManageHostTenants.Endpoint.Map(endpoints);
         Features.ManageHostTenantPackages.Endpoint.Map(endpoints);
     }
