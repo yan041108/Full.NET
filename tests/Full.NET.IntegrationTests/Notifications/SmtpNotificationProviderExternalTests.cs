@@ -49,7 +49,8 @@ public sealed class SmtpNotificationProviderExternalTests
                 $"env://{PasswordVariable}",
                 $"Full.NET SMTP external test {uniqueId}",
                 $"This is a Full.NET SMTP provider connectivity test. Correlation: {uniqueId}",
-                $"smtp-external-test:{uniqueId}"),
+                $"smtp-external-test:{uniqueId}",
+                []),
             TestContext.CancellationToken);
 
         Assert.IsTrue(

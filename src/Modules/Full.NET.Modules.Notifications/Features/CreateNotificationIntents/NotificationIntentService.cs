@@ -11,7 +11,6 @@ using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Features.ManageTemplates;
 using Full.NET.Modules.Notifications.Features.ProjectInboxFromIntent;
 using Full.NET.Modules.Notifications.Persistence;
-using Full.NET.Modules.Notifications.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Notifications.Features.CreateNotificationIntents;
@@ -30,6 +29,7 @@ internal sealed class NotificationIntentService(
     IOutboxWriter outboxWriter,
     NotificationRecipientDirectoryResolver recipientDirectory,
     NotificationTemplateSelector templateSelector,
+    Features.IntentAttachments.NotificationIntentAttachmentCoordinator attachmentCoordinator,
     ICurrentTenant currentTenant,
     InboxIntentProjectionService inboxProjection,
     NotificationRealtimeDelivery realtimeDelivery,
@@ -78,7 +78,7 @@ internal sealed class NotificationIntentService(
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
-        var prepared = await PrepareAsync(scope, request, cancellationToken).ConfigureAwait(false);
+        var prepared = await PrepareAsync(scope, actorUserId, request, cancellationToken).ConfigureAwait(false);
         if (!prepared.IsSuccess)
         {
             return Result<NotificationIntentCreateResult>.Failure(prepared.Error!);
@@ -99,6 +99,7 @@ internal sealed class NotificationIntentService(
 
     private async Task<Result<PreparedIntent>> PrepareAsync(
         NotificationInboxScope scope,
+        Guid actorUserId,
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
@@ -180,6 +181,14 @@ internal sealed class NotificationIntentService(
             return Result<PreparedIntent>.Failure(route.Error!);
         }
 
+        var attachments = await attachmentCoordinator
+            .ValidateAsync(actorUserId, template.ChannelKey, request.AttachmentFileIds, cancellationToken)
+            .ConfigureAwait(false);
+        if (!attachments.IsSuccess)
+        {
+            return Result<PreparedIntent>.Failure(attachments.Error!);
+        }
+
         return Result<PreparedIntent>.Success(new PreparedIntent(
             producer.Value!,
             scene.Value!,
@@ -189,7 +198,8 @@ internal sealed class NotificationIntentService(
             snapshot.Value!,
             normalizedRecipients,
             resolved,
-            route.Value!));
+            route.Value!,
+            attachments.Value!));
     }
 
     private async Task<Result<NotificationIntentCreateResult>> CreateCoreAsync(
@@ -304,6 +314,14 @@ internal sealed class NotificationIntentService(
             }
         }
 
+        var attachmentSync = await attachmentCoordinator
+            .SynchronizeAsync(record.Id, prepared.AttachmentFileIds, cancellationToken)
+            .ConfigureAwait(false);
+        if (!attachmentSync.IsSuccess)
+        {
+            return Result<NotificationIntentCreateResult>.Failure(attachmentSync.Error!);
+        }
+
         var inboxEvents = new List<InboxMessageReceivedIntegrationEvent>(prepared.ResolvedRecipients.Count);
         if (isInbox)
         {
@@ -378,17 +396,24 @@ internal sealed class NotificationIntentService(
                 NotificationPlatformSqlParameters.Create(("IntentId", existing.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
+        var attachments = await queryExecutor.QueryAsync<NotificationIntentAttachmentRecord>(
+                NotificationIntentAttachmentSql.ListByIntent,
+                NotificationPlatformSqlParameters.Create(("IntentId", existing.Id)),
+                cancellationToken)
+            .ConfigureAwait(false);
         var snapshot = new NotificationIntentRecordSnapshot(
             existing.TemplateVersionId,
             existing.SceneKey,
             existing.ParameterSnapshotJson,
             recipients.Select(item => new NotificationRecipientInput(item.RecipientTypeKey, item.RecipientKey))
-                .ToArray());
+                .ToArray(),
+            attachments.Select(item => item.FileId).ToArray());
         if (!NotificationTemplateCompiler.PayloadsMatch(
                 prepared.Version.Id,
                 prepared.SceneKey,
                 prepared.ParameterSnapshotJson,
                 prepared.Recipients,
+                prepared.AttachmentFileIds,
                 snapshot))
         {
             return Result<NotificationIntentCreateResult>.Failure(new Error(
@@ -422,6 +447,11 @@ internal sealed class NotificationIntentService(
                 NotificationPlatformSqlParameters.Create(("IntentId", record.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
+        var attachments = await queryExecutor.QueryAsync<NotificationIntentAttachmentRecord>(
+                NotificationIntentAttachmentSql.ListByIntent,
+                NotificationPlatformSqlParameters.Create(("IntentId", record.Id)),
+                cancellationToken)
+            .ConfigureAwait(false);
         return new NotificationIntentResponse(
             record.Id,
             record.ProducerKey,
@@ -440,6 +470,8 @@ internal sealed class NotificationIntentService(
                     item.RecipientKey,
                     item.UserId,
                     item.ResolutionStatusKey))
+                .ToArray(),
+            attachments.Select(item => new NotificationIntentAttachmentResponse(item.FileId, item.SortOrder))
                 .ToArray(),
             record.CreatedAtUtc);
     }
@@ -676,7 +708,8 @@ internal sealed class NotificationIntentService(
         string ParameterSnapshotJson,
         IReadOnlyList<NotificationRecipientInput> Recipients,
         IReadOnlyList<ResolvedNotificationRecipient> ResolvedRecipients,
-        ResolvedRoute Route);
+        ResolvedRoute Route,
+        IReadOnlyList<Guid> AttachmentFileIds);
 
     private sealed record ResolvedRoute(
         Guid? BindingVersionId,

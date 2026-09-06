@@ -180,7 +180,8 @@ public sealed class SmtpNotificationProviderAdapterTests
             "env://FULLNET_TEST_SMTP_PASSWORD",
             "Test subject",
             "Test body",
-            "delivery-idempotency-key");
+            "delivery-idempotency-key",
+            []);
 
     private sealed class StubSecretResolver(string? secret) : INotificationSecretResolver
     {

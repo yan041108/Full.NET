@@ -48,7 +48,8 @@ internal sealed class SmtpRecipientEndpointVerificationMailSender(
             profileVersion.SecretReference,
             "Full.NET recipient endpoint verification",
             $"Your verification code is {code}. It expires in 15 minutes.",
-            $"recipient-endpoint-verify:{providerProfileVersionId:N}:{recipientEmail}");
+            $"recipient-endpoint-verify:{providerProfileVersionId:N}:{recipientEmail}",
+            []);
         var result = await adapter.SendAsync(request, cancellationToken).ConfigureAwait(false);
         return result.Accepted
             ? Result<bool>.Success(true)

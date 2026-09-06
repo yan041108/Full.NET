@@ -19,6 +19,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     IEnumerable<INotificationProviderAdapter> adapters,
+    NotificationAttachmentLoader attachmentLoader,
+    Features.IntentAttachments.NotificationIntentAttachmentCoordinator attachmentCoordinator,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
@@ -228,6 +230,9 @@ internal sealed class NotificationDeliveryBatchProcessor(
             delivery.ChannelKey,
             resultCategory,
             stopwatch.Elapsed.TotalMilliseconds);
+        await attachmentCoordinator
+            .TryReleaseIfTerminalAsync(delivery.IntentId, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<PreparedSend?> PrepareRequestAsync(
@@ -309,6 +314,14 @@ internal sealed class NotificationDeliveryBatchProcessor(
             intent.ParameterSnapshotJson);
         var subject = rendered.IsSuccess ? rendered.Value!.Title : templateVersion.Subject;
         var body = rendered.IsSuccess ? rendered.Value!.Content : string.Empty;
+        var loadedAttachments = await attachmentLoader
+            .LoadForIntentAsync(intent.Id, cancellationToken)
+            .ConfigureAwait(false);
+        if (!loadedAttachments.IsSuccess)
+        {
+            return null;
+        }
+
         var request = new NotificationProviderRequest(
             delivery.Id,
             delivery.ChannelKey,
@@ -317,7 +330,8 @@ internal sealed class NotificationDeliveryBatchProcessor(
             profileVersion.SecretReference,
             subject,
             body,
-            $"{intent.Id:N}:{recipient.Id:N}:{profileVersionId:N}");
+            $"{intent.Id:N}:{recipient.Id:N}:{profileVersionId:N}",
+            loadedAttachments.Value!);
         return new PreparedSend(profileVersion.ProviderTypeKey, adapter, request);
     }
 

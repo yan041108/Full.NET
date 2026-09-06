@@ -21,6 +21,7 @@ import {
   listNotificationDeliveries,
   retryNotificationDelivery
 } from '../api/notification-platform';
+import { getNotificationIntent } from '../api/notification-intents';
 
 const statusKeys = [
   'persisted',
@@ -46,6 +47,7 @@ const retryReason = ref('');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const attachmentCount = ref<number | null>(null);
 onMounted(load);
 
 async function load(): Promise<void> {
@@ -66,9 +68,12 @@ async function load(): Promise<void> {
 
 async function selectItem(item: NotificationDeliveryResponse): Promise<void> {
   problem.value = undefined;
+  attachmentCount.value = null;
   try {
     selected.value = await getNotificationDelivery(item.id);
     retryReason.value = '';
+    const intent = await getNotificationIntent(item.intentId);
+    attachmentCount.value = intent.attachments.length;
   } catch (error: unknown) {
     problem.value = toProblem(error);
   }
@@ -222,6 +227,9 @@ function toProblem(
         >
           {{ statusLabel(selected.statusKey) }}
         </ElTag>
+      </p>
+      <p v-if="attachmentCount !== null" data-testid="notification-deliveries-attachment-count">
+        {{ t('notificationDeliveries.fieldAttachmentCount') }}: {{ attachmentCount }}
       </p>
       <ul class="art-list">
         <li v-for="attempt in selected.attempts" :key="attempt.id" data-testid="notification-deliveries-attempt">

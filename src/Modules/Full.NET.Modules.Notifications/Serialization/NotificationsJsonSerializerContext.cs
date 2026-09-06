@@ -48,6 +48,7 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(NotificationIntentResponse))]
 [JsonSerializable(typeof(NotificationRecipientInput))]
 [JsonSerializable(typeof(NotificationRecipientResponse))]
+[JsonSerializable(typeof(NotificationIntentAttachmentResponse))]
 [JsonSerializable(typeof(NotificationProviderTypeDescriptor))]
 [JsonSerializable(typeof(IReadOnlyList<NotificationProviderTypeDescriptor>))]
 [JsonSerializable(typeof(NotificationProviderConfigField))]

@@ -68,7 +68,8 @@ internal sealed class SmtpNotificationProviderAdapter(
             request.RecipientEndpoint,
             request.Subject,
             request.Body,
-            request.IdempotencyKey);
+            request.IdempotencyKey,
+            request.Attachments);
         try
         {
             var providerMessageId = await transport.SendAsync(command, cancellationToken)

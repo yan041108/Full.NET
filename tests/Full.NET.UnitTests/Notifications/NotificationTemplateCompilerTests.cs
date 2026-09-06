@@ -83,18 +83,21 @@ public sealed class NotificationTemplateCompilerTests
             Guid.Parse("11111111-1111-7111-8111-111111111111"),
             "order.paid",
             """{"orderNo":"A1"}""",
-            recipients);
+            recipients,
+            []);
         Assert.IsTrue(NotificationTemplateCompiler.PayloadsMatch(
             existing.TemplateVersionId,
             "order.paid",
             """{"orderNo":"A1"}""",
             recipients,
+            [],
             existing));
         Assert.IsFalse(NotificationTemplateCompiler.PayloadsMatch(
             existing.TemplateVersionId,
             "order.shipped",
             """{"orderNo":"A1"}""",
             recipients,
+            [],
             existing));
     }
 

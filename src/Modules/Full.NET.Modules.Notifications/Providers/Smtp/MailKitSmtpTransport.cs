@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using Full.NET.Modules.Notifications.Providers;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -55,7 +56,8 @@ internal sealed class SmtpSendCommand(
     string recipientAddress,
     string subject,
     string body,
-    string idempotencyKey)
+    string idempotencyKey,
+    IReadOnlyList<NotificationProviderAttachment> attachments)
 {
     public string Host { get; } = host;
 
@@ -78,6 +80,8 @@ internal sealed class SmtpSendCommand(
     public string Body { get; } = body;
 
     public string IdempotencyKey { get; } = idempotencyKey;
+
+    public IReadOnlyList<NotificationProviderAttachment> Attachments { get; } = attachments;
 
     public override string ToString() =>
         $"SmtpSendCommand {{ Host = {Host}, Port = {Port}, SecureSocketMode = {SecureSocketMode}, Password = [redacted] }}";
@@ -103,7 +107,7 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
         {
             MessageId = messageId,
             Subject = command.Subject,
-            Body = new TextPart("plain") { Text = command.Body },
+            Body = BuildMessageBody(command.Body, command.Attachments),
         };
         message.From.Add(new MailboxAddress(command.FromDisplayName ?? string.Empty, command.FromAddress));
         message.To.Add(MailboxAddress.Parse(command.RecipientAddress));
@@ -202,5 +206,31 @@ internal sealed class MailKitSmtpTransport : ISmtpMailTransport
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(idempotencyKey));
         return $"fullnet-{Convert.ToHexString(hash).ToLowerInvariant()}@local.invalid";
+    }
+
+    private static MimeEntity BuildMessageBody(
+        string body,
+        IReadOnlyList<NotificationProviderAttachment> attachments)
+    {
+        var textPart = new TextPart("plain") { Text = body };
+        if (attachments.Count == 0)
+        {
+            return textPart;
+        }
+
+        var mixed = new Multipart("mixed") { textPart };
+        foreach (var attachment in attachments)
+        {
+            var mimePart = new MimePart(attachment.ContentType)
+            {
+                Content = new MimeContent(new MemoryStream(attachment.Content, writable: false)),
+                ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                ContentTransferEncoding = ContentEncoding.Base64,
+                FileName = attachment.FileName,
+            };
+            mixed.Add(mimePart);
+        }
+
+        return mixed;
     }
 }

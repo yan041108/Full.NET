@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2138,
+      "minimum": 2141,
       "timeout": "10m",
       "selections": {
         "code-generation-realtime": {
@@ -419,7 +419,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 399,
+        "minimum": 400,
         "timeout": "90m"
       },
       "infrastructure": {

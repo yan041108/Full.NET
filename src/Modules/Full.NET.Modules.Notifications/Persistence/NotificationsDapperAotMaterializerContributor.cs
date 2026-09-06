@@ -26,6 +26,7 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
         registrar.Register<NotificationTemplateVersionRecord>(ReadTemplateVersion);
         registrar.Register<NotificationTemplateLocaleStateRecord>(ReadTemplateLocaleState);
         registrar.Register<NotificationIntentRecord>(ReadIntent);
+        registrar.Register<NotificationIntentAttachmentRecord>(ReadIntentAttachment);
         registrar.Register<NotificationRecipientRecord>(ReadRecipient);
         registrar.Register<NotificationDeliveryRecord>(ReadDelivery);
         registrar.Register<NotificationDeliveryAttemptRecord>(ReadDeliveryAttempt);
@@ -253,6 +254,14 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetGuid(14),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
             AotDataReaderExtensions.ReadInt64(reader, 16));
+
+    private static NotificationIntentAttachmentRecord ReadIntentAttachment(DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetGuid(2),
+            reader.GetInt32(3),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 4));
 
     private static NotificationRecipientRecord ReadRecipient(DbDataReader reader) =>
         new(

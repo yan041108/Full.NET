@@ -16,6 +16,9 @@ public static class HostFileReferenceClaimConsumerModules
 
     /// <summary>Tenancy 模块消费者；用于租户 Logo 的 claim 生命周期。</summary>
     public const string Tenancy = "tenancy";
+
+    /// <summary>Notifications 模块消费者；用于邮件 Intent 附件的 claim 生命周期。</summary>
+    public const string Notifications = "notifications";
 }
 
 /// <summary>引用 claim 状态机。</summary>
@@ -69,6 +72,12 @@ public static class HostFileReferenceClaimIdempotencyKeys
     /// <param name="fileId">Logo 文件标识。</param>
     public static string TenancyTenantLogo(Guid tenantId, Guid fileId) =>
         $"tenancy-tenant-logo:{tenantId:D}:{fileId:D}";
+
+    /// <summary>为 Notifications 邮件 Intent 附件生成稳定幂等键。</summary>
+    /// <param name="intentId">通知意图标识。</param>
+    /// <param name="fileId">附件文件标识。</param>
+    public static string NotificationIntentAttachment(Guid intentId, Guid fileId) =>
+        $"notification-intent-attachment:{intentId:D}:{fileId:D}";
 }
 
 /// <summary>

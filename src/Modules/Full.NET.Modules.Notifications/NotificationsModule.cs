@@ -45,7 +45,7 @@ public sealed class NotificationsModule : IFullNetModule
     public string Name => "Notifications";
 
     /// <summary>获取通知中心运行所需的模块依赖。</summary>
-    public IReadOnlyCollection<string> Dependencies => ["Identity", "Organization"];
+    public IReadOnlyCollection<string> Dependencies => ["Identity", "Organization", "Files"];
 
     /// <summary>获取仅用于异步提醒投影的可选事件生产者模块。</summary>
     public IReadOnlyCollection<string> OptionalContractDependencies => ["Workflow"];
@@ -86,6 +86,11 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateService>();
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
+        services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
+        services.TryAddScoped<Execution.NotificationAttachmentLoader>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            Full.NET.Modules.Files.Contracts.IHostFileReferenceClaimProbe,
+            Features.IntentAttachments.NotificationIntentAttachmentProbe>());
         services.TryAddScoped<Features.ManageProviderProfiles.NotificationProviderProfileService>();
         services.TryAddScoped<Features.ManageBindings.NotificationBindingService>();
         services.TryAddScoped<Features.ManageDeliveries.NotificationDeliveryService>();
@@ -177,6 +182,11 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationRecipientDirectoryResolver>();
         services.TryAddScoped<Features.ManageTemplates.NotificationTemplateSelector>();
         services.TryAddScoped<Features.CreateNotificationIntents.NotificationIntentService>();
+        services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
+        services.TryAddScoped<Execution.NotificationAttachmentLoader>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            Full.NET.Modules.Files.Contracts.IHostFileReferenceClaimProbe,
+            Features.IntentAttachments.NotificationIntentAttachmentProbe>());
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationTemplateProvisioner>();
         services.TryAddScoped<Features.ProjectWorkflowNotifications.WorkflowNotificationProjectionService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
@@ -211,6 +221,8 @@ public sealed class NotificationsModule : IFullNetModule
             IValidateOptions<NotificationDeliveryWorkerOptions>,
             NotificationDeliveryWorkerOptionsValidator>());
         services.TryAddScoped<NotificationDeliveryBatchProcessor>();
+        services.TryAddScoped<Features.IntentAttachments.NotificationIntentAttachmentCoordinator>();
+        services.TryAddScoped<Execution.NotificationAttachmentLoader>();
         services.TryAddScoped<Features.ReceiveProviderReceipts.NotificationReceiptProcessor>();
         services.TryAddScoped<Features.ManageDeliveries.NotificationDeliveryService>();
         services.TryAddSingleton<IClock, SystemClock>();

@@ -144,6 +144,12 @@ public static class NotificationsErrorCodes
     /// <summary>收件人数量、去重或类型不满足闭合上限。</summary>
     public const string IntentRecipientLimit = "notifications.intent_recipient_limit";
 
+    /// <summary>Intent 附件数量、类型、大小或上传人校验失败。</summary>
+    public const string IntentAttachmentInvalid = "notifications.intent_attachment_invalid";
+
+    /// <summary>Worker 装载 Intent 附件失败或超出有界上限。</summary>
+    public const string IntentAttachmentLoadFailed = "notifications.intent_attachment_load_failed";
+
     /// <summary>ProviderType 不在闭合目录中。</summary>
     public const string ProviderTypeUnknown = "notifications.provider_type_unknown";
 
@@ -227,6 +233,8 @@ public static class NotificationsErrorCodes
         IntentIdempotencyConflict,
         IntentChannelUnsupported,
         IntentRecipientLimit,
+        IntentAttachmentInvalid,
+        IntentAttachmentLoadFailed,
         ProviderTypeUnknown,
         ProviderProfileNotFound,
         ProviderProfileKeyConflict,

@@ -288,6 +288,7 @@ internal static partial class NotificationTemplateCompiler
         string sceneKey,
         string parameterSnapshotJson,
         IReadOnlyList<NotificationRecipientInput> recipients,
+        IReadOnlyList<Guid> attachmentFileIds,
         NotificationIntentRecordSnapshot existing)
     {
         if (existing.TemplateVersionId != templateVersionId
@@ -297,10 +298,22 @@ internal static partial class NotificationTemplateCompiler
             return false;
         }
 
-        var incoming = CanonicalRecipients(recipients);
-        var stored = CanonicalRecipients(existing.Recipients);
-        return incoming.SequenceEqual(stored, StringComparer.Ordinal);
+        var incomingRecipients = CanonicalRecipients(recipients);
+        var storedRecipients = CanonicalRecipients(existing.Recipients);
+        if (!incomingRecipients.SequenceEqual(storedRecipients, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        return CanonicalAttachmentFileIds(attachmentFileIds)
+            .SequenceEqual(CanonicalAttachmentFileIds(existing.AttachmentFileIds));
     }
+
+    public static IReadOnlyList<string> CanonicalAttachmentFileIds(IReadOnlyList<Guid> attachmentFileIds) =>
+        attachmentFileIds
+            .Select(fileId => fileId.ToString("D"))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
     public static IReadOnlyList<string> CanonicalRecipients(
         IReadOnlyList<NotificationRecipientInput> recipients) =>
@@ -457,4 +470,5 @@ internal sealed record NotificationIntentRecordSnapshot(
     Guid TemplateVersionId,
     string SceneKey,
     string ParameterSnapshotJson,
-    IReadOnlyList<NotificationRecipientInput> Recipients);
+    IReadOnlyList<NotificationRecipientInput> Recipients,
+    IReadOnlyList<Guid> AttachmentFileIds);

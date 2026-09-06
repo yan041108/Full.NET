@@ -9,7 +9,8 @@ public sealed record CreateNotificationIntentRequest(
     string TemplateKey,
     IReadOnlyList<NotificationRecipientInput> Recipients,
     JsonElement Parameters,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    IReadOnlyList<Guid>? AttachmentFileIds = null);
 
 /// <summary>收件人输入；本切片仅支持 <c>user</c>，RecipientKey 为用户 Id 的 32 位十六进制。</summary>
 public sealed record NotificationRecipientInput(
@@ -30,7 +31,13 @@ public sealed record NotificationIntentResponse(
     string RouteSnapshotJson,
     string ParameterSnapshotJson,
     IReadOnlyList<NotificationRecipientResponse> Recipients,
+    IReadOnlyList<NotificationIntentAttachmentResponse> Attachments,
     DateTimeOffset CreatedAtUtc);
+
+/// <summary>Intent 已绑定的邮件附件元数据；不包含文件内容。</summary>
+public sealed record NotificationIntentAttachmentResponse(
+    Guid FileId,
+    int SortOrder);
 
 /// <summary>已解析收件人快照；不回显地址原文。</summary>
 public sealed record NotificationRecipientResponse(

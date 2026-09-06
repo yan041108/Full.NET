@@ -32,7 +32,8 @@ internal sealed record NotificationProviderRequest(
     string? SecretReference,
     string Subject,
     string Body,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    IReadOnlyList<NotificationProviderAttachment> Attachments);
 
 /// <summary>Provider 调用结果；Accepted 不等于 Delivered。</summary>
 internal sealed record NotificationProviderResult(
