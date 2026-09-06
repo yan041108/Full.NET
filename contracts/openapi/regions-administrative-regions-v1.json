@@ -1,0 +1,203 @@
+{
+  "id": "regions-administrative-regions-v1",
+  "version": 1,
+  "description": "行政区域 HTTP 契约冻结夹具；与 Regions 模块 Contracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/regions/administrative-regions/children",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "regions.administrative_regions.read",
+          "successStatus": 200,
+          "responseSchema": "AdministrativeRegionChildResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions/tree",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "regions.administrative_regions.read",
+          "successStatus": 200,
+          "responseSchema": "AdministrativeRegionTreeNodeResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "regions.administrative_regions.read",
+          "successStatus": 200,
+          "responseSchema": "AdministrativeRegionResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "regions.administrative_regions.create",
+          "successStatus": 201,
+          "requestSchema": "CreateAdministrativeRegionRequest",
+          "responseSchema": "AdministrativeRegionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions/dataset-manifest/latest",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "regions.administrative_regions.read",
+          "successStatus": 200,
+          "responseSchema": "AdministrativeRegionDatasetManifestResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions/{regionId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "regions.administrative_regions.read",
+          "successStatus": 200,
+          "responseSchema": "AdministrativeRegionResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "regions.administrative_regions.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateAdministrativeRegionRequest",
+          "responseSchema": "AdministrativeRegionResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions/{regionId}/delete",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "regions.administrative_regions.delete",
+          "successStatus": 204,
+          "requestSchema": "DeleteAdministrativeRegionRequest"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions/import/preview",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "regions.administrative_regions.import",
+          "successStatus": 200,
+          "requestSchema": "ImportAdministrativeRegionsRequest",
+          "responseSchema": "ImportAdministrativeRegionsPreviewResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/regions/administrative-regions/import/apply",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "regions.administrative_regions.import",
+          "successStatus": 200,
+          "requestSchema": "ImportAdministrativeRegionsRequest",
+          "responseSchema": "ImportAdministrativeRegionsApplyResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "AdministrativeRegionResponse": {
+      "properties": [
+        "id",
+        "parentId",
+        "code",
+        "name",
+        "shortName",
+        "mergerName",
+        "zipCode",
+        "cityCode",
+        "level",
+        "regionType",
+        "pinYin",
+        "longitude",
+        "latitude",
+        "displayOrder",
+        "remark",
+        "createdAtUtc",
+        "updatedAtUtc",
+        "version"
+      ]
+    },
+    "AdministrativeRegionChildResponseList": {
+      "properties": ["items"]
+    },
+    "AdministrativeRegionTreeNodeResponseList": {
+      "properties": ["items"]
+    },
+    "AdministrativeRegionResponsePage": {
+      "properties": ["items", "page", "pageSize", "totalCount"]
+    },
+    "AdministrativeRegionDatasetManifestResponse": {
+      "properties": [
+        "id",
+        "datasetKey",
+        "datasetVersion",
+        "sourceDigest",
+        "recordCount",
+        "appliedAtUtc",
+        "appliedByUserId"
+      ]
+    },
+    "CreateAdministrativeRegionRequest": {
+      "properties": [
+        "parentId",
+        "code",
+        "name",
+        "shortName",
+        "mergerName",
+        "zipCode",
+        "cityCode",
+        "level",
+        "regionType",
+        "pinYin",
+        "longitude",
+        "latitude",
+        "displayOrder",
+        "remark"
+      ]
+    },
+    "UpdateAdministrativeRegionRequest": {
+      "properties": [
+        "parentId",
+        "name",
+        "shortName",
+        "mergerName",
+        "zipCode",
+        "cityCode",
+        "level",
+        "regionType",
+        "pinYin",
+        "longitude",
+        "latitude",
+        "displayOrder",
+        "remark",
+        "version"
+      ]
+    },
+    "DeleteAdministrativeRegionRequest": {
+      "properties": ["version"]
+    },
+    "ImportAdministrativeRegionsRequest": {
+      "properties": ["datasetKey", "datasetVersion", "sourceDigest", "mergeMode", "items"]
+    },
+    "ImportAdministrativeRegionsPreviewResponse": {
+      "properties": ["added", "updated", "removed", "skippedCount"]
+    },
+    "ImportAdministrativeRegionsApplyResponse": {
+      "properties": ["addedCount", "updatedCount", "removedCount", "skippedCount", "manifest"]
+    }
+  }
+}

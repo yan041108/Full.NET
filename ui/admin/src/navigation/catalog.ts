@@ -192,6 +192,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.myReleaseNotes.title',
     captionKey: 'navigation.myReleaseNotes.caption'
   }],
+  ['administrative-regions', {
+    titleKey: 'navigation.administrativeRegions.title',
+    captionKey: 'navigation.administrativeRegions.caption'
+  }],
   ['code-generation-templates', {
     titleKey: 'navigation.codeGenerationTemplates.title',
     captionKey: 'navigation.codeGenerationTemplates.caption'

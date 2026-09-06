@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="regions.administrative_region_not_found" xml:space="preserve"><value>Administrative region was not found.</value></data>
+  <data name="regions.administrative_region_validation_failed" xml:space="preserve"><value>The administrative region request is invalid.</value></data>
+  <data name="regions.administrative_region_concurrency_conflict" xml:space="preserve"><value>The administrative region was updated by another operation.</value></data>
+  <data name="regions.administrative_region_code_exists" xml:space="preserve"><value>Region code already exists.</value></data>
+  <data name="regions.administrative_region_invalid_code" xml:space="preserve"><value>Region code format is invalid.</value></data>
+  <data name="regions.administrative_region_invalid_parent" xml:space="preserve"><value>Parent region is invalid.</value></data>
+  <data name="regions.administrative_region_parent_cycle" xml:space="preserve"><value>Parent assignment would create a cycle.</value></data>
+  <data name="regions.administrative_region_import_invalid" xml:space="preserve"><value>Import request is invalid.</value></data>
+  <data name="regions.administrative_region_import_parent_unresolved" xml:space="preserve"><value>Import parent code could not be resolved.</value></data>
+</root>

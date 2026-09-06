@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>zh-CN</NeutralLanguage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Dapper\Full.NET.Data.Dapper.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Hosting\Full.NET.Hosting.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Modularity\Full.NET.Modularity.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Seeding.Abstractions\Full.NET.Seeding.Abstractions.csproj" />
+    <ProjectReference Include="..\Full.NET.Modules.Identity.Contracts\Full.NET.Modules.Identity.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Seeding\china-administrative-regions-baseline-v1.json" />
+    <EmbeddedResource Update="Resources\RegionsErrors.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>RegionsErrors.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Resources\RegionsErrors.en-US.resx">
+      <DependentUpon>RegionsErrors.resx</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

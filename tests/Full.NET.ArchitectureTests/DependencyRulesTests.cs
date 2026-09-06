@@ -1422,6 +1422,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Notifications.NotificationsModule).Assembly,
         typeof(Full.NET.Modules.Calendar.CalendarModule).Assembly,
         typeof(Full.NET.Modules.Platform.PlatformModule).Assembly,
+        typeof(Full.NET.Modules.Regions.RegionsModule).Assembly,
         typeof(Full.NET.Modules.Jobs.JobsModule).Assembly,
         typeof(Full.NET.Modules.Messaging.MessagingModule).Assembly,
         typeof(Full.NET.Modules.CodeGeneration.CodeGenerationModule).Assembly,

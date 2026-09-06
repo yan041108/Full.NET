@@ -8,6 +8,10 @@ import type {
   AccessLogResponse,
   ActWorkflowTodoRequest,
   AddHostDocumentVersionRequest,
+  AdministrativeRegionChildResponse,
+  AdministrativeRegionDatasetManifestResponse,
+  AdministrativeRegionResponse,
+  AdministrativeRegionTreeNodeResponse,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
@@ -60,6 +64,7 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   ConfirmTotpEnrollmentRequest,
+  CreateAdministrativeRegionRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
   CreateDataApprovalRequestBody,
@@ -96,6 +101,7 @@ import type {
   CurrentUserResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
+  DeleteAdministrativeRegionRequest,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -177,6 +183,10 @@ import type {
   IdentitySessionLoginPolicy,
   IdentitySessionPolicyResponse,
   IFormFile,
+  ImportAdministrativeRegionItem,
+  ImportAdministrativeRegionsApplyResponse,
+  ImportAdministrativeRegionsPreviewResponse,
+  ImportAdministrativeRegionsRequest,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
@@ -210,6 +220,7 @@ import type {
   OrganizationUserUnitResponse,
   OutboundCallLogResponse,
   PagedResultOfAccessLogResponse,
+  PagedResultOfAdministrativeRegionResponse,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -310,6 +321,7 @@ import type {
   TenantSummary,
   TokenResponse,
   TotpEnrollmentStatusResponse,
+  UpdateAdministrativeRegionRequest,
   UpdateCodeGenerationTemplateRequest,
   UpdateConfigEntryRequest,
   UpdateDataApprovalScenarioBindingBody,
@@ -376,6 +388,8 @@ import type {
 } from './models.generated.js';
 import {
   readAccessLogCursorPageResponse,
+  readAdministrativeRegionDatasetManifestResponse,
+  readAdministrativeRegionResponse,
   readBatchChangeHostJobScheduleStateResponse,
   readBatchHostUserStatusResponse,
   readBeginTotpEnrollmentResponse,
@@ -447,6 +461,8 @@ import {
   readIdentityListSuperAdministratorAuditsResponse,
   readIdentityListSuperAdministratorsResponse,
   readIdentitySessionPolicyResponse,
+  readImportAdministrativeRegionsApplyResponse,
+  readImportAdministrativeRegionsPreviewResponse,
   readImportHostUsersResponse,
   readInboxMessageResponse,
   readInboxUnreadCountResponse,
@@ -471,6 +487,7 @@ import {
   readOrganizationUserPositionResponse,
   readOrganizationUserUnitResponse,
   readPagedResultOfAccessLogResponse,
+  readPagedResultOfAdministrativeRegionResponse,
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
   readPagedResultOfConfigEntryResponse,
@@ -515,6 +532,8 @@ import {
   readPagedResultOfWorkflowTodoListItemResponse,
   readPersonalScheduleResponse,
   readRecipientEndpointResponse,
+  readRegionsGetAdministrativeRegionTreeResponse,
+  readRegionsListAdministrativeRegionChildrenResponse,
   readRevokeAllHostUserSessionsResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
@@ -6078,6 +6097,249 @@ export async function platformUpdateHostReleaseNote(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostReleaseNoteResponse(value);
+}
+
+export interface RegionsApplyAdministrativeRegionImportParameters {
+  readonly body: ImportAdministrativeRegionsRequest;
+}
+
+export async function regionsApplyAdministrativeRegionImport(
+  http: HttpClient,
+  parameters: RegionsApplyAdministrativeRegionImportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportAdministrativeRegionsApplyResponse> {
+  const path = `/api/v1/regions/administrative-regions/import/apply`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportAdministrativeRegionsApplyResponse(value);
+}
+
+export interface RegionsCreateAdministrativeRegionParameters {
+  readonly body: CreateAdministrativeRegionRequest;
+}
+
+export async function regionsCreateAdministrativeRegion(
+  http: HttpClient,
+  parameters: RegionsCreateAdministrativeRegionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AdministrativeRegionResponse> {
+  const path = `/api/v1/regions/administrative-regions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAdministrativeRegionResponse(value);
+}
+
+export interface RegionsDeleteAdministrativeRegionParameters {
+  readonly regionId: string;
+  readonly body: DeleteAdministrativeRegionRequest;
+}
+
+export async function regionsDeleteAdministrativeRegion(
+  http: HttpClient,
+  parameters: RegionsDeleteAdministrativeRegionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/regions/administrative-regions/${encodeURIComponent(String(parameters.regionId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
+export interface RegionsGetAdministrativeRegionParameters {
+  readonly regionId: string;
+}
+
+export async function regionsGetAdministrativeRegion(
+  http: HttpClient,
+  parameters: RegionsGetAdministrativeRegionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AdministrativeRegionResponse> {
+  const path = `/api/v1/regions/administrative-regions/${encodeURIComponent(String(parameters.regionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAdministrativeRegionResponse(value);
+}
+
+export interface RegionsGetAdministrativeRegionTreeParameters {
+  readonly parentId?: string;
+  readonly maxDepth?: number;
+}
+
+export async function regionsGetAdministrativeRegionTree(
+  http: HttpClient,
+  parameters: RegionsGetAdministrativeRegionTreeParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AdministrativeRegionTreeNodeResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.parentId !== undefined) {
+    query.set('parentId', String(parameters.parentId));
+  }
+  if (parameters.maxDepth !== undefined) {
+    query.set('maxDepth', String(parameters.maxDepth));
+  }
+  const path = query.size === 0 ? `/api/v1/regions/administrative-regions/tree` : `/api/v1/regions/administrative-regions/tree?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRegionsGetAdministrativeRegionTreeResponse(value);
+}
+
+export interface RegionsGetLatestAdministrativeRegionDatasetManifestParameters {
+  readonly datasetKey?: string;
+}
+
+export async function regionsGetLatestAdministrativeRegionDatasetManifest(
+  http: HttpClient,
+  parameters: RegionsGetLatestAdministrativeRegionDatasetManifestParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AdministrativeRegionDatasetManifestResponse> {
+  const query = new URLSearchParams();
+  if (parameters.datasetKey !== undefined) {
+    query.set('datasetKey', String(parameters.datasetKey));
+  }
+  const path = query.size === 0 ? `/api/v1/regions/administrative-regions/dataset-manifest/latest` : `/api/v1/regions/administrative-regions/dataset-manifest/latest?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAdministrativeRegionDatasetManifestResponse(value);
+}
+
+export interface RegionsListAdministrativeRegionChildrenParameters {
+  readonly parentId?: string;
+}
+
+export async function regionsListAdministrativeRegionChildren(
+  http: HttpClient,
+  parameters: RegionsListAdministrativeRegionChildrenParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AdministrativeRegionChildResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.parentId !== undefined) {
+    query.set('parentId', String(parameters.parentId));
+  }
+  const path = query.size === 0 ? `/api/v1/regions/administrative-regions/children` : `/api/v1/regions/administrative-regions/children?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRegionsListAdministrativeRegionChildrenResponse(value);
+}
+
+export interface RegionsListAdministrativeRegionsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly parentId?: string;
+  readonly name?: string;
+  readonly code?: string;
+  readonly level?: number;
+}
+
+export async function regionsListAdministrativeRegions(
+  http: HttpClient,
+  parameters: RegionsListAdministrativeRegionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAdministrativeRegionResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.parentId !== undefined) {
+    query.set('parentId', String(parameters.parentId));
+  }
+  if (parameters.name !== undefined) {
+    query.set('name', String(parameters.name));
+  }
+  if (parameters.code !== undefined) {
+    query.set('code', String(parameters.code));
+  }
+  if (parameters.level !== undefined) {
+    query.set('level', String(parameters.level));
+  }
+  const path = query.size === 0 ? `/api/v1/regions/administrative-regions` : `/api/v1/regions/administrative-regions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAdministrativeRegionResponse(value);
+}
+
+export interface RegionsPreviewAdministrativeRegionImportParameters {
+  readonly body: ImportAdministrativeRegionsRequest;
+}
+
+export async function regionsPreviewAdministrativeRegionImport(
+  http: HttpClient,
+  parameters: RegionsPreviewAdministrativeRegionImportParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportAdministrativeRegionsPreviewResponse> {
+  const path = `/api/v1/regions/administrative-regions/import/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportAdministrativeRegionsPreviewResponse(value);
+}
+
+export interface RegionsUpdateAdministrativeRegionParameters {
+  readonly regionId: string;
+  readonly body: UpdateAdministrativeRegionRequest;
+}
+
+export async function regionsUpdateAdministrativeRegion(
+  http: HttpClient,
+  parameters: RegionsUpdateAdministrativeRegionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AdministrativeRegionResponse> {
+  const path = `/api/v1/regions/administrative-regions/${encodeURIComponent(String(parameters.regionId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAdministrativeRegionResponse(value);
 }
 
 export interface SerialNumbersCreateRuleParameters {

@@ -7,6 +7,10 @@ import type {
   AccessLogResponse,
   ActWorkflowTodoRequest,
   AddHostDocumentVersionRequest,
+  AdministrativeRegionChildResponse,
+  AdministrativeRegionDatasetManifestResponse,
+  AdministrativeRegionResponse,
+  AdministrativeRegionTreeNodeResponse,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
@@ -59,6 +63,7 @@ import type {
   ConfigEntryResponse,
   ConfigValueUpdate,
   ConfirmTotpEnrollmentRequest,
+  CreateAdministrativeRegionRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
   CreateDataApprovalRequestBody,
@@ -95,6 +100,7 @@ import type {
   CurrentUserResponse,
   DataApprovalRequestResponse,
   DataApprovalScenarioResponse,
+  DeleteAdministrativeRegionRequest,
   DeleteCodeGenerationTemplateRequest,
   DeleteConfigEntryRequest,
   DeleteDictItemRequest,
@@ -176,6 +182,10 @@ import type {
   IdentitySessionLoginPolicy,
   IdentitySessionPolicyResponse,
   IFormFile,
+  ImportAdministrativeRegionItem,
+  ImportAdministrativeRegionsApplyResponse,
+  ImportAdministrativeRegionsPreviewResponse,
+  ImportAdministrativeRegionsRequest,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
@@ -209,6 +219,7 @@ import type {
   OrganizationUserUnitResponse,
   OutboundCallLogResponse,
   PagedResultOfAccessLogResponse,
+  PagedResultOfAdministrativeRegionResponse,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -309,6 +320,7 @@ import type {
   TenantSummary,
   TokenResponse,
   TotpEnrollmentStatusResponse,
+  UpdateAdministrativeRegionRequest,
   UpdateCodeGenerationTemplateRequest,
   UpdateConfigEntryRequest,
   UpdateDataApprovalScenarioBindingBody,
@@ -427,6 +439,50 @@ export function readAddHostDocumentVersionRequest(value: unknown): AddHostDocume
 
 function isAddHostDocumentVersionRequest(value: unknown): value is AddHostDocumentVersionRequest {
   return isRecord(value) && ((value["changeDescription"] === null) || (typeof value["changeDescription"] === 'string')) && (typeof value["fileId"] === 'string' && guidPattern.test(value["fileId"]));
+}
+
+export function readAdministrativeRegionChildResponse(value: unknown): AdministrativeRegionChildResponse {
+  if (!(isAdministrativeRegionChildResponse(value))) {
+    throw new Error('client.invalid_administrative_region_child_response');
+  }
+  return value;
+}
+
+function isAdministrativeRegionChildResponse(value: unknown): value is AdministrativeRegionChildResponse {
+  return isRecord(value) && (value["code"] === undefined || (typeof value["code"] === 'string')) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (value["hasChildren"] === undefined || (typeof value["hasChildren"] === 'boolean')) && (value["id"] === undefined || (typeof value["id"] === 'string' && guidPattern.test(value["id"]))) && (value["level"] === undefined || (typeof value["level"] === 'number' && Number.isInteger(value["level"]))) && (value["name"] === undefined || (typeof value["name"] === 'string')) && (value["parentId"] === undefined || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
+}
+
+export function readAdministrativeRegionDatasetManifestResponse(value: unknown): AdministrativeRegionDatasetManifestResponse {
+  if (!(isAdministrativeRegionDatasetManifestResponse(value))) {
+    throw new Error('client.invalid_administrative_region_dataset_manifest_response');
+  }
+  return value;
+}
+
+function isAdministrativeRegionDatasetManifestResponse(value: unknown): value is AdministrativeRegionDatasetManifestResponse {
+  return isRecord(value) && (value["appliedAtUtc"] === undefined || (typeof value["appliedAtUtc"] === 'string')) && (value["appliedByUserId"] === undefined || (typeof value["appliedByUserId"] === 'string' && guidPattern.test(value["appliedByUserId"]))) && (value["datasetKey"] === undefined || (typeof value["datasetKey"] === 'string')) && (value["datasetVersion"] === undefined || (typeof value["datasetVersion"] === 'string')) && (value["id"] === undefined || (typeof value["id"] === 'string' && guidPattern.test(value["id"]))) && (value["recordCount"] === undefined || (typeof value["recordCount"] === 'number' && Number.isInteger(value["recordCount"]))) && (value["sourceDigest"] === undefined || (typeof value["sourceDigest"] === 'string'));
+}
+
+export function readAdministrativeRegionResponse(value: unknown): AdministrativeRegionResponse {
+  if (!(isAdministrativeRegionResponse(value))) {
+    throw new Error('client.invalid_administrative_region_response');
+  }
+  return value;
+}
+
+function isAdministrativeRegionResponse(value: unknown): value is AdministrativeRegionResponse {
+  return isRecord(value) && (value["cityCode"] === undefined || (typeof value["cityCode"] === 'string')) && (value["code"] === undefined || (typeof value["code"] === 'string')) && (value["createdAtUtc"] === undefined || (typeof value["createdAtUtc"] === 'string')) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (value["id"] === undefined || (typeof value["id"] === 'string' && guidPattern.test(value["id"]))) && (value["latitude"] === undefined || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"]))) && (value["level"] === undefined || (typeof value["level"] === 'number' && Number.isInteger(value["level"]))) && (value["longitude"] === undefined || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"]))) && (value["mergerName"] === undefined || (typeof value["mergerName"] === 'string')) && (value["name"] === undefined || (typeof value["name"] === 'string')) && (value["parentId"] === undefined || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (value["pinYin"] === undefined || (typeof value["pinYin"] === 'string')) && (value["regionType"] === undefined || (typeof value["regionType"] === 'string')) && (value["remark"] === undefined || (typeof value["remark"] === 'string')) && (value["shortName"] === undefined || (typeof value["shortName"] === 'string')) && (value["updatedAtUtc"] === undefined || (typeof value["updatedAtUtc"] === 'string')) && (value["version"] === undefined || (typeof value["version"] === 'number' && Number.isInteger(value["version"]))) && (value["zipCode"] === undefined || (typeof value["zipCode"] === 'string'));
+}
+
+export function readAdministrativeRegionTreeNodeResponse(value: unknown): AdministrativeRegionTreeNodeResponse {
+  if (!(isAdministrativeRegionTreeNodeResponse(value))) {
+    throw new Error('client.invalid_administrative_region_tree_node_response');
+  }
+  return value;
+}
+
+function isAdministrativeRegionTreeNodeResponse(value: unknown): value is AdministrativeRegionTreeNodeResponse {
+  return isRecord(value) && (value["children"] === undefined || (Array.isArray(value["children"]) && value["children"].every(item17 => isAdministrativeRegionTreeNodeResponse(item17)))) && (value["code"] === undefined || (typeof value["code"] === 'string')) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (value["id"] === undefined || (typeof value["id"] === 'string' && guidPattern.test(value["id"]))) && (value["level"] === undefined || (typeof value["level"] === 'number' && Number.isInteger(value["level"]))) && (value["name"] === undefined || (typeof value["name"] === 'string')) && (value["parentId"] === undefined || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"])));
 }
 
 export function readAssignHostTenantPackageRequest(value: unknown): AssignHostTenantPackageRequest {
@@ -1001,6 +1057,17 @@ function isConfirmTotpEnrollmentRequest(value: unknown): value is ConfirmTotpEnr
   return isRecord(value) && (typeof value["totpCode"] === 'string');
 }
 
+export function readCreateAdministrativeRegionRequest(value: unknown): CreateAdministrativeRegionRequest {
+  if (!(isCreateAdministrativeRegionRequest(value))) {
+    throw new Error('client.invalid_create_administrative_region_request');
+  }
+  return value;
+}
+
+function isCreateAdministrativeRegionRequest(value: unknown): value is CreateAdministrativeRegionRequest {
+  return isRecord(value) && (value["cityCode"] === undefined || (typeof value["cityCode"] === 'string')) && (value["code"] === undefined || (typeof value["code"] === 'string')) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (value["latitude"] === undefined || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"]))) && (value["level"] === undefined || (typeof value["level"] === 'number' && Number.isInteger(value["level"]))) && (value["longitude"] === undefined || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"]))) && (value["mergerName"] === undefined || (typeof value["mergerName"] === 'string')) && (value["name"] === undefined || (typeof value["name"] === 'string')) && (value["parentId"] === undefined || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (value["pinYin"] === undefined || (typeof value["pinYin"] === 'string')) && (value["regionType"] === undefined || (typeof value["regionType"] === 'string')) && (value["remark"] === undefined || (typeof value["remark"] === 'string')) && (value["shortName"] === undefined || (typeof value["shortName"] === 'string')) && (value["zipCode"] === undefined || (typeof value["zipCode"] === 'string'));
+}
+
 export function readCreateCodeGenerationTemplateRequest(value: unknown): CreateCodeGenerationTemplateRequest {
   if (!(isCreateCodeGenerationTemplateRequest(value))) {
     throw new Error('client.invalid_create_code_generation_template_request');
@@ -1395,6 +1462,17 @@ export function readDataApprovalScenarioResponse(value: unknown): DataApprovalSc
 
 function isDataApprovalScenarioResponse(value: unknown): value is DataApprovalScenarioResponse {
   return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isRegistered"] === 'boolean') && (typeof value["scenarioKey"] === 'string') && (typeof value["scopeKey"] === 'string') && (value["version"] === undefined || ((typeof value["version"] === 'number' && Number.isInteger(value["version"])) || (value["version"] === null))) && (value["workflowDefinitionKey"] === undefined || ((typeof value["workflowDefinitionKey"] === 'string') || (value["workflowDefinitionKey"] === null))) && (value["workflowDefinitionVersionId"] === undefined || ((typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"])) || (value["workflowDefinitionVersionId"] === null)));
+}
+
+export function readDeleteAdministrativeRegionRequest(value: unknown): DeleteAdministrativeRegionRequest {
+  if (!(isDeleteAdministrativeRegionRequest(value))) {
+    throw new Error('client.invalid_delete_administrative_region_request');
+  }
+  return value;
+}
+
+function isDeleteAdministrativeRegionRequest(value: unknown): value is DeleteAdministrativeRegionRequest {
+  return isRecord(value) && (value["version"] === undefined || (typeof value["version"] === 'number' && Number.isInteger(value["version"])));
 }
 
 export function readDeleteCodeGenerationTemplateRequest(value: unknown): DeleteCodeGenerationTemplateRequest {
@@ -2288,6 +2366,50 @@ function isIFormFile(value: unknown): value is IFormFile {
   return value instanceof Blob;
 }
 
+export function readImportAdministrativeRegionItem(value: unknown): ImportAdministrativeRegionItem {
+  if (!(isImportAdministrativeRegionItem(value))) {
+    throw new Error('client.invalid_import_administrative_region_item');
+  }
+  return value;
+}
+
+function isImportAdministrativeRegionItem(value: unknown): value is ImportAdministrativeRegionItem {
+  return isRecord(value) && (value["cityCode"] === undefined || (typeof value["cityCode"] === 'string')) && (value["code"] === undefined || (typeof value["code"] === 'string')) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (value["latitude"] === undefined || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"]))) && (value["level"] === undefined || (typeof value["level"] === 'number' && Number.isInteger(value["level"]))) && (value["longitude"] === undefined || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"]))) && (value["mergerName"] === undefined || (typeof value["mergerName"] === 'string')) && (value["name"] === undefined || (typeof value["name"] === 'string')) && (value["parentCode"] === undefined || (typeof value["parentCode"] === 'string')) && (value["pinYin"] === undefined || (typeof value["pinYin"] === 'string')) && (value["regionType"] === undefined || (typeof value["regionType"] === 'string')) && (value["shortName"] === undefined || (typeof value["shortName"] === 'string')) && (value["zipCode"] === undefined || (typeof value["zipCode"] === 'string'));
+}
+
+export function readImportAdministrativeRegionsApplyResponse(value: unknown): ImportAdministrativeRegionsApplyResponse {
+  if (!(isImportAdministrativeRegionsApplyResponse(value))) {
+    throw new Error('client.invalid_import_administrative_regions_apply_response');
+  }
+  return value;
+}
+
+function isImportAdministrativeRegionsApplyResponse(value: unknown): value is ImportAdministrativeRegionsApplyResponse {
+  return isRecord(value) && (value["addedCount"] === undefined || (typeof value["addedCount"] === 'number' && Number.isInteger(value["addedCount"]))) && (value["manifest"] === undefined || (isAdministrativeRegionDatasetManifestResponse(value["manifest"]))) && (value["removedCount"] === undefined || (typeof value["removedCount"] === 'number' && Number.isInteger(value["removedCount"]))) && (value["skippedCount"] === undefined || (typeof value["skippedCount"] === 'number' && Number.isInteger(value["skippedCount"]))) && (value["updatedCount"] === undefined || (typeof value["updatedCount"] === 'number' && Number.isInteger(value["updatedCount"])));
+}
+
+export function readImportAdministrativeRegionsPreviewResponse(value: unknown): ImportAdministrativeRegionsPreviewResponse {
+  if (!(isImportAdministrativeRegionsPreviewResponse(value))) {
+    throw new Error('client.invalid_import_administrative_regions_preview_response');
+  }
+  return value;
+}
+
+function isImportAdministrativeRegionsPreviewResponse(value: unknown): value is ImportAdministrativeRegionsPreviewResponse {
+  return isRecord(value) && (value["added"] === undefined || (Array.isArray(value["added"]) && value["added"].every(item14 => isRecord(item14)))) && (value["removed"] === undefined || (Array.isArray(value["removed"]) && value["removed"].every(item16 => isRecord(item16)))) && (value["skippedCount"] === undefined || (typeof value["skippedCount"] === 'number' && Number.isInteger(value["skippedCount"]))) && (value["updated"] === undefined || (Array.isArray(value["updated"]) && value["updated"].every(item16 => isRecord(item16))));
+}
+
+export function readImportAdministrativeRegionsRequest(value: unknown): ImportAdministrativeRegionsRequest {
+  if (!(isImportAdministrativeRegionsRequest(value))) {
+    throw new Error('client.invalid_import_administrative_regions_request');
+  }
+  return value;
+}
+
+function isImportAdministrativeRegionsRequest(value: unknown): value is ImportAdministrativeRegionsRequest {
+  return isRecord(value) && (value["datasetKey"] === undefined || (typeof value["datasetKey"] === 'string')) && (value["datasetVersion"] === undefined || (typeof value["datasetVersion"] === 'string')) && (value["items"] === undefined || (Array.isArray(value["items"]) && value["items"].every(item14 => isImportAdministrativeRegionItem(item14)))) && (value["mergeMode"] === undefined || (typeof value["mergeMode"] === 'string')) && (value["sourceDigest"] === undefined || (typeof value["sourceDigest"] === 'string'));
+}
+
 export function readImportHostUserRowResult(value: unknown): ImportHostUserRowResult {
   if (!(isImportHostUserRowResult(value))) {
     throw new Error('client.invalid_import_host_user_row_result');
@@ -2649,6 +2771,17 @@ export function readPagedResultOfAccessLogResponse(value: unknown): PagedResultO
 
 function isPagedResultOfAccessLogResponse(value: unknown): value is PagedResultOfAccessLogResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isAccessLogResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfAdministrativeRegionResponse(value: unknown): PagedResultOfAdministrativeRegionResponse {
+  if (!(isPagedResultOfAdministrativeRegionResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_administrative_region_response');
+  }
+  return value;
+}
+
+function isPagedResultOfAdministrativeRegionResponse(value: unknown): value is PagedResultOfAdministrativeRegionResponse {
+  return isRecord(value) && (value["items"] === undefined || (Array.isArray(value["items"]) && value["items"].every(item14 => isAdministrativeRegionResponse(item14)))) && (value["page"] === undefined || (typeof value["page"] === 'number' && Number.isInteger(value["page"]))) && (value["pageSize"] === undefined || (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"]))) && (value["totalCount"] === undefined || (typeof value["totalCount"] === 'number' && Number.isInteger(value["totalCount"])));
 }
 
 export function readPagedResultOfCodeGenerationRunResponse(value: unknown): PagedResultOfCodeGenerationRunResponse {
@@ -3751,6 +3884,17 @@ function isTotpEnrollmentStatusResponse(value: unknown): value is TotpEnrollment
   return isRecord(value) && (typeof value["isEnabled"] === 'boolean') && (typeof value["isEnrolled"] === 'boolean');
 }
 
+export function readUpdateAdministrativeRegionRequest(value: unknown): UpdateAdministrativeRegionRequest {
+  if (!(isUpdateAdministrativeRegionRequest(value))) {
+    throw new Error('client.invalid_update_administrative_region_request');
+  }
+  return value;
+}
+
+function isUpdateAdministrativeRegionRequest(value: unknown): value is UpdateAdministrativeRegionRequest {
+  return isRecord(value) && (value["cityCode"] === undefined || (typeof value["cityCode"] === 'string')) && (value["displayOrder"] === undefined || (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"]))) && (value["latitude"] === undefined || (typeof value["latitude"] === 'number' && Number.isFinite(value["latitude"]))) && (value["level"] === undefined || (typeof value["level"] === 'number' && Number.isInteger(value["level"]))) && (value["longitude"] === undefined || (typeof value["longitude"] === 'number' && Number.isFinite(value["longitude"]))) && (value["mergerName"] === undefined || (typeof value["mergerName"] === 'string')) && (value["name"] === undefined || (typeof value["name"] === 'string')) && (value["parentId"] === undefined || (typeof value["parentId"] === 'string' && guidPattern.test(value["parentId"]))) && (value["pinYin"] === undefined || (typeof value["pinYin"] === 'string')) && (value["regionType"] === undefined || (typeof value["regionType"] === 'string')) && (value["remark"] === undefined || (typeof value["remark"] === 'string')) && (value["shortName"] === undefined || (typeof value["shortName"] === 'string')) && (value["version"] === undefined || (typeof value["version"] === 'number' && Number.isInteger(value["version"]))) && (value["zipCode"] === undefined || (typeof value["zipCode"] === 'string'));
+}
+
 export function readUpdateCodeGenerationTemplateRequest(value: unknown): UpdateCodeGenerationTemplateRequest {
   if (!(isUpdateCodeGenerationTemplateRequest(value))) {
     throw new Error('client.invalid_update_code_generation_template_request');
@@ -4631,6 +4775,20 @@ export function readObservabilityListServerInstancesResponse(value: unknown): Ar
     throw new Error('client.invalid_observability_list_server_instances_response');
   }
   return value as Array<ServerInstanceCatalogEntry>;
+}
+
+export function readRegionsGetAdministrativeRegionTreeResponse(value: unknown): Array<AdministrativeRegionTreeNodeResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isAdministrativeRegionTreeNodeResponse(item5)))) {
+    throw new Error('client.invalid_regions_get_administrative_region_tree_response');
+  }
+  return value as Array<AdministrativeRegionTreeNodeResponse>;
+}
+
+export function readRegionsListAdministrativeRegionChildrenResponse(value: unknown): Array<AdministrativeRegionChildResponse> {
+  if (!(Array.isArray(value) && value.every(item5 => isAdministrativeRegionChildResponse(item5)))) {
+    throw new Error('client.invalid_regions_list_administrative_region_children_response');
+  }
+  return value as Array<AdministrativeRegionChildResponse>;
 }
 
 export function readSettingsBatchUpdateHostConfigEntryValuesResponse(value: unknown): boolean {

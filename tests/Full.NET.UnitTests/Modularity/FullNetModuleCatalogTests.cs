@@ -5,6 +5,7 @@ using Full.NET.Modularity.Modules;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modules.Calendar;
 using Full.NET.Modules.Platform;
+using Full.NET.Modules.Regions;
 using Full.NET.Modules.CodeGeneration;
 using Full.NET.Modules.Document;
 using Full.NET.Modules.Files;
@@ -104,6 +105,7 @@ public sealed class FullNetModuleCatalogTests
                 typeof(MessagingModule),
                 typeof(ObservabilityAdminModule),
                 typeof(PlatformModule),
+                typeof(RegionsModule),
                 typeof(SerialNumbersModule),
             },
             modules,
@@ -112,7 +114,7 @@ public sealed class FullNetModuleCatalogTests
                 modules.Select(module => module.FullName)));
 
         var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
-        Assert.HasCount(17, catalog.List());
+        Assert.HasCount(18, catalog.List());
         Assert.IsNotNull(catalog.FindByKey("Identity"));
         Assert.AreEqual(
             FullNetModuleSourceClassification.Official,

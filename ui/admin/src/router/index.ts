@@ -252,6 +252,11 @@ export function createAppRouter(
         component: () => import('../views/MyReleaseNotesView.vue')
       },
       {
+        name: 'administrative-regions',
+        path: '/regions/administrative-regions',
+        component: () => import('../views/AdministrativeRegionsView.vue')
+      },
+      {
         name: 'code-generation-templates',
         path: '/code-generation/templates',
         component: () => import('../views/CodeGenerationTemplatesView.vue')

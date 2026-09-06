@@ -460,6 +460,30 @@ export type {
 } from './my-release-notes.js';
 
 export {
+  isAdministrativeRegion,
+  isAdministrativeRegionChild,
+  isAdministrativeRegionDatasetManifest,
+  isAdministrativeRegionPage,
+  isAdministrativeRegionTreeNode,
+  isImportAdministrativeRegionsApplyResult,
+  isImportAdministrativeRegionsPreview
+} from './administrative-regions.js';
+
+export type {
+  AdministrativeRegion,
+  AdministrativeRegionChild,
+  AdministrativeRegionDatasetManifest,
+  AdministrativeRegionPage,
+  AdministrativeRegionTreeNode,
+  CreateAdministrativeRegionRequest,
+  ImportAdministrativeRegionItem,
+  ImportAdministrativeRegionsApplyResult,
+  ImportAdministrativeRegionsPreview,
+  ImportAdministrativeRegionsRequest,
+  UpdateAdministrativeRegionRequest
+} from './administrative-regions.js';
+
+export {
   JOB_HANDLER_KINDS,
   JOB_MISFIRE_POLICIES,
   JOB_TRIGGER_KINDS,

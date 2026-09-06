@@ -627,6 +627,7 @@
     { "apiModule": "ui/admin/src/api/personal-schedules.ts", "consumers": ["ui/admin/src/views/PersonalSchedulesView.vue"] },
     { "apiModule": "ui/admin/src/api/host-release-notes.ts", "consumers": ["ui/admin/src/views/HostReleaseNotesView.vue"] },
     { "apiModule": "ui/admin/src/api/my-release-notes.ts", "consumers": ["ui/admin/src/views/MyReleaseNotesView.vue", "ui/admin/src/components/ReleaseNoteUnreadPrompt.vue"] },
+    { "apiModule": "ui/admin/src/api/administrative-regions.ts", "consumers": ["ui/admin/src/views/AdministrativeRegionsView.vue", "ui/admin/src/components/AdministrativeRegionCascader.vue"] },
     { "apiModule": "ui/admin/src/api/observability-log-files.ts", "consumers": ["ui/admin/src/views/ObservabilityLogFilesView.vue"] },
     { "apiModule": "ui/admin/src/api/observability-server-monitor.ts", "consumers": ["ui/admin/src/views/ObservabilityServerMonitorView.vue"] },
     { "apiModule": "ui/admin/src/api/observability-cache-policies.ts", "consumers": ["ui/admin/src/views/ObservabilityCachePoliciesView.vue"] },

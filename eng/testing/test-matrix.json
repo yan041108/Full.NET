@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2120,
+      "minimum": 2129,
       "timeout": "10m",
       "selections": {
         "code-generation-realtime": {
@@ -386,6 +386,12 @@
       },
       "135": {
         "filter": "FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration135PlatformReleaseNoteActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "136": {
+        "filter": "FullyQualifiedName~Migration136RegionsAdministrativeRegionRecoveryTests.MySql_|FullyQualifiedName~Migration136RegionsAdministrativeRegionRecoveryTests.SqlServer_"
+      },
+      "137": {
+        "filter": "FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -403,17 +409,17 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 72,
+        "minimum": 73,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 72,
+        "minimum": 73,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 379,
+        "minimum": 387,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -429,7 +435,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 667,
+        "minimum": 669,
         "timeout": "90m"
       }
     }

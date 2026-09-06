@@ -1,0 +1,144 @@
+{
+  "items": [
+    {
+      "code": "110000",
+      "parentCode": null,
+      "name": "北京市",
+      "shortName": "北京",
+      "mergerName": "中国,北京市",
+      "zipCode": null,
+      "cityCode": "010",
+      "level": 1,
+      "regionType": "直辖市",
+      "pinYin": "Beijing",
+      "longitude": 116.405285,
+      "latitude": 39.904989,
+      "displayOrder": 10
+    },
+    {
+      "code": "110100",
+      "parentCode": "110000",
+      "name": "市辖区",
+      "shortName": "市辖区",
+      "mergerName": "中国,北京市,市辖区",
+      "level": 2,
+      "displayOrder": 10
+    },
+    {
+      "code": "110101",
+      "parentCode": "110100",
+      "name": "东城区",
+      "shortName": "东城",
+      "mergerName": "中国,北京市,市辖区,东城区",
+      "zipCode": "100010",
+      "level": 3,
+      "displayOrder": 10
+    },
+    {
+      "code": "110102",
+      "parentCode": "110100",
+      "name": "西城区",
+      "shortName": "西城",
+      "mergerName": "中国,北京市,市辖区,西城区",
+      "zipCode": "100032",
+      "level": 3,
+      "displayOrder": 20
+    },
+    {
+      "code": "110105",
+      "parentCode": "110100",
+      "name": "朝阳区",
+      "shortName": "朝阳",
+      "mergerName": "中国,北京市,市辖区,朝阳区",
+      "zipCode": "100020",
+      "level": 3,
+      "displayOrder": 30
+    },
+    {
+      "code": "440000",
+      "parentCode": null,
+      "name": "广东省",
+      "shortName": "广东",
+      "mergerName": "中国,广东省",
+      "level": 1,
+      "regionType": "省",
+      "pinYin": "Guangdong",
+      "displayOrder": 20
+    },
+    {
+      "code": "440100",
+      "parentCode": "440000",
+      "name": "广州市",
+      "shortName": "广州",
+      "mergerName": "中国,广东省,广州市",
+      "cityCode": "020",
+      "level": 2,
+      "displayOrder": 10
+    },
+    {
+      "code": "440103",
+      "parentCode": "440100",
+      "name": "荔湾区",
+      "shortName": "荔湾",
+      "mergerName": "中国,广东省,广州市,荔湾区",
+      "level": 3,
+      "displayOrder": 10
+    },
+    {
+      "code": "440104",
+      "parentCode": "440100",
+      "name": "越秀区",
+      "shortName": "越秀",
+      "mergerName": "中国,广东省,广州市,越秀区",
+      "level": 3,
+      "displayOrder": 20
+    },
+    {
+      "code": "440300",
+      "parentCode": "440000",
+      "name": "深圳市",
+      "shortName": "深圳",
+      "mergerName": "中国,广东省,深圳市",
+      "cityCode": "0755",
+      "level": 2,
+      "displayOrder": 20
+    },
+    {
+      "code": "440303",
+      "parentCode": "440300",
+      "name": "罗湖区",
+      "shortName": "罗湖",
+      "mergerName": "中国,广东省,深圳市,罗湖区",
+      "level": 3,
+      "displayOrder": 10
+    },
+    {
+      "code": "440304",
+      "parentCode": "440300",
+      "name": "福田区",
+      "shortName": "福田",
+      "mergerName": "中国,广东省,深圳市,福田区",
+      "level": 3,
+      "displayOrder": 20
+    },
+    {
+      "code": "440600",
+      "parentCode": "440000",
+      "name": "佛山市",
+      "shortName": "佛山",
+      "mergerName": "中国,广东省,佛山市",
+      "cityCode": "0757",
+      "level": 2,
+      "displayOrder": 30
+    },
+    {
+      "code": "440604",
+      "parentCode": "440600",
+      "name": "禅城区",
+      "shortName": "禅城",
+      "mergerName": "中国,广东省,佛山市,禅城区",
+      "level": 3,
+      "displayOrder": 10
+    }
+  ]
+}

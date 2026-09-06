@@ -230,6 +230,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/platform/my-release-notes'
   },
   {
+    componentKey: 'administrative-regions',
+    routeName: 'administrative-regions',
+    path: '/regions/administrative-regions'
+  },
+  {
     componentKey: 'code-generation-templates',
     routeName: 'code-generation-templates',
     path: '/code-generation/templates'

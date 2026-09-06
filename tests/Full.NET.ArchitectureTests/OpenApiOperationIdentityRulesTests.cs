@@ -60,6 +60,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string CalendarMyPersonalSchedulesTag = "CalendarMyPersonalSchedules";
     private const string PlatformHostReleaseNotesTag = "PlatformHostReleaseNotes";
     private const string PlatformMyReleaseNotesTag = "PlatformMyReleaseNotes";
+    private const string RegionsAdministrativeRegionsTag = "RegionsAdministrativeRegions";
     private const string NotificationsHostAnnouncementsTag = "NotificationsHostAnnouncements";
     private const string NotificationsMyInboxMessagesTag = "NotificationsMyInboxMessages";
     private const string NotificationsHostInboxMessagesTag = "NotificationsHostInboxMessages";
@@ -436,6 +437,16 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/platform/my-release-notes", "platformListMyReleaseNotes", PlatformMyReleaseNotesTag),
         new("GET", "/api/v1/platform/my-release-notes/latest-unread", "platformGetLatestUnreadReleaseNote", PlatformMyReleaseNotesTag),
         new("POST", "/api/v1/platform/my-release-notes/{releaseNoteId}/read", "platformMarkMyReleaseNoteRead", PlatformMyReleaseNotesTag),
+        new("GET", "/api/v1/regions/administrative-regions/children", "regionsListAdministrativeRegionChildren", RegionsAdministrativeRegionsTag),
+        new("GET", "/api/v1/regions/administrative-regions/tree", "regionsGetAdministrativeRegionTree", RegionsAdministrativeRegionsTag),
+        new("GET", "/api/v1/regions/administrative-regions", "regionsListAdministrativeRegions", RegionsAdministrativeRegionsTag),
+        new("POST", "/api/v1/regions/administrative-regions", "regionsCreateAdministrativeRegion", RegionsAdministrativeRegionsTag),
+        new("GET", "/api/v1/regions/administrative-regions/dataset-manifest/latest", "regionsGetLatestAdministrativeRegionDatasetManifest", RegionsAdministrativeRegionsTag),
+        new("GET", "/api/v1/regions/administrative-regions/{regionId}", "regionsGetAdministrativeRegion", RegionsAdministrativeRegionsTag),
+        new("PUT", "/api/v1/regions/administrative-regions/{regionId}", "regionsUpdateAdministrativeRegion", RegionsAdministrativeRegionsTag),
+        new("POST", "/api/v1/regions/administrative-regions/{regionId}/delete", "regionsDeleteAdministrativeRegion", RegionsAdministrativeRegionsTag),
+        new("POST", "/api/v1/regions/administrative-regions/import/preview", "regionsPreviewAdministrativeRegionImport", RegionsAdministrativeRegionsTag),
+        new("POST", "/api/v1/regions/administrative-regions/import/apply", "regionsApplyAdministrativeRegionImport", RegionsAdministrativeRegionsTag),
         new("GET", "/api/v1/notifications/host-announcements", "notificationsListHostAnnouncements", NotificationsHostAnnouncementsTag),
         new("POST", "/api/v1/notifications/host-announcements", "notificationsCreateHostAnnouncement", NotificationsHostAnnouncementsTag),
         new("PUT", "/api/v1/notifications/host-announcements/{announcementId}", "notificationsUpdateHostAnnouncement", NotificationsHostAnnouncementsTag),

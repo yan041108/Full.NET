@@ -37,6 +37,57 @@ export interface AddHostDocumentVersionRequest {
   readonly fileId: string;
 }
 
+export interface AdministrativeRegionChildResponse {
+  readonly code?: string;
+  readonly displayOrder?: number;
+  readonly hasChildren?: boolean;
+  readonly id?: string;
+  readonly level?: number;
+  readonly name?: string;
+  readonly parentId?: string;
+}
+
+export interface AdministrativeRegionDatasetManifestResponse {
+  readonly appliedAtUtc?: string;
+  readonly appliedByUserId?: string;
+  readonly datasetKey?: string;
+  readonly datasetVersion?: string;
+  readonly id?: string;
+  readonly recordCount?: number;
+  readonly sourceDigest?: string;
+}
+
+export interface AdministrativeRegionResponse {
+  readonly cityCode?: string;
+  readonly code?: string;
+  readonly createdAtUtc?: string;
+  readonly displayOrder?: number;
+  readonly id?: string;
+  readonly latitude?: number;
+  readonly level?: number;
+  readonly longitude?: number;
+  readonly mergerName?: string;
+  readonly name?: string;
+  readonly parentId?: string;
+  readonly pinYin?: string;
+  readonly regionType?: string;
+  readonly remark?: string;
+  readonly shortName?: string;
+  readonly updatedAtUtc?: string;
+  readonly version?: number;
+  readonly zipCode?: string;
+}
+
+export interface AdministrativeRegionTreeNodeResponse {
+  readonly children?: Array<AdministrativeRegionTreeNodeResponse>;
+  readonly code?: string;
+  readonly displayOrder?: number;
+  readonly id?: string;
+  readonly level?: number;
+  readonly name?: string;
+  readonly parentId?: string;
+}
+
 export interface AssignHostTenantPackageRequest {
   readonly tenantPackageId: null | string;
   readonly version: number;
@@ -407,6 +458,23 @@ export interface ConfirmTotpEnrollmentRequest {
   readonly totpCode: string;
 }
 
+export interface CreateAdministrativeRegionRequest {
+  readonly cityCode?: string;
+  readonly code?: string;
+  readonly displayOrder?: number;
+  readonly latitude?: number;
+  readonly level?: number;
+  readonly longitude?: number;
+  readonly mergerName?: string;
+  readonly name?: string;
+  readonly parentId?: string;
+  readonly pinYin?: string;
+  readonly regionType?: string;
+  readonly remark?: string;
+  readonly shortName?: string;
+  readonly zipCode?: string;
+}
+
 export interface CreateCodeGenerationTemplateRequest {
   readonly description: null | string;
   readonly name: string;
@@ -716,6 +784,10 @@ export interface DataApprovalScenarioResponse {
   readonly version?: number | null;
   readonly workflowDefinitionKey?: string | null;
   readonly workflowDefinitionVersionId?: string | null;
+}
+
+export interface DeleteAdministrativeRegionRequest {
+  readonly version?: number;
 }
 
 export interface DeleteCodeGenerationTemplateRequest {
@@ -1447,6 +1519,45 @@ export interface IdentitySessionPolicyResponse {
 
 export type IFormFile = Blob;
 
+export interface ImportAdministrativeRegionItem {
+  readonly cityCode?: string;
+  readonly code?: string;
+  readonly displayOrder?: number;
+  readonly latitude?: number;
+  readonly level?: number;
+  readonly longitude?: number;
+  readonly mergerName?: string;
+  readonly name?: string;
+  readonly parentCode?: string;
+  readonly pinYin?: string;
+  readonly regionType?: string;
+  readonly shortName?: string;
+  readonly zipCode?: string;
+}
+
+export interface ImportAdministrativeRegionsApplyResponse {
+  readonly addedCount?: number;
+  readonly manifest?: AdministrativeRegionDatasetManifestResponse;
+  readonly removedCount?: number;
+  readonly skippedCount?: number;
+  readonly updatedCount?: number;
+}
+
+export interface ImportAdministrativeRegionsPreviewResponse {
+  readonly added?: Array<Readonly<Record<string, unknown>>>;
+  readonly removed?: Array<Readonly<Record<string, unknown>>>;
+  readonly skippedCount?: number;
+  readonly updated?: Array<Readonly<Record<string, unknown>>>;
+}
+
+export interface ImportAdministrativeRegionsRequest {
+  readonly datasetKey?: string;
+  readonly datasetVersion?: string;
+  readonly items?: Array<ImportAdministrativeRegionItem>;
+  readonly mergeMode?: string;
+  readonly sourceDigest?: string;
+}
+
 export interface ImportHostUserRowResult {
   readonly errorCode: null | string;
   readonly line: number;
@@ -1770,6 +1881,13 @@ export interface PagedResultOfAccessLogResponse {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+}
+
+export interface PagedResultOfAdministrativeRegionResponse {
+  readonly items?: Array<AdministrativeRegionResponse>;
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly totalCount?: number;
 }
 
 export interface PagedResultOfCodeGenerationRunResponse {
@@ -2439,6 +2557,23 @@ export interface TokenResponse {
 export interface TotpEnrollmentStatusResponse {
   readonly isEnabled: boolean;
   readonly isEnrolled: boolean;
+}
+
+export interface UpdateAdministrativeRegionRequest {
+  readonly cityCode?: string;
+  readonly displayOrder?: number;
+  readonly latitude?: number;
+  readonly level?: number;
+  readonly longitude?: number;
+  readonly mergerName?: string;
+  readonly name?: string;
+  readonly parentId?: string;
+  readonly pinYin?: string;
+  readonly regionType?: string;
+  readonly remark?: string;
+  readonly shortName?: string;
+  readonly version?: number;
+  readonly zipCode?: string;
 }
 
 export interface UpdateCodeGenerationTemplateRequest {
