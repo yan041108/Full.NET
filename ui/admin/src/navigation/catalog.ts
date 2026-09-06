@@ -56,6 +56,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.ldapConnections.title',
     captionKey: 'navigation.ldapConnections.caption'
   }],
+  ['oauth-providers', {
+    titleKey: 'navigation.oauthProviders.title',
+    captionKey: 'navigation.oauthProviders.caption'
+  }],
   ['modules', {
     titleKey: 'navigation.modules.title',
     captionKey: 'navigation.modules.caption'

@@ -31,6 +31,9 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityRegistrationPolicyTag = "IdentityRegistrationPolicy";
     private const string IdentityRegistrationWaysTag = "IdentityRegistrationWays";
     private const string IdentityLdapConnectionsTag = "IdentityLdapConnections";
+    private const string IdentityOAuthProvidersTag = "IdentityOAuthProviders";
+    private const string IdentityOAuthPublicTag = "IdentityOAuthPublic";
+    private const string IdentityOAuthLinksTag = "IdentityOAuthLinks";
     private const string IdentityPublicRegistrationTag = "IdentityPublicRegistration";
     private const string IdentityHostOnlineSessionsTag = "IdentityHostOnlineSessions";
     private const string IdentityHostModulesTag = "IdentityHostModules";
@@ -269,6 +272,16 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/identity/ldap-connections/{connectionId}/test-connection", "identityTestLdapConnection", IdentityLdapConnectionsTag),
         new("POST", "/api/v1/identity/ldap-connections/{connectionId}/test-authentication", "identityTestLdapAuthentication", IdentityLdapConnectionsTag),
         new("POST", "/api/v1/identity/ldap-connections/{connectionId}/preview-sync", "identityPreviewLdapSync", IdentityLdapConnectionsTag),
+        new("GET", "/api/v1/identity/oauth-providers", "identityListOAuthProviders", IdentityOAuthProvidersTag),
+        new("GET", "/api/v1/identity/oauth-providers/{providerId}", "identityGetOAuthProvider", IdentityOAuthProvidersTag),
+        new("POST", "/api/v1/identity/oauth-providers", "identityCreateOAuthProvider", IdentityOAuthProvidersTag),
+        new("PUT", "/api/v1/identity/oauth-providers/{providerId}", "identityUpdateOAuthProvider", IdentityOAuthProvidersTag),
+        new("DELETE", "/api/v1/identity/oauth-providers/{providerId}", "identityDeleteOAuthProvider", IdentityOAuthProvidersTag),
+        new("GET", "/api/v1/identity/oauth/providers", "identityListPublicOAuthProviders", IdentityOAuthPublicTag),
+        new("GET", "/api/v1/identity/oauth/{providerKey}/authorize", "identityBeginOAuthAuthorization", IdentityOAuthPublicTag),
+        new("GET", "/api/v1/identity/oauth/callback", "identityOAuthCallback", IdentityOAuthPublicTag),
+        new("GET", "/api/v1/identity/me/oauth-links", "identityListOAuthUserLinks", IdentityOAuthLinksTag),
+        new("DELETE", "/api/v1/identity/me/oauth-links/{linkId}", "identityDeleteOAuthUserLink", IdentityOAuthLinksTag),
         new("GET", "/api/v1/identity/public/registration-ways", "identityListPublicRegistrationWays", IdentityPublicRegistrationTag),
         new("GET", "/api/v1/identity/session-policy", "identityGetHostSessionPolicy", IdentityHostOnlineSessionsTag),
         new("GET", "/api/v1/identity/online-sessions", "identityListHostOnlineSessions", IdentityHostOnlineSessionsTag),

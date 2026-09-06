@@ -28,12 +28,21 @@ using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
 using Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
+using Full.NET.Modules.Identity.Features.ManageLdapConnections;
+using Full.NET.Modules.Identity.Features.ManageOAuthLinks;
+using Full.NET.Modules.Identity.Features.ManageOAuthProviders;
+using Full.NET.Modules.Identity.Features.ManageRegistrationPolicy;
+using Full.NET.Modules.Identity.Features.ManageRegistrationWays;
+using Full.NET.Modules.Identity.Features.OAuthFlow;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
+using Full.NET.Modules.Identity.Features.PublicRegistrationWays;
 using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.HostUsers;
 using Full.NET.Modules.Identity.Http;
+using Full.NET.Modules.Identity.OAuth;
+using Full.NET.Modules.Identity.Directory;
 using Full.NET.Modules.Identity.RateLimiting;
 using Full.NET.Modules.Identity.Resources;
 using Full.NET.Modules.Identity.Security;
@@ -334,6 +343,11 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<AccessSessionValidator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<FullNetJwtBearerEvents>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<TotpSecretProtector>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<LdapBindPasswordProtector>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<OAuthClientSecretProtector>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Type<
+            ILdapDirectoryClient,
+            DirectoryServicesLdapClient>(ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
             IStrongReauthenticationProvider,
             PasswordReauthenticationProvider>(ServiceLifetime.Scoped),
@@ -451,6 +465,28 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<OpenAccessClientAccessSupport>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<OpenAccessClientObservabilityService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<RegistrationPolicyService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<RegistrationWayQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<RegistrationWayManagementService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<PublicRegistrationWayQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<LdapConnectionQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<LdapConnectionManagementService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<LdapConnectionOperationsService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OAuthProviderQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OAuthProviderManagementService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OAuthFlowService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityOAuthLoginSessionService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OAuthUserLinkQueryService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OAuthUserLinkManagementService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IOidcClient, HttpOidcClient>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<OAuthReturnUrlValidator>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<
             IdentityFeatures.QueryHostModuleCatalog.HostModuleCatalogQueryService>(
             ServiceLifetime.Scoped),
@@ -460,6 +496,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostUserDirectory>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostUserDirectory>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            IHostActiveUserCountReader,
+            HostActiveUserCountReader>(ServiceLifetime.Scoped),
         RegistrationExpectation.Factory<IHostUserDisplayDirectory>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserSelectionDirectory>(ServiceLifetime.Scoped),

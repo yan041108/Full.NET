@@ -34,6 +34,7 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
         // Data Protection 由宿主 AddFullNetDataProtection 统一配置共享 Key Ring，禁止此处裸注册。
         services.TryAddSingleton<TotpSecretProtector>();
         services.TryAddSingleton<LdapBindPasswordProtector>();
+        services.TryAddSingleton<OAuthClientSecretProtector>();
         services.TryAddSingleton<ILdapDirectoryClient, DirectoryServicesLdapClient>();
 
         var enableTotpStrongReauthentication = configuration.GetValue(

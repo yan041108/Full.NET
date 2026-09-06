@@ -362,6 +362,42 @@ public static class IdentityErrorCodes
     public const string LdapConnectionPreviewSearchBaseOutOfScope =
         "identity.ldap_connections.preview_search_base_out_of_scope";
 
+    /// <summary>OAuth 提供程序不存在。</summary>
+    public const string OAuthProviderNotFound = "identity.oauth_providers.not_found";
+
+    /// <summary>OAuth 提供程序并发版本冲突。</summary>
+    public const string OAuthProviderVersionConflict =
+        "identity.oauth_providers.version_conflict";
+
+    /// <summary>OAuth 提供程序机器码无效。</summary>
+    public const string OAuthProviderInvalidKey = "identity.oauth_providers.invalid_key";
+
+    /// <summary>OAuth 提供程序机器码已存在。</summary>
+    public const string OAuthProviderKeyExists = "identity.oauth_providers.key_exists";
+
+    /// <summary>OAuth 提供程序元数据无效。</summary>
+    public const string OAuthProviderInvalidMetadata =
+        "identity.oauth_providers.invalid_metadata";
+
+    /// <summary>创建 OAuth 提供程序时缺少客户端密钥。</summary>
+    public const string OAuthProviderClientSecretRequired =
+        "identity.oauth_providers.client_secret_required";
+
+    /// <summary>OAuth 提供程序未启用。</summary>
+    public const string OAuthProviderDisabled = "identity.oauth_providers.disabled";
+
+    /// <summary>OAuth 授权模式无效。</summary>
+    public const string OAuthInvalidMode = "identity.oauth.invalid_mode";
+
+    /// <summary>OAuth 回调 returnUrl 无效。</summary>
+    public const string OAuthInvalidReturnUrl = "identity.oauth.invalid_return_url";
+
+    /// <summary>OAuth 外部主体已绑定其他用户。</summary>
+    public const string OAuthAccountConflict = "identity.oauth.account_conflict";
+
+    /// <summary>OAuth 用户绑定不存在。</summary>
+    public const string OAuthUserLinkNotFound = "identity.oauth.user_link_not_found";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -474,5 +510,16 @@ public static class IdentityErrorCodes
         LdapConnectionInvalidMetadata,
         LdapConnectionBindPasswordRequired,
         LdapConnectionPreviewSearchBaseOutOfScope,
+        OAuthProviderNotFound,
+        OAuthProviderVersionConflict,
+        OAuthProviderInvalidKey,
+        OAuthProviderKeyExists,
+        OAuthProviderInvalidMetadata,
+        OAuthProviderClientSecretRequired,
+        OAuthProviderDisabled,
+        OAuthInvalidMode,
+        OAuthInvalidReturnUrl,
+        OAuthAccountConflict,
+        OAuthUserLinkNotFound,
     ]);
 }

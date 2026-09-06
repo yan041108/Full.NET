@@ -93,4 +93,34 @@
   <data name="identity.users.email_exists" xml:space="preserve"><value>The email is assigned to another host user.</value></data>
   <data name="identity.users.employee_number_exists" xml:space="preserve"><value>The employee number is assigned to another host user.</value></data>
   <data name="identity.users.id_card_exists" xml:space="preserve"><value>The identity document is assigned to another host user.</value></data>
+  <data name="identity.registration_policy.not_found" xml:space="preserve"><value>The registration policy configuration was not found.</value></data>
+  <data name="identity.registration_policy.version_conflict" xml:space="preserve"><value>The registration policy changed concurrently.</value></data>
+  <data name="identity.registration.public_disabled" xml:space="preserve"><value>Public registration is disabled.</value></data>
+  <data name="identity.registration_ways.not_found" xml:space="preserve"><value>The registration way was not found.</value></data>
+  <data name="identity.registration_ways.version_conflict" xml:space="preserve"><value>The registration way changed concurrently.</value></data>
+  <data name="identity.registration_ways.invalid_code" xml:space="preserve"><value>The registration way code is invalid.</value></data>
+  <data name="identity.registration_ways.code_exists" xml:space="preserve"><value>The registration way code already exists in the tenant.</value></data>
+  <data name="identity.registration_ways.tenant_inactive" xml:space="preserve"><value>The tenant referenced by the registration way is missing or inactive.</value></data>
+  <data name="identity.registration_ways.role_not_found" xml:space="preserve"><value>The role referenced by the registration way is missing, inactive, or outside the tenant.</value></data>
+  <data name="identity.registration_ways.organization_unit_not_found" xml:space="preserve"><value>The organization unit referenced by the registration way is missing, inactive, or outside the tenant.</value></data>
+  <data name="identity.registration_ways.position_not_found" xml:space="preserve"><value>The position referenced by the registration way is missing, inactive, or outside the tenant.</value></data>
+  <data name="identity.ldap_connections.not_found" xml:space="preserve"><value>The LDAP connection was not found.</value></data>
+  <data name="identity.ldap_connections.version_conflict" xml:space="preserve"><value>The LDAP connection changed concurrently.</value></data>
+  <data name="identity.ldap_connections.scope_already_configured" xml:space="preserve"><value>An LDAP connection already exists for this host or tenant scope.</value></data>
+  <data name="identity.ldap_connections.tenant_inactive" xml:space="preserve"><value>The tenant referenced by the LDAP connection is missing or inactive.</value></data>
+  <data name="identity.ldap_connections.invalid_sync_search_base" xml:space="preserve"><value>The sync search base DN is outside the allowed directory root DN.</value></data>
+  <data name="identity.ldap_connections.invalid_metadata" xml:space="preserve"><value>The LDAP connection metadata is invalid.</value></data>
+  <data name="identity.ldap_connections.bind_password_required" xml:space="preserve"><value>A bind password is required when creating the LDAP connection.</value></data>
+  <data name="identity.ldap_connections.preview_search_base_out_of_scope" xml:space="preserve"><value>The LDAP preview search base DN is outside the allowed scope.</value></data>
+  <data name="identity.oauth_providers.not_found" xml:space="preserve"><value>The OAuth provider was not found.</value></data>
+  <data name="identity.oauth_providers.version_conflict" xml:space="preserve"><value>The OAuth provider changed concurrently.</value></data>
+  <data name="identity.oauth_providers.invalid_key" xml:space="preserve"><value>The OAuth provider key is invalid.</value></data>
+  <data name="identity.oauth_providers.key_exists" xml:space="preserve"><value>The OAuth provider key already exists.</value></data>
+  <data name="identity.oauth_providers.invalid_metadata" xml:space="preserve"><value>The OAuth provider metadata is invalid.</value></data>
+  <data name="identity.oauth_providers.client_secret_required" xml:space="preserve"><value>A client secret is required when creating the OAuth provider.</value></data>
+  <data name="identity.oauth_providers.disabled" xml:space="preserve"><value>The OAuth provider is disabled.</value></data>
+  <data name="identity.oauth.invalid_mode" xml:space="preserve"><value>The OAuth authorization mode is invalid.</value></data>
+  <data name="identity.oauth.invalid_return_url" xml:space="preserve"><value>The OAuth returnUrl is invalid.</value></data>
+  <data name="identity.oauth.account_conflict" xml:space="preserve"><value>The external identity is already linked to another user.</value></data>
+  <data name="identity.oauth.user_link_not_found" xml:space="preserve"><value>The OAuth user link was not found.</value></data>
 </root>

@@ -251,6 +251,22 @@ internal sealed class IdentityAuthorizationContributor
             "预览 LDAP 同步",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOAuthProviderPermissions.Read,
+            "查看 OAuth 提供程序",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOAuthProviderPermissions.Create,
+            "创建 OAuth 提供程序",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOAuthProviderPermissions.Update,
+            "更新 OAuth 提供程序",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOAuthProviderPermissions.Delete,
+            "删除 OAuth 提供程序",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             ModuleCatalogPermissions.Read,
             "查看官方模块清单",
             AuthorizationScope.Host),
@@ -344,6 +360,17 @@ internal sealed class IdentityAuthorizationContributor
             "link",
             39,
             IdentityLdapConnectionPermissions.Read),
+        new NavigationDefinition(
+            "oauth-providers",
+            null,
+            "oauth-providers",
+            "/identity/oauth-providers",
+            "oauth-providers",
+            "OAuth 提供程序",
+            "OAuth Providers",
+            "connection",
+            40,
+            IdentityOAuthProviderPermissions.Read),
         new NavigationDefinition(
             "modules",
             null,
@@ -686,5 +713,26 @@ internal sealed class IdentityAuthorizationContributor
             "预览 LDAP 同步",
             "preview-sync",
             50),
+        new AuthorizationActionDefinition(
+            "identity.oauth_providers.create",
+            "oauth-providers",
+            IdentityOAuthProviderPermissions.Create,
+            "创建 OAuth 提供程序",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.oauth_providers.update",
+            "oauth-providers",
+            IdentityOAuthProviderPermissions.Update,
+            "编辑 OAuth 提供程序",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.oauth_providers.delete",
+            "oauth-providers",
+            IdentityOAuthProviderPermissions.Delete,
+            "删除 OAuth 提供程序",
+            "delete",
+            30),
     ];
 }

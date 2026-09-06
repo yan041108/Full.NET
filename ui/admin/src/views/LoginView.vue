@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { ElButton, ElInput } from 'element-plus';
 import {
   isFullNetProblemDetails,
-  type FullNetProblemDetails
+  type FullNetProblemDetails,
+  type PublicOAuthProvider
 } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import LocaleSelector from '../i18n/LocaleSelector.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vue';
+import { buildOAuthAuthorizeUrl } from '../api/oauth-links';
+import { listPublicOAuthProviders } from '../api/oauth-providers';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -16,9 +19,27 @@ const username = ref('');
 const password = ref('');
 const submitting = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const oauthProviders = ref<PublicOAuthProvider[]>([]);
 const status = computed(() => session.state === 'authenticated'
   ? t('auth.statusAuthenticated')
   : t('auth.statusAnonymous'));
+
+function oauthReturnUrl(): string {
+  const { origin, pathname, search } = window.location;
+  return `${origin}${pathname}${search}#/oauth/callback`;
+}
+
+function startOAuthLogin(providerKey: string): void {
+  window.location.href = buildOAuthAuthorizeUrl(providerKey, 'login', oauthReturnUrl());
+}
+
+async function loadOAuthProviders(): Promise<void> {
+  try {
+    oauthProviders.value = await listPublicOAuthProviders();
+  } catch {
+    oauthProviders.value = [];
+  }
+}
 
 async function submit(): Promise<void> {
   if (submitting.value) {
@@ -41,6 +62,10 @@ async function submit(): Promise<void> {
 function focusMainContent(): void {
   document.getElementById('main-content')?.focus();
 }
+
+onMounted(() => {
+  void loadOAuthProviders();
+});
 </script>
 
 <template>
@@ -110,6 +135,20 @@ function focusMainContent(): void {
           >
             {{ submitting ? t('auth.submitting') : t('auth.submit') }}
           </el-button>
+
+          <div v-if="oauthProviders.length > 0" class="art-login-form__oauth">
+            <p class="art-login-form__oauth-title">{{ t('auth.oauthTitle') }}</p>
+            <div class="art-login-form__oauth-buttons">
+              <el-button
+                v-for="provider in oauthProviders"
+                :key="provider.providerKey"
+                class="art-login-form__oauth-button"
+                @click="startOAuthLogin(provider.providerKey)"
+              >
+                {{ provider.displayName }}
+              </el-button>
+            </div>
+          </div>
 
           <small class="art-login-form__footnote">{{ t('auth.tokenNotice') }}</small>
         </form>

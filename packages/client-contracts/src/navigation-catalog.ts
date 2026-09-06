@@ -60,6 +60,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/ldap-connections'
   },
   {
+    componentKey: 'oauth-providers',
+    routeName: 'oauth-providers',
+    path: '/identity/oauth-providers'
+  },
+  {
     componentKey: 'modules',
     routeName: 'modules',
     path: '/identity/modules'

@@ -1,0 +1,128 @@
+{
+  "id": "identity-oauth-providers-v1",
+  "version": 1,
+  "description": "OAuth 提供程序 HTTP 契约冻结夹具；与 IdentityOAuthContracts 和管理端点对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/oauth-providers",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.oauth_providers.read",
+          "successStatus": 200,
+          "responseSchema": "OAuthProviderResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "identity.oauth_providers.create",
+          "successStatus": 201,
+          "requestSchema": "CreateOAuthProviderRequest",
+          "responseSchema": "OAuthProviderResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oauth-providers/{providerId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.oauth_providers.read",
+          "successStatus": 200,
+          "responseSchema": "OAuthProviderResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "identity.oauth_providers.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateOAuthProviderRequest",
+          "responseSchema": "OAuthProviderResponse"
+        },
+        {
+          "method": "DELETE",
+          "permission": "identity.oauth_providers.delete",
+          "successStatus": 204
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oauth/providers",
+      "operations": [
+        {
+          "method": "GET",
+          "successStatus": 200,
+          "responseSchema": "PublicOAuthProviderResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oauth/{providerKey}/authorize",
+      "operations": [
+        {
+          "method": "GET",
+          "successStatus": 302
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oauth/callback",
+      "operations": [
+        {
+          "method": "GET",
+          "successStatus": 302
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OAuthProviderResponse": {
+      "type": "object",
+      "required": [
+        "id",
+        "providerKey",
+        "displayName",
+        "authority",
+        "clientId",
+        "scopes",
+        "redirectPath",
+        "isEnabled",
+        "createdAtUtc",
+        "version"
+      ]
+    },
+    "OAuthProviderResponsePage": {
+      "type": "object",
+      "required": ["items", "page", "pageSize", "total"]
+    },
+    "CreateOAuthProviderRequest": {
+      "type": "object",
+      "required": [
+        "providerKey",
+        "displayName",
+        "authority",
+        "clientId",
+        "clientSecret",
+        "isEnabled"
+      ]
+    },
+    "UpdateOAuthProviderRequest": {
+      "type": "object",
+      "required": [
+        "displayName",
+        "authority",
+        "clientId",
+        "scopes",
+        "redirectPath",
+        "isEnabled",
+        "version"
+      ]
+    },
+    "PublicOAuthProviderResponse": {
+      "type": "object",
+      "required": ["providerKey", "displayName"]
+    },
+    "PublicOAuthProviderResponseList": {
+      "type": "array",
+      "items": { "$ref": "#/schemas/PublicOAuthProviderResponse" }
+    }
+  }
+}

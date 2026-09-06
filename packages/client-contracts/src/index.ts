@@ -317,6 +317,31 @@ export type {
 } from './ldap-connections.js';
 
 export {
+  isOAuthProvider,
+  isOAuthProviderPage,
+  isPublicOAuthProvider,
+  isPublicOAuthProviderList
+} from './oauth-providers.js';
+
+export type {
+  CreateOAuthProviderRequest,
+  OAuthProvider,
+  OAuthProviderListQuery,
+  OAuthProviderPage,
+  PublicOAuthProvider,
+  UpdateOAuthProviderRequest
+} from './oauth-providers.js';
+
+export {
+  isOAuthUserLink,
+  isOAuthUserLinkList
+} from './oauth-links.js';
+
+export type {
+  OAuthUserLink
+} from './oauth-links.js';
+
+export {
   isHostFile,
   isHostFilePage
 } from './host-files.js';

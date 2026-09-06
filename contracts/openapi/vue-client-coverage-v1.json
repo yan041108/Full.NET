@@ -44,6 +44,28 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/oauth-providers.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-oauth-providers-v1.json",
+      "apiModule": "ui/admin/src/api/oauth-providers.ts",
+      "routePrefixes": [
+        "/api/v1/identity/oauth-providers",
+        "/api/v1/identity/oauth/providers",
+        "/api/v1/identity/oauth"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/oauth-links.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-oauth-links-v1.json",
+      "apiModule": "ui/admin/src/api/oauth-links.ts",
+      "routePrefixes": [
+        "/api/v1/identity/me/oauth-links"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/host-api-keys.ts"
       ],
       "openApiFixture": "contracts/openapi/identity-host-api-keys-v1.json",
@@ -696,6 +718,8 @@
     { "apiModule": "ui/admin/src/api/workflow-runtime.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-instances.ts", "consumers": ["ui/admin/src/views/WorkflowInstancesView.vue"] },
     { "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts", "consumers": ["ui/admin/src/views/WorkflowRecoveryTasksView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-forms.ts", "consumers": ["ui/admin/src/views/WorkflowFormsView.vue"] }
+    { "apiModule": "ui/admin/src/api/workflow-forms.ts", "consumers": ["ui/admin/src/views/WorkflowFormsView.vue"] },
+    { "apiModule": "ui/admin/src/api/oauth-providers.ts", "consumers": ["ui/admin/src/views/OAuthProvidersView.vue", "ui/admin/src/views/LoginView.vue"] },
+    { "apiModule": "ui/admin/src/api/oauth-links.ts", "consumers": ["ui/admin/src/views/SecuritySettingsView.vue", "ui/admin/src/views/LoginView.vue"] }
   ]
 }

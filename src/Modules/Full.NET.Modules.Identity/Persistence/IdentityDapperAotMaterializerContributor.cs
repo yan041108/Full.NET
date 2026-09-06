@@ -54,6 +54,11 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<RegistrationPolicyRecord>(ReadRegistrationPolicyRecord);
         registrar.Register<RegistrationWayRecord>(ReadRegistrationWayRecord);
         registrar.Register<LdapConnectionRecord>(ReadLdapConnectionRecord);
+        registrar.Register<OAuthProviderRecord>(ReadOAuthProviderRecord);
+        registrar.Register<OAuthPublicProviderRecord>(ReadOAuthPublicProviderRecord);
+        registrar.Register<OAuthUserLinkRecord>(ReadOAuthUserLinkRecord);
+        registrar.Register<OAuthUserLinkWithProviderRecord>(ReadOAuthUserLinkWithProviderRecord);
+        registrar.Register<OAuthAuthorizationStateRecord>(ReadOAuthAuthorizationStateRecord);
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
@@ -72,6 +77,9 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<InsertIdentityNavigation>(BindInsertIdentityNavigation);
         DapperAotParameterRegistry.Register<RegistrationWayRecord>(BindRegistrationWayRecord);
         DapperAotParameterRegistry.Register<LdapConnectionRecord>(BindLdapConnectionRecord);
+        DapperAotParameterRegistry.Register<OAuthProviderRecord>(BindOAuthProviderRecord);
+        DapperAotParameterRegistry.Register<OAuthUserLinkRecord>(BindOAuthUserLinkRecord);
+        DapperAotParameterRegistry.Register<OAuthAuthorizationStateRecord>(BindOAuthAuthorizationStateRecord);
     }
 
     private static IdentityUserRecord ReadIdentityUserRecord(DbDataReader reader) =>
@@ -576,6 +584,134 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             "@UpdatedAtUtc",
             value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
         command.Parameters.AddWithValue("@Version", value.Version);
+    }
+
+    private static OAuthProviderRecord ReadOAuthProviderRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            ProviderKey = reader.GetString(1),
+            DisplayName = reader.GetString(2),
+            Authority = reader.GetString(3),
+            ClientId = reader.GetString(4),
+            ClientSecretProtected = reader.GetString(5),
+            Scopes = reader.GetString(6),
+            RedirectPath = reader.GetString(7),
+            IsEnabled = AotDataReaderExtensions.ReadBoolean(reader, 8),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 9),
+            UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10),
+            Version = AotDataReaderExtensions.ReadInt32(reader, 11),
+        };
+
+    private static void BindOAuthProviderRecord(
+        DbCommand command,
+        OAuthProviderRecord value)
+    {
+        command.Parameters.AddWithValue("@Id", value.Id);
+        command.Parameters.AddWithValue("@ProviderKey", value.ProviderKey);
+        command.Parameters.AddWithValue("@DisplayName", value.DisplayName);
+        command.Parameters.AddWithValue("@Authority", value.Authority);
+        command.Parameters.AddWithValue("@ClientId", value.ClientId);
+        command.Parameters.AddWithValue("@ClientSecretProtected", value.ClientSecretProtected);
+        command.Parameters.AddWithValue("@Scopes", value.Scopes);
+        command.Parameters.AddWithValue("@RedirectPath", value.RedirectPath);
+        command.Parameters.AddWithValue("@IsEnabled", value.IsEnabled);
+        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
+        command.Parameters.AddWithValue(
+            "@UpdatedAtUtc",
+            value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
+        command.Parameters.AddWithValue("@Version", value.Version);
+    }
+
+    private static OAuthPublicProviderRecord ReadOAuthPublicProviderRecord(DbDataReader reader) =>
+        new()
+        {
+            ProviderKey = reader.GetString(0),
+            DisplayName = reader.GetString(1),
+        };
+
+    private static OAuthUserLinkRecord ReadOAuthUserLinkRecord(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            UserId = reader.GetGuid(1),
+            ProviderKey = reader.GetString(2),
+            Subject = reader.GetString(3),
+            Email = AotDataReaderExtensions.ReadNullableString(reader, 4),
+            EmailVerified = AotDataReaderExtensions.ReadBoolean(reader, 5),
+            DisplayName = AotDataReaderExtensions.ReadNullableString(reader, 6),
+            LinkedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+            LastUsedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
+            Version = AotDataReaderExtensions.ReadInt32(reader, 9),
+        };
+
+    private static OAuthUserLinkWithProviderRecord ReadOAuthUserLinkWithProviderRecord(
+        DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            UserId = reader.GetGuid(1),
+            ProviderKey = reader.GetString(2),
+            Subject = reader.GetString(3),
+            Email = AotDataReaderExtensions.ReadNullableString(reader, 4),
+            EmailVerified = AotDataReaderExtensions.ReadBoolean(reader, 5),
+            DisplayName = AotDataReaderExtensions.ReadNullableString(reader, 6),
+            LinkedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+            LastUsedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
+            Version = AotDataReaderExtensions.ReadInt32(reader, 9),
+            ProviderDisplayName = reader.GetString(10),
+        };
+
+    private static void BindOAuthUserLinkRecord(
+        DbCommand command,
+        OAuthUserLinkRecord value)
+    {
+        command.Parameters.AddWithValue("@Id", value.Id);
+        command.Parameters.AddWithValue("@UserId", value.UserId);
+        command.Parameters.AddWithValue("@ProviderKey", value.ProviderKey);
+        command.Parameters.AddWithValue("@Subject", value.Subject);
+        command.Parameters.AddWithValue("@Email", value.Email is null ? DBNull.Value : value.Email);
+        command.Parameters.AddWithValue("@EmailVerified", value.EmailVerified);
+        command.Parameters.AddWithValue(
+            "@DisplayName",
+            value.DisplayName is null ? DBNull.Value : value.DisplayName);
+        command.Parameters.AddWithValue("@LinkedAtUtc", value.LinkedAtUtc);
+        command.Parameters.AddWithValue(
+            "@LastUsedAtUtc",
+            value.LastUsedAtUtc is null ? DBNull.Value : value.LastUsedAtUtc);
+        command.Parameters.AddWithValue("@Version", value.Version);
+    }
+
+    private static OAuthAuthorizationStateRecord ReadOAuthAuthorizationStateRecord(
+        DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            ProviderKey = reader.GetString(1),
+            CodeVerifier = reader.GetString(2),
+            Nonce = reader.GetString(3),
+            Mode = reader.GetString(4),
+            UserId = AotDataReaderExtensions.ReadNullableGuid(reader, 5),
+            ReturnUrl = reader.GetString(6),
+            CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
+            ExpiresAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
+        };
+
+    private static void BindOAuthAuthorizationStateRecord(
+        DbCommand command,
+        OAuthAuthorizationStateRecord value)
+    {
+        command.Parameters.AddWithValue("@Id", value.Id);
+        command.Parameters.AddWithValue("@ProviderKey", value.ProviderKey);
+        command.Parameters.AddWithValue("@CodeVerifier", value.CodeVerifier);
+        command.Parameters.AddWithValue("@Nonce", value.Nonce);
+        command.Parameters.AddWithValue("@Mode", value.Mode);
+        command.Parameters.AddWithValue(
+            "@UserId",
+            value.UserId is null ? DBNull.Value : value.UserId);
+        command.Parameters.AddWithValue("@ReturnUrl", value.ReturnUrl);
+        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
+        command.Parameters.AddWithValue("@ExpiresAtUtc", value.ExpiresAtUtc);
     }
 
     private static IdentityUserTotpRecord ReadIdentityUserTotpRecord(DbDataReader reader) =>

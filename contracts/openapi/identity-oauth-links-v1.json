@@ -1,0 +1,43 @@
+{
+  "id": "identity-oauth-links-v1",
+  "version": 1,
+  "description": "OAuth 用户绑定 HTTP 契约冻结夹具；与 IdentityOAuthContracts 和自助端点对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/me/oauth-links",
+      "operations": [
+        {
+          "method": "GET",
+          "successStatus": 200,
+          "responseSchema": "OAuthUserLinkResponseList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/me/oauth-links/{linkId}",
+      "operations": [
+        {
+          "method": "DELETE",
+          "successStatus": 204
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "OAuthUserLinkResponse": {
+      "type": "object",
+      "required": [
+        "id",
+        "providerKey",
+        "providerDisplayName",
+        "subject",
+        "emailVerified",
+        "linkedAtUtc"
+      ]
+    },
+    "OAuthUserLinkResponseList": {
+      "type": "array",
+      "items": { "$ref": "#/schemas/OAuthUserLinkResponse" }
+    }
+  }
+}

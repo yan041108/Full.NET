@@ -59,5 +59,30 @@ public sealed class IdentityAuthorizationContributorTests
         var ldapConnections = catalog.Navigation.Single(item => item.Id == "ldap-connections");
         Assert.AreEqual("/identity/ldap-connections", ldapConnections.Path);
         Assert.AreEqual(IdentityLdapConnectionPermissions.Read, ldapConnections.RequiredPermission);
+
+        CollectionAssert.Contains(
+            catalog.Permissions.Select(permission => permission.Code).ToArray(),
+            IdentityOAuthProviderPermissions.Read);
+        CollectionAssert.Contains(
+            catalog.Permissions.Select(permission => permission.Code).ToArray(),
+            IdentityOAuthProviderPermissions.Create);
+
+        var oauthProviders = catalog.Navigation.Single(item => item.Id == "oauth-providers");
+        Assert.AreEqual("/identity/oauth-providers", oauthProviders.Path);
+        Assert.AreEqual(IdentityOAuthProviderPermissions.Read, oauthProviders.RequiredPermission);
+
+        CollectionAssert.AreEquivalent(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["create"] = IdentityOAuthProviderPermissions.Create,
+                ["update"] = IdentityOAuthProviderPermissions.Update,
+                ["delete"] = IdentityOAuthProviderPermissions.Delete,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "oauth-providers")
+                .ToDictionary(
+                    action => action.ClientActionKey,
+                    action => action.PermissionCode,
+                    StringComparer.Ordinal));
     }
 }
