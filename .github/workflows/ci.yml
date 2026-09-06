@@ -87,6 +87,9 @@ jobs:
           pnpm --filter @fullnet/uniapp build:mp-weixin
           pnpm --filter @fullnet/uniapp build:mp-alipay
 
+      - name: Verify Flutter client contracts
+        run: pnpm --filter @fullnet/flutter-client test
+
       - name: Build client packages
         run: pnpm build:clients
 

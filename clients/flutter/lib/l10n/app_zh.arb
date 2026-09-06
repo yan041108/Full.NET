@@ -1,0 +1,22 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Full.NET",
+  "loginTitle": "登录 Full.NET",
+  "loginDescription": "访问你的工作流待办与审批任务。",
+  "username": "用户名",
+  "password": "密码",
+  "signIn": "登录",
+  "signInFailed": "登录失败，请检查账号或稍后重试。",
+  "workflowTodosTitle": "我的待办",
+  "workflowTodoTitle": "待办详情",
+  "refresh": "刷新",
+  "emptyTodos": "当前没有待办任务。",
+  "permissionDenied": "当前账号没有查看待办的权限。",
+  "loadFailed": "待办加载失败，请稍后重试。",
+  "comment": "处理意见",
+  "approve": "同意",
+  "reject": "驳回",
+  "submitting": "正在提交…",
+  "completed": "处理成功。",
+  "actionFailed": "审批操作失败。"
+}

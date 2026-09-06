@@ -1,0 +1,23 @@
+name: fullnet_client
+description: Full.NET Flutter client for workflow approvals and inbox-style mobile tasks.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: 1.2.2
+  intl: 0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 5.0.0
+
+flutter:
+  uses-material-design: true

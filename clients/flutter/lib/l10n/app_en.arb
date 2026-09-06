@@ -1,0 +1,22 @@
+{
+  "@@locale": "en",
+  "appTitle": "Full.NET",
+  "loginTitle": "Sign in to Full.NET",
+  "loginDescription": "Access your workflow tasks and approvals.",
+  "username": "Username",
+  "password": "Password",
+  "signIn": "Sign in",
+  "signInFailed": "Sign-in failed. Check your account or try again later.",
+  "workflowTodosTitle": "My tasks",
+  "workflowTodoTitle": "Task details",
+  "refresh": "Refresh",
+  "emptyTodos": "There are no pending tasks.",
+  "permissionDenied": "This account cannot read workflow tasks.",
+  "loadFailed": "Tasks could not be loaded. Try again later.",
+  "comment": "Comment",
+  "approve": "Approve",
+  "reject": "Reject",
+  "submitting": "Submitting…",
+  "completed": "Task completed.",
+  "actionFailed": "Task action failed."
+}

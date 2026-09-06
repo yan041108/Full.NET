@@ -10,6 +10,7 @@ const [
   glossary,
   uniappPackage,
   uniappE2ePackage,
+  flutterPackage,
   clientCi
 ] = await Promise.all([
   readFile('pnpm-workspace.yaml', 'utf8'),
@@ -20,6 +21,7 @@ const [
   readFile('localization/glossary.json', 'utf8'),
   readFile('clients/uniapp/package.json', 'utf8'),
   readFile('tests/e2e/uniapp-h5/package.json', 'utf8'),
+  readFile('clients/flutter/package.json', 'utf8'),
   readFile('.github/workflows/ci.yml', 'utf8')
 ]);
 
@@ -116,12 +118,18 @@ assert.equal(
 );
 assert.equal(uniappE2eDefinition.devDependencies['@playwright/test'], '1.61.1');
 
+const flutterDefinition = JSON.parse(flutterPackage);
+assert.equal(flutterDefinition.name, '@fullnet/flutter-client');
+assert.equal(flutterDefinition.private, true);
+assert.equal(flutterDefinition.scripts.test, 'node --test test/contract.test.mjs');
+
 for (const command of [
   'pnpm --filter @fullnet/uniapp test',
   'pnpm --filter @fullnet/uniapp typecheck',
   'pnpm --filter @fullnet/uniapp build:h5',
   'pnpm --filter @fullnet/uniapp build:mp-weixin',
   'pnpm --filter @fullnet/uniapp build:mp-alipay',
+  'pnpm --filter @fullnet/flutter-client test',
   'pnpm test:e2e:uniapp'
 ]) {
   assert.match(clientCi, new RegExp(command.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')));
