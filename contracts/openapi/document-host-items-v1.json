@@ -133,6 +133,18 @@
                                              "responseSchema":  "HostDocumentItemResponse"
                                          }
                                      ]
+                  },
+                  {
+                      "path":  "/api/v1/document/host/items/{itemId}/versions/{versionId}/delete",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "document.host_documents.delete_version",
+                                             "successStatus":  200,
+                                             "requestSchema":  "DeleteHostDocumentVersionRequest",
+                                             "responseSchema":  "HostDocumentItemResponse"
+                                         }
+                                     ]
                   }
               ],
     "schemas":  {
@@ -169,6 +181,11 @@
                                                                                   "version"
                                                                               ]
                                                            },
+                    "DeleteHostDocumentVersionRequest":  {
+                                                             "properties":  [
+                                                                                "version"
+                                                                            ]
+                                                         },
                     "HostDocumentVersionResponse":  {
                                                         "properties":  [
                                                                            "id",

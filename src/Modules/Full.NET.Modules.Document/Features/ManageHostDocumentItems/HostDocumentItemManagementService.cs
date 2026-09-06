@@ -21,6 +21,7 @@ internal sealed class HostDocumentItemManagementService(
     ICommandTransaction transaction,
     IHostFileReferenceClaimService hostFileReferenceClaimService,
     IHostFileUploadWriter hostFileUploadWriter,
+    DocumentVersionDeletionService documentVersionDeletionService,
     IClock clock,
     IIdGenerator idGenerator)
 {
@@ -173,6 +174,25 @@ internal sealed class HostDocumentItemManagementService(
                 token),
             cancellationToken);
     }
+
+    /// <summary>删除非当前的历史版本，写入删除审计并释放 Files Claim。</summary>
+    /// <param name="itemId">目标文档项标识。</param>
+    /// <param name="versionId">待删除历史版本标识。</param>
+    /// <param name="actorUserId">执行删除的用户标识。</param>
+    /// <param name="request">携带文档项乐观并发版本的请求体。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    public Task<Result<HostDocumentItemResponse>> DeleteVersionAsync(
+        Guid itemId,
+        Guid versionId,
+        Guid actorUserId,
+        DeleteHostDocumentVersionRequest request,
+        CancellationToken cancellationToken = default) =>
+        documentVersionDeletionService.DeleteVersionManuallyAsync(
+            itemId,
+            versionId,
+            actorUserId,
+            request,
+            cancellationToken);
 
     private async Task<Result<HostDocumentItemResponse>> CreateCoreAsync(
         Guid actorUserId,

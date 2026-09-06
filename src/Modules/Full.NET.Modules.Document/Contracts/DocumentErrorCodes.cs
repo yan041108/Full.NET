@@ -27,6 +27,9 @@ public static class DocumentErrorCodes
     /// <summary>目标历史版本不存在或不属于该文档项。</summary>
     public const string VersionNotFound = "document.host_document.version_not_found";
 
+    /// <summary>删除版本将违反每个文档项必须保留的最小版本数约束。</summary>
+    public const string VersionMinimumRetained = "document.host_document.version_minimum_retained";
+
     /// <summary>文档引用的文件标识不存在、未声明引用或属于其他租户。</summary>
     public const string InvalidFileReference = "document.host_document.invalid_file_reference";
 
@@ -131,6 +134,7 @@ public static class DocumentErrorCodes
         VersionConflict,
         VersionAlreadyCurrent,
         VersionNotFound,
+        VersionMinimumRetained,
         InvalidFileReference,
         NoCurrentVersion,
         PreviewNotSupported,

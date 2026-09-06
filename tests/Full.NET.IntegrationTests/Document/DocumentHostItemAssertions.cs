@@ -48,6 +48,7 @@ internal static class DocumentHostItemAssertions
                 HostDocumentPermissions.Delete,
                 HostDocumentPermissions.Restore,
                 HostDocumentPermissions.RollbackVersion,
+                HostDocumentPermissions.DeleteVersion,
             ],
             cancellationToken);
 
@@ -68,6 +69,7 @@ internal static class DocumentHostItemAssertions
             cancellationToken);
         await VerifyInvalidFileReferenceAsync(client, writer.AccessToken, created.Id, cancellationToken);
         await VerifyRollbackVersionAsync(client, writer.AccessToken, cancellationToken);
+        await VerifyDeleteVersionAsync(client, writer.AccessToken, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await VerifyVersionsAndPreviewAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await OpenApiDocumentHostItemsContractAssertions.VerifyAsync(client, cancellationToken);
@@ -383,6 +385,80 @@ internal static class DocumentHostItemAssertions
             Assert.AreEqual(
                 DocumentErrorCodes.VersionAlreadyCurrent,
                 conflictProblem.RootElement.GetProperty("code").GetString());
+        }
+    }
+
+    private static async Task VerifyDeleteVersionAsync(
+        HttpClient client,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        var created = await CreateItemAsync(
+            client,
+            token,
+            cancellationToken,
+            $"delete-version-{Guid.NewGuid():N}",
+            "delete version slice");
+        var firstPayload = Encoding.UTF8.GetBytes($"v1-{Guid.NewGuid():N}");
+        var firstVersion = await UploadVersionWithPayloadAsync(
+            client,
+            token,
+            created.Id,
+            firstPayload,
+            "v1.txt",
+            cancellationToken);
+        var firstVersionId = firstVersion.CurrentVersion!.Id;
+        var secondPayload = Encoding.UTF8.GetBytes($"v2-{Guid.NewGuid():N}");
+        var secondVersion = await UploadVersionWithPayloadAsync(
+            client,
+            token,
+            created.Id,
+            secondPayload,
+            "v2.txt",
+            cancellationToken);
+
+        using (var deleteResponse = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{ItemsPath}/{created.Id:D}/versions/{firstVersionId:D}/delete",
+                       token,
+                       new DeleteHostDocumentVersionRequest(secondVersion.Version)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, deleteResponse.StatusCode);
+            var updated = await deleteResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>(
+                cancellationToken);
+            Assert.IsNotNull(updated);
+            Assert.AreEqual(secondVersion.CurrentVersion!.Id, updated.CurrentVersion!.Id);
+            Assert.AreEqual(2, updated.CurrentVersion.VersionNumber);
+        }
+
+        using (var versionsResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, $"{ItemsPath}/{created.Id:D}/versions", token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, versionsResponse.StatusCode);
+            var versions = await versionsResponse.Content.ReadFromJsonAsync<List<HostDocumentVersionResponse>>(
+                cancellationToken);
+            Assert.IsNotNull(versions);
+            Assert.AreEqual(1, versions.Count);
+            Assert.AreEqual(2, versions[0].VersionNumber);
+        }
+
+        using (var currentDeleteResponse = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{ItemsPath}/{created.Id:D}/versions/{secondVersion.CurrentVersion!.Id:D}/delete",
+                       token,
+                       new DeleteHostDocumentVersionRequest(secondVersion.Version + 1)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Conflict, currentDeleteResponse.StatusCode);
+            using var problem = JsonDocument.Parse(
+                await currentDeleteResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                DocumentErrorCodes.VersionAlreadyCurrent,
+                problem.RootElement.GetProperty("code").GetString());
         }
     }
 

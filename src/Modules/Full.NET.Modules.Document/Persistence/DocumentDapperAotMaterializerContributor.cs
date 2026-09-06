@@ -19,6 +19,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentItemRecord>(ReadItem);
         registrar.Register<DocumentItemDetailRecord>(ReadItemDetail);
         registrar.Register<DocumentVersionRecord>(ReadVersion);
+        registrar.Register<DocumentVersionRetentionCandidateRecord>(ReadRetentionCandidate);
         registrar.Register<DocumentPermissionRecord>(ReadPermission);
         registrar.Register<DocumentShareRecord>(ReadShare);
         registrar.Register<DocumentStatisticsSummaryRecord>(ReadStatisticsSummary);
@@ -142,6 +143,13 @@ internal sealed class DocumentDapperAotMaterializerContributor
         ChangeDescription = ReadNullableString(reader, "ChangeDescription"),
         UploadedByUserId = ReadGuid(reader, "UploadedByUserId"),
         CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
+    };
+
+    private static DocumentVersionRetentionCandidateRecord ReadRetentionCandidate(DbDataReader reader) => new()
+    {
+        DocumentItemId = ReadGuid(reader, "DocumentItemId"),
+        CurrentVersionId = ReadGuid(reader, "CurrentVersionId"),
+        HistoryCount = ReadInt32(reader, "HistoryCount"),
     };
 
     private static DocumentPermissionRecord ReadPermission(DbDataReader reader) => new()

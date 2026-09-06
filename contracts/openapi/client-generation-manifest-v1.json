@@ -2073,6 +2073,12 @@
       "status": "generated"
     },
     {
+      "operationId": "documentHostDeleteItemVersion",
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "generatedGroup": "document-host-items",
+      "status": "generated"
+    },
+    {
       "operationId": "documentHostListTags",
       "apiModule": "ui/admin/src/api/host-document-tags.ts",
       "generatedGroup": "document-host-tags",

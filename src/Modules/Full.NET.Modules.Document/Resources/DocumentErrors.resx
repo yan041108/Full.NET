@@ -7,6 +7,7 @@
   <data name="document.host_document.invalid" xml:space="preserve"><value>文档请求无效。</value></data>
   <data name="document.host_document.not_found" xml:space="preserve"><value>未找到该文档。</value></data>
   <data name="document.host_document.version_conflict" xml:space="preserve"><value>文档已被其他操作更新，请刷新后重试。</value></data>
+  <data name="document.host_document.version_minimum_retained" xml:space="preserve"><value>文档必须保留最小版本数，无法继续删除。</value></data>
   <data name="document.host_document.invalid_file_reference" xml:space="preserve"><value>引用的文件不可用。</value></data>
   <data name="document.host_category.invalid" xml:space="preserve"><value>分类请求无效。</value></data>
   <data name="document.host_category.not_found" xml:space="preserve"><value>未找到该分类。</value></data>

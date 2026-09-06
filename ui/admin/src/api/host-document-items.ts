@@ -9,6 +9,7 @@ import {
   documentHostPreviewItemVersionContent,
   documentHostRestoreItem,
   documentHostRollbackItemVersion,
+  documentHostDeleteItemVersion,
   documentHostUpdateItem,
   documentHostUploadItemVersion,
   isHostDocumentItemPage,
@@ -222,6 +223,28 @@ export async function rollbackDocumentVersion(
   signal?: AbortSignal
 ): Promise<HostDocumentItemResponse> {
   const value = await documentHostRollbackItemVersion(
+    http,
+    {
+      itemId,
+      versionId,
+      body: { version }
+    },
+    signal
+  );
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
+  }
+  return value;
+}
+
+/** 删除非当前的历史版本。 */
+export async function deleteDocumentVersion(
+  itemId: string,
+  versionId: string,
+  version: number,
+  signal?: AbortSignal
+): Promise<HostDocumentItemResponse> {
+  const value = await documentHostDeleteItemVersion(
     http,
     {
       itemId,

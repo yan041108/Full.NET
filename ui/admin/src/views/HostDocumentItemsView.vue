@@ -27,6 +27,7 @@ import {
   previewDocumentContent,
   restoreDocumentItem,
   rollbackDocumentVersion,
+  deleteDocumentVersion,
   updateDocumentItem,
   uploadDocumentVersion
 } from '../api/host-document-items';
@@ -66,6 +67,7 @@ const canAddVersion = computed(() => session.can('document.host_documents.add_ve
 const canDelete = computed(() => session.can('document.host_documents.delete'));
 const canRestore = computed(() => session.can('document.host_documents.restore'));
 const canRollbackVersion = computed(() => session.can('document.host_documents.rollback_version'));
+const canDeleteVersion = computed(() => session.can('document.host_documents.delete_version'));
 const canDownload = computed(() => session.can('document.host_documents.download'));
 const canRead = computed(() => session.can('document.host_documents.read'));
 const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
@@ -370,6 +372,38 @@ async function rollbackVersion(version: HostDocumentVersionResponse): Promise<vo
   }
 }
 
+async function deleteVersion(version: HostDocumentVersionResponse): Promise<void> {
+  const item = versionHistoryItem.value;
+  if (!item || changing.value || !canDeleteVersion.value || isCurrentVersion(item, version)) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('hostDocumentItems.confirmDeleteVersion', { version: version.versionNumber }),
+      t('hostDocumentItems.deleteVersion'),
+      { type: 'warning' }
+    );
+  } catch {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const updated = await deleteDocumentVersion(item.id, version.id, item.version);
+    versionHistoryItem.value = updated;
+    const index = items.value.findIndex(entry => entry.id === item.id);
+    if (index >= 0) {
+      items.value[index] = updated;
+    }
+    versionHistory.value = await listDocumentVersions(item.id);
+    ElMessage.success(t('hostDocumentItems.deleteVersionSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
 function findDeletedEntry(item: HostDocumentItem): DeletedDocumentEntry | undefined {
   return recentlyDeleted.value.find(entry => entry.item.id === item.id);
 }
@@ -588,7 +622,7 @@ function toProblem(
             <span translate="no">{{ row.changeDescription ?? '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('users.columnActions')" width="200" align="center">
+        <el-table-column :label="t('users.columnActions')" width="280" align="center">
           <template #default="{ row }">
             <PermissionGate code="document.host_documents.read">
               <el-button
@@ -612,6 +646,19 @@ function toProblem(
                 @click="rollbackVersion(row)"
               >
                 {{ t('hostDocumentItems.rollbackVersion') }}
+              </el-button>
+            </PermissionGate>
+            <PermissionGate code="document.host_documents.delete_version">
+              <el-button
+                v-if="versionHistoryItem && !isCurrentVersion(versionHistoryItem, row)"
+                plain
+                size="small"
+                type="danger"
+                data-testid="host-document-item-version-delete"
+                :disabled="changing"
+                @click="deleteVersion(row)"
+              >
+                {{ t('hostDocumentItems.deleteVersion') }}
               </el-button>
             </PermissionGate>
           </template>

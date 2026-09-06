@@ -114,6 +114,7 @@ import type {
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
   DeleteHostDocumentTagRequest,
+  DeleteHostDocumentVersionRequest,
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DeleteHostReleaseNoteRequest,
@@ -1749,6 +1750,30 @@ export async function documentHostDeleteItem(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readDocumentHostDeleteItemResponse(value);
+}
+
+export interface DocumentHostDeleteItemVersionParameters {
+  readonly itemId: string;
+  readonly versionId: string;
+  readonly body: DeleteHostDocumentVersionRequest;
+}
+
+export async function documentHostDeleteItemVersion(
+  http: HttpClient,
+  parameters: DocumentHostDeleteItemVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentItemResponse> {
+  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions/${encodeURIComponent(String(parameters.versionId))}/delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentItemResponse(value);
 }
 
 export interface DocumentHostDeleteTagParameters {

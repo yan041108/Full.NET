@@ -34,6 +34,7 @@ test('Host 文档条目 OpenAPI 夹具与 C# 契约和端点一致', async () =>
   assert.match(endpointSource, /\.WithName\("documentHostDeleteItem"\)/u);
   assert.match(endpointSource, /\.WithName\("documentHostRestoreItem"\)/u);
   assert.match(endpointSource, /\.WithName\("documentHostRollbackItemVersion"\)/u);
+  assert.match(endpointSource, /\.WithName\("documentHostDeleteItemVersion"\)/u);
   assert.match(contractsSource, /record HostDocumentItemResponse/u);
   assert.ok(contract.paths.some((entry) => entry.path.endsWith('/content')));
 });

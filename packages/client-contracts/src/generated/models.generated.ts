@@ -851,6 +851,10 @@ export interface DeleteHostDocumentTagRequest {
   readonly version: number;
 }
 
+export interface DeleteHostDocumentVersionRequest {
+  readonly version: number;
+}
+
 export interface DeleteHostFolderRequest {
   readonly expectedRevision: number | string;
 }

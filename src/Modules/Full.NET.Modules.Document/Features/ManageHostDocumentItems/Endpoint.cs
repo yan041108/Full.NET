@@ -342,6 +342,39 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.RollbackVersion));
+
+        group.MapPost("/{itemId:guid}/versions/{versionId:guid}/delete", async (
+            Guid itemId,
+            Guid versionId,
+            DeleteHostDocumentVersionRequest request,
+            HostDocumentItemManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.DeleteVersionAsync(
+                    itemId,
+                    versionId,
+                    userId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("documentHostDeleteItemVersion")
+        .Produces<HostDocumentItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(HostDocumentPermissions.DeleteVersion));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

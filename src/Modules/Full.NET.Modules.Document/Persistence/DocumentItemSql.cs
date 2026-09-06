@@ -239,6 +239,24 @@ internal static class DocumentItemSql
         SqlDataScope.HostOnly);
 
     /// <summary>
+    /// 在活动文档项上执行乐观并发 Touch：仅递增 Version 并写入更新审计字段；
+    /// 删除历史版本等不改变 CurrentVersionId 的写操作使用，防止并发覆盖。
+    /// </summary>
+    public static readonly SqlStatement TouchActiveItem = new(
+        "document.host_item.touch_active",
+        """
+        UPDATE fn_document_item
+        SET UpdatedAtUtc = @UpdatedAtUtc,
+            UpdatedByUserId = @UpdatedByUserId,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND TenantId IS NULL
+          AND IsDeleted = 0
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
     /// 物理删除回收站文档项：仅对 IsDeleted = 1 的行执行，不可逆；
     /// 上层调用方必须先解除文件引用 Claim，否则会留下孤儿文件引用。
     /// </summary>

@@ -113,6 +113,7 @@ import type {
   DeleteHostDocumentCategoryRequest,
   DeleteHostDocumentItemRequest,
   DeleteHostDocumentTagRequest,
+  DeleteHostDocumentVersionRequest,
   DeleteHostFolderRequest,
   DeleteHostJobDefinitionRequest,
   DeleteHostReleaseNoteRequest,
@@ -1617,6 +1618,17 @@ export function readDeleteHostDocumentTagRequest(value: unknown): DeleteHostDocu
 }
 
 function isDeleteHostDocumentTagRequest(value: unknown): value is DeleteHostDocumentTagRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readDeleteHostDocumentVersionRequest(value: unknown): DeleteHostDocumentVersionRequest {
+  if (!(isDeleteHostDocumentVersionRequest(value))) {
+    throw new Error('client.invalid_delete_host_document_version_request');
+  }
+  return value;
+}
+
+function isDeleteHostDocumentVersionRequest(value: unknown): value is DeleteHostDocumentVersionRequest {
   return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 

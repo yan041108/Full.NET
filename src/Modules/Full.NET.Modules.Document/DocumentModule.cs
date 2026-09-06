@@ -74,6 +74,13 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddSingleton<IDocumentSharePasswordHasher, DocumentSharePasswordHasher>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentItems.HostDocumentItemManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.AddOptions<DocumentVersionRetentionOptions>()
+            .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentVersionRetentionOptions>,
+            DocumentVersionRetentionOptionsValidator>());
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryQueryService>();
         services.TryAddScoped<Features.ManageHostDocumentCategories.HostDocumentCategoryManagementService>();
         services.TryAddScoped<Features.ManageHostDocumentTags.HostDocumentTagQueryService>();
@@ -128,5 +135,14 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             Features.HostFileReferences.HostDocumentVersionReferenceProbe>());
+        services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
+        services.TryAddScoped<Retention.DocumentVersionRetentionRunner>();
+        services.AddOptions<DocumentVersionRetentionOptions>()
+            .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentVersionRetentionOptions>,
+            DocumentVersionRetentionOptionsValidator>());
+        services.AddHostedService<Retention.DocumentVersionRetentionHostedProcessor>();
     }
 }

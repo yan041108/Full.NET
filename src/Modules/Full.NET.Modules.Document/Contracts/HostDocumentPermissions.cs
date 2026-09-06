@@ -28,6 +28,9 @@ public static class HostDocumentPermissions
 
     /// <summary>允许将当前版本指针回滚到既有历史版本，不删除版本行也不重新上传文件。</summary>
     public const string RollbackVersion = "document.host_documents.rollback_version";
+
+    /// <summary>允许删除非当前的历史版本，并释放对应 Files 引用 Claim。</summary>
+    public const string DeleteVersion = "document.host_documents.delete_version";
 }
 
 /// <summary>

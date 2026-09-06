@@ -23,6 +23,7 @@ public sealed class DocumentAuthorizationContributorTests
                 HostDocumentPermissions.AddVersion,
                 HostDocumentPermissions.Create,
                 HostDocumentPermissions.Delete,
+                HostDocumentPermissions.DeleteVersion,
                 HostDocumentPermissions.Download,
                 HostDocumentPermissions.Read,
                 HostDocumentPermissions.Restore,
@@ -72,6 +73,7 @@ public sealed class DocumentAuthorizationContributorTests
             ["delete"] = HostDocumentPermissions.Delete,
             ["restore"] = HostDocumentPermissions.Restore,
             ["rollback_version"] = HostDocumentPermissions.RollbackVersion,
+            ["delete_version"] = HostDocumentPermissions.DeleteVersion,
         };
         var itemActions = catalog.Actions
             .Where(action => action.NavigationId == "host-document-items")
