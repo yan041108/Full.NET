@@ -98,6 +98,10 @@ import type {
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
   EnumCatalogDetail,
+  EnumCatalogDictGenerationItemPreview,
+  EnumCatalogDictGenerationPreview,
+  EnumCatalogDictGenerationResult,
+  EnumCatalogDictGenerationUnmanagedItem,
   EnumCatalogMember,
   EnumCatalogSummary,
   ExceptionLogResponse,
@@ -224,6 +228,7 @@ import type {
   PagedResultOfWorkflowTodoListItemResponse,
   PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
+  PreviewWorkflowAssigneeRequest,
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
@@ -303,6 +308,7 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   VerifyRecipientEndpointCodeRequest,
+  WorkflowAssigneePreviewResponse,
   WorkflowCcReadResponse,
   WorkflowCcResponse,
   WorkflowDefinitionDraft,
@@ -362,6 +368,8 @@ import {
   readDocumentHostPurgeRecycleBinItemResponse,
   readDocumentHostSetDocumentPermissionsResponse,
   readEnumCatalogDetail,
+  readEnumCatalogDictGenerationPreview,
+  readEnumCatalogDictGenerationResult,
   readHostAnnouncementResponse,
   readHostApiKeyResponse,
   readHostDashboardSummaryResponse,
@@ -472,6 +480,7 @@ import {
   readTenantSummary,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
+  readWorkflowAssigneePreviewResponse,
   readWorkflowCcReadResponse,
   readWorkflowDefinitionResponse,
   readWorkflowDefinitionVersionResponse,
@@ -5870,6 +5879,24 @@ export async function settingsDisableTenantDictType(
   return readDictTypeResponse(value);
 }
 
+export interface SettingsGenerateHostEnumCatalogDictParameters {
+  readonly catalogKey: string;
+}
+
+export async function settingsGenerateHostEnumCatalogDict(
+  http: HttpClient,
+  parameters: SettingsGenerateHostEnumCatalogDictParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnumCatalogDictGenerationResult> {
+  const path = `/api/v1/settings/enum-catalogs/${encodeURIComponent(String(parameters.catalogKey))}/dict-generation`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnumCatalogDictGenerationResult(value);
+}
+
 export interface SettingsGetHostConfigEntryParameters {
   readonly configEntryId: string;
 }
@@ -6234,6 +6261,24 @@ export async function settingsListTenantDictTypes(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfDictTypeResponse(value);
+}
+
+export interface SettingsPreviewHostEnumCatalogDictGenerationParameters {
+  readonly catalogKey: string;
+}
+
+export async function settingsPreviewHostEnumCatalogDictGeneration(
+  http: HttpClient,
+  parameters: SettingsPreviewHostEnumCatalogDictGenerationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<EnumCatalogDictGenerationPreview> {
+  const path = `/api/v1/settings/enum-catalogs/${encodeURIComponent(String(parameters.catalogKey))}/dict-generation-preview`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readEnumCatalogDictGenerationPreview(value);
 }
 
 export interface SettingsRestoreHostDiagnosticPolicyParameters {
@@ -7328,6 +7373,28 @@ export async function workflowPauseInstance(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readWorkflowInstanceResponse(value);
+}
+
+export interface WorkflowPreviewAssigneesParameters {
+  readonly body: PreviewWorkflowAssigneeRequest;
+}
+
+export async function workflowPreviewAssignees(
+  http: HttpClient,
+  parameters: WorkflowPreviewAssigneesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WorkflowAssigneePreviewResponse> {
+  const path = `/api/v1/workflow/definitions/assignee-preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWorkflowAssigneePreviewResponse(value);
 }
 
 export interface WorkflowPublishDefinitionParameters {

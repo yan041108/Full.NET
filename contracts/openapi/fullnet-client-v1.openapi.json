@@ -18316,6 +18316,142 @@
         ]
       }
     },
+    "/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation-preview": {
+      "get": {
+        "operationId": "settingsPreviewHostEnumCatalogDictGeneration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "catalogKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnumCatalogDictGenerationPreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "SettingsHostEnumCatalogs"
+        ]
+      }
+    },
+    "/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation": {
+      "post": {
+        "operationId": "settingsGenerateHostEnumCatalogDict",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "catalogKey",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnumCatalogDictGenerationResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "SettingsHostEnumCatalogs"
+        ]
+      }
+    },
     "/api/v1/settings/tenant-dict-items/{dictItemId}": {
       "get": {
         "operationId": "settingsGetTenantDictItem",
@@ -28038,6 +28174,171 @@
           "code",
           "label",
           "displayOrder"
+        ],
+        "type": "object"
+      },
+      "EnumCatalogDictGenerationItemPreview": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "existingLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "proposedLabel": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "proposedLabel",
+          "existingLabel",
+          "displayOrder",
+          "action"
+        ],
+        "type": "object"
+      },
+      "EnumCatalogDictGenerationPreview": {
+        "properties": {
+          "catalogKey": {
+            "type": "string"
+          },
+          "dictTypeCode": {
+            "type": "string"
+          },
+          "dictTypeExists": {
+            "type": "boolean"
+          },
+          "dictTypeName": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnumCatalogDictGenerationItemPreview"
+            },
+            "type": "array"
+          },
+          "unmanagedItems": {
+            "items": {
+              "$ref": "#/components/schemas/EnumCatalogDictGenerationUnmanagedItem"
+            },
+            "type": "array"
+          },
+          "willCreateDictType": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "catalogKey",
+          "dictTypeCode",
+          "dictTypeName",
+          "dictTypeExists",
+          "willCreateDictType",
+          "items",
+          "unmanagedItems"
+        ],
+        "type": "object"
+      },
+      "EnumCatalogDictGenerationResult": {
+        "properties": {
+          "catalogKey": {
+            "type": "string"
+          },
+          "dictTypeCode": {
+            "type": "string"
+          },
+          "dictTypeCreated": {
+            "type": "boolean"
+          },
+          "dictTypeId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnumCatalogDictGenerationItemPreview"
+            },
+            "type": "array"
+          },
+          "itemsConflicted": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "itemsCreated": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "itemsInvalid": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "itemsSkipped": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "catalogKey",
+          "dictTypeCode",
+          "dictTypeId",
+          "dictTypeCreated",
+          "itemsCreated",
+          "itemsSkipped",
+          "itemsConflicted",
+          "itemsInvalid",
+          "items"
+        ],
+        "type": "object"
+      },
+      "EnumCatalogDictGenerationUnmanagedItem": {
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "isActive"
         ],
         "type": "object"
       },

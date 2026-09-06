@@ -70,6 +70,10 @@ internal sealed class SettingsAuthorizationContributor
             "查询枚举与常量目录",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            EnumCatalogPermissions.GenerateDict,
+            "枚举目录生成数据字典",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             TenantDictTypeManagementPermissions.Read,
             "查询租户数据字典",
             AuthorizationScope.Tenant),
@@ -251,5 +255,12 @@ internal sealed class SettingsAuthorizationContributor
             "恢复诊断策略",
             "restore",
             20),
+        new AuthorizationActionDefinition(
+            "settings.enums.generate_dict",
+            "enum-catalogs",
+            EnumCatalogPermissions.GenerateDict,
+            "生成字典",
+            "generate_dict",
+            10),
     ];
 }

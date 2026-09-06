@@ -746,6 +746,72 @@
       "status": "generated"
     },
     {
+      "operationId": "tenancyGetHostTenantBranding",
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyUpdateHostTenantBranding",
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyUploadHostTenantBrandingLogo",
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyDeleteHostTenantBrandingLogo",
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyGetHostTenantBrandingLogoContent",
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyGetRuntimeBranding",
+      "apiModule": "packages/client-contracts/src/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyGetCurrentBranding",
+      "apiModule": "packages/client-contracts/src/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyUpdateCurrentBranding",
+      "apiModule": "packages/client-contracts/src/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyUploadCurrentBrandingLogo",
+      "apiModule": "packages/client-contracts/src/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyDeleteCurrentBrandingLogo",
+      "apiModule": "packages/client-contracts/src/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
+      "operationId": "tenancyGetCurrentBrandingLogoContent",
+      "apiModule": "packages/client-contracts/src/tenant-branding.ts",
+      "generatedGroup": "tenancy-branding",
+      "status": "manual"
+    },
+    {
       "operationId": "tenancyListHostTenantPackages",
       "apiModule": "ui/admin/src/api/tenant-packages.ts",
       "generatedGroup": "tenancy-host-tenant-packages",
@@ -837,6 +903,30 @@
     },
     {
       "operationId": "organizationListTenantPositions",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationExportTenantPositionsWorkbook",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationDownloadTenantPositionImportTemplate",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationImportTenantPositions",
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "generatedGroup": "organization-tenant-positions",
+      "status": "generated"
+    },
+    {
+      "operationId": "organizationImportTenantPositionsWorkbook",
       "apiModule": "ui/admin/src/api/org-positions.ts",
       "generatedGroup": "organization-tenant-positions",
       "status": "generated"
@@ -1179,6 +1269,18 @@
     },
     {
       "operationId": "settingsGetHostEnumCatalog",
+      "apiModule": "ui/admin/src/api/enum-catalogs.ts",
+      "generatedGroup": "settings-host-enum-catalogs",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsPreviewHostEnumCatalogDictGeneration",
+      "apiModule": "ui/admin/src/api/enum-catalogs.ts",
+      "generatedGroup": "settings-host-enum-catalogs",
+      "status": "generated"
+    },
+    {
+      "operationId": "settingsGenerateHostEnumCatalogDict",
       "apiModule": "ui/admin/src/api/enum-catalogs.ts",
       "generatedGroup": "settings-host-enum-catalogs",
       "status": "generated"

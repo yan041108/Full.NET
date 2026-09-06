@@ -70,6 +70,7 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostConfigEntries.HostConfigEntryManagementService>();
         services.TryAddScoped<ISettingsSecretValueResolver, Features.ManageHostConfigEntries.SettingsSecretValueResolver>();
         services.TryAddScoped<Features.QueryHostEnumCatalogs.HostEnumCatalogQueryService>();
+        services.TryAddScoped<Features.QueryHostEnumCatalogs.HostEnumCatalogDictGenerationService>();
         services.TryAddScoped<
             Features.ManageMyGridPreferences.MyGridPreferenceService>();
         services.TryAddScoped<

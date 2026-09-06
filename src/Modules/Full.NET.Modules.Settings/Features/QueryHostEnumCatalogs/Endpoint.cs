@@ -49,5 +49,43 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(
             EnumCatalogPermissions.Read));
+
+        group.MapGet("/{catalogKey}/dict-generation-preview", async (
+            string catalogKey,
+            HostEnumCatalogDictGenerationService generation,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await generation.PreviewAsync(catalogKey, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("settingsPreviewHostEnumCatalogDictGeneration")
+        .Produces<EnumCatalogDictGenerationPreview>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            EnumCatalogPermissions.GenerateDict));
+
+        group.MapPost("/{catalogKey}/dict-generation", async (
+            string catalogKey,
+            HostEnumCatalogDictGenerationService generation,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await generation.GenerateAsync(catalogKey, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("settingsGenerateHostEnumCatalogDict")
+        .Produces<EnumCatalogDictGenerationResult>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            EnumCatalogPermissions.GenerateDict));
     }
 }

@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn } from 'element-plus';
+import {
+  ElButton,
+  ElCard,
+  ElDialog,
+  ElMessage,
+  ElPagination,
+  ElTable,
+  ElTableColumn,
+  ElTag
+} from 'element-plus';
 import type {
   FullNetProblemDetails,
   SettingsEnumCatalogDetail,
+  SettingsEnumCatalogDictGenerationAction,
+  SettingsEnumCatalogDictGenerationPreview,
   SettingsEnumCatalogSummary
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
@@ -13,8 +24,15 @@ import {
   useArtClientPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
+import PermissionGate from '../components/PermissionGate.vue';
+import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { getSettingsEnumCatalog, listSettingsEnumCatalogs } from '../api/enum-catalogs';
+import {
+  generateSettingsEnumCatalogDict,
+  getSettingsEnumCatalog,
+  listSettingsEnumCatalogs,
+  previewSettingsEnumCatalogDictGeneration
+} from '../api/enum-catalogs';
 
 defineOptions({ name: 'EnumCatalogsView' });
 
@@ -22,13 +40,19 @@ interface AppliedFilters {
   keyword: string;
 }
 
+const session = useSessionStore();
 const { t } = useAdminI18n();
 const catalogs = ref<SettingsEnumCatalogSummary[]>([]);
 const selected = ref<SettingsEnumCatalogDetail>();
 const loading = ref(false);
+const generating = ref(false);
+const previewOpen = ref(false);
+const preview = ref<SettingsEnumCatalogDictGenerationPreview>();
 const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref<AppliedFilters>({ keyword: '' });
+
+const canGenerateDict = computed(() => session.can('settings.enums.generate_dict'));
 
 const {
   tableMainRef,
@@ -63,6 +87,22 @@ const {
   pagedItems: pagedMembers
 } = useArtClientPagination(memberItems);
 
+const previewSummary = computed(() => {
+  if (!preview.value) {
+    return '';
+  }
+  const created = preview.value.items.filter(item => item.action === 'create').length;
+  const skipped = preview.value.items.filter(item => item.action === 'skip_exists').length;
+  const conflicted = preview.value.items.filter(item => item.action === 'conflict_label').length;
+  const invalid = preview.value.items.filter(item => item.action === 'invalid_value').length;
+  return t('enumCatalogs.previewSummary', {
+    created,
+    skipped,
+    conflicted,
+    invalid
+  });
+});
+
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
     key: 'keyword',
@@ -83,6 +123,23 @@ function rowIndex(index: number): number {
 
 function memberRowIndex(index: number): number {
   return (memberPage.value - 1) * memberPageSize.value + index + 1;
+}
+
+function dictActionLabel(action: SettingsEnumCatalogDictGenerationAction): string {
+  return t(`enumCatalogs.dictAction.${action}`);
+}
+
+function dictActionTagType(action: SettingsEnumCatalogDictGenerationAction): 'success' | 'info' | 'warning' | 'danger' {
+  switch (action) {
+    case 'create':
+      return 'success';
+    case 'skip_exists':
+      return 'info';
+    case 'conflict_label':
+      return 'warning';
+    default:
+      return 'danger';
+  }
 }
 
 async function load(): Promise<void> {
@@ -118,13 +175,57 @@ async function openCatalog(summary: SettingsEnumCatalogSummary): Promise<void> {
   }
 }
 
-function toProblem(error: unknown): FullNetProblemDetails {
+async function openGeneratePreview(): Promise<void> {
+  if (!selected.value || !canGenerateDict.value) {
+    return;
+  }
+
+  generating.value = true;
+  problem.value = undefined;
+  try {
+    preview.value = await previewSettingsEnumCatalogDictGeneration(selected.value.key);
+    previewOpen.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'enumCatalogs.generateDictFailed');
+  } finally {
+    generating.value = false;
+  }
+}
+
+async function confirmGenerateDict(): Promise<void> {
+  if (!selected.value || !canGenerateDict.value) {
+    return;
+  }
+
+  generating.value = true;
+  problem.value = undefined;
+  try {
+    const result = await generateSettingsEnumCatalogDict(selected.value.key);
+    preview.value = {
+      catalogKey: result.catalogKey,
+      dictTypeCode: result.dictTypeCode,
+      dictTypeName: selected.value.displayName,
+      dictTypeExists: !result.dictTypeCreated,
+      willCreateDictType: false,
+      items: result.items,
+      unmanagedItems: preview.value?.unmanagedItems ?? []
+    };
+    previewOpen.value = false;
+    ElMessage.success(t('enumCatalogs.generateDictSuccess'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'enumCatalogs.generateDictFailed');
+  } finally {
+    generating.value = false;
+  }
+}
+
+function toProblem(error: unknown, fallbackKey = 'enumCatalogs.loadFailed'): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
     : {
         status: 500,
         code: 'client.settings_enum_catalog_failed',
-        title: t('enumCatalogs.loadFailed')
+        title: t(fallbackKey)
       };
 }
 </script>
@@ -191,7 +292,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
             <el-table-column :label="t('users.columnActions')" width="100" fixed="right" align="center">
               <template #default="{ row }">
-              <el-button plain size="small" @click="openCatalog(row as SettingsEnumCatalogSummary)">
+                <el-button plain size="small" @click="openCatalog(row as SettingsEnumCatalogSummary)">
                   {{ t('enumCatalogs.select') }}
                 </el-button>
               </template>
@@ -216,7 +317,20 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
     <el-card v-if="selected" shadow="never" class="art-table-card enum-catalogs-view__members">
       <template #header>
-        <h2>{{ t('enumCatalogs.membersTitle', { name: selected.displayName }) }}</h2>
+        <div class="enum-catalogs-view__members-header">
+          <h2>{{ t('enumCatalogs.membersTitle', { name: selected.displayName }) }}</h2>
+          <PermissionGate code="settings.enums.generate_dict">
+            <el-button
+              type="primary"
+              size="small"
+              :loading="generating"
+              data-testid="enum-catalogs-action-generate-dict"
+              @click="openGeneratePreview"
+            >
+              {{ t('enumCatalogs.generateDict') }}
+            </el-button>
+          </PermissionGate>
+        </div>
       </template>
 
       <div class="art-table" :class="{ 'is-empty': pagedMembers.length === 0 }">
@@ -256,6 +370,62 @@ function toProblem(error: unknown): FullNetProblemDetails {
     </el-card>
 
     <p v-else class="art-empty-state">{{ t('enumCatalogs.emptyMembers') }}</p>
+
+    <el-dialog
+      v-model="previewOpen"
+      :title="t('enumCatalogs.generateDictPreviewTitle')"
+      width="960px"
+      destroy-on-close
+    >
+      <template v-if="preview">
+        <p class="enum-catalogs-view__preview-meta">
+          <span>{{ t('enumCatalogs.previewDictTypeCode') }}: <code translate="no">{{ preview.dictTypeCode }}</code></span>
+          <el-tag :type="preview.willCreateDictType ? 'success' : 'info'" size="small">
+            {{ preview.willCreateDictType
+              ? t('enumCatalogs.previewWillCreateDictType')
+              : t('enumCatalogs.previewDictTypeExists') }}
+          </el-tag>
+        </p>
+        <p>{{ previewSummary }}</p>
+
+        <el-table :data="preview.items" size="small" max-height="360">
+          <el-table-column :label="t('enumCatalogs.code')" prop="value" min-width="140" />
+          <el-table-column :label="t('enumCatalogs.previewProposedLabel')" prop="proposedLabel" min-width="140" />
+          <el-table-column :label="t('enumCatalogs.previewExistingLabel')" min-width="140">
+            <template #default="{ row }">
+              {{ row.existingLabel ?? '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column :label="t('enumCatalogs.previewPlannedAction')" width="140" align="center">
+            <template #default="{ row }">
+              <el-tag :type="dictActionTagType(row.action)" size="small">
+                {{ dictActionLabel(row.action) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <section v-if="preview.unmanagedItems.length > 0" class="enum-catalogs-view__unmanaged">
+          <h3>{{ t('enumCatalogs.previewUnmanagedTitle') }}</h3>
+          <el-table :data="preview.unmanagedItems" size="small" max-height="200">
+            <el-table-column :label="t('enumCatalogs.code')" prop="value" min-width="140" />
+            <el-table-column :label="t('enumCatalogs.label')" prop="label" min-width="140" />
+          </el-table>
+        </section>
+      </template>
+
+      <template #footer>
+        <el-button @click="previewOpen = false">{{ t('enumCatalogs.generateDictCancel') }}</el-button>
+        <el-button
+          type="primary"
+          :loading="generating"
+          data-testid="enum-catalogs-action-confirm-generate-dict"
+          @click="confirmGenerateDict"
+        >
+          {{ t('enumCatalogs.generateDictConfirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -276,5 +446,33 @@ function toProblem(error: unknown): FullNetProblemDetails {
 
 .enum-catalogs-view__members {
   flex: none;
+}
+
+.enum-catalogs-view__members-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.enum-catalogs-view__members-header h2 {
+  margin: 0;
+}
+
+.enum-catalogs-view__preview-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.enum-catalogs-view__unmanaged {
+  margin-top: 16px;
+}
+
+.enum-catalogs-view__unmanaged h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
 }
 </style>

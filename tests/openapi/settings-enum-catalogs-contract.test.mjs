@@ -1,6 +1,6 @@
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import test from 'node:test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -35,7 +35,7 @@ test('Host 枚举目录 OpenAPI 夹具结构完整且路径唯一', async () => 
       const key = `${operation.method} ${entry.path}`;
       assert.ok(!seen.has(key), `重复操作：${key}`);
       seen.add(key);
-      assert.match(operation.permission, /^settings\.enums\.read$/u);
+      assert.match(operation.permission, /^settings\.enums\.[a-z_]+$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.responseSchema) {
         assert.ok(contract.schemas[operation.responseSchema]);
@@ -51,7 +51,9 @@ test('Host 枚举目录 OpenAPI 夹具与 C# 契约和端点源码一致', async
 
   assert.match(contractsSource, /record EnumCatalogSummary/u);
   assert.match(contractsSource, /record EnumCatalogDetail/u);
+  assert.match(contractsSource, /record EnumCatalogDictGenerationPreview/u);
   assert.match(contractsSource, /settings\.enums\.read/u);
+  assert.match(contractsSource, /settings\.enums\.generate_dict/u);
   assert.match(
     endpointSource,
     /MapGroup\("\/api\/v1\/settings\/enum-catalogs"\)/u
@@ -59,6 +61,8 @@ test('Host 枚举目录 OpenAPI 夹具与 C# 契约和端点源码一致', async
   assert.match(endpointSource, /WithTags\("SettingsHostEnumCatalogs"\)/u);
   assert.match(endpointSource, /WithName\("settingsListHostEnumCatalogs"\)/u);
   assert.match(endpointSource, /WithName\("settingsGetHostEnumCatalog"\)/u);
+  assert.match(endpointSource, /WithName\("settingsPreviewHostEnumCatalogDictGeneration"\)/u);
+  assert.match(endpointSource, /WithName\("settingsGenerateHostEnumCatalogDict"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/settings/enum-catalogs', new Map([
@@ -66,6 +70,12 @@ test('Host 枚举目录 OpenAPI 夹具与 C# 契约和端点源码一致', async
     ])],
     ['/api/v1/settings/enum-catalogs/{catalogKey}', new Map([
       ['GET', 'MapGet("/{catalogKey}",']
+    ])],
+    ['/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation-preview', new Map([
+      ['GET', 'MapGet("/{catalogKey}/dict-generation-preview",']
+    ])],
+    ['/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation', new Map([
+      ['POST', 'MapPost("/{catalogKey}/dict-generation",']
     ])]
   ]);
 

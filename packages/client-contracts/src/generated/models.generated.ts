@@ -734,6 +734,42 @@ export interface EnumCatalogDetail {
   readonly members: Array<EnumCatalogMember>;
 }
 
+export interface EnumCatalogDictGenerationItemPreview {
+  readonly action: string;
+  readonly displayOrder: number;
+  readonly existingLabel: null | string;
+  readonly proposedLabel: string;
+  readonly value: string;
+}
+
+export interface EnumCatalogDictGenerationPreview {
+  readonly catalogKey: string;
+  readonly dictTypeCode: string;
+  readonly dictTypeExists: boolean;
+  readonly dictTypeName: string;
+  readonly items: Array<EnumCatalogDictGenerationItemPreview>;
+  readonly unmanagedItems: Array<EnumCatalogDictGenerationUnmanagedItem>;
+  readonly willCreateDictType: boolean;
+}
+
+export interface EnumCatalogDictGenerationResult {
+  readonly catalogKey: string;
+  readonly dictTypeCode: string;
+  readonly dictTypeCreated: boolean;
+  readonly dictTypeId: null | string;
+  readonly items: Array<EnumCatalogDictGenerationItemPreview>;
+  readonly itemsConflicted: number;
+  readonly itemsCreated: number;
+  readonly itemsInvalid: number;
+  readonly itemsSkipped: number;
+}
+
+export interface EnumCatalogDictGenerationUnmanagedItem {
+  readonly isActive: boolean;
+  readonly label: string;
+  readonly value: string;
+}
+
 export interface EnumCatalogMember {
   readonly code: string;
   readonly displayOrder: number;
@@ -1858,6 +1894,11 @@ export interface PreviewSerialNumberRequest {
   readonly tenantIdentifier: null | string;
 }
 
+export interface PreviewWorkflowAssigneeRequest {
+  readonly assigneePolicy: Readonly<Record<string, unknown>>;
+  readonly initiatorUserId?: null | string;
+}
+
 export interface ProblemDetails {
   readonly detail?: null | string;
   readonly instance?: null | string;
@@ -2389,6 +2430,10 @@ export interface UpdateWorkflowFormDraftRequest {
 
 export interface VerifyRecipientEndpointCodeRequest {
   readonly code: string;
+}
+
+export interface WorkflowAssigneePreviewResponse {
+  readonly users: Array<WorkflowRecipientCandidateResponse>;
 }
 
 export interface WorkflowCcReadResponse {

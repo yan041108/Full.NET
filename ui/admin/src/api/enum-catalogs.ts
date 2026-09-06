@@ -1,9 +1,15 @@
 import {
   isSettingsEnumCatalogDetail,
+  isSettingsEnumCatalogDictGenerationPreview,
+  isSettingsEnumCatalogDictGenerationResult,
   isSettingsEnumCatalogSummary,
+  settingsGenerateHostEnumCatalogDict,
   settingsGetHostEnumCatalog,
   settingsListHostEnumCatalogs,
+  settingsPreviewHostEnumCatalogDictGeneration,
   type SettingsEnumCatalogDetail,
+  type SettingsEnumCatalogDictGenerationPreview,
+  type SettingsEnumCatalogDictGenerationResult,
   type SettingsEnumCatalogSummary
 } from '@fullnet/client-contracts';
 import { http } from './http';
@@ -37,8 +43,44 @@ export async function getSettingsEnumCatalog(
   return value;
 }
 
+/** 预览枚举目录生成 Host 字典的计划。 */
+export async function previewSettingsEnumCatalogDictGeneration(
+  catalogKey: string,
+  signal?: AbortSignal
+): Promise<SettingsEnumCatalogDictGenerationPreview> {
+  const value = await settingsPreviewHostEnumCatalogDictGeneration(
+    http,
+    { catalogKey },
+    signal
+  );
+  if (!isSettingsEnumCatalogDictGenerationPreview(value)) {
+    throw new Error('client.invalid_settings_enum_catalog_dict_preview');
+  }
+
+  return value;
+}
+
+/** 按预览计划幂等生成 Host 字典。 */
+export async function generateSettingsEnumCatalogDict(
+  catalogKey: string,
+  signal?: AbortSignal
+): Promise<SettingsEnumCatalogDictGenerationResult> {
+  const value = await settingsGenerateHostEnumCatalogDict(
+    http,
+    { catalogKey },
+    signal
+  );
+  if (!isSettingsEnumCatalogDictGenerationResult(value)) {
+    throw new Error('client.invalid_settings_enum_catalog_dict_result');
+  }
+
+  return value;
+}
+
 /** 导出枚举目录摘要与详情模型，供目录列表、详情抽屉与值类型提示共享同一契约。 */
 export type {
   SettingsEnumCatalogDetail,
+  SettingsEnumCatalogDictGenerationPreview,
+  SettingsEnumCatalogDictGenerationResult,
   SettingsEnumCatalogSummary
 };

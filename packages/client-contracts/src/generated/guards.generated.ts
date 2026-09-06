@@ -97,6 +97,10 @@ import type {
   DictTypeResponse,
   DisableHostJobDefinitionRequest,
   EnumCatalogDetail,
+  EnumCatalogDictGenerationItemPreview,
+  EnumCatalogDictGenerationPreview,
+  EnumCatalogDictGenerationResult,
+  EnumCatalogDictGenerationUnmanagedItem,
   EnumCatalogMember,
   EnumCatalogSummary,
   ExceptionLogResponse,
@@ -223,6 +227,7 @@ import type {
   PagedResultOfWorkflowTodoListItemResponse,
   PauseWorkflowInstanceRequest,
   PreviewSerialNumberRequest,
+  PreviewWorkflowAssigneeRequest,
   ProblemDetails,
   ProvisionTenantRequest,
   PublishHostAnnouncementRequest,
@@ -302,6 +307,7 @@ import type {
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   VerifyRecipientEndpointCodeRequest,
+  WorkflowAssigneePreviewResponse,
   WorkflowCcReadResponse,
   WorkflowCcResponse,
   WorkflowDefinitionDraft,
@@ -1373,6 +1379,50 @@ export function readEnumCatalogDetail(value: unknown): EnumCatalogDetail {
 
 function isEnumCatalogDetail(value: unknown): value is EnumCatalogDetail {
   return isRecord(value) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (typeof value["displayName"] === 'string') && (typeof value["key"] === 'string') && (Array.isArray(value["members"]) && value["members"].every(item16 => isEnumCatalogMember(item16)));
+}
+
+export function readEnumCatalogDictGenerationItemPreview(value: unknown): EnumCatalogDictGenerationItemPreview {
+  if (!(isEnumCatalogDictGenerationItemPreview(value))) {
+    throw new Error('client.invalid_enum_catalog_dict_generation_item_preview');
+  }
+  return value;
+}
+
+function isEnumCatalogDictGenerationItemPreview(value: unknown): value is EnumCatalogDictGenerationItemPreview {
+  return isRecord(value) && (typeof value["action"] === 'string') && (typeof value["displayOrder"] === 'number' && Number.isInteger(value["displayOrder"])) && ((value["existingLabel"] === null) || (typeof value["existingLabel"] === 'string')) && (typeof value["proposedLabel"] === 'string') && (typeof value["value"] === 'string');
+}
+
+export function readEnumCatalogDictGenerationPreview(value: unknown): EnumCatalogDictGenerationPreview {
+  if (!(isEnumCatalogDictGenerationPreview(value))) {
+    throw new Error('client.invalid_enum_catalog_dict_generation_preview');
+  }
+  return value;
+}
+
+function isEnumCatalogDictGenerationPreview(value: unknown): value is EnumCatalogDictGenerationPreview {
+  return isRecord(value) && (typeof value["catalogKey"] === 'string') && (typeof value["dictTypeCode"] === 'string') && (typeof value["dictTypeExists"] === 'boolean') && (typeof value["dictTypeName"] === 'string') && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnumCatalogDictGenerationItemPreview(item14))) && (Array.isArray(value["unmanagedItems"]) && value["unmanagedItems"].every(item23 => isEnumCatalogDictGenerationUnmanagedItem(item23))) && (typeof value["willCreateDictType"] === 'boolean');
+}
+
+export function readEnumCatalogDictGenerationResult(value: unknown): EnumCatalogDictGenerationResult {
+  if (!(isEnumCatalogDictGenerationResult(value))) {
+    throw new Error('client.invalid_enum_catalog_dict_generation_result');
+  }
+  return value;
+}
+
+function isEnumCatalogDictGenerationResult(value: unknown): value is EnumCatalogDictGenerationResult {
+  return isRecord(value) && (typeof value["catalogKey"] === 'string') && (typeof value["dictTypeCode"] === 'string') && (typeof value["dictTypeCreated"] === 'boolean') && ((value["dictTypeId"] === null) || (typeof value["dictTypeId"] === 'string' && guidPattern.test(value["dictTypeId"]))) && (Array.isArray(value["items"]) && value["items"].every(item14 => isEnumCatalogDictGenerationItemPreview(item14))) && (typeof value["itemsConflicted"] === 'number' && Number.isInteger(value["itemsConflicted"])) && (typeof value["itemsCreated"] === 'number' && Number.isInteger(value["itemsCreated"])) && (typeof value["itemsInvalid"] === 'number' && Number.isInteger(value["itemsInvalid"])) && (typeof value["itemsSkipped"] === 'number' && Number.isInteger(value["itemsSkipped"]));
+}
+
+export function readEnumCatalogDictGenerationUnmanagedItem(value: unknown): EnumCatalogDictGenerationUnmanagedItem {
+  if (!(isEnumCatalogDictGenerationUnmanagedItem(value))) {
+    throw new Error('client.invalid_enum_catalog_dict_generation_unmanaged_item');
+  }
+  return value;
+}
+
+function isEnumCatalogDictGenerationUnmanagedItem(value: unknown): value is EnumCatalogDictGenerationUnmanagedItem {
+  return isRecord(value) && (typeof value["isActive"] === 'boolean') && (typeof value["label"] === 'string') && (typeof value["value"] === 'string');
 }
 
 export function readEnumCatalogMember(value: unknown): EnumCatalogMember {
@@ -2761,6 +2811,17 @@ function isPreviewSerialNumberRequest(value: unknown): value is PreviewSerialNum
   return isRecord(value) && (typeof value["atUtc"] === 'string') && (typeof value["pattern"] === 'string') && (value["resetInterval"] === undefined || (isSerialNumberResetInterval(value["resetInterval"]))) && (isSerialNumberRuleScope(value["scope"])) && (typeof value["sequenceValue"] === 'number' && Number.isInteger(value["sequenceValue"])) && ((value["tenantIdentifier"] === null) || (typeof value["tenantIdentifier"] === 'string'));
 }
 
+export function readPreviewWorkflowAssigneeRequest(value: unknown): PreviewWorkflowAssigneeRequest {
+  if (!(isPreviewWorkflowAssigneeRequest(value))) {
+    throw new Error('client.invalid_preview_workflow_assignee_request');
+  }
+  return value;
+}
+
+function isPreviewWorkflowAssigneeRequest(value: unknown): value is PreviewWorkflowAssigneeRequest {
+  return isRecord(value) && (isRecord(value["assigneePolicy"])) && (value["initiatorUserId"] === undefined || ((value["initiatorUserId"] === null) || (typeof value["initiatorUserId"] === 'string' && guidPattern.test(value["initiatorUserId"]))));
+}
+
 export function readProblemDetails(value: unknown): ProblemDetails {
   if (!(isProblemDetails(value))) {
     throw new Error('client.invalid_problem_details');
@@ -3628,6 +3689,17 @@ export function readVerifyRecipientEndpointCodeRequest(value: unknown): VerifyRe
 
 function isVerifyRecipientEndpointCodeRequest(value: unknown): value is VerifyRecipientEndpointCodeRequest {
   return isRecord(value) && (typeof value["code"] === 'string');
+}
+
+export function readWorkflowAssigneePreviewResponse(value: unknown): WorkflowAssigneePreviewResponse {
+  if (!(isWorkflowAssigneePreviewResponse(value))) {
+    throw new Error('client.invalid_workflow_assignee_preview_response');
+  }
+  return value;
+}
+
+function isWorkflowAssigneePreviewResponse(value: unknown): value is WorkflowAssigneePreviewResponse {
+  return isRecord(value) && (Array.isArray(value["users"]) && value["users"].every(item14 => isWorkflowRecipientCandidateResponse(item14)));
 }
 
 export function readWorkflowCcReadResponse(value: unknown): WorkflowCcReadResponse {

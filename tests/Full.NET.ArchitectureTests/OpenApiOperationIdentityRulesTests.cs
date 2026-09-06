@@ -353,6 +353,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/settings/dict-items/{dictItemId}/delete", "settingsDeleteHostDictItem", SettingsHostDictTypesTag),
         new("GET", "/api/v1/settings/enum-catalogs", "settingsListHostEnumCatalogs", SettingsHostEnumCatalogsTag),
         new("GET", "/api/v1/settings/enum-catalogs/{catalogKey}", "settingsGetHostEnumCatalog", SettingsHostEnumCatalogsTag),
+        new("GET", "/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation-preview", "settingsPreviewHostEnumCatalogDictGeneration", SettingsHostEnumCatalogsTag),
+        new("POST", "/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation", "settingsGenerateHostEnumCatalogDict", SettingsHostEnumCatalogsTag),
         new("GET", "/api/v1/settings/tenant-dict-types", "settingsListTenantDictTypes", SettingsTenantDictTypesTag),
         new("POST", "/api/v1/settings/tenant-dict-types", "settingsCreateTenantDictType", SettingsTenantDictTypesTag),
         new("PUT", "/api/v1/settings/tenant-dict-types/{dictTypeId}", "settingsUpdateTenantDictType", SettingsTenantDictTypesTag),

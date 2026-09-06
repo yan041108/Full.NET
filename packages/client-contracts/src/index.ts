@@ -644,12 +644,20 @@ export type {
 
 export {
   isSettingsEnumCatalogDetail,
+  isSettingsEnumCatalogDictGenerationItemPreview,
+  isSettingsEnumCatalogDictGenerationPreview,
+  isSettingsEnumCatalogDictGenerationResult,
   isSettingsEnumCatalogMember,
   isSettingsEnumCatalogSummary
 } from './settings-enum-catalogs.js';
 
 export type {
   SettingsEnumCatalogDetail,
+  SettingsEnumCatalogDictGenerationAction,
+  SettingsEnumCatalogDictGenerationItemPreview,
+  SettingsEnumCatalogDictGenerationPreview,
+  SettingsEnumCatalogDictGenerationResult,
+  SettingsEnumCatalogDictGenerationUnmanagedItem,
   SettingsEnumCatalogMember,
   SettingsEnumCatalogSummary
 } from './settings-enum-catalogs.js';

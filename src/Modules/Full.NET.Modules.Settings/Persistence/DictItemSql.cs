@@ -96,6 +96,23 @@ internal static class DictItemSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListAllByTypeId = new(
+        "settings.dict_item.list_all_by_type_id",
+        """
+        SELECT Id,
+               DictTypeId,
+               Label,
+               Value,
+               Color,
+               DisplayOrder,
+               IsActive,
+               Version
+        FROM fn_settings_dict_item
+        WHERE DictTypeId = @DictTypeId
+        ORDER BY DisplayOrder, Label, Value, Id
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Insert = new(
         "settings.dict_item.insert",
         """

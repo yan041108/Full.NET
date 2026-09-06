@@ -24,6 +24,28 @@
           "responseSchema": "EnumCatalogDetail"
         }
       ]
+    },
+    {
+      "path": "/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation-preview",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "settings.enums.generate_dict",
+          "successStatus": 200,
+          "responseSchema": "EnumCatalogDictGenerationPreview"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/settings/enum-catalogs/{catalogKey}/dict-generation",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "settings.enums.generate_dict",
+          "successStatus": 200,
+          "responseSchema": "EnumCatalogDictGenerationResult"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -48,6 +70,46 @@
         "code",
         "label",
         "displayOrder"
+      ]
+    },
+    "EnumCatalogDictGenerationPreview": {
+      "properties": [
+        "catalogKey",
+        "dictTypeCode",
+        "dictTypeName",
+        "dictTypeExists",
+        "willCreateDictType",
+        "items",
+        "unmanagedItems"
+      ]
+    },
+    "EnumCatalogDictGenerationItemPreview": {
+      "properties": [
+        "value",
+        "proposedLabel",
+        "existingLabel",
+        "displayOrder",
+        "action"
+      ]
+    },
+    "EnumCatalogDictGenerationUnmanagedItem": {
+      "properties": [
+        "value",
+        "label",
+        "isActive"
+      ]
+    },
+    "EnumCatalogDictGenerationResult": {
+      "properties": [
+        "catalogKey",
+        "dictTypeCode",
+        "dictTypeId",
+        "dictTypeCreated",
+        "itemsCreated",
+        "itemsSkipped",
+        "itemsConflicted",
+        "itemsInvalid",
+        "items"
       ]
     }
   }
