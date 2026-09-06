@@ -20,6 +20,7 @@ internal sealed class AuditingDapperAotMaterializerContributor
         registrar.Register<OutboundCallLogRecord>(ReadOutboundCallLog);
         registrar.Register<HostDashboardAccessMetricsRecord>(ReadDashboardMetrics);
         registrar.Register<HostDashboardActivityRecord>(ReadDashboardActivity);
+        registrar.Register<AuditLogTrendBucketRecord>(ReadTrendBucket);
     }
 
     private static HostAccessLogQueryService.AccessLogRecord ReadAccessLog(DbDataReader reader) => new()
@@ -99,6 +100,13 @@ internal sealed class AuditingDapperAotMaterializerContributor
         RequestPath = ReadString(reader, "RequestPath"),
         Succeeded = ReadBoolean(reader, "Succeeded"),
         OccurredAtUtc = ReadDateTimeOffset(reader, "OccurredAtUtc"),
+    };
+
+    private static AuditLogTrendBucketRecord ReadTrendBucket(DbDataReader reader) => new()
+    {
+        BucketStartUtc = ReadDateTimeOffset(reader, "BucketStartUtc"),
+        EventCount = ReadInt64(reader, "EventCount"),
+        ErrorCount = ReadInt64(reader, "ErrorCount"),
     };
 
     private static Guid ReadGuid(DbDataReader reader, string name) => reader.GetGuid(reader.GetOrdinal(name));

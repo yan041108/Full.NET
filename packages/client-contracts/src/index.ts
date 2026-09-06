@@ -707,6 +707,24 @@ export type {
 } from './auditing-outbound-call-logs.js';
 
 export {
+  isAuditingDomainChangeDiffQueryResult,
+  isAuditingLogTrend,
+  queryAuditingAccessLogTrend,
+  queryAuditingDomainChangeDiffs,
+  queryAuditingExceptionLogTrend,
+  queryAuditingOperationLogTrend
+} from './auditing-analytics.js';
+
+export type {
+  AuditingDomainChangeDiffEntry,
+  AuditingDomainChangeDiffField,
+  AuditingDomainChangeDiffQueryResult,
+  AuditingLogTrend,
+  AuditingLogTrendBucket,
+  AuditingLogTrendQuery
+} from './auditing-analytics.js';
+
+export {
   isIdentityModuleCatalogEntry
 } from './identity-module-catalog.js';
 

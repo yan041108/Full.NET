@@ -35,6 +35,30 @@ public static class AuditingErrorCodes
     public const string ContainsTimeRangeExceeded =
         "auditing.query.contains_time_range_exceeded";
 
+    /// <summary>趋势查询缺少完整的 UTC 时间范围。</summary>
+    public const string TrendTimeRangeRequired =
+        "auditing.query.trend_time_range_required";
+
+    /// <summary>趋势查询的 UTC 时间范围超过服务端上限。</summary>
+    public const string TrendTimeRangeExceeded =
+        "auditing.query.trend_time_range_exceeded";
+
+    /// <summary>趋势查询桶宽参数无效。</summary>
+    public const string TrendBucketSizeInvalid =
+        "auditing.query.trend_bucket_size_invalid";
+
+    /// <summary>趋势查询时间桶数量超过服务端上限。</summary>
+    public const string TrendBucketLimitExceeded =
+        "auditing.query.trend_bucket_limit_exceeded";
+
+    /// <summary>域审计变更差异查询缺少 TraceId。</summary>
+    public const string DomainChangeDiffTraceIdRequired =
+        "auditing.change_diff.trace_id_required";
+
+    /// <summary>域审计变更差异查询的 TraceId 无效。</summary>
+    public const string DomainChangeDiffTraceIdInvalid =
+        "auditing.change_diff.trace_id_invalid";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -48,5 +72,11 @@ public static class AuditingErrorCodes
         ContainsTimeRangeRequired,
         TimeRangeInvalid,
         ContainsTimeRangeExceeded,
+        TrendTimeRangeRequired,
+        TrendTimeRangeExceeded,
+        TrendBucketSizeInvalid,
+        TrendBucketLimitExceeded,
+        DomainChangeDiffTraceIdRequired,
+        DomainChangeDiffTraceIdInvalid,
     ]);
 }

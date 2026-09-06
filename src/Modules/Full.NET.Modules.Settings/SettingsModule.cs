@@ -7,6 +7,7 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.Observability;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Settings.Auditing;
 using Full.NET.Modules.Settings.Contracts;
 using Full.NET.Modules.Settings.Features.ManageDiagnosticPolicy;
 using Full.NET.Modules.Settings.Features.ManageHostDictTypes;
@@ -76,6 +77,9 @@ public sealed class SettingsModule : IFullNetModule
         services.TryAddScoped<
             ITransactionalDomainAuditWriter<DiagnosticPolicyAuditWrite>,
             DiagnosticPolicyAuditWriter>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IDomainAuditChangeDiffReader,
+            SettingsDomainAuditChangeDiffReader>());
         services.TryAddScoped<DiagnosticPolicyCacheInvalidator>();
         services.TryAddScoped<DiagnosticPolicyManagementService>();
         services.RemoveAll<IDiagnosticPolicyStore>();

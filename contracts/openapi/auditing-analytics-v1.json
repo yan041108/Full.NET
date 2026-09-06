@@ -1,0 +1,99 @@
+{
+  "id": "auditing-analytics-v1",
+  "version": 1,
+  "description": "审计日志趋势聚合与域变更差异只读查询 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/auditing/access-logs/trends",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.trends.read",
+          "successStatus": 200,
+          "responseSchema": "AuditLogTrendResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "bucketMinutes"
+          ],
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/operation-logs/trends",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.trends.read",
+          "successStatus": 200,
+          "responseSchema": "AuditLogTrendResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "bucketMinutes"
+          ],
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/exception-logs/trends",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.trends.read",
+          "successStatus": 200,
+          "responseSchema": "AuditLogTrendResponse",
+          "queryParameters": [
+            "fromUtc",
+            "toUtc",
+            "bucketMinutes"
+          ],
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/domain-change-diffs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "auditing.change_diff.read",
+          "successStatus": 200,
+          "responseSchema": "DomainChangeDiffQueryResponse",
+          "queryParameters": [
+            "traceId"
+          ],
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "AuditLogTrendResponse": {
+      "properties": [
+        "fromUtc",
+        "toUtc",
+        "bucketSizeMinutes",
+        "buckets",
+        "totalCount",
+        "bucketLimitReached"
+      ]
+    },
+    "DomainChangeDiffQueryResponse": {
+      "properties": [
+        "traceId",
+        "entries"
+      ]
+    }
+  }
+}

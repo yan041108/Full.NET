@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import type {
   AuditingAccessLog,
   AuditingAccessLogQuery,
@@ -12,6 +12,10 @@ import {
 } from '@fullnet/client-contracts';
 import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
+import AuditLogDetailDrawer, {
+  type AuditLogDetailRecord
+} from './components/AuditLogDetailDrawer.vue';
+import AuditLogTrendPanel from './components/AuditLogTrendPanel.vue';
 import {
   useArtClientPagination,
   useArtCrudTableLayout
@@ -29,6 +33,8 @@ const searchForm = ref<Record<string, string | undefined>>({});
 const activeQuery = ref<AuditingAccessLogQuery>({});
 const containsDefaultRangeApplied = ref(false);
 const applyingVisibleDefaults = ref(false);
+const detailOpen = ref(false);
+const selectedRecord = ref<AuditLogDetailRecord | null>(null);
 
 const {
   tableMainRef,
@@ -240,11 +246,36 @@ function toProblem(error: unknown): FullNetProblemDetails {
         title: t('accessLogs.loadFailed')
       };
 }
+
+function openDetail(row: AuditingAccessLog): void {
+  selectedRecord.value = {
+    id: row.id,
+    occurredAtUtc: row.occurredAtUtc,
+    traceId: row.traceId,
+    title: `${row.httpMethod} ${row.requestPath}`,
+    subtitle: row.occurredAtUtc,
+    fields: [
+      { label: t('accessLogs.httpMethod'), value: row.httpMethod },
+      { label: t('accessLogs.requestPath'), value: row.requestPath },
+      { label: t('accessLogs.statusCode'), value: row.statusCode },
+      { label: t('accessLogs.durationMs'), value: row.durationMs },
+      { label: t('accessLogs.occurredAt'), value: row.occurredAtUtc },
+      {
+        label: t('users.status'),
+        value: t(row.isAuthenticated ? 'accessLogs.authenticated' : 'accessLogs.anonymous')
+      },
+      { label: 'TraceId', value: row.traceId }
+    ]
+  };
+  detailOpen.value = true;
+}
 </script>
 
 <template>
   <section class="access-logs-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('accessLogs.title') }}</h1>
+
+    <AuditLogTrendPanel kind="access" />
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -287,6 +318,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
             :header-cell-style="tableHeaderCellStyle"
             class="art-crud-data-table"
             :class="{ 'art-table--header-bg': tableHeaderBackground }"
+            @row-click="openDetail"
           >
             <el-table-column :label="t('users.columnIndex')" width="72" align="center">
               <template #default="{ $index }">{{ rowIndex($index) }}</template>
@@ -314,6 +346,14 @@ function toProblem(error: unknown): FullNetProblemDetails {
               </template>
             </el-table-column>
 
+            <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
+              <template #default="{ row }">
+                <el-button link type="primary" @click.stop="openDetail(row)">
+                  {{ t('auditAnalytics.viewDetail') }}
+                </el-button>
+              </template>
+            </el-table-column>
+
             <template #empty>{{ t('accessLogs.emptyDirectory') }}</template>
           </el-table>
 
@@ -330,6 +370,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
         </div>
       </div>
     </el-card>
+
+    <AuditLogDetailDrawer v-model="detailOpen" :record="selectedRecord" />
   </section>
 </template>
 

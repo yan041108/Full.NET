@@ -81,10 +81,13 @@ public sealed class AuditingModule : IFullNetModule
             provider.GetRequiredService<IClock>(),
             provider.GetRequiredService<ILogger<OutboundCallAuditHandler>>()));
         services.TryAddSingleton<AuditingContainsTimeRangePolicy>();
+        services.TryAddSingleton<AuditingTrendTimeRangePolicy>();
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
         services.TryAddScoped<Features.QueryHostExceptionLogs.HostExceptionLogQueryService>();
         services.TryAddScoped<Features.QueryHostOutboundCallLogs.HostOutboundCallLogQueryService>();
+        services.TryAddScoped<Features.QueryHostAuditLogTrends.HostAuditLogTrendQueryService>();
+        services.TryAddScoped<Features.QueryDomainChangeDiffs.DomainAuditChangeDiffQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardAuditMetricsReader,
             HostDashboard.HostDashboardAuditMetricsReader>());
@@ -104,6 +107,8 @@ public sealed class AuditingModule : IFullNetModule
         Features.QueryHostOperationLogs.Endpoint.Map(endpoints);
         Features.QueryHostExceptionLogs.Endpoint.Map(endpoints);
         Features.QueryHostOutboundCallLogs.Endpoint.Map(endpoints);
+        Features.QueryHostAuditLogTrends.Endpoint.Map(endpoints);
+        Features.QueryDomainChangeDiffs.Endpoint.Map(endpoints);
         var environment = endpoints.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
         Features.TriggerExceptionProbe.Endpoint.Map(endpoints, environment);
         Features.TriggerOutboundCallProbe.Endpoint.Map(endpoints, environment);

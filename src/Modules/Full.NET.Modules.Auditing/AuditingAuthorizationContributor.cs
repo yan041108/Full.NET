@@ -28,6 +28,14 @@ internal sealed class AuditingAuthorizationContributor
             OutboundCallLogPermissions.Read,
             "查询出站调用审计",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            AuditLogTrendPermissions.Read,
+            "查询审计日志趋势",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            DomainChangeDiffPermissions.Read,
+            "查询域审计变更差异",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

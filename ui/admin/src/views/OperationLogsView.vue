@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
+import { ElButton, ElCard, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus';
 import type { AuditingOperationLog, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
+import AuditLogDetailDrawer, {
+  type AuditLogDetailRecord
+} from './components/AuditLogDetailDrawer.vue';
+import AuditLogTrendPanel from './components/AuditLogTrendPanel.vue';
 import {
   useArtClientPagination,
   useArtCrudTableLayout
@@ -17,6 +21,8 @@ const { t } = useAdminI18n();
 const items = ref<AuditingOperationLog[]>([]);
 const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
+const detailOpen = ref(false);
+const selectedRecord = ref<AuditLogDetailRecord | null>(null);
 
 const {
   tableMainRef,
@@ -58,6 +64,27 @@ async function load(): Promise<void> {
   }
 }
 
+function openDetail(row: AuditingOperationLog): void {
+  selectedRecord.value = {
+    id: row.id,
+    occurredAtUtc: row.occurredAtUtc,
+    traceId: row.traceId,
+    title: row.actionKey,
+    subtitle: `${row.httpMethod} ${row.requestPath}`,
+    fields: [
+      { label: t('operationLogs.actionKey'), value: row.actionKey },
+      { label: t('accessLogs.httpMethod'), value: row.httpMethod },
+      { label: t('accessLogs.requestPath'), value: row.requestPath },
+      { label: t('operationLogs.statusCode'), value: row.statusCode },
+      { label: t('operationLogs.durationMs'), value: row.durationMs },
+      { label: t('operationLogs.occurredAt'), value: row.occurredAtUtc },
+      { label: t('users.status'), value: t(row.succeeded ? 'operationLogs.succeeded' : 'operationLogs.failed') },
+      { label: 'TraceId', value: row.traceId }
+    ]
+  };
+  detailOpen.value = true;
+}
+
 function toProblem(error: unknown): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -72,6 +99,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
 <template>
   <section class="operation-logs-view art-page-stack art-full-height" :aria-busy="loading">
     <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('operationLogs.title') }}</h1>
+
+    <AuditLogTrendPanel kind="operation" />
 
     <div v-if="problem" class="art-inline-alert" role="alert">
       <strong translate="no">{{ problem.code }}</strong>
@@ -102,6 +131,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
             :header-cell-style="tableHeaderCellStyle"
             class="art-crud-data-table"
             :class="{ 'art-table--header-bg': tableHeaderBackground }"
+            @row-click="openDetail"
           >
             <el-table-column :label="t('users.columnIndex')" width="72" align="center">
               <template #default="{ $index }">{{ rowIndex($index) }}</template>
@@ -123,6 +153,14 @@ function toProblem(error: unknown): FullNetProblemDetails {
               </template>
             </el-table-column>
 
+            <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
+              <template #default="{ row }">
+                <el-button link type="primary" @click.stop="openDetail(row)">
+                  {{ t('auditAnalytics.viewDetail') }}
+                </el-button>
+              </template>
+            </el-table-column>
+
             <template #empty>{{ t('operationLogs.emptyDirectory') }}</template>
           </el-table>
 
@@ -139,6 +177,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
         </div>
       </div>
     </el-card>
+
+    <AuditLogDetailDrawer v-model="detailOpen" :record="selectedRecord" />
   </section>
 </template>
 
