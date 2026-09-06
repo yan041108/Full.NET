@@ -120,6 +120,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.hostFiles.title',
     captionKey: 'navigation.hostFiles.caption'
   }],
+  ['storage-providers', {
+    titleKey: 'navigation.storageProviders.title',
+    captionKey: 'navigation.storageProviders.caption'
+  }],
   ['host-document-items', {
     titleKey: 'navigation.hostDocumentItems.title',
     captionKey: 'navigation.hostDocumentItems.caption'

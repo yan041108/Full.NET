@@ -352,6 +352,17 @@ export type {
 } from './host-files.js';
 
 export {
+  isStorageProviderCatalogItem,
+  isStorageProviderCatalogItemList,
+  isTestStorageProviderConnectivityResult
+} from './storage-providers.js';
+
+export type {
+  StorageProviderCatalogItem,
+  TestStorageProviderConnectivityResult
+} from './storage-providers.js';
+
+export {
   HOST_DOCUMENT_STATUSES,
   HOST_DOCUMENT_TYPES,
   isAddHostDocumentVersionRequest,

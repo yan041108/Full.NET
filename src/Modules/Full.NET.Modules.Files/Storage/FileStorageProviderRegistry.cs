@@ -92,13 +92,11 @@ internal sealed class FileStorageOptionsValidator(
 
         // 多实例生产禁止默认落本地磁盘；历史 local 对象仍可通过 Resolve("local") 读取。
         if (environment.IsProduction()
-            && !string.Equals(
-                options.DefaultProviderKey,
-                S3HostFileBlobStorage.Key,
-                StringComparison.Ordinal))
+            && !string.Equals(options.DefaultProviderKey, S3HostFileBlobStorage.Key, StringComparison.Ordinal)
+            && !string.Equals(options.DefaultProviderKey, OssHostFileBlobStorage.Key, StringComparison.Ordinal))
         {
             return ValidateOptionsResult.Fail(
-                "Production Files:Storage:DefaultProviderKey must be 's3'.");
+                "Production Files:Storage:DefaultProviderKey must be 's3' or 'oss'.");
         }
 
         try

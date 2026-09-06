@@ -267,6 +267,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/storage-providers.ts"
+      ],
+      "openApiFixture": "contracts/openapi/files-storage-providers-v1.json",
+      "apiModule": "ui/admin/src/api/storage-providers.ts",
+      "routePrefixes": [
+        "/api/v1/files/storage-providers"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/host-jobs.ts"
       ],
       "openApiFixture": "contracts/openapi/jobs-host-definitions-v1.json",
@@ -678,6 +688,7 @@
     { "apiModule": "ui/admin/src/api/exception-logs.ts", "consumers": ["ui/admin/src/views/ExceptionLogsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-announcements.ts", "consumers": ["ui/admin/src/views/HostAnnouncementsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-files.ts", "consumers": ["ui/admin/src/views/HostFilesView.vue"] },
+    { "apiModule": "ui/admin/src/api/storage-providers.ts", "consumers": ["ui/admin/src/views/StorageProvidersView.vue"] },
     { "apiModule": "ui/admin/src/api/host-job-schedules.ts", "consumers": ["ui/admin/src/views/HostJobSchedulesView.vue"] },
     { "apiModule": "ui/admin/src/api/host-job-health.ts", "consumers": ["ui/admin/src/views/HostJobHealthView.vue"] },
     { "apiModule": "ui/admin/src/api/host-jobs.ts", "consumers": ["ui/admin/src/views/HostJobsView.vue"] },

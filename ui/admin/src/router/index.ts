@@ -172,6 +172,11 @@ export function createAppRouter(
         component: () => import('../views/HostFilesView.vue')
       },
       {
+        name: 'storage-providers',
+        path: '/files/storage-providers',
+        component: () => import('../views/StorageProvidersView.vue')
+      },
+      {
         name: 'host-document-items',
         path: '/document/host-items',
         component: () => import('../views/HostDocumentItemsView.vue')

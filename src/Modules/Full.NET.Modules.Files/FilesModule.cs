@@ -50,6 +50,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostFiles.HostFileManagementService>();
         services.TryAddScoped<Features.ManageHostFolders.HostFolderQueryService>();
         services.TryAddScoped<Features.ManageHostFolders.HostFolderManagementService>();
+        services.TryAddScoped<Features.ManageStorageProviders.FileStorageProviderCatalogService>();
         services.TryAddScoped<IHostFileReferenceReader, Features.HostFileReferences.HostFileReferenceReader>();
         services.TryAddScoped<IHostFileDescriptorReader, Features.HostFileReferences.HostFileDescriptorReader>();
         services.TryAddScoped<IHostFileContentReader, Features.HostFileReferences.HostFileContentReader>();
@@ -69,6 +70,7 @@ public sealed class FilesModule : IFullNetModule
     {
         Features.ManageHostFiles.Endpoint.Map(endpoints);
         Features.ManageHostFolders.Endpoint.Map(endpoints);
+        Features.ManageStorageProviders.Endpoint.Map(endpoints);
     }
 
     /// <summary>
@@ -120,6 +122,10 @@ public sealed class FilesModule : IFullNetModule
         services.AddOptions<S3FileStorageOptions>()
             .Bind(configuration.GetSection(S3FileStorageOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<OssFileStorageOptions>()
+            .Bind(configuration.GetSection(OssFileStorageOptions.SectionName))
+            .ValidateOnStart();
+        services.AddHttpClient(HttpOssBlobClient.HttpClientName);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<LocalFileStorageOptions>,
             LocalFileStorageOptionsValidator>());
@@ -135,12 +141,20 @@ public sealed class FilesModule : IFullNetModule
                 sp => new S3FileStorageOptionsValidator(
                     sp.GetRequiredService<IHostEnvironment>(),
                     defaultProviderKey)));
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<OssFileStorageOptions>, OssFileStorageOptionsValidator>(
+                sp => new OssFileStorageOptionsValidator(
+                    sp.GetRequiredService<IHostEnvironment>(),
+                    defaultProviderKey)));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IFileStorageProvider,
             LocalHostFileBlobStorage>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IFileStorageProvider,
             S3HostFileBlobStorage>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IFileStorageProvider,
+            OssHostFileBlobStorage>());
         services.TryAddSingleton<FileStorageProviderRegistry>();
     }
 }

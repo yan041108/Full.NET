@@ -25,11 +25,16 @@ public sealed class FilesAuthorizationContributorTests
                 HostFolderPermissions.Create,
                 HostFolderPermissions.Delete,
                 HostFolderPermissions.Update,
+                StorageProviderPermissions.Read,
+                StorageProviderPermissions.Test,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
         var hostFiles = catalog.Navigation.Single(item => item.Id == "host-files");
         Assert.AreEqual(HostFilePermissions.Read, hostFiles.RequiredPermission);
+
+        var storageProviders = catalog.Navigation.Single(item => item.Id == "storage-providers");
+        Assert.AreEqual(StorageProviderPermissions.Read, storageProviders.RequiredPermission);
 
         CollectionAssert.AreEqual(
             new[]
@@ -45,6 +50,14 @@ public sealed class FilesAuthorizationContributorTests
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "host-files")
+                .OrderBy(action => action.Order)
+                .Select(action => action.PermissionCode)
+                .ToArray());
+
+        CollectionAssert.AreEqual(
+            new[] { StorageProviderPermissions.Test },
+            catalog.Actions
+                .Where(action => action.NavigationId == "storage-providers")
                 .OrderBy(action => action.Order)
                 .Select(action => action.PermissionCode)
                 .ToArray());

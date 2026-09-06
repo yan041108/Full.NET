@@ -57,6 +57,9 @@ public static class FilesErrorCodes
     /// <summary>文件内容类型不在安全预览白名单内。</summary>
     public const string PreviewNotSupported = "files.file.preview_not_supported";
 
+    /// <summary>请求的存储 Provider 未注册或键无效。</summary>
+    public const string StorageProviderNotFound = "files.storage_provider.not_found";
+
     /// <summary>已发布的全部 Files 错误码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -75,5 +78,6 @@ public static class FilesErrorCodes
         InvalidFolder,
         InvalidBatch,
         PreviewNotSupported,
+        StorageProviderNotFound,
     ]);
 }

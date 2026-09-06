@@ -140,6 +140,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/files/host-files'
   },
   {
+    componentKey: 'storage-providers',
+    routeName: 'storage-providers',
+    path: '/files/storage-providers'
+  },
+  {
     componentKey: 'host-document-items',
     routeName: 'host-document-items',
     path: '/document/host-items'

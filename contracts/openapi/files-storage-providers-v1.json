@@ -1,0 +1,64 @@
+{
+  "id": "files-storage-providers-v1",
+  "version": 1,
+  "description": "存储 Provider 目录 HTTP 契约冻结夹具；与 StorageProviderContracts 和管理端点对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/files/storage-providers",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "files.storage_providers.read",
+          "successStatus": 200,
+          "responseSchema": "StorageProviderCatalogItemList"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/files/storage-providers/{providerKey}/test",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "files.storage_providers.test",
+          "successStatus": 200,
+          "responseSchema": "TestStorageProviderConnectivityResult"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "StorageProviderCatalogItem": {
+      "type": "object",
+      "required": [
+        "providerKey",
+        "displayName",
+        "kind",
+        "isDefault",
+        "isConfigured",
+        "configurationSummary",
+        "supportsConnectivityTest"
+      ],
+      "properties": {
+        "providerKey": { "type": "string" },
+        "displayName": { "type": "string" },
+        "kind": { "type": "string" },
+        "isDefault": { "type": "boolean" },
+        "isConfigured": { "type": "boolean" },
+        "configurationSummary": { "type": ["string", "null"] },
+        "supportsConnectivityTest": { "type": "boolean" }
+      }
+    },
+    "StorageProviderCatalogItemList": {
+      "type": "array",
+      "items": { "$ref": "#/schemas/StorageProviderCatalogItem" }
+    },
+    "TestStorageProviderConnectivityResult": {
+      "type": "object",
+      "required": ["succeeded", "message"],
+      "properties": {
+        "succeeded": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}

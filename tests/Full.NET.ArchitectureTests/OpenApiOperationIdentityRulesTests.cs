@@ -51,6 +51,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string OrganizationHostUserManagementTag = "OrganizationHostUserManagement";
     private const string FilesTag = "FilesHostFiles";
     private const string FilesFoldersTag = "FilesHostFolders";
+    private const string FilesStorageProvidersTag = "FilesStorageProviders";
     private const string SettingsTag = "SettingsHostConfigEntries";
     private const string SettingsDiagnosticPolicyTag = "SettingsHostDiagnosticPolicy";
     private const string SettingsHostDictTypesTag = "SettingsHostDictTypes";
@@ -387,6 +388,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/files/host-folders", "filesCreateHostFolder", FilesFoldersTag),
         new("POST", "/api/v1/files/host-folders/{folderId}/update", "filesUpdateHostFolder", FilesFoldersTag),
         new("POST", "/api/v1/files/host-folders/{folderId}/delete", "filesDeleteHostFolder", FilesFoldersTag),
+        new("GET", "/api/v1/files/storage-providers", "filesListStorageProviders", FilesStorageProvidersTag),
+        new("POST", "/api/v1/files/storage-providers/{providerKey}/test", "filesTestStorageProviderConnectivity", FilesStorageProvidersTag),
         new("GET", "/api/v1/settings/config-entries", "settingsListHostConfigEntries", SettingsTag),
         new("GET", "/api/v1/settings/config-entries/by-key/{configKey}", "settingsGetHostConfigEntryByKey", SettingsTag),
         new("GET", "/api/v1/settings/config-entries/{configEntryId}", "settingsGetHostConfigEntry", SettingsTag),

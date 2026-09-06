@@ -67,6 +67,16 @@ public sealed class FileStorageProviderRegistryTests
         Assert.AreSame(s3, registry.Resolve(S3HostFileBlobStorage.Key));
     }
 
+    [TestMethod]
+    public void Oss_provider_key_is_canonical_and_resolvable()
+    {
+        var local = new StubProvider("local");
+        var oss = new StubProvider("oss");
+        var registry = CreateRegistry([local, oss], "oss");
+        Assert.AreSame(oss, registry.DefaultProvider);
+        Assert.AreSame(oss, registry.Resolve(OssHostFileBlobStorage.Key));
+    }
+
     private static FileStorageProviderRegistry CreateRegistry(
         IEnumerable<IFileStorageProvider> providers,
         string defaultProviderKey) =>

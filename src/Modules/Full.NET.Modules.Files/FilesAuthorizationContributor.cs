@@ -47,6 +47,14 @@ internal sealed class FilesAuthorizationContributor
             HostFolderPermissions.Delete,
             "删除虚拟目录",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            StorageProviderPermissions.Read,
+            "查看存储提供商",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            StorageProviderPermissions.Test,
+            "测试存储连通性",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -62,6 +70,17 @@ internal sealed class FilesAuthorizationContributor
             "folder",
             70,
             HostFilePermissions.Read),
+        new NavigationDefinition(
+            "storage-providers",
+            null,
+            "storage-providers",
+            "/files/storage-providers",
+            "storage-providers",
+            "存储提供商",
+            "Files",
+            "cloud",
+            75,
+            StorageProviderPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -122,5 +141,12 @@ internal sealed class FilesAuthorizationContributor
             "删除目录",
             "folder-delete",
             60),
+        new AuthorizationActionDefinition(
+            "files.storage_providers.test",
+            "storage-providers",
+            StorageProviderPermissions.Test,
+            "测试连接",
+            "test",
+            10),
     ];
 }

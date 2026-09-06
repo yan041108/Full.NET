@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Full.NET.Modules.Files.Storage;
 using Microsoft.Extensions.Options;
 using NSubstitute;
@@ -6,12 +5,12 @@ using NSubstitute;
 namespace Full.NET.UnitTests.Files;
 
 [TestClass]
-public sealed class S3HostFileBlobStorageTests
+public sealed class OssHostFileBlobStorageTests
 {
     [TestMethod]
     public async Task Save_uses_staging_object_then_publishes_final_key()
     {
-        var client = Substitute.For<IS3BlobClient>();
+        var client = Substitute.For<IOssBlobClient>();
         client.ExistsAsync("fullnet-files", "host/2026/08/item", Arg.Any<CancellationToken>())
             .Returns(false);
         var storage = CreateStorage(client);
@@ -43,7 +42,7 @@ public sealed class S3HostFileBlobStorageTests
     [TestMethod]
     public async Task Save_rejects_existing_final_object()
     {
-        var client = Substitute.For<IS3BlobClient>();
+        var client = Substitute.For<IOssBlobClient>();
         client.ExistsAsync("fullnet-files", "host/exists", Arg.Any<CancellationToken>())
             .Returns(true);
         var storage = CreateStorage(client);
@@ -60,7 +59,7 @@ public sealed class S3HostFileBlobStorageTests
     [TestMethod]
     public async Task OpenRead_maps_missing_key_to_file_not_found()
     {
-        var client = Substitute.For<IS3BlobClient>();
+        var client = Substitute.For<IOssBlobClient>();
         client.OpenReadAsync("fullnet-files", "missing", Arg.Any<CancellationToken>())
             .Returns<Task<Stream>>(_ =>
                 Task.FromException<Stream>(
@@ -74,7 +73,7 @@ public sealed class S3HostFileBlobStorageTests
     [TestMethod]
     public async Task Delete_is_idempotent()
     {
-        var client = Substitute.For<IS3BlobClient>();
+        var client = Substitute.For<IOssBlobClient>();
         var storage = CreateStorage(client);
         await storage.DeleteAsync("host/gone", CancellationToken.None);
         await client.Received(1).DeleteAsync(
@@ -89,37 +88,34 @@ public sealed class S3HostFileBlobStorageTests
     [DataRow("")]
     public async Task Invalid_storage_keys_are_rejected(string key)
     {
-        var storage = CreateStorage(Substitute.For<IS3BlobClient>());
+        var storage = CreateStorage(Substitute.For<IOssBlobClient>());
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => storage.SaveAsync(key, new MemoryStream([1]), CancellationToken.None));
     }
 
-    private static S3HostFileBlobStorage CreateStorage(IS3BlobClient client)
+    private static OssHostFileBlobStorage CreateStorage(IOssBlobClient client)
     {
-        var options = new S3FileStorageOptions
+        var options = new OssFileStorageOptions
         {
-            EndpointMode = S3EndpointMode.Custom,
-            ServiceUrl = "https://minio.example.internal",
-            Region = "us-east-1",
+            Endpoint = "oss-cn-hangzhou.aliyuncs.com",
             BucketName = "fullnet-files",
-            ForcePathStyle = true,
         };
-        return new S3HostFileBlobStorage(new StaticOptionsMonitor(options), client);
+        return new OssHostFileBlobStorage(new StaticOptionsMonitor(options), httpClientFactory: null, client);
     }
 
-    private sealed class StaticOptionsMonitor(S3FileStorageOptions current)
-        : IOptionsMonitor<S3FileStorageOptions>
+    private sealed class StaticOptionsMonitor(OssFileStorageOptions current)
+        : IOptionsMonitor<OssFileStorageOptions>
     {
-        public S3FileStorageOptions CurrentValue { get; } = current;
+        public OssFileStorageOptions CurrentValue { get; } = current;
 
-        public S3FileStorageOptions Get(string? name) => CurrentValue;
+        public OssFileStorageOptions Get(string? name) => CurrentValue;
 
-        public IDisposable? OnChange(Action<S3FileStorageOptions, string?> listener) => null;
+        public IDisposable? OnChange(Action<OssFileStorageOptions, string?> listener) => null;
     }
 }
 
 [TestClass]
-public sealed class S3FileStorageOptionsValidatorTests
+public sealed class OssFileStorageOptionsValidatorTests
 {
     [TestMethod]
     public void Production_requires_object_storage_as_default_provider()
@@ -127,34 +123,40 @@ public sealed class S3FileStorageOptionsValidatorTests
         var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();
         environment.EnvironmentName.Returns(Microsoft.Extensions.Hosting.Environments.Production);
         var validator = new FileStorageOptionsValidator(
-            [new StubProvider("local"), new StubProvider("s3"), new StubProvider("oss")],
+            [
+                new StubProvider("local"),
+                new StubProvider("s3"),
+                new StubProvider("oss"),
+            ],
             environment);
 
-        var result = validator.Validate(
+        var localResult = validator.Validate(
             null,
             new FileStorageOptions { DefaultProviderKey = "local" });
-        Assert.IsTrue(result.Failed);
-        StringAssert.Contains(result.Failures!.First(), "must be 's3' or 'oss'");
+        Assert.IsTrue(localResult.Failed);
+        StringAssert.Contains(localResult.Failures!.First(), "must be 's3' or 'oss'");
+
+        var ossResult = validator.Validate(
+            null,
+            new FileStorageOptions { DefaultProviderKey = "oss" });
+        Assert.IsFalse(ossResult.Failed);
     }
 
     [TestMethod]
-    public void Custom_mode_requires_https_service_url_and_force_path_style()
+    public void Default_oss_requires_endpoint_bucket_and_credentials()
     {
         var environment = Substitute.For<Microsoft.Extensions.Hosting.IHostEnvironment>();
         environment.EnvironmentName.Returns(Microsoft.Extensions.Hosting.Environments.Development);
-        var validator = new S3FileStorageOptionsValidator(
+        var validator = new OssFileStorageOptionsValidator(
             environment,
-            defaultProviderKey: S3HostFileBlobStorage.Key);
+            defaultProviderKey: OssHostFileBlobStorage.Key);
 
         var result = validator.Validate(
             null,
-            new S3FileStorageOptions
+            new OssFileStorageOptions
             {
-                EndpointMode = S3EndpointMode.Custom,
-                ServiceUrl = "http://minio.local",
-                Region = "us-east-1",
+                Endpoint = "oss-cn-hangzhou.aliyuncs.com",
                 BucketName = "bucket",
-                ForcePathStyle = false,
             });
         Assert.IsTrue(result.Failed);
     }

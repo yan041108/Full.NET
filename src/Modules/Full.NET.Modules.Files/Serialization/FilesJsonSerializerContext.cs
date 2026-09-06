@@ -22,4 +22,7 @@ namespace Full.NET.Modules.Files.Serialization;
 [JsonSerializable(typeof(BatchDeleteHostFileItem))]
 [JsonSerializable(typeof(BatchUploadHostFilesResponse))]
 [JsonSerializable(typeof(BatchUploadHostFileItem))]
+[JsonSerializable(typeof(StorageProviderCatalogItem))]
+[JsonSerializable(typeof(StorageProviderCatalogItem[]))]
+[JsonSerializable(typeof(TestStorageProviderConnectivityResult))]
 internal partial class FilesJsonSerializerContext : JsonSerializerContext;
