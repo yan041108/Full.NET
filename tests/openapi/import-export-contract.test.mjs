@@ -25,8 +25,13 @@ test('ImportExport 导入任务 OpenAPI 夹具与 C# 契约和端点一致', asy
   assert.match(endpointSource, /\.WithName\("importExportCreateImportTask"\)/u);
   assert.match(endpointSource, /\.WithName\("importExportListImportTasks"\)/u);
   assert.match(endpointSource, /\.WithName\("importExportGetImportTask"\)/u);
+  assert.match(endpointSource, /\.WithName\("importExportExecuteImportTask"\)/u);
+  assert.match(endpointSource, /\.WithName\("importExportResumeImportTask"\)/u);
+  assert.match(endpointSource, /\.WithName\("importExportRetryImportTask"\)/u);
+  assert.match(endpointSource, /\.WithName\("importExportDownloadImportTaskErrorReceipt"\)/u);
   assert.match(contractsSource, /record ImportExportTaskDetailResponse/u);
   assert.match(contractsSource, /import_export\.static_schemas\.read/u);
   assert.match(contractsSource, /import_export\.import_tasks\.read/u);
   assert.match(contractsSource, /import_export\.import_tasks\.create/u);
+  assert.match(contractsSource, /import_export\.import_tasks\.execute/u);
 });

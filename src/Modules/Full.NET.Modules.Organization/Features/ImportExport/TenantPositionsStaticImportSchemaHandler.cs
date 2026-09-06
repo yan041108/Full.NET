@@ -7,7 +7,8 @@ namespace Full.NET.Modules.Organization.Features.ImportExport;
 
 /// <summary>Organization 租户职位静态导入 Schema 处理器。</summary>
 internal sealed class TenantPositionsStaticImportSchemaHandler(
-    TenantPositionImportPreviewService previewService) : IStaticImportSchemaHandler
+    TenantPositionImportPreviewService previewService,
+    TenantPositionManagementService managementService) : IStaticImportSchemaHandler
 {
     internal const string PositionsWorksheetKey = "positions";
 
@@ -66,4 +67,92 @@ internal sealed class TenantPositionsStaticImportSchemaHandler(
                 ErrorType.Validation));
         }
     }
+
+    public async Task<Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(
+        Stream content,
+        long contentLength,
+        int startLineNumber,
+        int batchSize,
+        StaticImportPreviewContext context,
+        CancellationToken cancellationToken = default)
+    {
+        if (batchSize <= 0)
+        {
+            return Result<StaticImportBatchExecutionResult>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Batch size must be positive.",
+                ErrorType.Validation));
+        }
+
+        try
+        {
+            var rows = await OrganizationPositionWorkbookCodec
+                .ParseImportAsync(content, contentLength, cancellationToken)
+                .ConfigureAwait(false);
+            var preview = previewService.Preview(rows, context);
+            var validRows = preview.Rows
+                .Where(row => row.IsValid)
+                .OrderBy(row => row.LineNumber)
+                .ToArray();
+            var batchValidRows = validRows
+                .Skip(startLineNumber)
+                .Take(batchSize)
+                .ToArray();
+            var batchRows = batchValidRows
+                .Select(valid => rows[valid.LineNumber - 1])
+                .ToArray();
+            if (batchRows.Length == 0)
+            {
+                return Result<StaticImportBatchExecutionResult>.Success(
+                    new StaticImportBatchExecutionResult([]));
+            }
+
+            var capabilities = ResolveImportCapabilities(context);
+            var importResult = await managementService
+                .ImportAsync(
+                    new ImportOrganizationPositionsRequest(batchRows),
+                    capabilities,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!importResult.IsSuccess)
+            {
+                return Result<StaticImportBatchExecutionResult>.Failure(importResult.Error!);
+            }
+
+            var importRows = importResult.Value!.Results;
+            var executionRows = new StaticImportRowExecutionResult[importRows.Count];
+            for (var index = 0; index < importRows.Count; index++)
+            {
+                var rowResult = importRows[index];
+                executionRows[index] = new StaticImportRowExecutionResult(
+                    batchValidRows[index].LineNumber,
+                    rowResult.Succeeded,
+                    rowResult.PositionId,
+                    rowResult.ErrorCode,
+                    rowResult.Message);
+            }
+            return Result<StaticImportBatchExecutionResult>.Success(
+                new StaticImportBatchExecutionResult(executionRows));
+        }
+        catch (InvalidDataException)
+        {
+            return Result<StaticImportBatchExecutionResult>.Failure(new Error(
+                OrganizationErrorCodes.PositionImportWorkbookInvalid,
+                "The organization position import workbook is invalid.",
+                ErrorType.Validation));
+        }
+    }
+
+    private static OrganizationPositionImportCapabilities ResolveImportCapabilities(
+        StaticImportPreviewContext context)
+    {
+        return new OrganizationPositionImportCapabilities(
+            HasCapability(context, OrganizationPositionManagementPermissions.AssignUnit)
+            && HasCapability(context, OrganizationUnitManagementPermissions.Read),
+            HasCapability(context, OrganizationPositionManagementPermissions.AssignPositionLevel)
+            && HasCapability(context, OrganizationPositionLevelManagementPermissions.Read));
+    }
+
+    private static bool HasCapability(StaticImportPreviewContext context, string permissionCode) =>
+        context.CapabilityFlags.TryGetValue(permissionCode, out var allowed) && allowed;
 }

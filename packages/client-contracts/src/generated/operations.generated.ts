@@ -3951,6 +3951,26 @@ export async function importExportCreateImportTask(
   return readImportExportTaskDetailResponse(value);
 }
 
+export interface ImportExportDownloadImportTaskErrorReceiptParameters {
+  readonly taskId: string;
+}
+
+export async function importExportDownloadImportTaskErrorReceipt(
+  http: HttpClient,
+  parameters: ImportExportDownloadImportTaskErrorReceiptParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/error-receipt`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface ImportExportDownloadStaticSchemaTemplateParameters {
   readonly schemaKey: string;
   readonly worksheetKey: string;
@@ -3970,6 +3990,24 @@ export async function importExportDownloadStaticSchemaTemplate(
   return options === undefined
     ? await http.requestBlob(path, init, signal)
     : await http.requestBlob(path, init, signal, options);
+}
+
+export interface ImportExportExecuteImportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function importExportExecuteImportTask(
+  http: HttpClient,
+  parameters: ImportExportExecuteImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/execute`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
 }
 
 export interface ImportExportGetImportTaskParameters {
@@ -4054,6 +4092,42 @@ export async function importExportListStaticSchemas(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readImportExportListStaticSchemasResponse(value);
+}
+
+export interface ImportExportResumeImportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function importExportResumeImportTask(
+  http: HttpClient,
+  parameters: ImportExportResumeImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/resume`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
+}
+
+export interface ImportExportRetryImportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function importExportRetryImportTask(
+  http: HttpClient,
+  parameters: ImportExportRetryImportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportExportTaskDetailResponse> {
+  const path = `/api/v1/import-export/tasks/${encodeURIComponent(String(parameters.taskId))}/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportExportTaskDetailResponse(value);
 }
 
 export interface JobsBatchPauseHostJobSchedulesParameters {

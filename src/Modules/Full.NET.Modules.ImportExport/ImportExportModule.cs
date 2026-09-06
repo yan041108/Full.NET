@@ -6,6 +6,7 @@ using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.ImportExport.Configuration;
 using Full.NET.Modules.ImportExport.Domain;
+using Full.NET.Modules.ImportExport.ImportTasks;
 using Full.NET.Modules.ImportExport.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -16,7 +17,7 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.ImportExport;
 
-/// <summary>提供静态 Schema 导入目录、模板下载与预校验任务管理。</summary>
+/// <summary>提供静态 Schema 导入目录、模板下载、预校验与批量执行任务管理。</summary>
 public sealed class ImportExportModule : IFullNetModule
 {
     public string Name => "ImportExport";
@@ -50,10 +51,18 @@ public sealed class ImportExportModule : IFullNetModule
         services.TryAddScoped<Features.BrowseStaticSchemas.StaticImportSchemaQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskQueryService>();
+        services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskExecutionService>();
+        services.TryAddScoped<ImportExportTaskRunner>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 ImportExportJsonSerializerContext.Default));
+    }
+
+    public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.TryAddScoped<ImportExportTaskRunner>();
+        services.AddHostedService<ImportExportTaskHostedProcessor>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

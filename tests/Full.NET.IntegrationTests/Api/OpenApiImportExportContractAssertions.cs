@@ -32,6 +32,22 @@ internal static class OpenApiImportExportContractAssertions
             paths.GetProperty("/api/v1/import-export/tasks/{taskId}"),
             "get",
             ["200", "401", "403", "404"]);
+        AssertOperation(
+            paths.GetProperty("/api/v1/import-export/tasks/{taskId}/execute"),
+            "post",
+            ["200", "401", "403", "404", "422"]);
+        AssertOperation(
+            paths.GetProperty("/api/v1/import-export/tasks/{taskId}/resume"),
+            "post",
+            ["200", "401", "403", "404", "422"]);
+        AssertOperation(
+            paths.GetProperty("/api/v1/import-export/tasks/{taskId}/retry"),
+            "post",
+            ["200", "401", "403", "404", "422"]);
+        AssertOperation(
+            paths.GetProperty("/api/v1/import-export/tasks/{taskId}/error-receipt"),
+            "get",
+            ["200", "401", "403", "404", "422"]);
 
         var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
         AssertSchema(
@@ -47,6 +63,11 @@ internal static class OpenApiImportExportContractAssertions
                 "totalRows",
                 "validRowCount",
                 "invalidRowCount",
+                "processedRowCount",
+                "succeededRowCount",
+                "executionFailedRowCount",
+                "nextLineNumber",
+                "hasErrorReceipt",
                 "previewRows",
                 "version",
             ]);
@@ -89,6 +110,38 @@ internal static class OpenApiImportExportContractAssertions
             taskTag,
             200,
             "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/import-export/tasks/{taskId}/execute",
+            HttpMethod.Post,
+            "importExportExecuteImportTask",
+            taskTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/import-export/tasks/{taskId}/resume",
+            HttpMethod.Post,
+            "importExportResumeImportTask",
+            taskTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/import-export/tasks/{taskId}/retry",
+            HttpMethod.Post,
+            "importExportRetryImportTask",
+            taskTag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/import-export/tasks/{taskId}/error-receipt",
+            HttpMethod.Get,
+            "importExportDownloadImportTaskErrorReceipt",
+            taskTag,
+            200,
+            "application/octet-stream");
     }
 
     private static void AssertOperation(

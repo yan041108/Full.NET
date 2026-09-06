@@ -29866,6 +29866,122 @@
           "ImportExportTasks"
         ]
       }
+    },
+    "/api/v1/import-export/tasks/{taskId}/execute": {
+      "post": {
+        "operationId": "importExportExecuteImportTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ImportExportTaskDetailResponse" }
+              }
+            },
+            "description": "OK"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ImportExportTasks"]
+      }
+    },
+    "/api/v1/import-export/tasks/{taskId}/resume": {
+      "post": {
+        "operationId": "importExportResumeImportTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ImportExportTaskDetailResponse" }
+              }
+            },
+            "description": "OK"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ImportExportTasks"]
+      }
+    },
+    "/api/v1/import-export/tasks/{taskId}/retry": {
+      "post": {
+        "operationId": "importExportRetryImportTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ImportExportTaskDetailResponse" }
+              }
+            },
+            "description": "OK"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ImportExportTasks"]
+      }
+    },
+    "/api/v1/import-export/tasks/{taskId}/error-receipt": {
+      "get": {
+        "operationId": "importExportDownloadImportTaskErrorReceipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taskId",
+            "required": true,
+            "schema": { "format": "uuid", "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": { "format": "binary", "type": "string" }
+              }
+            },
+            "description": "OK"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ImportExportTasks"]
+      }
     }
   },
   "components": {
@@ -45433,6 +45549,51 @@
               "string"
             ]
           },
+          "processedRowCount": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "succeededRowCount": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "executionFailedRowCount": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "nextLineNumber": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "executionStartedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "executionCompletedAtUtc": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasErrorReceipt": {
+            "type": "boolean"
+          },
           "version": {
             "format": "int64",
             "type": [
@@ -45454,6 +45615,11 @@
           "invalidRowCount",
           "requestedByUserId",
           "createdAtUtc",
+          "processedRowCount",
+          "succeededRowCount",
+          "executionFailedRowCount",
+          "nextLineNumber",
+          "hasErrorReceipt",
           "version"
         ],
         "type": "object"
@@ -45484,7 +45650,8 @@
         "required": [
           "id", "tenantId", "schemaKey", "schemaDisplayName", "worksheetKey", "sourceFileId",
           "statusKey", "totalRows", "validRowCount", "invalidRowCount", "requestedByUserId",
-          "createdAtUtc", "version", "previewRows"
+          "createdAtUtc", "version", "previewRows", "processedRowCount", "succeededRowCount",
+          "executionFailedRowCount", "nextLineNumber", "hasErrorReceipt"
         ],
         "type": "object"
       },

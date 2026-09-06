@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
   ElAlert,
   ElButton,
   ElCard,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDrawer,
   ElMessage,
   ElPagination,
   ElTable,
@@ -11,7 +14,7 @@ import {
   ElTag
 } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
-import type { FullNetProblemDetails, ImportExportTaskResponse } from '@fullnet/client-contracts';
+import type { FullNetProblemDetails, ImportExportTaskDetailResponse, ImportExportTaskResponse } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
@@ -19,7 +22,14 @@ import { useArtCrudTableLayout } from '../framework/art-design/composables/useAr
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listImportExportTasks } from '../api/import-export-tasks';
+import {
+  downloadImportExportTaskErrorReceipt,
+  executeImportExportTask,
+  getImportExportTask,
+  listImportExportTasks,
+  resumeImportExportTask,
+  retryImportExportTask
+} from '../api/import-export-tasks';
 
 defineOptions({ name: 'ImportExportTasksView' });
 
@@ -27,10 +37,14 @@ const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<ImportExportTaskResponse[]>([]);
 const loading = ref(false);
+const detailLoading = ref(false);
+const actionLoading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
+const drawerVisible = ref(false);
+const selectedTask = ref<ImportExportTaskDetailResponse>();
 
 const {
   tableMainRef,
@@ -48,13 +62,17 @@ watchLoading(loading);
 
 const canCreate = () => session.can('import_export.import_tasks.create');
 const canRead = () => session.can('import_export.import_tasks.read');
+const canExecute = () => session.can('import_export.import_tasks.execute');
 
 function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'info' {
-  if (statusKey === 'preview_succeeded') {
+  if (statusKey === 'preview_succeeded' || statusKey === 'execution_succeeded') {
     return 'success';
   }
-  if (statusKey === 'preview_failed') {
+  if (statusKey === 'preview_failed' || statusKey === 'execution_failed') {
     return 'danger';
+  }
+  if (statusKey === 'execution_partial') {
+    return 'warning';
   }
   return 'info';
 }
@@ -64,6 +82,28 @@ function statusLabel(statusKey: string): string {
   const translated = t(key);
   return translated === key ? statusKey : translated;
 }
+
+const previewStats = computed(() => {
+  if (!selectedTask.value) {
+    return '';
+  }
+  return t('importExportTasks.previewStats', {
+    valid: selectedTask.value.validRowCount,
+    total: selectedTask.value.totalRows,
+    invalid: selectedTask.value.invalidRowCount
+  });
+});
+
+const executionStats = computed(() => {
+  if (!selectedTask.value) {
+    return '';
+  }
+  return t('importExportTasks.executionStats', {
+    succeeded: selectedTask.value.succeededRowCount,
+    failed: selectedTask.value.executionFailedRowCount,
+    processed: selectedTask.value.processedRowCount
+  });
+});
 
 async function load() {
   if (!canRead()) {
@@ -83,6 +123,58 @@ async function load() {
     problem.value = toProblem(error);
   } finally {
     loading.value = false;
+  }
+}
+
+async function openDetail(taskId: string) {
+  detailLoading.value = true;
+  drawerVisible.value = true;
+  try {
+    selectedTask.value = await getImportExportTask(taskId);
+  } catch (error) {
+    drawerVisible.value = false;
+    ElMessage.error(toProblem(error).title);
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+async function runAction(action: () => Promise<ImportExportTaskDetailResponse>) {
+  if (!selectedTask.value) {
+    return;
+  }
+
+  actionLoading.value = true;
+  try {
+    selectedTask.value = await action();
+    ElMessage.success(t('importExportTasks.actionSuccess'));
+    await load();
+  } catch (error) {
+    ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
+  } finally {
+    actionLoading.value = false;
+  }
+}
+
+async function downloadErrorReceipt() {
+  if (!selectedTask.value) {
+    return;
+  }
+
+  actionLoading.value = true;
+  try {
+    const blob = await downloadImportExportTaskErrorReceipt(selectedTask.value.id);
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = selectedTask.value.sourceFileName?.replace(/\.xlsx$/i, '-errors.xlsx')
+      ?? 'import-task-errors.xlsx';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    ElMessage.error(toProblem(error).title || t('importExportTasks.actionFailed'));
+  } finally {
+    actionLoading.value = false;
   }
 }
 
@@ -164,8 +256,17 @@ onMounted(load);
             <el-table-column :label="t('importExportTasks.errorCode')" prop="errorCode" min-width="180" />
             <el-table-column :label="t('importExportTasks.createdAtUtc')" prop="createdAtUtc" min-width="200" />
             <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
-              <template #default>
-                <ArtTableActionGroup />
+              <template #default="{ row }">
+                <ArtTableActionGroup>
+                  <el-button
+                    link
+                    type="primary"
+                    data-testid="import-export-task-detail"
+                    @click="openDetail(row.id)"
+                  >
+                    {{ t('importExportTasks.viewDetail') }}
+                  </el-button>
+                </ArtTableActionGroup>
               </template>
             </el-table-column>
             <template #empty>{{ t('importExportTasks.emptyDirectory') }}</template>
@@ -186,5 +287,88 @@ onMounted(load);
         </div>
       </div>
     </el-card>
+
+    <el-drawer
+      v-model="drawerVisible"
+      :title="t('importExportTasks.detailTitle')"
+      size="480px"
+      destroy-on-close
+    >
+      <div v-loading="detailLoading">
+        <template v-if="selectedTask">
+          <el-descriptions :column="1" border>
+            <el-descriptions-item :label="t('importExportTasks.schema')">
+              {{ selectedTask.schemaDisplayName }}
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('importExportTasks.status')">
+              <el-tag :type="statusTagType(selectedTask.statusKey)" size="small">
+                {{ statusLabel(selectedTask.statusKey) }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('importExportTasks.rows')">
+              {{ previewStats }}
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('importExportTasks.executionStats')">
+              {{ executionStats }}
+            </el-descriptions-item>
+            <el-descriptions-item :label="t('importExportTasks.errorCode')">
+              {{ selectedTask.errorCode ?? '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <div class="art-drawer-actions">
+            <PermissionGate code="import_export.import_tasks.execute">
+              <el-button
+                v-if="selectedTask.statusKey === 'preview_succeeded'"
+                type="primary"
+                data-testid="import-export-task-execute"
+                :loading="actionLoading"
+                :disabled="!canExecute()"
+                @click="runAction(() => executeImportExportTask(selectedTask!.id))"
+              >
+                {{ t('importExportTasks.execute') }}
+              </el-button>
+              <el-button
+                v-if="selectedTask.statusKey === 'execution_partial'"
+                type="primary"
+                data-testid="import-export-task-resume"
+                :loading="actionLoading"
+                :disabled="!canExecute()"
+                @click="runAction(() => resumeImportExportTask(selectedTask!.id))"
+              >
+                {{ t('importExportTasks.resume') }}
+              </el-button>
+              <el-button
+                v-if="selectedTask.statusKey === 'execution_partial' || selectedTask.statusKey === 'execution_failed'"
+                data-testid="import-export-task-retry"
+                :loading="actionLoading"
+                :disabled="!canExecute()"
+                @click="runAction(() => retryImportExportTask(selectedTask!.id))"
+              >
+                {{ t('importExportTasks.retry') }}
+              </el-button>
+              <el-button
+                v-if="selectedTask.hasErrorReceipt"
+                data-testid="import-export-task-error-receipt"
+                :loading="actionLoading"
+                :disabled="!canExecute()"
+                @click="downloadErrorReceipt"
+              >
+                {{ t('importExportTasks.downloadErrorReceipt') }}
+              </el-button>
+            </PermissionGate>
+          </div>
+        </template>
+      </div>
+    </el-drawer>
   </section>
 </template>
+
+<style scoped>
+.art-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+</style>

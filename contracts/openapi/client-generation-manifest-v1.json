@@ -2223,6 +2223,30 @@
       "status": "generated"
     },
     {
+      "operationId": "importExportExecuteImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportResumeImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportRetryImportTask",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
+      "operationId": "importExportDownloadImportTaskErrorReceipt",
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "generatedGroup": "import-export",
+      "status": "generated"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

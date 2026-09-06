@@ -35,5 +35,21 @@ internal sealed class ImportExportTaskRecord
 
     public DateTimeOffset? PreviewCompletedAtUtc { get; init; }
 
+    public int ProcessedRowCount { get; init; }
+
+    public int SucceededRowCount { get; init; }
+
+    public int ExecutionFailedRowCount { get; init; }
+
+    public int NextLineNumber { get; init; }
+
+    public string? ExecutionRowsJson { get; init; }
+
+    public Guid? ErrorReceiptFileId { get; init; }
+
+    public DateTimeOffset? ExecutionStartedAtUtc { get; init; }
+
+    public DateTimeOffset? ExecutionCompletedAtUtc { get; init; }
+
     public long Version { get; init; }
 }

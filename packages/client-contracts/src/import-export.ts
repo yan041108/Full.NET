@@ -35,6 +35,13 @@ export interface ImportExportTaskResponse {
   requestedByUserId: string;
   createdAtUtc: string;
   previewCompletedAtUtc: string | null;
+  processedRowCount: number;
+  succeededRowCount: number;
+  executionFailedRowCount: number;
+  nextLineNumber: number;
+  executionStartedAtUtc: string | null;
+  executionCompletedAtUtc: string | null;
+  hasErrorReceipt: boolean;
   version: number;
 }
 
@@ -89,6 +96,13 @@ export function isImportExportTaskResponse(value: unknown): value is ImportExpor
     && isGuid(value.requestedByUserId)
     && typeof value.createdAtUtc === 'string'
     && isNullableString(value.previewCompletedAtUtc)
+    && Number.isInteger(value.processedRowCount)
+    && Number.isInteger(value.succeededRowCount)
+    && Number.isInteger(value.executionFailedRowCount)
+    && Number.isInteger(value.nextLineNumber)
+    && isNullableString(value.executionStartedAtUtc)
+    && isNullableString(value.executionCompletedAtUtc)
+    && typeof value.hasErrorReceipt === 'boolean'
     && Number.isInteger(value.version);
 }
 

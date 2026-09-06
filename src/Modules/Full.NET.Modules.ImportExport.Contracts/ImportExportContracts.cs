@@ -13,6 +13,9 @@ public static class ImportExportPermissions
 
     /// <summary>允许创建导入任务并执行预校验。</summary>
     public const string ImportTasksCreate = "import_export.import_tasks.create";
+
+    /// <summary>允许将预校验成功的导入任务排队执行、恢复或重试。</summary>
+    public const string ImportTasksExecute = "import_export.import_tasks.execute";
 }
 
 /// <summary>内置静态导入 Schema 稳定键。</summary>
@@ -41,12 +44,32 @@ public static class ImportExportTaskStatusKeys
     /// <summary>预校验失败，可查看行级错误。</summary>
     public const string PreviewFailed = "preview_failed";
 
+    /// <summary>已排队等待后台批量执行。</summary>
+    public const string Queued = "queued";
+
+    /// <summary>后台 worker 正在批量写入。</summary>
+    public const string Executing = "executing";
+
+    /// <summary>全部有效行执行成功。</summary>
+    public const string ExecutionSucceeded = "execution_succeeded";
+
+    /// <summary>部分有效行执行成功，存在失败行。</summary>
+    public const string ExecutionPartial = "execution_partial";
+
+    /// <summary>执行阶段失败，无成功行或任务级失败。</summary>
+    public const string ExecutionFailed = "execution_failed";
+
     /// <summary>已发布的全部状态键。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
         Uploaded,
         PreviewSucceeded,
         PreviewFailed,
+        Queued,
+        Executing,
+        ExecutionSucceeded,
+        ExecutionPartial,
+        ExecutionFailed,
     ]);
 }
 
@@ -83,6 +106,24 @@ public sealed record StaticImportPreviewResult(
     int InvalidRowCount,
     IReadOnlyList<StaticImportRowPreviewResult> Rows);
 
+/// <summary>单行批量执行结果。</summary>
+/// <param name="LineNumber">原始工作簿行号（从 1 开始）。</param>
+/// <param name="Succeeded">本行是否写入成功。</param>
+/// <param name="EntityId">成功时返回业务实体标识。</param>
+/// <param name="ErrorCode">失败时返回稳定错误码。</param>
+/// <param name="Message">失败时的可读说明。</param>
+public sealed record StaticImportRowExecutionResult(
+    int LineNumber,
+    bool Succeeded,
+    Guid? EntityId,
+    string? ErrorCode,
+    string? Message);
+
+/// <summary>静态导入批量执行汇总。</summary>
+/// <param name="Rows">本批逐行执行结果。</param>
+public sealed record StaticImportBatchExecutionResult(
+    IReadOnlyList<StaticImportRowExecutionResult> Rows);
+
 /// <summary>消费方模块实现的静态 Schema 处理器。</summary>
 public interface IStaticImportSchemaHandler
 {
@@ -99,6 +140,21 @@ public interface IStaticImportSchemaHandler
     Task<Result<StaticImportPreviewResult>> PreviewAsync(
         Stream content,
         long contentLength,
+        StaticImportPreviewContext context,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>按有效行检查点批量执行导入写入；调用方模块负责实际持久化。</summary>
+    /// <param name="content">源工作簿只读流。</param>
+    /// <param name="contentLength">声明内容长度。</param>
+    /// <param name="startLineNumber">有效行序号检查点（从 0 开始）。</param>
+    /// <param name="batchSize">本批最多处理的 valid 行数。</param>
+    /// <param name="context">执行上下文，含请求用户与能力标记。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(
+        Stream content,
+        long contentLength,
+        int startLineNumber,
+        int batchSize,
         StaticImportPreviewContext context,
         CancellationToken cancellationToken = default);
 }
@@ -120,6 +176,13 @@ public sealed record ImportExportTaskResponse(
     Guid RequestedByUserId,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? PreviewCompletedAtUtc,
+    int ProcessedRowCount,
+    int SucceededRowCount,
+    int ExecutionFailedRowCount,
+    int NextLineNumber,
+    DateTimeOffset? ExecutionStartedAtUtc,
+    DateTimeOffset? ExecutionCompletedAtUtc,
+    bool HasErrorReceipt,
     long Version);
 
 /// <summary>导入任务详情响应，包含行级预校验结果。</summary>
@@ -139,5 +202,12 @@ public sealed record ImportExportTaskDetailResponse(
     Guid RequestedByUserId,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? PreviewCompletedAtUtc,
+    int ProcessedRowCount,
+    int SucceededRowCount,
+    int ExecutionFailedRowCount,
+    int NextLineNumber,
+    DateTimeOffset? ExecutionStartedAtUtc,
+    DateTimeOffset? ExecutionCompletedAtUtc,
+    bool HasErrorReceipt,
     IReadOnlyList<StaticImportRowPreviewResult> PreviewRows,
     long Version);

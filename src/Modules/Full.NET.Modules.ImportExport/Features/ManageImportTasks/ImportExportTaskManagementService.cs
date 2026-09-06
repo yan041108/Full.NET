@@ -162,6 +162,14 @@ internal sealed class ImportExportTaskManagementService(
                     ("RequestedByUserId", requestedByUserId),
                     ("CreatedAtUtc", now),
                     ("PreviewCompletedAtUtc", now),
+                    ("ProcessedRowCount", 0),
+                    ("SucceededRowCount", 0),
+                    ("ExecutionFailedRowCount", 0),
+                    ("NextLineNumber", 0),
+                    ("ExecutionRowsJson", null),
+                    ("ErrorReceiptFileId", null),
+                    ("ExecutionStartedAtUtc", null),
+                    ("ExecutionCompletedAtUtc", null),
                     ("Version", 1L)),
                 cancellationToken)
             .ConfigureAwait(false);

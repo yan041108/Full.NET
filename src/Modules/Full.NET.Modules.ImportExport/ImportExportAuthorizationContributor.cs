@@ -14,6 +14,7 @@ internal sealed class ImportExportAuthorizationContributor : IAuthorizationCatal
         new(ImportExportPermissions.StaticSchemasRead, "读取静态导入 Schema 目录", AuthorizationScope.Tenant),
         new(ImportExportPermissions.ImportTasksRead, "读取导入任务", AuthorizationScope.Tenant),
         new(ImportExportPermissions.ImportTasksCreate, "创建导入任务并预校验", AuthorizationScope.Tenant),
+        new(ImportExportPermissions.ImportTasksExecute, "执行导入任务", AuthorizationScope.Tenant),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -40,5 +41,12 @@ internal sealed class ImportExportAuthorizationContributor : IAuthorizationCatal
             "提交导入",
             "create",
             10),
+        new AuthorizationActionDefinition(
+            "import_export.import_tasks.execute",
+            "import-export-tasks",
+            ImportExportPermissions.ImportTasksExecute,
+            "执行导入",
+            "execute",
+            20),
     ];
 }

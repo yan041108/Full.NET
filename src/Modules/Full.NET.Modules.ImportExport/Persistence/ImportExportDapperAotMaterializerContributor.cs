@@ -30,6 +30,14 @@ internal sealed class ImportExportDapperAotMaterializerContributor
         RequestedByUserId = ReadGuid(reader, "RequestedByUserId"),
         CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
         PreviewCompletedAtUtc = ReadNullableDateTimeOffset(reader, "PreviewCompletedAtUtc"),
+        ProcessedRowCount = ReadInt32(reader, "ProcessedRowCount"),
+        SucceededRowCount = ReadInt32(reader, "SucceededRowCount"),
+        ExecutionFailedRowCount = ReadInt32(reader, "ExecutionFailedRowCount"),
+        NextLineNumber = ReadInt32(reader, "NextLineNumber"),
+        ExecutionRowsJson = ReadNullableString(reader, "ExecutionRowsJson"),
+        ErrorReceiptFileId = ReadNullableGuid(reader, "ErrorReceiptFileId"),
+        ExecutionStartedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionStartedAtUtc"),
+        ExecutionCompletedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionCompletedAtUtc"),
         Version = ReadInt64(reader, "Version"),
     };
 
@@ -75,6 +83,12 @@ internal sealed class ImportExportDapperAotMaterializerContributor
     {
         var ordinal = RequiredOrdinal(reader, name);
         return AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, ordinal);
+    }
+
+    private static Guid? ReadNullableGuid(DbDataReader reader, string name)
+    {
+        var ordinal = RequiredOrdinal(reader, name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
     }
 }
 #endif

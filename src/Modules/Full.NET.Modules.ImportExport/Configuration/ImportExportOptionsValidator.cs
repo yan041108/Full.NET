@@ -17,6 +17,16 @@ internal sealed class ImportExportOptionsValidator : IValidateOptions<ImportExpo
             return ValidateOptionsResult.Fail("导入预校验行数上限必须在 1 到 1000 之间。");
         }
 
+        if (options.PollSeconds is < 5 or > 300)
+        {
+            return ValidateOptionsResult.Fail("导入执行轮询间隔必须在 5 到 300 秒之间。");
+        }
+
+        if (options.BatchSize is < 1 or > 200)
+        {
+            return ValidateOptionsResult.Fail("导入执行批大小必须在 1 到 200 之间。");
+        }
+
         return ValidateOptionsResult.Success;
     }
 }

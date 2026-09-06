@@ -14,6 +14,11 @@ public sealed class ImportExportTaskStatusKeysTests
                 ImportExportTaskStatusKeys.Uploaded,
                 ImportExportTaskStatusKeys.PreviewSucceeded,
                 ImportExportTaskStatusKeys.PreviewFailed,
+                ImportExportTaskStatusKeys.Queued,
+                ImportExportTaskStatusKeys.Executing,
+                ImportExportTaskStatusKeys.ExecutionSucceeded,
+                ImportExportTaskStatusKeys.ExecutionPartial,
+                ImportExportTaskStatusKeys.ExecutionFailed,
             },
             ImportExportTaskStatusKeys.All.ToArray());
     }

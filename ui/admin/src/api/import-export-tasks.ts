@@ -1,8 +1,12 @@
 import {
   importExportCreateImportTask,
+  importExportDownloadImportTaskErrorReceipt,
+  importExportExecuteImportTask,
   importExportGetImportTask,
   importExportListImportTasks,
   importExportListStaticSchemas,
+  importExportResumeImportTask,
+  importExportRetryImportTask,
   isImportExportTaskDetailResponse,
   isImportExportTaskPage,
   isStaticImportSchemaDefinition,
@@ -69,6 +73,54 @@ export async function createImportExportTask(
     throw new Error('client.invalid_import_export_task');
   }
   return value;
+}
+
+/** 将预校验成功任务排队执行。 */
+export async function executeImportExportTask(
+  taskId: string,
+  signal?: AbortSignal
+): Promise<ImportExportTaskDetailResponse> {
+  const value = await importExportExecuteImportTask(http, { taskId }, signal);
+  if (!isImportExportTaskDetailResponse(value)) {
+    throw new Error('client.invalid_import_export_task');
+  }
+  return value;
+}
+
+/** 从部分成功检查点恢复执行。 */
+export async function resumeImportExportTask(
+  taskId: string,
+  signal?: AbortSignal
+): Promise<ImportExportTaskDetailResponse> {
+  const value = await importExportResumeImportTask(http, { taskId }, signal);
+  if (!isImportExportTaskDetailResponse(value)) {
+    throw new Error('client.invalid_import_export_task');
+  }
+  return value;
+}
+
+/** 重置并重新排队执行。 */
+export async function retryImportExportTask(
+  taskId: string,
+  signal?: AbortSignal
+): Promise<ImportExportTaskDetailResponse> {
+  const value = await importExportRetryImportTask(http, { taskId }, signal);
+  if (!isImportExportTaskDetailResponse(value)) {
+    throw new Error('client.invalid_import_export_task');
+  }
+  return value;
+}
+
+/** 下载错误回执 xlsx。 */
+export async function downloadImportExportTaskErrorReceipt(
+  taskId: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  const response = await importExportDownloadImportTaskErrorReceipt(http, { taskId }, signal);
+  if (!(response instanceof Blob)) {
+    throw new Error('client.invalid_import_export_error_receipt');
+  }
+  return response;
 }
 
 export type {

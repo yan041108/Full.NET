@@ -46,5 +46,15 @@ public sealed class StaticImportSchemaRegistryTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Abstractions.Results.Result<StaticImportPreviewResult>.Success(
                 new StaticImportPreviewResult(0, 0, 0, [])));
+
+        public Task<Abstractions.Results.Result<StaticImportBatchExecutionResult>> ExecuteBatchAsync(
+            Stream content,
+            long contentLength,
+            int startLineNumber,
+            int batchSize,
+            StaticImportPreviewContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Abstractions.Results.Result<StaticImportBatchExecutionResult>.Success(
+                new StaticImportBatchExecutionResult([])));
     }
 }

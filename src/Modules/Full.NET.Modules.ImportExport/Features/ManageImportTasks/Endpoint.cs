@@ -1,6 +1,9 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Hosting.Api;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.ImportExport.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -10,9 +13,12 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 
-/// <summary>导入任务创建与查询 HTTP 端点。</summary>
+/// <summary>导入任务创建、查询与执行 HTTP 端点。</summary>
 internal static class Endpoint
 {
+    private const string WorkbookContentType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     public static void Map(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/import-export/tasks")
@@ -112,6 +118,122 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksRead));
+
+        group.MapPost("/{taskId:guid}/execute", async (
+            Guid taskId,
+            ImportExportTaskExecutionService executionService,
+            ClaimsPrincipal principal,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var result = await executionService
+                .QueueExecuteAsync(
+                    taskId,
+                    BuildPreviewContext(userId, principal),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("importExportExecuteImportTask")
+        .Produces<ImportExportTaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksExecute));
+
+        group.MapPost("/{taskId:guid}/resume", async (
+            Guid taskId,
+            ImportExportTaskExecutionService executionService,
+            ClaimsPrincipal principal,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var result = await executionService
+                .ResumeAsync(
+                    taskId,
+                    BuildPreviewContext(userId, principal),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("importExportResumeImportTask")
+        .Produces<ImportExportTaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksExecute));
+
+        group.MapPost("/{taskId:guid}/retry", async (
+            Guid taskId,
+            ImportExportTaskExecutionService executionService,
+            ClaimsPrincipal principal,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var result = await executionService
+                .RetryAsync(
+                    taskId,
+                    BuildPreviewContext(userId, principal),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("importExportRetryImportTask")
+        .Produces<ImportExportTaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksExecute));
+
+        group.MapGet("/{taskId:guid}/error-receipt", async (
+            Guid taskId,
+            ImportExportTaskExecutionService executionService,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await executionService
+                .OpenErrorReceiptAsync(taskId, cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                return mapper.Map(result, httpContext);
+            }
+
+            var content = result.Value!;
+            return Results.File(
+                content.Content,
+                content.ContentType ?? WorkbookContentType,
+                content.OriginalFileName ?? "import-task-errors.xlsx");
+        })
+        .WithName("importExportDownloadImportTaskErrorReceipt")
+        .Produces<Stream>(StatusCodes.Status200OK, WorkbookContentType)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .RequireAuthorization(FullNetPermissionPolicies.For(ImportExportPermissions.ImportTasksExecute));
     }
 
     private static bool TryResolveUserId(HttpContext httpContext, out Guid userId)

@@ -11,7 +11,11 @@ public sealed class ImportExportApiSqlServerTests
     {
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
-            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["FullNet:ImportExport:RunSynchronously"] = "true",
+            });
 
         await ImportExportTaskAssertions.VerifyImportTaskPreviewContractAsync(factory);
     }

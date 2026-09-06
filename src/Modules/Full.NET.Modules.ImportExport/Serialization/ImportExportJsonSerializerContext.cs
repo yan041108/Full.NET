@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.ImportExport.Contracts;
+using Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 
 namespace Full.NET.Modules.ImportExport.Serialization;
 
@@ -13,4 +14,7 @@ namespace Full.NET.Modules.ImportExport.Serialization;
 [JsonSerializable(typeof(PagedResult<ImportExportTaskResponse>))]
 [JsonSerializable(typeof(StaticImportRowPreviewResult))]
 [JsonSerializable(typeof(IReadOnlyList<StaticImportRowPreviewResult>))]
+[JsonSerializable(typeof(StaticImportRowExecutionResult))]
+[JsonSerializable(typeof(IReadOnlyList<StaticImportRowExecutionResult>))]
+[JsonSerializable(typeof(ImportExportExecutionStateDocument))]
 internal partial class ImportExportJsonSerializerContext : JsonSerializerContext;

@@ -1651,15 +1651,22 @@ export interface ImportExportTaskDetailResponse {
 export interface ImportExportTaskResponse {
   readonly createdAtUtc: string;
   readonly errorCode?: null | string;
+  readonly executionCompletedAtUtc?: null | string;
+  readonly executionFailedRowCount: number | string;
+  readonly executionStartedAtUtc?: null | string;
+  readonly hasErrorReceipt: boolean;
   readonly id: string;
   readonly invalidRowCount: number | string;
+  readonly nextLineNumber: number | string;
   readonly previewCompletedAtUtc?: null | string;
+  readonly processedRowCount: number | string;
   readonly requestedByUserId: string;
   readonly schemaDisplayName: string;
   readonly schemaKey: string;
   readonly sourceFileId: string;
   readonly sourceFileName?: null | string;
   readonly statusKey: string;
+  readonly succeededRowCount: number | string;
   readonly tenantId: string;
   readonly totalRows: number | string;
   readonly validRowCount: number | string;

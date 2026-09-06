@@ -16,6 +16,7 @@ public sealed class ImportExportAuthorizationContributorTests
             new[]
             {
                 ImportExportPermissions.ImportTasksCreate,
+                ImportExportPermissions.ImportTasksExecute,
                 ImportExportPermissions.ImportTasksRead,
                 ImportExportPermissions.StaticSchemasRead,
             },
@@ -29,6 +30,7 @@ public sealed class ImportExportAuthorizationContributorTests
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["create"] = ImportExportPermissions.ImportTasksCreate,
+                ["execute"] = ImportExportPermissions.ImportTasksExecute,
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "import-export-tasks")

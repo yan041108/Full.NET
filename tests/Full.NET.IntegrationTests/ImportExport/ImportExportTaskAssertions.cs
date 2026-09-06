@@ -78,6 +78,19 @@ internal static class ImportExportTaskAssertions
         Assert.IsNotNull(loaded);
         Assert.AreEqual(ImportExportTaskStatusKeys.PreviewSucceeded, loaded.StatusKey);
 
+        using var executeRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{TasksPath}/{created.Id:D}/execute");
+        executeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tenantToken);
+        using var executeResponse = await client.SendAsync(executeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, executeResponse.StatusCode);
+        var executed = await executeResponse.Content.ReadFromJsonAsync<ImportExportTaskDetailResponse>(
+            cancellationToken);
+        Assert.IsNotNull(executed);
+        Assert.AreEqual(ImportExportTaskStatusKeys.ExecutionSucceeded, executed.StatusKey);
+        Assert.AreEqual(created.ValidRowCount, executed.SucceededRowCount);
+        Assert.IsTrue(executed.ProcessedRowCount >= created.ValidRowCount);
+
         await OpenApiImportExportContractAssertions.VerifyAsync(client, cancellationToken);
     }
 

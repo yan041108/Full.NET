@@ -26,4 +26,13 @@ public static class ImportExportErrorCodes
 
     /// <summary>预校验执行失败且无法产生行级结果。</summary>
     public const string PreviewFailed = "import_export.preview.failed";
+
+    /// <summary>任务状态不允许请求的执行操作。</summary>
+    public const string TaskStatusInvalid = "import_export.task.status_invalid";
+
+    /// <summary>批量执行阶段失败且无法继续。</summary>
+    public const string ExecutionFailed = "import_export.execution.failed";
+
+    /// <summary>错误回执尚未生成或不可下载。</summary>
+    public const string ErrorReceiptNotReady = "import_export.error_receipt.not_ready";
 }

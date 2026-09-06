@@ -64,6 +64,50 @@
           "responseSchema": "ImportExportTaskDetailResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/import-export/tasks/{taskId}/execute",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "import_export.import_tasks.execute",
+          "successStatus": 200,
+          "responseSchema": "ImportExportTaskDetailResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/tasks/{taskId}/resume",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "import_export.import_tasks.execute",
+          "successStatus": 200,
+          "responseSchema": "ImportExportTaskDetailResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/tasks/{taskId}/retry",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "import_export.import_tasks.execute",
+          "successStatus": 200,
+          "responseSchema": "ImportExportTaskDetailResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/import-export/tasks/{taskId}/error-receipt",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "import_export.import_tasks.execute",
+          "successStatus": 200,
+          "responseSchema": "Stream"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -97,6 +141,13 @@
         "requestedByUserId",
         "createdAtUtc",
         "previewCompletedAtUtc",
+        "processedRowCount",
+        "succeededRowCount",
+        "executionFailedRowCount",
+        "nextLineNumber",
+        "executionStartedAtUtc",
+        "executionCompletedAtUtc",
+        "hasErrorReceipt",
         "previewRows",
         "version"
       ]
@@ -109,6 +160,33 @@
         "total"
       ],
       "itemSchema": "ImportExportTaskResponse"
+    },
+    "ImportExportTaskResponse": {
+      "properties": [
+        "id",
+        "tenantId",
+        "schemaKey",
+        "schemaDisplayName",
+        "worksheetKey",
+        "sourceFileId",
+        "sourceFileName",
+        "statusKey",
+        "totalRows",
+        "validRowCount",
+        "invalidRowCount",
+        "errorCode",
+        "requestedByUserId",
+        "createdAtUtc",
+        "previewCompletedAtUtc",
+        "processedRowCount",
+        "succeededRowCount",
+        "executionFailedRowCount",
+        "nextLineNumber",
+        "executionStartedAtUtc",
+        "executionCompletedAtUtc",
+        "hasErrorReceipt",
+        "version"
+      ]
     }
   }
 }
