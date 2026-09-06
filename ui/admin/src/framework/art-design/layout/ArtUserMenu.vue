@@ -19,6 +19,7 @@ defineProps<{
 
   logoutLabel: string;
   securitySettingsLabel: string;
+  profileSettingsLabel: string;
 
   tenantSelectorLabel: string;
 
@@ -54,6 +55,11 @@ const router = useRouter();
 function openSecuritySettings(): void {
   visible.value = false;
   void router.push('/account/security');
+}
+
+function openProfileSettings(): void {
+  visible.value = false;
+  void router.push('/account/profile');
 }
 
 </script>
@@ -132,6 +138,15 @@ function openSecuritySettings(): void {
       </div>
 
 
+
+      <el-button
+        class="art-user-menu__security"
+        type="primary"
+        link
+        @click="openProfileSettings"
+      >
+        {{ profileSettingsLabel }}
+      </el-button>
 
       <el-button
         class="art-user-menu__security"

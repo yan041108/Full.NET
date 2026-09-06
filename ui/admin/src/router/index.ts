@@ -12,7 +12,7 @@ import OverviewView from '../views/OverviewView.vue';
 const statusPaths = new Set(['/403', '/404', '/500']);
 
 /** 自助账户页不依赖导航目录下发，已认证用户可直接访问。 */
-const selfServicePaths = new Set(['/account/security']);
+const selfServicePaths = new Set(['/account/security', '/account/profile']);
 
 /** 延迟加载状态页，避免普通业务路由首次渲染时额外拉取错误页代码。 */
 const loadStatusView = () => import('../views/StatusView.vue');
@@ -35,6 +35,11 @@ export function createAppRouter(
         name: 'account-security',
         path: '/account/security',
         component: () => import('../views/SecuritySettingsView.vue')
+      },
+      {
+        name: 'account-profile',
+        path: '/account/profile',
+        component: () => import('../views/ProfileSettingsView.vue')
       },
       {
         name: 'tenant-management',

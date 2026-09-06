@@ -338,6 +338,20 @@ internal static class IdentitySql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement UpdateSelfServiceDisplayName = new(
+        "identity.update_self_service_display_name",
+        """
+        UPDATE fn_identity_user
+        SET DisplayName = @DisplayName,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @UserId
+          AND ScopeKey = 'host'
+          AND TenantId IS NULL
+          AND Version = @Version
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement ResetHostUserPassword = new(
         "identity.reset_host_user_password",
         """

@@ -13,6 +13,7 @@ using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Features.ManageHostRoles;
 using Full.NET.Modules.Identity.Features.ManageHostRoleFieldGrants;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
+using Full.NET.Modules.Identity.Features.SelfServiceProfile;
 using Full.NET.Modules.Identity.FieldProjection;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
 using Full.NET.Modules.Identity.Http;
@@ -44,6 +45,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostUserManagementService>();
         services.TryAddScoped<HostUserSensitiveFieldRevealService>();
         services.TryAddScoped<HostUserLoginLockoutUnlockService>();
+        services.TryAddScoped<SelfServiceProfileService>();
         services.TryAddScoped<HostUserRolesService>();
         services.TryAddScoped<HostRoleQueryService>();
         services.TryAddScoped<HostRoleManagementService>();
@@ -82,6 +84,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.AddFullNetFluentValidation<
             Features.ChangePassword.Command,
             Features.ChangePassword.ChangePasswordSessionResult>();
+        services.AddFullNetFluentValidation<
+            Features.SelfServiceProfile.UpdateCommand,
+            SelfServiceProfileResponse>();
         services.TryAddScoped<IValidator<Command>, LoginCommandValidator>();
         services.TryAddScoped<
             IValidator<Features.UpdateLocale.Command>,
@@ -89,6 +94,9 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<
             IValidator<Features.ChangePassword.Command>,
             Features.ChangePassword.Validator>();
+        services.TryAddScoped<
+            IValidator<UpdateCommand>,
+            UpdateValidator>();
         services.TryAddScoped<
             ICommandHandler<Command, LoginSessionResult>,
             LoginHandler>();
@@ -113,6 +121,9 @@ internal static class IdentityDomainServiceCollectionExtensions
                 Features.ChangePassword.Command,
                 Features.ChangePassword.ChangePasswordSessionResult>,
             Features.ChangePassword.Handler>();
+        services.TryAddScoped<
+            ICommandHandler<UpdateCommand, SelfServiceProfileResponse>,
+            UpdateHandler>();
 
         return services;
     }

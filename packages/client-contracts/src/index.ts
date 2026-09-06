@@ -15,6 +15,17 @@ export { readCsrfHeaders } from './csrf.js';
 export { changePassword } from './change-password.js';
 
 export {
+  getSelfServiceProfile,
+  isSelfServiceProfileResponse,
+  updateSelfServiceProfile
+} from './self-service-profile.js';
+
+export type {
+  SelfServiceProfileResponse,
+  UpdateSelfServiceProfileRequest
+} from './self-service-profile.js';
+
+export {
   createHttpClient
 } from './http.js';
 

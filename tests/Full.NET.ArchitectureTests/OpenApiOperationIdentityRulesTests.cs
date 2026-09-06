@@ -231,6 +231,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/identity/modules", "identityListHostModules", IdentityHostModulesTag),
         new("GET", "/api/v1/identity/modules/{moduleKey}", "identityGetHostModule", IdentityHostModulesTag),
         new("GET", "/api/v1/me", "identityGetCurrentUser", IdentityMeTag),
+        new("GET", "/api/v1/me/profile", "identityGetSelfServiceProfile", IdentityMeTag),
+        new("PUT", "/api/v1/me/profile", "identityUpdateSelfServiceProfile", IdentityMeTag),
         new("POST", "/api/v1/me/password", "identityChangePassword", IdentityMeTag),
         new("GET", "/api/v1/identity/me/mfa/totp", "identityGetTotpEnrollmentStatus", IdentityTotpEnrollmentTag),
         new("POST", "/api/v1/identity/me/mfa/totp/begin", "identityBeginTotpEnrollment", IdentityTotpEnrollmentTag),

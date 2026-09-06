@@ -245,6 +245,13 @@ public static class IdentityErrorCodes
     /// <summary>自助改密时当前密码校验失败。</summary>
     public const string CurrentPasswordInvalid = "identity.password.current_invalid";
 
+    /// <summary>自助资料更新仅适用于 Host 参与者范围。</summary>
+    public const string SelfServiceProfileHostOnly = "identity.self_service_profile.host_only";
+
+    /// <summary>自助资料更新提交了只读敏感或内部字段。</summary>
+    public const string SelfServiceProfileReadOnlyFieldRejected =
+        "identity.self_service_profile.read_only_field_rejected";
+
     /// <summary>新密码与当前密码相同。</summary>
     public const string NewPasswordSameAsCurrent = "identity.password.same_as_current";
 
@@ -338,6 +345,8 @@ public static class IdentityErrorCodes
         UserProfileInvalid,
         ProfileMaskedValueRejected,
         CurrentPasswordInvalid,
+        SelfServiceProfileHostOnly,
+        SelfServiceProfileReadOnlyFieldRejected,
         NewPasswordSameAsCurrent,
         UserPhoneNumberExists,
         UserEmailExists,

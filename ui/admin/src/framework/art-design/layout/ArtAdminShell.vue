@@ -82,6 +82,7 @@ const props = defineProps<{
     chatCloseLabel: string;
     logoutLabel: string;
     securitySettingsLabel: string;
+    profileSettingsLabel: string;
     controlPlaneLabel: string;
     themeLightLabel: string;
     themeDarkLabel: string;
@@ -386,6 +387,7 @@ watch(navigationGroups, () => {
           :settings-label="labels.settingsTitle"
           :logout-label="labels.logoutLabel"
           :security-settings-label="labels.securitySettingsLabel"
+          :profile-settings-label="labels.profileSettingsLabel"
           :theme-mode="themeMode"
           :theme-toggle-label="themeMode === 'dark' ? labels.themeLightLabel : labels.themeDarkLabel"
           :selected-context="selectedContext"

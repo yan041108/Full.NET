@@ -34,6 +34,7 @@ const props = defineProps<{
   languageLabel: string;
   logoutLabel: string;
   securitySettingsLabel: string;
+  profileSettingsLabel: string;
   noticeTitle: string;
   noticeMarkReadLabel: string;
   noticeViewAllLabel: string;
@@ -246,6 +247,7 @@ onUnmounted(() => {
           :role-label="roleLabel"
           :logout-label="logoutLabel"
           :security-settings-label="securitySettingsLabel"
+          :profile-settings-label="profileSettingsLabel"
           :tenant-selector-label="tenantSelectorLabel"
           :selected-context="selectedContext"
           :host-context-value="hostContextValue"

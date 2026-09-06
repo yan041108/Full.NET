@@ -400,6 +400,8 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserLoginLockoutUnlockService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityFeatures.SelfServiceProfile.SelfServiceProfileService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserRolesService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostRoleManagementService>(
@@ -457,6 +459,9 @@ public sealed class IdentityModuleRegistrationTests
             IValidator<IdentityFeatures.ChangePassword.Command>,
             IdentityFeatures.ChangePassword.Validator>(ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
+            IValidator<IdentityFeatures.SelfServiceProfile.UpdateCommand>,
+            IdentityFeatures.SelfServiceProfile.UpdateValidator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
             ICommandHandler<LoginCommand, LoginSessionResult>,
             LoginHandler>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<IdentityCookieWriter>(ServiceLifetime.Scoped),
@@ -480,6 +485,11 @@ public sealed class IdentityModuleRegistrationTests
                 IdentityFeatures.ChangePassword.Command,
                 IdentityFeatures.ChangePassword.ChangePasswordSessionResult>,
             IdentityFeatures.ChangePassword.Handler>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<
+            ICommandHandler<
+                IdentityFeatures.SelfServiceProfile.UpdateCommand,
+                SelfServiceProfileResponse>,
+            IdentityFeatures.SelfServiceProfile.UpdateHandler>(ServiceLifetime.Scoped),
 
         RegistrationExpectation.Self<AllowedOriginValidator>(
             ServiceLifetime.Singleton),

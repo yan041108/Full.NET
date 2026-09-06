@@ -3,6 +3,12 @@ import {
   isCurrentUserResponse,
   type CurrentUserResponse
 } from '@fullnet/client-contracts';
+import {
+  getSelfServiceProfile as getSelfServiceProfileRequest,
+  updateSelfServiceProfile as updateSelfServiceProfileRequest,
+  type SelfServiceProfileResponse,
+  type UpdateSelfServiceProfileRequest
+} from '@fullnet/client-contracts';
 import { http } from './http';
 
 /** 读取当前登录用户快照，并补一层手写契约校验防止生成守卫漏检。 */
@@ -18,5 +24,20 @@ export async function getCurrentUser(
   return value;
 }
 
+/** 读取当前用户自助档案。 */
+export async function getSelfServiceProfile(
+  signal?: AbortSignal
+): Promise<SelfServiceProfileResponse> {
+  return getSelfServiceProfileRequest(http, signal);
+}
+
+/** 更新当前用户自助档案。 */
+export async function updateSelfServiceProfile(
+  request: UpdateSelfServiceProfileRequest,
+  signal?: AbortSignal
+): Promise<SelfServiceProfileResponse> {
+  return updateSelfServiceProfileRequest(http, request, signal);
+}
+
 /** 导出当前用户快照模型，供会话恢复、壳层渲染与权限初始化共享同一契约。 */
-export type { CurrentUserResponse };
+export type { CurrentUserResponse, SelfServiceProfileResponse, UpdateSelfServiceProfileRequest };
