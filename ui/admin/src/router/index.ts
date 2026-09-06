@@ -262,6 +262,11 @@ export function createAppRouter(
         component: () => import('../views/DingTalkApprovalSyncView.vue')
       },
       {
+        name: 'notification-wechat-miniprogram-bindings',
+        path: '/notifications/wechat-miniprogram-bindings',
+        component: () => import('../views/WeChatMiniProgramBindingsView.vue')
+      },
+      {
         name: 'host-jobs',
         path: '/jobs/host-definitions',
         component: () => import('../views/HostJobsView.vue')

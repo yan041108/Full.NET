@@ -80,4 +80,9 @@ namespace Full.NET.Modules.Notifications.Serialization;
 [JsonSerializable(typeof(DingTalkApprovalSyncResponse))]
 [JsonSerializable(typeof(PagedResult<DingTalkApprovalSyncResponse>))]
 [JsonSerializable(typeof(DingTalkApprovalSyncCallbackAcceptedResponse))]
+[JsonSerializable(typeof(ExchangeWeChatMiniProgramBindingRequest))]
+[JsonSerializable(typeof(RecordWeChatMiniProgramSubscriptionRequest))]
+[JsonSerializable(typeof(WeChatMiniProgramBindingResponse))]
+[JsonSerializable(typeof(PagedResult<WeChatMiniProgramBindingResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<WeChatMiniProgramBindingResponse>))]
 internal partial class NotificationsJsonSerializerContext : JsonSerializerContext;

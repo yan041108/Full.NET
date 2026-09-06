@@ -189,6 +189,12 @@ public static class NotificationsErrorCodes
     /// <summary>同一作用域下 Producer/Scene/Channel 已有已发布绑定。</summary>
     public const string BindingSceneConflict = "notifications.binding_scene_conflict";
 
+    /// <summary>微信小程序绑定请求校验失败。</summary>
+    public const string WeChatMiniProgramBindingValidationFailed = "notifications.wechat_miniprogram_binding_validation_failed";
+
+    /// <summary>未找到微信小程序绑定记录。</summary>
+    public const string WeChatMiniProgramBindingNotFound = "notifications.wechat_miniprogram_binding_not_found";
+
     /// <summary>已登记的全部错误码，供治理与多语言资源完整性校验使用。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -251,5 +257,7 @@ public static class NotificationsErrorCodes
         BindingValidationFailed,
         BindingNotPublished,
         BindingSceneConflict,
+        WeChatMiniProgramBindingValidationFailed,
+        WeChatMiniProgramBindingNotFound,
     ]);
 }

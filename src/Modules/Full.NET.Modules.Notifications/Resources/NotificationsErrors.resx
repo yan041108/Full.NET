@@ -57,6 +57,8 @@
   <data name="notifications.binding_key_conflict" xml:space="preserve"><value>同一作用域下该绑定键已存在。</value></data>
   <data name="notifications.binding_concurrency_conflict" xml:space="preserve"><value>场景绑定已被其他操作更新，请刷新后重试。</value></data>
   <data name="notifications.binding_validation_failed" xml:space="preserve"><value>场景绑定草稿或目标无效。</value></data>
+  <data name="notifications.wechat_miniprogram_binding_validation_failed" xml:space="preserve"><value>微信小程序绑定请求无效。</value></data>
+  <data name="notifications.wechat_miniprogram_binding_not_found" xml:space="preserve"><value>未找到微信小程序绑定记录。</value></data>
   <data name="notifications.binding_not_published" xml:space="preserve"><value>该场景尚未发布绑定。</value></data>
   <data name="notifications.binding_scene_conflict" xml:space="preserve"><value>同一作用域下该场景渠道已有已发布绑定。</value></data>
 </root>

@@ -196,6 +196,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.dingtalkApprovalSync.title',
     captionKey: 'navigation.dingtalkApprovalSync.caption'
   }],
+  ['notification-wechat-miniprogram-bindings', {
+    titleKey: 'navigation.wechatMiniProgramBindings.title',
+    captionKey: 'navigation.wechatMiniProgramBindings.caption'
+  }],
   ['host-jobs', {
     titleKey: 'navigation.hostJobs.title',
     captionKey: 'navigation.hostJobs.caption'

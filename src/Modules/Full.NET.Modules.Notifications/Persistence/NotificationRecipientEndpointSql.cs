@@ -143,6 +143,35 @@ internal static class NotificationRecipientEndpointSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>在已验证端点上更新受保护 OpenId 与掩码，供小程序重复绑定使用。</summary>
+    public static readonly SqlStatement RebindVerifiedValue = new(
+        "notifications.recipient_endpoint.rebind_verified_value",
+        """
+        UPDATE fn_notifications_recipient_endpoint
+        SET ProtectedValue = @ProtectedValue,
+            MaskedValue = @MaskedValue,
+            VerificationStatusKey = 'verified',
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+          AND EndpointKindKey = @EndpointKindKey
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>查询当前用户在某 Profile 下的端点标识。</summary>
+    public static readonly SqlStatement FindIdByUserProfileKind = new(
+        "notifications.recipient_endpoint.find_id_by_user_profile_kind",
+        """
+        SELECT Id
+        FROM fn_notifications_recipient_endpoint
+        WHERE TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+          AND ProviderProfileVersionId = @ProviderProfileVersionId
+          AND EndpointKindKey = @EndpointKindKey
+        """,
+        SqlDataScope.Global);
+
     /// <summary>在验证码尝试耗尽后把端点标记为 failed。</summary>
     public static readonly SqlStatement MarkFailed = new(
         "notifications.recipient_endpoint.mark_failed",

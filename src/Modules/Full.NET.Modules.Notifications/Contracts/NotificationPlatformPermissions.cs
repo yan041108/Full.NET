@@ -59,6 +59,12 @@ public static class NotificationPlatformPermissions
     public const string DingTalkApprovalSyncCreate = DingTalkApprovalSyncPermissions.Create;
     /// <summary>补偿重试钉钉审批镜像出站。</summary>
     public const string DingTalkApprovalSyncRetry = DingTalkApprovalSyncPermissions.Retry;
+    /// <summary>查询微信小程序 OpenId 绑定与订阅授权。</summary>
+    public const string WeChatMiniProgramBindingsRead = WeChatMiniProgramBindingPermissions.Read;
+    /// <summary>通过 js_code 交换 OpenId 并完成绑定。</summary>
+    public const string WeChatMiniProgramBindingsBind = WeChatMiniProgramBindingPermissions.Bind;
+    /// <summary>登记订阅消息授权结果。</summary>
+    public const string WeChatMiniProgramBindingsRecordSubscription = WeChatMiniProgramBindingPermissions.RecordSubscription;
 
     /// <summary>当前版本已注册的全部稳定权限码集合；顺序作为枚举列表的稳定投影。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
@@ -88,5 +94,8 @@ public static class NotificationPlatformPermissions
         DingTalkApprovalSyncRead,
         DingTalkApprovalSyncCreate,
         DingTalkApprovalSyncRetry,
+        WeChatMiniProgramBindingsRead,
+        WeChatMiniProgramBindingsBind,
+        WeChatMiniProgramBindingsRecordSubscription,
     ]);
 }

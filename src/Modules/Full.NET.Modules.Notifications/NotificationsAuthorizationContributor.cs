@@ -99,6 +99,9 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformPermission(NotificationPlatformPermissions.DingTalkApprovalSyncRead, "查询钉钉审批镜像同步"),
         PlatformPermission(NotificationPlatformPermissions.DingTalkApprovalSyncCreate, "登记钉钉审批镜像同步"),
         PlatformPermission(NotificationPlatformPermissions.DingTalkApprovalSyncRetry, "补偿钉钉审批镜像出站"),
+        PlatformPermission(NotificationPlatformPermissions.WeChatMiniProgramBindingsRead, "查询微信小程序绑定"),
+        PlatformPermission(NotificationPlatformPermissions.WeChatMiniProgramBindingsBind, "交换微信小程序 OpenId"),
+        PlatformPermission(NotificationPlatformPermissions.WeChatMiniProgramBindingsRecordSubscription, "登记订阅消息授权"),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -142,6 +145,7 @@ internal sealed class NotificationsAuthorizationContributor
         PlatformNavigation("notification-deliveries", "/notifications/deliveries", "投递运维", "Deliveries", 60, NotificationPlatformPermissions.DeliveriesRead),
         PlatformNavigation("notification-preferences", "/notifications/preferences", "通知偏好", "Preferences", 61, NotificationPlatformPermissions.PreferencesRead),
         PlatformNavigation("notification-dingtalk-approval-sync", "/notifications/dingtalk-approval-sync", "钉钉审批同步", "DingTalkApprovalSync", 62, NotificationPlatformPermissions.DingTalkApprovalSyncRead),
+        PlatformNavigation("notification-wechat-miniprogram-bindings", "/notifications/wechat-miniprogram-bindings", "微信小程序绑定", "WeChatMiniProgramBindings", 63, NotificationPlatformPermissions.WeChatMiniProgramBindingsRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =

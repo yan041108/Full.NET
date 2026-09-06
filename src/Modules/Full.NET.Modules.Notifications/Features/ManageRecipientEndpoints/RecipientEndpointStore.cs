@@ -12,6 +12,7 @@ using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.AliyunSms;
 using Full.NET.Modules.Notifications.Providers.DingTalk;
 using Full.NET.Modules.Notifications.Providers.WeCom;
+using Full.NET.Modules.Notifications.Providers.WeChatMiniProgram;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Notifications.Features.ManageRecipientEndpoints;
@@ -67,7 +68,7 @@ internal sealed class RecipientEndpointStore(
         CancellationToken cancellationToken = default)
     {
         var kind = request.EndpointKindKey?.Trim() ?? string.Empty;
-        var initialStatus = kind is "dingtalk" or "wecom"
+        var initialStatus = kind is "dingtalk" or "wecom" or "wechat_miniprogram"
             ? NotificationRecipientEndpointStatuses.Verified
             : NotificationRecipientEndpointStatuses.Pending;
         return UpsertAsync(
@@ -277,6 +278,11 @@ internal sealed class RecipientEndpointStore(
         if (string.Equals(kind, "wecom", StringComparison.Ordinal))
         {
             return WeComNotificationProviderAdapter.IsValidWeComUserId(value);
+        }
+
+        if (string.Equals(kind, "wechat_miniprogram", StringComparison.Ordinal))
+        {
+            return WeChatMiniProgramNotificationProviderAdapter.IsValidOpenId(value);
         }
 
         return true;

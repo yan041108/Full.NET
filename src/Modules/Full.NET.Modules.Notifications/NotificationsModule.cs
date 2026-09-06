@@ -160,6 +160,7 @@ public sealed class NotificationsModule : IFullNetModule
         Features.ManageRecipientEndpoints.Endpoint.Map(endpoints);
         Features.VerifyRecipientEndpoints.Endpoint.Map(endpoints);
         Features.ManageDingTalkApprovalSync.Endpoint.Map(endpoints);
+        Features.ManageWeChatMiniProgramBindings.Endpoint.Map(endpoints);
     }
 
     private static void RegisterRealtimeHandlers(IServiceCollection services)
@@ -303,6 +304,21 @@ public sealed class NotificationsModule : IFullNetModule
             services.TryAddEnumerable(ServiceDescriptor.Singleton<
                 Providers.INotificationProviderAdapter,
                 Providers.WeCom.WeComNotificationProviderAdapter>());
+        }
+
+        if (configuration.GetValue<bool>("Notifications:Providers:WeChatMiniProgram:Enabled"))
+        {
+            services.TryAddSingleton<Providers.Smtp.INotificationSecretResolver,
+                Providers.Smtp.EnvironmentNotificationSecretResolver>();
+            services.AddHttpClient(Providers.WeChatMiniProgram.HttpWeChatMiniProgramTransport.HttpClientName)
+                .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.TryAddSingleton<Providers.WeChatMiniProgram.IWeChatMiniProgramTransport,
+                Providers.WeChatMiniProgram.HttpWeChatMiniProgramTransport>();
+            services.TryAddSingleton<Providers.WeChatMiniProgram.WeChatMiniProgramAccessTokenCache>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationProviderAdapter,
+                Providers.WeChatMiniProgram.WeChatMiniProgramNotificationProviderAdapter>());
+            services.TryAddScoped<Features.ManageWeChatMiniProgramBindings.WeChatMiniProgramBindingService>();
         }
     }
 }
