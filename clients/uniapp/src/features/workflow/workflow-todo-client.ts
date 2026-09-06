@@ -1,18 +1,18 @@
 import {
   isWorkflowTodoDetail,
   readActWorkflowTodoRequest,
+  readPagedResultOfWorkflowTodoListItemResponse,
   readWorkflowInstanceResponse,
-  readWorkflowListMyTodosResponse,
   type ActWorkflowTodoRequest,
   type WorkflowInstanceResponse,
   type WorkflowTodoDetail,
-  type WorkflowTodoResponse
+  type WorkflowTodoListItemResponse
 } from '@fullnet/client-contracts';
 import type { HttpClient } from '../../api/http';
 import type { WorkflowSchemaCache } from './workflow-schema-cache';
 
 export interface WorkflowTodoClient {
-  listMine(): Promise<readonly WorkflowTodoResponse[]>;
+  listMine(): Promise<readonly WorkflowTodoListItemResponse[]>;
   get(todoId: string): Promise<WorkflowTodoDetail>;
   approve(todoId: string, request: ActWorkflowTodoRequest): Promise<WorkflowInstanceResponse>;
   reject(todoId: string, request: ActWorkflowTodoRequest): Promise<WorkflowInstanceResponse>;
@@ -30,7 +30,7 @@ export function createWorkflowTodoClient(
       const value = await http.request<unknown>({
         path: '/api/v1/workflow/todos/mine'
       });
-      return readWorkflowListMyTodosResponse(value);
+      return readPagedResultOfWorkflowTodoListItemResponse(value).items;
     },
     async get(todoId) {
       const normalizedTodoId = requireTodoId(todoId);

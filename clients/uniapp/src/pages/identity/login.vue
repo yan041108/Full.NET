@@ -2,47 +2,44 @@
 import { onShow } from '@dcloudio/uni-app';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-
-// #ifdef H5
-import { h5IdentitySession, restoreH5IdentitySession } from '../../features/identity/h5-application-session';
-// #endif
+import {
+  identitySession,
+  isBusinessRuntimeAvailable,
+  restoreIdentitySession
+} from '../../features/identity/application-session';
 
 const { t } = useI18n();
 const username = ref('');
 const password = ref('');
 const submitting = ref(false);
 const failed = ref(false);
-let h5Available = false;
-// #ifdef H5
-h5Available = true;
-// #endif
+const loginAvailable = isBusinessRuntimeAvailable;
 
 onShow(() => {
-  // #ifdef H5
+  if (!loginAvailable) {
+    return;
+  }
   void routeAuthenticatedSession();
-  // #endif
 });
 
-// #ifdef H5
 async function routeAuthenticatedSession(): Promise<void> {
-  const authenticated = h5IdentitySession.snapshot().state === 'authenticated'
-    || await restoreH5IdentitySession();
-  if (authenticated) await uni.reLaunch({ url: '/pages/workflow/todos' });
+  const authenticated = identitySession.snapshot().state === 'authenticated'
+    || await restoreIdentitySession();
+  if (authenticated) {
+    await uni.reLaunch({ url: '/pages/workflow/todos' });
+  }
 }
-// #endif
 
 async function submit(): Promise<void> {
-  if (!h5Available || submitting.value || !username.value.trim() || !password.value) {
+  if (!loginAvailable || submitting.value || !username.value.trim() || !password.value) {
     return;
   }
   submitting.value = true;
   failed.value = false;
   try {
-    // #ifdef H5
-    await h5IdentitySession.login(username.value.trim(), password.value);
+    await identitySession.login(username.value.trim(), password.value);
     password.value = '';
     await uni.reLaunch({ url: '/pages/workflow/todos' });
-    // #endif
   } catch {
     password.value = '';
     failed.value = true;
@@ -59,7 +56,7 @@ async function submit(): Promise<void> {
       <text class="title">{{ t('identity.login.title') }}</text>
       <text class="description">{{ t('identity.login.description') }}</text>
 
-      <view v-if="h5Available" class="form">
+      <view v-if="loginAvailable" class="form">
         <uni-easyinput v-model="username" :placeholder="t('identity.login.username')" :disabled="submitting" />
         <uni-easyinput v-model="password" type="password" :placeholder="t('identity.login.password')" :disabled="submitting" />
         <button class="primary" :disabled="submitting || !username.trim() || !password" @click="submit">

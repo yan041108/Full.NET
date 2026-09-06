@@ -6,30 +6,34 @@ async function readPage(name: string): Promise<string> {
 }
 
 describe('workflow mobile page contract', () => {
-  it('keeps password login H5-only and presents an explicit unavailable state to mini programs', async () => {
-    const source = await readPage('identity/login');
+  it('uses the shared application session and keeps tokens out of storage', async () => {
+    const loginSource = await readPage('identity/login');
+    const mpSessionSource = await readFile(
+      new URL('../src/features/identity/mp-weixin-identity-session.ts', import.meta.url),
+      'utf8'
+    );
 
-    expect(source).toContain('// #ifdef H5');
-    expect(source).toContain('h5IdentitySession.login');
-    expect(source).toContain("t('identity.login.platformUnavailable')");
-    expect(source).not.toMatch(/setStorageSync\([^\n]*(?:token|permission)/i);
+    expect(loginSource).toContain('identitySession.login');
+    expect(loginSource).toContain('isBusinessRuntimeAvailable');
+    expect(loginSource).not.toMatch(/setStorageSync\([^\n]*(?:token|permission)/i);
+    expect(mpSessionSource).not.toMatch(/setStorageSync\([^\n]*(?:token|permission)/i);
   });
 
   it('checks the page permission before loading todos', async () => {
     const source = await readPage('workflow/todos');
 
-    expect(source).toContain("h5IdentitySession.can('workflow.todos.read')");
+    expect(source).toContain("identitySession.can('workflow.todos.read')");
     expect(source).toContain('todoClient.listMine()');
   });
 
   it('does not create approval actions without their exact permissions', async () => {
     const source = await readPage('workflow/todo-detail');
 
-    expect(source).toContain("h5IdentitySession.can('workflow.todos.approve')");
-    expect(source).toContain("h5IdentitySession.can('workflow.todos.reject')");
+    expect(source).toContain("identitySession.can('workflow.todos.approve')");
+    expect(source).toContain("identitySession.can('workflow.todos.reject')");
     expect(source).toMatch(/v-if="canApprove"/);
     expect(source).toMatch(/v-if="canReject"/);
-    expect(source).toContain('crypto.randomUUID()');
+    expect(source).toContain('createIdempotencyKey()');
     expect(source).toContain("detail.value?.statusKey === 'active'");
   });
 

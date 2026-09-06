@@ -25,7 +25,8 @@ const currentUserResponse = {
   permissions: ['workflow.todos.read', 'workflow.todos.approve'],
   sessionId: '018f0000-0000-7000-8000-000000000002',
   preferredLocale: 'zh-CN' as const,
-  profileVersion: 1
+  profileVersion: 1,
+  passwordChangeRequired: false
 };
 
 function createHttp(responses: readonly unknown[]): {

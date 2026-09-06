@@ -20,7 +20,12 @@ function todoDetail() {
     formSchema: workflowFixture.formSchema,
     submission: workflowFixture.submission,
     fieldPolicies: workflowFixture.fieldPolicies,
-    submissionRevision: 4
+    submissionRevision: 4,
+    approvalModeKey: 'single',
+    requiredApprovalCount: 1,
+    approvedCount: 0,
+    rejectedCount: 0,
+    pendingCount: 1
   };
 }
 

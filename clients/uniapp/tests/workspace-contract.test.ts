@@ -114,6 +114,21 @@ describe('uni-app workspace contract', () => {
     expect(notices).toMatch(/Sass Embedded[^\n]*1\.100\.0[^\n]*MIT/i);
   });
 
+  it('places workflow and notifications pages in subPackages', async () => {
+    const pages = JSON.parse(
+      await readFile(new URL('../src/pages.json', import.meta.url), 'utf8')
+    ) as {
+      readonly subPackages?: readonly {
+        readonly root: string;
+        readonly pages: readonly { readonly path: string }[];
+      }[];
+    };
+
+    const roots = pages.subPackages?.map(item => item.root) ?? [];
+    expect(roots).toContain('pages/workflow');
+    expect(roots).toContain('pages/notifications');
+  });
+
   it('pins a Vue 3.4-compatible VueUse resolution and records its license', async () => {
     const [packageDefinition, resolvedVueUse, notices] = await Promise.all([
       readPackageDefinition(),

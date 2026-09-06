@@ -11,7 +11,24 @@
       "submit": "Sign in",
       "submitting": "Signing in…",
       "failed": "Sign-in failed. Check your account or try again later.",
-      "platformUnavailable": "Platform sign-in is not configured for this mini program. Use the H5 client."
+      "platformUnavailable": "This platform is not enabled yet. Use the H5 or WeChat mini program client."
+    }
+  },
+  "notifications": {
+    "inbox": {
+      "title": "Inbox",
+      "detailTitle": "Message details",
+      "open": "Inbox",
+      "refresh": "Refresh",
+      "loading": "Loading messages…",
+      "detailLoading": "Loading details…",
+      "empty": "No inbox messages yet.",
+      "denied": "This account cannot read inbox messages.",
+      "failed": "Messages could not be loaded. Try again later.",
+      "detailFailed": "Message details could not be loaded.",
+      "markAllRead": "Mark all read",
+      "unread": "{count} unread",
+      "more": "{total} messages total"
     }
   },
   "workflow": {

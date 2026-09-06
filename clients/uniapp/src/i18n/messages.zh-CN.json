@@ -11,7 +11,24 @@
       "submit": "登录",
       "submitting": "正在登录…",
       "failed": "登录失败，请检查账号或稍后重试。",
-      "platformUnavailable": "当前小程序尚未配置平台登录，请使用 H5 版本。"
+      "platformUnavailable": "当前平台尚未开通，请使用 H5 或微信小程序。"
+    }
+  },
+  "notifications": {
+    "inbox": {
+      "title": "站内信",
+      "detailTitle": "消息详情",
+      "open": "站内信",
+      "refresh": "刷新",
+      "loading": "正在加载消息…",
+      "detailLoading": "正在加载详情…",
+      "empty": "暂无站内信。",
+      "denied": "当前账号没有查看站内信的权限。",
+      "failed": "消息加载失败，请稍后重试。",
+      "detailFailed": "消息详情加载失败。",
+      "markAllRead": "全部已读",
+      "unread": "未读 {count} 条",
+      "more": "共 {total} 条消息"
     }
   },
   "workflow": {

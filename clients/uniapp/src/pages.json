@@ -14,18 +14,6 @@
       }
     },
     {
-      "path": "pages/workflow/todos",
-      "style": {
-        "navigationBarTitleText": "%workflow.todos.title%"
-      }
-    },
-    {
-      "path": "pages/workflow/todo-detail",
-      "style": {
-        "navigationBarTitleText": "%workflow.todo.title%"
-      }
-    },
-    {
       "path": "pages/settings/locale",
       "style": {
         "navigationBarTitleText": "%settings.title%"
@@ -36,6 +24,42 @@
       "style": {
         "navigationBarTitleText": "%ui.smoke.title%"
       }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/workflow",
+      "pages": [
+        {
+          "path": "todos",
+          "style": {
+            "navigationBarTitleText": "%workflow.todos.title%"
+          }
+        },
+        {
+          "path": "todo-detail",
+          "style": {
+            "navigationBarTitleText": "%workflow.todo.title%"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/notifications",
+      "pages": [
+        {
+          "path": "inbox",
+          "style": {
+            "navigationBarTitleText": "%notifications.inbox.title%"
+          }
+        },
+        {
+          "path": "inbox-detail",
+          "style": {
+            "navigationBarTitleText": "%notifications.inbox.detailTitle%"
+          }
+        }
+      ]
     }
   ],
   "globalStyle": {

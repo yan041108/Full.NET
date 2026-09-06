@@ -36,10 +36,22 @@ describe('uni-app application configuration', () => {
     });
     expect(pageDefinitions.map(page => page.path)).toEqual([
       'pages/identity/login',
-      'pages/workflow/todos',
-      'pages/workflow/todo-detail',
       'pages/settings/locale',
       'pages/ui/component-smoke'
+    ]);
+    const subPackages = pages.subPackages as readonly {
+      readonly root: string;
+      readonly pages: readonly { readonly path: string }[];
+    }[];
+    expect(subPackages.map(item => item.root)).toEqual([
+      'pages/workflow',
+      'pages/notifications'
+    ]);
+    expect(subPackages.flatMap(item => item.pages.map(page => `${item.root}/${page.path}`))).toEqual([
+      'pages/workflow/todos',
+      'pages/workflow/todo-detail',
+      'pages/notifications/inbox',
+      'pages/notifications/inbox-detail'
     ]);
     expect(pages).not.toHaveProperty('tabBar');
   });
@@ -57,7 +69,7 @@ describe('uni-app application configuration', () => {
       'application',
       '../src/locale/zh-Hans.json',
       '../src/locale/en.json',
-      ['app.name', 'identity.login.title', 'workflow.todos.title', 'workflow.todo.title', 'settings.title', 'ui.smoke.title']
+      ['app.name', 'identity.login.title', 'workflow.todos.title', 'workflow.todo.title', 'notifications.inbox.title', 'settings.title', 'ui.smoke.title']
     ],
     [
       'platform',

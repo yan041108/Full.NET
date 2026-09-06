@@ -3,6 +3,7 @@
   "identity.login.title": "Sign in",
   "workflow.todos.title": "My tasks",
   "workflow.todo.title": "Task details",
+  "notifications.inbox.title": "Inbox",
   "settings.title": "Language settings",
   "ui.smoke.title": "uni-ui component check"
 }
