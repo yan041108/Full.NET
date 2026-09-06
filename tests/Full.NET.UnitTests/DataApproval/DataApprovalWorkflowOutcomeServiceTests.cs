@@ -66,7 +66,8 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            applier);
+            applier,
+            Substitute.For<ISerialRuleDisableApprovalApplier>());
         var service = new DataApprovalWorkflowOutcomeService(
             queryExecutor,
             commandExecutor,
@@ -88,6 +89,114 @@ public sealed class DataApprovalWorkflowOutcomeServiceTests
         await commandExecutor.DidNotReceive().ExecuteAsync(
             DataApprovalSql.UpdateStatus,
             Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>流水号规则禁用业务类型应走同一终态处理路径。</summary>
+    [TestMethod]
+    public async Task Serial_rule_disable_business_type_routes_to_application_service()
+    {
+        var requestId = Guid.NewGuid();
+        var row = CreateInReviewRow(requestId) with
+        {
+            ScenarioKey = DataApprovalScenarioKeys.SerialRuleHostDisable,
+        };
+        var queryExecutor = Substitute.For<IQueryExecutor>();
+        var commandExecutor = Substitute.For<ICommandExecutor>();
+        var clock = Substitute.For<IClock>();
+        var updateApplier = Substitute.For<ISerialRuleChangeApprovalApplier>();
+        var disableApplier = Substitute.For<ISerialRuleDisableApprovalApplier>();
+        var now = DateTimeOffset.UtcNow;
+        clock.UtcNow.Returns(now);
+        queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
+                DataApprovalSql.FindRequestByBusinessId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(row);
+        commandExecutor.ExecuteAsync(
+                DataApprovalSql.MarkApplicationPending,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
+                DataApprovalSql.FindRequestById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(row with
+            {
+                ApplicationStatusKey = DataApprovalApplicationStatusKeys.PendingApply,
+                Version = row.Version + 1
+            });
+        disableApplier.ApplyApprovedDisableAsync(
+                row.TargetEntityId,
+                row.AfterSnapshotJson,
+                row.SubmittedByUserId,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Result<SerialNumberRuleResponse>.Success(new SerialNumberRuleResponse(
+                row.TargetEntityId,
+                "rule.key",
+                "Rule",
+                null,
+                SerialNumberRuleScope.Host,
+                SerialNumberResetInterval.Day,
+                "P-{sequence:3}",
+                1,
+                999,
+                1,
+                false,
+                now,
+                row.SubmittedByUserId,
+                now,
+                row.SubmittedByUserId,
+                2)));
+        commandExecutor.ExecuteAsync(
+                DataApprovalSql.CompleteApprovedApplication,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+        queryExecutor.QuerySingleOrDefaultAsync<DataApprovalRequestRecord>(
+                DataApprovalSql.FindRequestById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(row with
+            {
+                StatusKey = DataApprovalStatusKeys.Approved,
+                ApplicationStatusKey = DataApprovalApplicationStatusKeys.Applied,
+                Version = row.Version + 2
+            });
+
+        var applicationService = new DataApprovalRequestApplicationService(
+            queryExecutor,
+            commandExecutor,
+            clock,
+            updateApplier,
+            disableApplier);
+        var service = new DataApprovalWorkflowOutcomeService(
+            queryExecutor,
+            commandExecutor,
+            clock,
+            applicationService);
+
+        await service.HandleTerminalWorkflowAsync(
+            Guid.Empty,
+            DataApprovalWorkflowBusinessTypes.SerialRuleDisable,
+            requestId.ToString("D"),
+            "completed",
+            row.SubmittedByUserId,
+            "message-id");
+
+        await disableApplier.Received(1).ApplyApprovedDisableAsync(
+            row.TargetEntityId,
+            row.AfterSnapshotJson,
+            row.SubmittedByUserId,
+            "message-id",
+            Arg.Any<CancellationToken>());
+        await updateApplier.DidNotReceive().ApplyApprovedUpdateAsync(
+            Arg.Any<Guid>(),
+            Arg.Any<string>(),
+            Arg.Any<Guid>(),
+            Arg.Any<string>(),
             Arg.Any<CancellationToken>());
     }
 

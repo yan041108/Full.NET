@@ -5,4 +5,7 @@ public static class DataApprovalWorkflowBusinessTypes
 {
     /// <summary>Host 流水号规则变更审批。</summary>
     public const string SerialRuleUpdate = "data_approval.serial_rule.update";
+
+    /// <summary>Host 流水号规则禁用审批。</summary>
+    public const string SerialRuleDisable = "data_approval.serial_rule.disable";
 }

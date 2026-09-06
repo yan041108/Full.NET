@@ -507,6 +507,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/serial-numbers/rules/preview", "serialNumbersPreviewSerialNumber", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/{ruleId}/update-approval-preview", "serialNumbersPreviewRuleUpdateApproval", SerialNumbersHostRulesTag),
         new("POST", "/api/v1/serial-numbers/rules/{ruleId}/update-approval-requests", "serialNumbersSubmitRuleUpdateApproval", SerialNumbersHostRulesTag),
+        new("POST", "/api/v1/serial-numbers/rules/{ruleId}/disable-approval-preview", "serialNumbersPreviewRuleDisableApproval", SerialNumbersHostRulesTag),
+        new("POST", "/api/v1/serial-numbers/rules/{ruleId}/disable-approval-requests", "serialNumbersSubmitRuleDisableApproval", SerialNumbersHostRulesTag),
         new("GET", "/api/v1/observability/log-files", "observabilityListLogFiles", ObservabilityLogFilesTag),
         new("GET", "/api/v1/observability/log-files/{id}/tail", "observabilityTailLogFile", ObservabilityLogFilesTag),
         new("GET", "/api/v1/observability/log-files/{id}/download", "observabilityDownloadLogFile", ObservabilityLogFilesTag),

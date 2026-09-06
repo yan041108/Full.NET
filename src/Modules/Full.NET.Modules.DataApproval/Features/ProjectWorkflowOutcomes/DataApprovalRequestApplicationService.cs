@@ -14,7 +14,8 @@ internal sealed class DataApprovalRequestApplicationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IClock clock,
-    ISerialRuleChangeApprovalApplier serialRuleApplier)
+    ISerialRuleChangeApprovalApplier serialRuleApplier,
+    ISerialRuleDisableApprovalApplier serialRuleDisableApplier)
 {
     /// <summary>尝试将已批准快照应用到目标实体；失败时保持 in_review 并记录应用状态。</summary>
     /// <param name="row">当前可信作用域内的请求行。</param>
@@ -65,6 +66,14 @@ internal sealed class DataApprovalRequestApplicationService(
                     idempotencyKey,
                     cancellationToken)
                 .ConfigureAwait(false)
+            : string.Equals(row.ScenarioKey, DataApprovalScenarioKeys.SerialRuleHostDisable, StringComparison.Ordinal)
+                ? await serialRuleDisableApplier.ApplyApprovedDisableAsync(
+                        row.TargetEntityId,
+                        row.AfterSnapshotJson,
+                        actorUserId,
+                        idempotencyKey,
+                        cancellationToken)
+                    .ConfigureAwait(false)
             : Result<SerialNumberRuleResponse>.Failure(new Error(
                 DataApprovalErrorCodes.ScenarioUnsupported,
                 "The approval scenario is not supported.",
@@ -91,7 +100,8 @@ internal sealed class DataApprovalRequestApplicationService(
     }
 
     private static bool RequiresApplication(string scenarioKey) =>
-        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostUpdate, StringComparison.Ordinal);
+        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostUpdate, StringComparison.Ordinal) ||
+        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostDisable, StringComparison.Ordinal);
 
     private async Task<Result<DataApprovalRequestResponse>> CompleteWithoutApplicationAsync(
         DataApprovalRequestRecord row,

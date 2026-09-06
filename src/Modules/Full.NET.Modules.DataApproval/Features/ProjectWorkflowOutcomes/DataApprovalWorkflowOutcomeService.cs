@@ -33,10 +33,7 @@ internal sealed class DataApprovalWorkflowOutcomeService(
         string idempotencyKey,
         CancellationToken cancellationToken = default)
     {
-        if (!string.Equals(
-                businessType,
-                DataApprovalWorkflowBusinessTypes.SerialRuleUpdate,
-                StringComparison.Ordinal))
+        if (!IsSerialNumberRuleBusinessType(businessType))
         {
             return;
         }
@@ -115,6 +112,10 @@ internal sealed class DataApprovalWorkflowOutcomeService(
             }
         }
     }
+
+    private static bool IsSerialNumberRuleBusinessType(string businessType) =>
+        string.Equals(businessType, DataApprovalWorkflowBusinessTypes.SerialRuleUpdate, StringComparison.Ordinal) ||
+        string.Equals(businessType, DataApprovalWorkflowBusinessTypes.SerialRuleDisable, StringComparison.Ordinal);
 
     private static DataApprovalManagementScope ResolveScope(Guid tenantId) =>
         tenantId == Guid.Empty

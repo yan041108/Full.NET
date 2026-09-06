@@ -299,6 +299,8 @@ import type {
   SerialNumberResetInterval,
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
+  SerialRuleDisableApprovalPreviewResponse,
+  SerialRuleDisableApprovalSubmissionResponse,
   SerialRuleFieldChange,
   SerialRuleUpdateApprovalPreviewResponse,
   SerialRuleUpdateApprovalSubmissionResponse,
@@ -312,6 +314,7 @@ import type {
   SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
   Stream,
+  SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
@@ -3653,6 +3656,28 @@ function isSerialNumberRuleScope(value: unknown): value is SerialNumberRuleScope
   return typeof value === 'number' && Number.isInteger(value);
 }
 
+export function readSerialRuleDisableApprovalPreviewResponse(value: unknown): SerialRuleDisableApprovalPreviewResponse {
+  if (!(isSerialRuleDisableApprovalPreviewResponse(value))) {
+    throw new Error('client.invalid_serial_rule_disable_approval_preview_response');
+  }
+  return value;
+}
+
+function isSerialRuleDisableApprovalPreviewResponse(value: unknown): value is SerialRuleDisableApprovalPreviewResponse {
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (typeof value["beforeSnapshotJson"] === 'string') && (typeof value["displayName"] === 'string') && (typeof value["ruleId"] === 'string' && guidPattern.test(value["ruleId"])) && (typeof value["ruleKey"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readSerialRuleDisableApprovalSubmissionResponse(value: unknown): SerialRuleDisableApprovalSubmissionResponse {
+  if (!(isSerialRuleDisableApprovalSubmissionResponse(value))) {
+    throw new Error('client.invalid_serial_rule_disable_approval_submission_response');
+  }
+  return value;
+}
+
+function isSerialRuleDisableApprovalSubmissionResponse(value: unknown): value is SerialRuleDisableApprovalSubmissionResponse {
+  return isRecord(value) && (typeof value["afterSnapshotJson"] === 'string') && (value["beforeSnapshotJson"] === undefined || ((typeof value["beforeSnapshotJson"] === 'string') || (value["beforeSnapshotJson"] === null))) && (typeof value["requestId"] === 'string' && guidPattern.test(value["requestId"])) && (typeof value["requestVersion"] === 'number' && Number.isInteger(value["requestVersion"])) && (typeof value["statusKey"] === 'string') && (typeof value["workflowDefinitionVersionId"] === 'string' && guidPattern.test(value["workflowDefinitionVersionId"]));
+}
+
 export function readSerialRuleFieldChange(value: unknown): SerialRuleFieldChange {
   if (!(isSerialRuleFieldChange(value))) {
     throw new Error('client.invalid_serial_rule_field_change');
@@ -3794,6 +3819,17 @@ export function readStream(value: unknown): Stream {
 
 function isStream(value: unknown): value is Stream {
   return value instanceof Blob;
+}
+
+export function readSubmitSerialRuleDisableApprovalRequest(value: unknown): SubmitSerialRuleDisableApprovalRequest {
+  if (!(isSubmitSerialRuleDisableApprovalRequest(value))) {
+    throw new Error('client.invalid_submit_serial_rule_disable_approval_request');
+  }
+  return value;
+}
+
+function isSubmitSerialRuleDisableApprovalRequest(value: unknown): value is SubmitSerialRuleDisableApprovalRequest {
+  return isRecord(value) && (typeof value["idempotencyKey"] === 'string') && (isChangeSerialNumberRuleStatusRequest(value["statusChange"]));
 }
 
 export function readSubmitSerialRuleUpdateApprovalRequest(value: unknown): SubmitSerialRuleUpdateApprovalRequest {

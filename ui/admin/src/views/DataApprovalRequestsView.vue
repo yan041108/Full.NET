@@ -228,7 +228,9 @@ function toProblem(error: unknown, fallbackCode: string): FullNetProblemDetails 
                 :value="item.scenarioKey"
                 :label="item.scenarioKey === 'serial_numbers.host_rule.update'
                   ? t('dataApprovalRequests.scenarioSerialRuleUpdate')
-                  : item.scenarioKey"
+                  : item.scenarioKey === 'serial_numbers.host_rule.disable'
+                    ? t('dataApprovalRequests.scenarioSerialRuleDisable')
+                    : item.scenarioKey"
               />
             </ElSelect>
           </label>

@@ -243,6 +243,63 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             SerialNumberRulePermissions.SubmitUpdateApproval));
 
+        group.MapPost("/{ruleId:guid}/disable-approval-preview", async (
+            Guid ruleId,
+            ChangeSerialNumberRuleStatusRequest request,
+            SerialRuleDisableApprovalService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.PreviewAsync(ruleId, request, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("serialNumbersPreviewRuleDisableApproval")
+        .Produces<SerialRuleDisableApprovalPreviewResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            SerialNumberRulePermissions.SubmitDisableApproval));
+
+        group.MapPost("/{ruleId:guid}/disable-approval-requests", async (
+            Guid ruleId,
+            SubmitSerialRuleDisableApprovalRequest request,
+            SerialRuleDisableApprovalService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var actorUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.SubmitAsync(
+                    ruleId,
+                    actorUserId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return result.IsSuccess
+                ? Results.Created(
+                    $"/api/v1/data-approvals/requests/{result.Value!.RequestId:D}",
+                    result.Value)
+                : mapper.Map(result, httpContext);
+        })
+        .WithName("serialNumbersSubmitRuleDisableApproval")
+        .Produces<SerialRuleDisableApprovalSubmissionResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAuthorization(FullNetPermissionPolicies.For(
+            SerialNumberRulePermissions.SubmitDisableApproval));
+
         group.MapPost("/preview", (
             PreviewSerialNumberRequest request,
             SerialNumberPreviewService service,

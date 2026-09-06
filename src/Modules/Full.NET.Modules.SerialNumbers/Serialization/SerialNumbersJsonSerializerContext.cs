@@ -17,6 +17,9 @@ namespace Full.NET.Modules.SerialNumbers.Serialization;
 [JsonSerializable(typeof(SerialRuleUpdateApprovalPreviewResponse))]
 [JsonSerializable(typeof(SerialRuleUpdateApprovalSubmissionResponse))]
 [JsonSerializable(typeof(SubmitSerialRuleUpdateApprovalRequest))]
+[JsonSerializable(typeof(SerialRuleDisableApprovalPreviewResponse))]
+[JsonSerializable(typeof(SerialRuleDisableApprovalSubmissionResponse))]
+[JsonSerializable(typeof(SubmitSerialRuleDisableApprovalRequest))]
 [JsonSerializable(typeof(UpdateSerialNumberRuleRequest))]
 internal partial class SerialNumbersJsonSerializerContext
     : JsonSerializerContext;

@@ -2403,6 +2403,24 @@ export interface SerialNumberRuleResponse {
 
 export type SerialNumberRuleScope = number;
 
+export interface SerialRuleDisableApprovalPreviewResponse {
+  readonly afterSnapshotJson: string;
+  readonly beforeSnapshotJson: string;
+  readonly displayName: string;
+  readonly ruleId: string;
+  readonly ruleKey: string;
+  readonly version: number;
+}
+
+export interface SerialRuleDisableApprovalSubmissionResponse {
+  readonly afterSnapshotJson: string;
+  readonly beforeSnapshotJson?: string | null;
+  readonly requestId: string;
+  readonly requestVersion: number;
+  readonly statusKey: string;
+  readonly workflowDefinitionVersionId: string;
+}
+
 export interface SerialRuleFieldChange {
   readonly afterValue?: string | null;
   readonly beforeValue?: string | null;
@@ -2497,6 +2515,11 @@ export interface StartWorkflowInstanceRequest {
 }
 
 export type Stream = Blob;
+
+export interface SubmitSerialRuleDisableApprovalRequest {
+  readonly idempotencyKey: string;
+  readonly statusChange: ChangeSerialNumberRuleStatusRequest;
+}
 
 export interface SubmitSerialRuleUpdateApprovalRequest {
   readonly idempotencyKey: string;

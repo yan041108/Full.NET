@@ -48,6 +48,40 @@ doc.paths['/api/v1/serial-numbers/rules/{ruleId}/update-approval-requests'] = {
   })
 };
 
+doc.paths['/api/v1/serial-numbers/rules/{ruleId}/disable-approval-preview'] = {
+  post: withSecurity({
+    operationId: 'serialNumbersPreviewRuleDisableApproval',
+    parameters: [{ in: 'path', name: 'ruleId', required: true, schema: { type: 'string', format: 'uuid' } }],
+    requestBody: { required: true, content: { 'application/json': { schema: ref('ChangeSerialNumberRuleStatusRequest') } } },
+    responses: {
+      200: { description: 'OK', content: { 'application/json': { schema: ref('SerialRuleDisableApprovalPreviewResponse') } } },
+      400: { description: 'Bad Request', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      404: { description: 'Not Found', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      409: { description: 'Conflict', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['SerialNumbersHostRules']
+  })
+};
+
+doc.paths['/api/v1/serial-numbers/rules/{ruleId}/disable-approval-requests'] = {
+  post: withSecurity({
+    operationId: 'serialNumbersSubmitRuleDisableApproval',
+    parameters: [{ in: 'path', name: 'ruleId', required: true, schema: { type: 'string', format: 'uuid' } }],
+    requestBody: { required: true, content: { 'application/json': { schema: ref('SubmitSerialRuleDisableApprovalRequest') } } },
+    responses: {
+      201: { description: 'Created', content: { 'application/json': { schema: ref('SerialRuleDisableApprovalSubmissionResponse') } } },
+      400: { description: 'Bad Request', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      401: { description: 'Unauthorized', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      403: { description: 'Forbidden', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      404: { description: 'Not Found', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } },
+      409: { description: 'Conflict', content: { 'application/problem+json': { schema: ref('ProblemDetails') } } }
+    },
+    tags: ['SerialNumbersHostRules']
+  })
+};
+
 doc.components.schemas.SerialRuleFieldChange = {
   type: 'object',
   required: ['fieldKey', 'changed'],
@@ -91,13 +125,47 @@ doc.components.schemas.SerialRuleUpdateApprovalSubmissionResponse = {
     requestVersion: { type: 'integer', format: 'int64' }
   }
 };
+doc.components.schemas.SubmitSerialRuleDisableApprovalRequest = {
+  type: 'object',
+  required: ['statusChange', 'idempotencyKey'],
+  properties: {
+    statusChange: ref('ChangeSerialNumberRuleStatusRequest'),
+    idempotencyKey: { type: 'string' }
+  }
+};
+doc.components.schemas.SerialRuleDisableApprovalPreviewResponse = {
+  type: 'object',
+  required: ['ruleId', 'ruleKey', 'displayName', 'version', 'beforeSnapshotJson', 'afterSnapshotJson'],
+  properties: {
+    ruleId: { type: 'string', format: 'uuid' },
+    ruleKey: { type: 'string' },
+    displayName: { type: 'string' },
+    version: { type: 'integer', format: 'int64' },
+    beforeSnapshotJson: { type: 'string' },
+    afterSnapshotJson: { type: 'string' }
+  }
+};
+doc.components.schemas.SerialRuleDisableApprovalSubmissionResponse = {
+  type: 'object',
+  required: ['requestId', 'statusKey', 'afterSnapshotJson', 'workflowDefinitionVersionId', 'requestVersion'],
+  properties: {
+    requestId: { type: 'string', format: 'uuid' },
+    statusKey: { type: 'string' },
+    beforeSnapshotJson: { type: ['string', 'null'] },
+    afterSnapshotJson: { type: 'string' },
+    workflowDefinitionVersionId: { type: 'string', format: 'uuid' },
+    requestVersion: { type: 'integer', format: 'int64' }
+  }
+};
 
 await writeFile(openapiPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
 
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 for (const operationId of [
   'serialNumbersPreviewRuleUpdateApproval',
-  'serialNumbersSubmitRuleUpdateApproval'
+  'serialNumbersSubmitRuleUpdateApproval',
+  'serialNumbersPreviewRuleDisableApproval',
+  'serialNumbersSubmitRuleDisableApproval'
 ]) {
   if (!manifest.entries.some((item) => item.operationId === operationId)) {
     manifest.entries.push({

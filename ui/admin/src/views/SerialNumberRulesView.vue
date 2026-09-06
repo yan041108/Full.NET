@@ -29,6 +29,8 @@ import {
   previewSerialNumber,
   previewSerialRuleUpdateApproval,
   submitSerialRuleUpdateApproval,
+  previewSerialRuleDisableApproval,
+  submitSerialRuleDisableApproval,
   updateSerialNumberRule,
   type SerialNumberRuleSortBy,
   type SerialNumberRuleSortDirection,
@@ -71,11 +73,14 @@ const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const updateApprovalRequired = ref(false);
+const disableApprovalRequired = ref(false);
 const approvalDialogVisible = ref(false);
+const disableApprovalDialogVisible = ref(false);
 const approvalChanges = ref<SerialRuleFieldChange[]>([]);
 const canCreate = computed(() => session.can('serial_numbers.rules.create'));
 const canUpdate = computed(() => session.can('serial_numbers.rules.update'));
 const canSubmitApproval = computed(() => session.can('serial_numbers.rules.submit_update_approval'));
+const canSubmitDisableApproval = computed(() => session.can('serial_numbers.rules.submit_disable_approval'));
 const canEnable = computed(() => session.can('serial_numbers.rules.enable'));
 const canDisable = computed(() => session.can('serial_numbers.rules.disable'));
 const canPreview = computed(() => session.can('serial_numbers.rules.preview'));
@@ -95,6 +100,9 @@ async function load(): Promise<void> {
     const scenarios = await listDataApprovalScenarios();
     updateApprovalRequired.value = scenarios.some(
       item => item.scenarioKey === 'serial_numbers.host_rule.update' && item.isEnabled
+    );
+    disableApprovalRequired.value = scenarios.some(
+      item => item.scenarioKey === 'serial_numbers.host_rule.disable' && item.isEnabled
     );
     await loadRules();
   } catch (error: unknown) {
@@ -231,6 +239,9 @@ async function toggleEnabled(enable: boolean): Promise<void> {
   if (!enable && !canDisable.value) {
     return;
   }
+  if (!enable && disableApprovalRequired.value) {
+    return;
+  }
   changing.value = true;
   problem.value = undefined;
   try {
@@ -240,6 +251,48 @@ async function toggleEnabled(enable: boolean): Promise<void> {
     selectRule(saved);
     ElMessage.success(t(enable ? 'serialNumberRules.enableSuccess' : 'serialNumberRules.disableSuccess'));
     await loadRules();
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function openDisableApprovalDialog(): Promise<void> {
+  const selected = selectedRule.value;
+  if (!selected || changing.value || !canSubmitDisableApproval.value || !disableApprovalRequired.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await previewSerialRuleDisableApproval(selected.id, { version: selected.version });
+    disableApprovalDialogVisible.value = true;
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function submitDisableApproval(): Promise<void> {
+  const selected = selectedRule.value;
+  if (!selected || changing.value || !canSubmitDisableApproval.value) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const submitted = await submitSerialRuleDisableApproval(selected.id, {
+      statusChange: { version: selected.version },
+      idempotencyKey: crypto.randomUUID()
+    });
+    disableApprovalDialogVisible.value = false;
+    ElMessage.success(t('serialNumberRules.disableApprovalSubmitSuccess'));
+    await router.push({
+      name: 'data-approval-requests',
+      query: { requestId: submitted.requestId }
+    });
   } catch (error: unknown) {
     problem.value = toProblem(error);
   } finally {
@@ -451,8 +504,27 @@ function toProblem(
             </ElButton>
           </PermissionGate>
           <PermissionGate code="serial_numbers.rules.disable">
-            <ElButton v-if="selectedRule && selectedRule.isEnabled" data-testid="serial-rule-disable" type="warning" plain :disabled="changing" @click="toggleEnabled(false)">
+            <ElButton
+              v-if="selectedRule && selectedRule.isEnabled && !disableApprovalRequired"
+              data-testid="serial-rule-disable"
+              type="warning"
+              plain
+              :disabled="changing"
+              @click="toggleEnabled(false)"
+            >
               {{ t('serialNumberRules.disable') }}
+            </ElButton>
+          </PermissionGate>
+          <PermissionGate code="serial_numbers.rules.submit_disable_approval">
+            <ElButton
+              v-if="selectedRule && selectedRule.isEnabled && disableApprovalRequired"
+              data-testid="serial-rule-submit-disable-approval"
+              type="warning"
+              plain
+              :disabled="changing"
+              @click="openDisableApprovalDialog"
+            >
+              {{ t('serialNumberRules.submitDisableApproval') }}
             </ElButton>
           </PermissionGate>
           <ElButton v-if="!selectedRule" plain :disabled="changing" @click="resetCreateForm">
@@ -482,6 +554,20 @@ function toProblem(
       <template #footer>
         <ElButton @click="approvalDialogVisible = false">{{ t('serialNumberRules.approvalCancel') }}</ElButton>
         <ElButton type="primary" data-testid="serial-rule-approval-confirm" :loading="changing" @click="submitApproval">
+          {{ t('serialNumberRules.approvalConfirm') }}
+        </ElButton>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      v-model="disableApprovalDialogVisible"
+      :title="t('serialNumberRules.disableApprovalDialogTitle')"
+      width="480px"
+    >
+      <p class="art-muted">{{ t('serialNumberRules.disableApprovalDialogDescription') }}</p>
+      <template #footer>
+        <ElButton @click="disableApprovalDialogVisible = false">{{ t('serialNumberRules.approvalCancel') }}</ElButton>
+        <ElButton type="primary" data-testid="serial-rule-disable-approval-confirm" :loading="changing" @click="submitDisableApproval">
           {{ t('serialNumberRules.approvalConfirm') }}
         </ElButton>
       </template>

@@ -300,6 +300,8 @@ import type {
   SerialNumberResetInterval,
   SerialNumberRuleResponse,
   SerialNumberRuleScope,
+  SerialRuleDisableApprovalPreviewResponse,
+  SerialRuleDisableApprovalSubmissionResponse,
   SerialRuleFieldChange,
   SerialRuleUpdateApprovalPreviewResponse,
   SerialRuleUpdateApprovalSubmissionResponse,
@@ -313,6 +315,7 @@ import type {
   SetWorkflowFormStatusRequest,
   StartWorkflowInstanceRequest,
   Stream,
+  SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
@@ -538,6 +541,8 @@ import {
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
   readSerialNumberRuleResponse,
+  readSerialRuleDisableApprovalPreviewResponse,
+  readSerialRuleDisableApprovalSubmissionResponse,
   readSerialRuleUpdateApprovalPreviewResponse,
   readSerialRuleUpdateApprovalSubmissionResponse,
   readServerRuntimeSnapshot,
@@ -6464,6 +6469,29 @@ export async function serialNumbersListRules(
   return readPagedResultOfSerialNumberRuleResponse(value);
 }
 
+export interface SerialNumbersPreviewRuleDisableApprovalParameters {
+  readonly ruleId: string;
+  readonly body: ChangeSerialNumberRuleStatusRequest;
+}
+
+export async function serialNumbersPreviewRuleDisableApproval(
+  http: HttpClient,
+  parameters: SerialNumbersPreviewRuleDisableApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SerialRuleDisableApprovalPreviewResponse> {
+  const path = `/api/v1/serial-numbers/rules/${encodeURIComponent(String(parameters.ruleId))}/disable-approval-preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSerialRuleDisableApprovalPreviewResponse(value);
+}
+
 export interface SerialNumbersPreviewRuleUpdateApprovalParameters {
   readonly ruleId: string;
   readonly body: UpdateSerialNumberRuleRequest;
@@ -6507,6 +6535,29 @@ export async function serialNumbersPreviewSerialNumber(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readSerialNumberPreviewResponse(value);
+}
+
+export interface SerialNumbersSubmitRuleDisableApprovalParameters {
+  readonly ruleId: string;
+  readonly body: SubmitSerialRuleDisableApprovalRequest;
+}
+
+export async function serialNumbersSubmitRuleDisableApproval(
+  http: HttpClient,
+  parameters: SerialNumbersSubmitRuleDisableApprovalParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SerialRuleDisableApprovalSubmissionResponse> {
+  const path = `/api/v1/serial-numbers/rules/${encodeURIComponent(String(parameters.ruleId))}/disable-approval-requests`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSerialRuleDisableApprovalSubmissionResponse(value);
 }
 
 export interface SerialNumbersSubmitRuleUpdateApprovalParameters {

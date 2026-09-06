@@ -11,6 +11,8 @@ import {
   previewSerialNumber,
   previewSerialRuleUpdateApproval,
   submitSerialRuleUpdateApproval,
+  previewSerialRuleDisableApproval,
+  submitSerialRuleDisableApproval,
   updateSerialNumberRule
 } from '../api/serial-number-rules';
 import { listDataApprovalScenarios } from '../api/data-approval-scenarios';
@@ -23,6 +25,8 @@ vi.mock('../api/serial-number-rules', () => ({
   previewSerialNumber: vi.fn(),
   previewSerialRuleUpdateApproval: vi.fn(),
   submitSerialRuleUpdateApproval: vi.fn(),
+  previewSerialRuleDisableApproval: vi.fn(),
+  submitSerialRuleDisableApproval: vi.fn(),
   updateSerialNumberRule: vi.fn()
 }));
 
@@ -86,6 +90,29 @@ describe('Vue 流水号规则页', () => {
     vi.mocked(previewSerialNumber).mockReset();
     vi.mocked(previewSerialRuleUpdateApproval).mockReset();
     vi.mocked(submitSerialRuleUpdateApproval).mockReset();
+    vi.mocked(previewSerialRuleDisableApproval).mockReset();
+    vi.mocked(submitSerialRuleDisableApproval).mockReset();
+  });
+
+  it('禁用审批策略启用时显示提交禁用审批按钮而非直接禁用', async () => {
+    vi.mocked(listDataApprovalScenarios).mockResolvedValue([{
+      scenarioKey: 'serial_numbers.host_rule.disable',
+      scopeKey: 'host',
+      isRegistered: true,
+      isEnabled: true,
+      workflowDefinitionKey: 'serial-rule-disable',
+      workflowDefinitionVersionId: '0198f36e-f7a7-7c52-9cbb-774e67411208',
+      version: 1
+    }]);
+    const wrapper = mountWithPermissions([
+      'serial_numbers.rules.read',
+      'serial_numbers.rules.disable',
+      'serial_numbers.rules.submit_disable_approval'
+    ]);
+    await flushPromises();
+    await wrapper.get('[data-testid="serial-rule-load"]').trigger('click');
+    expect(wrapper.find('[data-testid="serial-rule-disable"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="serial-rule-submit-disable-approval"]').exists()).toBe(true);
   });
 
   it('审批策略启用时显示提交审批按钮而非保存', async () => {

@@ -88,6 +88,30 @@
                                      ]
                   },
                   {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}/disable-approval-preview",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.submit_disable_approval",
+                                             "successStatus":  200,
+                                             "requestSchema":  "ChangeSerialNumberRuleStatusRequest",
+                                             "responseSchema":  "SerialRuleDisableApprovalPreviewResponse"
+                                         }
+                                     ]
+                  },
+                  {
+                      "path":  "/api/v1/serial-numbers/rules/{ruleId}/disable-approval-requests",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "serial_numbers.rules.submit_disable_approval",
+                                             "successStatus":  201,
+                                             "requestSchema":  "SubmitSerialRuleDisableApprovalRequest",
+                                             "responseSchema":  "SerialRuleDisableApprovalSubmissionResponse"
+                                         }
+                                     ]
+                  },
+                  {
                       "path":  "/api/v1/serial-numbers/rules/preview",
                       "operations":  [
                                          {
@@ -214,6 +238,32 @@
                                                                                           "workflowDefinitionVersionId",
                                                                                           "requestVersion"
                                                                                       ]
-                                                                   }
+                                                                   },
+                    "SubmitSerialRuleDisableApprovalRequest":  {
+                                                                   "properties":  [
+                                                                                      "statusChange",
+                                                                                      "idempotencyKey"
+                                                                                  ]
+                                                               },
+                    "SerialRuleDisableApprovalPreviewResponse":  {
+                                                                     "properties":  [
+                                                                                        "ruleId",
+                                                                                        "ruleKey",
+                                                                                        "displayName",
+                                                                                        "version",
+                                                                                        "beforeSnapshotJson",
+                                                                                        "afterSnapshotJson"
+                                                                                    ]
+                                                                 },
+                    "SerialRuleDisableApprovalSubmissionResponse":  {
+                                                                        "properties":  [
+                                                                                           "requestId",
+                                                                                           "statusKey",
+                                                                                           "beforeSnapshotJson",
+                                                                                           "afterSnapshotJson",
+                                                                                           "workflowDefinitionVersionId",
+                                                                                           "requestVersion"
+                                                                                       ]
+                                                                    }
                 }
 }

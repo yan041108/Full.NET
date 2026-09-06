@@ -120,6 +120,9 @@ function scenarioLabel(scenarioKey: string): string {
   if (scenarioKey === 'serial_numbers.host_rule.update') {
     return t('dataApprovalScenarios.scenarioSerialRuleUpdate');
   }
+  if (scenarioKey === 'serial_numbers.host_rule.disable') {
+    return t('dataApprovalScenarios.scenarioSerialRuleDisable');
+  }
   return scenarioKey;
 }
 

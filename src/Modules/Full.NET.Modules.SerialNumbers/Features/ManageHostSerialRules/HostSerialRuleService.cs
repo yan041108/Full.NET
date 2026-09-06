@@ -174,11 +174,78 @@ internal sealed class HostSerialRuleService(
             cancellationToken).ConfigureAwait(false);
     }
 
-    public Task<Result<SerialNumberRuleResponse>> SetEnabledAsync(
+    public async Task<Result<SerialNumberRuleResponse>> SetEnabledAsync(
         Guid ruleId,
         Guid actorUserId,
         long version,
         bool isEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        if (version < 1)
+        {
+            return Invalid();
+        }
+
+        if (!isEnabled &&
+            await approvalScenarioPolicy.BlocksDirectWriteAsync(
+                    DataApprovalScenarioKeys.SerialRuleHostDisable,
+                    cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return Result<SerialNumberRuleResponse>.Failure(new Error(
+                SerialNumberErrorCodes.DisableRequiresApproval,
+                "The serial number rule disable must be submitted for approval.",
+                ErrorType.Conflict));
+        }
+
+        return await transaction.ExecuteAsync(
+            token => SetEnabledCoreAsync(
+                ruleId,
+                actorUserId,
+                version,
+                isEnabled,
+                token),
+            cancellationToken);
+    }
+
+    /// <summary>在 DataApproval 批准后应用规则更新，跳过直接写入策略门禁。</summary>
+    internal Task<Result<SerialNumberRuleResponse>> ApplyApprovedUpdateAsync(
+        Guid ruleId,
+        Guid actorUserId,
+        UpdateSerialNumberRuleRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var input = Normalize(
+            null,
+            request.DisplayName,
+            request.Description,
+            request.Scope,
+            request.ResetInterval,
+            request.Pattern,
+            request.MinimumValue,
+            request.MaximumValue,
+            request.DisplayOrder,
+            request.IsEnabled);
+        if (!input.IsSuccess || request.Version < 1)
+        {
+            return Task.FromResult(Invalid());
+        }
+
+        return transaction.ExecuteAsync(
+            token => UpdateCoreAsync(
+                ruleId,
+                actorUserId,
+                request.Version,
+                input.Value!,
+                token),
+            cancellationToken);
+    }
+
+    /// <summary>在 DataApproval 批准后禁用规则，跳过直接写入策略门禁。</summary>
+    internal Task<Result<SerialNumberRuleResponse>> ApplyApprovedDisableAsync(
+        Guid ruleId,
+        Guid actorUserId,
+        long version,
         CancellationToken cancellationToken = default)
     {
         if (version < 1)
@@ -191,7 +258,7 @@ internal sealed class HostSerialRuleService(
                 ruleId,
                 actorUserId,
                 version,
-                isEnabled,
+                false,
                 token),
             cancellationToken);
     }

@@ -136,6 +136,9 @@ public static class SerialNumberRulePermissions
 
     /// <summary>提交流水号规则更新审批请求。</summary>
     public const string SubmitUpdateApproval = "serial_numbers.rules.submit_update_approval";
+
+    /// <summary>提交流水号规则禁用审批请求。</summary>
+    public const string SubmitDisableApproval = "serial_numbers.rules.submit_disable_approval";
 }
 
 /// <summary>SerialNumbers 模块稳定错误码。</summary>
@@ -183,6 +186,18 @@ public static class SerialNumberErrorCodes
     /// <summary>规则更新必须经 DataApproval 审批，不能直接写入。</summary>
     public const string UpdateRequiresApproval =
         "serial_numbers.rule.update_requires_approval";
+
+    /// <summary>场景未启用审批时不能提交禁用审批。</summary>
+    public const string DisableApprovalNotRequired =
+        "serial_numbers.rule.disable_approval_not_required";
+
+    /// <summary>规则禁用必须经 DataApproval 审批，不能直接停用。</summary>
+    public const string DisableRequiresApproval =
+        "serial_numbers.rule.disable_requires_approval";
+
+    /// <summary>规则已禁用，不能重复提交禁用审批。</summary>
+    public const string RuleAlreadyDisabled =
+        "serial_numbers.rule.already_disabled";
 }
 
 /// <summary>流水号规则变更审批所需的稳定快照摘要。</summary>
@@ -219,6 +234,23 @@ public interface ISerialRuleChangeApprovalApplier
     /// <param name="idempotencyKey">稳定幂等键，用于重放保护。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     Task<Result<SerialNumberRuleResponse>> ApplyApprovedUpdateAsync(
+        Guid ruleId,
+        string afterSnapshotJson,
+        Guid actorUserId,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>在审批通过后把提议禁用应用到流水号规则。</summary>
+public interface ISerialRuleDisableApprovalApplier
+{
+    /// <summary>按已批准快照禁用目标规则，并保证幂等重放安全。</summary>
+    /// <param name="ruleId">目标规则标识。</param>
+    /// <param name="afterSnapshotJson">审批通过的变更 JSON，须可反序列化为 <see cref="ChangeSerialNumberRuleStatusRequest"/>。</param>
+    /// <param name="actorUserId">执行应用的用户标识。</param>
+    /// <param name="idempotencyKey">稳定幂等键，用于重放保护。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<Result<SerialNumberRuleResponse>> ApplyApprovedDisableAsync(
         Guid ruleId,
         string afterSnapshotJson,
         Guid actorUserId,
@@ -271,6 +303,43 @@ public sealed record SerialRuleUpdateApprovalSubmissionResponse(
     Guid RequestId,
     string StatusKey,
     IReadOnlyList<SerialRuleFieldChange> Changes,
+    string? BeforeSnapshotJson,
+    string AfterSnapshotJson,
+    Guid WorkflowDefinitionVersionId,
+    long RequestVersion);
+
+/// <summary>提交流水号规则禁用审批的请求体。</summary>
+/// <param name="StatusChange">强类型提议禁用（仅版本号）。</param>
+/// <param name="IdempotencyKey">调用方幂等键。</param>
+public sealed record SubmitSerialRuleDisableApprovalRequest(
+    ChangeSerialNumberRuleStatusRequest StatusChange,
+    string IdempotencyKey);
+
+/// <summary>流水号规则禁用审批预览响应。</summary>
+/// <param name="RuleId">目标规则标识。</param>
+/// <param name="RuleKey">规则稳定键。</param>
+/// <param name="DisplayName">规则显示名称。</param>
+/// <param name="Version">提交审批时的乐观并发版本。</param>
+/// <param name="BeforeSnapshotJson">变更前快照 JSON。</param>
+/// <param name="AfterSnapshotJson">提议禁用 JSON。</param>
+public sealed record SerialRuleDisableApprovalPreviewResponse(
+    Guid RuleId,
+    string RuleKey,
+    string DisplayName,
+    long Version,
+    string BeforeSnapshotJson,
+    string AfterSnapshotJson);
+
+/// <summary>流水号规则禁用审批提交结果。</summary>
+/// <param name="RequestId">DataApproval 请求标识。</param>
+/// <param name="StatusKey">审批请求状态键。</param>
+/// <param name="BeforeSnapshotJson">变更前快照 JSON。</param>
+/// <param name="AfterSnapshotJson">提议禁用 JSON。</param>
+/// <param name="WorkflowDefinitionVersionId">固定的工作流定义版本标识。</param>
+/// <param name="RequestVersion">审批请求乐观并发版本。</param>
+public sealed record SerialRuleDisableApprovalSubmissionResponse(
+    Guid RequestId,
+    string StatusKey,
     string? BeforeSnapshotJson,
     string AfterSnapshotJson,
     Guid WorkflowDefinitionVersionId,

@@ -9,6 +9,8 @@ import {
   serialNumbersPreviewSerialNumber,
   serialNumbersPreviewRuleUpdateApproval,
   serialNumbersSubmitRuleUpdateApproval,
+  serialNumbersPreviewRuleDisableApproval,
+  serialNumbersSubmitRuleDisableApproval,
   serialNumbersUpdateRule,
   type ChangeSerialNumberRuleStatusRequest,
   type CreateSerialNumberRuleRequest,
@@ -21,6 +23,9 @@ import {
   type SerialRuleFieldChange,
   type SerialRuleUpdateApprovalPreviewResponse,
   type SerialRuleUpdateApprovalSubmissionResponse,
+  type SerialRuleDisableApprovalPreviewResponse,
+  type SerialRuleDisableApprovalSubmissionResponse,
+  type SubmitSerialRuleDisableApprovalRequest,
   type SubmitSerialRuleUpdateApprovalRequest,
   type UpdateSerialNumberRuleRequest
 } from '@fullnet/client-contracts';
@@ -163,6 +168,24 @@ export async function submitSerialRuleUpdateApproval(
   return serialNumbersSubmitRuleUpdateApproval(http, { ruleId, body: input }, signal);
 }
 
+/** 预览流水号规则禁用审批。 */
+export async function previewSerialRuleDisableApproval(
+  ruleId: string,
+  input: ChangeSerialNumberRuleStatusRequest,
+  signal?: AbortSignal
+): Promise<SerialRuleDisableApprovalPreviewResponse> {
+  return serialNumbersPreviewRuleDisableApproval(http, { ruleId, body: input }, signal);
+}
+
+/** 提交流水号规则禁用审批请求。 */
+export async function submitSerialRuleDisableApproval(
+  ruleId: string,
+  input: SubmitSerialRuleDisableApprovalRequest,
+  signal?: AbortSignal
+): Promise<SerialRuleDisableApprovalSubmissionResponse> {
+  return serialNumbersSubmitRuleDisableApproval(http, { ruleId, body: input }, signal);
+}
+
 /** 校验单条规则响应结构，避免调用方重复编写相同的失败关闭逻辑。 */
 function readRule(value: unknown): SerialNumberRuleResponse {
   if (!isSerialNumberRuleResponse(value)) {
@@ -183,6 +206,9 @@ export type {
   SerialRuleFieldChange,
   SerialRuleUpdateApprovalPreviewResponse,
   SerialRuleUpdateApprovalSubmissionResponse,
+  SerialRuleDisableApprovalPreviewResponse,
+  SerialRuleDisableApprovalSubmissionResponse,
+  SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
   UpdateSerialNumberRuleRequest
 };

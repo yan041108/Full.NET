@@ -111,10 +111,7 @@ internal sealed class DataApprovalRequestService(
         }
 
         var beforeSnapshotJson = (string?)null;
-        if (string.Equals(
-                normalized.ScenarioKey,
-                DataApprovalScenarioKeys.SerialRuleHostUpdate,
-                StringComparison.Ordinal))
+        if (RequiresSerialRuleBeforeSnapshot(normalized.ScenarioKey))
         {
             var snapshot = await serialRuleApprovalSource
                 .GetSnapshotAsync(normalized.TargetEntityId, cancellationToken)
@@ -443,6 +440,10 @@ internal sealed class DataApprovalRequestService(
         var trimmed = value?.Trim();
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
+
+    private static bool RequiresSerialRuleBeforeSnapshot(string scenarioKey) =>
+        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostUpdate, StringComparison.Ordinal) ||
+        string.Equals(scenarioKey, DataApprovalScenarioKeys.SerialRuleHostDisable, StringComparison.Ordinal);
 
     internal static DataApprovalRequestResponse Map(DataApprovalRequestRecord row) =>
         new(

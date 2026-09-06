@@ -72,7 +72,8 @@ public sealed class DataApprovalRequestApplicationServiceTests
             queryExecutor,
             commandExecutor,
             clock,
-            applier);
+            applier,
+            Substitute.For<ISerialRuleDisableApprovalApplier>());
 
         var result = await service.TryApplyApprovedChangeAsync(
             row,

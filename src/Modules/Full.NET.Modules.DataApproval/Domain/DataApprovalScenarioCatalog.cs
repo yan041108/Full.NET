@@ -21,6 +21,10 @@ public static class DataApprovalScenarioCatalog
             DataApprovalScenarioKeys.SerialRuleHostUpdate,
             "host",
             DataApprovalWorkflowBusinessTypes.SerialRuleUpdate),
+        new(
+            DataApprovalScenarioKeys.SerialRuleHostDisable,
+            "host",
+            DataApprovalWorkflowBusinessTypes.SerialRuleDisable),
     ];
 
     /// <summary>返回当前版本登记的全部静态场景。</summary>

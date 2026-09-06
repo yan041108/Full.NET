@@ -17,6 +17,15 @@ public sealed class DataApprovalScenarioCatalogTests
     }
 
     [TestMethod]
+    public void Find_returns_serial_rule_host_disable_entry()
+    {
+        var entry = DataApprovalScenarioCatalog.Find(DataApprovalScenarioKeys.SerialRuleHostDisable);
+        Assert.IsNotNull(entry);
+        Assert.AreEqual("host", entry.ScopeKey);
+        Assert.AreEqual(DataApprovalWorkflowBusinessTypes.SerialRuleDisable, entry.WorkflowBusinessType);
+    }
+
+    [TestMethod]
     public void IsRegisteredForScope_rejects_unknown_scenario()
     {
         Assert.IsFalse(DataApprovalScenarioCatalog.IsRegisteredForScope("other.scenario", "host"));

@@ -6,12 +6,12 @@ using Full.NET.Modules.SerialNumbers.Serialization;
 
 namespace Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
 
-/// <summary>在 DataApproval 审批通过后应用流水号规则更新，并对同一幂等键重放安全。</summary>
-internal sealed class SerialRuleChangeApprovalApplier(
-    HostSerialRuleService ruleService) : ISerialRuleChangeApprovalApplier
+/// <summary>在 DataApproval 审批通过后禁用流水号规则，并对同一幂等键重放安全。</summary>
+internal sealed class SerialRuleDisableApprovalApplier(
+    HostSerialRuleService ruleService) : ISerialRuleDisableApprovalApplier
 {
     /// <inheritdoc />
-    public async Task<Result<SerialNumberRuleResponse>> ApplyApprovedUpdateAsync(
+    public async Task<Result<SerialNumberRuleResponse>> ApplyApprovedDisableAsync(
         Guid ruleId,
         string afterSnapshotJson,
         Guid actorUserId,
@@ -27,12 +27,12 @@ internal sealed class SerialRuleChangeApprovalApplier(
                 ErrorType.Validation));
         }
 
-        UpdateSerialNumberRuleRequest request;
+        ChangeSerialNumberRuleStatusRequest request;
         try
         {
             request = JsonSerializer.Deserialize(
                 afterSnapshotJson,
-                SerialNumbersJsonSerializerContext.Default.UpdateSerialNumberRuleRequest)!;
+                SerialNumbersJsonSerializerContext.Default.ChangeSerialNumberRuleStatusRequest)!;
         }
         catch (JsonException)
         {
@@ -50,10 +50,10 @@ internal sealed class SerialRuleChangeApprovalApplier(
                 ErrorType.Validation));
         }
 
-        var result = await ruleService.ApplyApprovedUpdateAsync(
+        var result = await ruleService.ApplyApprovedDisableAsync(
                 ruleId,
                 actorUserId,
-                request,
+                request.Version,
                 cancellationToken)
             .ConfigureAwait(false);
         if (result.IsSuccess ||
@@ -62,28 +62,12 @@ internal sealed class SerialRuleChangeApprovalApplier(
             return result;
         }
 
-        // 进程内缓存不能证明重放已应用；冲突后必须读取权威状态并逐字段核对批准快照。
         var current = await ruleService.GetAsync(ruleId, cancellationToken)
             .ConfigureAwait(false);
-        return current.IsSuccess && MatchesApprovedUpdate(current.Value!, request)
+        return current.IsSuccess &&
+               !current.Value!.IsEnabled &&
+               current.Value.Version >= request.Version
             ? current
             : result;
     }
-
-    /// <summary>判断权威规则是否已经等于批准快照，用于区分幂等重放与真实并发冲突。</summary>
-    /// <param name="current">当前权威规则。</param>
-    /// <param name="approved">审批通过的更新快照。</param>
-    /// <returns>所有可变业务字段一致时返回 <see langword="true"/>。</returns>
-    private static bool MatchesApprovedUpdate(
-        SerialNumberRuleResponse current,
-        UpdateSerialNumberRuleRequest approved) =>
-        string.Equals(current.DisplayName, approved.DisplayName, StringComparison.Ordinal) &&
-        string.Equals(current.Description, approved.Description, StringComparison.Ordinal) &&
-        current.Scope == approved.Scope &&
-        current.ResetInterval == approved.ResetInterval &&
-        string.Equals(current.Pattern, approved.Pattern, StringComparison.Ordinal) &&
-        current.MinimumValue == approved.MinimumValue &&
-        current.MaximumValue == approved.MaximumValue &&
-        current.DisplayOrder == approved.DisplayOrder &&
-        current.IsEnabled == approved.IsEnabled;
 }
