@@ -294,6 +294,7 @@ import type {
   ReturnWorkflowTodoRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
+  RollbackHostDocumentVersionRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
@@ -1965,6 +1966,30 @@ export async function documentHostRestoreRecycleBinItem(
   options?: RequestOptions
 ): Promise<HostDocumentItemResponse> {
   const path = `/api/v1/document/host/recycle-bin/${encodeURIComponent(String(parameters.id))}/restore`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentItemResponse(value);
+}
+
+export interface DocumentHostRollbackItemVersionParameters {
+  readonly itemId: string;
+  readonly versionId: string;
+  readonly body: RollbackHostDocumentVersionRequest;
+}
+
+export async function documentHostRollbackItemVersion(
+  http: HttpClient,
+  parameters: DocumentHostRollbackItemVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentItemResponse> {
+  const path = `/api/v1/document/host/items/${encodeURIComponent(String(parameters.itemId))}/versions/${encodeURIComponent(String(parameters.versionId))}/rollback`;
   const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

@@ -121,6 +121,18 @@
                                              "responseSchema":  "HostDocumentItemResponse"
                                          }
                                      ]
+                  },
+                  {
+                      "path":  "/api/v1/document/host/items/{itemId}/versions/{versionId}/rollback",
+                      "operations":  [
+                                         {
+                                             "method":  "POST",
+                                             "permission":  "document.host_documents.rollback_version",
+                                             "successStatus":  200,
+                                             "requestSchema":  "RollbackHostDocumentVersionRequest",
+                                             "responseSchema":  "HostDocumentItemResponse"
+                                         }
+                                     ]
                   }
               ],
     "schemas":  {
@@ -152,6 +164,11 @@
                                                                               "version"
                                                                           ]
                                                        },
+                    "RollbackHostDocumentVersionRequest":  {
+                                                               "properties":  [
+                                                                                  "version"
+                                                                              ]
+                                                           },
                     "HostDocumentVersionResponse":  {
                                                         "properties":  [
                                                                            "id",

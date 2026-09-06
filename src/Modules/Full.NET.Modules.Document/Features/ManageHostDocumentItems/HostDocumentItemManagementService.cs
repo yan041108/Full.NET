@@ -146,6 +146,34 @@ internal sealed class HostDocumentItemManagementService(
             cancellationToken);
     }
 
+    /// <summary>将当前版本指针切换到既有历史版本，不修改版本行也不触发 Files Claim。</summary>
+    /// <param name="itemId">目标文档项标识。</param>
+    /// <param name="versionId">要恢复为当前版本的历史版本标识。</param>
+    /// <param name="actorUserId">执行回滚的用户标识。</param>
+    /// <param name="request">携带文档项乐观并发版本的请求体。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    public Task<Result<HostDocumentItemResponse>> RollbackVersionAsync(
+        Guid itemId,
+        Guid versionId,
+        Guid actorUserId,
+        RollbackHostDocumentVersionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Version < 1)
+        {
+            return Task.FromResult(Invalid());
+        }
+
+        return transaction.ExecuteResultAsync(
+            token => RollbackVersionCoreAsync(
+                itemId,
+                versionId,
+                actorUserId,
+                request.Version,
+                token),
+            cancellationToken);
+    }
+
     private async Task<Result<HostDocumentItemResponse>> CreateCoreAsync(
         Guid actorUserId,
         CreateHostDocumentItemRequest request,
@@ -333,6 +361,56 @@ internal sealed class HostDocumentItemManagementService(
         return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<Result<HostDocumentItemResponse>> RollbackVersionCoreAsync(
+        Guid itemId,
+        Guid versionId,
+        Guid actorUserId,
+        long version,
+        CancellationToken cancellationToken)
+    {
+        var item = await FindActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+        if (item is null)
+        {
+            return NotFound();
+        }
+
+        if (item.CurrentVersionId == versionId)
+        {
+            return VersionAlreadyCurrent();
+        }
+
+        var targetVersion = await queryExecutor
+            .QuerySingleOrDefaultAsync<DocumentVersionRecord>(
+                DocumentItemSql.FindVersionById,
+                DocumentSqlParameters.Create(
+                    ("VersionId", versionId),
+                    ("DocumentItemId", itemId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (targetVersion is null)
+        {
+            return VersionNotFound();
+        }
+
+        var now = clock.UtcNow;
+        var affected = await commandExecutor.ExecuteAsync(
+                DocumentItemSql.SetCurrentVersion,
+                DocumentSqlParameters.Create(
+                    ("Id", itemId),
+                    ("CurrentVersionId", versionId),
+                    ("UpdatedAtUtc", now),
+                    ("UpdatedByUserId", actorUserId),
+                    ("Version", version)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (affected != 1)
+        {
+            return VersionConflict();
+        }
+
+        return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
+    }
+
     private Task<DocumentItemDetailRecord?> FindActiveAsync(
         Guid itemId,
         CancellationToken cancellationToken) =>
@@ -367,6 +445,18 @@ internal sealed class HostDocumentItemManagementService(
 
     private static Result<HostDocumentItemResponse> VersionConflict() =>
         Result<HostDocumentItemResponse>.Failure(VersionConflictError());
+
+    private static Result<HostDocumentItemResponse> VersionAlreadyCurrent() =>
+        Result<HostDocumentItemResponse>.Failure(new Error(
+            DocumentErrorCodes.VersionAlreadyCurrent,
+            "The selected version is already the current version.",
+            ErrorType.Conflict));
+
+    private static Result<HostDocumentItemResponse> VersionNotFound() =>
+        Result<HostDocumentItemResponse>.Failure(new Error(
+            DocumentErrorCodes.VersionNotFound,
+            "The document version was not found.",
+            ErrorType.NotFound));
 
     private static Result<HostDocumentItemResponse> InvalidFileReference() =>
         Result<HostDocumentItemResponse>.Failure(

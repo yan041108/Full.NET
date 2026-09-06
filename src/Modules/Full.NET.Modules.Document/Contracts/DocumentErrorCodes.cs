@@ -21,6 +21,12 @@ public static class DocumentErrorCodes
     /// <summary>乐观并发冲突：文档已被其他请求修改，请重新读取。</summary>
     public const string VersionConflict = "document.host_document.version_conflict";
 
+    /// <summary>目标历史版本已是当前版本，无需重复回滚。</summary>
+    public const string VersionAlreadyCurrent = "document.host_document.version_already_current";
+
+    /// <summary>目标历史版本不存在或不属于该文档项。</summary>
+    public const string VersionNotFound = "document.host_document.version_not_found";
+
     /// <summary>文档引用的文件标识不存在、未声明引用或属于其他租户。</summary>
     public const string InvalidFileReference = "document.host_document.invalid_file_reference";
 
@@ -123,6 +129,8 @@ public static class DocumentErrorCodes
         Invalid,
         NotFound,
         VersionConflict,
+        VersionAlreadyCurrent,
+        VersionNotFound,
         InvalidFileReference,
         NoCurrentVersion,
         PreviewNotSupported,

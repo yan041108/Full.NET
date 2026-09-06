@@ -169,6 +169,13 @@ public sealed record DeleteHostDocumentItemRequest(long Version);
 public sealed record RestoreHostDocumentItemRequest(long Version);
 
 /// <summary>
+/// 将文档当前版本指针回滚到既有历史版本的请求契约，使用乐观并发 Version 守卫。
+/// </summary>
+/// <param name="Version">文档项乐观并发版本号，必须等于当前行版本。</param>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record RollbackHostDocumentVersionRequest(long Version);
+
+/// <summary>
 /// 主机文档单个版本的响应契约，用于版本列表与当前版本引用。
 /// </summary>
 /// <param name="Id">版本行标识。</param>

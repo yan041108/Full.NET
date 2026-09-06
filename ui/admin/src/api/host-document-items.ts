@@ -8,6 +8,7 @@ import {
   documentHostPreviewItemContent,
   documentHostPreviewItemVersionContent,
   documentHostRestoreItem,
+  documentHostRollbackItemVersion,
   documentHostUpdateItem,
   documentHostUploadItemVersion,
   isHostDocumentItemPage,
@@ -203,6 +204,28 @@ export async function restoreDocumentItem(
     http,
     {
       itemId,
+      body: { version }
+    },
+    signal
+  );
+  if (!isHostDocumentItemResponse(value)) {
+    throw new Error('client.invalid_document_item');
+  }
+  return value;
+}
+
+/** 将文档当前版本指针回滚到既有历史版本。 */
+export async function rollbackDocumentVersion(
+  itemId: string,
+  versionId: string,
+  version: number,
+  signal?: AbortSignal
+): Promise<HostDocumentItemResponse> {
+  const value = await documentHostRollbackItemVersion(
+    http,
+    {
+      itemId,
+      versionId,
       body: { version }
     },
     signal

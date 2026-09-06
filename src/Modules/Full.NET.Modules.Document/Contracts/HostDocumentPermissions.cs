@@ -25,6 +25,9 @@ public static class HostDocumentPermissions
 
     /// <summary>允许从回收站恢复软删除的主机文档。</summary>
     public const string Restore = "document.host_documents.restore";
+
+    /// <summary>允许将当前版本指针回滚到既有历史版本，不删除版本行也不重新上传文件。</summary>
+    public const string RollbackVersion = "document.host_documents.rollback_version";
 }
 
 /// <summary>

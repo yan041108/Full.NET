@@ -2363,6 +2363,10 @@ export interface RevokeSuperAdministratorRequest {
   readonly totpCode?: null | string;
 }
 
+export interface RollbackHostDocumentVersionRequest {
+  readonly version: number;
+}
+
 export interface SendHostInboxMessageRequest {
   readonly content: string;
   readonly recipientUserId: string;

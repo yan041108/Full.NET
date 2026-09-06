@@ -47,6 +47,7 @@ internal static class DocumentHostItemAssertions
                 HostDocumentPermissions.Download,
                 HostDocumentPermissions.Delete,
                 HostDocumentPermissions.Restore,
+                HostDocumentPermissions.RollbackVersion,
             ],
             cancellationToken);
 
@@ -66,6 +67,7 @@ internal static class DocumentHostItemAssertions
             withVersion,
             cancellationToken);
         await VerifyInvalidFileReferenceAsync(client, writer.AccessToken, created.Id, cancellationToken);
+        await VerifyRollbackVersionAsync(client, writer.AccessToken, cancellationToken);
         await VerifyDeleteAndRestoreAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await VerifyVersionsAndPreviewAsync(client, writer.AccessToken, withVersion, cancellationToken);
         await OpenApiDocumentHostItemsContractAssertions.VerifyAsync(client, cancellationToken);
@@ -319,6 +321,96 @@ internal static class DocumentHostItemAssertions
         Assert.AreEqual(
             DocumentErrorCodes.InvalidFileReference,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyRollbackVersionAsync(
+        HttpClient client,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        var created = await CreateItemAsync(
+            client,
+            token,
+            cancellationToken,
+            $"rollback-{Guid.NewGuid():N}",
+            "rollback slice");
+        var firstPayload = Encoding.UTF8.GetBytes($"v1-{Guid.NewGuid():N}");
+        var firstVersion = await UploadVersionWithPayloadAsync(
+            client,
+            token,
+            created.Id,
+            firstPayload,
+            "v1.txt",
+            cancellationToken);
+        var firstVersionId = firstVersion.CurrentVersion!.Id;
+        var secondPayload = Encoding.UTF8.GetBytes($"v2-{Guid.NewGuid():N}");
+        var secondVersion = await UploadVersionWithPayloadAsync(
+            client,
+            token,
+            created.Id,
+            secondPayload,
+            "v2.txt",
+            cancellationToken);
+
+        using (var rollbackResponse = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       $"{ItemsPath}/{created.Id:D}/versions/{firstVersionId:D}/rollback",
+                       token,
+                       new RollbackHostDocumentVersionRequest(secondVersion.Version)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, rollbackResponse.StatusCode);
+            var rolledBack = await rollbackResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>(
+                cancellationToken);
+            Assert.IsNotNull(rolledBack);
+            Assert.AreEqual(firstVersionId, rolledBack.CurrentVersion!.Id);
+            Assert.AreEqual(1, rolledBack.CurrentVersion.VersionNumber);
+            Assert.AreEqual(
+                Convert.ToHexString(SHA256.HashData(firstPayload)).ToLowerInvariant(),
+                rolledBack.CurrentVersion.ContentHash);
+
+            using var conflictResponse = await client.SendAsync(
+                AuthorizedJson(
+                    HttpMethod.Post,
+                    $"{ItemsPath}/{created.Id:D}/versions/{firstVersionId:D}/rollback",
+                    token,
+                    new RollbackHostDocumentVersionRequest(rolledBack.Version)),
+                cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Conflict, conflictResponse.StatusCode);
+            using var conflictProblem = JsonDocument.Parse(
+                await conflictResponse.Content.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(
+                DocumentErrorCodes.VersionAlreadyCurrent,
+                conflictProblem.RootElement.GetProperty("code").GetString());
+        }
+    }
+
+    private static async Task<HostDocumentItemResponse> UploadVersionWithPayloadAsync(
+        HttpClient client,
+        string token,
+        Guid itemId,
+        byte[] payload,
+        string fileName,
+        CancellationToken cancellationToken)
+    {
+        using var uploadContent = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(payload);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadContent.Add(fileContent, "file", fileName);
+        using var uploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{ItemsPath}/{itemId:D}/versions/upload")
+        {
+            Content = uploadContent,
+        };
+        uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, uploadResponse.StatusCode);
+        var updated = await uploadResponse.Content.ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken);
+        Assert.IsNotNull(updated);
+        Assert.IsNotNull(updated.CurrentVersion);
+        return updated;
     }
 
     private static async Task VerifyDeleteAndRestoreAsync(

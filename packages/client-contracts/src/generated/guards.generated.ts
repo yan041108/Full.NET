@@ -293,6 +293,7 @@ import type {
   ReturnWorkflowTodoRequest,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
+  RollbackHostDocumentVersionRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
@@ -3588,6 +3589,17 @@ export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuper
 
 function isRevokeSuperAdministratorRequest(value: unknown): value is RevokeSuperAdministratorRequest {
   return isRecord(value) && (typeof value["currentPassword"] === 'string') && (value["totpCode"] === undefined || ((value["totpCode"] === null) || (typeof value["totpCode"] === 'string')));
+}
+
+export function readRollbackHostDocumentVersionRequest(value: unknown): RollbackHostDocumentVersionRequest {
+  if (!(isRollbackHostDocumentVersionRequest(value))) {
+    throw new Error('client.invalid_rollback_host_document_version_request');
+  }
+  return value;
+}
+
+function isRollbackHostDocumentVersionRequest(value: unknown): value is RollbackHostDocumentVersionRequest {
+  return isRecord(value) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
 }
 
 export function readSendHostInboxMessageRequest(value: unknown): SendHostInboxMessageRequest {

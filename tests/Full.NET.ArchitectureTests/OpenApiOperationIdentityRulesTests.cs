@@ -532,6 +532,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/document/host/items/{itemId}/versions/{versionId}/preview", "documentHostPreviewItemVersionContent", DocumentHostItemsTag),
         new("POST", "/api/v1/document/host/items/{itemId}/delete", "documentHostDeleteItem", DocumentHostItemsTag),
         new("POST", "/api/v1/document/host/items/{itemId}/restore", "documentHostRestoreItem", DocumentHostItemsTag),
+        new("POST", "/api/v1/document/host/items/{itemId}/versions/{versionId}/rollback", "documentHostRollbackItemVersion", DocumentHostItemsTag),
         new("GET", "/api/v1/document/host/tags", "documentHostListTags", DocumentHostTagsTag),
         new("POST", "/api/v1/document/host/tags", "documentHostCreateTag", DocumentHostTagsTag),
         new("PUT", "/api/v1/document/host/tags/{tagId}", "documentHostUpdateTag", DocumentHostTagsTag),
