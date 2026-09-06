@@ -46,6 +46,8 @@ export interface IdentitySessionController {
   changeLocale(locale: SupportedLocale): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
   logout(): Promise<void>;
+  /** 在服务端已撤销会话时仅清理本地凭据，不再调用 Logout 端点。 */
+  invalidateLocalSession(): void;
   can(permission: string): boolean;
   readAccessToken(): string | undefined;
   snapshot(): IdentitySessionSnapshot;
@@ -388,6 +390,11 @@ export function createIdentitySession(
     }
   }
 
+  function invalidateLocalSession(): void {
+    clearLocal();
+    sessionRefreshCoordinator?.notifySessionCleared();
+  }
+
   async function loadAuthenticatedSnapshot(
     operationGeneration: number
   ): Promise<boolean> {
@@ -513,6 +520,7 @@ export function createIdentitySession(
     changeLocale,
     changePassword,
     logout,
+    invalidateLocalSession,
     can,
     readAccessToken,
     snapshot,

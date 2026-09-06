@@ -43,7 +43,14 @@ const session = useSessionStore();
 const notificationsRealtime = createVueNotificationsRealtime({
   session,
   enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false',
-  hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications')
+  hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications'),
+  onSessionRevoked(sessionId) {
+    const currentSessionId = session.currentUser?.sessionId;
+    if (currentSessionId === undefined || currentSessionId === sessionId) {
+      session.invalidateLocalSession();
+      void router.replace('/login');
+    }
+  }
 });
 provide(notificationsRealtimeKey, notificationsRealtime);
 const pageCacheVersions = ref<Record<string, number>>({});

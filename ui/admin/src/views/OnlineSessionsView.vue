@@ -12,7 +12,7 @@ import {
 import PermissionGate from '../components/PermissionGate.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { listHostOnlineSessions, revokeHostOnlineSession } from '../api/online-sessions';
+import { listHostOnlineSessions, revokeAllHostUserOnlineSessions, revokeHostOnlineSession, getHostSessionPolicy, type IdentitySessionLoginPolicy } from '../api/online-sessions';
 
 defineOptions({ name: 'OnlineSessionsView' });
 
@@ -23,6 +23,7 @@ interface AppliedFilters {
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const items = ref<HostOnlineSession[]>([]);
+const loginPolicy = ref<IdentitySessionLoginPolicy>('AllowMultiple');
 const loading = ref(false);
 const changing = ref(false);
 const problem = ref<FullNetProblemDetails>();
@@ -54,6 +55,11 @@ const filteredItems = computed(() => {
 
 const { page, pageSize, total, pagedItems, resetPage } = useArtClientPagination(filteredItems);
 
+const sessionPolicyHint = computed(() =>
+  loginPolicy.value === 'SingleSession'
+    ? t('onlineSessions.policySingleSession')
+    : t('onlineSessions.policyAllowMultiple'));
+
 const searchItems = computed<ArtSearchBarItem[]>(() => [
   {
     key: 'username',
@@ -76,8 +82,12 @@ async function load(): Promise<void> {
   loading.value = true;
   problem.value = undefined;
   try {
-    const pageResult = await listHostOnlineSessions();
+    const [pageResult, policy] = await Promise.all([
+      listHostOnlineSessions(),
+      getHostSessionPolicy()
+    ]);
     items.value = pageResult.items;
+    loginPolicy.value = policy.loginPolicy;
     await nextTick(updateTableHeight);
   } catch (error: unknown) {
     problem.value = toProblem(error);
@@ -94,6 +104,34 @@ function handleSearch(params: Record<string, string | undefined>): void {
 function resetSearch(): void {
   appliedFilters.value = { username: '' };
   resetPage();
+}
+
+async function revokeAll(item: HostOnlineSession): Promise<void> {
+  if (changing.value || !session.can('identity.sessions.revoke')) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('onlineSessions.confirmRevokeAll', { name: item.username }),
+      t('onlineSessions.revokeAll'),
+      {
+        type: 'warning',
+        confirmButtonText: t('onlineSessions.revokeAll'),
+        cancelButtonText: t('status.back')
+      }
+    );
+    changing.value = true;
+    await revokeAllHostUserOnlineSessions(item.userId);
+    ElMessage.success(t('onlineSessions.revokeAllSuccess'));
+    await load();
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    problem.value = toProblem(error, 'onlineSessions.operationFailed');
+  } finally {
+    changing.value = false;
+  }
 }
 
 async function revoke(item: HostOnlineSession): Promise<void> {
@@ -143,6 +181,8 @@ function toProblem(
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <p class="online-sessions-policy-hint">{{ sessionPolicyHint }}</p>
 
     <ArtSearchBar
       v-model="searchForm"
@@ -202,11 +242,26 @@ function toProblem(
 
             <el-table-column :label="t('onlineSessions.expiresAt')" min-width="180" prop="expiresAtUtc" />
 
-            <el-table-column :label="t('users.columnActions')" width="120" fixed="right" align="center">
+            <el-table-column :label="t('users.columnActions')" width="220" fixed="right" align="center">
               <template #default="{ row }">
                 <PermissionGate code="identity.sessions.revoke">
-              <el-button type="danger" plain size="small" :disabled="changing" @click="revoke(row as HostOnlineSession)">
+                  <el-button
+                    type="danger"
+                    plain
+                    size="small"
+                    :disabled="changing"
+                    @click="revoke(row as HostOnlineSession)"
+                  >
                     {{ t('onlineSessions.revoke') }}
+                  </el-button>
+                  <el-button
+                    type="warning"
+                    plain
+                    size="small"
+                    :disabled="changing"
+                    @click="revokeAll(row as HostOnlineSession)"
+                  >
+                    {{ t('onlineSessions.revokeAll') }}
                   </el-button>
                 </PermissionGate>
               </template>
@@ -244,5 +299,11 @@ function toProblem(
   flex: 1;
   flex-direction: column;
   min-height: 0;
+}
+
+.online-sessions-policy-hint {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 </style>

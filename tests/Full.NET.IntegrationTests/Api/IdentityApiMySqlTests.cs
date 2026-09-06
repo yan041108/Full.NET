@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Identity;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
@@ -114,6 +115,20 @@ public sealed class IdentityApiMySqlTests
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
 
         await IdentityOnlineSessionAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Single_session_policy_revokes_previous_login_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Identity:SessionLoginPolicy"] = nameof(IdentitySessionLoginPolicy.SingleSession),
+            });
+
+        await IdentityOnlineSessionAssertions.VerifySingleSessionPolicyAsync(factory);
     }
 
     [TestMethod]

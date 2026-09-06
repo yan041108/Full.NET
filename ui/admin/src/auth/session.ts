@@ -99,6 +99,11 @@ export const useSessionStore = defineStore('identity-session', () => {
     await getController().logout();
   }
 
+  /** 在服务端已撤销当前会话时仅清理本地状态，不再调用 Logout 端点。 */
+  function invalidateLocalSession(): void {
+    getController().invalidateLocalSession();
+  }
+
   /** 返回当前会话快照，供外部订阅者一次性读取一致视图。 */
   function snapshot(): IdentitySessionSnapshot {
     return {
@@ -154,6 +159,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     changeLocale,
     changePassword,
     logout,
+    invalidateLocalSession,
     snapshot,
     subscribe,
     readAccessToken

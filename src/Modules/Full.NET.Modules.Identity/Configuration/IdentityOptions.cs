@@ -1,3 +1,5 @@
+using Full.NET.Modules.Identity.Contracts;
+
 namespace Full.NET.Modules.Identity.Configuration;
 
 /// <summary>
@@ -84,6 +86,12 @@ internal sealed class IdentityOptions
 
     /// <summary>密码到期天数；0 表示不启用到期强制改密。</summary>
     public int PasswordExpirationDays { get; set; }
+
+    /// <summary>
+    /// 登录会话并发策略；<see cref="IdentitySessionLoginPolicy.SingleSession"/> 会在成功登录后撤销同一用户的其他活跃会话。
+    /// </summary>
+    public IdentitySessionLoginPolicy SessionLoginPolicy { get; set; } =
+        IdentitySessionLoginPolicy.AllowMultiple;
 }
 
 /// <summary>

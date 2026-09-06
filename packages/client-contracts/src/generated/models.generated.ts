@@ -104,6 +104,43 @@ export interface BeginTotpEnrollmentResponse {
   readonly sharedSecretBase32: string;
 }
 
+export interface CacheInvalidationOperationSummary {
+  readonly displayName: string;
+  readonly operationKey: string;
+  readonly parameters: Array<CacheInvalidationParameterSummary>;
+}
+
+export interface CacheInvalidationParameterSummary {
+  readonly name: string;
+  readonly required: boolean;
+  readonly valueType: string;
+}
+
+export interface CacheInvalidationRequest {
+  readonly operationKey: string;
+  readonly parameters?: Readonly<Record<string, unknown>>;
+  readonly scope?: string | null;
+}
+
+export interface CacheInvalidationResult {
+  readonly entryName: string;
+  readonly invalidatedTargets: Array<string>;
+  readonly operationKey: string;
+  readonly scope: string;
+}
+
+export interface CachePolicySummary {
+  readonly accessKind: string;
+  readonly canInvalidate: boolean;
+  readonly consistencyClass: string;
+  readonly entryName: string;
+  readonly invalidationOperations: Array<CacheInvalidationOperationSummary>;
+  readonly l1DurationSeconds?: number | null;
+  readonly l2DurationSeconds?: number | null;
+  readonly ownerModule: string;
+  readonly requiresDirectInvalidation: boolean;
+}
+
 export interface CancelDataApprovalRequestBody {
   readonly idempotencyKey: string;
 }
@@ -1297,6 +1334,12 @@ export interface HttpJobSecretHeaderRef {
   readonly configKey: string;
 }
 
+export type IdentitySessionLoginPolicy = "AllowMultiple" | "SingleSession";
+
+export interface IdentitySessionPolicyResponse {
+  readonly loginPolicy: IdentitySessionLoginPolicy;
+}
+
 export type IFormFile = Blob;
 
 export interface ImportHostUserRowResult {
@@ -2024,6 +2067,13 @@ export interface ReturnWorkflowTodoRequest {
   readonly fieldPatch: JsonElement;
   readonly idempotencyKey: string;
   readonly targetStepId: string;
+}
+
+export interface RevokeAllHostUserSessionsResponse {
+  readonly displayName: string;
+  readonly revokedSessionCount: number;
+  readonly userId: string;
+  readonly username: string;
 }
 
 export interface RevokeSuperAdministratorRequest {

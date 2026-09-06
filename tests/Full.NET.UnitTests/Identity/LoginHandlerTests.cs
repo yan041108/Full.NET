@@ -2,8 +2,10 @@ using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.Login;
+using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
@@ -102,6 +104,49 @@ public sealed class LoginHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    [TestMethod]
+    public async Task Single_session_policy_revokes_other_sessions_after_login()
+    {
+        var previousSessionId = Guid.Parse("01981a75-f500-7000-8000-000000000099");
+        var fixture = new Fixture();
+        fixture.ReturnUser();
+        fixture.Handler = new Handler(
+            fixture.QueryExecutor,
+            fixture.CommandExecutor,
+            fixture.PasswordHasher,
+            new FixedClock(),
+            new QueueIdGenerator(SessionId, FamilyId, AuditId),
+            fixture.PermissionSnapshotReader,
+            fixture.AccessTokenIssuer,
+            new QueueTokenGenerator("refresh-token", "csrf-token"),
+            Options.Create(new IdentityOptions
+            {
+                AllowDevelopmentEphemeralSigningKey = true,
+                SessionLoginPolicy = IdentitySessionLoginPolicy.SingleSession,
+            }),
+            fixture.SessionRealtimeDelivery);
+        fixture.QueryExecutor
+            .QueryAsync<Guid>(
+                OnlineSessionSql.ListActiveHostSessionIdsByUserExcept,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns([previousSessionId]);
+
+        var result = await fixture.Handler.HandleAsync(CreateCommand(), default);
+
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.CommandExecutor.Received(1).ExecuteAsync(
+            IdentitySql.RevokeUserSessionsExcept,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+        await fixture.RealtimePublisher.Received(1).PublishToUserAsync(
+            UserId,
+            Arg.Is<Full.NET.Realtime.RealtimeMessage>(message =>
+                message != null
+                && message.Code == Full.NET.Realtime.RealtimeMessageCodes.SessionRevoked),
+            Arg.Any<CancellationToken>());
+    }
+
     private static Command CreateCommand(string password = Password) => new(
         " admin ",
         password,
@@ -116,6 +161,7 @@ public sealed class LoginHandlerTests
             Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser>?
                 passwordHasher = null)
         {
+            PasswordHasher = passwordHasher ?? new Microsoft.AspNetCore.Identity.PasswordHasher<IdentityUser>();
             QueryExecutor = Substitute.For<IQueryExecutor>();
             CommandExecutor = Substitute.For<ICommandExecutor>();
             CommandExecutor.ExecuteAsync(
@@ -126,6 +172,8 @@ public sealed class LoginHandlerTests
             PermissionSnapshotReader = new StubPermissionSnapshotReader(
                 ["platform.dashboard.read", "tenancy.tenants.read"]);
             AccessTokenIssuer = new StubAccessTokenIssuer();
+            RealtimePublisher = Substitute.For<Full.NET.Realtime.IRealtimePublisher>();
+            SessionRealtimeDelivery = new IdentitySessionRealtimeDelivery(RealtimePublisher);
             Handler = new Handler(
                 QueryExecutor,
                 CommandExecutor,
@@ -138,8 +186,15 @@ public sealed class LoginHandlerTests
                 Options.Create(new IdentityOptions
                 {
                     AllowDevelopmentEphemeralSigningKey = true,
-                }));
+                }),
+                SessionRealtimeDelivery);
         }
+
+        public IdentitySessionRealtimeDelivery SessionRealtimeDelivery { get; }
+
+        public Full.NET.Realtime.IRealtimePublisher RealtimePublisher { get; }
+
+        public Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> PasswordHasher { get; }
 
         public IQueryExecutor QueryExecutor { get; }
 
@@ -149,7 +204,7 @@ public sealed class LoginHandlerTests
 
         public StubAccessTokenIssuer AccessTokenIssuer { get; }
 
-        public Handler Handler { get; }
+        public Handler Handler { get; set; }
 
         public void ReturnUser(int failedLoginCount = 0)
         {
@@ -168,7 +223,7 @@ public sealed class LoginHandlerTests
                 Now.AddDays(-1),
                 null,
                 1);
-            var passwordHash = _passwordHasher.HashPassword(user, Password);
+            var passwordHash = PasswordHasher.HashPassword(user, Password);
             QueryExecutor
                 .QuerySingleOrDefaultAsync<IdentityUserRecord>(
                     Arg.Any<SqlStatement>(),

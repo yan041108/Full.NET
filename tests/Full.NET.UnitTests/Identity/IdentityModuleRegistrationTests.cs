@@ -437,6 +437,10 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostOnlineSessionManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentitySessionPolicyQueryService>(
+            ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentitySessionRealtimeDelivery>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostApiKeyQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostApiKeyManagementService>(
             ServiceLifetime.Scoped),

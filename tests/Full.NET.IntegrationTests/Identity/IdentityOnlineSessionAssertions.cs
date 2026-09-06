@@ -22,7 +22,9 @@ internal static class IdentityOnlineSessionAssertions
 
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyRevokeInvalidatesAccessTokenAsync(client, cancellationToken);
+        await VerifyRevokeAllOnlyTargetsRequestedUserAsync(client, cancellationToken);
         await VerifyExactSessionRevokePermissionBoundariesAsync(factory, client, cancellationToken);
+        await VerifySessionPolicyRequiresReadPermissionAsync(factory, client, cancellationToken);
         await OpenApiIdentityOnlineSessionsContractAssertions.VerifyAsync(
             client,
             cancellationToken);
@@ -116,6 +118,113 @@ internal static class IdentityOnlineSessionAssertions
         Assert.AreEqual(
             IdentityErrorCodes.SessionNotActive,
             problem.RootElement.GetProperty("code").GetString());
+    }
+
+    public static async Task VerifySingleSessionPolicyAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken = default)
+    {
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClientForHost("localhost");
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"single-{Guid.NewGuid():N}";
+        var password = Api.FullNetApiFactory.TestPassword;
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(username, "单端测试", password));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var firstToken = await LoginAsync(client, username, password, cancellationToken);
+        var secondToken = await LoginAsync(client, username, password, cancellationToken);
+
+        using var firstMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        firstMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", firstToken);
+        using var firstMeResponse = await client.SendAsync(firstMeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, firstMeResponse.StatusCode);
+
+        using var secondMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        secondMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secondToken);
+        using var secondMeResponse = await client.SendAsync(secondMeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondMeResponse.StatusCode);
+    }
+
+    private static async Task VerifyRevokeAllOnlyTargetsRequestedUserAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var firstUsername = $"revoke-all-a-{Guid.NewGuid():N}";
+        var secondUsername = $"revoke-all-b-{Guid.NewGuid():N}";
+        var password = Api.FullNetApiFactory.TestPassword;
+
+        foreach (var username in new[] { firstUsername, secondUsername })
+        {
+            using var createRequest = CreateBearerJsonRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/users",
+                adminToken,
+                new CreateHostUserRequest(username, "批量下线", password));
+            using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+            await LoginAsync(client, username, password, cancellationToken);
+        }
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/online-sessions?page=1&pageSize=50&usernameContains={firstUsername}");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        var page = await listResponse.Content
+            .ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
+        Assert.IsNotNull(page);
+        var targetUserId = page.Items.Single(item => item.Username == firstUsername).UserId;
+
+        using var revokeAllRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/online-sessions/users/{targetUserId:D}/revoke-all",
+            adminToken,
+            new { });
+        using var revokeAllResponse = await client.SendAsync(revokeAllRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, revokeAllResponse.StatusCode);
+        var revokeAllResult = await revokeAllResponse.Content
+            .ReadFromJsonAsync<RevokeAllHostUserSessionsResponse>(cancellationToken);
+        Assert.IsNotNull(revokeAllResult);
+        Assert.AreEqual(1, revokeAllResult.RevokedSessionCount);
+
+        using var secondListRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/online-sessions?page=1&pageSize=50&usernameContains={secondUsername}");
+        secondListRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var secondListResponse = await client.SendAsync(secondListRequest, cancellationToken);
+        var secondPage = await secondListResponse.Content
+            .ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
+        Assert.IsNotNull(secondPage);
+        Assert.AreEqual(1, secondPage.Total);
+    }
+
+    private static async Task VerifySessionPolicyRequiresReadPermissionAsync(
+        FullNetApiFactory factory,
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "/api/v1/identity/session-policy");
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            await factory.CreateHostAccessTokenAsync(
+                [IdentitySessionManagementPermissions.Read],
+                cancellationToken));
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var policy = await response.Content.ReadFromJsonAsync<IdentitySessionPolicyResponse>(
+            cancellationToken);
+        Assert.IsNotNull(policy);
+        Assert.AreEqual(IdentitySessionLoginPolicy.AllowMultiple, policy.LoginPolicy);
     }
 
     private static async Task VerifyExactSessionRevokePermissionBoundariesAsync(

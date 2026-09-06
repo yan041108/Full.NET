@@ -13,13 +13,18 @@ internal static class OnlineSessionSql
           AND identityUser.TenantId IS NULL
         """;
 
+    private const string ActiveSessionListPredicate = $"""
+        {ActiveSessionPredicate}
+          AND (@UserId IS NULL OR session.UserId = @UserId)
+        """;
+
     public static readonly SqlStatement CountActiveHostSessionsSqlServer = new(
         "identity.count_active_host_online_sessions.sql_server",
         $"""
         SELECT COUNT(1)
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
-        WHERE {ActiveSessionPredicate}
+        WHERE {ActiveSessionListPredicate}
           AND (@UsernameContains IS NULL OR identityUser.Username LIKE '%' + @UsernameContains + '%')
         """,
         SqlDataScope.HostOnly);
@@ -30,7 +35,7 @@ internal static class OnlineSessionSql
         SELECT COUNT(1)
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
-        WHERE {ActiveSessionPredicate}
+        WHERE {ActiveSessionListPredicate}
           AND (@UsernameContains IS NULL OR identityUser.Username LIKE CONCAT('%', @UsernameContains, '%'))
         """,
         SqlDataScope.HostOnly);
@@ -48,7 +53,7 @@ internal static class OnlineSessionSql
                session.ExpiresAtUtc
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
-        WHERE {ActiveSessionPredicate}
+        WHERE {ActiveSessionListPredicate}
           AND (@UsernameContains IS NULL OR identityUser.Username LIKE '%' + @UsernameContains + '%')
         ORDER BY session.CreatedAtUtc DESC, session.Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
@@ -68,7 +73,7 @@ internal static class OnlineSessionSql
                session.ExpiresAtUtc
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
-        WHERE {ActiveSessionPredicate}
+        WHERE {ActiveSessionListPredicate}
           AND (@UsernameContains IS NULL OR identityUser.Username LIKE CONCAT('%', @UsernameContains, '%'))
         ORDER BY session.CreatedAtUtc DESC, session.Id DESC
         LIMIT @PageSize OFFSET @Offset
@@ -90,6 +95,18 @@ internal static class OnlineSessionSql
         FROM fn_identity_refresh_session AS session
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
         WHERE session.Id = @SessionId
+          AND {ActiveSessionPredicate}
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListActiveHostSessionIdsByUserExcept = new(
+        "identity.list_active_host_online_session_ids_by_user_except",
+        $"""
+        SELECT session.Id
+        FROM fn_identity_refresh_session AS session
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
+        WHERE session.UserId = @UserId
+          AND session.Id <> @ExceptSessionId
           AND {ActiveSessionPredicate}
         """,
         SqlDataScope.HostOnly);

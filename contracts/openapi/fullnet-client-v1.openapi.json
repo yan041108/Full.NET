@@ -6018,6 +6018,123 @@
         ]
       }
     },
+    "/api/v1/identity/session-policy": {
+      "get": {
+        "operationId": "identityGetHostSessionPolicy",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionPolicyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostOnlineSessions"
+        ]
+      }
+    },
+    "/api/v1/identity/online-sessions/users/{userId}/revoke-all": {
+      "post": {
+        "operationId": "identityRevokeAllHostUserOnlineSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeAllHostUserSessionsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "IdentityHostOnlineSessions"
+        ]
+      }
+    },
     "/api/v1/identity/online-sessions": {
       "get": {
         "operationId": "identityListHostOnlineSessions",
@@ -6050,6 +6167,14 @@
             "in": "query",
             "name": "usernameContains",
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -30593,6 +30718,49 @@
           "created",
           "skipped",
           "reparented"
+        ],
+        "type": "object"
+      },
+      "IdentitySessionLoginPolicy": {
+        "enum": [
+          "AllowMultiple",
+          "SingleSession"
+        ],
+        "type": "string"
+      },
+      "IdentitySessionPolicyResponse": {
+        "properties": {
+          "loginPolicy": {
+            "$ref": "#/components/schemas/IdentitySessionLoginPolicy"
+          }
+        },
+        "required": [
+          "loginPolicy"
+        ],
+        "type": "object"
+      },
+      "RevokeAllHostUserSessionsResponse": {
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "revokedSessionCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "userId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "displayName",
+          "revokedSessionCount"
         ],
         "type": "object"
       },

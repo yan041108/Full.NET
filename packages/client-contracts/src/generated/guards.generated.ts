@@ -19,6 +19,11 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CacheInvalidationOperationSummary,
+  CacheInvalidationParameterSummary,
+  CacheInvalidationRequest,
+  CacheInvalidationResult,
+  CachePolicySummary,
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
@@ -154,6 +159,8 @@ import type {
   HostUserRolesResponse,
   HttpJobArgs,
   HttpJobSecretHeaderRef,
+  IdentitySessionLoginPolicy,
+  IdentitySessionPolicyResponse,
   IFormFile,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
@@ -251,6 +258,7 @@ import type {
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
   ReturnWorkflowTodoRequest,
+  RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -524,6 +532,61 @@ export function readBeginTotpEnrollmentResponse(value: unknown): BeginTotpEnroll
 
 function isBeginTotpEnrollmentResponse(value: unknown): value is BeginTotpEnrollmentResponse {
   return isRecord(value) && (typeof value["otpAuthUri"] === 'string') && (typeof value["sharedSecretBase32"] === 'string');
+}
+
+export function readCacheInvalidationOperationSummary(value: unknown): CacheInvalidationOperationSummary {
+  if (!(isCacheInvalidationOperationSummary(value))) {
+    throw new Error('client.invalid_cache_invalidation_operation_summary');
+  }
+  return value;
+}
+
+function isCacheInvalidationOperationSummary(value: unknown): value is CacheInvalidationOperationSummary {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["operationKey"] === 'string') && (Array.isArray(value["parameters"]) && value["parameters"].every(item19 => isCacheInvalidationParameterSummary(item19)));
+}
+
+export function readCacheInvalidationParameterSummary(value: unknown): CacheInvalidationParameterSummary {
+  if (!(isCacheInvalidationParameterSummary(value))) {
+    throw new Error('client.invalid_cache_invalidation_parameter_summary');
+  }
+  return value;
+}
+
+function isCacheInvalidationParameterSummary(value: unknown): value is CacheInvalidationParameterSummary {
+  return isRecord(value) && (typeof value["name"] === 'string') && (typeof value["required"] === 'boolean') && (typeof value["valueType"] === 'string');
+}
+
+export function readCacheInvalidationRequest(value: unknown): CacheInvalidationRequest {
+  if (!(isCacheInvalidationRequest(value))) {
+    throw new Error('client.invalid_cache_invalidation_request');
+  }
+  return value;
+}
+
+function isCacheInvalidationRequest(value: unknown): value is CacheInvalidationRequest {
+  return isRecord(value) && (typeof value["operationKey"] === 'string') && (value["parameters"] === undefined || (isRecord(value["parameters"]))) && (value["scope"] === undefined || ((typeof value["scope"] === 'string') || (value["scope"] === null)));
+}
+
+export function readCacheInvalidationResult(value: unknown): CacheInvalidationResult {
+  if (!(isCacheInvalidationResult(value))) {
+    throw new Error('client.invalid_cache_invalidation_result');
+  }
+  return value;
+}
+
+function isCacheInvalidationResult(value: unknown): value is CacheInvalidationResult {
+  return isRecord(value) && (typeof value["entryName"] === 'string') && (Array.isArray(value["invalidatedTargets"]) && value["invalidatedTargets"].every(item27 => typeof item27 === 'string')) && (typeof value["operationKey"] === 'string') && (typeof value["scope"] === 'string');
+}
+
+export function readCachePolicySummary(value: unknown): CachePolicySummary {
+  if (!(isCachePolicySummary(value))) {
+    throw new Error('client.invalid_cache_policy_summary');
+  }
+  return value;
+}
+
+function isCachePolicySummary(value: unknown): value is CachePolicySummary {
+  return isRecord(value) && (typeof value["accessKind"] === 'string') && (typeof value["canInvalidate"] === 'boolean') && (typeof value["consistencyClass"] === 'string') && (typeof value["entryName"] === 'string') && (Array.isArray(value["invalidationOperations"]) && value["invalidationOperations"].every(item31 => isCacheInvalidationOperationSummary(item31))) && (value["l1DurationSeconds"] === undefined || ((typeof value["l1DurationSeconds"] === 'number' && Number.isInteger(value["l1DurationSeconds"])) || (value["l1DurationSeconds"] === null))) && (value["l2DurationSeconds"] === undefined || ((typeof value["l2DurationSeconds"] === 'number' && Number.isInteger(value["l2DurationSeconds"])) || (value["l2DurationSeconds"] === null))) && (typeof value["ownerModule"] === 'string') && (typeof value["requiresDirectInvalidation"] === 'boolean');
 }
 
 export function readCancelDataApprovalRequestBody(value: unknown): CancelDataApprovalRequestBody {
@@ -2011,6 +2074,28 @@ function isHttpJobSecretHeaderRef(value: unknown): value is HttpJobSecretHeaderR
   return isRecord(value) && (typeof value["configKey"] === 'string');
 }
 
+export function readIdentitySessionLoginPolicy(value: unknown): IdentitySessionLoginPolicy {
+  if (!(isIdentitySessionLoginPolicy(value))) {
+    throw new Error('client.invalid_identity_session_login_policy');
+  }
+  return value;
+}
+
+function isIdentitySessionLoginPolicy(value: unknown): value is IdentitySessionLoginPolicy {
+  return typeof value === 'string' && ["AllowMultiple", "SingleSession"].includes(value);
+}
+
+export function readIdentitySessionPolicyResponse(value: unknown): IdentitySessionPolicyResponse {
+  if (!(isIdentitySessionPolicyResponse(value))) {
+    throw new Error('client.invalid_identity_session_policy_response');
+  }
+  return value;
+}
+
+function isIdentitySessionPolicyResponse(value: unknown): value is IdentitySessionPolicyResponse {
+  return isRecord(value) && (isIdentitySessionLoginPolicy(value["loginPolicy"]));
+}
+
 export function readIFormFile(value: unknown): IFormFile {
   if (!(isIFormFile(value))) {
     throw new Error('client.invalid_iform_file');
@@ -3076,6 +3161,17 @@ export function readReturnWorkflowTodoRequest(value: unknown): ReturnWorkflowTod
 
 function isReturnWorkflowTodoRequest(value: unknown): value is ReturnWorkflowTodoRequest {
   return isRecord(value) && (typeof value["comment"] === 'string') && (typeof value["expectedRevision"] === 'number' && Number.isInteger(value["expectedRevision"])) && (isJsonElement(value["fieldPatch"])) && (typeof value["idempotencyKey"] === 'string') && (typeof value["targetStepId"] === 'string' && guidPattern.test(value["targetStepId"]));
+}
+
+export function readRevokeAllHostUserSessionsResponse(value: unknown): RevokeAllHostUserSessionsResponse {
+  if (!(isRevokeAllHostUserSessionsResponse(value))) {
+    throw new Error('client.invalid_revoke_all_host_user_sessions_response');
+  }
+  return value;
+}
+
+function isRevokeAllHostUserSessionsResponse(value: unknown): value is RevokeAllHostUserSessionsResponse {
+  return isRecord(value) && (typeof value["displayName"] === 'string') && (typeof value["revokedSessionCount"] === 'number' && Number.isInteger(value["revokedSessionCount"])) && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"])) && (typeof value["username"] === 'string');
 }
 
 export function readRevokeSuperAdministratorRequest(value: unknown): RevokeSuperAdministratorRequest {

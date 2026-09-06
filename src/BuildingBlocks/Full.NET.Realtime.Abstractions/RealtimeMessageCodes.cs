@@ -14,4 +14,7 @@ public static class RealtimeMessageCodes
 
     /// <summary>站内信未读数变更通知。</summary>
     public const string InboxUnreadCountChanged = "notifications.inbox.unread.changed";
+
+    /// <summary>身份会话被撤销；客户端应比对 sid 并清理本地凭据。</summary>
+    public const string SessionRevoked = "identity.session.revoked";
 }

@@ -5,7 +5,8 @@ export const NOTIFICATIONS_REALTIME_CODES = {
   probeSelf: 'realtime.probe.self',
   announcementPublished: 'notifications.announcement.published',
   inboxMessageReceived: 'notifications.inbox.message.received',
-  inboxUnreadCountChanged: 'notifications.inbox.unread.changed'
+  inboxUnreadCountChanged: 'notifications.inbox.unread.changed',
+  sessionRevoked: 'identity.session.revoked'
 } as const;
 
 export type NotificationsRealtimeCode =

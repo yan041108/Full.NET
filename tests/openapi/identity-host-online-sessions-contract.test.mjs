@@ -45,13 +45,21 @@ test('Host 在线会话 OpenAPI 夹具与 C# 契约和端点源码一致', async
   const endpointSource = await readFile(endpointSourcePath, 'utf8');
 
   assert.match(contractsSource, /record HostOnlineSessionResponse/u);
+  assert.match(contractsSource, /record IdentitySessionPolicyResponse/u);
+  assert.match(contractsSource, /record RevokeAllHostUserSessionsResponse/u);
   assert.match(contractsSource, /identity\.sessions\.read/u);
   assert.match(contractsSource, /identity\.sessions\.revoke/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/online-sessions"\)/u);
 
   const relativeRoutes = new Map([
+    ['/api/v1/identity/session-policy', new Map([
+      ['GET', 'MapGet("/api/v1/identity/session-policy",']
+    ])],
     ['/api/v1/identity/online-sessions', new Map([
       ['GET', 'MapGet("/",']
+    ])],
+    ['/api/v1/identity/online-sessions/users/{userId}/revoke-all', new Map([
+      ['POST', 'MapPost("/users/{userId:guid}/revoke-all",']
     ])],
     ['/api/v1/identity/online-sessions/{sessionId}/revoke', new Map([
       ['POST', 'MapPost("/{sessionId:guid}/revoke",']

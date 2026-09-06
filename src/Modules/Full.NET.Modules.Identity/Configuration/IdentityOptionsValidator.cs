@@ -1,3 +1,4 @@
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -79,6 +80,11 @@ internal sealed class IdentityOptionsValidator(IHostEnvironment environment)
         if (options.Bootstrap is null)
         {
             failures.Add("Identity Bootstrap configuration is required.");
+        }
+
+        if (!Enum.IsDefined(options.SessionLoginPolicy))
+        {
+            failures.Add("Identity SessionLoginPolicy is invalid.");
         }
 
         var supportsEphemeralSigning = environment.IsDevelopment()

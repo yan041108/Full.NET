@@ -4,6 +4,17 @@
   "description": "Host 在线会话 HTTP 契约冻结夹具；与 IdentitySessionManagementContracts 和 ManageHostOnlineSessions.Endpoint 对齐。",
   "paths": [
     {
+      "path": "/api/v1/identity/session-policy",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.sessions.read",
+          "successStatus": 200,
+          "responseSchema": "IdentitySessionPolicyResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/identity/online-sessions",
       "operations": [
         {
@@ -11,6 +22,17 @@
           "permission": "identity.sessions.read",
           "successStatus": 200,
           "responseSchema": "HostOnlineSessionResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/online-sessions/users/{userId}/revoke-all",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.sessions.revoke",
+          "successStatus": 200,
+          "responseSchema": "RevokeAllHostUserSessionsResponse"
         }
       ]
     },
@@ -27,6 +49,19 @@
     }
   ],
   "schemas": {
+    "IdentitySessionPolicyResponse": {
+      "properties": [
+        "loginPolicy"
+      ]
+    },
+    "RevokeAllHostUserSessionsResponse": {
+      "properties": [
+        "userId",
+        "username",
+        "displayName",
+        "revokedSessionCount"
+      ]
+    },
     "HostOnlineSessionResponse": {
       "properties": [
         "id",

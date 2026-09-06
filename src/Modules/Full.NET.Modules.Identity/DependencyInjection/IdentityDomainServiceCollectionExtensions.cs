@@ -68,6 +68,8 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostMenuManagementService>();
         services.TryAddScoped<HostOnlineSessionQueryService>();
         services.TryAddScoped<HostOnlineSessionManagementService>();
+        services.TryAddScoped<IdentitySessionPolicyQueryService>();
+        services.TryAddScoped<IdentitySessionRealtimeDelivery>();
         services.TryAddScoped<HostApiKeyQueryService>();
         services.TryAddScoped<HostApiKeyManagementService>();
         services.TryAddScoped<HostModuleCatalogQueryService>();

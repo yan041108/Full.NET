@@ -30,6 +30,7 @@ export interface VueNotificationsRealtimeOptions {
   enabled?: boolean;
   hubPath?: string;
   loadUnreadCount?: () => Promise<InboxUnreadCount>;
+  onSessionRevoked?: (sessionId: string) => void;
   realtimeFactory?: (
     options: NotificationsRealtimeOptions
   ) => NotificationsRealtimeController;
@@ -71,6 +72,14 @@ export function createVueNotificationsRealtime(
 
   /** 仅把实时消息转换为本地修订号或刷新提示，真正未读数仍以 HTTP 权威值为准。 */
   const onMessage = (message: RealtimeMessage): void => {
+    if (message.code === NOTIFICATIONS_REALTIME_CODES.sessionRevoked) {
+      const sessionId = readSessionId(message.data);
+      if (sessionId !== undefined) {
+        options.onSessionRevoked?.(sessionId);
+      }
+      return;
+    }
+
     if (message.code === NOTIFICATIONS_REALTIME_CODES.inboxMessageReceived) {
       inboxRevision.value++;
       return;
@@ -156,4 +165,9 @@ export function createVueNotificationsRealtime(
 /** 读取当前注入的通知实时状态；缺失 Provider 时返回零值回退实现。 */
 export function useNotificationsRealtime(): VueNotificationsRealtimeState {
   return inject(notificationsRealtimeKey, fallbackState);
+}
+
+function readSessionId(data: Record<string, unknown> | undefined): string | undefined {
+  const value = data?.sessionId;
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

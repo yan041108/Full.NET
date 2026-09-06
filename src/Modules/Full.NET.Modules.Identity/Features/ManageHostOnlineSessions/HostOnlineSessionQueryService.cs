@@ -17,6 +17,7 @@ internal sealed class HostOnlineSessionQueryService(
         int page,
         int pageSize,
         string? usernameContains,
+        Guid? userId,
         CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
@@ -25,6 +26,7 @@ internal sealed class HostOnlineSessionQueryService(
         var filter = IdentitySqlParameters.Create(
             ("NowUtc", clock.UtcNow),
             ("UsernameContains", NormalizeUsernameFilter(usernameContains)),
+            ("UserId", userId),
             ("Offset", offset),
             ("PageSize", pageSize));
         var (countStatement, listStatement) = databaseOptions.Value.Provider switch

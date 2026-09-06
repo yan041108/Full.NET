@@ -20,6 +20,11 @@ import type {
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
   BeginTotpEnrollmentResponse,
+  CacheInvalidationOperationSummary,
+  CacheInvalidationParameterSummary,
+  CacheInvalidationRequest,
+  CacheInvalidationResult,
+  CachePolicySummary,
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
@@ -155,6 +160,8 @@ import type {
   HostUserRolesResponse,
   HttpJobArgs,
   HttpJobSecretHeaderRef,
+  IdentitySessionLoginPolicy,
+  IdentitySessionPolicyResponse,
   IFormFile,
   ImportHostUserRowResult,
   ImportHostUsersRequest,
@@ -252,6 +259,7 @@ import type {
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
   ReturnWorkflowTodoRequest,
+  RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
@@ -407,6 +415,7 @@ import {
   readIdentityListHostModulesResponse,
   readIdentityListSuperAdministratorAuditsResponse,
   readIdentityListSuperAdministratorsResponse,
+  readIdentitySessionPolicyResponse,
   readImportHostUsersResponse,
   readInboxMessageResponse,
   readInboxUnreadCountResponse,
@@ -469,6 +478,7 @@ import {
   readPagedResultOfWorkflowRecoveryTaskResponse,
   readPagedResultOfWorkflowTodoListItemResponse,
   readRecipientEndpointResponse,
+  readRevokeAllHostUserSessionsResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
   readSerialNumberRuleResponse,
@@ -2488,6 +2498,24 @@ export async function identityGetHostRoleFieldGrants(
   return readHostRoleFieldGrantsResponse(value);
 }
 
+export interface IdentityGetHostSessionPolicyParameters {
+
+}
+
+export async function identityGetHostSessionPolicy(
+  http: HttpClient,
+  parameters: IdentityGetHostSessionPolicyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<IdentitySessionPolicyResponse> {
+  const path = `/api/v1/identity/session-policy`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readIdentitySessionPolicyResponse(value);
+}
+
 export interface IdentityGetHostUserParameters {
   readonly userId: string;
 }
@@ -2742,6 +2770,7 @@ export interface IdentityListHostOnlineSessionsParameters {
   readonly page?: number;
   readonly pageSize?: number;
   readonly usernameContains?: string;
+  readonly userId?: string;
 }
 
 export async function identityListHostOnlineSessions(
@@ -2759,6 +2788,9 @@ export async function identityListHostOnlineSessions(
   }
   if (parameters.usernameContains !== undefined) {
     query.set('usernameContains', String(parameters.usernameContains));
+  }
+  if (parameters.userId !== undefined) {
+    query.set('userId', String(parameters.userId));
   }
   const path = query.size === 0 ? `/api/v1/identity/online-sessions` : `/api/v1/identity/online-sessions?${query.toString()}`;
   const init: RequestInit = { method: 'GET' };
@@ -3009,6 +3041,24 @@ export async function identityResetHostUserPassword(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
+}
+
+export interface IdentityRevokeAllHostUserOnlineSessionsParameters {
+  readonly userId: string;
+}
+
+export async function identityRevokeAllHostUserOnlineSessions(
+  http: HttpClient,
+  parameters: IdentityRevokeAllHostUserOnlineSessionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RevokeAllHostUserSessionsResponse> {
+  const path = `/api/v1/identity/online-sessions/users/${encodeURIComponent(String(parameters.userId))}/revoke-all`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRevokeAllHostUserSessionsResponse(value);
 }
 
 export interface IdentityRevokeHostOnlineSessionParameters {

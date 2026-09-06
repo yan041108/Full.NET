@@ -572,7 +572,19 @@
       "status": "generated"
     },
     {
+      "operationId": "identityGetHostSessionPolicy",
+      "apiModule": "ui/admin/src/api/online-sessions.ts",
+      "generatedGroup": "identity-host-online-sessions",
+      "status": "generated"
+    },
+    {
       "operationId": "identityListHostOnlineSessions",
+      "apiModule": "ui/admin/src/api/online-sessions.ts",
+      "generatedGroup": "identity-host-online-sessions",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityRevokeAllHostUserOnlineSessions",
       "apiModule": "ui/admin/src/api/online-sessions.ts",
       "generatedGroup": "identity-host-online-sessions",
       "status": "generated"

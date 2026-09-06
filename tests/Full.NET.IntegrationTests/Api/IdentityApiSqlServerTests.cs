@@ -1,5 +1,6 @@
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Identity;
+using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.IntegrationTests.Api;
 
@@ -114,6 +115,20 @@ public sealed class IdentityApiSqlServerTests
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
 
         await IdentityOnlineSessionAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Single_session_policy_revokes_previous_login_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Identity:SessionLoginPolicy"] = nameof(IdentitySessionLoginPolicy.SingleSession),
+            });
+
+        await IdentityOnlineSessionAssertions.VerifySingleSessionPolicyAsync(factory);
     }
 
     [TestMethod]
