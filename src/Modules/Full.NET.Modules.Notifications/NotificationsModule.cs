@@ -256,5 +256,22 @@ public sealed class NotificationsModule : IFullNetModule
                 Providers.INotificationReceiptVerifier,
                 Providers.AliyunSms.AliyunSmsReceiptVerifier>());
         }
+
+        if (configuration.GetValue<bool>("Notifications:Providers:DingTalk:Enabled"))
+        {
+            services.TryAddSingleton<Providers.Smtp.INotificationSecretResolver,
+                Providers.Smtp.EnvironmentNotificationSecretResolver>();
+            services.AddHttpClient(Providers.DingTalk.HttpDingTalkTransport.HttpClientName)
+                .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.TryAddSingleton<Providers.DingTalk.IDingTalkTransport,
+                Providers.DingTalk.HttpDingTalkTransport>();
+            services.TryAddSingleton<Providers.DingTalk.DingTalkAccessTokenCache>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationProviderAdapter,
+                Providers.DingTalk.DingTalkNotificationProviderAdapter>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationReceiptVerifier,
+                Providers.DingTalk.DingTalkReceiptVerifier>());
+        }
     }
 }

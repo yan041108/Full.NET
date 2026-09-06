@@ -27,7 +27,7 @@ import {
 
 defineOptions({ name: 'NotificationPreferencesView' });
 
-/** 当前切片开放 SMTP 邮箱与阿里云短信端点；静默时段和营销同意继续保持诚实的未交付状态。 */
+/** 当前切片开放 SMTP 邮箱、阿里云短信与钉钉 userId 端点；静默时段和营销同意继续保持诚实的未交付状态。 */
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const profiles = ref<NotificationProviderProfileResponse[]>([]);
@@ -47,7 +47,9 @@ const errorMessage = ref<string>();
 let resendClockTimer: ReturnType<typeof setInterval> | undefined;
 const canUpdate = computed(() => session.can('notifications.preferences.update'));
 const availableProfiles = computed(() => profiles.value.filter(profile =>
-  (profile.providerTypeKey === 'email.smtp' || profile.providerTypeKey === 'sms.aliyun')
+  (profile.providerTypeKey === 'email.smtp'
+    || profile.providerTypeKey === 'sms.aliyun'
+    || profile.providerTypeKey === 'im.dingtalk')
   && profile.isEnabled
   && profile.latestPublishedVersionId !== null
 ));
@@ -55,9 +57,46 @@ const selectedProfile = computed(() =>
   availableProfiles.value.find(profile =>
     profile.latestPublishedVersionId === selectedProfileVersionId.value)
 );
-const selectedEndpointKind = computed(() =>
-  selectedProfile.value?.providerTypeKey === 'sms.aliyun' ? 'sms' : 'email'
-);
+const selectedEndpointKind = computed(() => {
+  switch (selectedProfile.value?.providerTypeKey) {
+    case 'sms.aliyun':
+      return 'sms';
+    case 'im.dingtalk':
+      return 'dingtalk';
+    default:
+      return 'email';
+  }
+});
+const selectedEndpointInputTestId = computed(() => {
+  switch (selectedEndpointKind.value) {
+    case 'sms':
+      return 'notification-preferences-phone';
+    case 'dingtalk':
+      return 'notification-preferences-dingtalk-user-id';
+    default:
+      return 'notification-preferences-email';
+  }
+});
+const selectedEndpointInputType = computed(() => {
+  switch (selectedEndpointKind.value) {
+    case 'sms':
+      return 'tel';
+    case 'dingtalk':
+      return 'text';
+    default:
+      return 'email';
+  }
+});
+const selectedEndpointPlaceholder = computed(() => {
+  switch (selectedEndpointKind.value) {
+    case 'sms':
+      return t('notificationPreferences.phonePlaceholder');
+    case 'dingtalk':
+      return t('notificationPreferences.dingtalkUserIdPlaceholder');
+    default:
+      return t('notificationPreferences.emailPlaceholder');
+  }
+});
 
 onMounted(() => {
   resendClockTimer = setInterval(() => {
@@ -290,11 +329,9 @@ function profileLabel(profileVersionId: string): string {
         </ElSelect>
         <ElInput
           v-model="rawEndpointValue"
-          :data-testid="selectedEndpointKind === 'sms' ? 'notification-preferences-phone' : 'notification-preferences-email'"
-          :type="selectedEndpointKind === 'sms' ? 'tel' : 'email'"
-          :placeholder="selectedEndpointKind === 'sms'
-            ? t('notificationPreferences.phonePlaceholder')
-            : t('notificationPreferences.emailPlaceholder')"
+          :data-testid="selectedEndpointInputTestId"
+          :type="selectedEndpointInputType"
+          :placeholder="selectedEndpointPlaceholder"
           @keyup.enter="createEndpoint"
         />
         <ElButton
@@ -332,7 +369,7 @@ function profileLabel(profileVersionId: string): string {
               {{ statusText(endpoint.verificationStatusKey) }}
             </ElTag>
             <div
-              v-if="canUpdate && endpoint.verificationStatusKey === 'pending'"
+              v-if="canUpdate && endpoint.verificationStatusKey === 'pending' && endpoint.endpointKindKey !== 'dingtalk'"
               class="recipient-endpoint-verify"
             >
               <ElInput

@@ -10,6 +10,7 @@ using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.AliyunSms;
+using Full.NET.Modules.Notifications.Providers.DingTalk;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Notifications.Features.ManageRecipientEndpoints;
@@ -62,14 +63,20 @@ internal sealed class RecipientEndpointStore(
     public Task<Result<RecipientEndpointResponse>> CreateMineAsync(
         Guid userId,
         CreateMyRecipientEndpointRequest request,
-        CancellationToken cancellationToken = default) =>
-        UpsertAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var kind = request.EndpointKindKey?.Trim() ?? string.Empty;
+        var initialStatus = string.Equals(kind, "dingtalk", StringComparison.Ordinal)
+            ? NotificationRecipientEndpointStatuses.Verified
+            : NotificationRecipientEndpointStatuses.Pending;
+        return UpsertAsync(
             userId,
             request.ProviderProfileVersionId,
-            request.EndpointKindKey,
+            kind,
             request.RawValue,
-            NotificationRecipientEndpointStatuses.Pending,
+            initialStatus,
             cancellationToken);
+    }
 
     /// <summary>删除当前用户在当前受信作用域下拥有的端点。</summary>
     /// <param name="userId">从认证 Claim 解析的当前用户标识。</param>
@@ -259,6 +266,11 @@ internal sealed class RecipientEndpointStore(
         if (string.Equals(kind, "sms", StringComparison.Ordinal))
         {
             return AliyunSmsNotificationProviderAdapter.IsValidChinaMobilePhone(value);
+        }
+
+        if (string.Equals(kind, "dingtalk", StringComparison.Ordinal))
+        {
+            return DingTalkNotificationProviderAdapter.IsValidDingTalkUserId(value);
         }
 
         return true;

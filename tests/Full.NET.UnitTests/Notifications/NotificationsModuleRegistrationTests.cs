@@ -3,6 +3,7 @@ using Full.NET.Modules.Notifications;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.AliyunSms;
+using Full.NET.Modules.Notifications.Providers.DingTalk;
 using Full.NET.Modules.Notifications.Providers.Smtp;
 using Full.NET.Modules.Notifications.Features.ProjectWorkflowNotifications;
 using Full.NET.Modules.Notifications.Features.CreateNotificationIntents;
@@ -116,5 +117,37 @@ public sealed class NotificationsModuleRegistrationTests
         Assert.IsTrue(enabled.Any(descriptor =>
             descriptor.ServiceType == typeof(INotificationReceiptVerifier)
             && descriptor.ImplementationType == typeof(AliyunSmsReceiptVerifier)));
+    }
+
+    [TestMethod]
+    public void DingTalk_provider_is_registered_only_when_explicitly_enabled()
+    {
+        var disabled = new ServiceCollection();
+        new NotificationsModule().AddBackgroundServices(
+            disabled,
+            new ConfigurationBuilder().Build());
+
+        var enabled = new ServiceCollection();
+        new NotificationsModule().AddBackgroundServices(
+            enabled,
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Notifications:Providers:DingTalk:Enabled"] = "true",
+                })
+                .Build());
+
+        Assert.IsFalse(disabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(INotificationProviderAdapter)
+            && descriptor.ImplementationType == typeof(DingTalkNotificationProviderAdapter)));
+        Assert.IsTrue(enabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(INotificationProviderAdapter)
+            && descriptor.ImplementationType == typeof(DingTalkNotificationProviderAdapter)));
+        Assert.IsTrue(enabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(INotificationReceiptVerifier)
+            && descriptor.ImplementationType == typeof(DingTalkReceiptVerifier)));
+        Assert.IsTrue(enabled.Any(descriptor =>
+            descriptor.ServiceType == typeof(DingTalkAccessTokenCache)
+            && descriptor.Lifetime == ServiceLifetime.Singleton));
     }
 }
