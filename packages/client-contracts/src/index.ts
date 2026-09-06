@@ -480,6 +480,33 @@ export type {
 } from './reporting-data-sources.js';
 
 export {
+  isReportingDefinition,
+  isReportingDefinitionList,
+  isReportingDefinitionVersion,
+  isReportingDefinitionVersionList,
+  isReportingGroup,
+  isReportingGroupList,
+  isReportingParameterSchemaEntry,
+  isReportingQueryPortDefinition,
+  isReportingQueryPortList
+} from './reporting-definitions.js';
+
+export type {
+  CreateReportingDefinitionRequest,
+  CreateReportingGroupRequest,
+  PublishReportingDefinitionRequest,
+  ReportingDefinition,
+  ReportingDefinitionListQuery,
+  ReportingDefinitionVersion,
+  ReportingGroup,
+  ReportingParameterSchemaEntry,
+  ReportingQueryPortDefinition,
+  ReportingQueryPortParameterDefinition,
+  UpdateReportingDefinitionRequest,
+  UpdateReportingGroupRequest
+} from './reporting-definitions.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

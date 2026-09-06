@@ -6,7 +6,10 @@ using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Features.BrowseQueryPorts;
 using Full.NET.Modules.Reporting.Features.ManageDataSources;
+using Full.NET.Modules.Reporting.Features.ManageDefinitions;
+using Full.NET.Modules.Reporting.Features.ManageGroups;
 using Full.NET.Modules.Reporting.Security;
 using Full.NET.Modules.Reporting.Serialization;
 using Microsoft.AspNetCore.Builder;
@@ -44,12 +47,22 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddScoped<ReportingDataSourceQueryService>();
         services.TryAddScoped<ReportingDataSourceManagementService>();
         services.TryAddScoped<ReportingDataSourceOperationsService>();
+        services.TryAddSingleton<ReportingQueryPortQueryService>();
+        services.TryAddScoped<ReportingGroupQueryService>();
+        services.TryAddScoped<ReportingGroupManagementService>();
+        services.TryAddScoped<ReportingDefinitionQueryService>();
+        services.TryAddScoped<ReportingDefinitionManagementService>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 ReportingJsonSerializerContext.Default));
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) =>
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
         Features.ManageDataSources.Endpoint.Map(endpoints);
+        Features.ManageGroups.Endpoint.Map(endpoints);
+        Features.BrowseQueryPorts.Endpoint.Map(endpoints);
+        Features.ManageDefinitions.Endpoint.Map(endpoints);
+    }
 }

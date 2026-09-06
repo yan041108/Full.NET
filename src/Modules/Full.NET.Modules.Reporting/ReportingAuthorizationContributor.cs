@@ -16,6 +16,16 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
         new(ReportingDataSourcePermissions.Update, "更新报表数据源", AuthorizationScope.Host),
         new(ReportingDataSourcePermissions.Delete, "删除报表数据源", AuthorizationScope.Host),
         new(ReportingDataSourcePermissions.Test, "测试报表数据源连接", AuthorizationScope.Host),
+        new(ReportingGroupPermissions.Read, "读取报表分组", AuthorizationScope.Host),
+        new(ReportingGroupPermissions.Create, "创建报表分组", AuthorizationScope.Host),
+        new(ReportingGroupPermissions.Update, "更新报表分组", AuthorizationScope.Host),
+        new(ReportingGroupPermissions.Delete, "删除报表分组", AuthorizationScope.Host),
+        new(ReportingDefinitionPermissions.Read, "读取报表定义", AuthorizationScope.Host),
+        new(ReportingDefinitionPermissions.Create, "创建报表定义", AuthorizationScope.Host),
+        new(ReportingDefinitionPermissions.Update, "更新报表定义", AuthorizationScope.Host),
+        new(ReportingDefinitionPermissions.Delete, "删除报表定义", AuthorizationScope.Host),
+        new(ReportingDefinitionPermissions.Publish, "发布报表定义", AuthorizationScope.Host),
+        new(ReportingQueryPortPermissions.Read, "读取静态 Query Port 目录", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -31,6 +41,17 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
             "data-analysis",
             10,
             ReportingDataSourcePermissions.Read),
+        new NavigationDefinition(
+            "reporting-definitions",
+            null,
+            "reporting-definitions",
+            "/reporting/definitions",
+            "reporting-definitions",
+            "报表定义",
+            "Reporting Definitions",
+            "document",
+            20,
+            ReportingDefinitionPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -63,5 +84,54 @@ internal sealed class ReportingAuthorizationContributor : IAuthorizationCatalogC
             "测试连接",
             "test",
             40),
+        new AuthorizationActionDefinition(
+            "reporting.groups.create",
+            "reporting-definitions",
+            ReportingGroupPermissions.Create,
+            "创建分组",
+            "create-group",
+            10),
+        new AuthorizationActionDefinition(
+            "reporting.groups.update",
+            "reporting-definitions",
+            ReportingGroupPermissions.Update,
+            "编辑分组",
+            "update-group",
+            20),
+        new AuthorizationActionDefinition(
+            "reporting.groups.delete",
+            "reporting-definitions",
+            ReportingGroupPermissions.Delete,
+            "删除分组",
+            "delete-group",
+            30),
+        new AuthorizationActionDefinition(
+            "reporting.definitions.create",
+            "reporting-definitions",
+            ReportingDefinitionPermissions.Create,
+            "创建定义",
+            "create-definition",
+            40),
+        new AuthorizationActionDefinition(
+            "reporting.definitions.update",
+            "reporting-definitions",
+            ReportingDefinitionPermissions.Update,
+            "编辑定义",
+            "update-definition",
+            50),
+        new AuthorizationActionDefinition(
+            "reporting.definitions.delete",
+            "reporting-definitions",
+            ReportingDefinitionPermissions.Delete,
+            "删除定义",
+            "delete-definition",
+            60),
+        new AuthorizationActionDefinition(
+            "reporting.definitions.publish",
+            "reporting-definitions",
+            ReportingDefinitionPermissions.Publish,
+            "发布版本",
+            "publish",
+            70),
     ];
 }

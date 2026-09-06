@@ -2289,6 +2289,72 @@
       "status": "manual"
     },
     {
+      "operationId": "reportingListGroups",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingCreateGroup",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingUpdateGroup",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingDeleteGroup",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingListQueryPorts",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingListDefinitions",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingCreateDefinition",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingUpdateDefinition",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingDeleteDefinition",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingPublishDefinition",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingListDefinitionVersions",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

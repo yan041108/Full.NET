@@ -287,6 +287,18 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/reporting-definitions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "routePrefixes": [
+        "/api/v1/reporting/groups",
+        "/api/v1/reporting/query-ports",
+        "/api/v1/reporting/definitions"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/document-statistics.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-parity-v1.json",
@@ -725,6 +737,7 @@
     { "apiModule": "ui/admin/src/api/document-preview-tasks.ts", "consumers": ["ui/admin/src/views/DocumentPreviewTasksView.vue"] },
     { "apiModule": "ui/admin/src/api/import-export-tasks.ts", "consumers": ["ui/admin/src/views/ImportExportTasksView.vue"] },
     { "apiModule": "ui/admin/src/api/reporting-data-sources.ts", "consumers": ["ui/admin/src/views/ReportingDataSourcesView.vue"] },
+    { "apiModule": "ui/admin/src/api/reporting-definitions.ts", "consumers": ["ui/admin/src/views/ReportingDefinitionsView.vue"] },
     { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
     { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },

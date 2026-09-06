@@ -30100,6 +30100,229 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["ReportingDataSources"]
       }
+    },
+    "/api/v1/reporting/groups": {
+      "get": {
+        "operationId": "reportingListGroups",
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "items": { "$ref": "#/components/schemas/ReportingGroupResponse" }, "type": "array" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingGroups"]
+      },
+      "post": {
+        "operationId": "reportingCreateGroup",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportingGroupRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingGroupResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingGroups"]
+      }
+    },
+    "/api/v1/reporting/groups/{groupId}": {
+      "get": {
+        "operationId": "reportingGetGroup",
+        "parameters": [{ "in": "path", "name": "groupId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingGroupResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingGroups"]
+      },
+      "put": {
+        "operationId": "reportingUpdateGroup",
+        "parameters": [{ "in": "path", "name": "groupId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateReportingGroupRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingGroupResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingGroups"]
+      },
+      "delete": {
+        "operationId": "reportingDeleteGroup",
+        "parameters": [{ "in": "path", "name": "groupId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "boolean" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingGroups"]
+      }
+    },
+    "/api/v1/reporting/query-ports": {
+      "get": {
+        "operationId": "reportingListQueryPorts",
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "items": { "$ref": "#/components/schemas/ReportingQueryPortDefinition" }, "type": "array" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingQueryPorts"]
+      }
+    },
+    "/api/v1/reporting/query-ports/{queryPortKey}": {
+      "get": {
+        "operationId": "reportingGetQueryPort",
+        "parameters": [{ "in": "path", "name": "queryPortKey", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingQueryPortDefinition" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingQueryPorts"]
+      }
+    },
+    "/api/v1/reporting/definitions": {
+      "get": {
+        "operationId": "reportingListDefinitions",
+        "parameters": [
+          { "in": "query", "name": "groupId", "schema": { "format": "uuid", "type": ["null", "string"] } },
+          { "in": "query", "name": "nameContains", "schema": { "type": ["null", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "items": { "$ref": "#/components/schemas/ReportingDefinitionResponse" }, "type": "array" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      },
+      "post": {
+        "operationId": "reportingCreateDefinition",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateReportingDefinitionRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDefinitionResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      }
+    },
+    "/api/v1/reporting/definitions/{definitionId}": {
+      "get": {
+        "operationId": "reportingGetDefinition",
+        "parameters": [{ "in": "path", "name": "definitionId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDefinitionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      },
+      "put": {
+        "operationId": "reportingUpdateDefinition",
+        "parameters": [{ "in": "path", "name": "definitionId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateReportingDefinitionRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDefinitionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      },
+      "delete": {
+        "operationId": "reportingDeleteDefinition",
+        "parameters": [{ "in": "path", "name": "definitionId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "boolean" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      }
+    },
+    "/api/v1/reporting/definitions/{definitionId}/publish": {
+      "post": {
+        "operationId": "reportingPublishDefinition",
+        "parameters": [{ "in": "path", "name": "definitionId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishReportingDefinitionRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDefinitionVersionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      }
+    },
+    "/api/v1/reporting/definitions/{definitionId}/versions": {
+      "get": {
+        "operationId": "reportingListDefinitionVersions",
+        "parameters": [{ "in": "path", "name": "definitionId", "required": true, "schema": { "format": "uuid", "type": "string" } }],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "items": { "$ref": "#/components/schemas/ReportingDefinitionVersionResponse" }, "type": "array" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      }
+    },
+    "/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}": {
+      "get": {
+        "operationId": "reportingGetDefinitionVersion",
+        "parameters": [
+          { "in": "path", "name": "definitionId", "required": true, "schema": { "format": "uuid", "type": "string" } },
+          { "in": "path", "name": "versionNumber", "required": true, "schema": { "format": "int32", "type": ["integer", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportingDefinitionVersionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["ReportingDefinitions"]
+      }
     }
   },
   "components": {
@@ -45896,6 +46119,150 @@
         "required": ["succeeded", "message"],
         "type": "object"
       },
+      "ReportingGroupResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "parentId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "sortOrder": { "format": "int32", "type": ["integer", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "sortOrder", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreateReportingGroupRequest": {
+        "properties": {
+          "parentId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "sortOrder": { "format": "int32", "type": ["integer", "string"] },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["name", "sortOrder", "isEnabled"],
+        "type": "object"
+      },
+      "UpdateReportingGroupRequest": {
+        "properties": {
+          "parentId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "sortOrder": { "format": "int32", "type": ["integer", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "sortOrder", "isEnabled", "version"],
+        "type": "object"
+      },
+      "ReportingQueryPortParameterDefinition": {
+        "properties": {
+          "parameterKey": { "type": "string" },
+          "displayName": { "type": "string" },
+          "dataTypeKey": { "type": "string" },
+          "isRequired": { "type": "boolean" },
+          "defaultValue": { "type": ["null", "string"] },
+          "minimum": { "format": "int32", "type": ["null", "integer", "string"] },
+          "maximum": { "format": "int32", "type": ["null", "integer", "string"] }
+        },
+        "required": ["parameterKey", "displayName", "dataTypeKey", "isRequired"],
+        "type": "object"
+      },
+      "ReportingQueryPortDefinition": {
+        "properties": {
+          "queryPortKey": { "type": "string" },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "supportedProviderKeys": { "items": { "type": "string" }, "type": "array" },
+          "parameters": { "items": { "$ref": "#/components/schemas/ReportingQueryPortParameterDefinition" }, "type": "array" }
+        },
+        "required": ["queryPortKey", "displayName", "description", "supportedProviderKeys", "parameters"],
+        "type": "object"
+      },
+      "ReportingParameterSchemaEntry": {
+        "properties": {
+          "parameterKey": { "type": "string" },
+          "displayName": { "type": "string" },
+          "dataTypeKey": { "type": "string" },
+          "isRequired": { "type": "boolean" },
+          "defaultValue": { "type": ["null", "string"] }
+        },
+        "required": ["parameterKey", "displayName", "dataTypeKey", "isRequired"],
+        "type": "object"
+      },
+      "ReportingDefinitionResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "groupId": { "format": "uuid", "type": "string" },
+          "dataSourceId": { "format": "uuid", "type": "string" },
+          "definitionKey": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["null", "string"] },
+          "queryPortKey": { "type": "string" },
+          "parameterSchema": { "items": { "$ref": "#/components/schemas/ReportingParameterSchemaEntry" }, "type": "array" },
+          "layoutConfigJson": { "type": "string" },
+          "latestPublishedVersionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "groupId", "dataSourceId", "definitionKey", "name", "queryPortKey", "parameterSchema", "layoutConfigJson", "latestPublishedVersionNumber", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "ReportingDefinitionVersionResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "definitionId": { "format": "uuid", "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "dataSourceId": { "format": "uuid", "type": "string" },
+          "queryPortKey": { "type": "string" },
+          "parameterSchema": { "items": { "$ref": "#/components/schemas/ReportingParameterSchemaEntry" }, "type": "array" },
+          "layoutConfigJson": { "type": "string" },
+          "changeNote": { "type": ["null", "string"] },
+          "publishedByUserId": { "format": "uuid", "type": "string" },
+          "publishedAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["id", "definitionId", "versionNumber", "dataSourceId", "queryPortKey", "parameterSchema", "layoutConfigJson", "publishedByUserId", "publishedAtUtc"],
+        "type": "object"
+      },
+      "CreateReportingDefinitionRequest": {
+        "properties": {
+          "groupId": { "format": "uuid", "type": "string" },
+          "dataSourceId": { "format": "uuid", "type": "string" },
+          "definitionKey": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["null", "string"] },
+          "queryPortKey": { "type": "string" },
+          "parameterSchema": { "items": { "$ref": "#/components/schemas/ReportingParameterSchemaEntry" }, "type": "array" },
+          "layoutConfigJson": { "type": ["null", "string"] },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["groupId", "dataSourceId", "definitionKey", "name", "queryPortKey", "parameterSchema", "isEnabled"],
+        "type": "object"
+      },
+      "UpdateReportingDefinitionRequest": {
+        "properties": {
+          "groupId": { "format": "uuid", "type": "string" },
+          "dataSourceId": { "format": "uuid", "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["null", "string"] },
+          "queryPortKey": { "type": "string" },
+          "parameterSchema": { "items": { "$ref": "#/components/schemas/ReportingParameterSchemaEntry" }, "type": "array" },
+          "layoutConfigJson": { "type": ["null", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["groupId", "dataSourceId", "name", "queryPortKey", "parameterSchema", "isEnabled", "version"],
+        "type": "object"
+      },
+      "PublishReportingDefinitionRequest": {
+        "properties": {
+          "changeNote": { "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["version"],
+        "type": "object"
+      },
       "PagedResultOfReportingDataSourceListItem": {
         "properties": {
           "items": {
@@ -45910,6 +46277,7 @@
         "type": "object"
       }
     },
+    "securitySchemes": {
       "ApiKey": {
         "description": "通过 Authorization: ApiKey {secret} 传递 Host API Key。",
         "in": "header",

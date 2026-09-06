@@ -232,6 +232,11 @@ export function createAppRouter(
         component: () => import('../views/ReportingDataSourcesView.vue')
       },
       {
+        name: 'reporting-definitions',
+        path: '/reporting/definitions',
+        component: () => import('../views/ReportingDefinitionsView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

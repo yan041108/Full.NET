@@ -8,7 +8,7 @@ namespace Full.NET.UnitTests.Reporting;
 public sealed class ReportingAuthorizationContributorTests
 {
     [TestMethod]
-    public void Contributor_publishes_reporting_data_source_permissions_and_navigation()
+    public void Contributor_publishes_reporting_permissions_and_navigation()
     {
         var catalog = AuthorizationCatalog.Create([new ReportingAuthorizationContributor()]);
 
@@ -20,12 +20,26 @@ public sealed class ReportingAuthorizationContributorTests
                 ReportingDataSourcePermissions.Update,
                 ReportingDataSourcePermissions.Delete,
                 ReportingDataSourcePermissions.Test,
+                ReportingGroupPermissions.Read,
+                ReportingGroupPermissions.Create,
+                ReportingGroupPermissions.Update,
+                ReportingGroupPermissions.Delete,
+                ReportingDefinitionPermissions.Read,
+                ReportingDefinitionPermissions.Create,
+                ReportingDefinitionPermissions.Update,
+                ReportingDefinitionPermissions.Delete,
+                ReportingDefinitionPermissions.Publish,
+                ReportingQueryPortPermissions.Read,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 
         var dataSources = catalog.Navigation.Single(item => item.Id == "reporting-data-sources");
         Assert.AreEqual(ReportingDataSourcePermissions.Read, dataSources.RequiredPermission);
         Assert.AreEqual("/reporting/data-sources", dataSources.Path);
+
+        var definitions = catalog.Navigation.Single(item => item.Id == "reporting-definitions");
+        Assert.AreEqual(ReportingDefinitionPermissions.Read, definitions.RequiredPermission);
+        Assert.AreEqual("/reporting/definitions", definitions.Path);
 
         CollectionAssert.AreEquivalent(
             new Dictionary<string, string>(StringComparer.Ordinal)
@@ -37,6 +51,24 @@ public sealed class ReportingAuthorizationContributorTests
             },
             catalog.Actions
                 .Where(action => action.NavigationId == "reporting-data-sources")
+                .ToDictionary(
+                    action => action.ClientActionKey,
+                    action => action.PermissionCode,
+                    StringComparer.Ordinal));
+
+        CollectionAssert.AreEquivalent(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["create-group"] = ReportingGroupPermissions.Create,
+                ["update-group"] = ReportingGroupPermissions.Update,
+                ["delete-group"] = ReportingGroupPermissions.Delete,
+                ["create-definition"] = ReportingDefinitionPermissions.Create,
+                ["update-definition"] = ReportingDefinitionPermissions.Update,
+                ["delete-definition"] = ReportingDefinitionPermissions.Delete,
+                ["publish"] = ReportingDefinitionPermissions.Publish,
+            },
+            catalog.Actions
+                .Where(action => action.NavigationId == "reporting-definitions")
                 .ToDictionary(
                     action => action.ClientActionKey,
                     action => action.PermissionCode,

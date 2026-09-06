@@ -98,6 +98,9 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string ImportExportStaticSchemasTag = "ImportExportStaticSchemas";
     private const string ImportExportTasksTag = "ImportExportTasks";
     private const string ReportingDataSourcesTag = "ReportingDataSources";
+    private const string ReportingGroupsTag = "ReportingGroups";
+    private const string ReportingQueryPortsTag = "ReportingQueryPorts";
+    private const string ReportingDefinitionsTag = "ReportingDefinitions";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
     private const string DataApprovalRequestsTag = "DataApprovalRequests";
     private const string DataApprovalScenariosTag = "DataApprovalScenarios";
@@ -385,6 +388,21 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("POST", "/api/v1/reporting/data-sources/{dataSourceId}/disable", "reportingDisableDataSource", ReportingDataSourcesTag),
         new("DELETE", "/api/v1/reporting/data-sources/{dataSourceId}", "reportingDeleteDataSource", ReportingDataSourcesTag),
         new("POST", "/api/v1/reporting/data-sources/{dataSourceId}/test", "reportingTestDataSource", ReportingDataSourcesTag),
+        new("GET", "/api/v1/reporting/groups", "reportingListGroups", ReportingGroupsTag),
+        new("GET", "/api/v1/reporting/groups/{groupId}", "reportingGetGroup", ReportingGroupsTag),
+        new("POST", "/api/v1/reporting/groups", "reportingCreateGroup", ReportingGroupsTag),
+        new("PUT", "/api/v1/reporting/groups/{groupId}", "reportingUpdateGroup", ReportingGroupsTag),
+        new("DELETE", "/api/v1/reporting/groups/{groupId}", "reportingDeleteGroup", ReportingGroupsTag),
+        new("GET", "/api/v1/reporting/query-ports", "reportingListQueryPorts", ReportingQueryPortsTag),
+        new("GET", "/api/v1/reporting/query-ports/{queryPortKey}", "reportingGetQueryPort", ReportingQueryPortsTag),
+        new("GET", "/api/v1/reporting/definitions", "reportingListDefinitions", ReportingDefinitionsTag),
+        new("GET", "/api/v1/reporting/definitions/{definitionId}", "reportingGetDefinition", ReportingDefinitionsTag),
+        new("POST", "/api/v1/reporting/definitions", "reportingCreateDefinition", ReportingDefinitionsTag),
+        new("PUT", "/api/v1/reporting/definitions/{definitionId}", "reportingUpdateDefinition", ReportingDefinitionsTag),
+        new("DELETE", "/api/v1/reporting/definitions/{definitionId}", "reportingDeleteDefinition", ReportingDefinitionsTag),
+        new("POST", "/api/v1/reporting/definitions/{definitionId}/publish", "reportingPublishDefinition", ReportingDefinitionsTag),
+        new("GET", "/api/v1/reporting/definitions/{definitionId}/versions", "reportingListDefinitionVersions", ReportingDefinitionsTag),
+        new("GET", "/api/v1/reporting/definitions/{definitionId}/versions/{versionNumber}", "reportingGetDefinitionVersion", ReportingDefinitionsTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),
