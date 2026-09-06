@@ -2541,6 +2541,24 @@
       "status": "manual"
     },
     {
+      "operationId": "aiListAgentTools",
+      "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
+      "generatedGroup": "ai-agent-tools",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetAgentTool",
+      "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
+      "generatedGroup": "ai-agent-tools",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiListAgentToolCalls",
+      "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
+      "generatedGroup": "ai-agent-tools",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

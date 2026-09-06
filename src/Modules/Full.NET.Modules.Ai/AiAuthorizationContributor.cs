@@ -23,6 +23,8 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
         new(AiChatPermissions.Delete, "删除 AI 聊天会话", AuthorizationScope.Host),
         new(AiChatPermissions.Send, "发送 AI 聊天消息", AuthorizationScope.Host),
         new(AiChatPermissions.Cancel, "取消 AI 聊天生成", AuthorizationScope.Host),
+        new(AiAgentToolPermissions.CatalogRead, "读取 Agent Tool 静态目录", AuthorizationScope.Host),
+        new(AiAgentToolPermissions.CallsRead, "读取 Agent Tool 调用审计", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -49,6 +51,17 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
             "chat-dot-round",
             20,
             AiChatPermissions.Read),
+        new NavigationDefinition(
+            "ai-agent-tools",
+            null,
+            "ai-agent-tools",
+            "/ai/agent-tools",
+            "ai-agent-tools",
+            "Agent 工具",
+            "Agent Tools",
+            "operation",
+            30,
+            AiAgentToolPermissions.CatalogRead),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -102,5 +115,12 @@ internal sealed class AiAuthorizationContributor : IAuthorizationCatalogContribu
             "停止生成",
             "cancel",
             30),
+        new AuthorizationActionDefinition(
+            "ai.tools.calls.read",
+            "ai-agent-tools",
+            AiAgentToolPermissions.CallsRead,
+            "查看调用审计",
+            "audit",
+            10),
     ];
 }

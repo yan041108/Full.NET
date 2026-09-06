@@ -592,6 +592,18 @@ export type {
 } from './ai-chat.js';
 
 export {
+  isAiAgentToolCallPage,
+  isAiAgentToolCatalogItem
+} from './ai-agent-tools.js';
+
+export type {
+  AiAgentToolCallListItem,
+  AiAgentToolCallListQuery,
+  AiAgentToolCallPage,
+  AiAgentToolCatalogItem
+} from './ai-agent-tools.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

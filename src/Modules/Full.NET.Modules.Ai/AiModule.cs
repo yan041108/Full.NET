@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Hosting.Api;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Ai.Connectivity;
+using Full.NET.Modules.Ai.Features.ManageAgentTools;
 using Full.NET.Modules.Ai.Features.ManageChatSessions;
 using Full.NET.Modules.Ai.Features.ManageModelConfigs;
 using Full.NET.Modules.Ai.Features.ManageTenantQuotas;
@@ -53,6 +54,8 @@ public sealed class AiModule : IFullNetModule
         services.TryAddScoped<AiChatSessionQueryService>();
         services.TryAddScoped<AiChatSessionManagementService>();
         services.TryAddScoped<AiChatStreamService>();
+        services.TryAddScoped<AiAgentToolCallQueryService>();
+        services.TryAddScoped<AiAgentToolCallAuditWriter>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -64,5 +67,6 @@ public sealed class AiModule : IFullNetModule
         Features.ManageModelConfigs.Endpoint.Map(endpoints);
         Features.ManageTenantQuotas.Endpoint.Map(endpoints);
         Features.ManageChatSessions.Endpoint.Map(endpoints);
+        Features.ManageAgentTools.Endpoint.Map(endpoints);
     }
 }

@@ -50,4 +50,7 @@ public static class AiErrorCodes
 
     /// <summary>模型配置不可用。</summary>
     public const string ModelConfigUnavailable = "ai.model_config.unavailable";
+
+    /// <summary>Agent Tool 未在静态目录中登记。</summary>
+    public const string AgentToolNotFound = "ai.agent_tool.not_found";
 }

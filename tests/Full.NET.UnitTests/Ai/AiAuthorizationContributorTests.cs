@@ -27,6 +27,8 @@ public sealed class AiAuthorizationContributorTests
                 AiChatPermissions.Delete,
                 AiChatPermissions.Send,
                 AiChatPermissions.Cancel,
+                AiAgentToolPermissions.CatalogRead,
+                AiAgentToolPermissions.CallsRead,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 

@@ -30857,6 +30857,63 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["AiChatSessions"]
       }
+    },
+    "/api/v1/ai/agent-tools": {
+      "get": {
+        "operationId": "aiListAgentTools",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": { "$ref": "#/components/schemas/AiAgentToolCatalogItem" },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiAgentTools"]
+      }
+    },
+    "/api/v1/ai/agent-tools/{toolName}": {
+      "get": {
+        "operationId": "aiGetAgentTool",
+        "parameters": [
+          { "in": "path", "name": "toolName", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiAgentToolCatalogItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiAgentTools"]
+      }
+    },
+    "/api/v1/ai/agent-tool-calls": {
+      "get": {
+        "operationId": "aiListAgentToolCalls",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": "string" } },
+          { "in": "query", "name": "toolName", "schema": { "type": "string" } },
+          { "in": "query", "name": "statusKey", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfAiAgentToolCallListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiAgentTools"]
+      }
     }
   },
   "components": {
@@ -47231,6 +47288,49 @@
       "PagedResultOfAiChatSessionListItem": {
         "properties": {
           "items": { "items": { "$ref": "#/components/schemas/AiChatSessionListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "AiAgentToolCatalogItem": {
+        "properties": {
+          "toolName": { "type": "string" },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "permissionCode": { "type": "string" },
+          "sideEffectKey": { "type": "string" },
+          "inputSchemaJson": { "type": "string" },
+          "outputSchemaJson": { "type": "string" },
+          "isEnabled": { "type": "boolean" },
+          "mcpExposureKey": { "type": "string" }
+        },
+        "required": ["toolName", "displayName", "description", "permissionCode", "sideEffectKey", "inputSchemaJson", "outputSchemaJson", "isEnabled", "mcpExposureKey"],
+        "type": "object"
+      },
+      "AiAgentToolCallListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "actorUserId": { "format": "uuid", "type": "string" },
+          "toolName": { "type": "string" },
+          "permissionCode": { "type": "string" },
+          "statusKey": { "type": "string" },
+          "durationMs": { "format": "int32", "type": ["null", "integer", "string"] },
+          "inputSummary": { "type": "string" },
+          "outputSummary": { "type": ["null", "string"] },
+          "errorCode": { "type": ["null", "string"] },
+          "traceId": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["id", "actorUserId", "toolName", "permissionCode", "statusKey", "inputSummary", "createdAtUtc"],
+        "type": "object"
+      },
+      "PagedResultOfAiAgentToolCallListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/AiAgentToolCallListItem" }, "type": "array" },
           "page": { "format": "int32", "type": ["integer", "string"] },
           "pageSize": { "format": "int32", "type": ["integer", "string"] },
           "total": { "format": "int64", "type": ["integer", "string"] }
