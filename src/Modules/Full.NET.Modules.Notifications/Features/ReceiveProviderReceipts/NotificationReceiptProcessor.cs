@@ -15,6 +15,7 @@ internal sealed class NotificationReceiptProcessor(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
+    INotificationProviderTypeCatalog catalog,
     IEnumerable<INotificationReceiptVerifier> verifiers,
     IClock clock,
     IIdGenerator idGenerator)
@@ -36,6 +37,18 @@ internal sealed class NotificationReceiptProcessor(
                 NotificationsErrorCodes.ReceiptTooLarge,
                 "The receipt payload exceeds the allowed size.",
                 ErrorType.Validation));
+        }
+
+        if (catalog.TryGet(providerTypeKey, out var descriptor)
+            && string.Equals(
+                descriptor.ReceiptModeKey,
+                NotificationReceiptModeKeys.None,
+                StringComparison.Ordinal))
+        {
+            return Result<NotificationReceiptAcceptedResponse>.Failure(new Error(
+                NotificationsErrorCodes.ReceiptNotSupported,
+                "The provider type does not support trusted delivery or bounce receipts.",
+                ErrorType.NotFound));
         }
 
         if (!_verifiers.TryGetValue(providerTypeKey, out var verifier))

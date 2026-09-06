@@ -20,7 +20,9 @@ public sealed class NotificationReceiptProcessorTests
     public async Task Duplicate_idempotency_key_returns_duplicate_without_status_change()
     {
         var existingId = Guid.CreateVersion7();
-        var fixture = CreateFixture(DateTimeOffset.UtcNow);
+        var fixture = CreateFixture(
+            DateTimeOffset.UtcNow,
+            new NotificationProviderTypeCatalog([new SignedTestProviderAdapter()]));
         fixture.Query.QuerySingleOrDefaultAsync<NotificationReceiptRecord>(
                 NotificationPlatformSql.FindReceiptByIdempotency,
                 Arg.Any<object?>(),
@@ -55,9 +57,27 @@ public sealed class NotificationReceiptProcessorTests
     }
 
     [TestMethod]
+    public async Task Provider_without_receipt_capability_fails_closed()
+    {
+        var fixture = CreateFixture(
+            DateTimeOffset.UtcNow,
+            new NotificationProviderTypeCatalog([new NoReceiptEmailSmtpAdapter()]));
+        var result = await fixture.Processor.ProcessAsync(
+            "email.smtp",
+            """{"receiptIdempotencyKey":"x"}"""u8.ToArray(),
+            new Dictionary<string, string>(),
+            CancellationToken.None);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(NotificationsErrorCodes.ReceiptNotSupported, result.Error!.Code);
+    }
+
+    [TestMethod]
     public async Task Unknown_provider_type_fails_closed()
     {
-        var fixture = CreateFixture(DateTimeOffset.UtcNow);
+        var fixture = CreateFixture(
+            DateTimeOffset.UtcNow,
+            new NotificationProviderTypeCatalog([]));
         var result = await fixture.Processor.ProcessAsync(
             "smtp.unknown",
             """{"receiptIdempotencyKey":"x"}"""u8.ToArray(),
@@ -68,7 +88,9 @@ public sealed class NotificationReceiptProcessorTests
         Assert.AreEqual(NotificationsErrorCodes.ReceiptProviderUnknown, result.Error!.Code);
     }
 
-    private static ProcessorFixture CreateFixture(DateTimeOffset now)
+    private static ProcessorFixture CreateFixture(
+        DateTimeOffset now,
+        NotificationProviderTypeCatalog catalog)
     {
         var query = Substitute.For<IQueryExecutor>();
         var command = Substitute.For<ICommandExecutor>();
@@ -81,6 +103,7 @@ public sealed class NotificationReceiptProcessorTests
             query,
             command,
             transaction,
+            catalog,
             [new StubReceiptVerifier()],
             clock,
             idGenerator);
@@ -91,6 +114,44 @@ public sealed class NotificationReceiptProcessorTests
         IQueryExecutor Query,
         ICommandExecutor Command,
         NotificationReceiptProcessor Processor);
+
+    private sealed class SignedTestProviderAdapter : INotificationProviderAdapter
+    {
+        public string? RecipientEndpointKindKey => null;
+
+        public NotificationProviderTypeDescriptor Descriptor { get; } = new(
+            ProviderTypeKey,
+            "1.0.0",
+            ["test"],
+            [],
+            [],
+            true,
+            NotificationReceiptModeKeys.Signed);
+
+        public ValueTask<NotificationProviderResult> SendAsync(
+            NotificationProviderRequest request,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Receipt processor tests must not send.");
+    }
+
+    private sealed class NoReceiptEmailSmtpAdapter : INotificationProviderAdapter
+    {
+        public string? RecipientEndpointKindKey => "email";
+
+        public NotificationProviderTypeDescriptor Descriptor { get; } = new(
+            "email.smtp",
+            "1.0.0",
+            ["email"],
+            [],
+            ["password"],
+            true,
+            NotificationReceiptModeKeys.None);
+
+        public ValueTask<NotificationProviderResult> SendAsync(
+            NotificationProviderRequest request,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Receipt processor tests must not send.");
+    }
 
     private sealed class StubReceiptVerifier : INotificationReceiptVerifier
     {

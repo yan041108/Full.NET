@@ -1,3 +1,4 @@
+using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.Smtp;
@@ -24,7 +25,7 @@ public sealed class SmtpNotificationProviderAdapterTests
             new[] { "host", "port", "secureSocketMode", "username", "fromAddress", "fromDisplayName" },
             adapter.Descriptor.NonSecretFields.Select(field => field.Name).ToArray());
         CollectionAssert.AreEqual(new[] { "password" }, adapter.Descriptor.SecretFieldKeys.ToArray());
-        Assert.AreEqual("none", adapter.Descriptor.ReceiptModeKey);
+        Assert.AreEqual(NotificationReceiptModeKeys.None, adapter.Descriptor.ReceiptModeKey);
         Assert.AreEqual("email", adapter.RecipientEndpointKindKey);
         Assert.IsTrue(adapter.Descriptor.SupportsNativeAot);
     }

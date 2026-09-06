@@ -164,6 +164,17 @@ internal static class NotificationDeliveryWorkerAssertions
             await unknownProvider.Content.ReadAsStringAsync(cancellationToken),
             NotificationsErrorCodes.ReceiptProviderUnknown);
 
+        using var smtpReceipt = await SendReceiptAsync(
+            client,
+            "email.smtp",
+            receiptBody,
+            TestNotificationReceiptVerifier.Sign(receiptBody),
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, smtpReceipt.StatusCode);
+        NotificationProfileBindingAssertions.AssertProblem(
+            await smtpReceipt.Content.ReadAsStringAsync(cancellationToken),
+            NotificationsErrorCodes.ReceiptNotSupported);
+
         using var tooLarge = await SendReceiptAsync(
             client,
             TestNotificationProvider.ProviderTypeKeyValue,

@@ -133,6 +133,16 @@ describe('Vue 渠道配置页', () => {
     expect(wrapper.find('[data-testid="notification-profiles-publish"]').exists()).toBe(false);
   });
 
+  it('展示 Provider 回执能力标签', async () => {
+    const wrapper = mountWithPermissions(['notifications.provider_profiles.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-profiles-load"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="notification-profiles-receipt-mode"]').text())
+      .toContain('验签回执');
+  });
+
   it('启用需确认且文案声明不会自动多发', async () => {
     const wrapper = mountWithPermissions([
       'notifications.provider_profiles.read',

@@ -35,6 +35,7 @@
   <data name="notifications.delivery_retry_invalid" xml:space="preserve"><value>The retry reason is invalid.</value></data>
   <data name="notifications.receipt_invalid" xml:space="preserve"><value>The receipt signature or payload is invalid.</value></data>
   <data name="notifications.receipt_provider_unknown" xml:space="preserve"><value>The receipt provider type is not registered.</value></data>
+  <data name="notifications.receipt_not_supported" xml:space="preserve"><value>The provider type does not support trusted delivery or bounce receipts.</value></data>
   <data name="notifications.receipt_too_large" xml:space="preserve"><value>The receipt payload exceeds the allowed size.</value></data>
   <data name="notifications.template_not_found" xml:space="preserve"><value>The notification template was not found.</value></data>
   <data name="notifications.template_not_published" xml:space="preserve"><value>The notification template has not been published.</value></data>

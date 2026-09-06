@@ -34,7 +34,7 @@ internal sealed class SmtpNotificationProviderAdapter(
         ],
         ["password"],
         true,
-        "none");
+        NotificationReceiptModeKeys.None);
 
     public string? RecipientEndpointKindKey => "email";
 

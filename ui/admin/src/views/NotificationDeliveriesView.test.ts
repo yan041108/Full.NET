@@ -3,12 +3,17 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import NotificationDeliveriesView from './NotificationDeliveriesView.vue';
 import { useSessionStore } from '../auth/session';
+import { getNotificationIntent } from '../api/notification-intents';
 import {
   getNotificationDelivery,
   listNotificationDeliveries,
   retryNotificationDelivery,
   type NotificationDeliveryResponse
 } from '../api/notification-platform';
+
+vi.mock('../api/notification-intents', () => ({
+  getNotificationIntent: vi.fn()
+}));
 
 vi.mock('../api/notification-platform', () => ({
   getNotificationDelivery: vi.fn(),
@@ -18,6 +23,7 @@ vi.mock('../api/notification-platform', () => ({
 
 const listMock = vi.mocked(listNotificationDeliveries);
 const getMock = vi.mocked(getNotificationDelivery);
+const intentMock = vi.mocked(getNotificationIntent);
 
 function delivery(statusKey: string, idSuffix = '03', receipts: NotificationDeliveryResponse['receipts'] = []) {
   return {
@@ -77,6 +83,7 @@ describe('Vue 投递运维页', () => {
       total: 2
     });
     getMock.mockReset().mockResolvedValue(delivery('failed'));
+    intentMock.mockReset().mockResolvedValue({ attachments: [] });
     vi.mocked(retryNotificationDelivery).mockReset();
   });
 
@@ -101,6 +108,25 @@ describe('Vue 投递运维页', () => {
 
     expect(wrapper.find('[data-testid="notification-deliveries-retry-reason"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="notification-deliveries-retry"]').exists()).toBe(true);
+  });
+
+  it('email 渠道 sent 状态提示不等同于已送达', async () => {
+    const sent = delivery('sent', '06');
+    sent.channelKey = 'email';
+    listMock.mockResolvedValueOnce({
+      items: [sent],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+    getMock.mockResolvedValueOnce(sent);
+    const wrapper = mountWithPermissions(['notifications.deliveries.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-deliveries-load"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="notification-deliveries-email-sent-notice"]').text())
+      .toContain('不等同于已送达');
   });
 
   it('详情展示回执时间线与退信原因', async () => {

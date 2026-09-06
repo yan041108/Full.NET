@@ -15,6 +15,10 @@ public sealed class NotificationsApiSqlServerTests
         using var factory = new FullNetApiFactory(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            settingsOverrides: new Dictionary<string, string?>
+            {
+                ["Notifications:Providers:Smtp:Enabled"] = "true",
+            },
             configureTestServices: NotificationProfileBindingAssertions.ConfigureTestServices);
 
         await NotificationsHostAnnouncementAssertions.VerifyAsync(factory);

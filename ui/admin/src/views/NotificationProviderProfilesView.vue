@@ -236,6 +236,16 @@ async function confirmToggle(): Promise<void> {
   }
 }
 
+function receiptModeLabel(receiptModeKey: string): string {
+  return receiptModeKey === 'none' || receiptModeKey === 'signed'
+    ? t(`notificationProfiles.receiptMode.${receiptModeKey}` as 'notificationProfiles.receiptMode.none')
+    : receiptModeKey;
+}
+
+function receiptModeTone(receiptModeKey: string): 'success' | 'info' | undefined {
+  return receiptModeKey === 'signed' ? 'success' : 'info';
+}
+
 function toProblem(
   error: unknown,
   fallbackCode: 'notificationProfiles.loadFailed' | 'notificationProfiles.operationFailed'
@@ -284,6 +294,12 @@ function toProblem(
             />
           </ElSelect>
         </label>
+        <p v-if="selectedType" data-testid="notification-profiles-receipt-mode">
+          {{ t('notificationProfiles.fieldReceiptMode') }}:
+          <ElTag :type="receiptModeTone(selectedType.receiptModeKey)">
+            {{ receiptModeLabel(selectedType.receiptModeKey) }}
+          </ElTag>
+        </p>
         <template v-if="selectedType && !configError">
           <label v-for="field in selectedType.nonSecretFields" :key="field.name">
             <span>{{ field.name }}</span>

@@ -35,6 +35,7 @@
   <data name="notifications.delivery_retry_invalid" xml:space="preserve"><value>重试理由无效。</value></data>
   <data name="notifications.receipt_invalid" xml:space="preserve"><value>回执验签失败或载荷无效。</value></data>
   <data name="notifications.receipt_provider_unknown" xml:space="preserve"><value>未登记该回执渠道类型。</value></data>
+  <data name="notifications.receipt_not_supported" xml:space="preserve"><value>该渠道类型不支持可信送达或退信回执。</value></data>
   <data name="notifications.receipt_too_large" xml:space="preserve"><value>回执载荷超过允许大小。</value></data>
   <data name="notifications.template_not_found" xml:space="preserve"><value>未找到该通知模板。</value></data>
   <data name="notifications.template_not_published" xml:space="preserve"><value>通知模板尚未发布，不能创建意图。</value></data>

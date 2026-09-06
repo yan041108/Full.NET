@@ -160,6 +160,10 @@ function statusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger
   }
 }
 
+function showsEmailSentNotice(delivery: NotificationDeliveryResponse): boolean {
+  return delivery.channelKey === 'email' && delivery.statusKey === 'sent';
+}
+
 function toProblem(
   error: unknown,
   fallbackCode: 'notificationDeliveries.loadFailed' | 'notificationDeliveries.operationFailed'
@@ -230,6 +234,13 @@ function toProblem(
       </p>
       <p v-if="attachmentCount !== null" data-testid="notification-deliveries-attachment-count">
         {{ t('notificationDeliveries.fieldAttachmentCount') }}: {{ attachmentCount }}
+      </p>
+      <p
+        v-if="showsEmailSentNotice(selected)"
+        class="art-inline-alert"
+        data-testid="notification-deliveries-email-sent-notice"
+      >
+        {{ t('notificationDeliveries.emailSentNotice') }}
       </p>
       <ul class="art-list">
         <li v-for="attempt in selected.attempts" :key="attempt.id" data-testid="notification-deliveries-attempt">

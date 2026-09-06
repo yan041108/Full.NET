@@ -111,6 +111,9 @@ public static class NotificationsErrorCodes
     /// <summary>回执路径上的 ProviderType 没有登记验签器。</summary>
     public const string ReceiptProviderUnknown = "notifications.receipt_provider_unknown";
 
+    /// <summary>Provider 目录声明不支持可信回执（如 SMTP 协议）。</summary>
+    public const string ReceiptNotSupported = "notifications.receipt_not_supported";
+
     /// <summary>回执原始 Body 超过允许大小。</summary>
     public const string ReceiptTooLarge = "notifications.receipt_too_large";
 
@@ -222,6 +225,7 @@ public static class NotificationsErrorCodes
         DeliveryRetryInvalid,
         ReceiptInvalid,
         ReceiptProviderUnknown,
+        ReceiptNotSupported,
         ReceiptTooLarge,
         TemplateNotFound,
         TemplateNotPublished,
