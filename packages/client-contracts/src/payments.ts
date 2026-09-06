@@ -7,6 +7,7 @@ export interface PaymentMerchantConfigListItem {
   maskedMerchantId: string;
   maskedCertificateSerialNo: string;
   maskedNotifyUrl: string;
+  maskedReturnUrl: string;
   hasApiV3Key: boolean;
   hasPrivateKey: boolean;
   isDefault: boolean;
@@ -25,6 +26,7 @@ export interface PaymentMerchantConfig {
   merchantId: string;
   certificateSerialNo: string;
   notifyUrl: string;
+  returnUrl: string;
   hasApiV3Key: boolean;
   hasPrivateKey: boolean;
   isDefault: boolean;
@@ -49,6 +51,7 @@ export interface CreatePaymentMerchantConfigRequest {
   merchantId: string;
   certificateSerialNo: string;
   notifyUrl: string;
+  returnUrl: string;
   apiV3Key?: string | null;
   privateKeyPem?: string | null;
   isDefault: boolean;
@@ -62,6 +65,7 @@ export interface UpdatePaymentMerchantConfigRequest {
   merchantId: string;
   certificateSerialNo: string;
   notifyUrl: string;
+  returnUrl: string;
   apiV3Key?: string | null;
   clearApiV3Key: boolean;
   privateKeyPem?: string | null;
@@ -121,6 +125,7 @@ export interface PaymentOrderPage {
 export interface CreatePaymentOrderRequest {
   tenantId: string;
   merchantConfigId?: string | null;
+  channelKey?: string | null;
   amountMinor: number;
   currency: string;
   subject: string;

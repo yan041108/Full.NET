@@ -20,6 +20,12 @@ internal static class PaymentMerchantFieldValidator
     /// <summary>回调地址允许的最大字符数。</summary>
     internal const int MaxNotifyUrlLength = 512;
 
+    /// <summary>同步跳转地址允许的最大字符数。</summary>
+    internal const int MaxReturnUrlLength = 512;
+
+    /// <summary>支付宝可选字段占位符。</summary>
+    internal const string AlipayOptionalPlaceholder = "-";
+
     /// <summary>默认货币代码。</summary>
     internal const string DefaultCurrency = "CNY";
 
@@ -27,7 +33,8 @@ internal static class PaymentMerchantFieldValidator
     /// <param name="channelKey">渠道键。</param>
     /// <returns>是否受支持。</returns>
     public static bool IsSupportedChannel(string? channelKey) =>
-        string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal);
+        string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal)
+        || string.Equals(channelKey, PaymentChannelKeys.AlipayPage, StringComparison.Ordinal);
 
     /// <summary>校验商户配置元数据。</summary>
     /// <param name="name">显示名称。</param>
@@ -36,6 +43,7 @@ internal static class PaymentMerchantFieldValidator
     /// <param name="merchantId">商户号。</param>
     /// <param name="certificateSerialNo">证书序列号。</param>
     /// <param name="notifyUrl">回调地址。</param>
+    /// <param name="returnUrl">同步跳转地址。</param>
     /// <returns>校验失败时的错误消息；成功时为 <see langword="null"/>。</returns>
     public static string? ValidateMetadata(
         string name,
@@ -43,7 +51,8 @@ internal static class PaymentMerchantFieldValidator
         string appId,
         string merchantId,
         string certificateSerialNo,
-        string notifyUrl)
+        string notifyUrl,
+        string returnUrl)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > MaxNameLength)
         {
@@ -52,7 +61,7 @@ internal static class PaymentMerchantFieldValidator
 
         if (!IsSupportedChannel(channelKey))
         {
-            return "Channel key must be wechat_native.";
+            return "Channel key must be wechat_native or alipay_page.";
         }
 
         if (string.IsNullOrWhiteSpace(appId) || appId.Trim().Length > MaxAppIdLength)
@@ -60,23 +69,12 @@ internal static class PaymentMerchantFieldValidator
             return "App id is required and must not exceed 64 characters.";
         }
 
-        if (string.IsNullOrWhiteSpace(merchantId) || merchantId.Trim().Length > MaxMerchantIdLength)
+        if (string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal))
         {
-            return "Merchant id is required and must not exceed 32 characters.";
+            return ValidateWeChatMetadata(merchantId, certificateSerialNo, notifyUrl);
         }
 
-        if (string.IsNullOrWhiteSpace(certificateSerialNo)
-            || certificateSerialNo.Trim().Length > MaxCertificateSerialNoLength)
-        {
-            return "Certificate serial number is required and must not exceed 64 characters.";
-        }
-
-        if (!IsSafeNotifyUrl(notifyUrl))
-        {
-            return "Notify URL must be an absolute https URL without credentials.";
-        }
-
-        return null;
+        return ValidateAlipayMetadata(merchantId, certificateSerialNo, notifyUrl, returnUrl);
     }
 
     /// <summary>校验创建订单请求。</summary>
@@ -84,12 +82,14 @@ internal static class PaymentMerchantFieldValidator
     /// <param name="currency">货币代码。</param>
     /// <param name="subject">商品标题。</param>
     /// <param name="description">商品描述。</param>
+    /// <param name="channelKey">可选渠道键。</param>
     /// <returns>校验失败时的错误消息；成功时为 <see langword="null"/>。</returns>
     public static string? ValidateOrderRequest(
         long amountMinor,
         string currency,
         string subject,
-        string? description)
+        string? description,
+        string? channelKey = null)
     {
         if (amountMinor <= 0)
         {
@@ -109,6 +109,13 @@ internal static class PaymentMerchantFieldValidator
         if (description is not null && description.Trim().Length > 256)
         {
             return "Description must not exceed 256 characters.";
+        }
+
+        if (channelKey is not null
+            && !string.IsNullOrWhiteSpace(channelKey)
+            && !IsSupportedChannel(channelKey))
+        {
+            return "Channel key must be wechat_native or alipay_page.";
         }
 
         return null;
@@ -134,9 +141,81 @@ internal static class PaymentMerchantFieldValidator
         return null;
     }
 
-    private static bool IsSafeNotifyUrl(string notifyUrl)
+    /// <summary>将支付宝可选字段规范化为占位符或裁剪后的值。</summary>
+    /// <param name="value">原始值。</param>
+    /// <returns>规范化后的值。</returns>
+    public static string NormalizeAlipayOptionalField(string? value)
     {
-        if (!Uri.TryCreate(notifyUrl.Trim(), UriKind.Absolute, out var uri))
+        var normalized = value?.Trim();
+        return string.IsNullOrEmpty(normalized) ? AlipayOptionalPlaceholder : normalized;
+    }
+
+    /// <summary>将同步跳转地址规范化为可空字符串。</summary>
+    /// <param name="returnUrl">原始跳转地址。</param>
+    /// <returns>空字符串转为 null；否则返回裁剪后的值。</returns>
+    public static string? NormalizeReturnUrl(string? returnUrl)
+    {
+        var normalized = returnUrl?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
+    }
+
+    private static string? ValidateWeChatMetadata(
+        string merchantId,
+        string certificateSerialNo,
+        string notifyUrl)
+    {
+        if (string.IsNullOrWhiteSpace(merchantId) || merchantId.Trim().Length > MaxMerchantIdLength)
+        {
+            return "Merchant id is required and must not exceed 32 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(certificateSerialNo)
+            || certificateSerialNo.Trim().Length > MaxCertificateSerialNoLength)
+        {
+            return "Certificate serial number is required and must not exceed 64 characters.";
+        }
+
+        if (!IsSafeHttpsUrl(notifyUrl, MaxNotifyUrlLength))
+        {
+            return "Notify URL must be an absolute https URL without credentials.";
+        }
+
+        return null;
+    }
+
+    private static string? ValidateAlipayMetadata(
+        string merchantId,
+        string certificateSerialNo,
+        string notifyUrl,
+        string returnUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(merchantId) && merchantId.Trim().Length > MaxMerchantIdLength)
+        {
+            return "Merchant id must not exceed 32 characters.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(certificateSerialNo)
+            && certificateSerialNo.Trim().Length > MaxCertificateSerialNoLength)
+        {
+            return "Certificate serial number must not exceed 64 characters.";
+        }
+
+        if (!IsSafeHttpsUrl(notifyUrl, MaxNotifyUrlLength))
+        {
+            return "Notify URL must be an absolute https URL without credentials.";
+        }
+
+        if (!IsSafeHttpsUrl(returnUrl, MaxReturnUrlLength))
+        {
+            return "Return URL must be an absolute https URL without credentials.";
+        }
+
+        return null;
+    }
+
+    private static bool IsSafeHttpsUrl(string url, int maxLength)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
         {
             return false;
         }
@@ -151,6 +230,6 @@ internal static class PaymentMerchantFieldValidator
             return false;
         }
 
-        return uri.Host.Length > 0 && notifyUrl.Trim().Length <= MaxNotifyUrlLength;
+        return uri.Host.Length > 0 && url.Trim().Length <= maxLength;
     }
 }

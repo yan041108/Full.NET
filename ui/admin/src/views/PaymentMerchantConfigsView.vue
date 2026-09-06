@@ -9,7 +9,9 @@ import {
   ElInput,
   ElMessage,
   ElMessageBox,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElSwitch,
   ElTable,
   ElTableColumn,
@@ -52,17 +54,21 @@ const editing = ref<PaymentMerchantConfigListItem | null>(null);
 const editorFormRef = ref<FormInstance>();
 const editorForm = reactive({
   tenantId: '',
+  channelKey: 'wechat_native',
   name: '',
   appId: '',
   merchantId: '',
   certificateSerialNo: '',
   notifyUrl: '',
+  returnUrl: '',
   apiV3Key: '',
   privateKeyPem: '',
   isDefault: false,
   isEnabled: true,
   version: 0
 });
+
+const isAlipayPage = computed(() => editorForm.channelKey === 'alipay_page');
 
 const {
   tableMainRef,
@@ -104,11 +110,13 @@ function openCreate(): void {
   editing.value = null;
   Object.assign(editorForm, {
     tenantId: '',
+    channelKey: 'wechat_native',
     name: '',
     appId: '',
     merchantId: '',
     certificateSerialNo: '',
     notifyUrl: '',
+    returnUrl: '',
     apiV3Key: '',
     privateKeyPem: '',
     isDefault: false,
@@ -124,11 +132,13 @@ async function openEdit(row: PaymentMerchantConfigListItem): Promise<void> {
   const detail = await getPaymentMerchantConfig(row.id);
   Object.assign(editorForm, {
     tenantId: detail.tenantId ?? '',
+    channelKey: detail.channelKey,
     name: detail.name,
     appId: detail.appId,
-    merchantId: detail.merchantId,
-    certificateSerialNo: detail.certificateSerialNo,
+    merchantId: detail.merchantId === '-' ? '' : detail.merchantId,
+    certificateSerialNo: detail.certificateSerialNo === '-' ? '' : detail.certificateSerialNo,
     notifyUrl: detail.notifyUrl,
+    returnUrl: detail.returnUrl === '-' ? '' : detail.returnUrl,
     apiV3Key: '',
     privateKeyPem: '',
     isDefault: detail.isDefault,
@@ -145,11 +155,12 @@ async function saveEditor(): Promise<void> {
       await createPaymentMerchantConfig({
         tenantId: editorForm.tenantId.trim() || null,
         name: editorForm.name.trim(),
-        channelKey: 'wechat_native',
+        channelKey: editorForm.channelKey,
         appId: editorForm.appId.trim(),
         merchantId: editorForm.merchantId.trim(),
         certificateSerialNo: editorForm.certificateSerialNo.trim(),
         notifyUrl: editorForm.notifyUrl.trim(),
+        returnUrl: editorForm.returnUrl.trim(),
         apiV3Key: editorForm.apiV3Key.trim() || null,
         privateKeyPem: editorForm.privateKeyPem.trim() || null,
         isDefault: editorForm.isDefault,
@@ -159,11 +170,12 @@ async function saveEditor(): Promise<void> {
     } else if (editing.value) {
       await updatePaymentMerchantConfig(editing.value.id, {
         name: editorForm.name.trim(),
-        channelKey: 'wechat_native',
+        channelKey: editorForm.channelKey,
         appId: editorForm.appId.trim(),
         merchantId: editorForm.merchantId.trim(),
         certificateSerialNo: editorForm.certificateSerialNo.trim(),
         notifyUrl: editorForm.notifyUrl.trim(),
+        returnUrl: editorForm.returnUrl.trim(),
         apiV3Key: editorForm.apiV3Key.trim() || null,
         clearApiV3Key: false,
         privateKeyPem: editorForm.privateKeyPem.trim() || null,
@@ -223,6 +235,7 @@ onMounted(() => {
           :border="tableBorder"
           :header-cell-style="tableHeaderCellStyle"
         >
+          <el-table-column prop="channelKey" :label="t('paymentMerchantConfigs.fieldChannelKey')" width="140" />
           <el-table-column prop="name" :label="t('paymentMerchantConfigs.fieldName')" min-width="140" />
           <el-table-column prop="maskedMerchantId" :label="t('paymentMerchantConfigs.fieldMerchantId')" min-width="140" />
           <el-table-column prop="maskedAppId" :label="t('paymentMerchantConfigs.fieldAppId')" min-width="140" />
@@ -265,22 +278,31 @@ onMounted(() => {
         <el-form-item :label="t('paymentMerchantConfigs.fieldTenantId')">
           <el-input v-model="editorForm.tenantId" />
         </el-form-item>
+        <el-form-item :label="t('paymentMerchantConfigs.fieldChannelKey')" required>
+          <el-select v-model="editorForm.channelKey" :disabled="editorMode === 'edit'">
+            <el-option :label="t('paymentMerchantConfigs.channelWeChatNative')" value="wechat_native" />
+            <el-option :label="t('paymentMerchantConfigs.channelAlipayPage')" value="alipay_page" />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="t('paymentMerchantConfigs.fieldName')" required>
           <el-input v-model="editorForm.name" />
         </el-form-item>
         <el-form-item :label="t('paymentMerchantConfigs.fieldAppId')" required>
           <el-input v-model="editorForm.appId" />
         </el-form-item>
-        <el-form-item :label="t('paymentMerchantConfigs.fieldMerchantId')" required>
+        <el-form-item v-if="!isAlipayPage" :label="t('paymentMerchantConfigs.fieldMerchantId')" required>
           <el-input v-model="editorForm.merchantId" />
         </el-form-item>
-        <el-form-item :label="t('paymentMerchantConfigs.fieldCertificateSerialNo')" required>
+        <el-form-item v-if="!isAlipayPage" :label="t('paymentMerchantConfigs.fieldCertificateSerialNo')" required>
           <el-input v-model="editorForm.certificateSerialNo" />
         </el-form-item>
         <el-form-item :label="t('paymentMerchantConfigs.fieldNotifyUrl')" required>
           <el-input v-model="editorForm.notifyUrl" />
         </el-form-item>
-        <el-form-item :label="t('paymentMerchantConfigs.fieldApiV3Key')">
+        <el-form-item v-if="isAlipayPage" :label="t('paymentMerchantConfigs.fieldReturnUrl')" required>
+          <el-input v-model="editorForm.returnUrl" />
+        </el-form-item>
+        <el-form-item v-if="!isAlipayPage" :label="t('paymentMerchantConfigs.fieldApiV3Key')">
           <el-input v-model="editorForm.apiV3Key" type="password" show-password />
         </el-form-item>
         <el-form-item :label="t('paymentMerchantConfigs.fieldPrivateKey')">

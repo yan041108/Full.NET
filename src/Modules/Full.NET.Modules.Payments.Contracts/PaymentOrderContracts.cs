@@ -11,7 +11,7 @@ namespace Full.NET.Modules.Payments.Contracts;
 /// <param name="Currency">货币代码。</param>
 /// <param name="Subject">商品标题。</param>
 /// <param name="Description">商品描述。</param>
-/// <param name="CodeUrl">微信 Native 支付二维码链接。</param>
+/// <param name="CodeUrl">支付引导链接：微信 Native 为二维码 URL，支付宝 Page Pay 为跳转 URL。</param>
 /// <param name="ProviderTransactionId">渠道交易标识。</param>
 /// <param name="FailMessage">失败摘要。</param>
 /// <param name="CreatedAtUtc">创建时间（UTC）。</param>
@@ -48,7 +48,7 @@ public sealed record PaymentOrderListItem(
 /// <param name="Currency">货币代码。</param>
 /// <param name="Subject">商品标题。</param>
 /// <param name="Description">商品描述。</param>
-/// <param name="CodeUrl">微信 Native 支付二维码链接。</param>
+/// <param name="CodeUrl">支付引导链接：微信 Native 为二维码 URL，支付宝 Page Pay 为跳转 URL。</param>
 /// <param name="ProviderTransactionId">渠道交易标识。</param>
 /// <param name="FailMessage">失败摘要。</param>
 /// <param name="CreatedAtUtc">创建时间（UTC）。</param>
@@ -77,6 +77,7 @@ public sealed record PaymentOrderResponse(
 /// <summary>创建支付订单请求。</summary>
 /// <param name="TenantId">所属租户标识。</param>
 /// <param name="MerchantConfigId">商户配置标识；为空时使用租户默认配置。</param>
+/// <param name="ChannelKey">支付渠道键；未指定商户配置时用于选择默认配置，缺省为 wechat_native。</param>
 /// <param name="AmountMinor">订单金额（最小货币单位）。</param>
 /// <param name="Currency">货币代码。</param>
 /// <param name="Subject">商品标题。</param>
@@ -84,6 +85,7 @@ public sealed record PaymentOrderResponse(
 public sealed record CreatePaymentOrderRequest(
     Guid TenantId,
     Guid? MerchantConfigId,
+    string? ChannelKey,
     long AmountMinor,
     string Currency,
     string Subject,

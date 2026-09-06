@@ -14,6 +14,7 @@ internal static class PaymentMerchantConfigSql
                config.MerchantId,
                config.CertificateSerialNo,
                config.NotifyUrl,
+               config.ReturnUrl,
                config.ApiV3KeyProtected,
                config.PrivateKeyProtected,
                config.IsDefault,
@@ -27,10 +28,10 @@ internal static class PaymentMerchantConfigSql
         "payments.insert_merchant_config",
         """
         INSERT INTO fn_payment_merchant_config
-            (Id, TenantId, Name, ChannelKey, AppId, MerchantId, CertificateSerialNo, NotifyUrl,
+            (Id, TenantId, Name, ChannelKey, AppId, MerchantId, CertificateSerialNo, NotifyUrl, ReturnUrl,
              ApiV3KeyProtected, PrivateKeyProtected, IsDefault, IsEnabled, CreatedAtUtc, UpdatedAtUtc, Version)
         VALUES
-            (@Id, @TenantId, @Name, @ChannelKey, @AppId, @MerchantId, @CertificateSerialNo, @NotifyUrl,
+            (@Id, @TenantId, @Name, @ChannelKey, @AppId, @MerchantId, @CertificateSerialNo, @NotifyUrl, @ReturnUrl,
              @ApiV3KeyProtected, @PrivateKeyProtected, @IsDefault, @IsEnabled, @CreatedAtUtc, @UpdatedAtUtc, @Version)
         """,
         SqlDataScope.HostOnly);
@@ -81,6 +82,7 @@ internal static class PaymentMerchantConfigSql
             MerchantId = @MerchantId,
             CertificateSerialNo = @CertificateSerialNo,
             NotifyUrl = @NotifyUrl,
+            ReturnUrl = @ReturnUrl,
             ApiV3KeyProtected = @ApiV3KeyProtected,
             PrivateKeyProtected = @PrivateKeyProtected,
             IsDefault = @IsDefault,

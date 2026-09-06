@@ -8,7 +8,9 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElOption,
   ElPagination,
+  ElSelect,
   ElTable,
   ElTableColumn,
   ElTag
@@ -42,6 +44,7 @@ const refundForm = reactive({
 });
 const createForm = reactive({
   tenantId: '',
+  channelKey: 'wechat_native',
   merchantConfigId: '',
   amountYuan: '',
   subject: '',
@@ -90,6 +93,7 @@ async function load(): Promise<void> {
 function openCreate(): void {
   Object.assign(createForm, {
     tenantId: '',
+    channelKey: 'wechat_native',
     merchantConfigId: '',
     amountYuan: '',
     subject: '',
@@ -109,6 +113,7 @@ async function submitCreate(): Promise<void> {
   try {
     const order = await createPaymentOrder({
       tenantId: createForm.tenantId.trim(),
+      channelKey: createForm.merchantConfigId.trim() ? null : createForm.channelKey,
       merchantConfigId: createForm.merchantConfigId.trim() || null,
       amountMinor: Math.round(amount * 100),
       currency: 'CNY',
@@ -184,7 +189,7 @@ onMounted(() => {
     <el-alert
       v-if="lastCodeUrl"
       type="success"
-      :title="t('paymentOrders.codeUrlReady')"
+      :title="t('paymentOrders.payUrlReady')"
       :description="lastCodeUrl"
       show-icon
       class="art-page-alert"
@@ -210,6 +215,7 @@ onMounted(() => {
           :border="tableBorder"
           :header-cell-style="tableHeaderCellStyle"
         >
+          <el-table-column prop="channelKey" :label="t('paymentOrders.fieldChannelKey')" width="140" />
           <el-table-column prop="outTradeNo" :label="t('paymentOrders.fieldOutTradeNo')" min-width="180" />
           <el-table-column :label="t('paymentOrders.fieldAmount')" width="120">
             <template #default="{ row }">{{ formatAmount(row.amountMinor) }} {{ row.currency }}</template>
@@ -267,6 +273,12 @@ onMounted(() => {
       <el-form label-width="120px">
         <el-form-item :label="t('paymentOrders.fieldTenantId')" required>
           <el-input v-model="createForm.tenantId" />
+        </el-form-item>
+        <el-form-item :label="t('paymentOrders.fieldChannelKey')">
+          <el-select v-model="createForm.channelKey" :disabled="Boolean(createForm.merchantConfigId.trim())">
+            <el-option :label="t('paymentOrders.channelWeChatNative')" value="wechat_native" />
+            <el-option :label="t('paymentOrders.channelAlipayPage')" value="alipay_page" />
+          </el-select>
         </el-form-item>
         <el-form-item :label="t('paymentOrders.fieldMerchantConfigId')">
           <el-input v-model="createForm.merchantConfigId" />

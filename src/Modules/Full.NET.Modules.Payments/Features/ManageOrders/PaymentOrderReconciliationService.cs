@@ -4,21 +4,21 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Payments.Connectivity;
 using Full.NET.Modules.Payments.Contracts;
-using Full.NET.Modules.Payments.Features.ManageOrders;
 using Full.NET.Modules.Payments.Persistence;
 
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
-/// <summary>与微信渠道对账并同步本地订单状态。</summary>
+/// <summary>与支付渠道对账并同步本地订单状态。</summary>
 internal sealed class PaymentOrderReconciliationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     PaymentOrderQueryService queries,
     WeChatNativePayClient weChatNativePayClient,
+    AlipayPagePayClient alipayPagePayClient,
     IClock clock)
 {
-    /// <summary>按订单标识查询微信交易并回写本地状态。</summary>
+    /// <summary>按订单标识查询渠道交易并回写本地状态。</summary>
     /// <param name="orderId">订单标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>同步后的订单详情。</returns>
@@ -67,20 +67,20 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Validation));
         }
 
-        var providerResult = await weChatNativePayClient.QueryTransactionByOutTradeNoAsync(
+        var providerSnapshot = await QueryProviderAsync(
                 merchantConfig,
-                order.OutTradeNo,
+                order,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!providerResult.Succeeded)
+        if (!providerSnapshot.Succeeded)
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.OrderProviderFailed,
-                providerResult.FailMessage ?? "WeChat transaction query failed.",
+                providerSnapshot.FailMessage ?? "Payment provider query failed.",
                 ErrorType.Validation));
         }
 
-        if (providerResult.AmountMinor != order.AmountMinor)
+        if (providerSnapshot.AmountMinor != order.AmountMinor)
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.NotifyRejected,
@@ -88,19 +88,19 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Validation));
         }
 
-        var mappedState = MapTradeState(providerResult.TradeState);
+        var mappedState = MapTradeState(order.ChannelKey, providerSnapshot.TradeState);
         if (mappedState is null)
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.OrderProviderFailed,
-                $"Unsupported provider trade state: {providerResult.TradeState}",
+                $"Unsupported provider trade state: {providerSnapshot.TradeState}",
                 ErrorType.Validation));
         }
 
         if (mappedState == order.TradeStateKey
             && string.Equals(
                 order.ProviderTransactionId,
-                providerResult.TransactionId,
+                providerSnapshot.TransactionId,
                 StringComparison.Ordinal))
         {
             return await queries.GetByIdAsync(orderId, cancellationToken).ConfigureAwait(false);
@@ -113,7 +113,7 @@ internal sealed class PaymentOrderReconciliationService(
                 PaymentSqlParameters.Create(
                     ("OrderId", order.Id),
                     ("TradeStateKey", mappedState),
-                    ("ProviderTransactionId", providerResult.TransactionId),
+                    ("ProviderTransactionId", providerSnapshot.TransactionId),
                     ("FailMessage", null),
                     ("UpdatedAtUtc", now),
                     ("PaidAtUtc", paidAtUtc),
@@ -131,14 +131,82 @@ internal sealed class PaymentOrderReconciliationService(
         return await queries.GetByIdAsync(orderId, cancellationToken).ConfigureAwait(false);
     }
 
-    private static string? MapTradeState(string? tradeState) =>
-        tradeState switch
+    private async Task<ProviderQuerySnapshot> QueryProviderAsync(
+        PaymentMerchantConfigRecord merchantConfig,
+        PaymentOrderRecord order,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(order.ChannelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal))
         {
-            "SUCCESS" => PaymentTradeStateKeys.Succeeded,
-            "NOTPAY" => PaymentTradeStateKeys.AwaitingPayment,
-            "CLOSED" => PaymentTradeStateKeys.Closed,
-            "PAYERROR" => PaymentTradeStateKeys.Failed,
-            "REFUND" => PaymentTradeStateKeys.Refunded,
-            _ => null,
-        };
+            var weChatResult = await weChatNativePayClient.QueryTransactionByOutTradeNoAsync(
+                    merchantConfig,
+                    order.OutTradeNo,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new ProviderQuerySnapshot(
+                weChatResult.Succeeded,
+                weChatResult.TradeState,
+                weChatResult.TransactionId,
+                weChatResult.AmountMinor,
+                weChatResult.FailMessage);
+        }
+
+        if (string.Equals(order.ChannelKey, PaymentChannelKeys.AlipayPage, StringComparison.Ordinal))
+        {
+            var alipayResult = await alipayPagePayClient.QueryTradeByOutTradeNoAsync(
+                    merchantConfig,
+                    order.OutTradeNo,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new ProviderQuerySnapshot(
+                alipayResult.Succeeded,
+                alipayResult.TradeStatus,
+                alipayResult.TradeNo,
+                alipayResult.AmountMinor,
+                alipayResult.FailMessage);
+        }
+
+        return new ProviderQuerySnapshot(
+            false,
+            null,
+            null,
+            null,
+            $"Unsupported payment channel: {order.ChannelKey}.");
+    }
+
+    private static string? MapTradeState(string channelKey, string? tradeState)
+    {
+        if (string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal))
+        {
+            return tradeState switch
+            {
+                "SUCCESS" => PaymentTradeStateKeys.Succeeded,
+                "NOTPAY" => PaymentTradeStateKeys.AwaitingPayment,
+                "CLOSED" => PaymentTradeStateKeys.Closed,
+                "PAYERROR" => PaymentTradeStateKeys.Failed,
+                "REFUND" => PaymentTradeStateKeys.Refunded,
+                _ => null,
+            };
+        }
+
+        if (string.Equals(channelKey, PaymentChannelKeys.AlipayPage, StringComparison.Ordinal))
+        {
+            return tradeState switch
+            {
+                "TRADE_SUCCESS" => PaymentTradeStateKeys.Succeeded,
+                "WAIT_BUYER_PAY" => PaymentTradeStateKeys.AwaitingPayment,
+                "TRADE_CLOSED" => PaymentTradeStateKeys.Closed,
+                _ => null,
+            };
+        }
+
+        return null;
+    }
+
+    private sealed record ProviderQuerySnapshot(
+        bool Succeeded,
+        string? TradeState,
+        string? TransactionId,
+        long? AmountMinor,
+        string? FailMessage);
 }

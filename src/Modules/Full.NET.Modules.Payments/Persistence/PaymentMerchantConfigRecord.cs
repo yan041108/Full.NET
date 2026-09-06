@@ -27,6 +27,9 @@ internal sealed class PaymentMerchantConfigRecord
     /// <summary>支付结果通知地址。</summary>
     public string NotifyUrl { get; init; } = string.Empty;
 
+    /// <summary>支付完成同步跳转地址；支付宝 Page Pay 使用。</summary>
+    public string? ReturnUrl { get; init; }
+
     /// <summary>受保护的 API v3 密钥。</summary>
     public string? ApiV3KeyProtected { get; init; }
 

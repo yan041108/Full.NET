@@ -18,7 +18,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Full.NET.Modules.Payments;
 
-/// <summary>提供支付商户配置、微信 Native 支付订单、回调与退款 API。</summary>
+/// <summary>提供支付商户配置、微信 Native 与支付宝 Page Pay 订单、回调与退款 API。</summary>
 public sealed class PaymentsModule : IFullNetModule
 {
     public string Name => "Payments";
@@ -43,7 +43,13 @@ public sealed class PaymentsModule : IFullNetModule
                 client.BaseAddress = new Uri("https://api.mch.weixin.qq.com");
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
+        services.AddHttpClient(AlipayPagePayClient.HttpClientName)
+            .ConfigureHttpClient(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
         services.TryAddSingleton<WeChatNativePayClient>();
+        services.TryAddSingleton<AlipayPagePayClient>();
         services.TryAddSingleton<IWeChatPayPlatformCertificateResolver, WeChatPayPlatformCertificateResolver>();
         services.TryAddScoped<PaymentMerchantConfigQueryService>();
         services.TryAddScoped<PaymentMerchantConfigManagementService>();

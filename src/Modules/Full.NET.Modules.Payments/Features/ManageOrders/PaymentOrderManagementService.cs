@@ -19,12 +19,13 @@ internal sealed class PaymentOrderManagementService(
     ICommandTransaction transaction,
     PaymentOrderQueryService queries,
     WeChatNativePayClient weChatNativePayClient,
+    AlipayPagePayClient alipayPagePayClient,
     IIdentityActiveTenantDirectory activeTenants,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions)
 {
-    /// <summary>创建支付订单并调用微信 Native 下单。</summary>
+    /// <summary>创建支付订单并调用对应渠道下单。</summary>
     /// <param name="request">创建请求。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>创建结果或稳定业务错误。</returns>
@@ -43,7 +44,8 @@ internal sealed class PaymentOrderManagementService(
             request.AmountMinor,
             request.Currency,
             request.Subject,
-            request.Description);
+            request.Description,
+            request.ChannelKey);
         if (validationMessage is not null)
         {
             return ValidationFailure<PaymentOrderResponse>(validationMessage);
@@ -69,15 +71,23 @@ internal sealed class PaymentOrderManagementService(
                 ErrorType.Validation));
         }
 
-        if (!merchantConfig.IsEnabled
-            || !string.Equals(
+        if (!merchantConfig.IsEnabled)
+        {
+            return Result<PaymentOrderResponse>.Failure(new Error(
+                PaymentErrorCodes.MerchantConfigUnavailable,
+                "The selected merchant configuration is not enabled.",
+                ErrorType.Validation));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ChannelKey)
+            && !string.Equals(
                 merchantConfig.ChannelKey,
-                PaymentChannelKeys.WeChatNative,
+                request.ChannelKey.Trim(),
                 StringComparison.Ordinal))
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.MerchantConfigUnavailable,
-                "The selected merchant configuration is not enabled for WeChat Native payments.",
+                "The selected merchant configuration does not match the requested channel.",
                 ErrorType.Validation));
         }
 
@@ -111,12 +121,13 @@ internal sealed class PaymentOrderManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var providerResult = await weChatNativePayClient.CreateNativeOrderAsync(
+        var providerResult = await InvokeProviderAsync(
                 merchantConfig,
                 outTradeNo,
                 request.AmountMinor,
                 request.Currency.Trim().ToUpperInvariant(),
                 description,
+                request.Subject.Trim(),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -129,7 +140,7 @@ internal sealed class PaymentOrderManagementService(
                 PaymentSqlParameters.Create(
                     ("OrderId", orderId),
                     ("TradeStateKey", tradeStateKey),
-                    ("CodeUrl", providerResult.CodeUrl),
+                    ("CodeUrl", providerResult.PayUrl),
                     ("ProviderTransactionId", null),
                     ("FailMessage", providerResult.FailMessage),
                     ("UpdatedAtUtc", updatedAtUtc),
@@ -148,12 +159,59 @@ internal sealed class PaymentOrderManagementService(
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
                 PaymentErrorCodes.OrderProviderFailed,
-                providerResult.FailMessage ?? "WeChat Native pay request failed.",
+                providerResult.FailMessage ?? "Payment provider request failed.",
                 ErrorType.Validation));
         }
 
         return await queries.GetByIdAsync(orderId, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task<ProviderInvocationResult> InvokeProviderAsync(
+        PaymentMerchantConfigRecord merchantConfig,
+        string outTradeNo,
+        long amountMinor,
+        string currency,
+        string description,
+        string subject,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(merchantConfig.ChannelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal))
+        {
+            var weChatResult = await weChatNativePayClient.CreateNativeOrderAsync(
+                    merchantConfig,
+                    outTradeNo,
+                    amountMinor,
+                    currency,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new ProviderInvocationResult(
+                weChatResult.Succeeded,
+                weChatResult.CodeUrl,
+                weChatResult.FailMessage);
+        }
+
+        if (string.Equals(merchantConfig.ChannelKey, PaymentChannelKeys.AlipayPage, StringComparison.Ordinal))
+        {
+            var alipayResult = await alipayPagePayClient.CreatePagePayUrlAsync(
+                    merchantConfig,
+                    outTradeNo,
+                    amountMinor,
+                    currency,
+                    subject,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new ProviderInvocationResult(
+                alipayResult.Succeeded,
+                alipayResult.PayUrl,
+                alipayResult.FailMessage);
+        }
+
+        return new ProviderInvocationResult(
+            false,
+            null,
+            $"Unsupported payment channel: {merchantConfig.ChannelKey}.");
     }
 
     private async Task<PaymentMerchantConfigRecord?> ResolveMerchantConfigAsync(
@@ -175,6 +233,10 @@ internal sealed class PaymentOrderManagementService(
             return explicitConfig;
         }
 
+        var channelKey = string.IsNullOrWhiteSpace(request.ChannelKey)
+            ? PaymentChannelKeys.WeChatNative
+            : request.ChannelKey.Trim();
+
         var defaultStatement = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => PaymentMerchantConfigSql.FindDefaultForTenant,
@@ -187,7 +249,7 @@ internal sealed class PaymentOrderManagementService(
                 defaultStatement,
                 PaymentSqlParameters.Create(
                     ("TenantId", request.TenantId),
-                    ("ChannelKey", PaymentChannelKeys.WeChatNative)),
+                    ("ChannelKey", channelKey)),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -206,4 +268,9 @@ internal sealed class PaymentOrderManagementService(
             PaymentErrorCodes.OrderInvalid,
             message,
             ErrorType.Validation));
+
+    private sealed record ProviderInvocationResult(
+        bool Succeeded,
+        string? PayUrl,
+        string? FailMessage);
 }

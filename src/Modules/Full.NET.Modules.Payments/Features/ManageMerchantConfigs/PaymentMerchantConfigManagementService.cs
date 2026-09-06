@@ -61,31 +61,28 @@ internal sealed class PaymentMerchantConfigManagementService(
         CreatePaymentMerchantConfigRequest request,
         CancellationToken cancellationToken)
     {
+        var channelKey = request.ChannelKey.Trim();
+        var merchantId = NormalizeMerchantId(channelKey, request.MerchantId);
+        var certificateSerialNo = NormalizeCertificateSerialNo(channelKey, request.CertificateSerialNo);
+        var returnUrl = PaymentMerchantFieldValidator.NormalizeReturnUrl(request.ReturnUrl);
+
         var validationMessage = PaymentMerchantFieldValidator.ValidateMetadata(
             request.Name,
-            request.ChannelKey,
+            channelKey,
             request.AppId,
-            request.MerchantId,
-            request.CertificateSerialNo,
-            request.NotifyUrl);
+            merchantId,
+            certificateSerialNo,
+            request.NotifyUrl,
+            request.ReturnUrl);
         if (validationMessage is not null)
         {
             return ValidationFailure<PaymentMerchantConfigResponse>(validationMessage);
         }
 
-        if (string.IsNullOrWhiteSpace(request.ApiV3Key))
+        var secretValidation = ValidateCreateSecrets(channelKey, request.ApiV3Key, request.PrivateKeyPem);
+        if (secretValidation is not null)
         {
-            return Result<PaymentMerchantConfigResponse>.Failure(new Error(
-                PaymentErrorCodes.MerchantConfigSecretRequired,
-                "API v3 key is required when creating a merchant configuration.",
-                ErrorType.Validation));
-        }
-
-        var privateKeyValidation = PaymentMerchantFieldValidator.ValidatePrivateKeyPem(
-            request.PrivateKeyPem ?? string.Empty);
-        if (privateKeyValidation is not null)
-        {
-            return ValidationFailure<PaymentMerchantConfigResponse>(privateKeyValidation);
+            return ValidationFailure<PaymentMerchantConfigResponse>(secretValidation);
         }
 
         var tenantValidation = await ValidateTenantScopeAsync(request.TenantId, cancellationToken)
@@ -97,14 +94,16 @@ internal sealed class PaymentMerchantConfigManagementService(
 
         var now = clock.UtcNow;
         var merchantConfigId = idGenerator.NewId();
-        var protectedApiV3Key = secretProtector.ProtectApiV3Key(request.ApiV3Key.Trim());
+        var protectedApiV3Key = string.IsNullOrWhiteSpace(request.ApiV3Key)
+            ? null
+            : secretProtector.ProtectApiV3Key(request.ApiV3Key.Trim());
         var protectedPrivateKey = secretProtector.ProtectPrivateKey(request.PrivateKeyPem!.Trim());
 
         if (request.IsDefault)
         {
             await ClearDefaultForScopeAsync(
                     request.TenantId,
-                    request.ChannelKey.Trim(),
+                    channelKey,
                     merchantConfigId,
                     now,
                     cancellationToken)
@@ -117,11 +116,12 @@ internal sealed class PaymentMerchantConfigManagementService(
                     ("Id", merchantConfigId),
                     ("TenantId", request.TenantId),
                     ("Name", request.Name.Trim()),
-                    ("ChannelKey", request.ChannelKey.Trim()),
+                    ("ChannelKey", channelKey),
                     ("AppId", request.AppId.Trim()),
-                    ("MerchantId", request.MerchantId.Trim()),
-                    ("CertificateSerialNo", request.CertificateSerialNo.Trim()),
+                    ("MerchantId", merchantId),
+                    ("CertificateSerialNo", certificateSerialNo),
                     ("NotifyUrl", request.NotifyUrl.Trim()),
+                    ("ReturnUrl", returnUrl),
                     ("ApiV3KeyProtected", protectedApiV3Key),
                     ("PrivateKeyProtected", protectedPrivateKey),
                     ("IsDefault", request.IsDefault),
@@ -151,13 +151,19 @@ internal sealed class PaymentMerchantConfigManagementService(
             return NotFoundDetail();
         }
 
+        var channelKey = request.ChannelKey.Trim();
+        var merchantId = NormalizeMerchantId(channelKey, request.MerchantId);
+        var certificateSerialNo = NormalizeCertificateSerialNo(channelKey, request.CertificateSerialNo);
+        var returnUrl = PaymentMerchantFieldValidator.NormalizeReturnUrl(request.ReturnUrl);
+
         var validationMessage = PaymentMerchantFieldValidator.ValidateMetadata(
             request.Name,
-            request.ChannelKey,
+            channelKey,
             request.AppId,
-            request.MerchantId,
-            request.CertificateSerialNo,
-            request.NotifyUrl);
+            merchantId,
+            certificateSerialNo,
+            request.NotifyUrl,
+            request.ReturnUrl);
         if (validationMessage is not null)
         {
             return ValidationFailure<PaymentMerchantConfigResponse>(validationMessage);
@@ -165,21 +171,14 @@ internal sealed class PaymentMerchantConfigManagementService(
 
         var protectedApiV3Key = ResolveProtectedApiV3Key(current, request);
         var protectedPrivateKey = ResolveProtectedPrivateKey(current, request);
-        if (string.IsNullOrWhiteSpace(protectedApiV3Key) || string.IsNullOrWhiteSpace(protectedPrivateKey))
+        var secretValidation = ValidateUpdateSecrets(
+            channelKey,
+            protectedApiV3Key,
+            protectedPrivateKey,
+            request.PrivateKeyPem);
+        if (secretValidation is not null)
         {
-            return Result<PaymentMerchantConfigResponse>.Failure(new Error(
-                PaymentErrorCodes.MerchantConfigSecretRequired,
-                "API v3 key and private key must remain configured.",
-                ErrorType.Validation));
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.PrivateKeyPem))
-        {
-            var privateKeyValidation = PaymentMerchantFieldValidator.ValidatePrivateKeyPem(request.PrivateKeyPem);
-            if (privateKeyValidation is not null)
-            {
-                return ValidationFailure<PaymentMerchantConfigResponse>(privateKeyValidation);
-            }
+            return ValidationFailure<PaymentMerchantConfigResponse>(secretValidation);
         }
 
         var now = clock.UtcNow;
@@ -187,7 +186,7 @@ internal sealed class PaymentMerchantConfigManagementService(
         {
             await ClearDefaultForScopeAsync(
                     current.TenantId,
-                    request.ChannelKey.Trim(),
+                    channelKey,
                     merchantConfigId,
                     now,
                     cancellationToken)
@@ -199,11 +198,12 @@ internal sealed class PaymentMerchantConfigManagementService(
                 PaymentSqlParameters.Create(
                     ("MerchantConfigId", merchantConfigId),
                     ("Name", request.Name.Trim()),
-                    ("ChannelKey", request.ChannelKey.Trim()),
+                    ("ChannelKey", channelKey),
                     ("AppId", request.AppId.Trim()),
-                    ("MerchantId", request.MerchantId.Trim()),
-                    ("CertificateSerialNo", request.CertificateSerialNo.Trim()),
+                    ("MerchantId", merchantId),
+                    ("CertificateSerialNo", certificateSerialNo),
                     ("NotifyUrl", request.NotifyUrl.Trim()),
+                    ("ReturnUrl", returnUrl),
                     ("ApiV3KeyProtected", protectedApiV3Key),
                     ("PrivateKeyProtected", protectedPrivateKey),
                     ("IsDefault", request.IsDefault),
@@ -300,6 +300,69 @@ internal sealed class PaymentMerchantConfigManagementService(
         }
 
         return current.PrivateKeyProtected;
+    }
+
+    private static string? ValidateCreateSecrets(
+        string channelKey,
+        string? apiV3Key,
+        string? privateKeyPem)
+    {
+        if (string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(apiV3Key))
+        {
+            return "API v3 key is required when creating a WeChat merchant configuration.";
+        }
+
+        return PaymentMerchantFieldValidator.ValidatePrivateKeyPem(privateKeyPem ?? string.Empty);
+    }
+
+    private static string? ValidateUpdateSecrets(
+        string channelKey,
+        string? protectedApiV3Key,
+        string? protectedPrivateKey,
+        string? privateKeyPem)
+    {
+        if (string.IsNullOrWhiteSpace(protectedPrivateKey))
+        {
+            return "Private key must remain configured.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(privateKeyPem))
+        {
+            var privateKeyValidation = PaymentMerchantFieldValidator.ValidatePrivateKeyPem(privateKeyPem);
+            if (privateKeyValidation is not null)
+            {
+                return privateKeyValidation;
+            }
+        }
+
+        if (string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(protectedApiV3Key))
+        {
+            return "API v3 key must remain configured for WeChat merchant configurations.";
+        }
+
+        return null;
+    }
+
+    private static string NormalizeMerchantId(string channelKey, string merchantId)
+    {
+        if (string.Equals(channelKey, PaymentChannelKeys.AlipayPage, StringComparison.Ordinal))
+        {
+            return PaymentMerchantFieldValidator.NormalizeAlipayOptionalField(merchantId);
+        }
+
+        return merchantId.Trim();
+    }
+
+    private static string NormalizeCertificateSerialNo(string channelKey, string certificateSerialNo)
+    {
+        if (string.Equals(channelKey, PaymentChannelKeys.AlipayPage, StringComparison.Ordinal))
+        {
+            return PaymentMerchantFieldValidator.NormalizeAlipayOptionalField(certificateSerialNo);
+        }
+
+        return certificateSerialNo.Trim();
     }
 
     private async Task<Result<bool>> ValidateTenantScopeAsync(

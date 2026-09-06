@@ -47577,6 +47577,7 @@
           "maskedMerchantId": { "type": "string" },
           "maskedCertificateSerialNo": { "type": "string" },
           "maskedNotifyUrl": { "type": "string" },
+          "maskedReturnUrl": { "type": "string" },
           "hasApiV3Key": { "type": "boolean" },
           "hasPrivateKey": { "type": "boolean" },
           "isDefault": { "type": "boolean" },
@@ -47585,7 +47586,7 @@
           "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
           "version": { "format": "int32", "type": ["integer", "string"] }
         },
-        "required": ["id", "name", "channelKey", "maskedAppId", "maskedMerchantId", "maskedCertificateSerialNo", "maskedNotifyUrl", "hasApiV3Key", "hasPrivateKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "required": ["id", "name", "channelKey", "maskedAppId", "maskedMerchantId", "maskedCertificateSerialNo", "maskedNotifyUrl", "maskedReturnUrl", "hasApiV3Key", "hasPrivateKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
         "type": "object"
       },
       "PaymentMerchantConfigResponse": {
@@ -47598,6 +47599,7 @@
           "merchantId": { "type": "string" },
           "certificateSerialNo": { "type": "string" },
           "notifyUrl": { "type": "string" },
+          "returnUrl": { "type": "string" },
           "hasApiV3Key": { "type": "boolean" },
           "hasPrivateKey": { "type": "boolean" },
           "isDefault": { "type": "boolean" },
@@ -47606,7 +47608,7 @@
           "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
           "version": { "format": "int32", "type": ["integer", "string"] }
         },
-        "required": ["id", "name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "hasApiV3Key", "hasPrivateKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "required": ["id", "name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "returnUrl", "hasApiV3Key", "hasPrivateKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
         "type": "object"
       },
       "CreatePaymentMerchantConfigRequest": {
@@ -47619,12 +47621,13 @@
           "merchantId": { "type": "string" },
           "certificateSerialNo": { "type": "string" },
           "notifyUrl": { "type": "string" },
+          "returnUrl": { "type": "string" },
           "apiV3Key": { "type": ["null", "string"] },
           "privateKeyPem": { "type": ["null", "string"] },
           "isDefault": { "type": "boolean" },
           "isEnabled": { "type": "boolean" }
         },
-        "required": ["name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "isDefault", "isEnabled"],
+        "required": ["name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "returnUrl", "isDefault", "isEnabled"],
         "type": "object"
       },
       "UpdatePaymentMerchantConfigRequest": {
@@ -47636,6 +47639,7 @@
           "merchantId": { "type": "string" },
           "certificateSerialNo": { "type": "string" },
           "notifyUrl": { "type": "string" },
+          "returnUrl": { "type": "string" },
           "apiV3Key": { "type": ["null", "string"] },
           "clearApiV3Key": { "type": "boolean" },
           "privateKeyPem": { "type": ["null", "string"] },
@@ -47644,7 +47648,7 @@
           "isEnabled": { "type": "boolean" },
           "version": { "format": "int32", "type": ["integer", "string"] }
         },
-        "required": ["name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "clearApiV3Key", "clearPrivateKey", "isDefault", "isEnabled", "version"],
+        "required": ["name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "returnUrl", "clearApiV3Key", "clearPrivateKey", "isDefault", "isEnabled", "version"],
         "type": "object"
       },
       "PagedResultOfPaymentMerchantConfigListItem": {
@@ -47708,6 +47712,7 @@
         "properties": {
           "tenantId": { "format": "uuid", "type": "string" },
           "merchantConfigId": { "format": "uuid", "type": ["null", "string"] },
+          "channelKey": { "type": ["null", "string"] },
           "amountMinor": { "format": "int64", "type": ["integer", "string"] },
           "currency": { "type": "string" },
           "subject": { "type": "string" },
