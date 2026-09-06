@@ -428,6 +428,8 @@ public sealed class AuthorizationCatalogTests
             ["disable"] = "organization.positions.disable",
             ["assign_unit"] = "organization.positions.assign_unit",
             ["assign_position_level"] = "organization.positions.assign_position_level",
+            ["import"] = "organization.positions.import",
+            ["export"] = "organization.positions.export",
         };
 
         var positionActions = catalog.Actions

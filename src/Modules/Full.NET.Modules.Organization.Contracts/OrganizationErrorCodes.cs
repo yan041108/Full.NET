@@ -32,6 +32,14 @@ public static class OrganizationErrorCodes
     /// <summary>目标职位不存在或不属于当前租户。</summary>
     public const string PositionNotFound = "organization.positions.not_found";
 
+    /// <summary>职位导入工作簿结构或内容非法。</summary>
+    public const string PositionImportWorkbookInvalid =
+        "organization.positions.import_workbook_invalid";
+
+    /// <summary>职位导入行在文件内重复。</summary>
+    public const string PositionImportDuplicateCode =
+        "organization.positions.import_duplicate_code";
+
     /// <summary>职级编码在租户内已存在。</summary>
     public const string PositionLevelCodeExists =
         "organization.position_levels.code_exists";
@@ -63,6 +71,8 @@ public static class OrganizationErrorCodes
         WriteAccessDenied,
         PositionCodeExists,
         PositionNotFound,
+        PositionImportWorkbookInvalid,
+        PositionImportDuplicateCode,
         PositionLevelCodeExists,
         PositionLevelNotFound,
         UserPositionAlreadyAssigned,

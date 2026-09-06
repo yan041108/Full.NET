@@ -121,6 +121,55 @@ internal static class PositionSql
         SqlDataScope.TenantRequired,
         SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement ExportAllSqlServer = new(
+        "organization.export_positions.sql_server",
+        """
+        SELECT TOP (@Limit) positionObject.Id, positionObject.Code, positionObject.Name,
+               positionObject.UnitId, unitObject.Code AS UnitCode,
+               unitObject.Name AS UnitName, positionObject.PositionLevelId,
+               positionLevelObject.Code AS PositionLevelCode,
+               positionLevelObject.Name AS PositionLevelName,
+               positionObject.DisplayOrder,
+               positionObject.IsActive, positionObject.CreatedAtUtc,
+               positionObject.UpdatedAtUtc, positionObject.Version
+        FROM fn_organization_position AS positionObject
+        LEFT JOIN fn_organization_unit AS unitObject
+            ON unitObject.Id = positionObject.UnitId
+           AND unitObject.TenantId = positionObject.TenantId
+        LEFT JOIN fn_organization_position_level AS positionLevelObject
+            ON positionLevelObject.Id = positionObject.PositionLevelId
+           AND positionLevelObject.TenantId = positionObject.TenantId
+        WHERE positionObject.TenantId = @TenantId
+        ORDER BY positionObject.DisplayOrder, positionObject.Code
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ExportAllMySql = new(
+        "organization.export_positions.mysql",
+        """
+        SELECT positionObject.Id, positionObject.Code, positionObject.Name,
+               positionObject.UnitId, unitObject.Code AS UnitCode,
+               unitObject.Name AS UnitName, positionObject.PositionLevelId,
+               positionLevelObject.Code AS PositionLevelCode,
+               positionLevelObject.Name AS PositionLevelName,
+               positionObject.DisplayOrder,
+               positionObject.IsActive, positionObject.CreatedAtUtc,
+               positionObject.UpdatedAtUtc, positionObject.Version
+        FROM fn_organization_position AS positionObject
+        LEFT JOIN fn_organization_unit AS unitObject
+            ON unitObject.Id = positionObject.UnitId
+           AND unitObject.TenantId = positionObject.TenantId
+        LEFT JOIN fn_organization_position_level AS positionLevelObject
+            ON positionLevelObject.Id = positionObject.PositionLevelId
+           AND positionLevelObject.TenantId = positionObject.TenantId
+        WHERE positionObject.TenantId = @TenantId
+        ORDER BY positionObject.DisplayOrder, positionObject.Code
+        LIMIT @Limit
+        """,
+        SqlDataScope.TenantRequired,
+        SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement Insert = new(
         "organization.insert_position",
         """

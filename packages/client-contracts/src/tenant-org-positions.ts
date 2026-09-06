@@ -44,6 +44,51 @@ export interface AssignOrganizationPositionLevelRequest {
   version: number;
 }
 
+export interface ImportOrganizationPositionRowResult {
+  line: number;
+  succeeded: boolean;
+  positionId: string | null;
+  errorCode: string | null;
+  message: string | null;
+}
+
+export interface ImportOrganizationPositionsResponse {
+  succeededCount: number;
+  results: ImportOrganizationPositionRowResult[];
+}
+
+/** 校验不可信 JSON 是否为职位导入结果。 */
+export function isImportOrganizationPositionsResponse(
+  value: unknown
+): value is ImportOrganizationPositionsResponse {
+  return isRecord(value)
+    && typeof value.succeededCount === 'number'
+    && Array.isArray(value.results)
+    && value.results.every(isImportOrganizationPositionRowResult);
+}
+
+/** 读取职位导入结果；结构非法时失败关闭。 */
+export function readImportOrganizationPositionsResponse(
+  value: unknown
+): ImportOrganizationPositionsResponse {
+  if (!isImportOrganizationPositionsResponse(value)) {
+    throw new TypeError('invalid organization position import response');
+  }
+
+  return value;
+}
+
+function isImportOrganizationPositionRowResult(
+  value: unknown
+): value is ImportOrganizationPositionRowResult {
+  return isRecord(value)
+    && typeof value.line === 'number'
+    && typeof value.succeeded === 'boolean'
+    && (value.positionId === null || isText(value.positionId))
+    && (value.errorCode === null || typeof value.errorCode === 'string')
+    && (value.message === null || typeof value.message === 'string');
+}
+
 /** 校验不可信 JSON 是否为租户职位分页结果。 */
 export function isOrganizationPositionPage(
   value: unknown

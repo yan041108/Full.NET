@@ -41,6 +41,27 @@ internal sealed class TenantPositionQueryService(
             new PagedResult<OrganizationPositionResponse>(items, page, pageSize, total));
     }
 
+    /// <summary>导出当前租户职位目录，供 Excel 工作簿编码使用。</summary>
+    public async Task<Result<IReadOnlyList<OrganizationPositionResponse>>> ExportAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const int exportLimit = 5_000;
+        var listStatement = databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => PositionSql.ExportAllSqlServer,
+            DatabaseProvider.MySql => PositionSql.ExportAllMySql,
+            _ => throw new InvalidOperationException(
+                "The configured database provider is not supported."),
+        };
+        var rows = await queryExecutor.QueryAsync<OrganizationPositionListRow>(
+                listStatement,
+                OrganizationSqlParameters.Create(("Limit", exportLimit)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return Result<IReadOnlyList<OrganizationPositionResponse>>.Success(
+            rows.Select(Map).ToArray());
+    }
+
     public async Task<Result<OrganizationPositionResponse>> GetByIdAsync(
         Guid positionId,
         CancellationToken cancellationToken = default)

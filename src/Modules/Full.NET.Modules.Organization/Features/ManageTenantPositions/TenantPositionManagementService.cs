@@ -63,6 +63,177 @@ internal sealed class TenantPositionManagementService(
             token => AssignPositionLevelCoreAsync(positionId, request, token),
             cancellationToken);
 
+    /// <summary>按固定模板逐行导入职位；可选机构/职级绑定受调用方能力约束。</summary>
+    public async Task<Result<ImportOrganizationPositionsResponse>> ImportAsync(
+        ImportOrganizationPositionsRequest request,
+        OrganizationPositionImportCapabilities capabilities,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(capabilities);
+        var rows = request.Rows ?? [];
+        var results = new List<ImportOrganizationPositionRowResult>(rows.Count);
+        var succeeded = 0;
+        var seenCodes = new HashSet<string>(StringComparer.Ordinal);
+        var line = 0;
+        foreach (var row in rows)
+        {
+            line++;
+            if (row is null)
+            {
+                results.Add(new ImportOrganizationPositionRowResult(
+                    line,
+                    false,
+                    null,
+                    ValidationErrorCodes.Failed,
+                    "Import row is required."));
+                continue;
+            }
+
+            var normalizedCode = row.Code?.Trim() ?? string.Empty;
+            if (!seenCodes.Add(normalizedCode))
+            {
+                results.Add(new ImportOrganizationPositionRowResult(
+                    line,
+                    false,
+                    null,
+                    OrganizationErrorCodes.PositionImportDuplicateCode,
+                    "Duplicate position code in import workbook."));
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(row.UnitCode) && !capabilities.CanAssignUnit)
+            {
+                results.Add(new ImportOrganizationPositionRowResult(
+                    line,
+                    false,
+                    null,
+                    CommonErrorCodes.PermissionDenied,
+                    "Importing organization unit assignment is not allowed."));
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(row.PositionLevelCode)
+                && !capabilities.CanAssignPositionLevel)
+            {
+                results.Add(new ImportOrganizationPositionRowResult(
+                    line,
+                    false,
+                    null,
+                    CommonErrorCodes.PermissionDenied,
+                    "Importing position level assignment is not allowed."));
+                continue;
+            }
+
+            var created = await CreateAsync(
+                    new CreateOrganizationPositionRequest(
+                        normalizedCode,
+                        row.Name ?? string.Empty,
+                        row.DisplayOrder),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!created.IsSuccess)
+            {
+                results.Add(new ImportOrganizationPositionRowResult(
+                    line,
+                    false,
+                    null,
+                    created.Error?.Code,
+                    created.Error?.Message));
+                continue;
+            }
+
+            var position = created.Value!;
+            if (!string.IsNullOrWhiteSpace(row.UnitCode))
+            {
+                var unit = await queryExecutor.QuerySingleOrDefaultAsync<OrganizationUnitRecord>(
+                        OrganizationSql.FindUnitByTenantAndCode,
+                        OrganizationSqlParameters.Create(("Code", row.UnitCode.Trim())),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (unit is null || !unit.IsActive)
+                {
+                    results.Add(new ImportOrganizationPositionRowResult(
+                        line,
+                        false,
+                        position.Id,
+                        OrganizationErrorCodes.UnitNotFound,
+                        "The organization unit was not found or is inactive."));
+                    continue;
+                }
+
+                var assignedUnit = await AssignUnitAsync(
+                        position.Id,
+                        new AssignOrganizationPositionUnitRequest(unit.Id, position.Version),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!assignedUnit.IsSuccess)
+                {
+                    results.Add(new ImportOrganizationPositionRowResult(
+                        line,
+                        false,
+                        position.Id,
+                        assignedUnit.Error?.Code,
+                        assignedUnit.Error?.Message));
+                    continue;
+                }
+
+                position = assignedUnit.Value!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(row.PositionLevelCode))
+            {
+                var positionLevel =
+                    await queryExecutor.QuerySingleOrDefaultAsync<OrganizationPositionLevelRecord>(
+                            PositionLevelSql.FindByTenantAndCode,
+                            OrganizationSqlParameters.Create(("Code", row.PositionLevelCode.Trim())),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                if (positionLevel is null || !positionLevel.IsActive)
+                {
+                    results.Add(new ImportOrganizationPositionRowResult(
+                        line,
+                        false,
+                        position.Id,
+                        OrganizationErrorCodes.PositionLevelNotFound,
+                        "The organization position level was not found or is inactive."));
+                    continue;
+                }
+
+                var assignedLevel = await AssignPositionLevelAsync(
+                        position.Id,
+                        new AssignOrganizationPositionLevelRequest(
+                            positionLevel.Id,
+                            position.Version),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!assignedLevel.IsSuccess)
+                {
+                    results.Add(new ImportOrganizationPositionRowResult(
+                        line,
+                        false,
+                        position.Id,
+                        assignedLevel.Error?.Code,
+                        assignedLevel.Error?.Message));
+                    continue;
+                }
+
+                position = assignedLevel.Value!;
+            }
+
+            succeeded++;
+            results.Add(new ImportOrganizationPositionRowResult(
+                line,
+                true,
+                position.Id,
+                null,
+                null));
+        }
+
+        return Result<ImportOrganizationPositionsResponse>.Success(
+            new ImportOrganizationPositionsResponse(succeeded, results));
+    }
+
     private async Task<Result<OrganizationPositionResponse>> CreateCoreAsync(
         CreateOrganizationPositionRequest request,
         CancellationToken cancellationToken)

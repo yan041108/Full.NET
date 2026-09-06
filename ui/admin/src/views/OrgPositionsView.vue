@@ -41,8 +41,12 @@ import {
   assignOrganizationPositionUnit,
   createOrganizationPosition,
   disableOrganizationPosition,
+  downloadOrganizationPositionImportTemplate,
+  exportOrganizationPositionsWorkbook,
+  importOrganizationPositionsWorkbook,
   listOrganizationPositions,
-  updateOrganizationPosition
+  updateOrganizationPosition,
+  type ImportOrganizationPositionRowResult
 } from '../api/org-positions';
 import { listOrganizationPositionLevels } from '../api/org-position-levels';
 import { listOrganizationUnits } from '../api/org-units';
@@ -59,6 +63,7 @@ interface AppliedFilters {
 }
 
 const POSITION_CODE_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
+const maximumImportWorkbookBytes = 1024 * 1024;
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -82,6 +87,8 @@ const columnVisibility = ref<Record<PositionTableColumnKey, boolean>>({
   unit: true,
   positionLevel: true
 });
+const importResults = ref<ImportOrganizationPositionRowResult[]>([]);
+const importFileInput = ref<HTMLInputElement>();
 
 const {
   tableMainRef,
@@ -444,9 +451,95 @@ async function disable(position: OrganizationPosition): Promise<void> {
   }
 }
 
+function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportPositions(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    downloadBlob(await exportOrganizationPositionsWorkbook(), 'organization-positions.xlsx');
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'orgPositions.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+function importPositions(): void {
+  if (changing.value) {
+    return;
+  }
+
+  importFileInput.value?.click();
+}
+
+async function downloadImportTemplate(): Promise<void> {
+  if (changing.value) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    downloadBlob(
+      await downloadOrganizationPositionImportTemplate(),
+      'organization-positions-import-template.xlsx'
+    );
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'orgPositions.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function onImportFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) {
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith('.xlsx') || file.size > maximumImportWorkbookBytes) {
+    problem.value = toProblem(
+      new Error('client.invalid_organization_position_import_workbook'),
+      'orgPositions.importWorkbookInvalid'
+    );
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  importResults.value = [];
+  try {
+    const result = await importOrganizationPositionsWorkbook(file);
+    importResults.value = result.results.slice(0, 1_000);
+    ElMessage.success(t('orgPositions.importSuccess', { count: result.succeededCount }));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'orgPositions.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 function toProblem(
   error: unknown,
-  fallbackKey: 'orgPositions.loadFailed' | 'orgPositions.operationFailed'
+  fallbackKey:
+    | 'orgPositions.loadFailed'
+    | 'orgPositions.operationFailed'
+    | 'orgPositions.importWorkbookInvalid'
 ): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
@@ -463,6 +556,27 @@ function toProblem(
       <span>{{ problem.title }}</span>
       <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
     </div>
+
+    <el-card
+      v-if="importResults.length > 0"
+      class="art-table-card"
+      shadow="never"
+      data-testid="org-positions-import-results"
+    >
+      <template #header>{{ t('orgPositions.importResults') }}</template>
+      <el-table :data="importResults" size="small">
+        <el-table-column prop="line" :label="t('users.importResultLine')" width="88" />
+        <el-table-column :label="t('users.importResultStatus')" width="120">
+          <template #default="{ row }">
+            <el-tag :type="row.succeeded ? 'success' : 'danger'">
+              {{ t(row.succeeded ? 'users.importResultSucceeded' : 'users.importResultFailed') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorCode" :label="t('users.importResultCode')" min-width="200" />
+        <el-table-column prop="message" :label="t('users.importResultMessage')" min-width="280" />
+      </el-table>
+    </el-card>
 
     <ArtSearchBar
       v-model="searchForm"
@@ -500,6 +614,42 @@ function toProblem(
               >
                 {{ t('orgPositions.addPosition') }}
               </el-button>
+            </PermissionGate>
+            <PermissionGate code="organization.positions.export">
+              <el-button
+                data-testid="org-positions-action-export"
+                plain
+                :disabled="changing"
+                @click="exportPositions"
+              >
+                {{ t('orgPositions.export') }}
+              </el-button>
+            </PermissionGate>
+            <PermissionGate code="organization.positions.import">
+              <el-button
+                data-testid="org-positions-action-import-template"
+                plain
+                :disabled="changing"
+                @click="downloadImportTemplate"
+              >
+                {{ t('orgPositions.importTemplate') }}
+              </el-button>
+              <el-button
+                data-testid="org-positions-action-import"
+                plain
+                :disabled="changing"
+                @click="importPositions"
+              >
+                {{ t('orgPositions.import') }}
+              </el-button>
+              <input
+                ref="importFileInput"
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                class="org-positions-import-file-input"
+                data-testid="org-positions-import-file-input"
+                @change="onImportFileChange"
+              >
             </PermissionGate>
           </template>
         </ArtTableHeader>
@@ -722,6 +872,10 @@ function toProblem(
 
 .org-positions-editor-form {
   padding-top: 8px;
+}
+
+.org-positions-import-file-input {
+  display: none;
 }
 
 .art-sr-heading {

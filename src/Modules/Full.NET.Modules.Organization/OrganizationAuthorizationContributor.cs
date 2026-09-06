@@ -68,6 +68,14 @@ internal sealed class OrganizationAuthorizationContributor
             "绑定租户职位职级",
             AuthorizationScope.Tenant),
         new PermissionDefinition(
+            OrganizationPositionManagementPermissions.Export,
+            "导出租户职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
+            OrganizationPositionManagementPermissions.Import,
+            "导入租户职位",
+            AuthorizationScope.Tenant),
+        new PermissionDefinition(
             OrganizationPositionLevelManagementPermissions.Read,
             "查看职级",
             AuthorizationScope.Tenant),
@@ -239,6 +247,20 @@ internal sealed class OrganizationAuthorizationContributor
             "绑定职级",
             "assign_position_level",
             50),
+        new AuthorizationActionDefinition(
+            "organization.positions.import",
+            "org-positions",
+            OrganizationPositionManagementPermissions.Import,
+            "导入职位",
+            "import",
+            60),
+        new AuthorizationActionDefinition(
+            "organization.positions.export",
+            "org-positions",
+            OrganizationPositionManagementPermissions.Export,
+            "导出职位",
+            "export",
+            70),
         new AuthorizationActionDefinition(
             "organization.position_levels.create",
             "org-position-levels",

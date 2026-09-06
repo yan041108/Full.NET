@@ -37,7 +37,7 @@ test('租户职位 OpenAPI 夹具结构完整且路径唯一', async () => {
       seen.add(key);
       assert.match(
         operation.permission,
-        /^organization\.positions\.(read|create|update|disable|assign_unit|assign_position_level)$/u);
+        /^organization\.positions\.(read|create|update|disable|assign_unit|assign_position_level|import|export)$/u);
       assert.ok(typeof operation.successStatus === 'number');
       if (operation.requestSchema) {
         assert.ok(contract.schemas[operation.requestSchema]);
@@ -65,6 +65,8 @@ test('租户职位 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(contractsSource, /organization\.positions\.disable/u);
   assert.match(contractsSource, /organization\.positions\.assign_unit/u);
   assert.match(contractsSource, /organization\.positions\.assign_position_level/u);
+  assert.match(contractsSource, /organization\.positions\.import/u);
+  assert.match(contractsSource, /organization\.positions\.export/u);
   assert.match(contractsSource, /organization\.positions\.write/u);
 
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/organization\/positions"\)/u);
@@ -76,11 +78,27 @@ test('租户职位 OpenAPI 夹具与 C# 契约和端点源码一致', async () =
   assert.match(endpointSource, /WithName\("organizationAssignTenantPositionUnit"\)/u);
   assert.match(endpointSource, /WithName\("organizationAssignTenantPositionLevel"\)/u);
   assert.match(endpointSource, /WithName\("organizationDisableTenantPosition"\)/u);
+  assert.match(endpointSource, /WithName\("organizationExportTenantPositionsWorkbook"\)/u);
+  assert.match(endpointSource, /WithName\("organizationDownloadTenantPositionImportTemplate"\)/u);
+  assert.match(endpointSource, /WithName\("organizationImportTenantPositions"\)/u);
+  assert.match(endpointSource, /WithName\("organizationImportTenantPositionsWorkbook"\)/u);
 
   const relativeRoutes = new Map([
     ['/api/v1/organization/positions', new Map([
       ['GET', 'MapGet("/",'],
       ['POST', 'MapPost("/",']
+    ])],
+    ['/api/v1/organization/positions/export-file', new Map([
+      ['GET', 'MapGet("/export-file",']
+    ])],
+    ['/api/v1/organization/positions/import-template', new Map([
+      ['GET', 'MapGet("/import-template",']
+    ])],
+    ['/api/v1/organization/positions/import', new Map([
+      ['POST', 'MapPost("/import",']
+    ])],
+    ['/api/v1/organization/positions/import-file', new Map([
+      ['POST', 'MapPost("/import-file",']
     ])],
     ['/api/v1/organization/positions/{positionId}', new Map([
       ['GET', 'MapGet("/{positionId:guid}",'],

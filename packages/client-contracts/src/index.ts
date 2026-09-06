@@ -829,9 +829,11 @@ export type {
 } from './host-user-organization-reference.js';
 
 export {
+  isImportOrganizationPositionsResponse,
   isOrganizationPosition,
   isOrganizationPositionPage,
-  isUpdateOrganizationPositionRequest
+  isUpdateOrganizationPositionRequest,
+  readImportOrganizationPositionsResponse
 } from './tenant-org-positions.js';
 
 export type {
@@ -840,7 +842,9 @@ export type {
   CreateOrganizationPositionRequest,
   UpdateOrganizationPositionRequest,
   AssignOrganizationPositionUnitRequest,
-  AssignOrganizationPositionLevelRequest
+  AssignOrganizationPositionLevelRequest,
+  ImportOrganizationPositionRowResult,
+  ImportOrganizationPositionsResponse
 } from './tenant-org-positions.js';
 
 export {

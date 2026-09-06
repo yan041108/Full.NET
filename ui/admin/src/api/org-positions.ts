@@ -7,6 +7,8 @@ import {
   organizationDisableTenantPosition,
   organizationListTenantPositions,
   organizationUpdateTenantPosition,
+  readImportOrganizationPositionsResponse,
+  type ImportOrganizationPositionsResponse,
   type OrganizationPosition,
   type OrganizationPositionPage
 } from '@fullnet/client-contracts';
@@ -124,5 +126,47 @@ export async function disableOrganizationPosition(
   return value;
 }
 
+/** 下载职位导入模板。 */
+export async function downloadOrganizationPositionImportTemplate(
+  signal?: AbortSignal
+): Promise<Blob> {
+  return http.requestBlob(
+    '/api/v1/organization/positions/import-template',
+    { method: 'GET', headers: { accept: 'application/octet-stream' } },
+    signal
+  );
+}
+
+/** 导出职位 Excel 工作簿。 */
+export async function exportOrganizationPositionsWorkbook(
+  signal?: AbortSignal
+): Promise<Blob> {
+  return http.requestBlob(
+    '/api/v1/organization/positions/export-file',
+    { method: 'GET', headers: { accept: 'application/octet-stream' } },
+    signal
+  );
+}
+
+/** 导入职位 Excel 工作簿。 */
+export async function importOrganizationPositionsWorkbook(
+  file: File,
+  signal?: AbortSignal
+): Promise<ImportOrganizationPositionsResponse> {
+  const body = new FormData();
+  body.append('file', file);
+  const value = await http.request<unknown>(
+    '/api/v1/organization/positions/import-file',
+    { method: 'POST', body },
+    signal
+  );
+  return readImportOrganizationPositionsResponse(value);
+}
+
 /** 导出岗位详情与分页模型，供岗位列表、分配机构/级别弹窗与编辑流程共享同一契约。 */
-export type { OrganizationPosition, OrganizationPositionPage };
+export type {
+  ImportOrganizationPositionRowResult,
+  ImportOrganizationPositionsResponse,
+  OrganizationPosition,
+  OrganizationPositionPage
+};
