@@ -17,4 +17,5 @@
   <data name="jobs.schedule_concurrency_conflict" xml:space="preserve"><value>任务计划已被其他操作更新，请刷新后重试。</value></data>
   <data name="jobs.schedule_validation_failed" xml:space="preserve"><value>任务计划、Cron 表达式或时区无效。</value></data>
   <data name="jobs.schedule_has_active_executions" xml:space="preserve"><value>任务计划仍存在未终结的执行记录，禁止删除。</value></data>
+  <data name="jobs.schedule_invalid_batch" xml:space="preserve"><value>批量计划请求无效或超出允许数量。</value></data>
 </root>

@@ -27,11 +27,22 @@ internal static class JobsScheduleAssertions
             token,
             definition.Id,
             cancellationToken);
-        await VerifyListUpdatePauseResumeAsync(
+        var resumedSchedule = await VerifyListUpdatePauseResumeAsync(
             client,
             token,
             schedule,
             definition,
+            cancellationToken);
+        var pausedSchedule = await CreatePausedScheduleAsync(
+            client,
+            token,
+            definition.Id,
+            cancellationToken);
+        await JobsScheduleBatchAssertions.VerifyAsync(
+            client,
+            token,
+            resumedSchedule,
+            pausedSchedule,
             cancellationToken);
         await VerifySelfContainedPermissionBoundaryAsync(
             factory,
@@ -91,7 +102,7 @@ internal static class JobsScheduleAssertions
         return created;
     }
 
-    private static async Task VerifyListUpdatePauseResumeAsync(
+    private static async Task<HostJobScheduleResponse> VerifyListUpdatePauseResumeAsync(
         HttpClient client,
         string token,
         HostJobScheduleResponse schedule,
@@ -174,6 +185,35 @@ internal static class JobsScheduleAssertions
         Assert.IsNotNull(resumed);
         Assert.IsTrue(resumed.IsEnabled);
         Assert.IsTrue(resumed.NextExecutionAtUtc > paused.UpdatedAtUtc);
+        return resumed;
+    }
+
+    private static async Task<HostJobScheduleResponse> CreatePausedScheduleAsync(
+        HttpClient client,
+        string token,
+        Guid definitionId,
+        CancellationToken cancellationToken)
+    {
+        var created = await CreateCronScheduleAsync(
+            client,
+            token,
+            definitionId,
+            cancellationToken);
+        using var pauseRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-schedules/{created.Id:D}/pause",
+            token,
+            new ChangeHostJobScheduleStateRequest(created.Version));
+        using var pauseResponse = await client.SendAsync(
+            pauseRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, pauseResponse.StatusCode);
+        var paused = await pauseResponse.Content
+            .ReadFromJsonAsync<HostJobScheduleResponse>(
+                cancellationToken);
+        Assert.IsNotNull(paused);
+        Assert.IsFalse(paused.IsEnabled);
+        return paused;
     }
 
     private static async Task VerifySelfContainedPermissionBoundaryAsync(

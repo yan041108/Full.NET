@@ -25,6 +25,10 @@ const schedulesEndpointPath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobSchedules/Endpoint.cs'
 );
+const scheduleBatchContractsSourcePath = path.join(
+  repositoryRoot,
+  'src/Modules/Full.NET.Modules.Jobs/Contracts/HostJobScheduleBatchContracts.cs'
+);
 const healthEndpointPath = path.join(
   repositoryRoot,
   'src/Modules/Full.NET.Modules.Jobs/Features/ManageHostJobHealth/Endpoint.cs'
@@ -78,9 +82,12 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   const definitionsEndpoint = await readFile(definitionsEndpointPath, 'utf8');
   const executionsEndpoint = await readFile(executionsEndpointPath, 'utf8');
   const schedulesEndpoint = await readFile(schedulesEndpointPath, 'utf8');
+  const scheduleBatchContractsSource = await readFile(scheduleBatchContractsSourcePath, 'utf8');
   const healthEndpoint = await readFile(healthEndpointPath, 'utf8');
   const endpointSources =
     `${definitionsEndpoint}\n${executionsEndpoint}\n${schedulesEndpoint}\n${healthEndpoint}`;
+  const contractsSources =
+    `${contractsSource}\n${scheduleBatchContractsSource}`;
 
   for (const permission of [
     'jobs.definitions.read',
@@ -124,6 +131,8 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
   assert.match(schedulesEndpoint, /WithName\("jobsPreviewHostJobScheduleCron"\)/u);
   assert.match(schedulesEndpoint, /WithName\("jobsCreateHostJobSchedule"\)/u);
   assert.match(schedulesEndpoint, /WithName\("jobsUpdateHostJobSchedule"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsBatchPauseHostJobSchedules"\)/u);
+  assert.match(schedulesEndpoint, /WithName\("jobsBatchResumeHostJobSchedules"\)/u);
   assert.match(
     schedulesEndpoint,
     /WithName\(enable \? "jobsResumeHostJobSchedule" : "jobsPauseHostJobSchedule"\)/u
@@ -166,6 +175,14 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     ['GET /api/v1/jobs/host-schedules/{scheduleId}', 'MapGet("/{scheduleId:guid}",'],
     ['PUT /api/v1/jobs/host-schedules/{scheduleId}', 'MapPut("/{scheduleId:guid}",'],
     [
+      'POST /api/v1/jobs/host-schedules/batch-pause',
+      'MapPost("/batch-pause",'
+    ],
+    [
+      'POST /api/v1/jobs/host-schedules/batch-resume',
+      'MapPost("/batch-resume",'
+    ],
+    [
       'POST /api/v1/jobs/host-schedules/{scheduleId}/pause',
       'MapStateChange(group, "pause", enable: false)'
     ],
@@ -192,11 +209,11 @@ test('Host 任务 OpenAPI 夹具与 C# 契约和端点源码一致', async () =>
     if (schemaName.endsWith('Page') || schemaName.endsWith('List')) {
       continue;
     }
-    assert.match(contractsSource, new RegExp(`record ${schemaName}\\b`, 'u'));
+    assert.match(contractsSources, new RegExp(`record ${schemaName}\\b`, 'u'));
     for (const property of schema.properties) {
       const pascal = property.charAt(0).toUpperCase() + property.slice(1);
       assert.match(
-        contractsSource,
+        contractsSources,
         new RegExp(`\\b${pascal}\\b`, 'u'),
         `${schemaName}.${property} 未在 C# 契约中找到`
       );

@@ -9462,6 +9462,142 @@
         ]
       }
     },
+    "/api/v1/jobs/host-schedules/batch-pause": {
+      "post": {
+        "operationId": "jobsBatchPauseHostJobSchedules",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchChangeHostJobScheduleStateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchChangeHostJobScheduleStateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "JobsHostJobSchedules"
+        ]
+      }
+    },
+    "/api/v1/jobs/host-schedules/batch-resume": {
+      "post": {
+        "operationId": "jobsBatchResumeHostJobSchedules",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchChangeHostJobScheduleStateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchChangeHostJobScheduleStateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          },
+          {
+            "ApiKey": []
+          }
+        ],
+        "tags": [
+          "JobsHostJobSchedules"
+        ]
+      }
+    },
     "/api/v1/jobs/host-schedules/{scheduleId}/delete": {
       "post": {
         "operationId": "jobsDeleteHostJobSchedule",
@@ -26491,6 +26627,104 @@
         },
         "required": [
           "version"
+        ],
+        "type": "object"
+      },
+      "BatchChangeHostJobScheduleStateItem": {
+        "properties": {
+          "scheduleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "scheduleId",
+          "version"
+        ],
+        "type": "object"
+      },
+      "BatchChangeHostJobScheduleStateRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BatchChangeHostJobScheduleStateItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "BatchChangeHostJobScheduleStateResultItem": {
+        "properties": {
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HostJobScheduleResponse"
+              }
+            ]
+          },
+          "scheduleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "succeeded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scheduleId",
+          "succeeded",
+          "errorCode",
+          "message"
+        ],
+        "type": "object"
+      },
+      "BatchChangeHostJobScheduleStateResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BatchChangeHostJobScheduleStateResultItem"
+            },
+            "type": "array"
+          },
+          "succeededCount": {
+            "format": "int32",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "succeededCount",
+          "results"
         ],
         "type": "object"
       },

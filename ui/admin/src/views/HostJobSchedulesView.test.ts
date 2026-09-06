@@ -9,6 +9,8 @@ import {
 } from '../api/host-job-schedules';
 
 vi.mock('../api/host-job-schedules', () => ({
+  batchPauseHostJobSchedules: vi.fn(),
+  batchResumeHostJobSchedules: vi.fn(),
   createHostJobSchedule: vi.fn(),
   listHostJobScheduleDefinitionOptions: vi.fn(),
   listHostJobSchedules: vi.fn(),
@@ -96,6 +98,8 @@ describe('Vue Host 任务计划页', () => {
     expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-resume"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-job-schedules-batch-pause"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-job-schedules-select"]').exists()).toBe(false);
   });
 
   it('create 权限即可显示创建表单，无需 definitions.read', async () => {
@@ -134,6 +138,9 @@ describe('Vue Host 任务计划页', () => {
     expect(wrapper.find('[data-testid="host-job-schedules-edit"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-job-schedules-pause"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="host-job-schedules-resume"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-job-schedules-batch-pause"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="host-job-schedules-batch-resume"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="host-job-schedules-select"]').exists()).toBe(true);
   });
 
   it('resume-only 在暂停计划上不显示恢复（当前列表项为启用）', async () => {

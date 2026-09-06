@@ -197,6 +197,30 @@
       ]
     },
     {
+      "path": "/api/v1/jobs/host-schedules/batch-pause",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.schedules.pause",
+          "successStatus": 200,
+          "requestSchema": "BatchChangeHostJobScheduleStateRequest",
+          "responseSchema": "BatchChangeHostJobScheduleStateResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/jobs/host-schedules/batch-resume",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "jobs.schedules.resume",
+          "successStatus": 200,
+          "requestSchema": "BatchChangeHostJobScheduleStateRequest",
+          "responseSchema": "BatchChangeHostJobScheduleStateResponse"
+        }
+      ]
+    },
+    {
       "path": "/api/v1/jobs/host-schedules/{scheduleId}/pause",
       "operations": [
         {
@@ -375,6 +399,32 @@
     "ChangeHostJobScheduleStateRequest": {
       "properties": [
         "version"
+      ]
+    },
+    "BatchChangeHostJobScheduleStateItem": {
+      "properties": [
+        "scheduleId",
+        "version"
+      ]
+    },
+    "BatchChangeHostJobScheduleStateRequest": {
+      "properties": [
+        "items"
+      ]
+    },
+    "BatchChangeHostJobScheduleStateResultItem": {
+      "properties": [
+        "scheduleId",
+        "succeeded",
+        "schedule",
+        "errorCode",
+        "message"
+      ]
+    },
+    "BatchChangeHostJobScheduleStateResponse": {
+      "properties": [
+        "succeededCount",
+        "results"
       ]
     },
     "HostJobScheduleDefinitionOptionResponse": {

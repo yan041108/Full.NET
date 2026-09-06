@@ -13,6 +13,10 @@ import type {
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
+  BatchChangeHostJobScheduleStateItem,
+  BatchChangeHostJobScheduleStateRequest,
+  BatchChangeHostJobScheduleStateResponse,
+  BatchChangeHostJobScheduleStateResultItem,
   BatchDeleteConfigEntriesRequest,
   BatchHostUserIdsRequest,
   BatchHostUserStatusItem,
@@ -474,6 +478,50 @@ export function readAuthorizationTreePageResponse(value: unknown): Authorization
 
 function isAuthorizationTreePageResponse(value: unknown): value is AuthorizationTreePageResponse {
   return isRecord(value) && (Array.isArray(value["actions"]) && value["actions"].every(item16 => isAuthorizationTreeActionResponse(item16))) && (Array.isArray(value["children"]) && value["children"].every(item17 => isAuthorizationTreePageResponse(item17))) && (typeof value["id"] === 'string') && (typeof value["order"] === 'number' && Number.isInteger(value["order"])) && (typeof value["permissionCode"] === 'string') && (typeof value["title"] === 'string');
+}
+
+export function readBatchChangeHostJobScheduleStateItem(value: unknown): BatchChangeHostJobScheduleStateItem {
+  if (!(isBatchChangeHostJobScheduleStateItem(value))) {
+    throw new Error('client.invalid_batch_change_host_job_schedule_state_item');
+  }
+  return value;
+}
+
+function isBatchChangeHostJobScheduleStateItem(value: unknown): value is BatchChangeHostJobScheduleStateItem {
+  return isRecord(value) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["version"] === 'number' && Number.isInteger(value["version"]));
+}
+
+export function readBatchChangeHostJobScheduleStateRequest(value: unknown): BatchChangeHostJobScheduleStateRequest {
+  if (!(isBatchChangeHostJobScheduleStateRequest(value))) {
+    throw new Error('client.invalid_batch_change_host_job_schedule_state_request');
+  }
+  return value;
+}
+
+function isBatchChangeHostJobScheduleStateRequest(value: unknown): value is BatchChangeHostJobScheduleStateRequest {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isBatchChangeHostJobScheduleStateItem(item14)));
+}
+
+export function readBatchChangeHostJobScheduleStateResponse(value: unknown): BatchChangeHostJobScheduleStateResponse {
+  if (!(isBatchChangeHostJobScheduleStateResponse(value))) {
+    throw new Error('client.invalid_batch_change_host_job_schedule_state_response');
+  }
+  return value;
+}
+
+function isBatchChangeHostJobScheduleStateResponse(value: unknown): value is BatchChangeHostJobScheduleStateResponse {
+  return isRecord(value) && (Array.isArray(value["results"]) && value["results"].every(item16 => isBatchChangeHostJobScheduleStateResultItem(item16))) && (typeof value["succeededCount"] === 'number' && Number.isInteger(value["succeededCount"]));
+}
+
+export function readBatchChangeHostJobScheduleStateResultItem(value: unknown): BatchChangeHostJobScheduleStateResultItem {
+  if (!(isBatchChangeHostJobScheduleStateResultItem(value))) {
+    throw new Error('client.invalid_batch_change_host_job_schedule_state_result_item');
+  }
+  return value;
+}
+
+function isBatchChangeHostJobScheduleStateResultItem(value: unknown): value is BatchChangeHostJobScheduleStateResultItem {
+  return isRecord(value) && ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string')) && ((value["message"] === null) || (typeof value["message"] === 'string')) && (value["schedule"] === undefined || ((value["schedule"] === null) || (isHostJobScheduleResponse(value["schedule"])))) && (typeof value["scheduleId"] === 'string' && guidPattern.test(value["scheduleId"])) && (typeof value["succeeded"] === 'boolean');
 }
 
 export function readBatchDeleteConfigEntriesRequest(value: unknown): BatchDeleteConfigEntriesRequest {

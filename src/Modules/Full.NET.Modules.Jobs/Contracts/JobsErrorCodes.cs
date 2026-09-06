@@ -53,6 +53,9 @@ public static class JobsErrorCodes
     /// <summary>任务计划仍存在未终结的执行记录，禁止删除。</summary>
     public const string ScheduleHasActiveExecutions = "jobs.schedule_has_active_executions";
 
+    /// <summary>批量计划状态变更请求无效或超出允许数量。</summary>
+    public const string ScheduleInvalidBatch = "jobs.schedule_invalid_batch";
+
     /// <summary>已发布的全部 Jobs 错误码集合。</summary>
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(
     [
@@ -71,5 +74,6 @@ public static class JobsErrorCodes
         ScheduleConcurrencyConflict,
         ScheduleValidationFailed,
         ScheduleHasActiveExecutions,
+        ScheduleInvalidBatch,
     ]);
 }

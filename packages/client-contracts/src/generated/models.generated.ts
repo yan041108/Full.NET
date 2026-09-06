@@ -75,6 +75,28 @@ export interface AuthorizationTreePageResponse {
   readonly title: string;
 }
 
+export interface BatchChangeHostJobScheduleStateItem {
+  readonly scheduleId: string;
+  readonly version: number;
+}
+
+export interface BatchChangeHostJobScheduleStateRequest {
+  readonly items: Array<BatchChangeHostJobScheduleStateItem>;
+}
+
+export interface BatchChangeHostJobScheduleStateResponse {
+  readonly results: Array<BatchChangeHostJobScheduleStateResultItem>;
+  readonly succeededCount: number;
+}
+
+export interface BatchChangeHostJobScheduleStateResultItem {
+  readonly errorCode: null | string;
+  readonly message: null | string;
+  readonly schedule?: null | HostJobScheduleResponse;
+  readonly scheduleId: string;
+  readonly succeeded: boolean;
+}
+
 export interface BatchDeleteConfigEntriesRequest {
   readonly ids: Array<string>;
 }

@@ -171,6 +171,60 @@ internal static class Endpoint
         .RequireAuthorization(
             FullNetPermissionPolicies.For(HostJobPermissions.SchedulesUpdate));
 
+        group.MapPost("/batch-pause", async (
+            BatchChangeHostJobScheduleStateRequest request,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.BatchPauseAsync(
+                    userId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("jobsBatchPauseHostJobSchedules")
+        .Produces<BatchChangeHostJobScheduleStateResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesPause));
+
+        group.MapPost("/batch-resume", async (
+            BatchChangeHostJobScheduleStateRequest request,
+            HostJobScheduleService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserId(httpContext, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.BatchResumeAsync(
+                    userId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("jobsBatchResumeHostJobSchedules")
+        .Produces<BatchChangeHostJobScheduleStateResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .RequireAuthorization(
+            FullNetPermissionPolicies.For(HostJobPermissions.SchedulesResume));
+
         MapStateChange(group, "pause", enable: false);
         MapStateChange(group, "resume", enable: true);
 

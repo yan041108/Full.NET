@@ -204,6 +204,24 @@ internal sealed class HostJobScheduleService(
             cancellationToken);
 
     /// <summary>
+    /// 批量暂停任务计划；逐项调用单条暂停语义，不影响正在执行的作业实例。
+    /// </summary>
+    public Task<Result<BatchChangeHostJobScheduleStateResponse>> BatchPauseAsync(
+        Guid actorUserId,
+        BatchChangeHostJobScheduleStateRequest request,
+        CancellationToken cancellationToken = default) =>
+        BatchChangeStateAsync(actorUserId, request, enable: false, cancellationToken);
+
+    /// <summary>
+    /// 批量恢复任务计划；逐项调用单条恢复语义，不影响正在执行的作业实例。
+    /// </summary>
+    public Task<Result<BatchChangeHostJobScheduleStateResponse>> BatchResumeAsync(
+        Guid actorUserId,
+        BatchChangeHostJobScheduleStateRequest request,
+        CancellationToken cancellationToken = default) =>
+        BatchChangeStateAsync(actorUserId, request, enable: true, cancellationToken);
+
+    /// <summary>
     /// 硬删除任务计划，对应 Admin.NET DeleteJobTrigger。
     /// 删除前置校验：无未终结执行记录（pending/running），否则拒绝以避免丢失运行证据。
     /// </summary>
@@ -631,6 +649,75 @@ internal sealed class HostJobScheduleService(
         var normalized = args?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
+
+    private async Task<Result<BatchChangeHostJobScheduleStateResponse>> BatchChangeStateAsync(
+        Guid actorUserId,
+        BatchChangeHostJobScheduleStateRequest request,
+        bool enable,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var items = request.Items ?? [];
+        if (items.Count == 0)
+        {
+            return InvalidBatch(
+                "At least one schedule item is required.");
+        }
+
+        if (items.Count > HostJobScheduleBatchLimits.MaxStateChangeCount)
+        {
+            return InvalidBatch(
+                $"A maximum of {HostJobScheduleBatchLimits.MaxStateChangeCount} schedules is allowed per batch operation.");
+        }
+
+        var results = new List<BatchChangeHostJobScheduleStateResultItem>(items.Count);
+        var succeeded = 0;
+        foreach (var item in items)
+        {
+            var changeResult = enable
+                ? await ResumeAsync(
+                        actorUserId,
+                        item.ScheduleId,
+                        new ChangeHostJobScheduleStateRequest(item.Version),
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await PauseAsync(
+                        actorUserId,
+                        item.ScheduleId,
+                        new ChangeHostJobScheduleStateRequest(item.Version),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            if (changeResult.IsSuccess)
+            {
+                succeeded++;
+                results.Add(new BatchChangeHostJobScheduleStateResultItem(
+                    item.ScheduleId,
+                    true,
+                    changeResult.Value,
+                    null,
+                    null));
+                continue;
+            }
+
+            results.Add(new BatchChangeHostJobScheduleStateResultItem(
+                item.ScheduleId,
+                false,
+                null,
+                changeResult.Error?.Code,
+                changeResult.Error?.Message));
+        }
+
+        return Result<BatchChangeHostJobScheduleStateResponse>.Success(
+            new BatchChangeHostJobScheduleStateResponse(succeeded, results));
+    }
+
+    private static Result<BatchChangeHostJobScheduleStateResponse> InvalidBatch(
+        string message) =>
+        Result<BatchChangeHostJobScheduleStateResponse>.Failure(
+            new Error(
+                JobsErrorCodes.ScheduleInvalidBatch,
+                message,
+                ErrorType.Validation));
 
     private static Result<HostJobScheduleResponse> ValidationFailure() =>
         Failure(

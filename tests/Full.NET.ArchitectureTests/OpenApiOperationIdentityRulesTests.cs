@@ -411,6 +411,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/jobs/host-schedules/cron-preview", "jobsPreviewHostJobScheduleCron", JobsHostJobSchedulesTag),
         new("POST", "/api/v1/jobs/host-schedules", "jobsCreateHostJobSchedule", JobsHostJobSchedulesTag),
         new("PUT", "/api/v1/jobs/host-schedules/{scheduleId}", "jobsUpdateHostJobSchedule", JobsHostJobSchedulesTag),
+        new("POST", "/api/v1/jobs/host-schedules/batch-pause", "jobsBatchPauseHostJobSchedules", JobsHostJobSchedulesTag),
+        new("POST", "/api/v1/jobs/host-schedules/batch-resume", "jobsBatchResumeHostJobSchedules", JobsHostJobSchedulesTag),
         new("POST", "/api/v1/jobs/host-schedules/{scheduleId}/pause", "jobsPauseHostJobSchedule", JobsHostJobSchedulesTag),
         new("POST", "/api/v1/jobs/host-schedules/{scheduleId}/resume", "jobsResumeHostJobSchedule", JobsHostJobSchedulesTag),
         new("POST", "/api/v1/jobs/host-schedules/{scheduleId}/delete", "jobsDeleteHostJobSchedule", JobsHostJobSchedulesTag),

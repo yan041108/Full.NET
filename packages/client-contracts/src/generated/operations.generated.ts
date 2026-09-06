@@ -14,6 +14,10 @@ import type {
   AuthorizationTreeActionResponse,
   AuthorizationTreeModuleResponse,
   AuthorizationTreePageResponse,
+  BatchChangeHostJobScheduleStateItem,
+  BatchChangeHostJobScheduleStateRequest,
+  BatchChangeHostJobScheduleStateResponse,
+  BatchChangeHostJobScheduleStateResultItem,
   BatchDeleteConfigEntriesRequest,
   BatchHostUserIdsRequest,
   BatchHostUserStatusItem,
@@ -357,6 +361,7 @@ import type {
 } from './models.generated.js';
 import {
   readAccessLogCursorPageResponse,
+  readBatchChangeHostJobScheduleStateResponse,
   readBatchHostUserStatusResponse,
   readBeginTotpEnrollmentResponse,
   readCacheInvalidationResult,
@@ -3409,6 +3414,50 @@ export async function identityUpdatePreferredLocale(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readLocalePreferenceResponse(value);
+}
+
+export interface JobsBatchPauseHostJobSchedulesParameters {
+  readonly body: BatchChangeHostJobScheduleStateRequest;
+}
+
+export async function jobsBatchPauseHostJobSchedules(
+  http: HttpClient,
+  parameters: JobsBatchPauseHostJobSchedulesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<BatchChangeHostJobScheduleStateResponse> {
+  const path = `/api/v1/jobs/host-schedules/batch-pause`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readBatchChangeHostJobScheduleStateResponse(value);
+}
+
+export interface JobsBatchResumeHostJobSchedulesParameters {
+  readonly body: BatchChangeHostJobScheduleStateRequest;
+}
+
+export async function jobsBatchResumeHostJobSchedules(
+  http: HttpClient,
+  parameters: JobsBatchResumeHostJobSchedulesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<BatchChangeHostJobScheduleStateResponse> {
+  const path = `/api/v1/jobs/host-schedules/batch-resume`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readBatchChangeHostJobScheduleStateResponse(value);
 }
 
 export interface JobsCancelHostJobExecutionParameters {

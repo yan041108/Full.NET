@@ -212,6 +212,22 @@ internal static class OpenApiJobsHostDefinitionsContractAssertions
             "application/json");
         OpenApiPilotContractAssertions.AssertOperation(
             document,
+            "/api/v1/jobs/host-schedules/batch-pause",
+            HttpMethod.Post,
+            "jobsBatchPauseHostJobSchedules",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
+            "/api/v1/jobs/host-schedules/batch-resume",
+            HttpMethod.Post,
+            "jobsBatchResumeHostJobSchedules",
+            tag,
+            200,
+            "application/json");
+        OpenApiPilotContractAssertions.AssertOperation(
+            document,
             "/api/v1/jobs/host-schedules/{scheduleId}/pause",
             HttpMethod.Post,
             "jobsPauseHostJobSchedule",

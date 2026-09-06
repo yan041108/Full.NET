@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import {
   ElButton,
   ElCard,
+  ElCheckbox,
   ElDatePicker,
   ElInput,
   ElMessage,
@@ -27,6 +28,8 @@ import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
 import PermissionGate from '../components/PermissionGate.vue';
 import {
+  batchPauseHostJobSchedules,
+  batchResumeHostJobSchedules,
   createHostJobSchedule,
   deleteHostJobSchedule,
   listHostJobScheduleDefinitionOptions,
@@ -90,6 +93,11 @@ const canUpdate = computed(() => session.can('jobs.schedules.update'));
 const canPause = computed(() => session.can('jobs.schedules.pause'));
 const canResume = computed(() => session.can('jobs.schedules.resume'));
 const canDelete = computed(() => session.can('jobs.schedules.delete'));
+const canBatchPause = computed(() => session.can('jobs.schedules.pause'));
+const canBatchResume = computed(() => session.can('jobs.schedules.resume'));
+const showBatchActions = computed(() => canBatchPause.value || canBatchResume.value);
+const selectedSchedules = ref<HostJobSchedule[]>([]);
+const hasSelectedSchedules = computed(() => selectedSchedules.value.length > 0);
 const showForm = computed(() =>
   editingId.value ? canUpdate.value : canCreate.value
 );
@@ -136,6 +144,7 @@ async function loadSchedules(): Promise<void> {
   page.value = result.page;
   pageSize.value = result.pageSize;
   total.value = result.total;
+  selectedSchedules.value = [];
 }
 
 async function loadDefinitionOptions(): Promise<void> {
@@ -324,6 +333,74 @@ async function resume(item: HostJobSchedule): Promise<void> {
   try {
     await resumeHostJobSchedule(item.id, item.version);
     ElMessage.success(t('hostJobSchedules.resumeSuccess'));
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
+function isScheduleSelected(item: HostJobSchedule): boolean {
+  return selectedSchedules.value.some(entry => entry.id === item.id);
+}
+
+function toggleScheduleSelection(item: HostJobSchedule, checked: boolean): void {
+  if (checked) {
+    if (!isScheduleSelected(item)) {
+      selectedSchedules.value = [...selectedSchedules.value, item];
+    }
+    return;
+  }
+  selectedSchedules.value = selectedSchedules.value.filter(entry => entry.id !== item.id);
+}
+
+async function batchPauseSelected(): Promise<void> {
+  if (changing.value || !canBatchPause.value || selectedSchedules.value.length === 0) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const result = await batchPauseHostJobSchedules(
+      selectedSchedules.value.map(item => ({
+        scheduleId: item.id,
+        version: item.version
+      }))
+    );
+    ElMessage.success(
+      t('hostJobSchedules.batchPauseSummary', {
+        succeeded: result.succeededCount,
+        total: result.results.length
+      })
+    );
+    await load();
+  } catch (error: unknown) {
+    problem.value = toProblem(error);
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function batchResumeSelected(): Promise<void> {
+  if (changing.value || !canBatchResume.value || selectedSchedules.value.length === 0) {
+    return;
+  }
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    const result = await batchResumeHostJobSchedules(
+      selectedSchedules.value.map(item => ({
+        scheduleId: item.id,
+        version: item.version
+      }))
+    );
+    ElMessage.success(
+      t('hostJobSchedules.batchResumeSummary', {
+        succeeded: result.succeededCount,
+        total: result.results.length
+      })
+    );
     await load();
   } catch (error: unknown) {
     problem.value = toProblem(error);
@@ -594,11 +671,42 @@ function toProblem(
         </div>
       </form>
 
+      <div v-if="showBatchActions && schedules.length" class="host-job-schedules-batch-actions">
+        <PermissionGate code="jobs.schedules.pause">
+          <ElButton
+            type="warning"
+            :disabled="!hasSelectedSchedules || changing"
+            data-testid="host-job-schedules-batch-pause"
+            @click="batchPauseSelected"
+          >
+            {{ t('hostJobSchedules.batchPause') }}
+          </ElButton>
+        </PermissionGate>
+        <PermissionGate code="jobs.schedules.resume">
+          <ElButton
+            type="primary"
+            :disabled="!hasSelectedSchedules || changing"
+            data-testid="host-job-schedules-batch-resume"
+            @click="batchResumeSelected"
+          >
+            {{ t('hostJobSchedules.batchResume') }}
+          </ElButton>
+        </PermissionGate>
+      </div>
+
       <p v-if="!schedules.length">{{ t('hostJobSchedules.emptyList') }}</p>
       <ul v-else class="art-list host-job-schedules-list">
         <li v-for="item in schedules" :key="item.id">
           <div class="host-job-schedules-row">
-            <div>
+            <div class="host-job-schedules-row-header">
+              <ElCheckbox
+                v-if="showBatchActions"
+                :model-value="isScheduleSelected(item)"
+                :disabled="changing"
+                data-testid="host-job-schedules-select"
+                @change="checked => toggleScheduleSelection(item, checked === true)"
+              />
+              <div>
               <strong data-testid="host-job-schedules-definition-label">
                 {{ item.jobDefinitionDisplayName }}
               </strong>
@@ -606,6 +714,7 @@ function toProblem(
               <ElTag :type="item.isEnabled ? 'success' : 'info'">
                 {{ item.isEnabled ? t('hostJobSchedules.statusEnabled') : t('hostJobSchedules.statusPaused') }}
               </ElTag>
+              </div>
             </div>
             <dl class="host-job-schedules-meta">
               <div>
@@ -717,6 +826,19 @@ function toProblem(
 .host-job-schedules-row {
   display: grid;
   gap: 0.75rem;
+}
+
+.host-job-schedules-row-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.host-job-schedules-batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .host-job-schedules-meta {

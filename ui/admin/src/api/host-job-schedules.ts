@@ -3,6 +3,8 @@ import {
   isHostJobScheduleCronPreview,
   isHostJobScheduleDefinitionOptionList,
   isHostJobSchedulePage,
+  jobsBatchPauseHostJobSchedules,
+  jobsBatchResumeHostJobSchedules,
   jobsCreateHostJobSchedule,
   jobsDeleteHostJobSchedule,
   jobsListHostJobScheduleDefinitionOptions,
@@ -11,6 +13,8 @@ import {
   jobsPreviewHostJobScheduleCron,
   jobsResumeHostJobSchedule,
   jobsUpdateHostJobSchedule,
+  readBatchChangeHostJobScheduleStateResponse,
+  type BatchChangeHostJobScheduleStateResponse,
   type HostJobSchedule,
   type HostJobScheduleCronPreview,
   type HostJobScheduleDefinitionOption,
@@ -201,6 +205,32 @@ export async function resumeHostJobSchedule(
   return value;
 }
 
+/** 批量暂停 Host 作业计划并返回逐条结果。 */
+export async function batchPauseHostJobSchedules(
+  items: Array<{ scheduleId: string; version: number }>,
+  signal?: AbortSignal
+): Promise<BatchChangeHostJobScheduleStateResponse> {
+  const value = await jobsBatchPauseHostJobSchedules(
+    http,
+    { body: { items } },
+    signal
+  );
+  return readBatchChangeHostJobScheduleStateResponse(value);
+}
+
+/** 批量恢复 Host 作业计划并返回逐条结果。 */
+export async function batchResumeHostJobSchedules(
+  items: Array<{ scheduleId: string; version: number }>,
+  signal?: AbortSignal
+): Promise<BatchChangeHostJobScheduleStateResponse> {
+  const value = await jobsBatchResumeHostJobSchedules(
+    http,
+    { body: { items } },
+    signal
+  );
+  return readBatchChangeHostJobScheduleStateResponse(value);
+}
+
 /** 删除 Host 作业计划。 */
 export async function deleteHostJobSchedule(
   id: string,
@@ -219,6 +249,7 @@ export async function deleteHostJobSchedule(
 
 /** 导出作业计划列表、目录、Cron 预览与计划详情模型，供计划页和编辑表单共享同一契约。 */
 export type {
+  BatchChangeHostJobScheduleStateResponse,
   HostJobSchedule,
   HostJobScheduleCronPreview,
   HostJobScheduleDefinitionOption,
