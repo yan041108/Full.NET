@@ -18,6 +18,9 @@ public sealed class NotificationsApiSqlServerTests
             settingsOverrides: new Dictionary<string, string?>
             {
                 ["Notifications:Providers:Smtp:Enabled"] = "true",
+                ["Notifications:Providers:AliyunSms:Enabled"] = "true",
+                ["Notifications:Providers:AliyunSms:ReceiptSecretReference"] =
+                    "env://FULLNET_TEST_ALIYUN_SMS_RECEIPT_SECRET",
             },
             configureTestServices: NotificationProfileBindingAssertions.ConfigureTestServices);
 

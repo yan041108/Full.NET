@@ -9,6 +9,7 @@ using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Persistence;
 using Full.NET.Modules.Notifications.Providers;
+using Full.NET.Modules.Notifications.Providers.AliyunSms;
 using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Notifications.Features.ManageRecipientEndpoints;
@@ -249,13 +250,18 @@ internal sealed class RecipientEndpointStore(
     /// <returns>原值满足对应闭合格式时返回 true。</returns>
     private static bool IsValidEndpointValue(string value, string kind)
     {
-        if (!string.Equals(kind, "email", StringComparison.Ordinal))
+        if (string.Equals(kind, "email", StringComparison.Ordinal))
         {
-            return true;
+            return MailAddress.TryCreate(value, out var address)
+                && string.Equals(address.Address, value, StringComparison.OrdinalIgnoreCase);
         }
 
-        return MailAddress.TryCreate(value, out var address)
-            && string.Equals(address.Address, value, StringComparison.OrdinalIgnoreCase);
+        if (string.Equals(kind, "sms", StringComparison.Ordinal))
+        {
+            return AliyunSmsNotificationProviderAdapter.IsValidChinaMobilePhone(value);
+        }
+
+        return true;
     }
 
     /// <summary>创建不含端点原值的校验错误。</summary>

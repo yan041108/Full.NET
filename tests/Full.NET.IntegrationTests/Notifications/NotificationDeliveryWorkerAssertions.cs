@@ -14,6 +14,7 @@ using Full.NET.Modules.Notifications.Execution;
 using Full.NET.Modules.Notifications.Features.ManageRecipientEndpoints;
 using Full.NET.Modules.Notifications.Features.ReceiveProviderReceipts;
 using Full.NET.Modules.Notifications.Persistence;
+using Full.NET.Modules.Notifications.Providers.AliyunSms;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Notifications;
@@ -174,6 +175,32 @@ internal static class NotificationDeliveryWorkerAssertions
         NotificationProfileBindingAssertions.AssertProblem(
             await smtpReceipt.Content.ReadAsStringAsync(cancellationToken),
             NotificationsErrorCodes.ReceiptNotSupported);
+
+        Environment.SetEnvironmentVariable("FULLNET_TEST_ALIYUN_SMS_RECEIPT_SECRET", "integration-receipt-secret");
+        var aliyunReceiptBody = Encoding.UTF8.GetBytes(
+            """
+            [
+              {
+                "phone_number": "13800138000",
+                "send_time": "2026-09-06 10:00:00",
+                "report_time": "2026-09-06 10:00:01",
+                "success": true,
+                "err_code": "DELIVERED",
+                "biz_id": "aliyun-biz-unmatched"
+              }
+            ]
+            """);
+        var aliyunSignature = AliyunSmsReceiptVerifier.Sign(
+            aliyunReceiptBody,
+            "integration-receipt-secret");
+        using var aliyunReceipt = await SendReceiptAsync(
+            client,
+            "sms.aliyun",
+            aliyunReceiptBody,
+            aliyunSignature,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, aliyunReceipt.StatusCode);
+        Environment.SetEnvironmentVariable("FULLNET_TEST_ALIYUN_SMS_RECEIPT_SECRET", null);
 
         using var tooLarge = await SendReceiptAsync(
             client,

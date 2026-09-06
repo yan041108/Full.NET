@@ -129,6 +129,25 @@ describe('Vue 投递运维页', () => {
       .toContain('不等同于已送达');
   });
 
+  it('sms 渠道 sent 状态提示以回执为准', async () => {
+    const sent = delivery('sent', '07');
+    sent.channelKey = 'sms';
+    listMock.mockResolvedValueOnce({
+      items: [sent],
+      page: 1,
+      pageSize: 20,
+      total: 1
+    });
+    getMock.mockResolvedValueOnce(sent);
+    const wrapper = mountWithPermissions(['notifications.deliveries.read']);
+    await flushPromises();
+    await wrapper.get('[data-testid="notification-deliveries-load"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="notification-deliveries-sms-sent-notice"]').text())
+      .toContain('验签回执');
+  });
+
   it('详情展示回执时间线与退信原因', async () => {
     getMock.mockResolvedValueOnce(delivery('failed', '03', [{
       id: '0198f36e-f7a7-7c52-9cbb-774e67411209',

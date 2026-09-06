@@ -27,13 +27,13 @@ import {
 
 defineOptions({ name: 'NotificationPreferencesView' });
 
-/** 当前切片只开放 SMTP 邮箱端点；静默时段和营销同意继续保持诚实的未交付状态。 */
+/** 当前切片开放 SMTP 邮箱与阿里云短信端点；静默时段和营销同意继续保持诚实的未交付状态。 */
 const session = useSessionStore();
 const { t } = useAdminI18n();
 const profiles = ref<NotificationProviderProfileResponse[]>([]);
 const endpoints = ref<RecipientEndpointResponse[]>([]);
 const selectedProfileVersionId = ref('');
-const rawEmail = ref('');
+const rawEndpointValue = ref('');
 const loading = ref(false);
 const saving = ref(false);
 const deletingId = ref<string>();
@@ -47,10 +47,17 @@ const errorMessage = ref<string>();
 let resendClockTimer: ReturnType<typeof setInterval> | undefined;
 const canUpdate = computed(() => session.can('notifications.preferences.update'));
 const availableProfiles = computed(() => profiles.value.filter(profile =>
-  profile.providerTypeKey === 'email.smtp'
+  (profile.providerTypeKey === 'email.smtp' || profile.providerTypeKey === 'sms.aliyun')
   && profile.isEnabled
   && profile.latestPublishedVersionId !== null
 ));
+const selectedProfile = computed(() =>
+  availableProfiles.value.find(profile =>
+    profile.latestPublishedVersionId === selectedProfileVersionId.value)
+);
+const selectedEndpointKind = computed(() =>
+  selectedProfile.value?.providerTypeKey === 'sms.aliyun' ? 'sms' : 'email'
+);
 
 onMounted(() => {
   resendClockTimer = setInterval(() => {
@@ -89,10 +96,10 @@ async function load(): Promise<void> {
   }
 }
 
-/** 登记待验证邮箱；请求体不携带用户、租户或验证状态。 */
+/** 登记待验证端点；请求体不携带用户、租户或验证状态。 */
 async function createEndpoint(): Promise<void> {
   const providerProfileVersionId = selectedProfileVersionId.value;
-  const rawValue = rawEmail.value.trim();
+  const rawValue = rawEndpointValue.value.trim();
   if (saving.value || !providerProfileVersionId || !rawValue) {
     return;
   }
@@ -102,10 +109,10 @@ async function createEndpoint(): Promise<void> {
   try {
     await createMyRecipientEndpoint({
       providerProfileVersionId,
-      endpointKindKey: 'email',
+      endpointKindKey: selectedEndpointKind.value,
       rawValue
     });
-    rawEmail.value = '';
+    rawEndpointValue.value = '';
     endpoints.value = await listMyRecipientEndpoints();
     ElMessage.success(t('notificationPreferences.createSuccess'));
   } catch {
@@ -282,10 +289,12 @@ function profileLabel(profileVersionId: string): string {
           />
         </ElSelect>
         <ElInput
-          v-model="rawEmail"
-          data-testid="notification-preferences-email"
-          type="email"
-          :placeholder="t('notificationPreferences.emailPlaceholder')"
+          v-model="rawEndpointValue"
+          :data-testid="selectedEndpointKind === 'sms' ? 'notification-preferences-phone' : 'notification-preferences-email'"
+          :type="selectedEndpointKind === 'sms' ? 'tel' : 'email'"
+          :placeholder="selectedEndpointKind === 'sms'
+            ? t('notificationPreferences.phonePlaceholder')
+            : t('notificationPreferences.emailPlaceholder')"
           @keyup.enter="createEndpoint"
         />
         <ElButton

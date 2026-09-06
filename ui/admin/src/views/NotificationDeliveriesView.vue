@@ -160,6 +160,10 @@ function statusTone(statusKey: string): 'success' | 'warning' | 'info' | 'danger
   }
 }
 
+function showsSmsSentNotice(delivery: NotificationDeliveryResponse): boolean {
+  return delivery.channelKey === 'sms' && delivery.statusKey === 'sent';
+}
+
 function showsEmailSentNotice(delivery: NotificationDeliveryResponse): boolean {
   return delivery.channelKey === 'email' && delivery.statusKey === 'sent';
 }
@@ -241,6 +245,13 @@ function toProblem(
         data-testid="notification-deliveries-email-sent-notice"
       >
         {{ t('notificationDeliveries.emailSentNotice') }}
+      </p>
+      <p
+        v-if="showsSmsSentNotice(selected)"
+        class="art-inline-alert"
+        data-testid="notification-deliveries-sms-sent-notice"
+      >
+        {{ t('notificationDeliveries.smsSentNotice') }}
       </p>
       <ul class="art-list">
         <li v-for="attempt in selected.attempts" :key="attempt.id" data-testid="notification-deliveries-attempt">

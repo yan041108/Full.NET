@@ -24,6 +24,7 @@ internal sealed class RecipientEndpointVerificationService(
     ICurrentTenant currentTenant,
     NotificationRecipientEndpointProtector protector,
     IRecipientEndpointVerificationMailSender mailSender,
+    IRecipientEndpointVerificationSmsSender smsSender,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions)
@@ -71,7 +72,8 @@ internal sealed class RecipientEndpointVerificationService(
             return Result<SendRecipientEndpointVerificationResponse>.Failure(EndpointNotFound());
         }
 
-        if (!string.Equals(endpoint.EndpointKindKey, "email", StringComparison.Ordinal))
+        if (!string.Equals(endpoint.EndpointKindKey, "email", StringComparison.Ordinal)
+            && !string.Equals(endpoint.EndpointKindKey, "sms", StringComparison.Ordinal))
         {
             return Result<SendRecipientEndpointVerificationResponse>.Failure(ValidationFailed());
         }
@@ -119,13 +121,20 @@ internal sealed class RecipientEndpointVerificationService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var email = protector.Unprotect(endpoint.ProtectedValue);
-        var sendResult = await mailSender.SendAsync(
-                endpoint.ProviderProfileVersionId,
-                email,
-                code,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var rawValue = protector.Unprotect(endpoint.ProtectedValue);
+        var sendResult = string.Equals(endpoint.EndpointKindKey, "sms", StringComparison.Ordinal)
+            ? await smsSender.SendAsync(
+                    endpoint.ProviderProfileVersionId,
+                    rawValue,
+                    code,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : await mailSender.SendAsync(
+                    endpoint.ProviderProfileVersionId,
+                    rawValue,
+                    code,
+                    cancellationToken)
+                .ConfigureAwait(false);
         if (!sendResult.IsSuccess)
         {
             await commandExecutor.ExecuteAsync(

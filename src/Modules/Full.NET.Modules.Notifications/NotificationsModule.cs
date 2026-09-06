@@ -100,6 +100,8 @@ public sealed class NotificationsModule : IFullNetModule
         services.TryAddScoped<Features.VerifyRecipientEndpoints.RecipientEndpointVerificationService>();
         services.TryAddScoped<Features.VerifyRecipientEndpoints.IRecipientEndpointVerificationMailSender,
             Features.VerifyRecipientEndpoints.SmtpRecipientEndpointVerificationMailSender>();
+        services.TryAddScoped<Features.VerifyRecipientEndpoints.IRecipientEndpointVerificationSmsSender,
+            Features.VerifyRecipientEndpoints.AliyunSmsRecipientEndpointVerificationSender>();
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -237,6 +239,22 @@ public sealed class NotificationsModule : IFullNetModule
             services.TryAddEnumerable(ServiceDescriptor.Singleton<
                 Providers.INotificationProviderAdapter,
                 Providers.Smtp.SmtpNotificationProviderAdapter>());
+        }
+
+        if (configuration.GetValue<bool>("Notifications:Providers:AliyunSms:Enabled"))
+        {
+            services.TryAddSingleton<Providers.Smtp.INotificationSecretResolver,
+                Providers.Smtp.EnvironmentNotificationSecretResolver>();
+            services.AddHttpClient(Providers.AliyunSms.HttpAliyunSmsTransport.HttpClientName)
+                .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(30));
+            services.TryAddSingleton<Providers.AliyunSms.IAliyunSmsTransport,
+                Providers.AliyunSms.HttpAliyunSmsTransport>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationProviderAdapter,
+                Providers.AliyunSms.AliyunSmsNotificationProviderAdapter>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<
+                Providers.INotificationReceiptVerifier,
+                Providers.AliyunSms.AliyunSmsReceiptVerifier>());
         }
     }
 }
