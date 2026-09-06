@@ -60,6 +60,40 @@
           "responseSchema": "CreateOpenAccessClientResponse"
         }
       ]
+    },
+    {
+      "path": "/api/v1/identity/open-access-clients/{clientId}/access-logs",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.open_access_clients.read",
+          "successStatus": 200,
+          "responseSchema": "OpenAccessClientAccessLogEntryPage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/open-access-clients/{clientId}/usage",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "identity.open_access_clients.read",
+          "successStatus": 200,
+          "responseSchema": "OpenAccessClientUsageResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/open-access-clients/{clientId}/signature-debug",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "identity.open_access_clients.debug_signature",
+          "successStatus": 200,
+          "requestSchema": "OpenAccessClientSignatureDebugRequest",
+          "responseSchema": "OpenAccessClientSignatureDebugResponse"
+        }
+      ]
     }
   ],
   "schemas": {
@@ -70,7 +104,8 @@
         "description",
         "remark",
         "permissions",
-        "expiresAtUtc"
+        "expiresAtUtc",
+        "dailyRequestQuota"
       ]
     },
     "UpdateOpenAccessClientRequest": {
@@ -80,6 +115,7 @@
         "remark",
         "permissions",
         "expiresAtUtc",
+        "dailyRequestQuota",
         "version"
       ]
     },
@@ -95,6 +131,7 @@
         "accessKeyId",
         "permissions",
         "expiresAtUtc",
+        "dailyRequestQuota",
         "isActive",
         "lastUsedAtUtc",
         "createdAtUtc",
@@ -115,6 +152,60 @@
         "total"
       ],
       "itemSchema": "OpenAccessClientResponse"
+    },
+    "OpenAccessClientAccessLogEntry": {
+      "properties": [
+        "id",
+        "eventType",
+        "resultCode",
+        "succeeded",
+        "ipAddress",
+        "userAgent",
+        "occurredAtUtc"
+      ]
+    },
+    "OpenAccessClientAccessLogEntryPage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "OpenAccessClientAccessLogEntry"
+    },
+    "OpenAccessClientUsageResponse": {
+      "properties": [
+        "clientId",
+        "dailyRequestQuota",
+        "todaySuccessCount",
+        "todayFailureCount",
+        "windowStartUtc",
+        "windowEndUtc",
+        "quotaExceeded"
+      ]
+    },
+    "OpenAccessClientSignatureDebugRequest": {
+      "properties": [
+        "secret",
+        "method",
+        "path",
+        "query",
+        "bodyBase64",
+        "timestamp",
+        "nonce",
+        "signature",
+        "signatureVersion"
+      ]
+    },
+    "OpenAccessClientSignatureDebugResponse": {
+      "properties": [
+        "signaturesMatch",
+        "canonicalString",
+        "contentHash",
+        "expectedSignature",
+        "providedSignature",
+        "diagnostics"
+      ]
     }
   }
 }

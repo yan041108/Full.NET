@@ -61,6 +61,8 @@
   <data name="identity.api_keys.user_inactive" xml:space="preserve"><value>API Key 绑定的 Host 用户已禁用。</value></data>
   <data name="identity.open_access_clients.not_found" xml:space="preserve"><value>OpenAccess 接入方应用不存在或已停用。</value></data>
   <data name="identity.open_access_clients.version_conflict" xml:space="preserve"><value>接入方应用已被并发修改。</value></data>
+  <data name="identity.open_access_clients.quota_exceeded" xml:space="preserve"><value>接入方应用当日请求配额已用尽。</value></data>
+  <data name="identity.open_access_clients.signature_debug_invalid" xml:space="preserve"><value>签名调试请求无效或超出允许边界。</value></data>
   <data name="identity.field_projection.invalid" xml:space="preserve"><value>字段投影资源或字段键无效。</value></data>
   <data name="identity.field_projection.version_conflict" xml:space="preserve"><value>角色字段授权已被并发修改。</value></data>
   <data name="identity.signature.missing_headers" xml:space="preserve"><value>签名认证请求头不完整。</value></data>

@@ -199,6 +199,10 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 OpenAccess 接入方应用密钥",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOpenAccessClientPermissions.DebugSignature,
+            "调试 OpenAccess 接入方 HMAC 签名",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             ModuleCatalogPermissions.Read,
             "查看官方模块清单",
             AuthorizationScope.Host),
@@ -549,5 +553,12 @@ internal sealed class IdentityAuthorizationContributor
             "轮换接入方密钥",
             "rotate",
             40),
+        new AuthorizationActionDefinition(
+            "identity.open_access_clients.debug_signature",
+            "open-access-clients",
+            IdentityOpenAccessClientPermissions.DebugSignature,
+            "签名调试",
+            "debug-signature",
+            50),
     ];
 }

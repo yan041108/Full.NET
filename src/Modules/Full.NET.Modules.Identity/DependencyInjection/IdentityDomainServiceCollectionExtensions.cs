@@ -75,6 +75,8 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<HostApiKeyManagementService>();
         services.TryAddScoped<OpenAccessClientQueryService>();
         services.TryAddScoped<OpenAccessClientManagementService>();
+        services.TryAddScoped<OpenAccessClientAccessSupport>();
+        services.TryAddScoped<OpenAccessClientObservabilityService>();
         services.TryAddScoped<HostModuleCatalogQueryService>();
         services.TryAddScoped<
             Features.GetHostDashboardSummary.HostDashboardQueryService>();

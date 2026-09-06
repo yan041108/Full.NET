@@ -93,6 +93,7 @@ internal sealed class OpenAccessClientQueryService(
             row.AccessKeyId,
             ApiKeyAuthenticationService.DeserializePermissions(row.PermissionsJson),
             row.ExpiresAtUtc,
+            row.DailyRequestQuota,
             row.IsActive,
             row.LastUsedAtUtc,
             row.CreatedAtUtc,

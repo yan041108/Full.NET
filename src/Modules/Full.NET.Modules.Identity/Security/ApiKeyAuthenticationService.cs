@@ -1,9 +1,13 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Serialization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Security;
@@ -12,13 +16,19 @@ namespace Full.NET.Modules.Identity.Security;
 internal sealed class ApiKeyAuthenticationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    OpenAccessClientAccessSupport openAccessAccessSupport,
     IClock clock)
 {
     private static readonly TimeSpan LastUsedObservationWindow =
         TimeSpan.FromMinutes(5);
 
+    /// <summary>校验 API Key 并构造主体；接入方应用会写入访问审计并执行配额守卫。</summary>
+    /// <param name="secret">明文 API Key。</param>
+    /// <param name="httpContext">当前 HTTP 上下文，用于审计来源信息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async Task<ClaimsPrincipal?> AuthenticateAsync(
         string secret,
+        HttpContext httpContext,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(secret);
@@ -29,15 +39,68 @@ internal sealed class ApiKeyAuthenticationService(
                 cancellationToken)
             .ConfigureAwait(false);
         var now = clock.UtcNow;
+        var openAccessQuota = row is null
+            ? null
+            : await queryExecutor.QuerySingleOrDefaultAsync<OpenAccessClientQuotaRow>(
+                    OpenAccessClientObservabilitySql.FindQuotaByApiKeyId,
+                    IdentitySqlParameters.Create(("ApiKeyId", row.ApiKeyId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
         if (!IsActive(row, now))
         {
+            if (openAccessQuota is not null && row is not null)
+            {
+                await openAccessAccessSupport.WriteApiKeyAuditAsync(
+                        row.UserId,
+                        row.KeyPrefix,
+                        IdentityErrorCodes.InvalidCredentials,
+                        false,
+                        httpContext,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return null;
         }
 
         var permissions = DeserializePermissions(row!.PermissionsJson);
         if (permissions.Count == 0)
         {
+            if (openAccessQuota is not null)
+            {
+                await openAccessAccessSupport.WriteApiKeyAuditAsync(
+                        row.UserId,
+                        row.KeyPrefix,
+                        IdentityErrorCodes.ApiKeyInvalidPermissions,
+                        false,
+                        httpContext,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             return null;
+        }
+
+        if (openAccessQuota is not null)
+        {
+            var quotaError = await openAccessAccessSupport.TryGetQuotaExceededErrorAsync(
+                    row.ApiKeyId,
+                    row.KeyPrefix,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (quotaError is not null)
+            {
+                await openAccessAccessSupport.WriteApiKeyAuditAsync(
+                        row.UserId,
+                        row.KeyPrefix,
+                        quotaError.Code,
+                        false,
+                        httpContext,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return null;
+            }
         }
 
         var lastUsedBeforeUtc = now - LastUsedObservationWindow;
@@ -49,6 +112,18 @@ internal sealed class ApiKeyAuthenticationService(
                         ("ApiKeyId", row.ApiKeyId),
                         ("LastUsedAtUtc", now),
                         ("LastUsedBeforeUtc", lastUsedBeforeUtc)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (openAccessQuota is not null)
+        {
+            await openAccessAccessSupport.WriteApiKeyAuditAsync(
+                    row.UserId,
+                    row.KeyPrefix,
+                    "identity.api_key.succeeded",
+                    true,
+                    httpContext,
                     cancellationToken)
                 .ConfigureAwait(false);
         }

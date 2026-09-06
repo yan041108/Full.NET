@@ -155,6 +155,76 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireFullNetPermission(IdentityOpenAccessClientPermissions.Rotate);
+
+        group.MapGet("/{clientId:guid}/access-logs", async (
+            Guid clientId,
+            int? page,
+            int? pageSize,
+            bool? succeeded,
+            DateTimeOffset? fromUtc,
+            DateTimeOffset? toUtc,
+            OpenAccessClientObservabilityService observability,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await observability.ListAccessLogsAsync(
+                    clientId,
+                    page ?? 1,
+                    pageSize ?? 20,
+                    succeeded,
+                    fromUtc,
+                    toUtc,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityListOpenAccessClientAccessLogs")
+        .Produces<PagedResult<OpenAccessClientAccessLogEntry>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireFullNetPermission(IdentityOpenAccessClientPermissions.Read);
+
+        group.MapGet("/{clientId:guid}/usage", async (
+            Guid clientId,
+            OpenAccessClientObservabilityService observability,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await observability.GetUsageAsync(clientId, cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityGetOpenAccessClientUsage")
+        .Produces<OpenAccessClientUsageResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireFullNetPermission(IdentityOpenAccessClientPermissions.Read);
+
+        group.MapPost("/{clientId:guid}/signature-debug", async (
+            Guid clientId,
+            OpenAccessClientSignatureDebugRequest request,
+            OpenAccessClientObservabilityService observability,
+            IApiResultMapper mapper,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await observability.DebugSignatureAsync(
+                    clientId,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityDebugOpenAccessClientSignature")
+        .Produces<OpenAccessClientSignatureDebugResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireFullNetPermission(IdentityOpenAccessClientPermissions.DebugSignature);
     }
 
     private static Guid ResolveUserId(ClaimsPrincipal principal) =>

@@ -165,6 +165,13 @@ internal sealed class OpenAccessClientManagementService(
             return ValidationCreateFailure("Expiration must be in the future.");
         }
 
+        var quotaValidation = OpenAccessClientObservabilityService.ValidateDailyRequestQuota(
+            request.DailyRequestQuota);
+        if (!quotaValidation.IsSuccess)
+        {
+            return Result<CreateOpenAccessClientResponse>.Failure(quotaValidation.Error!);
+        }
+
         var secret = $"{KeyPrefix}{tokenGenerator.Generate(32)}";
         var now = clock.UtcNow;
         var apiKeyId = idGenerator.NewId();
@@ -199,6 +206,7 @@ internal sealed class OpenAccessClientManagementService(
             CreatedByUserId = operatorUserId,
             CreatedAtUtc = now,
             Version = 1,
+            DailyRequestQuota = quotaValidation.Value,
         };
         await commandExecutor.ExecuteAsync(
                 OpenAccessClientSql.Insert,
@@ -221,6 +229,7 @@ internal sealed class OpenAccessClientManagementService(
             IsActive = true,
             CreatedAtUtc = now,
             Version = 1,
+            DailyRequestQuota = quotaValidation.Value,
         });
         return Result<CreateOpenAccessClientResponse>.Success(
             new CreateOpenAccessClientResponse(response, secret));
@@ -277,6 +286,13 @@ internal sealed class OpenAccessClientManagementService(
             return ValidationUpdateFailure("Expiration must be in the future.");
         }
 
+        var quotaValidation = OpenAccessClientObservabilityService.ValidateDailyRequestQuota(
+            request.DailyRequestQuota);
+        if (!quotaValidation.IsSuccess)
+        {
+            return Result<OpenAccessClientResponse>.Failure(quotaValidation.Error!);
+        }
+
         var now = clock.UtcNow;
         var metadataRows = await commandExecutor.ExecuteAsync(
                 OpenAccessClientSql.UpdateMetadata,
@@ -285,6 +301,7 @@ internal sealed class OpenAccessClientManagementService(
                     ("Name", metadataValidation.Value!.Name),
                     ("Description", metadataValidation.Value.Description),
                     ("Remark", metadataValidation.Value.Remark),
+                    ("DailyRequestQuota", quotaValidation.Value),
                     ("UpdatedAtUtc", now),
                     ("Version", request.Version)),
                 cancellationToken)
@@ -433,6 +450,7 @@ internal sealed class OpenAccessClientManagementService(
             IsActive = true,
             CreatedAtUtc = row.CreatedAtUtc,
             Version = row.Version + 1,
+            DailyRequestQuota = row.DailyRequestQuota,
         });
         return Result<CreateOpenAccessClientResponse>.Success(
             new CreateOpenAccessClientResponse(response, secret));

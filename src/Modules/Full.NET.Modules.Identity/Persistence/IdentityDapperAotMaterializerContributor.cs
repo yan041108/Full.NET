@@ -47,6 +47,10 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<ApiKeyListRow>(ReadApiKeyListRow);
         registrar.Register<ApiKeyAuthenticationRow>(ReadApiKeyAuthenticationRow);
         registrar.Register<OpenAccessClientDetailRow>(ReadOpenAccessClientDetailRow);
+        registrar.Register<OpenAccessClientAccessLogRow>(ReadOpenAccessClientAccessLogRow);
+        registrar.Register<OpenAccessClientAccessKeyRow>(ReadOpenAccessClientAccessKeyRow);
+        registrar.Register<OpenAccessClientQuotaRow>(ReadOpenAccessClientQuotaRow);
+        registrar.Register<OpenAccessClientUsageCountRow>(ReadOpenAccessClientUsageCountRow);
         registrar.Register<IdentityUserTotpRecord>(ReadIdentityUserTotpRecord);
         registrar.Register<OrganizationUnitProjectionRecord>(ReadOrganizationUnitProjectionRecord);
         registrar.Register<UserFieldProjectionGrantRow>(ReadUserFieldProjectionGrantRow);
@@ -427,6 +431,41 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             LastUsedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 11),
             CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 12),
             Version = AotDataReaderExtensions.ReadInt32(reader, 13),
+            DailyRequestQuota = reader.IsDBNull(14) ? null : reader.GetInt32(14),
+        };
+
+    private static OpenAccessClientAccessLogRow ReadOpenAccessClientAccessLogRow(DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetGuid(0),
+            EventType = reader.GetString(1),
+            ResultCode = reader.GetString(2),
+            Succeeded = AotDataReaderExtensions.ReadBoolean(reader, 3),
+            IpAddress = AotDataReaderExtensions.ReadNullableString(reader, 4),
+            UserAgent = AotDataReaderExtensions.ReadNullableString(reader, 5),
+            OccurredAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 6),
+        };
+
+    private static OpenAccessClientAccessKeyRow ReadOpenAccessClientAccessKeyRow(DbDataReader reader) =>
+        new()
+        {
+            ClientId = reader.GetGuid(0),
+            AccessKeyId = reader.GetString(1),
+        };
+
+    private static OpenAccessClientQuotaRow ReadOpenAccessClientQuotaRow(DbDataReader reader) =>
+        new()
+        {
+            ClientId = reader.GetGuid(0),
+            DailyRequestQuota = reader.IsDBNull(1) ? null : reader.GetInt32(1),
+            AccessKeyId = reader.GetString(2),
+        };
+
+    private static OpenAccessClientUsageCountRow ReadOpenAccessClientUsageCountRow(DbDataReader reader) =>
+        new()
+        {
+            SuccessCount = reader.IsDBNull(0) ? 0 : reader.GetInt64(0),
+            FailureCount = reader.IsDBNull(1) ? 0 : reader.GetInt64(1),
         };
 
     private static IdentityUserTotpRecord ReadIdentityUserTotpRecord(DbDataReader reader) =>

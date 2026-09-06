@@ -46,7 +46,7 @@ internal sealed class ApiKeyAuthenticationHandler(
         }
 
         var principal = await authenticationService
-            .AuthenticateAsync(secret, Context.RequestAborted)
+            .AuthenticateAsync(secret, Context, Context.RequestAborted)
             .ConfigureAwait(false);
         if (principal is null)
         {

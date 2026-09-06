@@ -35,7 +35,7 @@ test('OpenAccess 接入方应用 OpenAPI 夹具结构完整且路径唯一', asy
       seen.add(key);
       assert.match(
         operation.permission,
-        /^identity\.open_access_clients\.(read|create|update|disable|rotate)$/u
+        /^identity\.open_access_clients\.(read|create|update|disable|rotate|debug_signature)$/u
       );
       assert.ok(contract.schemas[operation.responseSchema]);
       if (operation.requestSchema) {
@@ -58,6 +58,7 @@ test('OpenAccess 接入方应用 OpenAPI 夹具与 C# 契约和端点源码一�
   assert.match(contractsSource, /identity\.open_access_clients\.update/u);
   assert.match(contractsSource, /identity\.open_access_clients\.disable/u);
   assert.match(contractsSource, /identity\.open_access_clients\.rotate/u);
+  assert.match(contractsSource, /identity\.open_access_clients\.debug_signature/u);
   assert.match(endpointSource, /MapGroup\("\/api\/v1\/identity\/open-access-clients"\)/u);
 
   const routeMarkers = new Map([
@@ -72,6 +73,18 @@ test('OpenAccess 接入方应用 OpenAPI 夹具与 C# 契约和端点源码一�
     [
       'POST /api/v1/identity/open-access-clients/{clientId}/rotate',
       'MapPost("/{clientId:guid}/rotate",'
+    ],
+    [
+      'GET /api/v1/identity/open-access-clients/{clientId}/access-logs',
+      'MapGet("/{clientId:guid}/access-logs",'
+    ],
+    [
+      'GET /api/v1/identity/open-access-clients/{clientId}/usage',
+      'MapGet("/{clientId:guid}/usage",'
+    ],
+    [
+      'POST /api/v1/identity/open-access-clients/{clientId}/signature-debug',
+      'MapPost("/{clientId:guid}/signature-debug",'
     ]
   ]);
 
@@ -85,7 +98,7 @@ test('OpenAccess 接入方应用 OpenAPI 夹具与 C# 契约和端点源码一�
   }
 
   for (const [schemaName, schema] of Object.entries(contract.schemas)) {
-    if (schemaName === 'OpenAccessClientResponsePage') {
+    if (schemaName === 'OpenAccessClientResponsePage' || schemaName === 'OpenAccessClientAccessLogEntryPage') {
       continue;
     }
     for (const property of schema.properties) {

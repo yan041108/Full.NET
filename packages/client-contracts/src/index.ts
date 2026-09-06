@@ -256,15 +256,25 @@ export type {
 export {
   isCreateOpenAccessClientResult,
   isOpenAccessClient,
-  isOpenAccessClientPage
+  isOpenAccessClientAccessLogEntry,
+  isOpenAccessClientAccessLogPage,
+  isOpenAccessClientPage,
+  isOpenAccessClientSignatureDebugResult,
+  isOpenAccessClientUsage
 } from './open-access-clients.js';
 
 export type {
   CreateOpenAccessClientRequest,
   CreateOpenAccessClientResult,
   OpenAccessClient,
+  OpenAccessClientAccessLogEntry,
+  OpenAccessClientAccessLogPage,
+  OpenAccessClientAccessLogQuery,
   OpenAccessClientListQuery,
   OpenAccessClientPage,
+  OpenAccessClientSignatureDebugRequest,
+  OpenAccessClientSignatureDebugResult,
+  OpenAccessClientUsage,
   UpdateOpenAccessClientRequest
 } from './open-access-clients.js';
 

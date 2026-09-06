@@ -1,7 +1,9 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Microsoft.AspNetCore.Http;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -17,7 +19,9 @@ public sealed class ApiKeyAuthenticationServiceTests
     {
         var (service, command) = CreateService(Now.AddMinutes(-1));
 
-        var principal = await service.AuthenticateAsync("fnk_test-secret");
+        var principal = await service.AuthenticateAsync(
+            "fnk_test-secret",
+            new DefaultHttpContext());
 
         Assert.IsNotNull(principal);
         await command.DidNotReceive().ExecuteAsync(
@@ -31,7 +35,9 @@ public sealed class ApiKeyAuthenticationServiceTests
     {
         var (service, command) = CreateService(Now.AddMinutes(-5));
 
-        var principal = await service.AuthenticateAsync("fnk_test-secret");
+        var principal = await service.AuthenticateAsync(
+            "fnk_test-secret",
+            new DefaultHttpContext());
 
         Assert.IsNotNull(principal);
         await command.Received(1).ExecuteAsync(
@@ -63,13 +69,28 @@ public sealed class ApiKeyAuthenticationServiceTests
                 SecurityStamp = "stamp",
                 LastUsedAtUtc = lastUsedAtUtc,
             });
+        query.QuerySingleOrDefaultAsync<OpenAccessClientQuotaRow>(
+                OpenAccessClientObservabilitySql.FindQuotaByApiKeyId,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((OpenAccessClientQuotaRow?)null);
         command.ExecuteAsync(
                 Arg.Any<SqlStatement>(),
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns(1);
 
-        return (new ApiKeyAuthenticationService(query, command, clock), command);
+        var accessSupport = new OpenAccessClientAccessSupport(
+            query,
+            command,
+            clock,
+            Substitute.For<Full.NET.Abstractions.Ids.IIdGenerator>(),
+            Microsoft.Extensions.Options.Options.Create(new DatabaseOptions
+            {
+                Provider = DatabaseProvider.SqlServer,
+            }));
+
+        return (new ApiKeyAuthenticationService(query, command, accessSupport, clock), command);
     }
 
     private static bool HasExpectedTouchParameters(object? parameters)

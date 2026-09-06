@@ -606,7 +606,7 @@
   "consumerModules": [
     { "apiModule": "ui/admin/src/api/access-logs.ts", "consumers": ["ui/admin/src/views/AccessLogsView.vue"] },
     { "apiModule": "ui/admin/src/api/api-keys.ts", "consumers": ["ui/admin/src/views/ApiKeysView.vue"] },
-    { "apiModule": "ui/admin/src/api/open-access-clients.ts", "consumers": ["ui/admin/src/views/OpenAccessClientsView.vue"] },
+    { "apiModule": "ui/admin/src/api/open-access-clients.ts", "consumers": ["ui/admin/src/views/OpenAccessClientsView.vue", "ui/admin/src/views/components/OpenAccessClientDetailDrawer.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-previews.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-runs.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
     { "apiModule": "ui/admin/src/api/code-generation-templates.ts", "consumers": ["ui/admin/src/views/CodeGenerationTemplatesView.vue", "ui/admin/src/views/CodeGenerationPreviewsView.vue"] },

@@ -448,6 +448,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<OpenAccessClientQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<OpenAccessClientManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OpenAccessClientAccessSupport>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OpenAccessClientObservabilityService>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Self<
             IdentityFeatures.QueryHostModuleCatalog.HostModuleCatalogQueryService>(
             ServiceLifetime.Scoped),

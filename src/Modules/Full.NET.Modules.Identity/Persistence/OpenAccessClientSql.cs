@@ -19,7 +19,8 @@ internal static class OpenAccessClientSql
                apiKey.IsActive,
                apiKey.LastUsedAtUtc,
                client.CreatedAtUtc,
-               client.Version
+               client.Version,
+               client.DailyRequestQuota
         """;
 
     private const string DetailJoinClause = """
@@ -33,10 +34,10 @@ internal static class OpenAccessClientSql
         """
         INSERT INTO fn_identity_open_access_client
             (Id, ApiKeyId, Name, Description, Remark, CreatedByUserId,
-             CreatedAtUtc, UpdatedAtUtc, Version)
+             CreatedAtUtc, UpdatedAtUtc, Version, DailyRequestQuota)
         VALUES
             (@Id, @ApiKeyId, @Name, @Description, @Remark, @CreatedByUserId,
-             @CreatedAtUtc, @UpdatedAtUtc, @Version)
+             @CreatedAtUtc, @UpdatedAtUtc, @Version, @DailyRequestQuota)
         """,
         SqlDataScope.HostOnly);
 
@@ -58,6 +59,7 @@ internal static class OpenAccessClientSql
         SET Name = @Name,
             Description = @Description,
             Remark = @Remark,
+            DailyRequestQuota = @DailyRequestQuota,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @ClientId

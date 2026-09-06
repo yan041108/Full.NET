@@ -40,6 +40,7 @@ public sealed class AuthorizationCatalogTests
                 "identity.modules.read",
                 "identity.navigation.read",
                 "identity.open_access_clients.create",
+                "identity.open_access_clients.debug_signature",
                 "identity.open_access_clients.disable",
                 "identity.open_access_clients.read",
                 "identity.open_access_clients.rotate",
@@ -348,6 +349,7 @@ public sealed class AuthorizationCatalogTests
             ["update"] = "identity.open_access_clients.update",
             ["disable"] = "identity.open_access_clients.disable",
             ["rotate"] = "identity.open_access_clients.rotate",
+            ["debug-signature"] = "identity.open_access_clients.debug_signature",
         };
 
         var clientActions = catalog.Actions

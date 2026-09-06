@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
+using Full.NET.Modules.Identity.Features.ManageOpenAccessClients;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ namespace Full.NET.Modules.Identity.Security;
 internal sealed partial class SignatureAuthenticationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    OpenAccessClientAccessSupport openAccessAccessSupport,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<SignatureAuthenticationOptions> options,
@@ -274,6 +276,29 @@ internal sealed partial class SignatureAuthenticationService(
         }
 
         await TouchLastUsedIfNeededAsync(row, now, cancellationToken).ConfigureAwait(false);
+
+        var quotaError = await openAccessAccessSupport.TryGetQuotaExceededErrorAsync(
+                row.ApiKeyId,
+                headers.AccessKeyId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (quotaError is not null)
+        {
+            await WriteAuditAsync(
+                    row.UserId,
+                    headers.AccessKeyId,
+                    "signature_authentication",
+                    quotaError.Code,
+                    false,
+                    httpContext,
+                    row.TenantId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return Failure(
+                quotaError.Code,
+                ErrorType.RateLimited);
+        }
+
         await WriteAuditAsync(
                 row.UserId,
                 headers.AccessKeyId,

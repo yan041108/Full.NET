@@ -20,6 +20,8 @@ internal sealed class OpenAccessClientRecord
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 
     public int Version { get; set; }
+
+    public int? DailyRequestQuota { get; set; }
 }
 
 /// <summary>OpenAccess 接入方应用详情联表行。</summary>
@@ -52,4 +54,6 @@ internal sealed class OpenAccessClientDetailRow
     public DateTimeOffset CreatedAtUtc { get; set; }
 
     public int Version { get; set; }
+
+    public int? DailyRequestQuota { get; set; }
 }

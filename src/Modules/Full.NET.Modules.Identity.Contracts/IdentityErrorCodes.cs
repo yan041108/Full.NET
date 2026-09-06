@@ -175,6 +175,13 @@ public static class IdentityErrorCodes
     /// <summary>OpenAccess 接入方应用乐观并发版本冲突。</summary>
     public const string OpenAccessClientVersionConflict = "identity.open_access_clients.version_conflict";
 
+    /// <summary>OpenAccess 接入方应用当日配额已用尽。</summary>
+    public const string OpenAccessClientQuotaExceeded = "identity.open_access_clients.quota_exceeded";
+
+    /// <summary>OpenAccess 签名调试请求无效或超出受控边界。</summary>
+    public const string OpenAccessClientSignatureDebugInvalid =
+        "identity.open_access_clients.signature_debug_invalid";
+
     /// <summary>API Key 权限列表无效。</summary>
     public const string ApiKeyInvalidPermissions = "identity.api_keys.invalid_permissions";
 
@@ -343,6 +350,8 @@ public static class IdentityErrorCodes
         ApiKeyNotFound,
         OpenAccessClientNotFound,
         OpenAccessClientVersionConflict,
+        OpenAccessClientQuotaExceeded,
+        OpenAccessClientSignatureDebugInvalid,
         ApiKeyInvalidPermissions,
         ApiKeyUserNotFound,
         ApiKeyUserInactive,

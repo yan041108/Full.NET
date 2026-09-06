@@ -23,6 +23,7 @@ import ArtTableActionButton from '../framework/art-design/components/ArtTableAct
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
+import OpenAccessClientDetailDrawer from './components/OpenAccessClientDetailDrawer.vue';
 import PermissionGate from '../components/PermissionGate.vue';
 import { useAdminI18n } from '../i18n/adminI18n';
 import {
@@ -48,6 +49,8 @@ const problem = ref<FullNetProblemDetails>();
 const searchForm = ref<Record<string, string | undefined>>({});
 const appliedFilters = ref({ name: '', userId: '' });
 const editorOpen = ref(false);
+const detailOpen = ref(false);
+const detailClient = ref<OpenAccessClient | null>(null);
 const editorMode = ref<EditorMode>('create');
 const editingClient = ref<OpenAccessClient | null>(null);
 const editorFormRef = ref<FormInstance>();
@@ -57,7 +60,8 @@ const editorForm = reactive({
   description: '',
   remark: '',
   permissionsText: '',
-  expiresAt: ''
+  expiresAt: '',
+  dailyRequestQuota: ''
 });
 const secret = ref('');
 
@@ -129,7 +133,13 @@ function openCreate() {
   editorForm.remark = '';
   editorForm.permissionsText = '';
   editorForm.expiresAt = '';
+  editorForm.dailyRequestQuota = '';
   editorOpen.value = true;
+}
+
+function openDetail(row: OpenAccessClient) {
+  detailClient.value = row;
+  detailOpen.value = true;
 }
 
 function openEdit(row: OpenAccessClient) {
@@ -141,6 +151,7 @@ function openEdit(row: OpenAccessClient) {
   editorForm.remark = row.remark ?? '';
   editorForm.permissionsText = row.permissions.join('\n');
   editorForm.expiresAt = row.expiresAtUtc ?? '';
+  editorForm.dailyRequestQuota = row.dailyRequestQuota?.toString() ?? '';
   editorOpen.value = true;
 }
 
@@ -149,6 +160,15 @@ function parsePermissions(): string[] {
     .split(/[\n,]+/u)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseDailyRequestQuota(): number | null {
+  const raw = editorForm.dailyRequestQuota.trim();
+  if (!raw) {
+    return null;
+  }
+  const value = Number.parseInt(raw, 10);
+  return Number.isNaN(value) ? null : value;
 }
 
 async function submitEditor() {
@@ -163,7 +183,8 @@ async function submitEditor() {
         description: editorForm.description.trim() || null,
         remark: editorForm.remark.trim() || null,
         permissions,
-        expiresAtUtc: editorForm.expiresAt.trim() || null
+        expiresAtUtc: editorForm.expiresAt.trim() || null,
+        dailyRequestQuota: parseDailyRequestQuota()
       });
       secret.value = created.secret;
       ElMessage.success(t('openAccessClients.createSuccess'));
@@ -174,6 +195,7 @@ async function submitEditor() {
         remark: editorForm.remark.trim() || null,
         permissions,
         expiresAtUtc: editorForm.expiresAt.trim() || null,
+        dailyRequestQuota: parseDailyRequestQuota(),
         version: editingClient.value.version
       });
       ElMessage.success(t('openAccessClients.updateSuccess'));
@@ -321,9 +343,16 @@ onMounted(() => {
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column :label="t('users.columnActions')" width="220" fixed="right">
+          <el-table-column :label="t('users.columnActions')" width="280" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>
+                <PermissionGate code="identity.open_access_clients.read">
+                  <ArtTableActionButton
+                    :label="t('openAccessClients.detail')"
+                    test-id="open-access-clients-action-detail"
+                    @click="openDetail(row)"
+                  />
+                </PermissionGate>
                 <PermissionGate code="identity.open_access_clients.update">
                   <ArtTableActionButton
                     :label="t('openAccessClients.edit')"
@@ -390,7 +419,12 @@ onMounted(() => {
         <el-form-item :label="t('openAccessClients.fieldExpiresAt')">
           <el-input v-model="editorForm.expiresAt" placeholder="2026-12-31T00:00:00Z" />
         </el-form-item>
+        <el-form-item :label="t('openAccessClients.fieldDailyQuota')">
+          <el-input v-model="editorForm.dailyRequestQuota" placeholder="10000" />
+        </el-form-item>
       </el-form>
     </ArtFormDialog>
+
+    <OpenAccessClientDetailDrawer v-model="detailOpen" :client="detailClient" />
   </section>
 </template>
