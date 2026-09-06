@@ -30914,6 +30914,144 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["AiAgentTools"]
       }
+    },
+    "/api/v1/payments/merchant-configs": {
+      "get": {
+        "operationId": "paymentsListMerchantConfigs",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": "string" } },
+          { "in": "query", "name": "channelKey", "schema": { "type": "string" } },
+          { "in": "query", "name": "nameContains", "schema": { "type": "string" } },
+          { "in": "query", "name": "isEnabled", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfPaymentMerchantConfigListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentMerchantConfigs"]
+      },
+      "post": {
+        "operationId": "paymentsCreateMerchantConfig",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePaymentMerchantConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentMerchantConfigResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentMerchantConfigs"]
+      }
+    },
+    "/api/v1/payments/merchant-configs/{merchantConfigId}": {
+      "get": {
+        "operationId": "paymentsGetMerchantConfig",
+        "parameters": [
+          { "in": "path", "name": "merchantConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentMerchantConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentMerchantConfigs"]
+      },
+      "put": {
+        "operationId": "paymentsUpdateMerchantConfig",
+        "parameters": [
+          { "in": "path", "name": "merchantConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdatePaymentMerchantConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentMerchantConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentMerchantConfigs"]
+      }
+    },
+    "/api/v1/payments/merchant-configs/{merchantConfigId}/disable": {
+      "post": {
+        "operationId": "paymentsDisableMerchantConfig",
+        "parameters": [
+          { "in": "path", "name": "merchantConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentMerchantConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentMerchantConfigs"]
+      }
+    },
+    "/api/v1/payments/orders": {
+      "get": {
+        "operationId": "paymentsListOrders",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": "string" } },
+          { "in": "query", "name": "tradeStateKey", "schema": { "type": "string" } },
+          { "in": "query", "name": "outTradeNoContains", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfPaymentOrderListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentOrders"]
+      },
+      "post": {
+        "operationId": "paymentsCreateOrder",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePaymentOrderRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentOrderResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentOrders"]
+      }
+    },
+    "/api/v1/payments/orders/{orderId}": {
+      "get": {
+        "operationId": "paymentsGetOrder",
+        "parameters": [
+          { "in": "path", "name": "orderId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentOrderResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PaymentOrders"]
+      }
     }
   },
   "components": {
@@ -47331,6 +47469,165 @@
       "PagedResultOfAiAgentToolCallListItem": {
         "properties": {
           "items": { "items": { "$ref": "#/components/schemas/AiAgentToolCallListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "PaymentMerchantConfigListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "channelKey": { "type": "string" },
+          "maskedAppId": { "type": "string" },
+          "maskedMerchantId": { "type": "string" },
+          "maskedCertificateSerialNo": { "type": "string" },
+          "maskedNotifyUrl": { "type": "string" },
+          "hasApiV3Key": { "type": "boolean" },
+          "hasPrivateKey": { "type": "boolean" },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "channelKey", "maskedAppId", "maskedMerchantId", "maskedCertificateSerialNo", "maskedNotifyUrl", "hasApiV3Key", "hasPrivateKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "PaymentMerchantConfigResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "channelKey": { "type": "string" },
+          "appId": { "type": "string" },
+          "merchantId": { "type": "string" },
+          "certificateSerialNo": { "type": "string" },
+          "notifyUrl": { "type": "string" },
+          "hasApiV3Key": { "type": "boolean" },
+          "hasPrivateKey": { "type": "boolean" },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "hasApiV3Key", "hasPrivateKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreatePaymentMerchantConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "channelKey": { "type": "string" },
+          "appId": { "type": "string" },
+          "merchantId": { "type": "string" },
+          "certificateSerialNo": { "type": "string" },
+          "notifyUrl": { "type": "string" },
+          "apiV3Key": { "type": ["null", "string"] },
+          "privateKeyPem": { "type": ["null", "string"] },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "isDefault", "isEnabled"],
+        "type": "object"
+      },
+      "UpdatePaymentMerchantConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "channelKey": { "type": "string" },
+          "appId": { "type": "string" },
+          "merchantId": { "type": "string" },
+          "certificateSerialNo": { "type": "string" },
+          "notifyUrl": { "type": "string" },
+          "apiV3Key": { "type": ["null", "string"] },
+          "clearApiV3Key": { "type": "boolean" },
+          "privateKeyPem": { "type": ["null", "string"] },
+          "clearPrivateKey": { "type": "boolean" },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "channelKey", "appId", "merchantId", "certificateSerialNo", "notifyUrl", "clearApiV3Key", "clearPrivateKey", "isDefault", "isEnabled", "version"],
+        "type": "object"
+      },
+      "PagedResultOfPaymentMerchantConfigListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/PaymentMerchantConfigListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "PaymentOrderListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": "string" },
+          "merchantConfigId": { "format": "uuid", "type": "string" },
+          "channelKey": { "type": "string" },
+          "outTradeNo": { "type": "string" },
+          "tradeStateKey": { "type": "string" },
+          "amountMinor": { "format": "int64", "type": ["integer", "string"] },
+          "currency": { "type": "string" },
+          "subject": { "type": "string" },
+          "description": { "type": ["null", "string"] },
+          "codeUrl": { "type": ["null", "string"] },
+          "providerTransactionId": { "type": ["null", "string"] },
+          "failMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "paidAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "tenantId", "merchantConfigId", "channelKey", "outTradeNo", "tradeStateKey", "amountMinor", "currency", "subject", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "PaymentOrderResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": "string" },
+          "merchantConfigId": { "format": "uuid", "type": "string" },
+          "channelKey": { "type": "string" },
+          "outTradeNo": { "type": "string" },
+          "tradeStateKey": { "type": "string" },
+          "amountMinor": { "format": "int64", "type": ["integer", "string"] },
+          "currency": { "type": "string" },
+          "subject": { "type": "string" },
+          "description": { "type": ["null", "string"] },
+          "codeUrl": { "type": ["null", "string"] },
+          "providerTransactionId": { "type": ["null", "string"] },
+          "failMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "paidAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "tenantId", "merchantConfigId", "channelKey", "outTradeNo", "tradeStateKey", "amountMinor", "currency", "subject", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreatePaymentOrderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": { "format": "uuid", "type": "string" },
+          "merchantConfigId": { "format": "uuid", "type": ["null", "string"] },
+          "amountMinor": { "format": "int64", "type": ["integer", "string"] },
+          "currency": { "type": "string" },
+          "subject": { "type": "string" },
+          "description": { "type": ["null", "string"] }
+        },
+        "required": ["tenantId", "amountMinor", "currency", "subject"],
+        "type": "object"
+      },
+      "PagedResultOfPaymentOrderListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/PaymentOrderListItem" }, "type": "array" },
           "page": { "format": "int32", "type": ["integer", "string"] },
           "pageSize": { "format": "int32", "type": ["integer", "string"] },
           "total": { "format": "int64", "type": ["integer", "string"] }

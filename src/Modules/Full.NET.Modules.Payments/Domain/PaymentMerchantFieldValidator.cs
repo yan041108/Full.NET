@@ -1,0 +1,156 @@
+using Full.NET.Modules.Payments.Contracts;
+
+namespace Full.NET.Modules.Payments.Domain;
+
+/// <summary>支付商户配置字段校验。</summary>
+internal static class PaymentMerchantFieldValidator
+{
+    /// <summary>名称允许的最大字符数。</summary>
+    internal const int MaxNameLength = 128;
+
+    /// <summary>应用标识允许的最大字符数。</summary>
+    internal const int MaxAppIdLength = 64;
+
+    /// <summary>商户号允许的最大字符数。</summary>
+    internal const int MaxMerchantIdLength = 32;
+
+    /// <summary>证书序列号允许的最大字符数。</summary>
+    internal const int MaxCertificateSerialNoLength = 64;
+
+    /// <summary>回调地址允许的最大字符数。</summary>
+    internal const int MaxNotifyUrlLength = 512;
+
+    /// <summary>默认货币代码。</summary>
+    internal const string DefaultCurrency = "CNY";
+
+    /// <summary>校验渠道键是否在受支持白名单内。</summary>
+    /// <param name="channelKey">渠道键。</param>
+    /// <returns>是否受支持。</returns>
+    public static bool IsSupportedChannel(string? channelKey) =>
+        string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal);
+
+    /// <summary>校验商户配置元数据。</summary>
+    /// <param name="name">显示名称。</param>
+    /// <param name="channelKey">渠道键。</param>
+    /// <param name="appId">应用标识。</param>
+    /// <param name="merchantId">商户号。</param>
+    /// <param name="certificateSerialNo">证书序列号。</param>
+    /// <param name="notifyUrl">回调地址。</param>
+    /// <returns>校验失败时的错误消息；成功时为 <see langword="null"/>。</returns>
+    public static string? ValidateMetadata(
+        string name,
+        string channelKey,
+        string appId,
+        string merchantId,
+        string certificateSerialNo,
+        string notifyUrl)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > MaxNameLength)
+        {
+            return "Name is required and must not exceed 128 characters.";
+        }
+
+        if (!IsSupportedChannel(channelKey))
+        {
+            return "Channel key must be wechat_native.";
+        }
+
+        if (string.IsNullOrWhiteSpace(appId) || appId.Trim().Length > MaxAppIdLength)
+        {
+            return "App id is required and must not exceed 64 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(merchantId) || merchantId.Trim().Length > MaxMerchantIdLength)
+        {
+            return "Merchant id is required and must not exceed 32 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(certificateSerialNo)
+            || certificateSerialNo.Trim().Length > MaxCertificateSerialNoLength)
+        {
+            return "Certificate serial number is required and must not exceed 64 characters.";
+        }
+
+        if (!IsSafeNotifyUrl(notifyUrl))
+        {
+            return "Notify URL must be an absolute https URL without credentials.";
+        }
+
+        return null;
+    }
+
+    /// <summary>校验创建订单请求。</summary>
+    /// <param name="amountMinor">订单金额。</param>
+    /// <param name="currency">货币代码。</param>
+    /// <param name="subject">商品标题。</param>
+    /// <param name="description">商品描述。</param>
+    /// <returns>校验失败时的错误消息；成功时为 <see langword="null"/>。</returns>
+    public static string? ValidateOrderRequest(
+        long amountMinor,
+        string currency,
+        string subject,
+        string? description)
+    {
+        if (amountMinor <= 0)
+        {
+            return "Amount must be greater than zero.";
+        }
+
+        if (string.IsNullOrWhiteSpace(currency) || currency.Trim().Length > 8)
+        {
+            return "Currency is required and must not exceed 8 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(subject) || subject.Trim().Length > 128)
+        {
+            return "Subject is required and must not exceed 128 characters.";
+        }
+
+        if (description is not null && description.Trim().Length > 256)
+        {
+            return "Description must not exceed 256 characters.";
+        }
+
+        return null;
+    }
+
+    /// <summary>校验商户私钥 PEM 格式。</summary>
+    /// <param name="privateKeyPem">私钥 PEM。</param>
+    /// <returns>校验失败时的错误消息；成功时为 <see langword="null"/>。</returns>
+    public static string? ValidatePrivateKeyPem(string privateKeyPem)
+    {
+        if (string.IsNullOrWhiteSpace(privateKeyPem))
+        {
+            return "Private key PEM is required.";
+        }
+
+        var normalized = privateKeyPem.Trim();
+        if (!normalized.Contains("BEGIN", StringComparison.Ordinal)
+            || !normalized.Contains("PRIVATE KEY", StringComparison.Ordinal))
+        {
+            return "Private key must be provided in PEM format.";
+        }
+
+        return null;
+    }
+
+    private static bool IsSafeNotifyUrl(string notifyUrl)
+    {
+        if (!Uri.TryCreate(notifyUrl.Trim(), UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        if (!string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return false;
+        }
+
+        return uri.Host.Length > 0 && notifyUrl.Trim().Length <= MaxNotifyUrlLength;
+    }
+}

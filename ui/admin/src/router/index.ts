@@ -267,6 +267,16 @@ export function createAppRouter(
         component: () => import('../views/AiAgentToolsView.vue')
       },
       {
+        name: 'payment-merchant-configs',
+        path: '/payments/merchant-configs',
+        component: () => import('../views/PaymentMerchantConfigsView.vue')
+      },
+      {
+        name: 'payment-orders',
+        path: '/payments/orders',
+        component: () => import('../views/PaymentOrdersView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

@@ -2559,6 +2559,54 @@
       "status": "manual"
     },
     {
+      "operationId": "paymentsListMerchantConfigs",
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "generatedGroup": "payment-merchant-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsGetMerchantConfig",
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "generatedGroup": "payment-merchant-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsCreateMerchantConfig",
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "generatedGroup": "payment-merchant-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsUpdateMerchantConfig",
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "generatedGroup": "payment-merchant-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsDisableMerchantConfig",
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "generatedGroup": "payment-merchant-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsListOrders",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsGetOrder",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "manual"
+    },
+    {
+      "operationId": "paymentsCreateOrder",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

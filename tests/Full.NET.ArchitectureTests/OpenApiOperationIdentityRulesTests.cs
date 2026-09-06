@@ -108,6 +108,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string AiTenantQuotasTag = "AiTenantQuotas";
     private const string AiChatSessionsTag = "AiChatSessions";
     private const string AiAgentToolsTag = "AiAgentTools";
+    private const string PaymentMerchantConfigsTag = "PaymentMerchantConfigs";
+    private const string PaymentOrdersTag = "PaymentOrders";
     private const string PrintingTemplatesTag = "PrintingTemplates";
     private const string PrintingPreviewsTag = "PrintingPreviews";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
@@ -446,6 +448,14 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/ai/agent-tools", "aiListAgentTools", AiAgentToolsTag),
         new("GET", "/api/v1/ai/agent-tools/{toolName}", "aiGetAgentTool", AiAgentToolsTag),
         new("GET", "/api/v1/ai/agent-tool-calls", "aiListAgentToolCalls", AiAgentToolsTag),
+        new("GET", "/api/v1/payments/merchant-configs", "paymentsListMerchantConfigs", PaymentMerchantConfigsTag),
+        new("GET", "/api/v1/payments/merchant-configs/{merchantConfigId}", "paymentsGetMerchantConfig", PaymentMerchantConfigsTag),
+        new("POST", "/api/v1/payments/merchant-configs", "paymentsCreateMerchantConfig", PaymentMerchantConfigsTag),
+        new("PUT", "/api/v1/payments/merchant-configs/{merchantConfigId}", "paymentsUpdateMerchantConfig", PaymentMerchantConfigsTag),
+        new("POST", "/api/v1/payments/merchant-configs/{merchantConfigId}/disable", "paymentsDisableMerchantConfig", PaymentMerchantConfigsTag),
+        new("GET", "/api/v1/payments/orders", "paymentsListOrders", PaymentOrdersTag),
+        new("GET", "/api/v1/payments/orders/{orderId}", "paymentsGetOrder", PaymentOrdersTag),
+        new("POST", "/api/v1/payments/orders", "paymentsCreateOrder", PaymentOrdersTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

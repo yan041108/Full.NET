@@ -604,6 +604,27 @@ export type {
 } from './ai-agent-tools.js';
 
 export {
+  isPaymentMerchantConfig,
+  isPaymentMerchantConfigPage,
+  isPaymentOrder,
+  isPaymentOrderPage
+} from './payments.js';
+
+export type {
+  CreatePaymentMerchantConfigRequest,
+  CreatePaymentOrderRequest,
+  PaymentMerchantConfig,
+  PaymentMerchantConfigListItem,
+  PaymentMerchantConfigListQuery,
+  PaymentMerchantConfigPage,
+  PaymentOrder,
+  PaymentOrderListItem,
+  PaymentOrderListQuery,
+  PaymentOrderPage,
+  UpdatePaymentMerchantConfigRequest
+} from './payments.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

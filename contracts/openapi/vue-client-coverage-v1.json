@@ -776,6 +776,8 @@
     { "apiModule": "ui/admin/src/api/ai-model-configs.ts", "consumers": ["ui/admin/src/views/AiModelConfigsView.vue", "ui/admin/src/views/AiChatView.vue"] },
     { "apiModule": "ui/admin/src/api/ai-chat.ts", "consumers": ["ui/admin/src/views/AiChatView.vue"] },
     { "apiModule": "ui/admin/src/api/ai-agent-tools.ts", "consumers": ["ui/admin/src/views/AiAgentToolsView.vue"] },
+    { "apiModule": "ui/admin/src/api/payment-merchant-configs.ts", "consumers": ["ui/admin/src/views/PaymentMerchantConfigsView.vue", "ui/admin/src/views/PaymentOrdersView.vue"] },
+    { "apiModule": "ui/admin/src/api/payment-orders.ts", "consumers": ["ui/admin/src/views/PaymentOrdersView.vue"] },
     { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
     { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },

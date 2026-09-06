@@ -1434,6 +1434,7 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Reporting.ReportingModule).Assembly,
         typeof(Full.NET.Modules.Printing.PrintingModule).Assembly,
         typeof(Full.NET.Modules.Ai.AiModule).Assembly,
+        typeof(Full.NET.Modules.Payments.PaymentsModule).Assembly,
         typeof(Full.NET.Modules.Mqtt.MqttModule).Assembly,
         typeof(Full.NET.Modules.Cryptography.CryptographyModule).Assembly,
     ];
