@@ -180,6 +180,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.reportingExportTasks.title',
     captionKey: 'navigation.reportingExportTasks.caption'
   }],
+  ['printing-preview', {
+    titleKey: 'navigation.printingPreview.title',
+    captionKey: 'navigation.printingPreview.caption'
+  }],
   ['host-messaging-ops', {
     titleKey: 'navigation.hostMessagingOps.title',
     captionKey: 'navigation.hostMessagingOps.caption'

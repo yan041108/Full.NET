@@ -30416,6 +30416,174 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["ReportingExportTasks"]
       }
+    },
+    "/api/v1/printing/form-schemas": {
+      "get": {
+        "operationId": "printingListFormSchemas",
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PrintingFormSchemaDefinition" } } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingFormSchemas"]
+      }
+    },
+    "/api/v1/printing/form-schemas/{formSchemaKey}": {
+      "get": {
+        "operationId": "printingGetFormSchema",
+        "parameters": [
+          { "in": "path", "name": "formSchemaKey", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingFormSchemaDefinition" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingFormSchemas"]
+      }
+    },
+    "/api/v1/printing/templates": {
+      "get": {
+        "operationId": "printingListTemplates",
+        "parameters": [
+          { "in": "query", "name": "nameContains", "schema": { "type": ["null", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PrintingTemplateResponse" } } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      },
+      "post": {
+        "operationId": "printingCreateTemplate",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePrintingTemplateRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingTemplateResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      }
+    },
+    "/api/v1/printing/templates/{templateId}": {
+      "get": {
+        "operationId": "printingGetTemplate",
+        "parameters": [
+          { "in": "path", "name": "templateId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingTemplateResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      },
+      "put": {
+        "operationId": "printingUpdateTemplate",
+        "parameters": [
+          { "in": "path", "name": "templateId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdatePrintingTemplateRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingTemplateResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      }
+    },
+    "/api/v1/printing/templates/{templateId}/publish": {
+      "post": {
+        "operationId": "printingPublishTemplate",
+        "parameters": [
+          { "in": "path", "name": "templateId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishPrintingTemplateRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingTemplateVersionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      }
+    },
+    "/api/v1/printing/templates/{templateId}/versions": {
+      "get": {
+        "operationId": "printingListTemplateVersions",
+        "parameters": [
+          { "in": "path", "name": "templateId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PrintingTemplateVersionResponse" } } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      }
+    },
+    "/api/v1/printing/templates/{templateId}/versions/{versionNumber}": {
+      "get": {
+        "operationId": "printingGetTemplateVersion",
+        "parameters": [
+          { "in": "path", "name": "templateId", "required": true, "schema": { "format": "uuid", "type": "string" } },
+          { "in": "path", "name": "versionNumber", "required": true, "schema": { "format": "int32", "type": ["integer", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingTemplateVersionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingTemplates"]
+      }
+    },
+    "/api/v1/printing/templates/{templateId}/preview": {
+      "post": {
+        "operationId": "printingPreviewTemplate",
+        "parameters": [
+          { "in": "path", "name": "templateId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PreviewPrintingTemplateRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PrintingTemplatePreviewResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["PrintingPreviews"]
+      }
     }
   },
   "components": {
@@ -46478,6 +46646,108 @@
           "total": { "format": "int64", "type": ["integer", "string"] }
         },
         "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "PrintingFormFieldDefinition": {
+        "properties": {
+          "fieldKey": { "type": "string" },
+          "displayName": { "type": "string" }
+        },
+        "required": ["fieldKey", "displayName"],
+        "type": "object"
+      },
+      "PrintingFormSchemaDefinition": {
+        "properties": {
+          "formSchemaKey": { "type": "string" },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "fields": {
+            "items": { "$ref": "#/components/schemas/PrintingFormFieldDefinition" },
+            "type": "array"
+          }
+        },
+        "required": ["formSchemaKey", "displayName", "description", "fields"],
+        "type": "object"
+      },
+      "PrintingTemplateResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "templateKey": { "type": "string" },
+          "name": { "type": "string" },
+          "formSchemaKey": { "type": "string" },
+          "layoutHtml": { "type": "string" },
+          "latestPublishedVersionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "templateKey", "name", "formSchemaKey", "layoutHtml", "latestPublishedVersionNumber", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreatePrintingTemplateRequest": {
+        "properties": {
+          "templateKey": { "type": "string" },
+          "name": { "type": "string" },
+          "formSchemaKey": { "type": "string" },
+          "layoutHtml": { "type": "string" },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["templateKey", "name", "formSchemaKey", "layoutHtml", "isEnabled"],
+        "type": "object"
+      },
+      "UpdatePrintingTemplateRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "layoutHtml": { "type": "string" },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "layoutHtml", "isEnabled", "version"],
+        "type": "object"
+      },
+      "PublishPrintingTemplateRequest": {
+        "properties": {
+          "changeNote": { "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["version"],
+        "type": "object"
+      },
+      "PrintingTemplateVersionResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "templateId": { "format": "uuid", "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "layoutHtml": { "type": "string" },
+          "changeNote": { "type": ["null", "string"] },
+          "publishedByUserId": { "format": "uuid", "type": "string" },
+          "publishedAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["id", "templateId", "versionNumber", "layoutHtml", "publishedByUserId", "publishedAtUtc"],
+        "type": "object"
+      },
+      "PreviewPrintingTemplateRequest": {
+        "properties": {
+          "versionNumber": { "format": "int32", "type": ["null", "integer", "string"] }
+        },
+        "type": "object"
+      },
+      "PrintingTemplatePreviewResponse": {
+        "properties": {
+          "templateId": { "format": "uuid", "type": "string" },
+          "templateKey": { "type": "string" },
+          "templateName": { "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "formSchemaKey": { "type": "string" },
+          "html": { "type": "string" },
+          "boundFields": {
+            "additionalProperties": { "type": ["null", "string"] },
+            "type": "object"
+          },
+          "generatedAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["templateId", "templateKey", "templateName", "versionNumber", "formSchemaKey", "html", "boundFields", "generatedAtUtc"],
         "type": "object"
       },
       "PagedResultOfReportingDataSourceListItem": {

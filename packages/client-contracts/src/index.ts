@@ -533,6 +533,23 @@ export type {
 } from './reporting-export-tasks.js';
 
 export {
+  isPrintingTemplate,
+  isPrintingTemplatePreview
+} from './printing-templates.js';
+
+export type {
+  CreatePrintingTemplateRequest,
+  PreviewPrintingTemplateRequest,
+  PrintingFormFieldDefinition,
+  PrintingFormSchemaDefinition,
+  PrintingTemplate,
+  PrintingTemplatePreview,
+  PrintingTemplateVersion,
+  PublishPrintingTemplateRequest,
+  UpdatePrintingTemplateRequest
+} from './printing-templates.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

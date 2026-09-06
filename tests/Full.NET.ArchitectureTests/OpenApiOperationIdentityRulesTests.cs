@@ -103,6 +103,9 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string ReportingDefinitionsTag = "ReportingDefinitions";
     private const string ReportingExecutionsTag = "ReportingExecutions";
     private const string ReportingExportTasksTag = "ReportingExportTasks";
+    private const string PrintingFormSchemasTag = "PrintingFormSchemas";
+    private const string PrintingTemplatesTag = "PrintingTemplates";
+    private const string PrintingPreviewsTag = "PrintingPreviews";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
     private const string DataApprovalRequestsTag = "DataApprovalRequests";
     private const string DataApprovalScenariosTag = "DataApprovalScenarios";
@@ -410,6 +413,16 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/reporting/export-tasks", "reportingListExportTasks", ReportingExportTasksTag),
         new("GET", "/api/v1/reporting/export-tasks/{taskId}", "reportingGetExportTask", ReportingExportTasksTag),
         new("GET", "/api/v1/reporting/export-tasks/{taskId}/download", "reportingDownloadExportTask", ReportingExportTasksTag),
+        new("GET", "/api/v1/printing/form-schemas", "printingListFormSchemas", PrintingFormSchemasTag),
+        new("GET", "/api/v1/printing/form-schemas/{formSchemaKey}", "printingGetFormSchema", PrintingFormSchemasTag),
+        new("GET", "/api/v1/printing/templates", "printingListTemplates", PrintingTemplatesTag),
+        new("GET", "/api/v1/printing/templates/{templateId}", "printingGetTemplate", PrintingTemplatesTag),
+        new("POST", "/api/v1/printing/templates", "printingCreateTemplate", PrintingTemplatesTag),
+        new("PUT", "/api/v1/printing/templates/{templateId}", "printingUpdateTemplate", PrintingTemplatesTag),
+        new("POST", "/api/v1/printing/templates/{templateId}/publish", "printingPublishTemplate", PrintingTemplatesTag),
+        new("GET", "/api/v1/printing/templates/{templateId}/versions", "printingListTemplateVersions", PrintingTemplatesTag),
+        new("GET", "/api/v1/printing/templates/{templateId}/versions/{versionNumber}", "printingGetTemplateVersion", PrintingTemplatesTag),
+        new("POST", "/api/v1/printing/templates/{templateId}/preview", "printingPreviewTemplate", PrintingPreviewsTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

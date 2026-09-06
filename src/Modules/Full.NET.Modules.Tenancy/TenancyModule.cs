@@ -14,6 +14,8 @@ using Full.NET.Modules.Tenancy.Auditing;
 using Full.NET.Modules.Tenancy.Contracts;
 using Full.NET.Modules.Tenancy.Features.GetCurrentTenant;
 using Full.NET.Modules.Tenancy.Features.ProvisionTenant;
+using Full.NET.Modules.Printing.Contracts;
+using Full.NET.Modules.Tenancy.Features.PrintingBridge;
 using Full.NET.Modules.Tenancy.Persistence;
 using Full.NET.Modules.Tenancy.Resources;
 using Full.NET.Modules.Tenancy.Seeding;
@@ -41,6 +43,8 @@ public sealed class TenancyModule : IFullNetModule
     public string Name => "Tenancy";
 
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
+
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Printing"];
 
     public void AddServices(
         IServiceCollection services,
@@ -78,6 +82,7 @@ public sealed class TenancyModule : IFullNetModule
             ITransactionalDomainAuditWriter<TenancyDomainAuditWrite>,
             TenancyDomainAuditWriter>();
         services.AddScoped<Features.ManageHostTenants.HostTenantQueryService>();
+        services.TryAddScoped<IPrintingTenantProfileBindingSource, TenancyPrintingTenantProfileBindingSource>();
         services.AddScoped<Features.ManageHostTenants.HostTenantManagementService>();
         services.AddScoped<Features.ManageHostTenants.HostTenantDirectoryQueryService>();
         services.TryAddScoped<Directories.ActiveTenantDirectory>();

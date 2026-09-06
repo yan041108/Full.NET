@@ -1430,6 +1430,11 @@ internal static class ProductionAssemblies
         typeof(DataApprovalModule).Assembly,
         typeof(ObservabilityAdminModule).Assembly,
         typeof(WorkflowModule).Assembly,
+        typeof(Full.NET.Modules.ImportExport.ImportExportModule).Assembly,
+        typeof(Full.NET.Modules.Reporting.ReportingModule).Assembly,
+        typeof(Full.NET.Modules.Printing.PrintingModule).Assembly,
+        typeof(Full.NET.Modules.Mqtt.MqttModule).Assembly,
+        typeof(Full.NET.Modules.Cryptography.CryptographyModule).Assembly,
     ];
 
     public static readonly Assembly DataDapper =

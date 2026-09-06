@@ -28,6 +28,7 @@ public static class FullNetModuleSelection
         "Organization",
         "ImportExport",
         "Reporting",
+        "Printing",
         "Settings",
         "CodeGeneration",
         "SerialNumbers",

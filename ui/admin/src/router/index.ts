@@ -247,6 +247,11 @@ export function createAppRouter(
         component: () => import('../views/ReportingExportTasksView.vue')
       },
       {
+        name: 'printing-preview',
+        path: '/printing/preview',
+        component: () => import('../views/PrintingPreviewView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

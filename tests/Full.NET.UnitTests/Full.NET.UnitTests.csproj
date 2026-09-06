@@ -45,6 +45,8 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.ImportExport.Contracts\Full.NET.Modules.ImportExport.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Reporting\Full.NET.Modules.Reporting.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Reporting.Contracts\Full.NET.Modules.Reporting.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Printing\Full.NET.Modules.Printing.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Printing.Contracts\Full.NET.Modules.Printing.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
   </ItemGroup>
   <ItemGroup>

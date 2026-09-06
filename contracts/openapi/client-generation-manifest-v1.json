@@ -2385,6 +2385,66 @@
       "status": "manual"
     },
     {
+      "operationId": "printingListFormSchemas",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingGetFormSchema",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingListTemplates",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingGetTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingCreateTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingUpdateTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingPublishTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingListTemplateVersions",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingGetTemplateVersion",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
+      "operationId": "printingPreviewTemplate",
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "generatedGroup": "printing-templates",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",
