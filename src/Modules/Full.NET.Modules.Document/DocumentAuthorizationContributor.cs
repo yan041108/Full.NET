@@ -37,6 +37,8 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
         new(HostDocumentSharePermissions.UpdateStatus, "更新 Host 文档分享状态", AuthorizationScope.Host),
         new(HostDocumentStatisticsPermissions.Read, "读取 Host 文档统计", AuthorizationScope.Host),
         new(HostDocumentAccessLogPermissions.Read, "读取 Host 文档访问日志", AuthorizationScope.Host),
+        new(HostDocumentPreviewTaskPermissions.Read, "读取 Host 文档预览任务", AuthorizationScope.Host),
+        new(HostDocumentPreviewTaskPermissions.Create, "创建 Host 文档预览任务", AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =
@@ -118,6 +120,17 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "chart-bar",
             77,
             HostDocumentStatisticsPermissions.Read),
+        new NavigationDefinition(
+            "document-preview-tasks",
+            null,
+            "document-preview-tasks",
+            "/document/preview-tasks",
+            "document-preview-tasks",
+            "预览任务",
+            "Preview Tasks",
+            "document-checked",
+            78,
+            HostDocumentPreviewTaskPermissions.Read),
     ];
 
     public IReadOnlyCollection<AuthorizationActionDefinition> Actions { get; } =
@@ -255,5 +268,12 @@ internal sealed class DocumentAuthorizationContributor : IAuthorizationCatalogCo
             "启用/禁用",
             "update_status",
             20),
+        new AuthorizationActionDefinition(
+            "document.host_preview_tasks.create",
+            "document-preview-tasks",
+            HostDocumentPreviewTaskPermissions.Create,
+            "提交预览转换",
+            "create",
+            10),
     ];
 }

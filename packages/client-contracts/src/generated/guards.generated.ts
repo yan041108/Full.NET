@@ -79,6 +79,7 @@ import type {
   CreateHostApiKeyResponse,
   CreateHostDocumentCategoryRequest,
   CreateHostDocumentItemRequest,
+  CreateHostDocumentPreviewTaskRequest,
   CreateHostDocumentShareRequest,
   CreateHostDocumentTagRequest,
   CreateHostFolderRequest,
@@ -146,6 +147,7 @@ import type {
   HostDocumentItemResponse,
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPreviewTaskResponse,
   HostDocumentShareAccessResponse,
   HostDocumentShareResponse,
   HostDocumentStatisticsCategoryItem,
@@ -242,6 +244,7 @@ import type {
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostDocumentAccessLogResponse,
   PagedResultOfHostDocumentItemResponse,
+  PagedResultOfHostDocumentPreviewTaskResponse,
   PagedResultOfHostDocumentShareResponse,
   PagedResultOfHostFileReferenceClaimResponse,
   PagedResultOfHostFileResponse,
@@ -1249,6 +1252,17 @@ function isCreateHostDocumentItemRequest(value: unknown): value is CreateHostDoc
   return isRecord(value) && ((value["categoryId"] === null) || (typeof value["categoryId"] === 'string' && guidPattern.test(value["categoryId"]))) && ((value["description"] === null) || (typeof value["description"] === 'string')) && (isHostDocumentType(value["documentType"])) && (typeof value["sort"] === 'number' && Number.isInteger(value["sort"])) && (isHostDocumentStatus(value["status"])) && ((value["tagIds"] === null) || (Array.isArray(value["tagIds"]) && value["tagIds"].every(item15 => typeof item15 === 'string' && guidPattern.test(item15)))) && ((value["thumbnail"] === null) || (typeof value["thumbnail"] === 'string')) && (typeof value["title"] === 'string');
 }
 
+export function readCreateHostDocumentPreviewTaskRequest(value: unknown): CreateHostDocumentPreviewTaskRequest {
+  if (!(isCreateHostDocumentPreviewTaskRequest(value))) {
+    throw new Error('client.invalid_create_host_document_preview_task_request');
+  }
+  return value;
+}
+
+function isCreateHostDocumentPreviewTaskRequest(value: unknown): value is CreateHostDocumentPreviewTaskRequest {
+  return isRecord(value) && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (value["versionId"] === undefined || ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]))));
+}
+
 export function readCreateHostDocumentShareRequest(value: unknown): CreateHostDocumentShareRequest {
   if (!(isCreateHostDocumentShareRequest(value))) {
     throw new Error('client.invalid_create_host_document_share_request');
@@ -1984,6 +1998,17 @@ export function readHostDocumentPermissionResponse(value: unknown): HostDocument
 
 function isHostDocumentPermissionResponse(value: unknown): value is HostDocumentPermissionResponse {
   return isRecord(value) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentId"] === 'string' && guidPattern.test(value["documentId"])) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (typeof value["permissionLevel"] === 'string') && (typeof value["userId"] === 'string' && guidPattern.test(value["userId"]));
+}
+
+export function readHostDocumentPreviewTaskResponse(value: unknown): HostDocumentPreviewTaskResponse {
+  if (!(isHostDocumentPreviewTaskResponse(value))) {
+    throw new Error('client.invalid_host_document_preview_task_response');
+  }
+  return value;
+}
+
+function isHostDocumentPreviewTaskResponse(value: unknown): value is HostDocumentPreviewTaskResponse {
+  return isRecord(value) && (value["completedAtUtc"] === undefined || ((value["completedAtUtc"] === null) || (typeof value["completedAtUtc"] === 'string'))) && (typeof value["createdAtUtc"] === 'string') && (typeof value["documentItemId"] === 'string' && guidPattern.test(value["documentItemId"])) && (typeof value["documentTitle"] === 'string') && (value["errorCode"] === undefined || ((value["errorCode"] === null) || (typeof value["errorCode"] === 'string'))) && (typeof value["id"] === 'string' && guidPattern.test(value["id"])) && (value["outputFileId"] === undefined || ((value["outputFileId"] === null) || (typeof value["outputFileId"] === 'string' && guidPattern.test(value["outputFileId"])))) && (typeof value["providerKey"] === 'string') && (typeof value["requestedByUserId"] === 'string' && guidPattern.test(value["requestedByUserId"])) && (typeof value["sourceFileId"] === 'string' && guidPattern.test(value["sourceFileId"])) && (value["startedAtUtc"] === undefined || ((value["startedAtUtc"] === null) || (typeof value["startedAtUtc"] === 'string'))) && (typeof value["statusKey"] === 'string') && (typeof value["version"] === 'number' && Number.isInteger(value["version"])) && (value["versionId"] === undefined || ((value["versionId"] === null) || (typeof value["versionId"] === 'string' && guidPattern.test(value["versionId"]))));
 }
 
 export function readHostDocumentShareAccessResponse(value: unknown): HostDocumentShareAccessResponse {
@@ -3040,6 +3065,17 @@ export function readPagedResultOfHostDocumentItemResponse(value: unknown): Paged
 
 function isPagedResultOfHostDocumentItemResponse(value: unknown): value is PagedResultOfHostDocumentItemResponse {
   return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentItemResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
+}
+
+export function readPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): PagedResultOfHostDocumentPreviewTaskResponse {
+  if (!(isPagedResultOfHostDocumentPreviewTaskResponse(value))) {
+    throw new Error('client.invalid_paged_result_of_host_document_preview_task_response');
+  }
+  return value;
+}
+
+function isPagedResultOfHostDocumentPreviewTaskResponse(value: unknown): value is PagedResultOfHostDocumentPreviewTaskResponse {
+  return isRecord(value) && (Array.isArray(value["items"]) && value["items"].every(item14 => isHostDocumentPreviewTaskResponse(item14))) && (typeof value["page"] === 'number' && Number.isInteger(value["page"])) && (typeof value["pageSize"] === 'number' && Number.isInteger(value["pageSize"])) && (typeof value["total"] === 'number' && Number.isInteger(value["total"]));
 }
 
 export function readPagedResultOfHostDocumentShareResponse(value: unknown): PagedResultOfHostDocumentShareResponse {

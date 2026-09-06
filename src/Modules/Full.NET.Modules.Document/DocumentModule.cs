@@ -4,6 +4,8 @@ using Full.NET.Hosting.Api;
 using Full.NET.Hosting.RateLimiting;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Document.Configuration;
+using Full.NET.Modules.Document.PreviewTasks;
+using Full.NET.Modules.Document.Providers.OfficePreview;
 using Full.NET.Modules.Document.RateLimiting;
 using Full.NET.Modules.Document.Resources;
 using Full.NET.Modules.Document.Security;
@@ -77,6 +79,25 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddScoped<Features.ManageHostDocumentItems.DocumentVersionDeletionService>();
         services.TryAddScoped<Features.DocumentAccessLogs.DocumentAccessLogRecorder>();
         services.TryAddScoped<Features.QueryHostDocumentAccessLogs.HostDocumentAccessLogQueryService>();
+        services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskManagementService>();
+        services.TryAddScoped<Features.ManageHostDocumentPreviewTasks.HostDocumentPreviewTaskQueryService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDocumentOfficePreviewConversionProvider,
+            DisabledDocumentOfficePreviewConversionProvider>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDocumentOfficePreviewConversionProvider,
+            ExternalHttpDocumentOfficePreviewConversionProvider>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IDocumentOfficePreviewConversionProvider,
+            ExternalProcessDocumentOfficePreviewConversionProvider>());
+        services.TryAddSingleton<DocumentOfficePreviewConversionProviderResolver>();
+        services.AddOptions<DocumentOfficePreviewConversionOptions>()
+            .Bind(configuration.GetSection(DocumentOfficePreviewConversionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentOfficePreviewConversionOptions>,
+            DocumentOfficePreviewConversionOptionsValidator>());
+        services.AddHttpClient(nameof(ExternalHttpDocumentOfficePreviewConversionProvider));
         services.AddOptions<DocumentVersionRetentionOptions>()
             .Bind(configuration.GetSection(DocumentVersionRetentionOptions.SectionName))
             .ValidateOnStart();
@@ -120,6 +141,7 @@ public sealed class DocumentModule : IFullNetModule
         Features.ManageHostDocumentShares.Endpoint.Map(endpoints);
         Features.QueryHostDocumentStatistics.Endpoint.Map(endpoints);
         Features.QueryHostDocumentAccessLogs.Endpoint.Map(endpoints);
+        Features.ManageHostDocumentPreviewTasks.Endpoint.Map(endpoints);
     }
 
     /// <summary>
@@ -146,6 +168,14 @@ public sealed class DocumentModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<DocumentVersionRetentionOptions>,
             DocumentVersionRetentionOptionsValidator>());
+        services.TryAddScoped<PreviewTasks.DocumentPreviewTaskRunner>();
+        services.AddOptions<DocumentOfficePreviewConversionOptions>()
+            .Bind(configuration.GetSection(DocumentOfficePreviewConversionOptions.SectionName))
+            .ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<DocumentOfficePreviewConversionOptions>,
+            DocumentOfficePreviewConversionOptionsValidator>());
+        services.AddHostedService<PreviewTasks.DocumentPreviewTaskHostedProcessor>();
         services.AddHostedService<Retention.DocumentVersionRetentionHostedProcessor>();
     }
 }

@@ -21,6 +21,7 @@ internal sealed class DocumentDapperAotMaterializerContributor
         registrar.Register<DocumentVersionRecord>(ReadVersion);
         registrar.Register<DocumentVersionRetentionCandidateRecord>(ReadRetentionCandidate);
         registrar.Register<DocumentAccessLogRecord>(ReadAccessLog);
+        registrar.Register<DocumentPreviewTaskRecord>(ReadPreviewTask);
         registrar.Register<DocumentPermissionRecord>(ReadPermission);
         registrar.Register<DocumentShareRecord>(ReadShare);
         registrar.Register<DocumentStatisticsSummaryRecord>(ReadStatisticsSummary);
@@ -163,6 +164,26 @@ internal sealed class DocumentDapperAotMaterializerContributor
         ActorUserId = ReadNullableGuid(reader, "ActorUserId"),
         OccurredAtUtc = ReadDateTimeOffset(reader, "OccurredAtUtc"),
         ClientIpFingerprint = ReadNullableString(reader, "ClientIpFingerprint"),
+    };
+
+    private static DocumentPreviewTaskRecord ReadPreviewTask(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        DocumentItemId = ReadGuid(reader, "DocumentItemId"),
+        VersionId = ReadNullableGuid(reader, "VersionId"),
+        DocumentTitle = ReadString(reader, "DocumentTitle"),
+        SourceFileId = ReadGuid(reader, "SourceFileId"),
+        SourceFileName = ReadNullableString(reader, "SourceFileName"),
+        SourceMimeType = ReadNullableString(reader, "SourceMimeType"),
+        OutputFileId = ReadNullableGuid(reader, "OutputFileId"),
+        StatusKey = ReadString(reader, "StatusKey"),
+        ProviderKey = ReadString(reader, "ProviderKey"),
+        ErrorCode = ReadNullableString(reader, "ErrorCode"),
+        RequestedByUserId = ReadGuid(reader, "RequestedByUserId"),
+        CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
+        StartedAtUtc = ReadNullableDateTimeOffset(reader, "StartedAtUtc"),
+        CompletedAtUtc = ReadNullableDateTimeOffset(reader, "CompletedAtUtc"),
+        Version = ReadInt64(reader, "Version"),
     };
 
     private static DocumentPermissionRecord ReadPermission(DbDataReader reader) => new()

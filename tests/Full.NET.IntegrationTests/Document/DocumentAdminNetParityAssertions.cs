@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.IntegrationTests.Api;
@@ -11,10 +12,12 @@ namespace Full.NET.IntegrationTests.Document;
 internal static class DocumentAdminNetParityAssertions
 {
     private const string ItemsPath = "/api/v1/document/host/items";
+    private const string ItemsPath = "/api/v1/document/host/items";
     private const string RecycleBinPath = "/api/v1/document/host/recycle-bin";
     private const string PermissionsPath = "/api/v1/document/host/permissions";
     private const string SharesPath = "/api/v1/document/host/shares";
     private const string StatisticsPath = "/api/v1/document/host/statistics";
+    private const string PreviewTasksPath = "/api/v1/document/host/preview-tasks";
 
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
@@ -37,6 +40,7 @@ internal static class DocumentAdminNetParityAssertions
                 HostDocumentSharePermissions.Read,
                 HostDocumentStatisticsPermissions.Read,
                 HostDocumentAccessLogPermissions.Read,
+                HostDocumentPreviewTaskPermissions.Read,
                 HostDocumentPermissionManagementPermissions.Read,
             ],
             cancellationToken);
@@ -55,11 +59,13 @@ internal static class DocumentAdminNetParityAssertions
             cancellationToken);
         await VerifySharesAsync(client, manager.AccessToken, document.Id, cancellationToken);
         await VerifyStatisticsAsync(client, manager.AccessToken, cancellationToken);
+        await VerifyPreviewTasksAsync(client, manager, document, cancellationToken);
         await VerifyRecycleBinAsync(client, manager.AccessToken, document, cancellationToken);
         await OpenApiDocumentHostPermissionsContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostRecycleBinContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostStatisticsContractAssertions.VerifyAsync(client, cancellationToken);
         await OpenApiDocumentHostAccessLogsContractAssertions.VerifyAsync(client, cancellationToken);
+        await OpenApiDocumentHostPreviewTasksContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
     private static IReadOnlyCollection<string> FullManagerPermissions() =>
@@ -67,6 +73,7 @@ internal static class DocumentAdminNetParityAssertions
         HostDocumentPermissions.Read,
         HostDocumentPermissions.Create,
         HostDocumentPermissions.Update,
+        HostDocumentPermissions.AddVersion,
         HostDocumentPermissions.Delete,
         HostDocumentPermissions.Restore,
         HostDocumentRecycleBinPermissions.Read,
@@ -78,6 +85,8 @@ internal static class DocumentAdminNetParityAssertions
         HostDocumentSharePermissions.Create,
         HostDocumentSharePermissions.UpdateStatus,
         HostDocumentStatisticsPermissions.Read,
+        HostDocumentPreviewTaskPermissions.Read,
+        HostDocumentPreviewTaskPermissions.Create,
     ];
 
     private static async Task VerifyHostOnlyFailClosedAsync(
@@ -125,6 +134,17 @@ internal static class DocumentAdminNetParityAssertions
                    cancellationToken))
         {
             Assert.AreEqual(HttpStatusCode.Forbidden, createShareResponse.StatusCode);
+        }
+
+        using (var createPreviewTaskResponse = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       PreviewTasksPath,
+                       readerToken,
+                       new CreateHostDocumentPreviewTaskRequest(documentId, null)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, createPreviewTaskResponse.StatusCode);
         }
     }
 
@@ -224,6 +244,79 @@ internal static class DocumentAdminNetParityAssertions
         Assert.IsTrue(statistics.Summary.TotalItems >= 1);
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         Assert.IsFalse(json.Contains("password", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task VerifyPreviewTasksAsync(
+        HttpClient client,
+        HostTestIdentity manager,
+        HostDocumentItemResponse document,
+        CancellationToken cancellationToken)
+    {
+        await UploadOfficeVersionAsync(client, manager.AccessToken, document.Id, cancellationToken);
+
+        HostDocumentPreviewTaskResponse task;
+        using (var createResponse = await client.SendAsync(
+                   AuthorizedJson(
+                       HttpMethod.Post,
+                       PreviewTasksPath,
+                       manager.AccessToken,
+                       new CreateHostDocumentPreviewTaskRequest(document.Id, null)),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+            task = (await createResponse.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken))!;
+            Assert.AreEqual(document.Id, task.DocumentItemId);
+            Assert.AreEqual(HostDocumentPreviewTaskStatusKeys.Pending, task.StatusKey);
+            Assert.AreEqual(DocumentOfficePreviewConversionProviderKeys.Disabled, task.ProviderKey);
+            Assert.AreEqual(manager.UserId, task.RequestedByUserId);
+        }
+
+        using (var getResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, $"{PreviewTasksPath}/{task.Id:D}", manager.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, getResponse.StatusCode);
+            var loaded = await getResponse.Content.ReadFromJsonAsync<HostDocumentPreviewTaskResponse>(cancellationToken);
+            Assert.IsNotNull(loaded);
+            Assert.AreEqual(task.Id, loaded.Id);
+        }
+
+        using (var listResponse = await client.SendAsync(
+                   Authorized(
+                       HttpMethod.Get,
+                       $"{PreviewTasksPath}?page=1&pageSize=20&documentItemId={document.Id:D}",
+                       manager.AccessToken),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+            var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<HostDocumentPreviewTaskResponse>>(
+                cancellationToken);
+            Assert.IsNotNull(page);
+            Assert.IsTrue(page.Items.Any(entry => entry.Id == task.Id));
+        }
+    }
+
+    private static async Task UploadOfficeVersionAsync(
+        HttpClient client,
+        string token,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var payload = Encoding.UTF8.GetBytes($"office-{Guid.NewGuid():N}");
+        using var uploadContent = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(payload);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        uploadContent.Add(fileContent, "file", "preview.docx");
+        using var uploadRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{ItemsPath}/{itemId:D}/versions/upload")
+        {
+            Content = uploadContent,
+        };
+        uploadRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, uploadResponse.StatusCode);
     }
 
     private static async Task VerifyRecycleBinAsync(

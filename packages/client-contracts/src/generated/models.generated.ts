@@ -587,6 +587,11 @@ export interface CreateHostDocumentItemRequest {
   readonly title: string;
 }
 
+export interface CreateHostDocumentPreviewTaskRequest {
+  readonly documentItemId: string;
+  readonly versionId?: null | string;
+}
+
 export interface CreateHostDocumentShareRequest {
   readonly documentId: string;
   readonly maxAccessCount?: null | number;
@@ -1133,6 +1138,23 @@ export interface HostDocumentPermissionResponse {
   readonly id: string;
   readonly permissionLevel: string;
   readonly userId: string;
+}
+
+export interface HostDocumentPreviewTaskResponse {
+  readonly completedAtUtc?: null | string;
+  readonly createdAtUtc: string;
+  readonly documentItemId: string;
+  readonly documentTitle: string;
+  readonly errorCode?: null | string;
+  readonly id: string;
+  readonly outputFileId?: null | string;
+  readonly providerKey: string;
+  readonly requestedByUserId: string;
+  readonly sourceFileId: string;
+  readonly startedAtUtc?: null | string;
+  readonly statusKey: string;
+  readonly version: number;
+  readonly versionId?: null | string;
 }
 
 export interface HostDocumentShareAccessResponse {
@@ -2040,6 +2062,13 @@ export interface PagedResultOfHostDocumentAccessLogResponse {
 
 export interface PagedResultOfHostDocumentItemResponse {
   readonly items: Array<HostDocumentItemResponse>;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
+
+export interface PagedResultOfHostDocumentPreviewTaskResponse {
+  readonly items: Array<HostDocumentPreviewTaskResponse>;
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;

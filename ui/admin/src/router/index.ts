@@ -217,6 +217,11 @@ export function createAppRouter(
         component: () => import('../views/DocumentStatisticsView.vue')
       },
       {
+        name: 'document-preview-tasks',
+        path: '/document/preview-tasks',
+        component: () => import('../views/DocumentPreviewTasksView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

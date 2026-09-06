@@ -39,6 +39,24 @@ public static class DocumentErrorCodes
     /// <summary>当前文件类型或存储后端不支持在线预览转换。</summary>
     public const string PreviewNotSupported = "document.host_document.preview_not_supported";
 
+    /// <summary>预览转换任务不存在。</summary>
+    public const string PreviewTaskNotFound = "document.host_preview_task.not_found";
+
+    /// <summary>预览转换任务尚未完成，无法下载输出。</summary>
+    public const string PreviewTaskNotReady = "document.host_preview_task.not_ready";
+
+    /// <summary>Office 预览转换 Provider 未启用或未配置。</summary>
+    public const string OfficePreviewProviderDisabled = "document.office_preview.provider_disabled";
+
+    /// <summary>Office 预览转换执行失败。</summary>
+    public const string OfficePreviewConversionFailed = "document.office_preview.conversion_failed";
+
+    /// <summary>源文件不是受支持的 Office 类型。</summary>
+    public const string OfficePreviewUnsupportedSource = "document.office_preview.unsupported_source";
+
+    /// <summary>源文件超过 Office 预览转换允许的最大大小。</summary>
+    public const string OfficePreviewInputTooLarge = "document.office_preview.input_too_large";
+
     /// <summary>文档分类基础字段或层级约束校验失败。</summary>
     public const string CategoryInvalid = "document.host_category.invalid";
 
@@ -138,6 +156,12 @@ public static class DocumentErrorCodes
         InvalidFileReference,
         NoCurrentVersion,
         PreviewNotSupported,
+        PreviewTaskNotFound,
+        PreviewTaskNotReady,
+        OfficePreviewProviderDisabled,
+        OfficePreviewConversionFailed,
+        OfficePreviewUnsupportedSource,
+        OfficePreviewInputTooLarge,
         CategoryInvalid,
         CategoryNotFound,
         CategoryNameExists,

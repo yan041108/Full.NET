@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 377);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 377);
+  assert.equal(manifest.entries.length, 381);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 381);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -232,15 +232,18 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'code-generation-runs',
       'code-generation-templates',
       'data-approval-requests',
+      'data-approval-scenarios',
       'document-host-access-logs',
       'document-host-categories',
       'document-host-items',
       'document-host-permissions',
+      'document-host-preview-tasks',
       'document-host-recycle-bin',
       'document-host-shares',
       'document-host-statistics',
       'document-host-tags',
       'files-host-files',
+      'files-host-folders',
       'identity-auth-session',
       'identity-host-api-keys',
       'identity-host-menus',
@@ -249,6 +252,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'identity-host-roles',
       'identity-host-users',
       'identity-me',
+      'identity-module-selection',
       'identity-super-administrators',
       'identity-totp-enrollment',
       'jobs-host-job-health',
@@ -256,12 +260,15 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'jobs-host-jobs',
       'notifications-bindings',
       'notifications-deliveries',
+      'notifications-host-announcement-receipts',
       'notifications-host-announcements',
       'notifications-inbox-messages',
       'notifications-provider-profiles',
       'notifications-recipient-endpoints',
       'notifications-templates',
+      'observability-cache-policies',
       'observability-log-files',
+      'observability-server-monitor',
       'organization-host-user-management',
       'organization-tenant-position-levels',
       'organization-tenant-positions',
@@ -275,6 +282,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'settings-host-dict-types',
       'settings-host-enum-catalogs',
       'settings-tenant-dict-types',
+      'tenancy-branding',
       'tenancy-host-tenant-packages',
       'tenancy-host-tenants',
       'workflow-cc',
@@ -291,7 +299,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    373
+    377
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

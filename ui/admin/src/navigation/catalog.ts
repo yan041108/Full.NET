@@ -156,6 +156,10 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.documentStatistics.title',
     captionKey: 'navigation.documentStatistics.caption'
   }],
+  ['document-preview-tasks', {
+    titleKey: 'navigation.documentPreviewTasks.title',
+    captionKey: 'navigation.documentPreviewTasks.caption'
+  }],
   ['host-messaging-ops', {
     titleKey: 'navigation.hostMessagingOps.title',
     captionKey: 'navigation.hostMessagingOps.caption'

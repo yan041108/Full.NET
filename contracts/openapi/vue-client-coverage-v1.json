@@ -257,6 +257,16 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/document-preview-tasks.ts"
+      ],
+      "openApiFixture": "contracts/openapi/document-host-preview-tasks-v1.json",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "routePrefixes": [
+        "/api/v1/document/host/preview-tasks"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/document-statistics.ts"
       ],
       "openApiFixture": "contracts/openapi/document-host-parity-v1.json",
@@ -692,6 +702,7 @@
     { "apiModule": "ui/admin/src/api/document-permissions.ts", "consumers": ["ui/admin/src/views/DocumentPermissionsView.vue"] },
     { "apiModule": "ui/admin/src/api/document-recycle-bin.ts", "consumers": ["ui/admin/src/views/DocumentRecycleBinView.vue"] },
     { "apiModule": "ui/admin/src/api/document-shares.ts", "consumers": ["ui/admin/src/views/DocumentSharesView.vue"] },
+    { "apiModule": "ui/admin/src/api/document-preview-tasks.ts", "consumers": ["ui/admin/src/views/DocumentPreviewTasksView.vue"] },
     { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
     { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },

@@ -434,6 +434,19 @@ export type {
 } from './document-access-logs.js';
 
 export {
+  isCreateHostDocumentPreviewTaskRequest,
+  isHostDocumentPreviewTaskPage,
+  isHostDocumentPreviewTaskResponse,
+  isOfficePreviewMimeType
+} from './document-preview-tasks.js';
+
+export type {
+  CreateHostDocumentPreviewTaskRequest,
+  HostDocumentPreviewTaskPage,
+  HostDocumentPreviewTaskResponse
+} from './document-preview-tasks.js';
+
+export {
   isHostDocumentPermissionEntry,
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,

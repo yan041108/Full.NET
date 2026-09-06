@@ -32,6 +32,8 @@ public sealed class DocumentAuthorizationContributorTests
                 HostDocumentPermissions.Update,
                 HostDocumentPermissionManagementPermissions.Read,
                 HostDocumentPermissionManagementPermissions.Set,
+                HostDocumentPreviewTaskPermissions.Create,
+                HostDocumentPreviewTaskPermissions.Read,
                 HostDocumentRecycleBinPermissions.Purge,
                 HostDocumentRecycleBinPermissions.Read,
                 HostDocumentRecycleBinPermissions.Restore,
@@ -64,6 +66,9 @@ public sealed class DocumentAuthorizationContributorTests
         Assert.AreEqual(
             HostDocumentStatisticsPermissions.Read,
             catalog.Navigation.Single(item => item.Id == "document-statistics").RequiredPermission);
+        Assert.AreEqual(
+            HostDocumentPreviewTaskPermissions.Read,
+            catalog.Navigation.Single(item => item.Id == "document-preview-tasks").RequiredPermission);
 
         var expectedItemActions = new Dictionary<string, string>(StringComparer.Ordinal)
         {

@@ -2163,6 +2163,30 @@
       "status": "generated"
     },
     {
+      "operationId": "documentHostCreateDocumentPreviewTask",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "manual"
+    },
+    {
+      "operationId": "documentHostListDocumentPreviewTasks",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "manual"
+    },
+    {
+      "operationId": "documentHostGetDocumentPreviewTask",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "manual"
+    },
+    {
+      "operationId": "documentHostDownloadDocumentPreviewTaskContent",
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "generatedGroup": "document-host-preview-tasks",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

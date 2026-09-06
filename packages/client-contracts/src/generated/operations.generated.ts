@@ -80,6 +80,7 @@ import type {
   CreateHostApiKeyResponse,
   CreateHostDocumentCategoryRequest,
   CreateHostDocumentItemRequest,
+  CreateHostDocumentPreviewTaskRequest,
   CreateHostDocumentShareRequest,
   CreateHostDocumentTagRequest,
   CreateHostFolderRequest,
@@ -147,6 +148,7 @@ import type {
   HostDocumentItemResponse,
   HostDocumentPermissionEntry,
   HostDocumentPermissionResponse,
+  HostDocumentPreviewTaskResponse,
   HostDocumentShareAccessResponse,
   HostDocumentShareResponse,
   HostDocumentStatisticsCategoryItem,
@@ -243,6 +245,7 @@ import type {
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostDocumentAccessLogResponse,
   PagedResultOfHostDocumentItemResponse,
+  PagedResultOfHostDocumentPreviewTaskResponse,
   PagedResultOfHostDocumentShareResponse,
   PagedResultOfHostFileReferenceClaimResponse,
   PagedResultOfHostFileResponse,
@@ -451,6 +454,7 @@ import {
   readHostDashboardSummaryResponse,
   readHostDocumentCategoryResponse,
   readHostDocumentItemResponse,
+  readHostDocumentPreviewTaskResponse,
   readHostDocumentShareAccessResponse,
   readHostDocumentShareResponse,
   readHostDocumentStatisticsResponse,
@@ -520,6 +524,7 @@ import {
   readPagedResultOfHostApiKeyResponse,
   readPagedResultOfHostDocumentAccessLogResponse,
   readPagedResultOfHostDocumentItemResponse,
+  readPagedResultOfHostDocumentPreviewTaskResponse,
   readPagedResultOfHostDocumentShareResponse,
   readPagedResultOfHostFileReferenceClaimResponse,
   readPagedResultOfHostFileResponse,
@@ -1643,6 +1648,28 @@ export async function documentHostCreateCategory(
   return readHostDocumentCategoryResponse(value);
 }
 
+export interface DocumentHostCreateDocumentPreviewTaskParameters {
+  readonly body: CreateHostDocumentPreviewTaskRequest;
+}
+
+export async function documentHostCreateDocumentPreviewTask(
+  http: HttpClient,
+  parameters: DocumentHostCreateDocumentPreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/host/preview-tasks`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
+}
+
 export interface DocumentHostCreateDocumentShareParameters {
   readonly body: CreateHostDocumentShareRequest;
 }
@@ -1802,6 +1829,26 @@ export async function documentHostDeleteTag(
   return readDocumentHostDeleteTagResponse(value);
 }
 
+export interface DocumentHostDownloadDocumentPreviewTaskContentParameters {
+  readonly taskId: string;
+}
+
+export async function documentHostDownloadDocumentPreviewTaskContent(
+  http: HttpClient,
+  parameters: DocumentHostDownloadDocumentPreviewTaskContentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/document/host/preview-tasks/${encodeURIComponent(String(parameters.taskId))}/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface DocumentHostDownloadItemContentParameters {
   readonly itemId: string;
 }
@@ -1820,6 +1867,24 @@ export async function documentHostDownloadItemContent(
   return options === undefined
     ? await http.requestBlob(path, init, signal)
     : await http.requestBlob(path, init, signal, options);
+}
+
+export interface DocumentHostGetDocumentPreviewTaskParameters {
+  readonly taskId: string;
+}
+
+export async function documentHostGetDocumentPreviewTask(
+  http: HttpClient,
+  parameters: DocumentHostGetDocumentPreviewTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostDocumentPreviewTaskResponse> {
+  const path = `/api/v1/document/host/preview-tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostDocumentPreviewTaskResponse(value);
 }
 
 export interface DocumentHostGetDocumentStatisticsParameters {
@@ -1904,6 +1969,36 @@ export async function documentHostListDocumentPermissions(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readDocumentHostListDocumentPermissionsResponse(value);
+}
+
+export interface DocumentHostListDocumentPreviewTasksParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly documentItemId?: string;
+}
+
+export async function documentHostListDocumentPreviewTasks(
+  http: HttpClient,
+  parameters: DocumentHostListDocumentPreviewTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfHostDocumentPreviewTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.documentItemId !== undefined) {
+    query.set('documentItemId', String(parameters.documentItemId));
+  }
+  const path = query.size === 0 ? `/api/v1/document/host/preview-tasks` : `/api/v1/document/host/preview-tasks?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfHostDocumentPreviewTaskResponse(value);
 }
 
 export interface DocumentHostListDocumentSharesParameters {

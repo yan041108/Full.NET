@@ -31,6 +31,7 @@ import {
   updateDocumentItem,
   uploadDocumentVersion
 } from '../api/host-document-items';
+import { createDocumentPreviewTask } from '../api/document-preview-tasks';
 
 defineOptions({ name: 'HostDocumentItemsView' });
 
@@ -69,6 +70,7 @@ const canRestore = computed(() => session.can('document.host_documents.restore')
 const canRollbackVersion = computed(() => session.can('document.host_documents.rollback_version'));
 const canDeleteVersion = computed(() => session.can('document.host_documents.delete_version'));
 const canDownload = computed(() => session.can('document.host_documents.download'));
+const canCreatePreviewTask = computed(() => session.can('document.host_preview_tasks.create'));
 const canRead = computed(() => session.can('document.host_documents.read'));
 const editingItem = computed(() => items.value.find(entry => entry.id === editingId.value));
 
@@ -318,6 +320,30 @@ async function previewFile(item: HostDocumentItem, versionId?: string): Promise<
   }
 }
 
+function canSubmitOfficePreview(item: HostDocumentItem): boolean {
+  return Boolean(item.currentVersion);
+}
+
+async function submitOfficePreviewTask(item: HostDocumentItem): Promise<void> {
+  if (changing.value || !canCreatePreviewTask.value || !canSubmitOfficePreview(item)) {
+    return;
+  }
+
+  changing.value = true;
+  problem.value = undefined;
+  try {
+    await createDocumentPreviewTask({
+      documentItemId: item.id,
+      versionId: item.currentVersion?.id ?? null
+    });
+    ElMessage.success(t('hostDocumentItems.officePreviewSubmitted'));
+  } catch (error: unknown) {
+    problem.value = toProblem(error, 'hostDocumentItems.operationFailed');
+  } finally {
+    changing.value = false;
+  }
+}
+
 async function openVersionHistory(item: HostDocumentItem): Promise<void> {
   versionHistoryItem.value = item;
   versionHistoryVisible.value = true;
@@ -528,7 +554,7 @@ function toProblem(
               </template>
             </el-table-column>
 
-            <el-table-column :label="t('users.columnActions')" width="420" fixed="right" align="center">
+            <el-table-column :label="t('users.columnActions')" width="520" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="art-crud-table-actions">
                   <PermissionGate v-if="row.currentVersion" code="document.host_documents.read">
@@ -544,6 +570,17 @@ function toProblem(
                   <PermissionGate v-if="row.currentVersion" code="document.host_documents.download">
                     <el-button plain size="small" data-testid="host-document-item-download" :disabled="changing" @click="downloadFile(row.id)">
                       {{ t('hostDocumentItems.download') }}
+                    </el-button>
+                  </PermissionGate>
+                  <PermissionGate v-if="canSubmitOfficePreview(row as HostDocumentItem)" code="document.host_preview_tasks.create">
+                    <el-button
+                      plain
+                      size="small"
+                      data-testid="host-document-item-create-preview-task"
+                      :disabled="changing"
+                      @click="submitOfficePreviewTask(row as HostDocumentItem)"
+                    >
+                      {{ t('hostDocumentItems.submitOfficePreview') }}
                     </el-button>
                   </PermissionGate>
                   <PermissionGate code="document.host_documents.update">

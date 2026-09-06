@@ -1,0 +1,82 @@
+{
+  "id": "document-host-preview-tasks-v1",
+  "version": 1,
+  "description": "Host 文档 Office 预览转换任务 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/document/host/preview-tasks",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "document.host_preview_tasks.create",
+          "successStatus": 201,
+          "requestSchema": "CreateHostDocumentPreviewTaskRequest",
+          "responseSchema": "HostDocumentPreviewTaskResponse"
+        },
+        {
+          "method": "GET",
+          "permission": "document.host_preview_tasks.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPreviewTaskResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/preview-tasks/{taskId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_preview_tasks.read",
+          "successStatus": 200,
+          "responseSchema": "HostDocumentPreviewTaskResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/document/host/preview-tasks/{taskId}/content",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "document.host_preview_tasks.read",
+          "successStatus": 200,
+          "responseSchema": "Stream"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "CreateHostDocumentPreviewTaskRequest": {
+      "properties": [
+        "documentItemId",
+        "versionId"
+      ]
+    },
+    "HostDocumentPreviewTaskResponse": {
+      "properties": [
+        "id",
+        "documentItemId",
+        "documentTitle",
+        "versionId",
+        "sourceFileId",
+        "outputFileId",
+        "statusKey",
+        "providerKey",
+        "errorCode",
+        "requestedByUserId",
+        "createdAtUtc",
+        "startedAtUtc",
+        "completedAtUtc",
+        "version"
+      ]
+    },
+    "HostDocumentPreviewTaskResponsePage": {
+      "properties": [
+        "items",
+        "page",
+        "pageSize",
+        "total"
+      ],
+      "itemSchema": "HostDocumentPreviewTaskResponse"
+    }
+  }
+}
