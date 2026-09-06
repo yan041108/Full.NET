@@ -550,6 +550,29 @@ export type {
 } from './printing-templates.js';
 
 export {
+  isAiModelConfig,
+  isAiModelConfigPage,
+  isAiTenantQuota,
+  isAiTenantQuotaPage,
+  isTestAiModelConfigResult
+} from './ai-model-configs.js';
+
+export type {
+  AiModelConfig,
+  AiModelConfigListItem,
+  AiModelConfigListQuery,
+  AiModelConfigPage,
+  AiTenantQuota,
+  AiTenantQuotaListItem,
+  AiTenantQuotaListQuery,
+  AiTenantQuotaPage,
+  CreateAiModelConfigRequest,
+  TestAiModelConfigResult,
+  UpdateAiModelConfigRequest,
+  UpdateAiTenantQuotaRequest
+} from './ai-model-configs.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

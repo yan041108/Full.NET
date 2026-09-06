@@ -773,6 +773,7 @@
     { "apiModule": "ui/admin/src/api/reporting-executions.ts", "consumers": ["ui/admin/src/views/ReportingExecuteView.vue"] },
     { "apiModule": "ui/admin/src/api/reporting-export-tasks.ts", "consumers": ["ui/admin/src/views/ReportingExportTasksView.vue"] },
     { "apiModule": "ui/admin/src/api/printing-templates.ts", "consumers": ["ui/admin/src/views/PrintingPreviewView.vue"] },
+    { "apiModule": "ui/admin/src/api/ai-model-configs.ts", "consumers": ["ui/admin/src/views/AiModelConfigsView.vue"] },
     { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
     { "apiModule": "ui/admin/src/api/host-document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
     { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },

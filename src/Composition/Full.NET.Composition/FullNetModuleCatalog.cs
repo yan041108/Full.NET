@@ -19,6 +19,7 @@ using Full.NET.Modules.DataApproval;
 using Full.NET.Modules.ImportExport;
 using Full.NET.Modules.Reporting;
 using Full.NET.Modules.Printing;
+using Full.NET.Modules.Ai;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Mqtt;
@@ -159,6 +160,7 @@ public static class FullNetModuleCatalog
         new ImportExportModule(),
         new ReportingModule(),
         new PrintingModule(),
+        new AiModule(),
         new SettingsModule(),
         new CodeGenerationModule(),
         new SerialNumbersModule(),

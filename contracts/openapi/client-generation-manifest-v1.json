@@ -2445,6 +2445,60 @@
       "status": "manual"
     },
     {
+      "operationId": "aiListModelConfigs",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetModelConfig",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCreateModelConfig",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiUpdateModelConfig",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiDisableModelConfig",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiTestModelConfig",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiListTenantQuotas",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetTenantQuota",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiUpsertTenantQuota",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

@@ -252,6 +252,11 @@ export function createAppRouter(
         component: () => import('../views/PrintingPreviewView.vue')
       },
       {
+        name: 'ai-model-configs',
+        path: '/ai/model-configs',
+        component: () => import('../views/AiModelConfigsView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

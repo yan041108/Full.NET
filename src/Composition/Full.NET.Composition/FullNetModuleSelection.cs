@@ -29,6 +29,7 @@ public static class FullNetModuleSelection
         "ImportExport",
         "Reporting",
         "Printing",
+        "Ai",
         "Settings",
         "CodeGeneration",
         "SerialNumbers",

@@ -104,6 +104,8 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string ReportingExecutionsTag = "ReportingExecutions";
     private const string ReportingExportTasksTag = "ReportingExportTasks";
     private const string PrintingFormSchemasTag = "PrintingFormSchemas";
+    private const string AiModelConfigsTag = "AiModelConfigs";
+    private const string AiTenantQuotasTag = "AiTenantQuotas";
     private const string PrintingTemplatesTag = "PrintingTemplates";
     private const string PrintingPreviewsTag = "PrintingPreviews";
     private const string DocumentHostStatisticsTag = "DocumentHostStatistics";
@@ -423,6 +425,15 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/printing/templates/{templateId}/versions", "printingListTemplateVersions", PrintingTemplatesTag),
         new("GET", "/api/v1/printing/templates/{templateId}/versions/{versionNumber}", "printingGetTemplateVersion", PrintingTemplatesTag),
         new("POST", "/api/v1/printing/templates/{templateId}/preview", "printingPreviewTemplate", PrintingPreviewsTag),
+        new("GET", "/api/v1/ai/model-configs", "aiListModelConfigs", AiModelConfigsTag),
+        new("GET", "/api/v1/ai/model-configs/{modelConfigId}", "aiGetModelConfig", AiModelConfigsTag),
+        new("POST", "/api/v1/ai/model-configs", "aiCreateModelConfig", AiModelConfigsTag),
+        new("PUT", "/api/v1/ai/model-configs/{modelConfigId}", "aiUpdateModelConfig", AiModelConfigsTag),
+        new("POST", "/api/v1/ai/model-configs/{modelConfigId}/disable", "aiDisableModelConfig", AiModelConfigsTag),
+        new("POST", "/api/v1/ai/model-configs/{modelConfigId}/test", "aiTestModelConfig", AiModelConfigsTag),
+        new("GET", "/api/v1/ai/tenant-quotas", "aiListTenantQuotas", AiTenantQuotasTag),
+        new("GET", "/api/v1/ai/tenant-quotas/{tenantId}", "aiGetTenantQuota", AiTenantQuotasTag),
+        new("PUT", "/api/v1/ai/tenant-quotas/{tenantId}", "aiUpsertTenantQuota", AiTenantQuotasTag),
         new("GET", "/api/v1/organization/position-levels", "organizationListTenantPositionLevels", OrganizationTenantPositionLevelsTag),
         new("GET", "/api/v1/organization/position-levels/{positionLevelId}", "organizationGetTenantPositionLevel", OrganizationTenantPositionLevelsTag),
         new("POST", "/api/v1/organization/position-levels", "organizationCreateTenantPositionLevel", OrganizationTenantPositionLevelsTag),

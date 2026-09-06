@@ -30584,6 +30584,162 @@
         "security": [{ "Bearer": [] }, { "ApiKey": [] }],
         "tags": ["PrintingPreviews"]
       }
+    },
+    "/api/v1/ai/model-configs": {
+      "get": {
+        "operationId": "aiListModelConfigs",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": "string" } },
+          { "in": "query", "name": "nameContains", "schema": { "type": "string" } },
+          { "in": "query", "name": "isEnabled", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfAiModelConfigListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiModelConfigs"]
+      },
+      "post": {
+        "operationId": "aiCreateModelConfig",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAiModelConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiModelConfigResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiModelConfigs"]
+      }
+    },
+    "/api/v1/ai/model-configs/{modelConfigId}": {
+      "get": {
+        "operationId": "aiGetModelConfig",
+        "parameters": [
+          { "in": "path", "name": "modelConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiModelConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiModelConfigs"]
+      },
+      "put": {
+        "operationId": "aiUpdateModelConfig",
+        "parameters": [
+          { "in": "path", "name": "modelConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateAiModelConfigRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiModelConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiModelConfigs"]
+      }
+    },
+    "/api/v1/ai/model-configs/{modelConfigId}/disable": {
+      "post": {
+        "operationId": "aiDisableModelConfig",
+        "parameters": [
+          { "in": "path", "name": "modelConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiModelConfigResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiModelConfigs"]
+      }
+    },
+    "/api/v1/ai/model-configs/{modelConfigId}/test": {
+      "post": {
+        "operationId": "aiTestModelConfig",
+        "parameters": [
+          { "in": "path", "name": "modelConfigId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestAiModelConfigResult" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiModelConfigs"]
+      }
+    },
+    "/api/v1/ai/tenant-quotas": {
+      "get": {
+        "operationId": "aiListTenantQuotas",
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "pageSize", "schema": { "format": "int32", "type": "integer" } },
+          { "in": "query", "name": "tenantId", "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedResultOfAiTenantQuotaListItem" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiTenantQuotas"]
+      }
+    },
+    "/api/v1/ai/tenant-quotas/{tenantId}": {
+      "get": {
+        "operationId": "aiGetTenantQuota",
+        "parameters": [
+          { "in": "path", "name": "tenantId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiTenantQuotaResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiTenantQuotas"]
+      },
+      "put": {
+        "operationId": "aiUpsertTenantQuota",
+        "parameters": [
+          { "in": "path", "name": "tenantId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateAiTenantQuotaRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AiTenantQuotaResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "409": { "description": "Conflict" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["AiTenantQuotas"]
+      }
     }
   },
   "components": {
@@ -46748,6 +46904,140 @@
           "generatedAtUtc": { "format": "date-time", "type": "string" }
         },
         "required": ["templateId", "templateKey", "templateName", "versionNumber", "formSchemaKey", "html", "boundFields", "generatedAtUtc"],
+        "type": "object"
+      },
+        "type": "object"
+      },
+      "AiModelConfigListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "maskedEndpointBaseUrl": { "type": "string" },
+          "modelId": { "type": "string" },
+          "hasApiKey": { "type": "boolean" },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "lastTestedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "lastTestStatusKey": { "type": ["null", "string"] },
+          "lastTestMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "providerKey", "maskedEndpointBaseUrl", "modelId", "hasApiKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "AiModelConfigResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "endpointBaseUrl": { "type": "string" },
+          "modelId": { "type": "string" },
+          "organizationId": { "type": ["null", "string"] },
+          "hasApiKey": { "type": "boolean" },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "lastTestedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "lastTestStatusKey": { "type": ["null", "string"] },
+          "lastTestMessage": { "type": ["null", "string"] },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "name", "providerKey", "endpointBaseUrl", "modelId", "hasApiKey", "isDefault", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreateAiModelConfigRequest": {
+        "properties": {
+          "tenantId": { "format": "uuid", "type": ["null", "string"] },
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "endpointBaseUrl": { "type": "string" },
+          "modelId": { "type": "string" },
+          "apiKey": { "type": ["null", "string"] },
+          "organizationId": { "type": ["null", "string"] },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["name", "providerKey", "endpointBaseUrl", "modelId", "isDefault", "isEnabled"],
+        "type": "object"
+      },
+      "UpdateAiModelConfigRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "providerKey": { "type": "string" },
+          "endpointBaseUrl": { "type": "string" },
+          "modelId": { "type": "string" },
+          "apiKey": { "type": ["null", "string"] },
+          "clearApiKey": { "type": "boolean" },
+          "organizationId": { "type": ["null", "string"] },
+          "isDefault": { "type": "boolean" },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "providerKey", "endpointBaseUrl", "modelId", "clearApiKey", "isDefault", "isEnabled", "version"],
+        "type": "object"
+      },
+      "TestAiModelConfigResult": {
+        "properties": {
+          "succeeded": { "type": "boolean" },
+          "message": { "type": "string" }
+        },
+        "required": ["succeeded", "message"],
+        "type": "object"
+      },
+      "AiTenantQuotaListItem": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "tenantId": { "format": "uuid", "type": "string" },
+          "monthlyTokenLimit": { "format": "int64", "type": ["null", "integer", "string"] },
+          "monthlyRequestLimit": { "format": "int64", "type": ["null", "integer", "string"] },
+          "usedTokensThisMonth": { "format": "int64", "type": ["integer", "string"] },
+          "usedRequestsThisMonth": { "format": "int64", "type": ["integer", "string"] },
+          "quotaMonthKey": { "type": "string" },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "tenantId", "usedTokensThisMonth", "usedRequestsThisMonth", "quotaMonthKey", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "AiTenantQuotaResponse": {
+        "allOf": [{ "$ref": "#/components/schemas/AiTenantQuotaListItem" }]
+      },
+      "UpdateAiTenantQuotaRequest": {
+        "properties": {
+          "monthlyTokenLimit": { "format": "int64", "type": ["null", "integer", "string"] },
+          "monthlyRequestLimit": { "format": "int64", "type": ["null", "integer", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["isEnabled", "version"],
+        "type": "object"
+      },
+      "PagedResultOfAiModelConfigListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/AiModelConfigListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
+        "type": "object"
+      },
+      "PagedResultOfAiTenantQuotaListItem": {
+        "properties": {
+          "items": { "items": { "$ref": "#/components/schemas/AiTenantQuotaListItem" }, "type": "array" },
+          "page": { "format": "int32", "type": ["integer", "string"] },
+          "pageSize": { "format": "int32", "type": ["integer", "string"] },
+          "total": { "format": "int64", "type": ["integer", "string"] }
+        },
+        "required": ["items", "page", "pageSize", "total"],
         "type": "object"
       },
       "PagedResultOfReportingDataSourceListItem": {
