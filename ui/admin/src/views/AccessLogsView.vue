@@ -15,12 +15,14 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import AuditLogDetailDrawer, {
   type AuditLogDetailRecord
 } from './components/AuditLogDetailDrawer.vue';
+import AuditLogExportDialog from './components/AuditLogExportDialog.vue';
 import AuditLogTrendPanel from './components/AuditLogTrendPanel.vue';
 import {
   useArtClientPagination,
   useArtCrudTableLayout
 } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
+import PermissionGate from '../components/PermissionGate.vue';
 import { listAuditingAccessLogsByCursor } from '../api/access-logs';
 
 defineOptions({ name: 'AccessLogsView' });
@@ -35,6 +37,7 @@ const containsDefaultRangeApplied = ref(false);
 const applyingVisibleDefaults = ref(false);
 const detailOpen = ref(false);
 const selectedRecord = ref<AuditLogDetailRecord | null>(null);
+const exportOpen = ref(false);
 
 const {
   tableMainRef,
@@ -305,7 +308,15 @@ function openDetail(row: AuditingAccessLog): void {
           full-class="art-crud-table-main"
           layout="refresh,size,fullscreen,settings"
           @refresh="load"
-        />
+        >
+          <template #left>
+            <PermissionGate code="auditing.access.export">
+              <el-button data-testid="access-logs-action-export" @click="exportOpen = true">
+                {{ t('auditExport.action') }}
+              </el-button>
+            </PermissionGate>
+          </template>
+        </ArtTableHeader>
 
         <div class="art-table" :class="{ 'is-empty': pagedItems.length === 0 }">
           <el-table
@@ -372,6 +383,7 @@ function openDetail(row: AuditingAccessLog): void {
     </el-card>
 
     <AuditLogDetailDrawer v-model="detailOpen" :record="selectedRecord" />
+    <AuditLogExportDialog v-model:open="exportOpen" kind="access" />
   </section>
 </template>
 

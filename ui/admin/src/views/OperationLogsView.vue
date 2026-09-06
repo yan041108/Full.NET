@@ -7,7 +7,9 @@ import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vu
 import AuditLogDetailDrawer, {
   type AuditLogDetailRecord
 } from './components/AuditLogDetailDrawer.vue';
+import AuditLogExportDialog from './components/AuditLogExportDialog.vue';
 import AuditLogTrendPanel from './components/AuditLogTrendPanel.vue';
+import PermissionGate from '../components/PermissionGate.vue';
 import {
   useArtClientPagination,
   useArtCrudTableLayout
@@ -23,6 +25,7 @@ const loading = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const detailOpen = ref(false);
 const selectedRecord = ref<AuditLogDetailRecord | null>(null);
+const exportOpen = ref(false);
 
 const {
   tableMainRef,
@@ -118,7 +121,15 @@ function toProblem(error: unknown): FullNetProblemDetails {
           full-class="art-crud-table-main"
           layout="refresh,size,fullscreen,settings"
           @refresh="load"
-        />
+        >
+          <template #left>
+            <PermissionGate code="auditing.operations.export">
+              <el-button data-testid="operation-logs-action-export" @click="exportOpen = true">
+                {{ t('auditExport.action') }}
+              </el-button>
+            </PermissionGate>
+          </template>
+        </ArtTableHeader>
 
         <div class="art-table" :class="{ 'is-empty': pagedItems.length === 0 }">
           <el-table
@@ -179,6 +190,7 @@ function toProblem(error: unknown): FullNetProblemDetails {
     </el-card>
 
     <AuditLogDetailDrawer v-model="detailOpen" :record="selectedRecord" />
+    <AuditLogExportDialog v-model:open="exportOpen" kind="operation" />
   </section>
 </template>
 

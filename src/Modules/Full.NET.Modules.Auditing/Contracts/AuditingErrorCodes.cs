@@ -59,6 +59,18 @@ public static class AuditingErrorCodes
     public const string DomainChangeDiffTraceIdInvalid =
         "auditing.change_diff.trace_id_invalid";
 
+    /// <summary>导出查询缺少完整的 UTC 时间范围。</summary>
+    public const string ExportTimeRangeRequired =
+        "auditing.export.time_range_required";
+
+    /// <summary>导出查询的 UTC 时间范围超过服务端上限。</summary>
+    public const string ExportTimeRangeExceeded =
+        "auditing.export.time_range_exceeded";
+
+    /// <summary>导出查询起始时间早于归档保留策略允许的最早时间。</summary>
+    public const string ExportRetentionBoundaryExceeded =
+        "auditing.export.retention_boundary_exceeded";
+
     /// <summary>
     /// 获取当前目录中的全部稳定错误码。
     /// </summary>
@@ -78,5 +90,8 @@ public static class AuditingErrorCodes
         TrendBucketLimitExceeded,
         DomainChangeDiffTraceIdRequired,
         DomainChangeDiffTraceIdInvalid,
+        ExportTimeRangeRequired,
+        ExportTimeRangeExceeded,
+        ExportRetentionBoundaryExceeded,
     ]);
 }

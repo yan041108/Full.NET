@@ -22,4 +22,6 @@ namespace Full.NET.Modules.Auditing.Serialization;
 [JsonSerializable(typeof(DomainChangeDiffQueryResponse))]
 [JsonSerializable(typeof(DomainAuditChangeDiffEntryResponse))]
 [JsonSerializable(typeof(DomainAuditChangeDiffFieldResponse))]
+[JsonSerializable(typeof(AuditLogExportRequest))]
+[JsonSerializable(typeof(AuditLogExportMetadataResponse))]
 internal partial class AuditingJsonSerializerContext : JsonSerializerContext;

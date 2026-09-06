@@ -1,0 +1,62 @@
+{
+  "id": "auditing-export-v1",
+  "version": 1,
+  "description": "审计日志受控导出 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/auditing/access-logs/exports",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "auditing.access.export",
+          "successStatus": 200,
+          "requestSchema": "AuditLogExportRequest",
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/operation-logs/exports",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "auditing.operations.export",
+          "successStatus": 200,
+          "requestSchema": "AuditLogExportRequest",
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/auditing/exception-logs/exports",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "auditing.exceptions.export",
+          "successStatus": 200,
+          "requestSchema": "AuditLogExportRequest",
+          "errorStatuses": [
+            400
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "AuditLogExportRequest": {
+      "properties": [
+        "fromUtc",
+        "toUtc",
+        "httpMethod",
+        "statusCode",
+        "succeeded",
+        "pathContains",
+        "exceptionTypeContains"
+      ]
+    }
+  }
+}

@@ -16,6 +16,12 @@ internal sealed class AuditingQueryOptions
 
     /// <summary>获取或设置单次趋势响应允许的最大时间桶数量。</summary>
     public int MaximumTrendBuckets { get; set; } = 96;
+
+    /// <summary>获取或设置单次导出允许的最大行数。</summary>
+    public int MaximumExportRows { get; set; } = 5000;
+
+    /// <summary>获取或设置导出查询允许的最大闭区间天数。</summary>
+    public int MaximumExportWindowDays { get; set; } = 31;
 }
 
 internal sealed class AuditingQueryOptionsValidator
@@ -41,6 +47,18 @@ internal sealed class AuditingQueryOptionsValidator
         {
             return ValidateOptionsResult.Fail(
                 "Auditing:Query:MaximumTrendBuckets must be between 1 and 168.");
+        }
+
+        if (options.MaximumExportRows is < 1 or > 20000)
+        {
+            return ValidateOptionsResult.Fail(
+                "Auditing:Query:MaximumExportRows must be between 1 and 20000.");
+        }
+
+        if (options.MaximumExportWindowDays is < 1 or > 366)
+        {
+            return ValidateOptionsResult.Fail(
+                "Auditing:Query:MaximumExportWindowDays must be between 1 and 366.");
         }
 
         return ValidateOptionsResult.Success;

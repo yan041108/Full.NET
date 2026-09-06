@@ -47,9 +47,15 @@ public sealed class AuditingModule : IFullNetModule
         services.AddOptions<AuditingQueryOptions>()
             .Bind(configuration.GetSection(AuditingQueryOptions.SectionName))
             .ValidateOnStart();
+        services.AddOptions<AuditingRetentionOptions>()
+            .Bind(configuration.GetSection(AuditingRetentionOptions.SectionName))
+            .ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<AuditingQueryOptions>,
             AuditingQueryOptionsValidator>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IValidateOptions<AuditingRetentionOptions>,
+            AuditingRetentionOptionsValidator>());
         services.AddOptions<AuditMicroBatchOptions>()
             .Bind(configuration.GetSection(AuditMicroBatchOptions.SectionName))
             .ValidateOnStart();
@@ -82,12 +88,14 @@ public sealed class AuditingModule : IFullNetModule
             provider.GetRequiredService<ILogger<OutboundCallAuditHandler>>()));
         services.TryAddSingleton<AuditingContainsTimeRangePolicy>();
         services.TryAddSingleton<AuditingTrendTimeRangePolicy>();
+        services.TryAddSingleton<AuditingExportTimeRangePolicy>();
         services.TryAddScoped<Features.QueryHostAccessLogs.HostAccessLogQueryService>();
         services.TryAddScoped<Features.QueryHostOperationLogs.HostOperationLogQueryService>();
         services.TryAddScoped<Features.QueryHostExceptionLogs.HostExceptionLogQueryService>();
         services.TryAddScoped<Features.QueryHostOutboundCallLogs.HostOutboundCallLogQueryService>();
         services.TryAddScoped<Features.QueryHostAuditLogTrends.HostAuditLogTrendQueryService>();
         services.TryAddScoped<Features.QueryDomainChangeDiffs.DomainAuditChangeDiffQueryService>();
+        services.TryAddScoped<Features.ExportHostAuditLogs.HostAuditLogExportService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostDashboardAuditMetricsReader,
             HostDashboard.HostDashboardAuditMetricsReader>());
@@ -109,6 +117,7 @@ public sealed class AuditingModule : IFullNetModule
         Features.QueryHostOutboundCallLogs.Endpoint.Map(endpoints);
         Features.QueryHostAuditLogTrends.Endpoint.Map(endpoints);
         Features.QueryDomainChangeDiffs.Endpoint.Map(endpoints);
+        Features.ExportHostAuditLogs.Endpoint.Map(endpoints);
         var environment = endpoints.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
         Features.TriggerExceptionProbe.Endpoint.Map(endpoints, environment);
         Features.TriggerOutboundCallProbe.Endpoint.Map(endpoints, environment);

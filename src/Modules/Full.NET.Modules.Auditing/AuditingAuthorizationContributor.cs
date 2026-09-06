@@ -36,6 +36,22 @@ internal sealed class AuditingAuthorizationContributor
             DomainChangeDiffPermissions.Read,
             "查询域审计变更差异",
             AuthorizationScope.Host),
+        new PermissionDefinition(
+            AccessLogExportPermissions.Export,
+            "导出访问日志",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            OperationLogExportPermissions.Export,
+            "导出操作日志",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            ExceptionLogExportPermissions.Export,
+            "导出异常日志",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            AuditLogExportPermissions.SensitiveFields,
+            "导出审计日志敏感字段",
+            AuthorizationScope.Host),
     ];
 
     public IReadOnlyCollection<NavigationDefinition> Navigation { get; } =

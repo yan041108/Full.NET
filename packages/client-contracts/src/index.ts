@@ -725,6 +725,16 @@ export type {
 } from './auditing-analytics.js';
 
 export {
+  exportAuditingAccessLogs,
+  exportAuditingExceptionLogs,
+  exportAuditingOperationLogs
+} from './auditing-export.js';
+
+export type {
+  AuditLogExportRequest
+} from './auditing-export.js';
+
+export {
   isIdentityModuleCatalogEntry
 } from './identity-module-catalog.js';
 
