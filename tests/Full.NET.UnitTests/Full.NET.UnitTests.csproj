@@ -51,6 +51,8 @@
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Ai.Contracts\Full.NET.Modules.Ai.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Payments\Full.NET.Modules.Payments.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Payments.Contracts\Full.NET.Modules.Payments.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.GoView\Full.NET.Modules.GoView.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.GoView.Contracts\Full.NET.Modules.GoView.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Full.NET.Modules.Organization\Full.NET.Modules.Organization.csproj" />
   </ItemGroup>
   <ItemGroup>

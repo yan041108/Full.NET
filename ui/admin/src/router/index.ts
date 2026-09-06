@@ -282,6 +282,21 @@ export function createAppRouter(
         component: () => import('../views/PaymentRefundsView.vue')
       },
       {
+        name: 'goview-projects',
+        path: '/goview/projects',
+        component: () => import('../views/GoViewProjectsView.vue')
+      },
+      {
+        name: 'goview-editor',
+        path: '/goview/projects/:projectId/edit',
+        component: () => import('../views/GoViewEditorView.vue')
+      },
+      {
+        name: 'goview-preview',
+        path: '/goview/projects/:projectId/preview',
+        component: () => import('../views/GoViewPreviewView.vue')
+      },
+      {
         name: 'host-announcements',
         path: '/notifications/host-announcements',
         component: () => import('../views/HostAnnouncementsView.vue')

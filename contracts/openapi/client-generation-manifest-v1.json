@@ -2631,6 +2631,54 @@
       "status": "manual"
     },
     {
+      "operationId": "goviewListProjects",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewGetProject",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewCreateProject",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewUpdateProject",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewPublishProject",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewListProjectVersions",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewGetProjectVersion",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
+      "operationId": "goviewPreviewProject",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "generatedGroup": "goview-projects",
+      "status": "manual"
+    },
+    {
       "operationId": "documentHostGetDocumentStatistics",
       "apiModule": "ui/admin/src/api/document-statistics.ts",
       "generatedGroup": "document-host-statistics",

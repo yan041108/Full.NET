@@ -632,6 +632,21 @@ export type {
 } from './payments.js';
 
 export {
+  isGoViewProject,
+  isGoViewProjectPreview
+} from './goview-projects.js';
+
+export type {
+  CreateGoViewProjectRequest,
+  GoViewProject,
+  GoViewProjectPreview,
+  GoViewProjectVersion,
+  PreviewGoViewProjectRequest,
+  PublishGoViewProjectRequest,
+  UpdateGoViewProjectRequest
+} from './goview-projects.js';
+
+export {
   isHostDocumentPermissionResponse,
   isHostDocumentPermissionResponseList,
   isSetHostDocumentPermissionsRequest

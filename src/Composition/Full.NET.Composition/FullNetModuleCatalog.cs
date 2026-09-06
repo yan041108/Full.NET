@@ -21,6 +21,7 @@ using Full.NET.Modules.Reporting;
 using Full.NET.Modules.Printing;
 using Full.NET.Modules.Ai;
 using Full.NET.Modules.Payments;
+using Full.NET.Modules.GoView;
 using Full.NET.Modules.ObservabilityAdmin;
 using Full.NET.Modules.Workflow;
 using Full.NET.Modules.Mqtt;
@@ -163,6 +164,7 @@ public static class FullNetModuleCatalog
         new PrintingModule(),
         new AiModule(),
         new PaymentsModule(),
+        new GoViewModule(),
         new SettingsModule(),
         new CodeGenerationModule(),
         new SerialNumbersModule(),

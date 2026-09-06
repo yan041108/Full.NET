@@ -31143,6 +31143,146 @@
         },
         "tags": ["PaymentWeChatNotify"]
       }
+    },
+    "/api/v1/goview/projects": {
+      "get": {
+        "operationId": "goviewListProjects",
+        "parameters": [
+          { "in": "query", "name": "nameContains", "schema": { "type": ["null", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/GoViewProjectResponse" } } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      },
+      "post": {
+        "operationId": "goviewCreateProject",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateGoViewProjectRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "201": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GoViewProjectResponse" } } }, "description": "Created" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      }
+    },
+    "/api/v1/goview/projects/{projectId}": {
+      "get": {
+        "operationId": "goviewGetProject",
+        "parameters": [
+          { "in": "path", "name": "projectId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GoViewProjectResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      },
+      "put": {
+        "operationId": "goviewUpdateProject",
+        "parameters": [
+          { "in": "path", "name": "projectId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateGoViewProjectRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GoViewProjectResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      }
+    },
+    "/api/v1/goview/projects/{projectId}/publish": {
+      "post": {
+        "operationId": "goviewPublishProject",
+        "parameters": [
+          { "in": "path", "name": "projectId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishGoViewProjectRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GoViewProjectVersionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      }
+    },
+    "/api/v1/goview/projects/{projectId}/versions": {
+      "get": {
+        "operationId": "goviewListProjectVersions",
+        "parameters": [
+          { "in": "path", "name": "projectId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/GoViewProjectVersionResponse" } } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      }
+    },
+    "/api/v1/goview/projects/{projectId}/versions/{versionNumber}": {
+      "get": {
+        "operationId": "goviewGetProjectVersion",
+        "parameters": [
+          { "in": "path", "name": "projectId", "required": true, "schema": { "format": "uuid", "type": "string" } },
+          { "in": "path", "name": "versionNumber", "required": true, "schema": { "format": "int32", "type": ["integer", "string"] } }
+        ],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GoViewProjectVersionResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewProjects"]
+      }
+    },
+    "/api/v1/goview/projects/{projectId}/preview": {
+      "post": {
+        "operationId": "goviewPreviewProject",
+        "parameters": [
+          { "in": "path", "name": "projectId", "required": true, "schema": { "format": "uuid", "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PreviewGoViewProjectRequest" } } },
+          "required": true
+        },
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GoViewProjectPreviewResponse" } } }, "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Not Found" },
+          "422": { "description": "Unprocessable Entity" }
+        },
+        "security": [{ "Bearer": [] }, { "ApiKey": [] }],
+        "tags": ["GoViewPreviews"]
+      }
     }
   },
   "components": {
@@ -47309,6 +47449,78 @@
         "required": ["templateId", "templateKey", "templateName", "versionNumber", "formSchemaKey", "html", "boundFields", "generatedAtUtc"],
         "type": "object"
       },
+      "GoViewProjectResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "projectKey": { "type": "string" },
+          "name": { "type": "string" },
+          "canvasJson": { "type": "string" },
+          "latestPublishedVersionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "isEnabled": { "type": "boolean" },
+          "createdAtUtc": { "format": "date-time", "type": "string" },
+          "updatedAtUtc": { "format": "date-time", "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["id", "projectKey", "name", "canvasJson", "latestPublishedVersionNumber", "isEnabled", "createdAtUtc", "version"],
+        "type": "object"
+      },
+      "CreateGoViewProjectRequest": {
+        "properties": {
+          "projectKey": { "type": "string" },
+          "name": { "type": "string" },
+          "canvasJson": { "type": ["null", "string"] },
+          "isEnabled": { "type": "boolean" }
+        },
+        "required": ["projectKey", "name", "isEnabled"],
+        "type": "object"
+      },
+      "UpdateGoViewProjectRequest": {
+        "properties": {
+          "name": { "type": "string" },
+          "canvasJson": { "type": "string" },
+          "isEnabled": { "type": "boolean" },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["name", "canvasJson", "isEnabled", "version"],
+        "type": "object"
+      },
+      "PublishGoViewProjectRequest": {
+        "properties": {
+          "changeNote": { "type": ["null", "string"] },
+          "version": { "format": "int32", "type": ["integer", "string"] }
+        },
+        "required": ["version"],
+        "type": "object"
+      },
+      "GoViewProjectVersionResponse": {
+        "properties": {
+          "id": { "format": "uuid", "type": "string" },
+          "projectId": { "format": "uuid", "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "canvasJson": { "type": "string" },
+          "changeNote": { "type": ["null", "string"] },
+          "publishedByUserId": { "format": "uuid", "type": "string" },
+          "publishedAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["id", "projectId", "versionNumber", "canvasJson", "publishedByUserId", "publishedAtUtc"],
+        "type": "object"
+      },
+      "PreviewGoViewProjectRequest": {
+        "properties": {
+          "versionNumber": { "format": "int32", "type": ["null", "integer", "string"] }
+        },
+        "type": "object"
+      },
+      "GoViewProjectPreviewResponse": {
+        "properties": {
+          "projectId": { "format": "uuid", "type": "string" },
+          "projectKey": { "type": "string" },
+          "projectName": { "type": "string" },
+          "versionNumber": { "format": "int32", "type": ["integer", "string"] },
+          "canvasJson": { "type": "string" },
+          "generatedAtUtc": { "format": "date-time", "type": "string" }
+        },
+        "required": ["projectId", "projectKey", "projectName", "versionNumber", "canvasJson", "generatedAtUtc"],
         "type": "object"
       },
       "AiModelConfigListItem": {
