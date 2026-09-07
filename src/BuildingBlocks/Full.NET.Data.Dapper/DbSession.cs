@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Data.Dapper;
 
@@ -12,12 +13,16 @@ namespace Full.NET.Data.Dapper;
 /// <para>线程安全：该类非线程安全，不应在并发异步流中共享同一实例。</para>
 /// <para>事务隔离级别：默认使用 ReadCommitted，以避免脏读并平衡并发性能。</para>
 /// </remarks>
+/// <param name="connectionFactory">物理连接工厂。</param>
+/// <param name="admissionGate">连接准入预算。</param>
+/// <param name="telemetry">连接指标。</param>
+/// <param name="admissionPriority">当前准入优先级。</param>
 internal sealed class DbSession(
     IDbConnectionFactory connectionFactory,
     DatabaseAdmissionGate admissionGate,
     DatabaseConnectionTelemetry telemetry,
     DatabaseAdmissionPriorityScope admissionPriority)
-    : IAsyncDisposable, IDbTransactionCoordinator
+    : IAsyncDisposable, IDbTransactionCoordinator, IDataTransactionState
 {
     private DbTransaction? _transaction;
     private DbSessionConnectionLease? _transactionConnectionLease;

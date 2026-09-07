@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Text.Json;
 using Full.NET.Data.Abstractions;
@@ -313,6 +314,9 @@ public sealed class GlobalSqlStatementCatalogTests
             ? $"{type.DeclaringType.FullName}.{type.Name}"
             : type.FullName!;
 
+    /// <summary>解析真实类型声明所在文件，支持切片文件内的多个 SQL 类型并拒绝歧义。</summary>
+    /// <param name="root">仓库根目录。</param>
+    /// <param name="type">需要定位的声明类型。</param>
     private static string ResolveSourceFile(string root, Type type)
     {
         if (type.IsNested && type.DeclaringType is not null)
@@ -326,6 +330,23 @@ public sealed class GlobalSqlStatementCatalogTests
             .Where(path => !IsBuildOutputPath(path))
             .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
             .ToArray();
+
+        if (candidates.Length == 0)
+        {
+            // 同一切片可把多个 SQL 类型放入同一源文件；按声明解析，不能假定文件名等于类型名。
+            var namespacePattern = new Regex(@"(?m)^\s*namespace\s+" + Regex.Escape(type.Namespace!) + @"\s*[;{]");
+            var declarationPattern = new Regex(@"(?m)^\s*(?:(?:internal|public|static|sealed|partial|abstract)\s+)*class\s+"
+                + Regex.Escape(type.Name) + @"\b");
+            candidates = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
+                .Where(path => !IsBuildOutputPath(path))
+                .Where(path =>
+                {
+                    var source = File.ReadAllText(path);
+                    return namespacePattern.IsMatch(source) && declarationPattern.IsMatch(source);
+                })
+                .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+                .ToArray();
+        }
 
         return candidates.Length switch
         {

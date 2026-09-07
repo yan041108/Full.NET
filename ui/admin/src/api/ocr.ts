@@ -36,7 +36,7 @@ export async function updateOcrProviderConfig(
 ): Promise<OcrProviderConfig> {
   const value = await request<unknown>(
     `/api/v1/ocr/provider-configs/${encodeURIComponent(providerKey)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isOcrProviderConfig(value)) {
@@ -104,7 +104,7 @@ export async function createOcrIdCardTask(
   body: CreateOcrIdCardTaskRequest,
   signal?: AbortSignal
 ): Promise<OcrIdCardTask> {
-  const value = await request<unknown>('/api/v1/ocr/id-card-tasks', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/ocr/id-card-tasks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isOcrIdCardTask(value)) {
     throw new Error('client.invalid_ocr_id_card_task');
   }
@@ -118,7 +118,7 @@ export async function confirmOcrIdCardTask(
 ): Promise<OcrIdCardTask> {
   const value = await request<unknown>(
     `/api/v1/ocr/id-card-tasks/${encodeURIComponent(taskId)}/confirm`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isOcrIdCardTask(value)) {
@@ -136,11 +136,8 @@ export async function rejectOcrIdCardTask(
     `/api/v1/ocr/id-card-tasks/${encodeURIComponent(taskId)}/reject`,
     {
       method: 'POST',
-      body: {
-        name: '',
-        idNumber: '',
-        version
-      }
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '', idNumber: '', version })
     },
     signal
   );

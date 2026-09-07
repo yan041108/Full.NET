@@ -63,7 +63,7 @@ export async function createAiChatSession(
 ): Promise<AiChatSession> {
   const value = await request<unknown>(
     '/api/v1/ai/chat/sessions',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isAiChatSession(value)) {
@@ -79,7 +79,7 @@ export async function updateAiChatSession(
 ): Promise<AiChatSession> {
   const value = await request<unknown>(
     `/api/v1/ai/chat/sessions/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isAiChatSession(value)) {
@@ -190,7 +190,7 @@ function dispatchStreamEvent(
     }
   } catch (error: unknown) {
     const message = isFullNetProblemDetails(error)
-      ? error.title
+      ? error.title ?? error.code
       : 'client.invalid_ai_chat_stream_event';
     handlers.onError(message);
   }

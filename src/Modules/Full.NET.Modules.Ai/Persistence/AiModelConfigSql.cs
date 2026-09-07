@@ -45,6 +45,27 @@ internal static class AiModelConfigSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>租户聊天只能使用本租户配置或明确共享的 Host 配置，身份由执行器绑定。</summary>
+    public static readonly SqlStatement FindAvailableForTenantChat = new(
+        "ai.find_available_model_for_tenant_chat",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_ai_model_config AS config
+        WHERE config.Id = @ModelConfigId AND config.IsEnabled = 1
+          AND (config.TenantId = @TenantId OR config.TenantId IS NULL)
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>Host 聊天只使用 Host 配置，管理端跨租户查询保持独立。</summary>
+    public static readonly SqlStatement FindAvailableForHostChat = new(
+        "ai.find_available_model_for_host_chat",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_ai_model_config AS config
+        WHERE config.Id = @ModelConfigId AND config.IsEnabled = 1 AND config.TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement Update = new(
         "ai.update_model_config",
         """

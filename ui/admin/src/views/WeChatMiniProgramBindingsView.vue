@@ -80,7 +80,7 @@ function subscriptionTagType(statusKey: string): 'success' | 'info' | 'warning' 
       :title="errorMessage"
     />
 
-    <PermissionGate permission="notifications.wechat_miniprogram_bindings.read">
+    <PermissionGate code="notifications.wechat_miniprogram_bindings.read">
       <div class="art-split-layout">
         <ElCard class="art-card-list" shadow="never">
           <template #header>

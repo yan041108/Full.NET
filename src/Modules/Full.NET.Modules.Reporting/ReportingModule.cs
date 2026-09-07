@@ -48,6 +48,8 @@ public sealed class ReportingModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<ReportingDataSourceSecretProtector>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
+            Features.ManageExportTasks.ReportingResourceFileOwner>());
         services.TryAddScoped<ReportingDataSourceQueryService>();
         services.TryAddScoped<ReportingDataSourceManagementService>();
         services.TryAddScoped<ReportingDataSourceOperationsService>();

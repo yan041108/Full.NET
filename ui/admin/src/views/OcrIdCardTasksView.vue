@@ -54,10 +54,10 @@ const confirmForm = reactive({
   version: 0
 });
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -158,7 +158,7 @@ onMounted(() => {
     />
     <ElCard v-loading="loading">
       <ArtTableHeader :title="t('ocrIdCardTasks.title')">
-        <PermissionGate permission="ocr.id_card_tasks.create">
+        <PermissionGate code="ocr.id_card_tasks.create">
           <ElUpload
             data-testid="ocr-id-card-upload"
             :show-file-list="false"
@@ -181,20 +181,21 @@ onMounted(() => {
         <ElTableColumn prop="recognizedName" :label="t('ocrIdCardTasks.fieldName')" />
         <ElTableColumn prop="recognizedIdNumber" :label="t('ocrIdCardTasks.fieldIdNumber')" />
         <ElTableColumn prop="failureMessage" :label="t('ocrIdCardTasks.fieldFailure')" />
-        <ElTableColumn :label="t('ocrIdCardTasks.actions')" width="220">
+        <!-- @vue-generic {OcrIdCardTask} -->
+          <ElTableColumn :label="t('ocrIdCardTasks.actions')" width="220">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="ocr.id_card_tasks.confirm">
-                <ArtTableActionButton
+              <PermissionGate code="ocr.id_card_tasks.confirm">
+                <ArtTableActionButton type="view"
                   v-if="row.statusKey === 'recognized'"
-                  data-testid="ocr-id-card-confirm"
+                  test-id="ocr-id-card-confirm"
                   @click="openConfirm(row)"
                 >
                   {{ t('ocrIdCardTasks.confirm') }}
                 </ArtTableActionButton>
               </PermissionGate>
-              <PermissionGate permission="ocr.id_card_tasks.reject">
-                <ArtTableActionButton
+              <PermissionGate code="ocr.id_card_tasks.reject">
+                <ArtTableActionButton type="view"
                   v-if="row.statusKey === 'recognized'"
                   :loading="rejectingId === row.id"
                   @click="runReject(row)"
@@ -217,7 +218,7 @@ onMounted(() => {
       />
     </ElCard>
     <ArtFormDialog
-      v-model="confirmDialogVisible"
+      v-model:open="confirmDialogVisible"
       :title="t('ocrIdCardTasks.confirmTitle')"
       :confirm-loading="confirming"
       @confirm="submitConfirm"

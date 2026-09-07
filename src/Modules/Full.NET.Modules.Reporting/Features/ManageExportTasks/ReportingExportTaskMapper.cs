@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Serialization;
 using Full.NET.Modules.Reporting.Persistence;
 
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
@@ -11,6 +12,8 @@ internal static class ReportingExportTaskMapper
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
+
+    private static readonly ReportingJsonSerializerContext SerializerContext = new(ParameterJsonOptions);
 
     /// <summary>将持久化行映射为列表摘要。</summary>
     public static ReportingExportTaskResponse MapSummary(ReportingExportTaskRecord record) =>
@@ -51,9 +54,12 @@ internal static class ReportingExportTaskMapper
             record.CompletedAtUtc);
 
     /// <summary>序列化执行参数为 JSON。</summary>
+    /// <param name="parameters">按协议传递的参数集合。</param>
     public static string SerializeParameters(IReadOnlyList<ReportingExecutionParameterValue> parameters) =>
-        JsonSerializer.Serialize(parameters, ParameterJsonOptions);
+        JsonSerializer.Serialize(parameters, SerializerContext.IReadOnlyListReportingExecutionParameterValue);
 
+    /// <summary>从任务快照还原报表参数，保持既有空值语义。</summary>
+    /// <param name="json">持久化的 JSON 快照。</param>
     private static IReadOnlyList<ReportingExecutionParameterValue> DeserializeParameters(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -61,6 +67,6 @@ internal static class ReportingExportTaskMapper
             return [];
         }
 
-        return JsonSerializer.Deserialize<ReportingExecutionParameterValue[]>(json, ParameterJsonOptions) ?? [];
+        return JsonSerializer.Deserialize(json, SerializerContext.IReadOnlyListReportingExecutionParameterValue) ?? [];
     }
 }

@@ -196,7 +196,7 @@ onMounted(() => {
             <ElTag :type="metadata.objectKind === 'view' ? 'info' : 'success'">
               {{ kindLabel(metadata.objectKind) }}
             </ElTag>
-            <PermissionGate permission="codegen.catalog.read">
+            <PermissionGate code="codegen.catalog.read">
               <ElButton
                 v-if="canGenerateDraft"
                 type="primary"

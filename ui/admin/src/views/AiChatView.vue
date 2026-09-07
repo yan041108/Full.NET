@@ -48,11 +48,11 @@ const visibleMessages = computed(() => activeSession.value?.messages ?? []);
 const canSend = computed(() =>
   !!selectedSessionId.value && draft.value.trim().length > 0 && !sending.value);
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
-  return { title: t(fallbackKey), status: 500, type: 'about:blank' };
+  return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function loadSessions(): Promise<void> {
@@ -92,7 +92,7 @@ async function createSession(): Promise<void> {
   loading.value = true;
   try {
     const session = await createAiChatSession({ modelConfigId: selectedModelId.value });
-    sessions.value = [session, ...sessions.value];
+    sessions.value = [{ ...session, messageCount: session.messages.length, lastMessageAtUtc: session.messages.at(-1)?.createdAtUtc ?? null }, ...sessions.value];
     selectedSessionId.value = session.id;
     activeSession.value = session;
   } catch (error: unknown) {

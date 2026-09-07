@@ -17,7 +17,7 @@ function postExport(
   http: HttpClient,
   path: string,
   request: AuditLogExportRequest,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<Blob> {
   return http.requestBlob(
     path,
@@ -37,7 +37,7 @@ function postExport(
 export function exportAuditingAccessLogs(
   http: HttpClient,
   request: AuditLogExportRequest,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<Blob> {
   return postExport(http, '/api/v1/auditing/access-logs/exports', request, options);
 }
@@ -45,7 +45,7 @@ export function exportAuditingAccessLogs(
 export function exportAuditingOperationLogs(
   http: HttpClient,
   request: AuditLogExportRequest,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<Blob> {
   return postExport(http, '/api/v1/auditing/operation-logs/exports', request, options);
 }
@@ -53,7 +53,7 @@ export function exportAuditingOperationLogs(
 export function exportAuditingExceptionLogs(
   http: HttpClient,
   request: AuditLogExportRequest,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<Blob> {
   return postExport(http, '/api/v1/auditing/exception-logs/exports', request, options);
 }

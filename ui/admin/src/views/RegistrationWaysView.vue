@@ -245,12 +245,12 @@ onMounted(async () => {
       </template>
       <div class="registration-policy-row">
         <span>{{ t('registrationWays.policyPublicEnabled') }}</span>
-        <PermissionGate permission="identity.registration_policy.update">
+        <PermissionGate code="identity.registration_policy.update">
           <ElSwitch
             :model-value="policy?.isPublicRegistrationEnabled ?? false"
             :loading="policySaving"
             data-testid="registration-policy-toggle"
-            @change="savePolicy"
+            @change="value => savePolicy(value === true)"
           />
         </PermissionGate>
         <ElTag type="info">{{ t('registrationWays.policyDefaultDisabled') }}</ElTag>
@@ -268,7 +268,7 @@ onMounted(async () => {
     <ElCard ref="tableMainRef" class="art-table-card art-full-height" shadow="never">
       <ArtTableHeader :title="t('registrationWays.title')">
         <template #actions>
-          <PermissionGate permission="identity.registration_ways.create">
+          <PermissionGate code="identity.registration_ways.create">
             <ElButton
               type="primary"
               :icon="Plus"
@@ -289,7 +289,7 @@ onMounted(async () => {
         :border="tableBorder"
         :height="tableHeight"
         :header-cell-style="tableHeaderCellStyle"
-        :header-cell-class-name="tableHeaderBackground"
+        :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
       >
         <ElTableColumn type="index" :index="rowIndex" width="64" />
         <ElTableColumn prop="name" :label="t('registrationWays.fieldName')" min-width="140" />
@@ -303,19 +303,20 @@ onMounted(async () => {
           </template>
         </ElTableColumn>
         <ElTableColumn prop="sortOrder" :label="t('registrationWays.fieldSortOrder')" width="90" />
-        <ElTableColumn fixed="right" width="180">
+        <!-- @vue-generic {RegistrationWay} -->
+          <ElTableColumn fixed="right" width="180">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="identity.registration_ways.update">
-                <ArtTableActionButton
-                  :label="t('registrationWays.edit')"
+              <PermissionGate code="identity.registration_ways.update">
+                <ArtTableActionButton type="edit"
+                  :title="t('registrationWays.edit')"
                   test-id="registration-ways-action-edit"
                   @click="openEdit(row)"
                 />
               </PermissionGate>
-              <PermissionGate permission="identity.registration_ways.delete">
-                <ArtTableActionButton
-                  :label="t('registrationWays.delete')"
+              <PermissionGate code="identity.registration_ways.delete">
+                <ArtTableActionButton type="delete"
+                  :title="t('registrationWays.delete')"
                   test-id="registration-ways-action-delete"
                   @click="confirmDelete(row)"
                 />
@@ -336,9 +337,9 @@ onMounted(async () => {
     </ElCard>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('registrationWays.createTitle') : t('registrationWays.editTitle')"
-      :loading="changing"
+      :saving="changing"
       confirm-test-id="registration-ways-editor-submit"
       @confirm="submitEditor"
     >

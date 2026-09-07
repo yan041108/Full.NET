@@ -10,7 +10,9 @@ using System.Text.Json.Serialization;
 namespace Full.NET.Modules.Payments.Connectivity;
 
 /// <summary>支付宝电脑网站支付（Page Pay）OpenAPI 客户端。</summary>
-internal sealed class AlipayPagePayClient(
+/// <param name="httpClientFactory">创建受控超时的支付提供程序客户端。</param>
+/// <param name="secretProtector">解密仅用于当前外部调用的商户凭据。</param>
+internal sealed partial class AlipayPagePayClient(
     IHttpClientFactory httpClientFactory,
     PaymentSecretProtector secretProtector)
 {
@@ -22,10 +24,18 @@ internal sealed class AlipayPagePayClient(
     private const string QueryMethod = "alipay.trade.query";
     private const string ProductCode = "FAST_INSTANT_TRADE_PAY";
 
+    /// <summary>支付提供程序请求和响应的闭合 JSON 元数据。</summary>
+    [JsonSerializable(typeof(AlipayGatewayResponse))]
+    [JsonSerializable(typeof(AlipayPagePayBizContent))]
+    [JsonSerializable(typeof(AlipayTradeQueryBizContent))]
+    private partial class AlipayProviderJsonContext : JsonSerializerContext;
+
     private static readonly JsonSerializerOptions AlipayJsonOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    private static readonly AlipayProviderJsonContext ProviderJson = new(AlipayJsonOptions);
 
     /// <summary>构建 Page Pay 跳转 URL。</summary>
     /// <param name="merchantConfig">商户配置。</param>
@@ -64,7 +74,7 @@ internal sealed class AlipayPagePayClient(
                 FormatAmountYuan(amountMinor),
                 subject.Trim(),
                 ProductCode),
-            AlipayJsonOptions);
+            ProviderJson.AlipayPagePayBizContent);
 
         var parameters = BuildCommonParameters(merchantConfig, PagePayMethod, bizContent);
         parameters["notify_url"] = merchantConfig.NotifyUrl.Trim();
@@ -91,7 +101,7 @@ internal sealed class AlipayPagePayClient(
 
         var bizContent = JsonSerializer.Serialize(
             new AlipayTradeQueryBizContent(outTradeNo),
-            AlipayJsonOptions);
+            ProviderJson.AlipayTradeQueryBizContent);
         var parameters = BuildCommonParameters(merchantConfig, QueryMethod, bizContent);
         var requestUrl = BuildSignedGatewayUrl(merchantConfig, parameters);
 
@@ -104,7 +114,7 @@ internal sealed class AlipayPagePayClient(
                 $"Alipay trade query failed with status {(int)response.StatusCode}: {responseBody}");
         }
 
-        var parsed = JsonSerializer.Deserialize<AlipayGatewayResponse>(responseBody, AlipayJsonOptions);
+        var parsed = JsonSerializer.Deserialize(responseBody, ProviderJson.AlipayGatewayResponse);
         var queryResponse = parsed?.AlipayTradeQueryResponse;
         if (queryResponse is null)
         {

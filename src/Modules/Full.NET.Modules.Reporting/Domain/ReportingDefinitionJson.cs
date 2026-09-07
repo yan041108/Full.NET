@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Full.NET.Modules.Reporting.Contracts;
+using Full.NET.Modules.Reporting.Serialization;
 
 namespace Full.NET.Modules.Reporting.Domain;
 
@@ -11,11 +12,15 @@ internal static class ReportingDefinitionJson
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    private static readonly ReportingJsonSerializerContext SerializerContext = new(SerializerOptions);
+
     /// <summary>序列化参数 Schema。</summary>
+    /// <param name="entries">已验证的报表参数定义。</param>
     public static string SerializeParameterSchema(IReadOnlyList<ReportingParameterSchemaEntry> entries) =>
-        JsonSerializer.Serialize(entries, SerializerOptions);
+        JsonSerializer.Serialize(entries, SerializerContext.IReadOnlyListReportingParameterSchemaEntry);
 
     /// <summary>反序列化参数 Schema。</summary>
+    /// <param name="json">持久化的 JSON 快照。</param>
     public static IReadOnlyList<ReportingParameterSchemaEntry> DeserializeParameterSchema(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -23,7 +28,7 @@ internal static class ReportingDefinitionJson
             return [];
         }
 
-        return JsonSerializer.Deserialize<List<ReportingParameterSchemaEntry>>(json, SerializerOptions) ?? [];
+        return JsonSerializer.Deserialize(json, SerializerContext.IReadOnlyListReportingParameterSchemaEntry) ?? [];
     }
 
     /// <summary>规范化布局配置 JSON。</summary>

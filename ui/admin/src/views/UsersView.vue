@@ -1877,8 +1877,8 @@ function genderLabel(gender: string | null | undefined): string {
   return t('users.fieldEmpty');
 }
 
-function profileText(value: string | null | undefined): string {
-  return value?.trim() ? value : t('users.fieldEmpty');
+function profileText(value: string | number | null | undefined): string {
+  return String(value ?? '').trim() || t('users.fieldEmpty');
 }
 
 function accountTypeLabel(user: HostUser): string {

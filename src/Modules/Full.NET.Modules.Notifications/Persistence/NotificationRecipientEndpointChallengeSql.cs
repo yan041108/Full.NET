@@ -74,6 +74,7 @@ internal static class NotificationRecipientEndpointChallengeSql
           AND TenantScopeKey = @TenantScopeKey
           AND UserId = @UserId
           AND ConsumedAtUtc IS NULL
+          AND AttemptCount < MaxAttempts
         """,
         SqlDataScope.Global);
 

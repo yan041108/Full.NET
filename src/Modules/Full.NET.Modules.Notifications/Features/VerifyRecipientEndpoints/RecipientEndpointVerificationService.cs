@@ -38,15 +38,38 @@ internal sealed class RecipientEndpointVerificationService(
     /// <param name="userId">当前认证用户标识。</param>
     /// <param name="endpointId">待验证端点标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    public Task<Result<SendRecipientEndpointVerificationResponse>> SendCodeAsync(
+    public async Task<Result<SendRecipientEndpointVerificationResponse>> SendCodeAsync(
         Guid userId,
         Guid endpointId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
-            token => SendCodeCoreAsync(userId, endpointId, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        // 挑战本身是稳定发送意图：先提交哈希与冷却时间，再执行无法回滚的外部发送。
+        var prepared = await transaction.ExecuteResultAsync(
+            token => PrepareCodeAsync(userId, endpointId, token), cancellationToken).ConfigureAwait(false);
+        if (!prepared.IsSuccess)
+        {
+            return Result<SendRecipientEndpointVerificationResponse>.Failure(prepared.Error!);
+        }
 
-    /// <summary>校验验证码并在成功时自动升级端点为 verified。</summary>
+        var intent = prepared.Value!;
+        var sent = string.Equals(intent.EndpointKindKey, "sms", StringComparison.Ordinal)
+            ? await smsSender.SendAsync(intent.ProviderProfileVersionId, intent.Recipient, intent.Code, cancellationToken).ConfigureAwait(false)
+            : await mailSender.SendAsync(intent.ProviderProfileVersionId, intent.Recipient, intent.Code, cancellationToken).ConfigureAwait(false);
+        if (!sent.IsSuccess)
+        {
+            // 明确拒绝时消费挑战；异常或取消可能发生在实际发送之后，保留已提交挑战供收到代码的用户校验。
+            await commandExecutor.ExecuteAsync(
+                NotificationRecipientEndpointChallengeSql.MarkConsumed,
+                NotificationPlatformSqlParameters.Create(
+                    ("Id", intent.ChallengeId), ("TenantScopeKey", intent.TenantScopeKey),
+                    ("UserId", userId), ("ConsumedAtUtc", clock.UtcNow)), cancellationToken).ConfigureAwait(false);
+            return Result<SendRecipientEndpointVerificationResponse>.Failure(sent.Error!);
+        }
+
+        return Result<SendRecipientEndpointVerificationResponse>.Success(intent.Response);
+    }
+
+    /// <summary>校验验证码并提交尝试次数；业务失败响应不能回滚安全计数，异常仍由事务协调器回滚。</summary>
     /// <param name="userId">当前认证用户标识。</param>
     /// <param name="endpointId">待验证端点标识。</param>
     /// <param name="request">用户提交的验证码。</param>
@@ -56,11 +79,15 @@ internal sealed class RecipientEndpointVerificationService(
         Guid endpointId,
         VerifyRecipientEndpointCodeRequest request,
         CancellationToken cancellationToken = default) =>
-        transaction.ExecuteResultAsync(
+        transaction.ExecuteAsync(
             token => VerifyCodeCoreAsync(userId, endpointId, request, token),
             cancellationToken);
 
-    private async Task<Result<SendRecipientEndpointVerificationResponse>> SendCodeCoreAsync(
+    /// <summary>在短事务中生成并保存挑战，原始验证码只在当前调用内存中传递。</summary>
+    /// <param name="userId">认证用户标识。</param>
+    /// <param name="endpointId">用户拥有的待验证端点。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private async Task<Result<PreparedVerificationCode>> PrepareCodeAsync(
         Guid userId,
         Guid endpointId,
         CancellationToken cancellationToken)
@@ -69,13 +96,13 @@ internal sealed class RecipientEndpointVerificationService(
             .ConfigureAwait(false);
         if (endpoint is null)
         {
-            return Result<SendRecipientEndpointVerificationResponse>.Failure(EndpointNotFound());
+            return Result<PreparedVerificationCode>.Failure(EndpointNotFound());
         }
 
         if (!string.Equals(endpoint.EndpointKindKey, "email", StringComparison.Ordinal)
             && !string.Equals(endpoint.EndpointKindKey, "sms", StringComparison.Ordinal))
         {
-            return Result<SendRecipientEndpointVerificationResponse>.Failure(ValidationFailed());
+            return Result<PreparedVerificationCode>.Failure(ValidationFailed());
         }
 
         var scope = NotificationInboxScope.Resolve(currentTenant);
@@ -91,7 +118,7 @@ internal sealed class RecipientEndpointVerificationService(
         if (latestCreated is DateTimeOffset createdAt
             && now - createdAt < SendCooldown)
         {
-            return Result<SendRecipientEndpointVerificationResponse>.Failure(new Error(
+            return Result<PreparedVerificationCode>.Failure(new Error(
                 NotificationsErrorCodes.RecipientEndpointVerificationSendCooldown,
                 "A verification code was sent recently.",
                 ErrorType.Conflict));
@@ -121,40 +148,17 @@ internal sealed class RecipientEndpointVerificationService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var rawValue = protector.Unprotect(endpoint.ProtectedValue);
-        var sendResult = string.Equals(endpoint.EndpointKindKey, "sms", StringComparison.Ordinal)
-            ? await smsSender.SendAsync(
-                    endpoint.ProviderProfileVersionId,
-                    rawValue,
-                    code,
-                    cancellationToken)
-                .ConfigureAwait(false)
-            : await mailSender.SendAsync(
-                    endpoint.ProviderProfileVersionId,
-                    rawValue,
-                    code,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        if (!sendResult.IsSuccess)
-        {
-            await commandExecutor.ExecuteAsync(
-                    NotificationRecipientEndpointChallengeSql.MarkConsumed,
-                    NotificationPlatformSqlParameters.Create(
-                        ("Id", challengeId),
-                        ("TenantScopeKey", scope.TenantScopeKey),
-                        ("UserId", userId),
-                        ("ConsumedAtUtc", clock.UtcNow)),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return Result<SendRecipientEndpointVerificationResponse>.Failure(sendResult.Error!);
-        }
-
-        return Result<SendRecipientEndpointVerificationResponse>.Success(
-            new SendRecipientEndpointVerificationResponse(
-                expiresAtUtc,
-                now.Add(SendCooldown)));
+        return Result<PreparedVerificationCode>.Success(new PreparedVerificationCode(
+            challengeId, scope.TenantScopeKey, endpoint.ProviderProfileVersionId, endpoint.EndpointKindKey,
+            protector.Unprotect(endpoint.ProtectedValue), code,
+            new SendRecipientEndpointVerificationResponse(expiresAtUtc, now.Add(SendCooldown))));
     }
 
+    /// <summary>在已锁定端点的短事务中验证预算并原子消费挑战。</summary>
+    /// <param name="userId">认证用户。</param>
+    /// <param name="endpointId">待验证端点。</param>
+    /// <param name="request">验证码请求。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     private async Task<Result<RecipientEndpointResponse>> VerifyCodeCoreAsync(
         Guid userId,
         Guid endpointId,
@@ -227,7 +231,7 @@ internal sealed class RecipientEndpointVerificationService(
             return Result<RecipientEndpointResponse>.Failure(CodeInvalid());
         }
 
-        await commandExecutor.ExecuteAsync(
+        var consumed = await commandExecutor.ExecuteAsync(
                 NotificationRecipientEndpointChallengeSql.MarkConsumed,
                 NotificationPlatformSqlParameters.Create(
                     ("Id", challenge.Id),
@@ -236,6 +240,12 @@ internal sealed class RecipientEndpointVerificationService(
                     ("ConsumedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
+        if (consumed != 1)
+        {
+            // 即使遭遇并行失效或删除，也只有真正消费挑战的请求能验证端点。
+            return Result<RecipientEndpointResponse>.Failure(ChallengeMissing());
+        }
+
         var updated = await commandExecutor.ExecuteAsync(
                 NotificationRecipientEndpointSql.MarkVerified,
                 NotificationPlatformSqlParameters.Create(
@@ -262,6 +272,10 @@ internal sealed class RecipientEndpointVerificationService(
             : Result<RecipientEndpointResponse>.Success(Map(record));
     }
 
+    /// <summary>锁定当前用户端点，整个验证码事务保持相同锁顺序。</summary>
+    /// <param name="userId">认证用户。</param>
+    /// <param name="endpointId">待验证端点。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     private async Task<NotificationRecipientEndpointProtectedRecord?> FindOwnedPendingEndpointAsync(
         Guid userId,
         Guid endpointId,
@@ -269,7 +283,12 @@ internal sealed class RecipientEndpointVerificationService(
     {
         var scope = NotificationInboxScope.Resolve(currentTenant);
         return await queryExecutor.QuerySingleOrDefaultAsync<NotificationRecipientEndpointProtectedRecord>(
-                NotificationRecipientEndpointSql.FindOwnedPendingProtected,
+                databaseOptions.Value.Provider switch
+                {
+                    DatabaseProvider.SqlServer => NotificationRecipientEndpointSql.FindOwnedPendingProtected,
+                    DatabaseProvider.MySql => NotificationRecipientEndpointSql.FindOwnedPendingProtectedMySql,
+                    _ => throw new NotSupportedException("Unsupported notification database provider."),
+                },
                 NotificationPlatformSqlParameters.Create(
                     ("Id", endpointId),
                     ("TenantScopeKey", scope.TenantScopeKey),
@@ -349,4 +368,15 @@ internal sealed class RecipientEndpointVerificationService(
         NotificationsErrorCodes.RecipientEndpointVerificationAttemptsExhausted,
         "The verification attempts were exhausted.",
         ErrorType.Conflict);
+    /// <summary>已提交挑战的单次发送参数，不记录或持久化原始验证码与端点。</summary>
+    /// <param name="ChallengeId">用于消费和识别挑战的稳定标识。</param>
+    /// <param name="TenantScopeKey">可信租户作用域。</param>
+    /// <param name="ProviderProfileVersionId">端点绑定的提供程序版本。</param>
+    /// <param name="EndpointKindKey">端点渠道类型。</param>
+    /// <param name="Recipient">仅用于本次外发的端点原值。</param>
+    /// <param name="Code">仅用于本次外发的原始验证码。</param>
+    /// <param name="Response">不含验证码的客户端应答。</param>
+    private sealed record PreparedVerificationCode(
+        Guid ChallengeId, string TenantScopeKey, Guid ProviderProfileVersionId, string EndpointKindKey,
+        string Recipient, string Code, SendRecipientEndpointVerificationResponse Response);
 }

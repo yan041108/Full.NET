@@ -1,0 +1,29 @@
+﻿module,project_count,csharp_files,review_depth,reviewed_scope,findings,boundary_recommendation,module_directory,remaining
+Identity,2,283,全局结构扫描＋所列调用链/实现抽查,认证、TOTP、API Key、OIDC、Files 合同依赖,R14/R18,保留身份与授权边界；补齐文件依赖和 AOT 路径,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Identity,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Auditing,1,68,全局结构扫描＋所列调用链/实现抽查,微批协调器及审计接入结构,—,保留审计边界；本轮未进行突发流量或丢弃策略压测,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Auditing,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Files,2,55,全局结构扫描＋所列调用链/实现抽查,Host 文件 SQL、上传及内容 Contract 实现,R03,保留文件所有权；增加明确的租户资源合同,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Files,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Document,1,81,全局结构扫描＋所列调用链/实现抽查,版本删除的跨模块事务调用、项目依赖,R18,保留文档生命周期；拆开文件引用操作与本地事务,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Document,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Notifications,1,136,全局结构扫描＋所列调用链/实现抽查,模块装配、验证码、凭据解析、意图幂等、投递租约,R01/R08/R14/R18,保留通知核心；协议和审批同步以适配边界隔离,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Notifications,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Calendar,1,16,全局结构扫描＋所列调用链/实现抽查,个人日程管理、所有者约束、AOT 错误定位,R14,当前独立边界可保留；多端行为未实测,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Calendar,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Platform,1,29,全局结构扫描＋所列调用链/实现抽查,模块注册、备份制品控制、发布说明结构,—,限定平台控制面职责；避免继续吸收无归属业务,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Platform,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Regions,1,21,全局结构扫描＋所列调用链/实现抽查,行政区划导入及层级校验,—,保留基础区划边界；大数据导入 SQL 往返待测,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Regions,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Jobs,1,44,全局结构扫描＋所列调用链/实现抽查,执行器租约、续约、批量查询；单元测试失败归因,R18,保留任务调度边界；更新过期测试替身,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Jobs,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Messaging,1,33,全局结构扫描＋所列调用链/实现抽查,切流协调器及 Outbox/Inbox 结构,—,保留可靠交付边界；CDC/Kafka/切流运行验证未执行,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Messaging,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Tenancy,1,66,全局结构扫描＋所列调用链/实现抽查,租户解析、上下文、模块依赖及导出表面,R18,保留租户管理；同步文件依赖声明与公开合同清单,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Tenancy,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Organization,2,65,全局结构扫描＋所列调用链/实现抽查,模块注册、Contracts 及导入依赖,R18,保留组织数据所有权；具体岗位/组织 CRUD 未逐项复核,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Organization,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+ImportExport,2,23,全局结构扫描＋所列调用链/实现抽查,任务 SQL、领取、租户切换、文件访问,R02/R03/R17/R18,统一编排与任务恢复；各业务模块保留导入规则,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.ImportExport,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Reporting,2,57,全局结构扫描＋所列调用链/实现抽查,数据访问依赖、导出任务、收集/渲染/文件调用,R02/R03/R17/R18,保留报表定义与执行；提供程序适配移出业务核心,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Reporting,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Printing,2,22,全局结构扫描＋所列调用链/实现抽查,布局保存过滤、HTML 渲染与 Vue 预览链,R07/R13,保留打印模板；明确不可信布局和预览隔离边界,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Printing,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Ai,2,53,全局结构扫描＋所列调用链/实现抽查,会话、流式响应、配额、取消、模型配置 SQL,R09/R10/R11/R13/R14/R16,保留 AI 编排；分清提供程序、用量和生成执行职责,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Ai,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Payments,2,50,全局结构扫描＋所列调用链/实现抽查,订单/退款编号、外部调用事务、支付回调关联,R04/R05/R06/R13/R18,保留支付聚合；集中维护幂等和状态转换不变量,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Payments,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+GoView,2,18,全局结构扫描＋所列调用链/实现抽查,模块依赖、项目访问及持久化路径抽查,R13,保留交互式可视化；与 Reporting 划清定义和数据访问职责,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.GoView,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+K3Cloud,2,26,全局结构扫描＋所列调用链/实现抽查,创建/重试事务与 ERP 外部调用,R05/R13,作为外部 ERP 适配边界保留；避免承载本地业务所有权,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.K3Cloud,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Ocr,2,27,全局结构扫描＋所列调用链/实现抽查,识别事务、Files 合同与提供程序调用,R05/R13/R18,保留识别任务边界；缩短事务及明确文件作用域,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Ocr,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Settings,2,61,全局结构扫描＋所列调用链/实现抽查,诊断策略管理、提交与缓存失效顺序,—,保留配置治理；本轮未验证多实例缓存传播,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Settings,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+CodeGeneration,1,45,全局结构扫描＋所列调用链/实现抽查,生成/应用控制结构及代码搜索,R18,保留开发工具边界；生成制品及契约漂移需收敛,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.CodeGeneration,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+SerialNumbers,2,20,全局结构扫描＋所列调用链/实现抽查,Contracts、模块依赖及 DataApproval 接合,R18,序号规则与结果归本模块；勿把规则迁入审批引擎,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.SerialNumbers,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+ObservabilityAdmin,1,22,全局结构扫描＋所列调用链/实现抽查,日志文件控制面与读取边界,—,保留运维查询边界；不可把审计写入职责迁入此处,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.ObservabilityAdmin,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Workflow,2,101,全局结构扫描＋所列调用链/实现抽查,模块注册、审批集成、表单附件前后端链,R15/R18,保留流程运行时；业务审批结果由所属模块应用,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Workflow,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+DataApproval,2,31,全局结构扫描＋所列调用链/实现抽查,申请服务、业务应用端口及依赖方向,R18,保留审批应用编排；明确 Workflow/SerialNumbers 合同方向,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.DataApproval,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Mqtt,1,20,全局结构扫描＋所列调用链/实现抽查,发布流程、请求校验和幂等比较,R12,保留受控消息接入；与 Messaging 的可靠业务事件语义分开,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Mqtt,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行
+Cryptography,1,17,全局结构扫描＋所列调用链/实现抽查,模块依赖、密钥控制及调用结构抽查,—,保留密钥与密码操作边界；本轮未做密码学实现认证,G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Cryptography,其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行

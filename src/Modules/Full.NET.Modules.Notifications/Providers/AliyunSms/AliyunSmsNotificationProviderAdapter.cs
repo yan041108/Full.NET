@@ -56,7 +56,7 @@ internal sealed partial class AliyunSmsNotificationProviderAdapter(
             return Failed(NotificationDeliveryRetry.Permanent);
         }
 
-        var accessKeySecret = await secretResolver.ResolveAsync(request.SecretReference, cancellationToken)
+        var accessKeySecret = await secretResolver.ResolveAsync(Descriptor.ProviderTypeKey, request.SecretReference, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrEmpty(accessKeySecret))
         {

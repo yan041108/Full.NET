@@ -52,10 +52,10 @@ const createForm = reactive({
   payloadJson: DEFAULT_PAYLOAD
 });
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -125,7 +125,7 @@ onMounted(() => {
 <template>
   <div class="k3cloud-document-syncs-view">
     <ArtTableHeader :title="t('k3cloudDocumentSyncs.title')">
-      <PermissionGate permission="k3cloud.document_syncs.create">
+      <PermissionGate code="k3cloud.document_syncs.create">
         <ElButton data-testid="k3cloud-document-sync-create" type="primary" :icon="Plus" @click="openCreate">
           {{ t('k3cloudDocumentSyncs.createSync') }}
         </ElButton>
@@ -147,12 +147,13 @@ onMounted(() => {
         </ElTableColumn>
         <ElTableColumn prop="externalBillNo" :label="t('k3cloudDocumentSyncs.fieldExternalBillNo')" min-width="120" />
         <ElTableColumn prop="lastErrorMessage" :label="t('k3cloudDocumentSyncs.fieldLastError')" min-width="180" />
-        <ElTableColumn :label="t('k3cloudDocumentSyncs.actions')" width="120" fixed="right">
+        <!-- @vue-generic {K3CloudDocumentSync} -->
+          <ElTableColumn :label="t('k3cloudDocumentSyncs.actions')" width="120" fixed="right">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="k3cloud.document_syncs.retry">
-                <ArtTableActionButton
-                  data-testid="k3cloud-document-sync-retry"
+              <PermissionGate code="k3cloud.document_syncs.retry">
+                <ArtTableActionButton type="delete"
+                  test-id="k3cloud-document-sync-retry"
                   :disabled="row.statusKey === 'submitted'"
                   :loading="retryingId === row.id"
                   @click="runRetry(row)"
@@ -176,7 +177,7 @@ onMounted(() => {
     </ElCard>
 
     <ArtFormDialog
-      v-model="createDialogVisible"
+      v-model:open="createDialogVisible"
       :title="t('k3cloudDocumentSyncs.createTitle')"
       :confirm-loading="creating"
       @confirm="submitCreate"

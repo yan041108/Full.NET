@@ -46,7 +46,7 @@ export async function updateRegistrationPolicy(
 ): Promise<RegistrationPolicy> {
   const value = await request<unknown>(
     '/api/v1/identity/registration-policy',
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isRegistrationPolicy(value)) {
@@ -76,7 +76,7 @@ export async function createRegistrationWay(
 ): Promise<RegistrationWay> {
   const value = await request<unknown>(
     '/api/v1/identity/registration-ways',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isRegistrationWay(value)) {
@@ -92,7 +92,7 @@ export async function updateRegistrationWay(
 ): Promise<RegistrationWay> {
   const value = await request<unknown>(
     `/api/v1/identity/registration-ways/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isRegistrationWay(value)) {

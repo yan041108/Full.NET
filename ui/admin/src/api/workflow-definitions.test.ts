@@ -16,6 +16,7 @@ vi.mock('./http', () => ({
 const response = {
   id: '0198f955-899d-7000-8000-000000000001',
   definitionKey: 'expense',
+  statusKey: 'active',
   draft: { schemaVersion: 1, nodes: [] },
   draftRevision: 1,
   latestPublishedVersionId: null,
@@ -33,7 +34,7 @@ describe('workflow definition 管理 API', () => {
     await createWorkflowDefinition('expense', response.draft);
     expect(http.request).toHaveBeenLastCalledWith('/api/v1/workflow/definitions', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ definitionKey: 'expense', draft: response.draft })
+      body: JSON.stringify({ definitionKey: 'expense', draft: response.draft, businessTitleTemplate: null })
     }), undefined);
 
     await getWorkflowDefinition(response.id);
@@ -44,7 +45,7 @@ describe('workflow definition 管理 API', () => {
     await updateWorkflowDefinitionDraft(response.id, 1, response.draft);
     expect(http.request).toHaveBeenLastCalledWith(`/api/v1/workflow/definitions/${response.id}/draft`, expect.objectContaining({
       method: 'PUT',
-      body: JSON.stringify({ expectedRevision: 1, draft: response.draft })
+      body: JSON.stringify({ expectedRevision: 1, draft: response.draft, businessTitleTemplate: null })
     }), undefined);
   });
 

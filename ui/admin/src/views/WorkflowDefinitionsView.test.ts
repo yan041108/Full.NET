@@ -38,7 +38,7 @@ vi.mock('../api/workflow-forms', () => ({ listWorkflowForms: vi.fn() }));
 
 const definition = {
   id: '01912345-6789-7abc-8def-0123456789ab',
-  definitionKey: 'purchase.approval',
+  definitionKey: 'purchase.approval', statusKey: 'active',
   draft: {
     schemaVersion: 1,
     nodes: [
@@ -81,6 +81,7 @@ function mountWithPermissions(
     actorScope: 'tenant',
     scope: 'tenant',
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '01912345-6789-7abc-8def-0123456789a2',
     preferredLocale: 'zh-CN',
@@ -151,7 +152,7 @@ describe('WorkflowDefinitionsView', () => {
     });
     vi.mocked(listWorkflowForms).mockReset().mockResolvedValue([{
       id: '01912345-6789-7abc-8def-0123456789a4',
-      formKey: 'purchase.form',
+      formKey: 'purchase.form', statusKey: 'active', version: 1,
       draft: { schemaVersion: 1, adapterVersion: 1, sections: [] },
       draftRevision: 1,
       latestPublishedVersionId: version.formVersionId,
@@ -233,7 +234,7 @@ describe('WorkflowDefinitionsView', () => {
     expect(wrapper.find('[data-testid="workflow-vue3-designer-stub"]').exists()).toBe(true);
     await wrapper.get('[data-testid="workflow-definition-save"]').trigger('click');
     await flushPromises();
-    expect(updateWorkflowDefinitionDraft).toHaveBeenCalledWith(definition.id, 2, definition.draft);
+    expect(updateWorkflowDefinitionDraft).toHaveBeenCalledWith(definition.id, 2, definition.draft, '');
 
     await wrapper.get('[data-testid="workflow-definition-publish"]').trigger('click');
     await flushPromises();

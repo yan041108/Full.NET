@@ -273,7 +273,7 @@ internal sealed class DingTalkApprovalSyncService(
         try
         {
             var appSecret = await secretResolver
-                .ResolveAsync(_options.AppSecretReference, cancellationToken)
+                .ResolveAsync(Providers.DingTalk.DingTalkNotificationProviderAdapter.ProviderTypeKeyValue, _options.AppSecretReference, cancellationToken)
                 .ConfigureAwait(false);
             if (string.IsNullOrEmpty(appSecret))
             {

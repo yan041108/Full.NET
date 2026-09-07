@@ -129,10 +129,20 @@ internal sealed class NotificationDeliveryBatchProcessor(
             .ConfigureAwait(false);
     }
 
+    /// <summary>执行单条投递，在准备前和外发前确认所有权，防止批次排队耗尽租约后继续发送。</summary>
+    /// <param name="delivery">领取时的投递和租约快照。</param>
+    /// <param name="cancellationToken">停止处理的取消令牌。</param>
     private async Task ProcessOneAsync(
         NotificationDeliveryRecord delivery,
         CancellationToken cancellationToken)
     {
+        var owned = await RenewLeaseAsync(delivery, cancellationToken).ConfigureAwait(false);
+        if (owned is null)
+        {
+            return;
+        }
+
+        delivery = owned;
         var started = clock.UtcNow;
         var stopwatch = Stopwatch.StartNew();
         string providerType = "unknown";
@@ -148,8 +158,18 @@ internal sealed class NotificationDeliveryBatchProcessor(
             }
             else
             {
+                // 附件准备也可能耗时；外发前再次确认数据库仍承认本轮所有权。
+                owned = await RenewLeaseAsync(delivery, cancellationToken).ConfigureAwait(false);
+                if (owned is null)
+                {
+                    return;
+                }
+
+                delivery = owned;
                 providerType = prepared.ProviderTypeKey;
-                var send = await prepared.Adapter.SendAsync(prepared.Request, cancellationToken)
+                using var providerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                providerCancellation.CancelAfter(TimeSpan.FromSeconds(_options.LeaseSeconds * 0.8));
+                var send = await prepared.Adapter.SendAsync(prepared.Request, providerCancellation.Token)
                     .ConfigureAwait(false);
                 resultCategory = NormalizeCategory(send);
                 providerMessageId = send.ProviderMessageId;
@@ -159,6 +179,11 @@ internal sealed class NotificationDeliveryBatchProcessor(
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // 本次内部超时无法证明未发送，计入 unknown 和有界退避；宿主取消由上面的分支处理。
+            resultCategory = NotificationDeliveryRetry.Unknown;
         }
         catch (Exception exception)
         {
@@ -190,6 +215,7 @@ internal sealed class NotificationDeliveryBatchProcessor(
                                 ("StatusKey", status),
                                 ("NextAttemptAtUtc", nextAttempt),
                                 ("Now", now),
+                                ("LeaseOwnerKey", delivery.LeaseOwnerKey),
                                 ("LeaseGeneration", delivery.LeaseGeneration),
                                 ("Revision", delivery.Revision)),
                             token)
@@ -233,6 +259,30 @@ internal sealed class NotificationDeliveryBatchProcessor(
         await attachmentCoordinator
             .TryReleaseIfTerminalAsync(delivery.IntentId, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>通过条件更新确认并续展当前租约，不复活已经过期或换代的执行权。</summary>
+    /// <param name="delivery">当前执行者持有的领取快照。</param>
+    /// <param name="cancellationToken">取消数据库操作的令牌。</param>
+    private async Task<NotificationDeliveryRecord?> RenewLeaseAsync(
+        NotificationDeliveryRecord delivery,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        if (delivery.LeaseExpiresAtUtc is not { } expiresAt || expiresAt <= now
+            || string.IsNullOrEmpty(delivery.LeaseOwnerKey))
+        {
+            return null;
+        }
+
+        var renewedExpiry = now.AddSeconds(_options.LeaseSeconds);
+        var renewed = await commandExecutor.ExecuteAsync(
+            NotificationPlatformSql.RenewDeliveryLease,
+            NotificationPlatformSqlParameters.Create(
+                ("Id", delivery.Id), ("LeaseOwnerKey", delivery.LeaseOwnerKey),
+                ("LeaseGeneration", delivery.LeaseGeneration), ("Revision", delivery.Revision),
+                ("Now", now), ("LeaseExpiresAtUtc", renewedExpiry)), cancellationToken).ConfigureAwait(false);
+        return renewed == 1 ? delivery with { LeaseExpiresAtUtc = renewedExpiry } : null;
     }
 
     private async Task<PreparedSend?> PrepareRequestAsync(

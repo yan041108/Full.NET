@@ -18,7 +18,7 @@ export async function executeReportingDefinition(
   });
   const value = await request<unknown>(
     `/api/v1/reporting/definitions/${encodeURIComponent(definitionId)}/execute?${params.toString()}`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isReportingExecutionPage(value)) {

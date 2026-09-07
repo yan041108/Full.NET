@@ -84,41 +84,21 @@ public sealed class FullNetModuleCatalogTests
         services.AddFullNetApplicationModules(CreateConfiguration(), FullNetHostProfile.Api);
 
         using var provider = services.BuildServiceProvider();
-        var modules = provider.GetRequiredService<FullNetModuleRegistry>()
-            .GetOrderedModules()
-            .Select(module => module.GetType())
-            .ToArray();
-        CollectionAssert.AreEqual(
-            new[]
+        var modules = provider.GetRequiredService<FullNetModuleRegistry>().GetOrderedModules().ToArray();
+        CollectionAssert.AreEquivalent(FullNetModuleSelection.OfficialModuleNames.ToArray(),
+            modules.Select(module => module.Name).ToArray());
+        var orderedNames = modules.Select(module => module.Name).ToList();
+        foreach (var module in modules)
+        {
+            foreach (var dependency in module.Dependencies)
             {
-                typeof(IdentityModule),
-                typeof(AuditingModule),
-                typeof(CalendarModule),
-                typeof(CodeGenerationModule),
-                typeof(CryptographyModule),
-                typeof(FilesModule),
-                typeof(TenancyModule),
-                typeof(OrganizationModule),
-                typeof(NotificationsModule),
-                typeof(WorkflowModule),
-                typeof(DataApprovalModule),
-                typeof(DocumentModule),
-                typeof(SettingsModule),
-                typeof(JobsModule),
-                typeof(MessagingModule),
-                typeof(MqttModule),
-                typeof(ObservabilityAdminModule),
-                typeof(PlatformModule),
-                typeof(RegionsModule),
-                typeof(SerialNumbersModule),
-            },
-            modules,
-            string.Join(
-                Environment.NewLine,
-                modules.Select(module => module.FullName)));
+                Assert.IsTrue(orderedNames.IndexOf(dependency) < orderedNames.IndexOf(module.Name),
+                    $"{dependency} 必须先于 {module.Name} 装配。");
+            }
+        }
 
         var catalog = provider.GetRequiredService<IFullNetModuleCatalog>();
-        Assert.HasCount(20, catalog.List());
+        Assert.HasCount(FullNetModuleSelection.OfficialModuleNames.Count, catalog.List());
         Assert.IsNotNull(catalog.FindByKey("Identity"));
         Assert.AreEqual(
             FullNetModuleSourceClassification.Official,

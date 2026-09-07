@@ -25,4 +25,7 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiAgentToolCatalogItem))]
 [JsonSerializable(typeof(AiAgentToolCallListItem))]
 [JsonSerializable(typeof(PagedResult<AiAgentToolCallListItem>))]
+[JsonSerializable(typeof(AiChatStreamDeltaEvent))]
+[JsonSerializable(typeof(AiChatStreamDoneEvent))]
+[JsonSerializable(typeof(AiChatStreamErrorEvent))]
 internal partial class AiJsonSerializerContext : JsonSerializerContext;

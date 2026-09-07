@@ -1264,11 +1264,14 @@ public sealed class DependencyRulesTests
         }
     }
 
+    /// <summary>扫描自有仓库代码，跳过构建产物和包管理器维护的外部依赖树。</summary>
+    /// <param name="path">待遍历目录。</param>
     private static bool IsExcludedRepositoryScanDirectory(string path)
     {
         var name = Path.GetFileName(path);
         return name.Equals(".git", StringComparison.OrdinalIgnoreCase)
             || name.Equals(".worktrees", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("node_modules", StringComparison.OrdinalIgnoreCase)
             || name.Equals("bin", StringComparison.OrdinalIgnoreCase)
             || name.Equals("obj", StringComparison.OrdinalIgnoreCase);
     }
@@ -1435,6 +1438,9 @@ internal static class ProductionAssemblies
         typeof(Full.NET.Modules.Printing.PrintingModule).Assembly,
         typeof(Full.NET.Modules.Ai.AiModule).Assembly,
         typeof(Full.NET.Modules.Payments.PaymentsModule).Assembly,
+        typeof(Full.NET.Modules.GoView.GoViewModule).Assembly,
+        typeof(Full.NET.Modules.K3Cloud.K3CloudModule).Assembly,
+        typeof(Full.NET.Modules.Ocr.OcrModule).Assembly,
         typeof(Full.NET.Modules.Mqtt.MqttModule).Assembly,
         typeof(Full.NET.Modules.Cryptography.CryptographyModule).Assembly,
     ];

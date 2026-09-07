@@ -556,6 +556,22 @@ internal static class NotificationPlatformSql
         """,
         SqlDataScope.Global);
 
+    /// <summary>仅续展仍有效且未被其他 Worker 接管的租约；两种数据库使用相同条件更新。</summary>
+    public static readonly SqlStatement RenewDeliveryLease = new(
+        "notifications.platform.delivery.renew_lease",
+        """
+        UPDATE fn_notifications_delivery
+        SET LeaseExpiresAtUtc = @LeaseExpiresAtUtc
+        WHERE Id = @Id
+          AND StatusKey IN ('accepted', 'unknown')
+          AND LeaseOwnerKey = @LeaseOwnerKey
+          AND LeaseGeneration = @LeaseGeneration
+          AND Revision = @Revision
+          AND LeaseExpiresAtUtc > @Now
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>只有持有有效租约的执行者可以写入本轮结果。</summary>
     public static readonly SqlStatement CompleteDelivery = new(
         "notifications.platform.delivery.complete",
         """
@@ -569,6 +585,8 @@ internal static class NotificationPlatformSql
         WHERE Id = @Id
           AND LeaseGeneration = @LeaseGeneration
           AND Revision = @Revision
+          AND LeaseOwnerKey = @LeaseOwnerKey
+          AND LeaseExpiresAtUtc > @Now
         """,
         SqlDataScope.Global);
 

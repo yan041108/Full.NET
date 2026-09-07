@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
   ElAlert,
@@ -88,15 +89,15 @@ function statusTagType(statusKey: string): 'success' | 'danger' | 'info' {
 
 function statusLabel(statusKey: string): string {
   const key = `reportingExportTasks.status.${statusKey}` as const;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
 }
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
-  return { title: t(fallbackKey), status: 500, type: 'about:blank' };
+  return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 function resetParameters(): void {
@@ -260,6 +261,7 @@ onMounted(async () => {
           </ElTableColumn>
           <ElTableColumn prop="rowCount" :label="t('reportingExportTasks.fieldRowCount')" width="100" />
           <ElTableColumn prop="createdAtUtc" :label="t('reportingExportTasks.fieldCreatedAt')" min-width="180" />
+          <!-- @vue-generic {ReportingExportTask} -->
           <ElTableColumn :label="t('reportingExportTasks.actions')" width="120" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>

@@ -29,7 +29,7 @@ export function invalidateObservabilityCachePolicy(
   request: CacheInvalidationRequest,
   signal?: AbortSignal
 ): Promise<CacheInvalidationResult> {
-  return observabilityInvalidateCachePolicy(http, { entryName, request }, signal);
+  return observabilityInvalidateCachePolicy(http, { entryName, body: request }, signal);
 }
 
 /** 导出缓存策略与失效结果模型，供缓存管理页共享契约。 */

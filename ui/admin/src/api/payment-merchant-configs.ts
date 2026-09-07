@@ -64,7 +64,7 @@ export async function createPaymentMerchantConfig(
 ): Promise<PaymentMerchantConfig> {
   const value = await request<unknown>(
     '/api/v1/payments/merchant-configs',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPaymentMerchantConfig(value)) {
@@ -80,7 +80,7 @@ export async function updatePaymentMerchantConfig(
 ): Promise<PaymentMerchantConfig> {
   const value = await request<unknown>(
     `/api/v1/payments/merchant-configs/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPaymentMerchantConfig(value)) {

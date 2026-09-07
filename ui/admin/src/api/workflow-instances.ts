@@ -92,7 +92,7 @@ export async function listWorkflowInstances(
   } = {},
   signal?: AbortSignal
 ) {
-  return workflowListInstances(http, { query }, signal);
+  return workflowListInstances(http, query, signal);
 }
 
 /** 分页查询当前用户发起的工作流实例。 */
@@ -108,7 +108,7 @@ export async function listMyWorkflowInstances(
   } = {},
   signal?: AbortSignal
 ) {
-  return workflowListMyInstances(http, { query }, signal);
+  return workflowListMyInstances(http, query, signal);
 }
 
 /** 读取工作流实例详情，供待办页与详情页回到同一权威实例快照。 */

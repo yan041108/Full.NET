@@ -2,6 +2,7 @@ using Full.NET.Data.Abstractions;
 
 namespace Full.NET.Modules.Mqtt.Persistence;
 
+/// <summary>MQTT 控制面的显式 SQL，消息摘要仅用于内部幂等比较。</summary>
 internal static class MqttSql
 {
     private const string ClientColumns =
@@ -15,7 +16,7 @@ internal static class MqttSql
         message.Id, message.TenantId, message.ClientId, client.ClientKey,
         message.Topic, message.PayloadSizeBytes, message.Qos, message.Status,
         message.IdempotencyKey, message.SummaryMessage, message.PublishedAtUtc,
-        message.CreatedAtUtc, message.CreatedByUserId
+        message.CreatedAtUtc, message.CreatedByUserId, message.PayloadDigest
         """;
 
     private const string MessageFromClause =
@@ -113,7 +114,7 @@ internal static class MqttSql
             $"""
             SELECT {MessageColumns}
             {MessageFromClause}
-            WHERE message.TenantId = @TenantId
+            WHERE (message.TenantId = @TenantId OR (message.TenantId IS NULL AND @TenantId IS NULL))
               AND message.IdempotencyKey = @IdempotencyKey
             """,
             SqlDataScope.HostOnly);
@@ -123,10 +124,10 @@ internal static class MqttSql
             "mqtt.insert_message",
             """
             INSERT INTO fn_mqtt_message
-                (Id, TenantId, ClientId, Topic, PayloadSizeBytes, Qos, Status,
+                (Id, TenantId, ClientId, Topic, PayloadSizeBytes, PayloadDigest, Qos, Status,
                  IdempotencyKey, SummaryMessage, PublishedAtUtc, CreatedAtUtc, CreatedByUserId)
             VALUES
-                (@Id, @TenantId, @ClientId, @Topic, @PayloadSizeBytes, @Qos, @Status,
+                (@Id, @TenantId, @ClientId, @Topic, @PayloadSizeBytes, @PayloadDigest, @Qos, @Status,
                  @IdempotencyKey, @SummaryMessage, @PublishedAtUtc, @CreatedAtUtc, @CreatedByUserId)
             """,
             SqlDataScope.HostOnly);

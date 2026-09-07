@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkflowTodoDetail } from '@fullnet/client-contracts';
+import type { WorkflowTodoDetail, WorkflowTodoListItemResponse } from '@fullnet/client-contracts';
 import { useSessionStore } from '../auth/session';
 import {
   approveWorkflowTodo,
@@ -24,7 +24,7 @@ vi.mock('../api/workflow-todos', () => ({
   returnWorkflowTodo: vi.fn()
 }));
 
-const todo = {
+const todo: WorkflowTodoListItemResponse = {
   id: '01912345-6789-7abc-8def-0123456789ab',
   instanceId: '01912345-6789-7abc-8def-0123456789ac',
   stepId: '01912345-6789-7abc-8def-0123456789ad',
@@ -48,7 +48,7 @@ const historyTodo = {
   resultActionKey: 'approve'
 };
 
-const paged = (items: typeof todo[]) => ({
+const paged = (items: WorkflowTodoListItemResponse[]) => ({
   items,
   page: 1,
   pageSize: 20,
@@ -61,9 +61,6 @@ const detail: WorkflowTodoDetail = {
   stepId: todo.stepId,
   assigneeUserId: '01912345-6789-7abc-8def-0123456789ae',
   statusKey: 'pending',
-  arrivedAtUtc: '2026-08-30T00:00:00Z',
-  completedAtUtc: null,
-  resultActionKey: null,
   revision: 3,
   formVersionId: '01912345-6789-7abc-8def-0123456789af',
   formSchemaHash: 'a'.repeat(64),
@@ -102,6 +99,7 @@ function mountWithPermissions(permissions: string[]) {
     actorScope: 'tenant',
     scope: 'tenant',
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '01912345-6789-7abc-8def-0123456789a1',
     preferredLocale: 'zh-CN',

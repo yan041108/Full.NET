@@ -659,7 +659,8 @@ function toProblem(
             <span translate="no">{{ row.changeDescription ?? '—' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('users.columnActions')" width="280" align="center">
+        <!-- @vue-generic {HostDocumentVersionResponse} -->
+          <el-table-column :label="t('users.columnActions')" width="280" align="center">
           <template #default="{ row }">
             <PermissionGate code="document.host_documents.read">
               <el-button

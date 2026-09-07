@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Globalization;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
@@ -38,7 +39,8 @@ public sealed class SmtpNotificationProviderExternalTests
             {"fromAddress":"{{username}}","fromDisplayName":"Full.NET SMTP Test","host":"{{host}}","port":{{port}},"secureSocketMode":"ssl_on_connect","username":"{{username}}"}
             """;
         var adapter = new SmtpNotificationProviderAdapter(
-            new EnvironmentNotificationSecretResolver(),
+            new EnvironmentNotificationSecretResolver(new ConfigurationBuilder().AddInMemoryCollection(
+                new Dictionary<string, string?> { ["Notifications:SecretReferences:email.smtp:0"] = $"env://{PasswordVariable}" }).Build()),
             new MailKitSmtpTransport());
         var result = await adapter.SendAsync(
             new NotificationProviderRequest(

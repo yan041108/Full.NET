@@ -110,6 +110,23 @@ Profile 管理遵守以下不变量：
 - Intent 创建时固定 BindingVersion 与 ProviderProfileVersion，避免在途消息因配置修改漂移。
 - Profile 禁用阻止新 Intent 选择；是否停止、排空或转移在途 Delivery 必须由显式运维动作决定并审计。
 
+### 7.1 环境秘密引用的部署登记
+
+环境变量 Resolver 仅允许进程配置 `Notifications:SecretReferences:{ProviderTypeKey}` 下明确登记的完整 `env://VARIABLE_NAME` 引用。登记由部署者提供，Profile API 不能增加登记；未登记或跨提供程序引用均失败关闭。升级已有部署时，必须先登记实际使用的引用，否则原 Profile 会被拒绝解析。
+
+```json
+{
+  "Notifications": {
+    "SecretReferences": {
+      "email.smtp": ["env://FULLNET_SMTP_SECRET"],
+      "sms.aliyun": ["env://FULLNET_ALIYUN_SMS_SECRET"]
+    }
+  }
+}
+```
+
+这里只声明引用，秘密值继续由受保护的环境注入。其他提供程序使用闭合目录中的完整键 `im.wecom`、`im.dingtalk`、`im.wechat_miniprogram`；变量名前缀不构成授权。各提供程序应登记独立引用。
+
 ## 8. 路由与状态语义
 
 | 模式 | 语义 |

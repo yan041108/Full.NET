@@ -170,6 +170,9 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
             AotDataReaderExtensions.ReadDateTimeOffset(reader, 9));
 
+    /// <summary>按模板 SQL 的完整投影顺序读取，包括内容类别及草稿参数架构。</summary>
+    /// <param name="reader">当前模板投影读取器。</param>
+    /// <returns>字段顺序与查询一致的模板记录。</returns>
     private static NotificationTemplateRecord ReadTemplate(DbDataReader reader) =>
         new(
             reader.GetGuid(0),
@@ -183,13 +186,17 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetString(8),
             reader.GetString(9),
             reader.GetString(10),
-            AotDataReaderExtensions.ReadInt64(reader, 11),
-            AotDataReaderExtensions.ReadNullableGuid(reader, 12),
-            reader.GetGuid(13),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 14),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 15),
-            AotDataReaderExtensions.ReadInt64(reader, 16));
+            reader.GetString(11),
+            AotDataReaderExtensions.ReadInt64(reader, 12),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 13),
+            reader.GetGuid(14),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 15),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 16),
+            AotDataReaderExtensions.ReadInt64(reader, 17));
 
+    /// <summary>按模板 SQL 的完整投影顺序读取，包括内容类别及草稿参数架构。</summary>
+    /// <param name="reader">当前模板投影读取器。</param>
+    /// <returns>字段顺序与查询一致的模板记录。</returns>
     private static NotificationTemplateListRecord ReadTemplateList(DbDataReader reader) =>
         new(
             reader.GetGuid(0),
@@ -203,15 +210,16 @@ internal sealed class NotificationsDapperAotMaterializerContributor : IDapperAot
             reader.GetString(8),
             reader.GetString(9),
             reader.GetString(10),
-            AotDataReaderExtensions.ReadInt64(reader, 11),
-            AotDataReaderExtensions.ReadNullableGuid(reader, 12),
-            reader.IsDBNull(13) ? null : AotDataReaderExtensions.ReadInt32(reader, 13),
-            reader.IsDBNull(14) ? null : reader.GetString(14),
-            reader.IsDBNull(15) ? null : reader.GetString(15),
-            reader.GetGuid(16),
-            AotDataReaderExtensions.ReadDateTimeOffset(reader, 17),
-            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 18),
-            AotDataReaderExtensions.ReadInt64(reader, 19));
+            reader.GetString(11),
+            AotDataReaderExtensions.ReadInt64(reader, 12),
+            AotDataReaderExtensions.ReadNullableGuid(reader, 13),
+            reader.IsDBNull(14) ? null : AotDataReaderExtensions.ReadInt32(reader, 14),
+            AotDataReaderExtensions.ReadNullableString(reader, 15),
+            AotDataReaderExtensions.ReadNullableString(reader, 16),
+            reader.GetGuid(17),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 18),
+            AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 19),
+            AotDataReaderExtensions.ReadInt64(reader, 20));
 
     private static NotificationTemplateVersionRecord ReadTemplateVersion(DbDataReader reader) =>
         new(

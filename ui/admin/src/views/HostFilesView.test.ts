@@ -12,6 +12,7 @@ import {
 } from '../api/host-files';
 
 vi.mock('../api/host-files', () => ({
+  listHostFolderTree: vi.fn().mockResolvedValue([]),
   deleteHostFile: vi.fn(),
   downloadHostFileContent: vi.fn(),
   listHostFiles: vi.fn(),
@@ -31,6 +32,7 @@ const sampleFile = {
   contentType: 'text/plain',
   sizeBytes: 12,
   contentHash: 'a'.repeat(64),
+  folderId: null, revision: 1, updatedAtUtc: null, updatedByUserId: null,
   createdAtUtc: '2026-07-26T00:00:00Z',
   createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
 };
@@ -47,6 +49,7 @@ function mountWithPermissions(permissions: string[]) {
     actorScope: 'host',
     scope: 'host',
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
     preferredLocale: 'zh-CN',
@@ -93,7 +96,9 @@ describe('Vue Host \u6587\u4ef6\u7ba1\u7406\u9875', () => {
 
     expect(wrapper.find('[data-testid="host-files-upload"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="host-files-download"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="host-files-delete"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="art-table-action-more"]').trigger('click');
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="host-files-delete"]')).not.toBeNull());
+    wrapper.unmount();
   });
 
   it('\u4e0b\u8f7d\u4f7f\u7528\u8ba4\u8bc1 Blob \u5ba2\u6237\u7aef\u5e76\u6253\u5f00\u77ed\u751f\u547d\u5468\u671f URL', async () => {

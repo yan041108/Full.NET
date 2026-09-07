@@ -287,7 +287,8 @@ onMounted(() => {
         <ElTableColumn :label="t('backupExecutor.artifactSize')" width="120">
           <template #default="{ row }">{{ formatBytes(row.artifactSizeBytes) }}</template>
         </ElTableColumn>
-        <ElTableColumn :label="t('backupExecutor.actions')" width="200" fixed="right">
+        <!-- @vue-generic {PlatformBackupRun} -->
+          <ElTableColumn :label="t('backupExecutor.actions')" width="200" fixed="right">
           <template #default="{ row }">
             <ElButton link type="primary" @click="openDetail(row.id)">
               {{ t('backupExecutor.viewDetail') }}

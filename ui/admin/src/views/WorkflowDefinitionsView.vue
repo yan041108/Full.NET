@@ -62,6 +62,7 @@ const editingDefinition = ref<WorkflowDefinitionResponse>();
 const workflowTree = ref<WorkflowVue3Node>();
 const definitionDesigner = ref<WorkflowVue3DesignerInstance>();
 const enabledNodeTypes = ref<readonly string[]>([]);
+const publishFormVersionId = ref('');
 const publishedForms = ref<WorkflowFormResponse[]>([]);
 const businessTitleTemplate = ref('');
 const gatewayFields = ref<readonly WorkflowFormField[]>([]);

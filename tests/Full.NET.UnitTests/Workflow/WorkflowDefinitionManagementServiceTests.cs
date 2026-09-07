@@ -95,7 +95,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
                 WorkflowSql.FindFormVersionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormVersionRecord(
                 formVersionId, formDefinitionId, 1, 1, 1, 1,
-                CreateFormSchemaJson(), "{}", new string('b', 64), null, actorId, now));
+                CreateFormSchemaJson(), "{}", new string('b', 64), actorId, now));
         query.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
                 WorkflowSql.FindFormDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(CreateActiveFormDefinition(formDefinitionId, actorId, now, formVersionId));
@@ -159,7 +159,7 @@ public sealed class WorkflowDefinitionManagementServiceTests
                 WorkflowSql.FindFormVersionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowFormVersionRecord(
                 formVersionId, formDefinitionId, 1, 1, 1, 1,
-                CreateFormSchemaJson(), "{}", new string('b', 64), null, actorId, now));
+                CreateFormSchemaJson(), "{}", new string('b', 64), actorId, now));
         query.QuerySingleOrDefaultAsync<WorkflowFormDefinitionRecord>(
                 WorkflowSql.FindFormDefinitionById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(CreateActiveFormDefinition(formDefinitionId, actorId, now, formVersionId, tenantId));

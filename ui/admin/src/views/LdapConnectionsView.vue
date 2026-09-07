@@ -351,7 +351,7 @@ onMounted(() => {
     <ElCard ref="tableMainRef" class="art-table-card art-full-height" shadow="never">
       <ArtTableHeader :title="t('ldapConnections.title')">
         <template #actions>
-          <PermissionGate permission="identity.ldap_connections.create">
+          <PermissionGate code="identity.ldap_connections.create">
             <ElButton
               type="primary"
               :icon="Plus"
@@ -372,7 +372,7 @@ onMounted(() => {
         :border="tableBorder"
         :height="tableHeight"
         :header-cell-style="tableHeaderCellStyle"
-        :header-cell-class-name="tableHeaderBackground"
+        :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
       >
         <ElTableColumn type="index" :index="rowIndex" width="64" />
         <ElTableColumn prop="name" :label="t('ldapConnections.fieldName')" min-width="140" />
@@ -385,47 +385,48 @@ onMounted(() => {
             </ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn fixed="right" width="360">
+        <!-- @vue-generic {LdapConnection} -->
+          <ElTableColumn fixed="right" width="360">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="identity.ldap_connections.test">
-                <ArtTableActionButton
-                  :label="t('ldapConnections.testConnection')"
+              <PermissionGate code="identity.ldap_connections.test">
+                <ArtTableActionButton type="view"
+                  :title="t('ldapConnections.testConnection')"
                   test-id="ldap-connections-action-test-connection"
                   @click="runConnectionTest(row)"
                 />
               </PermissionGate>
-              <PermissionGate permission="identity.ldap_connections.test">
-                <ArtTableActionButton
-                  :label="t('ldapConnections.testAuthentication')"
+              <PermissionGate code="identity.ldap_connections.test">
+                <ArtTableActionButton type="view"
+                  :title="t('ldapConnections.testAuthentication')"
                   test-id="ldap-connections-action-test-auth"
                   @click="openAuthDialog(row)"
                 />
               </PermissionGate>
-              <PermissionGate permission="identity.ldap_connections.preview_sync">
-                <ArtTableActionButton
-                  :label="t('ldapConnections.previewSync')"
+              <PermissionGate code="identity.ldap_connections.preview_sync">
+                <ArtTableActionButton type="view"
+                  :title="t('ldapConnections.previewSync')"
                   test-id="ldap-connections-action-preview"
                   @click="openPreviewDialog(row)"
                 />
               </PermissionGate>
-              <PermissionGate permission="identity.ldap_connections.update">
-                <ArtTableActionButton
-                  :label="t('ldapConnections.edit')"
+              <PermissionGate code="identity.ldap_connections.update">
+                <ArtTableActionButton type="edit"
+                  :title="t('ldapConnections.edit')"
                   test-id="ldap-connections-action-edit"
                   @click="openEdit(row)"
                 />
               </PermissionGate>
-              <PermissionGate permission="identity.ldap_connections.update">
-                <ArtTableActionButton
-                  :label="t('ldapConnections.disable')"
+              <PermissionGate code="identity.ldap_connections.update">
+                <ArtTableActionButton type="delete"
+                  :title="t('ldapConnections.disable')"
                   test-id="ldap-connections-action-disable"
                   @click="confirmDisable(row)"
                 />
               </PermissionGate>
-              <PermissionGate permission="identity.ldap_connections.delete">
-                <ArtTableActionButton
-                  :label="t('ldapConnections.delete')"
+              <PermissionGate code="identity.ldap_connections.delete">
+                <ArtTableActionButton type="delete"
+                  :title="t('ldapConnections.delete')"
                   test-id="ldap-connections-action-delete"
                   @click="confirmDelete(row)"
                 />
@@ -446,9 +447,9 @@ onMounted(() => {
     </ElCard>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('ldapConnections.createTitle') : t('ldapConnections.editTitle')"
-      :loading="changing"
+      :saving="changing"
       confirm-test-id="ldap-connections-editor-submit"
       @confirm="submitEditor"
     >
@@ -502,9 +503,9 @@ onMounted(() => {
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model="authDialogOpen"
+      v-model:open="authDialogOpen"
       :title="t('ldapConnections.testAuthenticationTitle')"
-      :loading="changing"
+      :saving="changing"
       confirm-test-id="ldap-connections-auth-submit"
       @confirm="submitAuthTest"
     >
@@ -525,9 +526,9 @@ onMounted(() => {
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model="previewDialogOpen"
+      v-model:open="previewDialogOpen"
       :title="t('ldapConnections.previewSyncTitle')"
-      :loading="previewLoading"
+      :saving="previewLoading"
       confirm-test-id="ldap-connections-preview-submit"
       @confirm="submitPreview"
     >
@@ -540,7 +541,8 @@ onMounted(() => {
         </ElFormItem>
       </ElForm>
       <ElTable v-if="previewResult" :data="previewResult.entries" size="small" max-height="320">
-        <ElTableColumn prop="entryKind" :label="t('ldapConnections.previewKind')" width="120">
+        <!-- @vue-generic {LdapSyncPreviewEntry} -->
+          <ElTableColumn prop="entryKind" :label="t('ldapConnections.previewKind')" width="120">
           <template #default="{ row }">{{ entryKindLabel(row) }}</template>
         </ElTableColumn>
         <ElTableColumn prop="dn" :label="t('ldapConnections.previewDn')" min-width="220" />

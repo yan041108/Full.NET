@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { createPinia } from 'pinia';
 import AccessLogsView from './AccessLogsView.vue';
 import { listAuditingAccessLogsByCursor } from '../api/access-logs';
 
@@ -30,7 +31,7 @@ describe('Vue 访问日志页', () => {
   });
 
   it('挂载时自动拉取全部游标页并按顺序展示', async () => {
-    const wrapper = mount(AccessLogsView);
+    const wrapper = mount(AccessLogsView, { global: { plugins: [createPinia()] } });
     await flushPromises();
 
     expect(listMock).toHaveBeenNthCalledWith(1);
@@ -44,7 +45,7 @@ describe('Vue 访问日志页', () => {
   });
 
   it('启用 contains 时显示 24 小时范围并用同一筛选重新加载', async () => {
-    const wrapper = mount(AccessLogsView);
+    const wrapper = mount(AccessLogsView, { global: { plugins: [createPinia()] } });
     await flushPromises();
     const callsAfterMount = listMock.mock.calls.length;
 

@@ -121,7 +121,7 @@ function cellValue(row: { values: Record<string, string | null> }, columnKey: st
   return row.values[columnKey] ?? '';
 }
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
@@ -184,6 +184,7 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
           :border="tableBorder"
           :header-cell-style="tableHeaderCellStyle"
         >
+          <!-- @vue-generic {{ values: Record<string, string | null> }} -->
           <ElTableColumn
             v-for="column in result.columns"
             :key="column.columnKey"

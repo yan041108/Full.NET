@@ -10,6 +10,13 @@ using Full.NET.Modules.Payments.Persistence;
 namespace Full.NET.Modules.Payments.Features.ManageRefunds;
 
 /// <summary>支付退款创建与渠道调用。</summary>
+/// <param name="queryExecutor">当前模块查询执行器。</param>
+/// <param name="commandExecutor">当前模块写入执行器。</param>
+/// <param name="transaction">本地命令事务。</param>
+/// <param name="queries">退款响应查询服务。</param>
+/// <param name="weChatNativePayClient">微信渠道客户端。</param>
+/// <param name="clock">业务时钟。</param>
+/// <param name="idGenerator">退款唯一标识生成器。</param>
 internal sealed class PaymentRefundManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -198,8 +205,12 @@ internal sealed class PaymentRefundManagementService(
             _ => PaymentRefundStateKeys.Processing,
         };
 
+    /// <summary>完整保留退款唯一标识，使同一时刻的不同退款不会共用渠道编号。</summary>
+    /// <param name="refundId">已生成且持久化关联的退款唯一标识。</param>
+    /// <param name="createdAtUtc">退款创建时间；不再参与截断编号，保留调用兼容性。</param>
+    /// <returns>固定 32 位的可重放退款编号。</returns>
     private static string BuildOutRefundNo(Guid refundId, DateTimeOffset createdAtUtc) =>
-        $"RF{createdAtUtc:yyyyMMddHHmmss}{refundId.ToString("N")[..8].ToUpperInvariant()}";
+        refundId.ToString("N");
 
     private static Result<PaymentRefundResponse> ValidationFailure(string message) =>
         Result<PaymentRefundResponse>.Failure(new Error(

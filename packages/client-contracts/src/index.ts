@@ -342,11 +342,14 @@ export type {
 } from './oauth-links.js';
 
 export {
+  isPreviewableHostFile,
   isHostFile,
   isHostFilePage
 } from './host-files.js';
 
 export type {
+  BatchDeleteHostFilesResponse,
+  BatchUploadHostFilesResponse,
   HostFile,
   HostFilePage
 } from './host-files.js';

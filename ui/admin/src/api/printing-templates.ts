@@ -30,7 +30,7 @@ export async function createPrintingTemplate(
   body: CreatePrintingTemplateRequest,
   signal?: AbortSignal
 ): Promise<PrintingTemplate> {
-  const value = await request<unknown>('/api/v1/printing/templates', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/printing/templates', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isPrintingTemplate(value)) {
     throw new Error('client.invalid_printing_template');
   }
@@ -44,7 +44,7 @@ export async function updatePrintingTemplate(
 ): Promise<PrintingTemplate> {
   const value = await request<unknown>(
     `/api/v1/printing/templates/${encodeURIComponent(templateId)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPrintingTemplate(value)) {
@@ -60,7 +60,7 @@ export async function publishPrintingTemplate(
 ): Promise<void> {
   await request<unknown>(
     `/api/v1/printing/templates/${encodeURIComponent(templateId)}/publish`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
 }
@@ -72,7 +72,7 @@ export async function previewPrintingTemplate(
 ): Promise<PrintingTemplatePreview> {
   const value = await request<unknown>(
     `/api/v1/printing/templates/${encodeURIComponent(templateId)}/preview`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPrintingTemplatePreview(value)) {

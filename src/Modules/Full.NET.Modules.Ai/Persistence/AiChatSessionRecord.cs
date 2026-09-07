@@ -38,4 +38,12 @@ internal sealed class AiChatSessionRecord
 
     /// <summary>乐观并发版本。</summary>
     public int Version { get; init; }
+    /// <summary>当前生成所有权标识；空闲时为空。</summary>
+    public Guid? GenerationId { get; init; }
+
+    /// <summary>跨实例生成槽位的到期时间。</summary>
+    public DateTimeOffset? GenerationExpiresAtUtc { get; init; }
+
+    /// <summary>是否收到跨实例取消请求。</summary>
+    public bool GenerationCancellationRequested { get; init; }
 }

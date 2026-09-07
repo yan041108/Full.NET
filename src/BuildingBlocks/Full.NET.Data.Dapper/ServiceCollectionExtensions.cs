@@ -152,6 +152,7 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<DatabaseAdmissionPriorityScope>());
         services.AddSingleton<IDatabaseSessionLock, DapperDatabaseSessionLock>();
         services.AddScoped<DbSession>();
+        services.AddScoped<IDataTransactionState>(provider => provider.GetRequiredService<DbSession>());
         services.AddScoped<IDbTransactionCoordinator>(provider =>
             provider.GetRequiredService<DbSession>());
         services.AddScoped<DapperSqlExecutor>();

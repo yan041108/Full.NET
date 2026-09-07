@@ -78,6 +78,24 @@ internal sealed class NotificationIntentService(
         CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
+        var producer = NotificationTemplateCompiler.NormalizeStableKey(request.ProducerKey, "ProducerKey");
+        var idempotency = NotificationTemplateCompiler.NormalizeStableKey(request.IdempotencyKey, "IdempotencyKey");
+        if (!producer.IsSuccess || !idempotency.IsSuccess)
+        {
+            return Result<NotificationIntentCreateResult>.Failure(producer.Error ?? idempotency.Error!);
+        }
+
+        // 幂等请求先读取已受理快照，当前目录、模板或路由变化不得重新解释历史请求。
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<NotificationIntentRecord>(
+            NotificationPlatformSql.FindIntentByIdempotency,
+            NotificationPlatformSqlParameters.Create(
+                ("TenantScopeKey", scope.TenantScopeKey), ("ProducerKey", producer.Value!),
+                ("IdempotencyKey", idempotency.Value!)), cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return await ReplayOrConflictAsync(existing, request, cancellationToken).ConfigureAwait(false);
+        }
+
         var prepared = await PrepareAsync(scope, actorUserId, request, cancellationToken).ConfigureAwait(false);
         if (!prepared.IsSuccess)
         {
@@ -85,7 +103,7 @@ internal sealed class NotificationIntentService(
         }
 
         var result = await transaction.ExecuteResultAsync(
-                token => CreateCoreAsync(scope, actorUserId, prepared.Value!, token),
+                token => CreateCoreAsync(scope, actorUserId, request, prepared.Value!, token),
                 cancellationToken)
             .ConfigureAwait(false);
         if (result.IsSuccess)
@@ -202,9 +220,16 @@ internal sealed class NotificationIntentService(
             attachments.Value!));
     }
 
+    /// <summary>短事务内受理意图，并以原始请求核对并发获胜者的快照。</summary>
+    /// <param name="scope">可信租户作用域。</param>
+    /// <param name="actorUserId">创建主体。</param>
+    /// <param name="request">用于并发重放比较的原始请求。</param>
+    /// <param name="prepared">首次受理所需的解析结果。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     private async Task<Result<NotificationIntentCreateResult>> CreateCoreAsync(
         NotificationInboxScope scope,
         Guid actorUserId,
+        CreateNotificationIntentRequest request,
         PreparedIntent prepared,
         CancellationToken cancellationToken)
     {
@@ -218,7 +243,7 @@ internal sealed class NotificationIntentService(
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return await ReplayOrConflictAsync(existing, prepared, cancellationToken).ConfigureAwait(false);
+            return await ReplayOrConflictAsync(existing, request, cancellationToken).ConfigureAwait(false);
         }
 
         var intentId = idGenerator.NewId();
@@ -259,7 +284,7 @@ internal sealed class NotificationIntentService(
 
         if (affected == 0)
         {
-            return await ReplayOrConflictAsync(record, prepared, cancellationToken).ConfigureAwait(false);
+            return await ReplayOrConflictAsync(record, request, cancellationToken).ConfigureAwait(false);
         }
 
         var now = clock.UtcNow;
@@ -386,11 +411,49 @@ internal sealed class NotificationIntentService(
             new NotificationIntentCreateResult(mapped, Created: true, inboxEvents));
     }
 
+    /// <summary>按首次发布版本验证重放负载，忽略当前模板是否仍可发布或投递。</summary>
+    /// <param name="existing">当前作用域内已受理的意图。</param>
+    /// <param name="request">重试请求。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     private async Task<Result<NotificationIntentCreateResult>> ReplayOrConflictAsync(
         NotificationIntentRecord existing,
-        PreparedIntent prepared,
+        CreateNotificationIntentRequest request,
         CancellationToken cancellationToken)
     {
+        var version = await queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateVersionRecord>(
+            NotificationPlatformSql.FindTemplateVersionById,
+            NotificationPlatformSqlParameters.Create(("Id", existing.TemplateVersionId)), cancellationToken)
+            .ConfigureAwait(false);
+        if (version is null)
+        {
+            return IdempotencyConflict();
+        }
+
+        var template = await queryExecutor.QuerySingleOrDefaultAsync<NotificationTemplateRecord>(
+            NotificationPlatformSql.FindTemplateById,
+            NotificationPlatformSqlParameters.Create(("Id", version.TemplateId),
+                ("TenantScopeKey", existing.TenantScopeKey)), cancellationToken).ConfigureAwait(false);
+        var templateKey = NotificationTemplateCompiler.NormalizeStableKey(request.TemplateKey, "TemplateKey");
+        var scene = NotificationTemplateCompiler.NormalizeStableKey(request.SceneKey, "SceneKey");
+        var normalizedRecipients = NormalizeRecipients(request.Recipients);
+        if (template is null || !templateKey.IsSuccess || !scene.IsSuccess || !normalizedRecipients.IsSuccess
+            || !string.Equals(template.TemplateKey, templateKey.Value, StringComparison.Ordinal))
+        {
+            return IdempotencyConflict();
+        }
+
+        var schema = NotificationTemplateCompiler.NormalizeSchema(DeserializeSchema(version.ParameterSchemaJson));
+        if (!schema.IsSuccess)
+        {
+            return IdempotencyConflict();
+        }
+
+        var parameters = NotificationTemplateCompiler.ValidateAndSnapshotParameters(schema.Value!, request.Parameters);
+        if (!parameters.IsSuccess)
+        {
+            return IdempotencyConflict();
+        }
+
         var recipients = await queryExecutor.QueryAsync<NotificationRecipientRecord>(
                 NotificationPlatformSql.ListRecipientsByIntent,
                 NotificationPlatformSqlParameters.Create(("IntentId", existing.Id)),
@@ -409,23 +472,26 @@ internal sealed class NotificationIntentService(
                 .ToArray(),
             attachments.Select(item => item.FileId).ToArray());
         if (!NotificationTemplateCompiler.PayloadsMatch(
-                prepared.Version.Id,
-                prepared.SceneKey,
-                prepared.ParameterSnapshotJson,
-                prepared.Recipients,
-                prepared.AttachmentFileIds,
+                version.Id,
+                scene.Value!,
+                parameters.Value!,
+                normalizedRecipients.Value!,
+                NotificationIntentAttachmentRules.NormalizeFileIds(request.AttachmentFileIds),
                 snapshot))
         {
-            return Result<NotificationIntentCreateResult>.Failure(new Error(
-                NotificationsErrorCodes.IntentIdempotencyConflict,
-                "The intent idempotency key conflicts with a different payload.",
-                ErrorType.Conflict));
+            return IdempotencyConflict();
         }
 
         var mapped = await MapAsync(existing, cancellationToken).ConfigureAwait(false);
         return Result<NotificationIntentCreateResult>.Success(
             new NotificationIntentCreateResult(mapped, Created: false, []));
     }
+
+    /// <summary>同一幂等键不得受理不同的业务负载。</summary>
+    private static Result<NotificationIntentCreateResult> IdempotencyConflict() =>
+        Result<NotificationIntentCreateResult>.Failure(new Error(
+            NotificationsErrorCodes.IntentIdempotencyConflict,
+            "The intent idempotency key conflicts with a different payload.", ErrorType.Conflict));
 
     private Task<NotificationIntentRecord?> FindIntentAsync(
         NotificationInboxScope scope,

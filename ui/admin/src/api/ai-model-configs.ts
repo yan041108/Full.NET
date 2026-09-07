@@ -79,7 +79,7 @@ export async function createAiModelConfig(
 ): Promise<AiModelConfig> {
   const value = await request<unknown>(
     '/api/v1/ai/model-configs',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isAiModelConfig(value)) {
@@ -95,7 +95,7 @@ export async function updateAiModelConfig(
 ): Promise<AiModelConfig> {
   const value = await request<unknown>(
     `/api/v1/ai/model-configs/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isAiModelConfig(value)) {
@@ -156,7 +156,7 @@ export async function upsertAiTenantQuota(
 ): Promise<AiTenantQuota> {
   const value = await request<unknown>(
     `/api/v1/ai/tenant-quotas/${encodeURIComponent(tenantId)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isAiTenantQuota(value)) {

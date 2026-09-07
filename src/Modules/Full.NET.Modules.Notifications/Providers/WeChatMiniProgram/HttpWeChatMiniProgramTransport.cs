@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace Full.NET.Modules.Notifications.Providers.WeChatMiniProgram;
@@ -40,22 +41,25 @@ internal sealed partial class HttpWeChatMiniProgramTransport(IHttpClientFactory 
         return ParseSession(body);
     }
 
+    /// <summary>发送已授权的小程序订阅消息并解析提供程序结果。</summary>
+    /// <param name="accessToken">提供程序授权令牌。</param>
+    /// <param name="command">已经编译和校验的外部调用参数。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public async ValueTask<string> SendSubscribeMessageAsync(
         string accessToken,
         WeChatMiniProgramSubscribeSendCommand command,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var dataDocument = JsonDocument.Parse(command.DataJson);
-        var payload = JsonSerializer.Serialize(new Dictionary<string, object?>(StringComparer.Ordinal)
+        var payload = new JsonObject
         {
             ["touser"] = command.ToUserOpenId,
             ["template_id"] = command.TemplateId,
             ["page"] = command.Page,
-            ["data"] = dataDocument.RootElement.Clone(),
+            ["data"] = JsonNode.Parse(command.DataJson),
             ["miniprogram_state"] = "formal",
             ["lang"] = "zh_CN",
-        });
+        }.ToJsonString();
         var client = httpClientFactory.CreateClient(HttpClientName);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,

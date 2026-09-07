@@ -29,7 +29,7 @@ public sealed class JobExecutionHostedProcessorTests
             });
         var runner = new JobExecutionRunner(
             queryExecutor,
-            new UnexpectedCommandExecutor(),
+            new EmptyQueueCommandExecutor(),
             new UnexpectedTransaction(),
             new JobHandlerKindRegistry([]),
             clock,
@@ -55,7 +55,7 @@ public sealed class JobExecutionHostedProcessorTests
         services.AddScoped(_ =>
             new JobScheduleDispatcher(
                 queryExecutor,
-                new UnexpectedCommandExecutor(),
+                new EmptyQueueCommandExecutor(),
                 new PassThroughTransaction(),
                 databaseOptions,
                 clock,
@@ -108,7 +108,7 @@ public sealed class JobExecutionHostedProcessorTests
             });
         var runner = new JobExecutionRunner(
             queryExecutor,
-            new UnexpectedCommandExecutor(),
+            new EmptyQueueCommandExecutor(),
             new UnexpectedTransaction(),
             new JobHandlerKindRegistry([]),
             clock,
@@ -156,7 +156,7 @@ public sealed class JobExecutionHostedProcessorTests
         };
         var runner = new JobExecutionRunner(
             queryExecutor,
-            new UnexpectedCommandExecutor(),
+            new EmptyQueueCommandExecutor(),
             new UnexpectedTransaction(),
             new JobHandlerKindRegistry([]),
             clock,
@@ -177,7 +177,7 @@ public sealed class JobExecutionHostedProcessorTests
         services.AddScoped(_ =>
             new JobScheduleDispatcher(
                 queryExecutor,
-                new UnexpectedCommandExecutor(),
+                new EmptyQueueCommandExecutor(),
                 new PassThroughTransaction(),
                 databaseOptions,
                 clock,
@@ -271,13 +271,20 @@ public sealed class JobExecutionHostedProcessorTests
         }
     }
 
-    private sealed class UnexpectedCommandExecutor : ICommandExecutor
+    /// <summary>空队列仍需扫描超时取消，仅接受这一幂等维护命令。</summary>
+    private sealed class EmptyQueueCommandExecutor : ICommandExecutor
     {
+        /// <summary>模拟无超时取消记录，其他写入视为测试失败。</summary>
+        /// <param name="statement">实际生产语句。</param>
+        /// <param name="parameters">命令参数。</param>
+        /// <param name="cancellationToken">取消令牌。</param>
         public Task<int> ExecuteAsync(
             SqlStatement statement,
             object? parameters = null,
             CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException(
+            statement == JobSql.FinalizeExpiredCancellationRequests
+                ? Task.FromResult(0)
+                : throw new InvalidOperationException(
                 $"Unexpected command statement '{statement.Name}'.");
     }
 

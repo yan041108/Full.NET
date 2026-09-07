@@ -155,7 +155,8 @@ onMounted(() => {
         <el-table-column prop="providerDisplayName" :label="t('oauthLinks.fieldProvider')" min-width="160" />
         <el-table-column prop="subject" :label="t('oauthLinks.fieldSubject')" min-width="180" />
         <el-table-column prop="email" :label="t('oauthLinks.fieldEmail')" min-width="180" />
-        <el-table-column width="120">
+        <!-- @vue-generic {OAuthUserLink} -->
+          <el-table-column width="120">
           <template #default="{ row }">
             <el-button type="danger" link @click="unbindLink(row)">{{ t('oauthLinks.unbind') }}</el-button>
           </template>

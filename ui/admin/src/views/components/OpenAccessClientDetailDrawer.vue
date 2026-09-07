@@ -18,7 +18,7 @@ import {
 } from 'element-plus';
 import type { FullNetProblemDetails, OpenAccessClient } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
-import PermissionGate from '../PermissionGate.vue';
+import PermissionGate from '../../components/PermissionGate.vue';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import {
   debugOpenAccessClientSignature,

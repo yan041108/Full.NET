@@ -1,9 +1,11 @@
+using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Payments.Connectivity;
 using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Persistence;
+using Full.NET.Modules.Payments.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,6 +16,7 @@ namespace Full.NET.Modules.Payments.Features.ReceiveWeChatNotify;
 internal static class Endpoint
 {
     private const int MaxCallbackBodyBytes = 32 * 1024;
+    private static readonly PaymentsJsonSerializerContext CallbackJsonContext = new(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
     /// <summary>注册微信 Native 支付通知路由。</summary>
     /// <param name="endpoints">路由构建器。</param>
@@ -30,7 +33,7 @@ internal static class Endpoint
                     if (httpContext.Request.ContentLength is { } contentLength
                         && contentLength > MaxCallbackBodyBytes)
                     {
-                        return Results.Json(new WeChatPayNotifyAckResponse("FAIL", "Payload too large."));
+                        return JsonAck(new WeChatPayNotifyAckResponse("FAIL", "Payload too large."));
                     }
 
                     using var buffer = new MemoryStream();
@@ -46,7 +49,7 @@ internal static class Endpoint
 
                         if (buffer.Length + read > MaxCallbackBodyBytes)
                         {
-                            return Results.Json(new WeChatPayNotifyAckResponse("FAIL", "Payload too large."));
+                            return JsonAck(new WeChatPayNotifyAckResponse("FAIL", "Payload too large."));
                         }
 
                         buffer.Write(block, 0, read);
@@ -62,7 +65,7 @@ internal static class Endpoint
                         || string.IsNullOrWhiteSpace(signature)
                         || string.IsNullOrWhiteSpace(platformSerial))
                     {
-                        return Results.Json(new WeChatPayNotifyAckResponse("FAIL", "Missing WeChat notify headers."));
+                        return JsonAck(new WeChatPayNotifyAckResponse("FAIL", "Missing WeChat notify headers."));
                     }
 
                     var ack = await service.HandleAsync(
@@ -75,10 +78,21 @@ internal static class Endpoint
                             rawBody,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    return Results.Json(ack);
+                    return JsonAck(ack);
                 })
             .WithName("paymentsWeChatNativeNotify")
             .WithTags("PaymentWeChatNotify")
             .AllowAnonymous();
     }
+
+    /// <summary>用闭合元数据输出小写 JSON 协议，并让失败 HTTP 状态保留支付平台的重试机会。</summary>
+    /// <param name="ack">通知处理应答。</param>
+    /// <returns>保持现有协议字段的 JSON 结果。</returns>
+    private static IResult JsonAck(WeChatPayNotifyAckResponse ack) =>
+        Results.Json(
+            ack,
+            CallbackJsonContext.WeChatPayNotifyAckResponse,
+            statusCode: string.Equals(ack.Code, "SUCCESS", StringComparison.Ordinal)
+                ? StatusCodes.Status200OK
+                : StatusCodes.Status500InternalServerError);
 }

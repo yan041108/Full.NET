@@ -9,10 +9,15 @@ using Microsoft.IdentityModel.Tokens;
 namespace Full.NET.Modules.Identity.OAuth;
 
 /// <summary>基于 HttpClient 的 OIDC 客户端实现。</summary>
-internal sealed class HttpOidcClient : IOidcClient
+internal sealed partial class HttpOidcClient : IOidcClient
 {
+    private static readonly OidcJsonContext SerializerContext = new(new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
+    /// <summary>读取发现文档并验证提供程序地址边界。</summary>
+    /// <param name="authority">受信任的身份提供程序基地址。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public async Task<OidcDiscoveryDocument> GetDiscoveryDocumentAsync(
         string authority,
         CancellationToken cancellationToken = default)
@@ -23,7 +28,7 @@ internal sealed class HttpOidcClient : IOidcClient
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         var document = await response.Content
-            .ReadFromJsonAsync<DiscoveryResponse>(cancellationToken: cancellationToken)
+            .ReadFromJsonAsync(SerializerContext.DiscoveryResponse, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("OIDC discovery document is empty.");
         if (string.IsNullOrWhiteSpace(document.Issuer)
@@ -64,6 +69,15 @@ internal sealed class HttpOidcClient : IOidcClient
         return QueryHelpers.AddQueryString(discovery.AuthorizationEndpoint, query!);
     }
 
+    /// <summary>使用 PKCE 授权码交换令牌并验证身份声明与 nonce。</summary>
+    /// <param name="discovery">已经验证的发现文档。</param>
+    /// <param name="clientId">客户端标识。</param>
+    /// <param name="clientSecret">仅用于令牌交换的客户端密钥。</param>
+    /// <param name="redirectUri">与授权请求一致的回调地址。</param>
+    /// <param name="code">一次性授权码。</param>
+    /// <param name="codeVerifier">与授权挑战对应的 PKCE 验证值。</param>
+    /// <param name="expectedNonce">原始授权请求保存的 nonce。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public async Task<(OidcTokenExchangeResult Tokens, OidcExternalIdentityClaims Claims)>
         ExchangeCodeAsync(
             OidcDiscoveryDocument discovery,
@@ -90,7 +104,7 @@ internal sealed class HttpOidcClient : IOidcClient
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         var tokenResponse = await response.Content
-            .ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken)
+            .ReadFromJsonAsync(SerializerContext.TokenResponse, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException("OIDC token response is empty.");
         if (string.IsNullOrWhiteSpace(tokenResponse.IdToken))
@@ -216,4 +230,8 @@ internal sealed class HttpOidcClient : IOidcClient
         [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
     }
+    /// <summary>OIDC 元数据与令牌响应的静态 JSON 闭包。</summary>
+    [JsonSerializable(typeof(DiscoveryResponse))]
+    [JsonSerializable(typeof(TokenResponse))]
+    private partial class OidcJsonContext : JsonSerializerContext;
 }

@@ -60,7 +60,7 @@ export async function createOAuthProvider(
 ): Promise<OAuthProvider> {
   const value = await request<unknown>(
     '/api/v1/identity/oauth-providers',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isOAuthProvider(value)) {
@@ -76,7 +76,7 @@ export async function updateOAuthProvider(
 ): Promise<OAuthProvider> {
   const value = await request<unknown>(
     `/api/v1/identity/oauth-providers/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isOAuthProvider(value)) {

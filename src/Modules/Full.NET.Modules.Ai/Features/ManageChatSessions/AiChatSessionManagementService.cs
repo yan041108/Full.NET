@@ -13,6 +13,14 @@ using Full.NET.Modules.Ai.Streaming;
 namespace Full.NET.Modules.Ai.Features.ManageChatSessions;
 
 /// <summary>聊天会话创建、重命名、删除与取消生成。</summary>
+/// <param name="queryExecutor">当前请求查询执行器。</param>
+/// <param name="commandExecutor">当前请求命令执行器。</param>
+/// <param name="transaction">会话状态变更短事务。</param>
+/// <param name="queries">会话归属查询服务。</param>
+/// <param name="generationRegistry">仅加速当前代次取消的本地注册表。</param>
+/// <param name="currentTenant">可信租户上下文。</param>
+/// <param name="clock">生成租约有效性判断时钟。</param>
+/// <param name="idGenerator">会话标识生成器。</param>
 internal sealed class AiChatSessionManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -23,7 +31,10 @@ internal sealed class AiChatSessionManagementService(
     IClock clock,
     IIdGenerator idGenerator)
 {
-    /// <summary>创建聊天会话。</summary>
+    /// <summary>在所属范围创建会话并绑定可用模型。</summary>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="request">已经过入口绑定的请求。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public Task<Result<AiChatSessionResponse>> CreateAsync(
         Guid ownerUserId,
         CreateAiChatSessionRequest request,
@@ -32,7 +43,11 @@ internal sealed class AiChatSessionManagementService(
             token => CreateCoreAsync(ownerUserId, request, token),
             cancellationToken);
 
-    /// <summary>重命名聊天会话。</summary>
+    /// <summary>以版本约束更新会话标题。</summary>
+    /// <param name="sessionId">已授权的会话标识。</param>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="request">已经过入口绑定的请求。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public Task<Result<AiChatSessionResponse>> RenameAsync(
         Guid sessionId,
         Guid ownerUserId,
@@ -42,7 +57,10 @@ internal sealed class AiChatSessionManagementService(
             token => RenameCoreAsync(sessionId, ownerUserId, request, token),
             cancellationToken);
 
-    /// <summary>删除聊天会话及其消息。</summary>
+    /// <summary>删除已授权会话与本模块消息。</summary>
+    /// <param name="sessionId">已授权的会话标识。</param>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public Task<Result<bool>> DeleteAsync(
         Guid sessionId,
         Guid ownerUserId,
@@ -51,7 +69,10 @@ internal sealed class AiChatSessionManagementService(
             token => DeleteCoreAsync(sessionId, ownerUserId, token),
             cancellationToken);
 
-    /// <summary>取消进行中的流式生成。</summary>
+    /// <summary>持久化指定代次的取消请求，并尝试本地加速取消。</summary>
+    /// <param name="sessionId">已授权的会话标识。</param>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public async Task<Result<bool>> CancelGenerationAsync(
         Guid sessionId,
         Guid ownerUserId,
@@ -68,7 +89,7 @@ internal sealed class AiChatSessionManagementService(
                 ErrorType.NotFound));
         }
 
-        if (!session.IsGenerating)
+        if (!session.IsGenerating || session.GenerationId is null || session.GenerationExpiresAtUtc <= clock.UtcNow)
         {
             return Result<bool>.Failure(new Error(
                 AiErrorCodes.ChatGenerationNotActive,
@@ -76,10 +97,19 @@ internal sealed class AiChatSessionManagementService(
                 ErrorType.Validation));
         }
 
-        generationRegistry.TryCancel(sessionId);
+        var affected = await commandExecutor.ExecuteAsync(AiChatGenerationSql.RequestCancellation,
+            AiChatSessionQueryService.BuildScopeParameters(scope, ownerUserId, ("SessionId", sessionId),
+                ("GenerationId", session.GenerationId)), cancellationToken).ConfigureAwait(false);
+        if (affected != 1)
+            return Result<bool>.Failure(new Error(AiErrorCodes.ChatGenerationNotActive,
+                "The generation has already finished or changed.", ErrorType.Conflict));
+        if (session.GenerationId is { } generationId) generationRegistry.TryCancel(sessionId, generationId);
         return Result<bool>.Success(true);
     }
-
+    /// <summary>仅从本租户或共享模型创建会话。</summary>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="request">已经过入口绑定的请求。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     private async Task<Result<AiChatSessionResponse>> CreateCoreAsync(
         Guid ownerUserId,
         CreateAiChatSessionRequest request,
@@ -87,7 +117,9 @@ internal sealed class AiChatSessionManagementService(
     {
         var scope = AiChatScope.Resolve(currentTenant);
         var model = await queryExecutor.QuerySingleOrDefaultAsync<AiModelConfigRecord>(
-                AiModelConfigSql.FindById,
+                scope.TenantId.HasValue
+                    ? AiModelConfigSql.FindAvailableForTenantChat
+                    : AiModelConfigSql.FindAvailableForHostChat,
                 AiSqlParameters.Create(("ModelConfigId", request.ModelConfigId)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -124,7 +156,11 @@ internal sealed class AiChatSessionManagementService(
         return await queries.GetByIdAsync(sessionId, ownerUserId, cancellationToken)
             .ConfigureAwait(false);
     }
-
+    /// <summary>验证标题并防止覆盖并发修改。</summary>
+    /// <param name="sessionId">已授权的会话标识。</param>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="request">已经过入口绑定的请求。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     private async Task<Result<AiChatSessionResponse>> RenameCoreAsync(
         Guid sessionId,
         Guid ownerUserId,
@@ -160,7 +196,10 @@ internal sealed class AiChatSessionManagementService(
         return await queries.GetByIdAsync(sessionId, ownerUserId, cancellationToken)
             .ConfigureAwait(false);
     }
-
+    /// <summary>先验证所有权，再取消及删除该会话。</summary>
+    /// <param name="sessionId">已授权的会话标识。</param>
+    /// <param name="ownerUserId">当前会话所有者。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     private async Task<Result<bool>> DeleteCoreAsync(
         Guid sessionId,
         Guid ownerUserId,
@@ -177,7 +216,7 @@ internal sealed class AiChatSessionManagementService(
                 ErrorType.NotFound));
         }
 
-        generationRegistry.TryCancel(sessionId);
+        if (session.GenerationId is { } generationId) generationRegistry.TryCancel(sessionId, generationId);
         await commandExecutor.ExecuteAsync(
                 AiChatSql.DeleteMessagesBySession,
                 AiSqlParameters.Create(("SessionId", sessionId)),
@@ -193,7 +232,8 @@ internal sealed class AiChatSessionManagementService(
             .ConfigureAwait(false);
         return Result<bool>.Success(true);
     }
-
+    /// <summary>生成会话输入校验错误。</summary>
+    /// <param name="message">可对外返回的安全错误摘要。</param>
     private static Result<T> ValidationFailure<T>(string message) =>
         Result<T>.Failure(new Error(
             AiErrorCodes.ChatSessionInvalid,

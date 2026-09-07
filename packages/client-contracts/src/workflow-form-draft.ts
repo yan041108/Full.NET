@@ -208,7 +208,7 @@ function defaultConstraints(fieldTypeKey: WorkflowFieldType): Readonly<Record<st
     };
   }
   if (fieldTypeKey === 'subtable') {
-    return createDefaultSubtableConstraints();
+    return { ...createDefaultSubtableConstraints() };
   }
   return {};
 }

@@ -42,10 +42,10 @@ const createForm = reactive({
   isEnabled: true
 });
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -103,7 +103,7 @@ onMounted(() => {
 <template>
   <div class="goview-projects-view">
     <ArtTableHeader :title="t('goviewProjects.title')">
-      <PermissionGate permission="goview.projects.create">
+      <PermissionGate code="goview.projects.create">
         <ElButton
           data-testid="goview-project-create"
           type="primary"
@@ -144,17 +144,17 @@ onMounted(() => {
         <ElTableColumn :label="t('goviewProjects.actions')" width="220" fixed="right">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="goview.projects.update">
-                <ArtTableActionButton
-                  data-testid="goview-project-edit"
+              <PermissionGate code="goview.projects.update">
+                <ArtTableActionButton type="edit"
+                  test-id="goview-project-edit"
                   @click="openEditor(row.id)"
                 >
                   {{ t('goviewProjects.editCanvas') }}
                 </ArtTableActionButton>
               </PermissionGate>
-              <PermissionGate permission="goview.projects.preview">
-                <ArtTableActionButton
-                  data-testid="goview-project-preview"
+              <PermissionGate code="goview.projects.preview">
+                <ArtTableActionButton type="delete"
+                  test-id="goview-project-preview"
                   :disabled="row.latestPublishedVersionNumber <= 0"
                   @click="openPreview(row.id)"
                 >
@@ -168,7 +168,7 @@ onMounted(() => {
     </ElCard>
 
     <ArtFormDialog
-      v-model="createDialogVisible"
+      v-model:open="createDialogVisible"
       :title="t('goviewProjects.createTitle')"
       :confirm-loading="creating"
       @confirm="submitCreate"

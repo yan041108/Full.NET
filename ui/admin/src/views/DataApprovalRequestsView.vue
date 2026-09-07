@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElButton, ElCard, ElInput, ElOption, ElSelect, ElTag } from 'element-plus';
@@ -154,7 +155,7 @@ function canShowRetry(request: DataApprovalRequestResponse): boolean {
 
 function applicationStatusLabel(applicationStatusKey: string): string {
   const key = `dataApprovalRequests.applicationStatus.${applicationStatusKey}`;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? applicationStatusKey : translated;
 }
 
@@ -169,7 +170,7 @@ function canShowRetryApply(request: DataApprovalRequestResponse): boolean {
 
 function recoveryStatusLabel(recoveryStatusKey: string): string {
   const key = `dataApprovalRequests.recoveryStatus.${recoveryStatusKey}`;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? recoveryStatusKey : translated;
 }
 

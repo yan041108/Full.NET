@@ -82,7 +82,7 @@ describe('workflow forms api', () => {
 
 function formResponse(draftRevision = 2) {
   return {
-    id: 'form-1', formKey: 'purchase.request', draft, draftRevision,
+    id: 'form-1', formKey: 'purchase.request', statusKey: 'active', version: 1, draft, draftRevision,
     latestPublishedVersionId: null, createdAtUtc: '2026-08-30T00:00:00Z', updatedAtUtc: null
   };
 }

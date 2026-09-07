@@ -42,7 +42,7 @@ export async function createGoViewProject(
   body: CreateGoViewProjectRequest,
   signal?: AbortSignal
 ): Promise<GoViewProject> {
-  const value = await request<unknown>('/api/v1/goview/projects', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/goview/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isGoViewProject(value)) {
     throw new Error('client.invalid_goview_project');
   }
@@ -56,7 +56,7 @@ export async function updateGoViewProject(
 ): Promise<GoViewProject> {
   const value = await request<unknown>(
     `/api/v1/goview/projects/${encodeURIComponent(projectId)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isGoViewProject(value)) {
@@ -72,7 +72,7 @@ export async function publishGoViewProject(
 ): Promise<void> {
   await request<unknown>(
     `/api/v1/goview/projects/${encodeURIComponent(projectId)}/publish`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
 }
@@ -84,7 +84,7 @@ export async function previewGoViewProject(
 ): Promise<GoViewProjectPreview> {
   const value = await request<unknown>(
     `/api/v1/goview/projects/${encodeURIComponent(projectId)}/preview`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isGoViewProjectPreview(value)) {

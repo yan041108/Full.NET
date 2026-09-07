@@ -40,6 +40,7 @@ function mountView(permissions = ['workflow.instances.read']) {
     actorScope: 'tenant',
     scope: 'tenant',
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '01912345-6789-7abc-8def-0123456789a2',
     preferredLocale: 'zh-CN',

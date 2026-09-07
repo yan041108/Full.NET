@@ -412,7 +412,7 @@ async function openVersions(definition: ReportingDefinition): Promise<void> {
   }
 }
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
@@ -426,7 +426,7 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
 
     <div class="layout-grid">
       <ElCard :header="t('reportingDefinitions.groupsTitle')" class="groups-card">
-        <PermissionGate permission="reporting.groups.create">
+        <PermissionGate code="reporting.groups.create">
           <ElButton
             type="primary"
             :icon="Plus"
@@ -447,16 +447,17 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
               </ElTag>
             </template>
           </ElTableColumn>
+          <!-- @vue-generic {ReportingGroup} -->
           <ElTableColumn :label="t('reportingDefinitions.actions')" width="140">
             <template #default="{ row }">
               <ArtTableActionGroup>
-                <PermissionGate permission="reporting.groups.update">
-                  <ArtTableActionButton @click="openEditGroup(row)">
+                <PermissionGate code="reporting.groups.update">
+                  <ArtTableActionButton type="edit" @click="openEditGroup(row)">
                     {{ t('reportingDefinitions.actionEdit') }}
                   </ArtTableActionButton>
                 </PermissionGate>
-                <PermissionGate permission="reporting.groups.delete">
-                  <ArtTableActionButton type="danger" @click="confirmDeleteGroup(row)">
+                <PermissionGate code="reporting.groups.delete">
+                  <ArtTableActionButton type="delete" @click="confirmDeleteGroup(row)">
                     {{ t('reportingDefinitions.actionDelete') }}
                   </ArtTableActionButton>
                 </PermissionGate>
@@ -469,7 +470,7 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
       <ElCard class="definitions-card">
         <ArtTableHeader :title="t('reportingDefinitions.title')">
           <template #actions>
-            <PermissionGate permission="reporting.definitions.create">
+            <PermissionGate code="reporting.definitions.create">
               <ElButton
                 type="primary"
                 :icon="Plus"
@@ -508,24 +509,25 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
                 {{ row.latestPublishedVersionNumber || '-' }}
               </template>
             </ElTableColumn>
-            <ElTableColumn :label="t('reportingDefinitions.actions')" width="260" fixed="right">
+            <!-- @vue-generic {ReportingDefinition} -->
+          <ElTableColumn :label="t('reportingDefinitions.actions')" width="260" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
-                  <PermissionGate permission="reporting.definitions.update">
-                    <ArtTableActionButton @click="openEditDefinition(row)">
+                  <PermissionGate code="reporting.definitions.update">
+                    <ArtTableActionButton type="edit" @click="openEditDefinition(row)">
                       {{ t('reportingDefinitions.actionEdit') }}
                     </ArtTableActionButton>
                   </PermissionGate>
-                  <PermissionGate permission="reporting.definitions.publish">
-                    <ArtTableActionButton @click="publishCurrentDefinition(row)">
+                  <PermissionGate code="reporting.definitions.publish">
+                    <ArtTableActionButton type="view" @click="publishCurrentDefinition(row)">
                       {{ t('reportingDefinitions.actionPublish') }}
                     </ArtTableActionButton>
                   </PermissionGate>
-                  <ArtTableActionButton @click="openVersions(row)">
+                  <ArtTableActionButton type="view" @click="openVersions(row)">
                     {{ t('reportingDefinitions.actionVersions') }}
                   </ArtTableActionButton>
-                  <PermissionGate permission="reporting.definitions.delete">
-                    <ArtTableActionButton type="danger" @click="confirmDeleteDefinition(row)">
+                  <PermissionGate code="reporting.definitions.delete">
+                    <ArtTableActionButton type="delete" @click="confirmDeleteDefinition(row)">
                       {{ t('reportingDefinitions.actionDelete') }}
                     </ArtTableActionButton>
                   </PermissionGate>
@@ -538,10 +540,10 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
     </div>
 
     <ArtFormDialog
-      v-model="groupEditorOpen"
+      v-model:open="groupEditorOpen"
       :title="groupEditorMode === 'create' ? t('reportingDefinitions.createGroupTitle') : t('reportingDefinitions.editGroupTitle')"
-      :loading="acting"
-      @submit="submitGroup"
+      :saving="acting"
+      @confirm="submitGroup"
     >
       <ElForm ref="groupFormRef" :model="groupForm" label-width="120px">
         <ElFormItem :label="t('reportingDefinitions.fieldGroupName')" prop="name" required>
@@ -557,11 +559,11 @@ function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model="definitionEditorOpen"
+      v-model:open="definitionEditorOpen"
       :title="definitionEditorMode === 'create' ? t('reportingDefinitions.createTitle') : t('reportingDefinitions.editTitle')"
-      :loading="acting"
+      :saving="acting"
       width="760px"
-      @submit="submitDefinition"
+      @confirm="submitDefinition"
     >
       <ElForm ref="definitionFormRef" :model="definitionForm" label-width="140px">
         <ElFormItem

@@ -77,6 +77,8 @@ the complete license texts.
   https://github.com/vitest-dev/vitest
 - jsdom — MIT
   https://github.com/jsdom/jsdom
+- DOMPurify — Apache-2.0 (selected from MPL-2.0 OR Apache-2.0)
+  https://github.com/cure53/DOMPurify
 - pnpm — MIT
   https://github.com/pnpm/pnpm
 - TypeScript — Apache-2.0

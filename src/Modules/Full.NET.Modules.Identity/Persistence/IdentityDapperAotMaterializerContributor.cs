@@ -506,29 +506,32 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             Version = AotDataReaderExtensions.ReadInt32(reader, 12),
         };
 
-    private static void BindRegistrationWayRecord(
-        DbCommand command,
-        RegistrationWayRecord value)
+    /// <summary>显式绑定 RegistrationWayRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
+    /// <param name="value">需要写入的持久化投影。</param>
+    /// <returns>由统一执行器处理提供程序差异的参数集合。</returns>
+    private static DynamicParameters BindRegistrationWayRecord(RegistrationWayRecord value)
     {
-        command.Parameters.AddWithValue("@Id", value.Id);
-        command.Parameters.AddWithValue("@TenantId", value.TenantId);
-        command.Parameters.AddWithValue("@Name", value.Name);
-        command.Parameters.AddWithValue("@Code", value.Code);
-        command.Parameters.AddWithValue("@IsEnabled", value.IsEnabled);
-        command.Parameters.AddWithValue("@RoleId", value.RoleId);
-        command.Parameters.AddWithValue("@OrganizationUnitId", value.OrganizationUnitId);
-        command.Parameters.AddWithValue(
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", value.Id);
+        parameters.Add("@TenantId", value.TenantId);
+        parameters.Add("@Name", value.Name);
+        parameters.Add("@Code", value.Code);
+        parameters.Add("@IsEnabled", value.IsEnabled);
+        parameters.Add("@RoleId", value.RoleId);
+        parameters.Add("@OrganizationUnitId", value.OrganizationUnitId);
+        parameters.Add(
             "@PositionId",
             value.PositionId is null ? DBNull.Value : value.PositionId);
-        command.Parameters.AddWithValue("@SortOrder", value.SortOrder);
-        command.Parameters.AddWithValue(
+        parameters.Add("@SortOrder", value.SortOrder);
+        parameters.Add(
             "@Remark",
             value.Remark is null ? DBNull.Value : value.Remark);
-        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
-        command.Parameters.AddWithValue(
+        parameters.Add("@CreatedAtUtc", value.CreatedAtUtc);
+        parameters.Add(
             "@UpdatedAtUtc",
             value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
-        command.Parameters.AddWithValue("@Version", value.Version);
+        parameters.Add("@Version", value.Version);
+        return parameters;
     }
 
     private static LdapConnectionRecord ReadLdapConnectionRecord(DbDataReader reader) =>
@@ -554,36 +557,39 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             Version = AotDataReaderExtensions.ReadInt32(reader, 17),
         };
 
-    private static void BindLdapConnectionRecord(
-        DbCommand command,
-        LdapConnectionRecord value)
+    /// <summary>显式绑定 LdapConnectionRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
+    /// <param name="value">需要写入的持久化投影。</param>
+    /// <returns>由统一执行器处理提供程序差异的参数集合。</returns>
+    private static DynamicParameters BindLdapConnectionRecord(LdapConnectionRecord value)
     {
-        command.Parameters.AddWithValue("@Id", value.Id);
-        command.Parameters.AddWithValue(
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", value.Id);
+        parameters.Add(
             "@TenantId",
             value.TenantId is null ? DBNull.Value : value.TenantId);
-        command.Parameters.AddWithValue("@Name", value.Name);
-        command.Parameters.AddWithValue("@Host", value.Host);
-        command.Parameters.AddWithValue("@Port", value.Port);
-        command.Parameters.AddWithValue("@UseTls", value.UseTls);
-        command.Parameters.AddWithValue("@BaseDn", value.BaseDn);
-        command.Parameters.AddWithValue("@BindDn", value.BindDn);
-        command.Parameters.AddWithValue("@BindPasswordProtected", value.BindPasswordProtected);
-        command.Parameters.AddWithValue("@UserSearchFilter", value.UserSearchFilter);
-        command.Parameters.AddWithValue("@UserAccountAttribute", value.UserAccountAttribute);
-        command.Parameters.AddWithValue(
+        parameters.Add("@Name", value.Name);
+        parameters.Add("@Host", value.Host);
+        parameters.Add("@Port", value.Port);
+        parameters.Add("@UseTls", value.UseTls);
+        parameters.Add("@BaseDn", value.BaseDn);
+        parameters.Add("@BindDn", value.BindDn);
+        parameters.Add("@BindPasswordProtected", value.BindPasswordProtected);
+        parameters.Add("@UserSearchFilter", value.UserSearchFilter);
+        parameters.Add("@UserAccountAttribute", value.UserAccountAttribute);
+        parameters.Add(
             "@EmployeeIdAttribute",
             value.EmployeeIdAttribute is null ? DBNull.Value : value.EmployeeIdAttribute);
-        command.Parameters.AddWithValue(
+        parameters.Add(
             "@DepartmentCodeAttribute",
             value.DepartmentCodeAttribute is null ? DBNull.Value : value.DepartmentCodeAttribute);
-        command.Parameters.AddWithValue("@SyncSearchBaseDn", value.SyncSearchBaseDn);
-        command.Parameters.AddWithValue("@IsEnabled", value.IsEnabled);
-        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
-        command.Parameters.AddWithValue(
+        parameters.Add("@SyncSearchBaseDn", value.SyncSearchBaseDn);
+        parameters.Add("@IsEnabled", value.IsEnabled);
+        parameters.Add("@CreatedAtUtc", value.CreatedAtUtc);
+        parameters.Add(
             "@UpdatedAtUtc",
             value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
-        command.Parameters.AddWithValue("@Version", value.Version);
+        parameters.Add("@Version", value.Version);
+        return parameters;
     }
 
     private static OAuthProviderRecord ReadOAuthProviderRecord(DbDataReader reader) =>
@@ -603,24 +609,27 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             Version = AotDataReaderExtensions.ReadInt32(reader, 11),
         };
 
-    private static void BindOAuthProviderRecord(
-        DbCommand command,
-        OAuthProviderRecord value)
+    /// <summary>显式绑定 OAuthProviderRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
+    /// <param name="value">需要写入的持久化投影。</param>
+    /// <returns>由统一执行器处理提供程序差异的参数集合。</returns>
+    private static DynamicParameters BindOAuthProviderRecord(OAuthProviderRecord value)
     {
-        command.Parameters.AddWithValue("@Id", value.Id);
-        command.Parameters.AddWithValue("@ProviderKey", value.ProviderKey);
-        command.Parameters.AddWithValue("@DisplayName", value.DisplayName);
-        command.Parameters.AddWithValue("@Authority", value.Authority);
-        command.Parameters.AddWithValue("@ClientId", value.ClientId);
-        command.Parameters.AddWithValue("@ClientSecretProtected", value.ClientSecretProtected);
-        command.Parameters.AddWithValue("@Scopes", value.Scopes);
-        command.Parameters.AddWithValue("@RedirectPath", value.RedirectPath);
-        command.Parameters.AddWithValue("@IsEnabled", value.IsEnabled);
-        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
-        command.Parameters.AddWithValue(
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", value.Id);
+        parameters.Add("@ProviderKey", value.ProviderKey);
+        parameters.Add("@DisplayName", value.DisplayName);
+        parameters.Add("@Authority", value.Authority);
+        parameters.Add("@ClientId", value.ClientId);
+        parameters.Add("@ClientSecretProtected", value.ClientSecretProtected);
+        parameters.Add("@Scopes", value.Scopes);
+        parameters.Add("@RedirectPath", value.RedirectPath);
+        parameters.Add("@IsEnabled", value.IsEnabled);
+        parameters.Add("@CreatedAtUtc", value.CreatedAtUtc);
+        parameters.Add(
             "@UpdatedAtUtc",
             value.UpdatedAtUtc is null ? DBNull.Value : value.UpdatedAtUtc);
-        command.Parameters.AddWithValue("@Version", value.Version);
+        parameters.Add("@Version", value.Version);
+        return parameters;
     }
 
     private static OAuthPublicProviderRecord ReadOAuthPublicProviderRecord(DbDataReader reader) =>
@@ -662,24 +671,27 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             ProviderDisplayName = reader.GetString(10),
         };
 
-    private static void BindOAuthUserLinkRecord(
-        DbCommand command,
-        OAuthUserLinkRecord value)
+    /// <summary>显式绑定 OAuthUserLinkRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
+    /// <param name="value">需要写入的持久化投影。</param>
+    /// <returns>由统一执行器处理提供程序差异的参数集合。</returns>
+    private static DynamicParameters BindOAuthUserLinkRecord(OAuthUserLinkRecord value)
     {
-        command.Parameters.AddWithValue("@Id", value.Id);
-        command.Parameters.AddWithValue("@UserId", value.UserId);
-        command.Parameters.AddWithValue("@ProviderKey", value.ProviderKey);
-        command.Parameters.AddWithValue("@Subject", value.Subject);
-        command.Parameters.AddWithValue("@Email", value.Email is null ? DBNull.Value : value.Email);
-        command.Parameters.AddWithValue("@EmailVerified", value.EmailVerified);
-        command.Parameters.AddWithValue(
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", value.Id);
+        parameters.Add("@UserId", value.UserId);
+        parameters.Add("@ProviderKey", value.ProviderKey);
+        parameters.Add("@Subject", value.Subject);
+        parameters.Add("@Email", value.Email is null ? DBNull.Value : value.Email);
+        parameters.Add("@EmailVerified", value.EmailVerified);
+        parameters.Add(
             "@DisplayName",
             value.DisplayName is null ? DBNull.Value : value.DisplayName);
-        command.Parameters.AddWithValue("@LinkedAtUtc", value.LinkedAtUtc);
-        command.Parameters.AddWithValue(
+        parameters.Add("@LinkedAtUtc", value.LinkedAtUtc);
+        parameters.Add(
             "@LastUsedAtUtc",
             value.LastUsedAtUtc is null ? DBNull.Value : value.LastUsedAtUtc);
-        command.Parameters.AddWithValue("@Version", value.Version);
+        parameters.Add("@Version", value.Version);
+        return parameters;
     }
 
     private static OAuthAuthorizationStateRecord ReadOAuthAuthorizationStateRecord(
@@ -697,21 +709,24 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             ExpiresAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
         };
 
-    private static void BindOAuthAuthorizationStateRecord(
-        DbCommand command,
-        OAuthAuthorizationStateRecord value)
+    /// <summary>显式绑定 OAuthAuthorizationStateRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
+    /// <param name="value">需要写入的持久化投影。</param>
+    /// <returns>由统一执行器处理提供程序差异的参数集合。</returns>
+    private static DynamicParameters BindOAuthAuthorizationStateRecord(OAuthAuthorizationStateRecord value)
     {
-        command.Parameters.AddWithValue("@Id", value.Id);
-        command.Parameters.AddWithValue("@ProviderKey", value.ProviderKey);
-        command.Parameters.AddWithValue("@CodeVerifier", value.CodeVerifier);
-        command.Parameters.AddWithValue("@Nonce", value.Nonce);
-        command.Parameters.AddWithValue("@Mode", value.Mode);
-        command.Parameters.AddWithValue(
+        var parameters = new DynamicParameters();
+        parameters.Add("@Id", value.Id);
+        parameters.Add("@ProviderKey", value.ProviderKey);
+        parameters.Add("@CodeVerifier", value.CodeVerifier);
+        parameters.Add("@Nonce", value.Nonce);
+        parameters.Add("@Mode", value.Mode);
+        parameters.Add(
             "@UserId",
             value.UserId is null ? DBNull.Value : value.UserId);
-        command.Parameters.AddWithValue("@ReturnUrl", value.ReturnUrl);
-        command.Parameters.AddWithValue("@CreatedAtUtc", value.CreatedAtUtc);
-        command.Parameters.AddWithValue("@ExpiresAtUtc", value.ExpiresAtUtc);
+        parameters.Add("@ReturnUrl", value.ReturnUrl);
+        parameters.Add("@CreatedAtUtc", value.CreatedAtUtc);
+        parameters.Add("@ExpiresAtUtc", value.ExpiresAtUtc);
+        return parameters;
     }
 
     private static IdentityUserTotpRecord ReadIdentityUserTotpRecord(DbDataReader reader) =>

@@ -113,7 +113,7 @@ public sealed class DingTalkNotificationProviderAdapterTests
 
     private sealed class StubSecretResolver(string secret) : INotificationSecretResolver
     {
-        public ValueTask<string?> ResolveAsync(string? secretReference, CancellationToken cancellationToken) =>
+        public ValueTask<string?> ResolveAsync(string providerTypeKey, string? secretReference, CancellationToken cancellationToken) =>
             ValueTask.FromResult<string?>(secret);
     }
 

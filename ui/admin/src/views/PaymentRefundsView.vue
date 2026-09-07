@@ -38,10 +38,10 @@ const {
 
 watchLoading(loading);
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 function formatAmount(minor: number): string {

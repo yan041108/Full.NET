@@ -343,34 +343,35 @@ onMounted(() => {
               </el-tag>
             </template>
           </el-table-column>
+          <!-- @vue-generic {OpenAccessClient} -->
           <el-table-column :label="t('users.columnActions')" width="280" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>
                 <PermissionGate code="identity.open_access_clients.read">
-                  <ArtTableActionButton
-                    :label="t('openAccessClients.detail')"
+                  <ArtTableActionButton type="view"
+                    :title="t('openAccessClients.detail')"
                     test-id="open-access-clients-action-detail"
                     @click="openDetail(row)"
                   />
                 </PermissionGate>
                 <PermissionGate code="identity.open_access_clients.update">
-                  <ArtTableActionButton
-                    :label="t('openAccessClients.edit')"
+                  <ArtTableActionButton type="edit"
+                    :title="t('openAccessClients.edit')"
                     test-id="open-access-clients-action-edit"
                     @click="openEdit(row)"
                   />
                 </PermissionGate>
                 <PermissionGate code="identity.open_access_clients.rotate">
-                  <ArtTableActionButton
-                    :label="t('openAccessClients.rotate')"
+                  <ArtTableActionButton type="delete"
+                    :title="t('openAccessClients.rotate')"
                     :disabled="!row.isActive"
                     test-id="open-access-clients-action-rotate"
                     @click="confirmRotate(row)"
                   />
                 </PermissionGate>
                 <PermissionGate code="identity.open_access_clients.disable">
-                  <ArtTableActionButton
-                    :label="t('openAccessClients.disable')"
+                  <ArtTableActionButton type="delete"
+                    :title="t('openAccessClients.disable')"
                     :disabled="!row.isActive"
                     test-id="open-access-clients-action-disable"
                     @click="confirmDisable(row)"
@@ -393,10 +394,10 @@ onMounted(() => {
     </el-card>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('openAccessClients.createTitle') : t('openAccessClients.editTitle')"
       :confirm-label="editorMode === 'create' ? t('openAccessClients.create') : t('openAccessClients.save')"
-      :loading="changing"
+      :saving="changing"
       confirm-test-id="open-access-clients-editor-submit"
       @confirm="submitEditor"
     >

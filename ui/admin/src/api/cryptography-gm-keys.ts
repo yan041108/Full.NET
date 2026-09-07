@@ -53,6 +53,7 @@ export async function sm2Sign(
     '/api/v1/cryptography/sm2/sign',
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body)
     },
     signal
@@ -73,6 +74,7 @@ export async function sm2Verify(
     '/api/v1/cryptography/sm2/verify',
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body)
     },
     signal

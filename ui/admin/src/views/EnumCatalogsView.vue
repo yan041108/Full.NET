@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import {
   ElButton,
@@ -225,7 +226,7 @@ function toProblem(error: unknown, fallbackKey = 'enumCatalogs.loadFailed'): Ful
     : {
         status: 500,
         code: 'client.settings_enum_catalog_failed',
-        title: t(fallbackKey)
+        title: translateRuntimeMessage(t, fallbackKey)
       };
 }
 </script>

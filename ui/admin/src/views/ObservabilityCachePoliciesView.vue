@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref } from 'vue';
 import {
   ElButton,
@@ -122,7 +123,7 @@ async function submitInvalidation(): Promise<void> {
       {
         operationKey: selectedOperation.value.operationKey,
         parameters: parameterValues.value,
-        scope
+        scope: scope.value
       }
     );
     lastResult.value = result.invalidatedTargets;
@@ -182,7 +183,7 @@ onMounted(() => {
 
       <ElDescriptions :column="2" border>
         <ElDescriptionsItem :label="t('observabilityCachePolicies.accessKind')">
-          {{ t(`observabilityCachePolicies.accessKind.${selected.accessKind}`) }}
+          {{ translateRuntimeMessage(t, `observabilityCachePolicies.accessKind.${selected.accessKind}`) }}
         </ElDescriptionsItem>
         <ElDescriptionsItem :label="t('observabilityCachePolicies.l1Duration')">
           {{ formatDuration(selected.l1DurationSeconds) }}

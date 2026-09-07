@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
@@ -12,7 +13,11 @@ namespace Full.NET.Modules.Regions.Seeding;
 /// <summary>
 /// 为 Host 环境播种中国行政区域基线快照；数据来自嵌入式固定 JSON，按 <see cref="Code"/> 幂等写入。
 /// </summary>
-internal sealed class RegionsAdministrativeBaselineSeedContributor(
+/// <param name="queryExecutor">查询当前模块既有基线数据。</param>
+/// <param name="commandExecutor">写入当前模块的行政区域记录。</param>
+/// <param name="clock">提供基线写入时间。</param>
+/// <param name="idGenerator">生成应用端 UUID 标识。</param>
+internal sealed partial class RegionsAdministrativeBaselineSeedContributor(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IClock clock,
@@ -113,13 +118,15 @@ internal sealed class RegionsAdministrativeBaselineSeedContributor(
             : new SeedContributionResult(0, 0, skipped, "seeding.data.skipped");
     }
 
+    /// <summary>读取嵌入式行政区域基线，通过静态 JSON 元数据反序列化。</summary>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     private static async Task<BaselinePayload> LoadBaselinePayloadAsync(CancellationToken cancellationToken)
     {
         await using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(BaselineResourceName)
             ?? throw new InvalidOperationException($"Missing embedded seed resource: {BaselineResourceName}");
-        var payload = await JsonSerializer.DeserializeAsync<BaselinePayload>(
+        var payload = await JsonSerializer.DeserializeAsync(
                 stream,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                BaselineJsonContext.Default.BaselinePayload,
                 cancellationToken)
             .ConfigureAwait(false);
         return payload ?? new BaselinePayload([]);
@@ -147,4 +154,8 @@ internal sealed class RegionsAdministrativeBaselineSeedContributor(
         decimal? Longitude,
         decimal? Latitude,
         int? DisplayOrder);
+    /// <summary>内嵌区划种子的闭合 JSON 元数据。</summary>
+    [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+    [JsonSerializable(typeof(BaselinePayload))]
+    private partial class BaselineJsonContext : JsonSerializerContext;
 }

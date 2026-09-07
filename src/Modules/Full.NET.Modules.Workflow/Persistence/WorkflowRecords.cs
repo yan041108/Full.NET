@@ -56,6 +56,17 @@ internal sealed record WorkflowFormDefinitionRecord(
     DateTimeOffset? UpdatedAtUtc);
 
 /// <summary>不可变工作流表单版本持久化投影。</summary>
+/// <param name="Id">表单版本标识。</param>
+/// <param name="FormDefinitionId">所属表单定义标识。</param>
+/// <param name="VersionNumber">发布版本号。</param>
+/// <param name="SchemaVersion">表单架构版本。</param>
+/// <param name="AdapterVersion">渲染适配版本。</param>
+/// <param name="ComponentCatalogVersion">组件目录版本。</param>
+/// <param name="FormSchemaJson">表单定义快照。</param>
+/// <param name="WebRenderSchemaJson">Web 渲染快照。</param>
+/// <param name="ContentHash">快照内容摘要。</param>
+/// <param name="PublishedById">发布者标识。</param>
+/// <param name="PublishedAtUtc">UTC 发布时间。</param>
 internal sealed record WorkflowFormVersionRecord(
     Guid Id,
     Guid FormDefinitionId,
@@ -66,7 +77,6 @@ internal sealed record WorkflowFormVersionRecord(
     string FormSchemaJson,
     string WebRenderSchemaJson,
     string ContentHash,
-    string? BusinessTitleTemplate,
     Guid PublishedById,
     DateTimeOffset PublishedAtUtc);
 

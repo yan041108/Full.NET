@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
@@ -352,7 +353,7 @@ async function submitApproval(): Promise<void> {
 
 function fieldLabel(fieldKey: string): string {
   const key = `serialNumberRules.approvalField.${fieldKey}` as const;
-  return t(key);
+  return translateRuntimeMessage(t, key);
 }
 
 async function runPreview(): Promise<void> {

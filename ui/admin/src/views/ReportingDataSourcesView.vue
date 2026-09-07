@@ -286,7 +286,7 @@ async function runDelete(row: ReportingDataSourceListItem) {
   }
 }
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
@@ -317,7 +317,7 @@ onMounted(load);
           @search="applySearch"
         />
         <template #actions>
-          <PermissionGate permission="reporting.data_sources.create">
+          <PermissionGate code="reporting.data_sources.create">
             <el-button
               type="primary"
               :icon="Plus"
@@ -339,7 +339,7 @@ onMounted(load);
           :stripe="tableZebra"
           :border="tableBorder"
           :header-cell-style="tableHeaderCellStyle"
-          :header-cell-class-name="tableHeaderBackground"
+          :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
         >
           <el-table-column type="index" :index="rowIndex" width="56" />
           <el-table-column prop="name" :label="t('reportingDataSources.fieldName')" min-width="140" />
@@ -363,33 +363,34 @@ onMounted(load);
               </el-tag>
             </template>
           </el-table-column>
+          <!-- @vue-generic {ReportingDataSourceListItem} -->
           <el-table-column :label="t('reportingDataSources.actions')" width="260" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>
-                <PermissionGate permission="reporting.data_sources.test">
-                  <ArtTableActionButton
-                    :label="t('reportingDataSources.testConnection')"
+                <PermissionGate code="reporting.data_sources.test">
+                  <ArtTableActionButton type="view"
+                    :title="t('reportingDataSources.testConnection')"
                     test-id="reporting-data-source-test"
                     @click="runTest(row)"
                   />
                 </PermissionGate>
-                <PermissionGate permission="reporting.data_sources.update">
-                  <ArtTableActionButton
-                    :label="t('reportingDataSources.actionEdit')"
+                <PermissionGate code="reporting.data_sources.update">
+                  <ArtTableActionButton type="edit"
+                    :title="t('reportingDataSources.actionEdit')"
                     test-id="reporting-data-source-edit"
                     @click="openEdit(row)"
                   />
                 </PermissionGate>
-                <PermissionGate permission="reporting.data_sources.update">
-                  <ArtTableActionButton
-                    :label="t('reportingDataSources.actionDisable')"
+                <PermissionGate code="reporting.data_sources.update">
+                  <ArtTableActionButton type="delete"
+                    :title="t('reportingDataSources.actionDisable')"
                     test-id="reporting-data-source-disable"
                     @click="runDisable(row)"
                   />
                 </PermissionGate>
-                <PermissionGate permission="reporting.data_sources.delete">
-                  <ArtTableActionButton
-                    :label="t('reportingDataSources.actionDelete')"
+                <PermissionGate code="reporting.data_sources.delete">
+                  <ArtTableActionButton type="delete"
+                    :title="t('reportingDataSources.actionDelete')"
                     test-id="reporting-data-source-delete"
                     @click="runDelete(row)"
                   />
@@ -412,9 +413,9 @@ onMounted(load);
     </el-card>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('reportingDataSources.createTitle') : t('reportingDataSources.editTitle')"
-      :loading="changing"
+      :saving="changing"
       confirm-test-id="reporting-data-source-editor-submit"
       @confirm="submitEditor"
     >

@@ -488,11 +488,12 @@ function resolveProblem(
               <template #default="{ row }">{{ formatDateTime(row.publishedAtUtc) }}</template>
             </el-table-column>
 
-            <el-table-column :label="t('users.columnActions')" width="220" fixed="right">
+            <!-- @vue-generic {HostReleaseNote} -->
+          <el-table-column :label="t('users.columnActions')" width="220" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
                   <PermissionGate v-if="row.status === 'draft'" code="platform.release_notes.update">
-                    <ArtTableActionButton
+                    <ArtTableActionButton type="edit"
                       test-id="host-release-notes-edit"
                       @click="openEdit(row)"
                     >
@@ -500,7 +501,7 @@ function resolveProblem(
                     </ArtTableActionButton>
                   </PermissionGate>
                   <PermissionGate v-if="row.status === 'draft'" code="platform.release_notes.publish">
-                    <ArtTableActionButton
+                    <ArtTableActionButton type="view"
                       test-id="host-release-notes-publish"
                       @click="confirmPublish(row)"
                     >
@@ -508,7 +509,7 @@ function resolveProblem(
                     </ArtTableActionButton>
                   </PermissionGate>
                   <PermissionGate v-if="row.status === 'published'" code="platform.release_notes.retract">
-                    <ArtTableActionButton
+                    <ArtTableActionButton type="view"
                       test-id="host-release-notes-retract"
                       @click="confirmRetract(row)"
                     >
@@ -518,7 +519,7 @@ function resolveProblem(
                   <PermissionGate v-if="row.status === 'draft'" code="platform.release_notes.delete">
                     <ArtTableActionButton
                       test-id="host-release-notes-delete"
-                      type="danger"
+                      type="delete"
                       @click="confirmDelete(row)"
                     >
                       {{ t('hostReleaseNotes.delete') }}
@@ -546,12 +547,12 @@ function resolveProblem(
     </el-card>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('hostReleaseNotes.createDialogTitle') : t('hostReleaseNotes.editDialogTitle')"
-      :submit-label="editorMode === 'create' ? t('hostReleaseNotes.create') : t('hostReleaseNotes.save')"
-      :submitting="changing"
+      :confirm-label="editorMode === 'create' ? t('hostReleaseNotes.create') : t('hostReleaseNotes.save')"
+      :saving="changing"
       confirm-test-id="host-release-notes-editor-submit"
-      @submit="submitEditor"
+      @confirm="submitEditor"
     >
       <el-form
         ref="editorFormRef"

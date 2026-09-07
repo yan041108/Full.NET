@@ -21,46 +21,46 @@ internal static class ReportingExportTaskSql
              @ParametersJson, @StatusKey, @OutputFileId, @OutputFileName, @RowCount, @ErrorCode, @ErrorMessage,
              @RequestedByUserId, @CreatedAtUtc, @CompletedAtUtc, @Version)
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement FindById = new(
         "reporting.export_task.find_by_id",
         $"""
         SELECT {SelectColumns}
         FROM fn_reporting_export_task
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement PageSqlServer = new(
         "reporting.export_task.page.sqlserver",
         $"""
         SELECT COUNT(1)
         FROM fn_reporting_export_task
-        WHERE (@DefinitionId IS NULL OR DefinitionId = @DefinitionId);
+        WHERE TenantId = @TenantId AND (@DefinitionId IS NULL OR DefinitionId = @DefinitionId);
 
         SELECT {SelectColumns}
         FROM fn_reporting_export_task
-        WHERE (@DefinitionId IS NULL OR DefinitionId = @DefinitionId)
+        WHERE TenantId = @TenantId AND (@DefinitionId IS NULL OR DefinitionId = @DefinitionId)
         ORDER BY CreatedAtUtc DESC, Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement PageMySql = new(
         "reporting.export_task.page.mysql",
         $"""
         SELECT COUNT(1)
         FROM fn_reporting_export_task
-        WHERE (@DefinitionId IS NULL OR DefinitionId = @DefinitionId);
+        WHERE TenantId = @TenantId AND (@DefinitionId IS NULL OR DefinitionId = @DefinitionId);
 
         SELECT {SelectColumns}
         FROM fn_reporting_export_task
-        WHERE (@DefinitionId IS NULL OR DefinitionId = @DefinitionId)
+        WHERE TenantId = @TenantId AND (@DefinitionId IS NULL OR DefinitionId = @DefinitionId)
         ORDER BY CreatedAtUtc DESC, Id DESC
         LIMIT @PageSize OFFSET @Offset;
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement CompleteSucceeded = new(
         "reporting.export_task.complete_succeeded",
@@ -74,10 +74,10 @@ internal static class ReportingExportTaskSql
             ErrorMessage = NULL,
             CompletedAtUtc = @CompletedAtUtc,
             Version = Version + 1
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
           AND Version = @Version
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement CompleteFailed = new(
         "reporting.export_task.complete_failed",
@@ -89,8 +89,8 @@ internal static class ReportingExportTaskSql
             ErrorMessage = @ErrorMessage,
             CompletedAtUtc = @CompletedAtUtc,
             Version = Version + 1
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
           AND Version = @Version
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

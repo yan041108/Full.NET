@@ -63,7 +63,7 @@ export async function createPaymentOrder(
 ): Promise<PaymentOrder> {
   const value = await request<unknown>(
     '/api/v1/payments/orders',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPaymentOrder(value)) {
@@ -94,7 +94,7 @@ export async function createPaymentRefund(
 ): Promise<PaymentRefund> {
   const value = await request<unknown>(
     `/api/v1/payments/orders/${encodeURIComponent(orderId)}/refunds`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPaymentRefund(value)) {

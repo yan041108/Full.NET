@@ -14,6 +14,7 @@ import {
   isFullNetProblemDetails,
   isMaskedHostUserIdCardNumber,
   isMaskedHostUserPhoneNumber,
+  type HostUserProfileResponse,
   type HostUserProfileWriteRequest
 } from '@fullnet/client-contracts';
 import {
@@ -51,7 +52,7 @@ const displayName = ref('');
 const userVersion = ref(0);
 const readableFieldKeys = ref<string[]>([]);
 const writableFieldKeys = ref<string[]>([]);
-const profile = reactive<HostUserProfileWriteRequest>({
+const profile = reactive<{ -readonly [K in keyof HostUserProfileWriteRequest]: HostUserProfileWriteRequest[K] }>({
   fieldKeys: [],
   nickname: null,
   phoneNumber: null,
@@ -199,7 +200,7 @@ function hasField(fieldKey: string, writable = false): boolean {
   return keys.includes(fieldKey);
 }
 
-function assignProfile(source: HostUserProfileWriteRequest): void {
+function assignProfile(source: HostUserProfileResponse): void {
   profile.fieldKeys = [...writableFieldKeys.value];
   profile.nickname = source.nickname ?? null;
   profile.phoneNumber = source.phoneNumber ?? null;

@@ -44,7 +44,7 @@ export async function createReportingGroup(
   body: CreateReportingGroupRequest,
   signal?: AbortSignal
 ): Promise<ReportingGroup> {
-  const value = await request<unknown>('/api/v1/reporting/groups', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/reporting/groups', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isReportingGroup(value)) {
     throw new Error('client.invalid_reporting_group');
   }
@@ -58,7 +58,7 @@ export async function updateReportingGroup(
 ): Promise<ReportingGroup> {
   const value = await request<unknown>(
     `/api/v1/reporting/groups/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isReportingGroup(value)) {
@@ -133,7 +133,7 @@ export async function createReportingDefinition(
   body: CreateReportingDefinitionRequest,
   signal?: AbortSignal
 ): Promise<ReportingDefinition> {
-  const value = await request<unknown>('/api/v1/reporting/definitions', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/reporting/definitions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isReportingDefinition(value)) {
     throw new Error('client.invalid_reporting_definition');
   }
@@ -147,7 +147,7 @@ export async function updateReportingDefinition(
 ): Promise<ReportingDefinition> {
   const value = await request<unknown>(
     `/api/v1/reporting/definitions/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isReportingDefinition(value)) {
@@ -172,7 +172,7 @@ export async function publishReportingDefinition(
 ): Promise<ReportingDefinitionVersion> {
   const value = await request<unknown>(
     `/api/v1/reporting/definitions/${encodeURIComponent(id)}/publish`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isReportingDefinitionVersion(value)) {

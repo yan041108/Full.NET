@@ -38,6 +38,10 @@ public static class FullNetModuleSelection
         "Workflow",
         "Mqtt",
         "Cryptography",
+        "Payments",
+        "GoView",
+        "K3Cloud",
+        "Ocr",
     ];
 
     /// <summary>
@@ -53,7 +57,7 @@ public static class FullNetModuleSelection
     ];
 
     /// <summary>
-    /// Platform 预设模块键：Minimal 基础上追加 Auditing、Notifications、Jobs、Messaging 平台能力。
+    /// Platform 预设模块键：Minimal 基础上追加 Auditing、Notifications、Jobs、Messaging 及通知附件需要的 Files 平台能力。
     /// </summary>
     public static readonly IReadOnlyList<string> PlatformPresetModuleNames =
     [
@@ -62,6 +66,7 @@ public static class FullNetModuleSelection
         "Settings",
         "Organization",
         "Auditing",
+        "Files",
         "Notifications",
         "Calendar",
         "Platform",
@@ -74,7 +79,7 @@ public static class FullNetModuleSelection
     ];
 
     /// <summary>
-    /// Content 预设模块键：Platform 基础上追加 Files、Document 内容管理能力。
+    /// Content 预设模块键：Platform 基础上追加 Document 内容管理能力。
     /// </summary>
     public static readonly IReadOnlyList<string> ContentPresetModuleNames =
     [

@@ -18,6 +18,7 @@ const sampleUser = {
   actorScope: 'host',
   scope: 'host',
   isSuperAdministrator: true,
+      passwordChangeRequired: false,
   permissions: ['identity.users.read'],
   sessionId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61',
   preferredLocale: 'zh-CN',

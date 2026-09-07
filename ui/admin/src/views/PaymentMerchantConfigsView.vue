@@ -84,10 +84,10 @@ const {
 
 watchLoading(loading);
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -246,12 +246,13 @@ onMounted(() => {
               </el-tag>
             </template>
           </el-table-column>
+          <!-- @vue-generic {PaymentMerchantConfigListItem} -->
           <el-table-column :label="t('paymentMerchantConfigs.actions')" width="180" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>
                 <PermissionGate code="payments.merchants.update">
-                  <ArtTableActionButton @click="openEdit(row)">{{ t('paymentMerchantConfigs.actionEdit') }}</ArtTableActionButton>
-                  <ArtTableActionButton @click="disableRow(row)">{{ t('paymentMerchantConfigs.actionDisable') }}</ArtTableActionButton>
+                  <ArtTableActionButton type="edit" @click="openEdit(row)">{{ t('paymentMerchantConfigs.actionEdit') }}</ArtTableActionButton>
+                  <ArtTableActionButton type="delete" @click="disableRow(row)">{{ t('paymentMerchantConfigs.actionDisable') }}</ArtTableActionButton>
                 </PermissionGate>
               </ArtTableActionGroup>
             </template>
@@ -269,10 +270,10 @@ onMounted(() => {
     </el-card>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('paymentMerchantConfigs.createTitle') : t('paymentMerchantConfigs.editTitle')"
-      :loading="changing"
-      @submit="saveEditor"
+      :saving="changing"
+      @confirm="saveEditor"
     >
       <el-form ref="editorFormRef" label-width="120px">
         <el-form-item :label="t('paymentMerchantConfigs.fieldTenantId')">

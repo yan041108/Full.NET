@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
@@ -18,7 +19,7 @@ onMounted(async () => {
   const oauthError = route.query.oauth_error;
   if (typeof oauthError === 'string') {
     const messageKey = `oauthCallback.errors.${oauthError}` as const;
-    ElMessage.error(t(messageKey));
+    ElMessage.error(translateRuntimeMessage(t, messageKey));
     await router.replace('/');
     return;
   }

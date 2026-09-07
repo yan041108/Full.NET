@@ -36,28 +36,18 @@ export function listWeChatMiniProgramBindings(
   page = 1,
   pageSize = 20
 ): Promise<PagedWeChatMiniProgramBindingResponse> {
-  return request({
-    method: 'GET',
-    path: `/api/v1/notifications/wechat-miniprogram/bindings?page=${page}&pageSize=${pageSize}`
-  });
+  return request(`/api/v1/notifications/wechat-miniprogram/bindings?page=${page}&pageSize=${pageSize}`, { method: 'GET' });
 }
 
 export function listMyWeChatMiniProgramBindings(): Promise<WeChatMiniProgramBindingResponse[]> {
-  return request({
-    method: 'GET',
-    path: '/api/v1/notifications/wechat-miniprogram/bindings/mine'
-  });
+  return request('/api/v1/notifications/wechat-miniprogram/bindings/mine', { method: 'GET' });
 }
 
 export function exchangeWeChatMiniProgramBinding(body: {
   providerProfileVersionId: string;
   jsCode: string;
 }): Promise<WeChatMiniProgramBindingResponse> {
-  return request({
-    method: 'POST',
-    path: '/api/v1/notifications/wechat-miniprogram/bindings/exchange',
-    body
-  }).then(value => {
+  return request('/api/v1/notifications/wechat-miniprogram/bindings/exchange', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(value => {
     if (!isBindingRecord(value)) {
       throw new TypeError('Invalid WeChat mini program binding response.');
     }
@@ -69,11 +59,7 @@ export function recordWeChatMiniProgramSubscription(
   appId: string,
   body: { templateId: string; statusKey: string }
 ): Promise<WeChatMiniProgramBindingResponse> {
-  return request({
-    method: 'POST',
-    path: `/api/v1/notifications/wechat-miniprogram/bindings/${encodeURIComponent(appId)}/subscriptions`,
-    body
-  }).then(value => {
+  return request(`/api/v1/notifications/wechat-miniprogram/bindings/${encodeURIComponent(appId)}/subscriptions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(value => {
     if (!isBindingRecord(value)) {
       throw new TypeError('Invalid WeChat mini program binding response.');
     }

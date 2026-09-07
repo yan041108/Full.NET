@@ -66,6 +66,7 @@ function mountWithPermissions(permissions: string[]) {
     actorScope: 'host',
     scope: 'host',
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
     preferredLocale: 'zh-CN',
@@ -83,7 +84,12 @@ describe('Vue 投递运维页', () => {
       total: 2
     });
     getMock.mockReset().mockResolvedValue(delivery('failed'));
-    intentMock.mockReset().mockResolvedValue({ attachments: [] });
+    intentMock.mockReset().mockResolvedValue({
+      id: 'intent-1', producerKey: 'test', sceneKey: 'test', idempotencyKey: 'test-1',
+      templateVersionId: 'template-1', bindingVersionId: null, policyCategoryKey: 'transactional',
+      dispatchModeKey: 'single', statusKey: 'accepted', routeSnapshotJson: '{}',
+      parameterSnapshotJson: '{}', recipients: [], attachments: [], createdAtUtc: '2026-09-07T00:00:00Z'
+    });
     vi.mocked(retryNotificationDelivery).mockReset();
   });
 

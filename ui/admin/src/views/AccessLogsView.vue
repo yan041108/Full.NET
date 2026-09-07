@@ -357,7 +357,8 @@ function openDetail(row: AuditingAccessLog): void {
               </template>
             </el-table-column>
 
-            <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
+            <!-- @vue-generic {AuditingAccessLog} -->
+          <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
               <template #default="{ row }">
                 <el-button link type="primary" @click.stop="openDetail(row)">
                   {{ t('auditAnalytics.viewDetail') }}

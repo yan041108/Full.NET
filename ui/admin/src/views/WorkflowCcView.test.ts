@@ -41,6 +41,7 @@ describe('WorkflowCcView', () => {
       actorScope: 'host',
       scope: 'host',
       isSuperAdministrator: false,
+    passwordChangeRequired: false,
       permissions: ['workflow.cc.read', 'workflow.cc.mark_read'],
       sessionId: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d005',
       preferredLocale: 'zh-CN',

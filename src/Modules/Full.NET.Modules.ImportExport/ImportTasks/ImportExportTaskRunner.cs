@@ -18,8 +18,7 @@ internal sealed class ImportExportTaskRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
-    IHostFileContentReader hostFileContentReader,
-    IHostFileUploadWriter hostFileUploadWriter,
+    ITenantResourceFileStore resourceFiles,
     StaticImportSchemaRegistry registry,
     IActiveTenantContextResolver tenantResolver,
     ICurrentTenantContextWriter currentTenant,
@@ -30,31 +29,61 @@ internal sealed class ImportExportTaskRunner(
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    /// <summary>处理一批 queued 任务；每个任务最多处理一个 execution batch。</summary>
+    /// <summary>先发现租户，再按活动租户领取任务；每个任务最多处理一个执行批次。</summary>
+    /// <param name="cancellationToken">停止领取和执行的取消令牌。</param>
     public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
     {
         var batchSize = Math.Clamp(options.CurrentValue.BatchSize, 1, 200);
-        var claimed = await ClaimAsync(batchSize, cancellationToken).ConfigureAwait(false);
-        foreach (var task in claimed)
+        var pendingTenantIds = await queryExecutor.QueryAsync<Guid>(
+            databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                ? ImportExportTaskSql.ListPendingTenantIdsSqlServer
+                : ImportExportTaskSql.ListPendingTenantIdsMySql,
+            ImportExportSqlParameters.Create(("BatchSize", batchSize)), cancellationToken).ConfigureAwait(false);
+        var processed = 0;
+        foreach (var tenantId in pendingTenantIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await ProcessOneAsync(task, cancellationToken).ConfigureAwait(false);
+            if (processed >= batchSize)
+            {
+                break;
+            }
+
+            try
+            {
+                // 调度目录不是租户授权；停用或不存在的租户不能领取、读取或执行任务。
+                if (!await TrySetTenantScopeAsync(tenantId, cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
+                var claimed = await ClaimAsync(batchSize - processed, cancellationToken).ConfigureAwait(false);
+                foreach (var task in claimed)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await ProcessOneAsync(task, cancellationToken).ConfigureAwait(false);
+                    processed++;
+                }
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
         }
 
-        return claimed.Count;
+        return processed;
     }
 
+    /// <summary>在任务归属的活动租户中执行单个批次，并始终清理上下文。</summary>
+    /// <param name="task">已领取的任务快照。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     private async Task ProcessOneAsync(
         ImportExportTaskRecord task,
         CancellationToken cancellationToken)
     {
         if (!await TrySetTenantScopeAsync(task.TenantId, cancellationToken).ConfigureAwait(false))
         {
-            await MarkExecutionFailedAsync(
-                task.Id,
-                ImportExportErrorCodes.ExecutionFailed,
-                clock.UtcNow,
-                cancellationToken).ConfigureAwait(false);
+            // 失去活动租户资格时不能使用旧上下文写入任务；恢复由重新授权后的调度处理。
+            currentTenant.Clear();
             return;
         }
 
@@ -71,8 +100,8 @@ internal sealed class ImportExportTaskRunner(
                 return;
             }
 
-            var sourceResult = await hostFileContentReader
-                .OpenReadyContentAsync(task.SourceFileId, cancellationToken)
+            var sourceResult = await resourceFiles
+                .OpenReadyContentAsync("import_export", task.Id, task.SourceFileId, cancellationToken)
                 .ConfigureAwait(false);
             if (!sourceResult.IsSuccess)
             {
@@ -177,9 +206,9 @@ internal sealed class ImportExportTaskRunner(
                 var failedRows = mergedRows.Where(row => !row.Succeeded).ToArray();
                 var receiptBytes = ImportExportErrorReceiptRenderer.Render(failedRows);
                 await using var receiptStream = new MemoryStream(receiptBytes, writable: false);
-                var upload = await hostFileUploadWriter
+                var upload = await resourceFiles
                     .UploadAsync(
-                        task.RequestedByUserId,
+                        "import_export", task.Id, task.RequestedByUserId,
                         BuildErrorReceiptFileName(task),
                         WorkbookContentType,
                         receiptStream,

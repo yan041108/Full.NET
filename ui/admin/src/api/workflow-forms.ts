@@ -76,9 +76,9 @@ export async function setWorkflowFormStatus(
   expectedVersion: number,
   signal?: AbortSignal
 ): Promise<WorkflowFormResponse> {
-  return http.request<WorkflowFormResponse>(
+  return http.request<GeneratedWorkflowFormResponse>(
     `/api/v1/workflow/forms/${formId}/status`,
-    { method: 'POST', body: { statusKey, expectedVersion } },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ statusKey, expectedVersion }) },
     signal
   ).then(readSafeForm);
 }

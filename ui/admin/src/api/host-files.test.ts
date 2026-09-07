@@ -23,6 +23,7 @@ const sampleFile = {
   contentType: 'text/plain',
   sizeBytes: 12,
   contentHash: 'a'.repeat(64),
+  folderId: null, revision: 1, updatedAtUtc: null, updatedByUserId: null,
   createdAtUtc: '2026-07-26T00:00:00Z',
   createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
 };
@@ -86,7 +87,7 @@ describe('Vue Host 文件 API', () => {
     const file = new File(['hello'], 'parity.txt', { type: 'text/plain' });
     const controller = new AbortController();
 
-    await expect(uploadHostFile(file, controller.signal))
+    await expect(uploadHostFile(file, undefined, controller.signal))
       .rejects.toThrow('client.invalid_host_file_response');
     expect(requestMock.mock.calls[0]?.[2]).toBe(controller.signal);
   });

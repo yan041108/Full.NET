@@ -65,10 +65,10 @@ const {
 
 watchLoading(loading);
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 function formatAmount(minor: number): string {
@@ -157,7 +157,7 @@ async function submitRefund(): Promise<void> {
   }
   const amountYuan = refundForm.amountYuan.trim();
   const amountMinor = amountYuan ? Math.round(Number.parseFloat(amountYuan) * 100) : null;
-  if (amountYuan && (Number.isNaN(amountMinor) || amountMinor <= 0)) {
+  if (amountMinor !== null && (!Number.isSafeInteger(amountMinor) || amountMinor <= 0)) {
     ElMessage.warning(t('paymentOrders.refundValidationFailed'));
     return;
   }
@@ -265,10 +265,10 @@ onMounted(() => {
     </el-card>
 
     <ArtFormDialog
-      v-model="createOpen"
+      v-model:open="createOpen"
       :title="t('paymentOrders.createTitle')"
-      :loading="changing"
-      @submit="submitCreate"
+      :saving="changing"
+      @confirm="submitCreate"
     >
       <el-form label-width="120px">
         <el-form-item :label="t('paymentOrders.fieldTenantId')" required>
@@ -296,10 +296,10 @@ onMounted(() => {
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model="refundOpen"
+      v-model:open="refundOpen"
       :title="t('paymentOrders.refundTitle')"
-      :loading="changing"
-      @submit="submitRefund"
+      :saving="changing"
+      @confirm="submitRefund"
     >
       <el-form label-width="120px">
         <el-form-item :label="t('paymentOrders.refundReason')" required>

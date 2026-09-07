@@ -423,7 +423,8 @@ function formatDateTime(value: string): string {
             <el-table-column :label="t('administrativeRegions.fieldName')" prop="name" min-width="160" />
             <el-table-column :label="t('administrativeRegions.fieldLevel')" prop="level" width="80" align="center" />
             <el-table-column :label="t('users.columnSortOrder')" prop="displayOrder" width="88" align="center" />
-            <el-table-column :label="t('users.columnActions')" width="180" fixed="right">
+            <!-- @vue-generic {TreeRow} -->
+          <el-table-column :label="t('users.columnActions')" width="180" fixed="right">
               <template #default="{ row }">
                 <ArtTableActionGroup>
                   <PermissionGate code="regions.administrative_regions.create">
@@ -434,7 +435,7 @@ function formatDateTime(value: string): string {
                     />
                   </PermissionGate>
                   <PermissionGate code="regions.administrative_regions.update">
-                    <ArtTableActionButton
+                    <ArtTableActionButton type="edit"
                       test-id="administrative-regions-edit"
                       @click="openEdit(row)"
                     >
@@ -443,7 +444,7 @@ function formatDateTime(value: string): string {
                   </PermissionGate>
                   <PermissionGate code="regions.administrative_regions.delete">
                     <ArtTableActionButton
-                      type="danger"
+                      type="delete"
                       test-id="administrative-regions-delete"
                       @click="confirmDelete(row)"
                     >
@@ -467,12 +468,12 @@ function formatDateTime(value: string): string {
     </el-card>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('administrativeRegions.createDialogTitle') : t('administrativeRegions.editDialogTitle')"
-      :submit-label="editorMode === 'create' ? t('administrativeRegions.create') : t('administrativeRegions.save')"
-      :submitting="changing"
+      :confirm-label="editorMode === 'create' ? t('administrativeRegions.create') : t('administrativeRegions.save')"
+      :saving="changing"
       confirm-test-id="administrative-regions-editor-submit"
-      @submit="submitEditor"
+      @confirm="submitEditor"
     >
       <el-form ref="editorFormRef" label-position="top" data-testid="administrative-regions-editor-form" @submit.prevent>
         <el-form-item v-if="editorMode === 'create'" :label="t('administrativeRegions.fieldCode')" :error="fieldErrors.code">
@@ -497,12 +498,12 @@ function formatDateTime(value: string): string {
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model="importOpen"
+      v-model:open="importOpen"
       :title="t('administrativeRegions.importPreviewTitle')"
-      :submit-label="t('administrativeRegions.importApply')"
-      :submitting="changing"
+      :confirm-label="t('administrativeRegions.importApply')"
+      :saving="changing"
       confirm-test-id="administrative-regions-import-apply"
-      @submit="applyImport"
+      @confirm="applyImport"
     >
       <div v-if="importPreview" class="administrative-regions-import-preview" data-testid="administrative-regions-import-preview">
         <p>{{ t('administrativeRegions.importAdded', { count: importPreview.added.length }) }}</p>

@@ -1,0 +1,74 @@
+%% 审查快照：项目引用指向依赖模块；虚线表示 Contracts，非运行时装配图
+flowchart LR
+  Identity[Identity]
+  Auditing[Auditing]
+  Files[Files]
+  Document[Document]
+  Notifications[Notifications]
+  Calendar[Calendar]
+  Platform[Platform]
+  Regions[Regions]
+  Jobs[Jobs]
+  Messaging[Messaging]
+  Tenancy[Tenancy]
+  Organization[Organization]
+  ImportExport[ImportExport]
+  Reporting[Reporting]
+  Printing[Printing]
+  Ai[Ai]
+  Payments[Payments]
+  GoView[GoView]
+  K3Cloud[K3Cloud]
+  Ocr[Ocr]
+  Settings[Settings]
+  CodeGeneration[CodeGeneration]
+  SerialNumbers[SerialNumbers]
+  ObservabilityAdmin[ObservabilityAdmin]
+  Workflow[Workflow]
+  DataApproval[DataApproval]
+  Mqtt[Mqtt]
+  Cryptography[Cryptography]
+  Ai -. Contracts .-> Identity
+  Auditing -. Contracts .-> Identity
+  Calendar -. Contracts .-> Identity
+  CodeGeneration -. Contracts .-> Identity
+  Cryptography -. Contracts .-> Identity
+  DataApproval -. Contracts .-> Identity
+  DataApproval -. Contracts .-> SerialNumbers
+  DataApproval -. Contracts .-> Workflow
+  Document -. Contracts .-> Files
+  Document -. Contracts .-> Identity
+  Files -. Contracts .-> Identity
+  GoView -. Contracts .-> Identity
+  Identity -. Contracts .-> Files
+  ImportExport -. Contracts .-> Files
+  ImportExport -. Contracts .-> Identity
+  Jobs -. Contracts .-> Identity
+  Jobs -. Contracts .-> Settings
+  K3Cloud -. Contracts .-> Identity
+  Messaging -. Contracts .-> Identity
+  Mqtt -. Contracts .-> Identity
+  Notifications -. Contracts .-> Files
+  Notifications -. Contracts .-> Identity
+  Notifications -. Contracts .-> Organization
+  Notifications -. Contracts .-> Workflow
+  ObservabilityAdmin -. Contracts .-> Identity
+  Ocr -. Contracts .-> Files
+  Ocr -. Contracts .-> Identity
+  Organization -. Contracts .-> Identity
+  Organization -. Contracts .-> ImportExport
+  Payments -. Contracts .-> Identity
+  Platform -. Contracts .-> Identity
+  Printing -. Contracts .-> Identity
+  Regions -. Contracts .-> Identity
+  Reporting -. Contracts .-> Files
+  Reporting -. Contracts .-> Identity
+  SerialNumbers -. Contracts .-> DataApproval
+  SerialNumbers -. Contracts .-> Identity
+  Settings -. Contracts .-> Identity
+  Tenancy -. Contracts .-> Files
+  Tenancy -. Contracts .-> Identity
+  Tenancy -. Contracts .-> Printing
+  Workflow -. Contracts .-> Files
+  Workflow -. Contracts .-> Identity
+  Workflow -. Contracts .-> Organization

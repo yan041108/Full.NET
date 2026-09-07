@@ -30,6 +30,7 @@ describe('Vue 文档统计页', () => {
       actorScope: 'host',
       scope: 'host',
       isSuperAdministrator: false,
+    passwordChangeRequired: false,
       permissions,
       sessionId: '01912345-6789-7abc-8def-0123456789a1',
       preferredLocale: 'zh-CN',

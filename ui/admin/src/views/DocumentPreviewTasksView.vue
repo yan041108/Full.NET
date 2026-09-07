@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { onMounted, reactive, ref } from 'vue';
 import {
   ElAlert,
@@ -82,7 +83,7 @@ function statusTagType(statusKey: string): 'success' | 'warning' | 'danger' | 'i
 
 function statusLabel(statusKey: string): string {
   const key = `documentPreviewTasks.status.${statusKey}` as const;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
 }
 

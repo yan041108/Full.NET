@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import { ElCard } from 'element-plus';
+import type { EChartsCoreOption } from 'echarts/core';
 import type { AuditingLogTrend } from '@fullnet/client-contracts';
 import { useAdminI18n } from '../../i18n/adminI18n';
 import {
@@ -26,7 +27,7 @@ const chartThemeMode = computed<'light' | 'dark'>(() =>
   document.documentElement.dataset.artTheme === 'dark' ? 'dark' : 'light'
 );
 
-const chartOption = computed(() => {
+const chartOption = computed<EChartsCoreOption>(() => {
   const buckets = trend.value?.buckets ?? [];
   return {
     grid: { left: 12, right: 12, top: 24, bottom: 8, containLabel: true },
@@ -120,7 +121,8 @@ defineExpose({ reload: loadTrend });
         v-if="trend && trend.buckets.length > 0"
         :option="chartOption"
         :theme-mode="chartThemeMode"
-        :aria-label="t('auditAnalytics.trendTitle')"
+        :ariaLabel="t('auditAnalytics.trendTitle')"
+        :empty-label="t('auditAnalytics.trendEmpty')"
       />
       <p v-else-if="!loading" class="audit-log-trend-panel__empty">
         {{ t('auditAnalytics.trendEmpty') }}

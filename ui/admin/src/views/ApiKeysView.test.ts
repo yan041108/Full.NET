@@ -32,6 +32,7 @@ describe('Vue API Key 管理页', () => {
       actorScope: 'host',
       scope: 'host',
       isSuperAdministrator: false,
+    passwordChangeRequired: false,
       permissions: ['identity.api_keys.read', 'identity.api_keys.create'],
       sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
       preferredLocale: 'zh-CN',

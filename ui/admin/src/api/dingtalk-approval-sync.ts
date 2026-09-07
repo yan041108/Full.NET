@@ -83,7 +83,7 @@ export async function createDingTalkApprovalSync(
 ): Promise<DingTalkApprovalSyncResponse> {
   const value = await request<unknown>(
     '/api/v1/notifications/dingtalk/approval-sync',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isSyncRecord(value)) {
@@ -98,7 +98,7 @@ export async function retryDingTalkApprovalSync(
 ): Promise<DingTalkApprovalSyncResponse> {
   const value = await request<unknown>(
     `/api/v1/notifications/dingtalk/approval-sync/${syncId}/retry`,
-    { method: 'POST', body: {} },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
     signal
   );
   if (!isSyncRecord(value)) {

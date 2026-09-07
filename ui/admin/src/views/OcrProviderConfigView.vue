@@ -37,10 +37,10 @@ const form = reactive({
   version: 0
 });
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -114,7 +114,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>{{ t('ocrProviderConfig.title') }}</span>
-          <PermissionGate permission="ocr.providers.test">
+          <PermissionGate code="ocr.providers.test">
             <ElButton
               data-testid="ocr-provider-test"
               :loading="testing"
@@ -138,7 +138,7 @@ onMounted(() => {
         <ElFormItem :label="t('ocrProviderConfig.fieldEnabled')">
           <ElSwitch v-model="form.isEnabled" />
         </ElFormItem>
-        <PermissionGate permission="ocr.providers.update">
+        <PermissionGate code="ocr.providers.update">
           <ElFormItem>
             <ElButton
               data-testid="ocr-provider-save"

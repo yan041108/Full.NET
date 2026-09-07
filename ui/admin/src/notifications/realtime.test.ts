@@ -265,6 +265,7 @@ function authenticatedSnapshot(sessionId = 'session-id'): IdentitySessionSnapsho
       actorScope: 'host',
       scope: 'host',
       isSuperAdministrator: true,
+    passwordChangeRequired: false,
       permissions: [],
       sessionId,
       preferredLocale: 'zh-CN',

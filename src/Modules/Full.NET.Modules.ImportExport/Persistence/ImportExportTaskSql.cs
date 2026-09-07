@@ -14,6 +14,29 @@ internal static class ImportExportTaskSql
         Version
         """;
 
+    /// <summary>Worker 调度目录仅返回有排队任务的租户标识，不授予读取任务或文件的权限。</summary>
+    public static readonly SqlStatement ListPendingTenantIdsSqlServer = new(
+        "import_export.task.pending_tenants.sqlserver",
+        """
+        SELECT TOP (@BatchSize) TenantId
+        FROM fn_import_export_task
+        WHERE StatusKey = 'queued'
+        GROUP BY TenantId
+        ORDER BY MIN(CreatedAtUtc), TenantId
+        """, SqlDataScope.Global);
+
+    /// <summary>MySQL Worker 调度目录；具体任务必须在可信租户上下文建立后领取。</summary>
+    public static readonly SqlStatement ListPendingTenantIdsMySql = new(
+        "import_export.task.pending_tenants.mysql",
+        """
+        SELECT TenantId
+        FROM fn_import_export_task
+        WHERE StatusKey = 'queued'
+        GROUP BY TenantId
+        ORDER BY MIN(CreatedAtUtc), TenantId
+        LIMIT @BatchSize
+        """, SqlDataScope.Global);
+
     public static readonly SqlStatement Insert = new(
         "import_export.task.insert",
         $"""
@@ -27,46 +50,46 @@ internal static class ImportExportTaskSql
              @ExecutionRowsJson, @ErrorReceiptFileId, @ExecutionStartedAtUtc, @ExecutionCompletedAtUtc,
              @Version)
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement FindById = new(
         "import_export.task.find_by_id",
         $"""
         SELECT {SelectColumns}
         FROM fn_import_export_task
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement PageSqlServer = new(
         "import_export.task.page.sqlserver",
         $"""
         SELECT COUNT(1)
         FROM fn_import_export_task
-        WHERE (@SchemaKey IS NULL OR SchemaKey = @SchemaKey);
+        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey);
 
         SELECT {SelectColumns}
         FROM fn_import_export_task
-        WHERE (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
+        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
         ORDER BY CreatedAtUtc DESC, Id DESC
         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement PageMySql = new(
         "import_export.task.page.mysql",
         $"""
         SELECT COUNT(1)
         FROM fn_import_export_task
-        WHERE (@SchemaKey IS NULL OR SchemaKey = @SchemaKey);
+        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey);
 
         SELECT {SelectColumns}
         FROM fn_import_export_task
-        WHERE (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
+        WHERE TenantId = @TenantId AND (@SchemaKey IS NULL OR SchemaKey = @SchemaKey)
         ORDER BY CreatedAtUtc DESC, Id DESC
         LIMIT @PageSize OFFSET @Offset;
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement QueueExecution = new(
         "import_export.task.queue_execution",
@@ -83,40 +106,42 @@ internal static class ImportExportTaskSql
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
             ErrorCode = @ErrorCode,
             Version = Version + 1
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = @ExpectedStatusKey
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement ClaimQueuedSqlServer = new(
         "import_export.task.claim_queued.sqlserver",
         $"""
         WITH candidates AS (
             SELECT TOP (@BatchSize) Id
-            FROM fn_import_export_task
-            WHERE StatusKey = 'queued'
+            FROM fn_import_export_task WITH (UPDLOCK, READPAST, ROWLOCK)
+            WHERE TenantId = @TenantId AND StatusKey = 'queued'
             ORDER BY CreatedAtUtc, Id
         )
         UPDATE task
         SET StatusKey = 'executing',
             ExecutionStartedAtUtc = COALESCE(task.ExecutionStartedAtUtc, @Now),
             Version = task.Version + 1
-        OUTPUT {SelectColumns}
+        OUTPUT inserted.Id, inserted.TenantId, inserted.SchemaKey, inserted.SchemaDisplayName, inserted.WorksheetKey, inserted.SourceFileId, inserted.SourceFileName, inserted.StatusKey, inserted.TotalRows, inserted.ValidRowCount, inserted.InvalidRowCount, inserted.PreviewRowsJson, inserted.ErrorCode, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.PreviewCompletedAtUtc, inserted.ProcessedRowCount, inserted.SucceededRowCount, inserted.ExecutionFailedRowCount, inserted.NextLineNumber, inserted.ExecutionRowsJson, inserted.ErrorReceiptFileId, inserted.ExecutionStartedAtUtc, inserted.ExecutionCompletedAtUtc, inserted.Version
         FROM fn_import_export_task AS task
-        INNER JOIN candidates ON candidates.Id = task.Id;
+        INNER JOIN candidates ON candidates.Id = task.Id
+        WHERE task.TenantId = @TenantId;
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement SelectClaimableIdsMySql = new(
         "import_export.task.select_claimable_ids.mysql",
         """
         SELECT Id
         FROM fn_import_export_task
-        WHERE StatusKey = 'queued'
+        WHERE TenantId = @TenantId AND StatusKey = 'queued'
         ORDER BY CreatedAtUtc, Id
         LIMIT @BatchSize
+        FOR UPDATE SKIP LOCKED
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement ClaimByIdsMySql = new(
         "import_export.task.claim_by_ids.mysql",
@@ -125,20 +150,20 @@ internal static class ImportExportTaskSql
         SET StatusKey = 'executing',
             ExecutionStartedAtUtc = COALESCE(ExecutionStartedAtUtc, @Now),
             Version = Version + 1
-        WHERE StatusKey = 'queued'
+        WHERE TenantId = @TenantId AND StatusKey = 'queued'
           AND Id IN @Ids
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement SelectByIds = new(
         "import_export.task.select_by_ids",
         $"""
         SELECT {SelectColumns}
         FROM fn_import_export_task
-        WHERE Id IN @Ids
+        WHERE TenantId = @TenantId AND Id IN @Ids
         ORDER BY CreatedAtUtc, Id
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement UpdateExecutionProgress = new(
         "import_export.task.update_execution_progress",
@@ -154,10 +179,10 @@ internal static class ImportExportTaskSql
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
             ErrorCode = @ErrorCode,
             Version = Version + 1
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement MarkExecutionFailed = new(
         "import_export.task.mark_execution_failed",
@@ -167,8 +192,8 @@ internal static class ImportExportTaskSql
             ErrorCode = @ErrorCode,
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
             Version = Version + 1
-        WHERE Id = @Id
+        WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
         """,
-        SqlDataScope.TenantRequired);
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

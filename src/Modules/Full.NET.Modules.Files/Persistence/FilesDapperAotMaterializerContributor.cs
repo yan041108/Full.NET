@@ -12,6 +12,7 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<TenantResourceFileRecord>(ReadTenantResourceFileRecord);
         registrar.Register<HostFileListRecord>(ReadHostFileListRecord);
         registrar.Register<HostFileDetailRecord>(ReadHostFileDetailRecord);
         registrar.Register<HostFolderRecord>(ReadHostFolderRecord);
@@ -19,6 +20,12 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
         registrar.Register<PendingHostFileRecord>(ReadPendingHostFileRecord);
         registrar.Register<HostFileReferenceClaimRecord>(ReadHostFileReferenceClaimRecord);
     }
+
+    /// <summary>读取租户资源文件内部定位信息，与 FindOwned 固定投影一致。</summary>
+    /// <param name="reader">数据读取器。</param>
+    private static TenantResourceFileRecord ReadTenantResourceFileRecord(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetInt64(3),
+            reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7));
 
     private static HostFileListRecord ReadHostFileListRecord(DbDataReader reader) =>
         new(

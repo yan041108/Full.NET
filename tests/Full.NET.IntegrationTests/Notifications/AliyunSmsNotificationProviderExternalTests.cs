@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
 using Full.NET.Modules.Notifications.Providers.AliyunSms;
@@ -44,7 +45,8 @@ public sealed class AliyunSmsNotificationProviderExternalTests
         services.AddHttpClient(HttpAliyunSmsTransport.HttpClientName);
         await using var provider = services.BuildServiceProvider();
         var adapter = new AliyunSmsNotificationProviderAdapter(
-            new EnvironmentNotificationSecretResolver(),
+            new EnvironmentNotificationSecretResolver(new ConfigurationBuilder().AddInMemoryCollection(
+                new Dictionary<string, string?> { ["Notifications:SecretReferences:sms.aliyun:0"] = $"env://{AccessKeySecretVariable}" }).Build()),
             new HttpAliyunSmsTransport(provider.GetRequiredService<IHttpClientFactory>()));
 
         var uniqueId = Guid.NewGuid().ToString("N");

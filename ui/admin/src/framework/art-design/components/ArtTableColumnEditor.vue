@@ -105,12 +105,12 @@ function handleReset(): void {
           </el-checkbox>
           <el-select
             class="art-column-editor__fixed"
-            :model-value="column.fixed"
+            :model-value="column.fixed ?? ''"
             :disabled="column.disabled"
             size="small"
-            @update:model-value="(value) => updateFixed(column.key, value)"
+            @update:model-value="(value) => updateFixed(column.key, value === 'left' || value === 'right' ? value : null)"
           >
-            <el-option :label="t('table.fixedNone')" :value="null" />
+            <el-option :label="t('table.fixedNone')" value="" />
             <el-option :label="t('table.fixedLeft')" value="left" />
             <el-option :label="t('table.fixedRight')" value="right" />
           </el-select>

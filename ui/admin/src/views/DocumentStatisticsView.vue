@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref, watch } from 'vue';
 import {
   ElAlert,
@@ -47,13 +48,13 @@ function formatTotalSize(): string {
 
 function accessTypeLabel(accessTypeKey: string): string {
   const key = `documentStatistics.accessLogs.accessType.${accessTypeKey}` as const;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? accessTypeKey : translated;
 }
 
 function sourceLabel(sourceKey: string): string {
   const key = `documentStatistics.accessLogs.source.${sourceKey}` as const;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? sourceKey : translated;
 }
 
@@ -98,7 +99,7 @@ function toProblem(error: unknown, fallbackCode: string): FullNetProblemDetails 
   if (isFullNetProblemDetails(error)) {
     return error;
   }
-  return { title: t(fallbackCode), status: 500, code: fallbackCode };
+  return { title: translateRuntimeMessage(t, fallbackCode), status: 500, code: fallbackCode };
 }
 
 watch(activeTab, (tab) => {

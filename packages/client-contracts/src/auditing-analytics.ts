@@ -119,10 +119,12 @@ function buildTrendQuery(query: AuditingLogTrendQuery): string {
 export async function queryAuditingAccessLogTrend(
   http: HttpClient,
   query: AuditingLogTrendQuery,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<AuditingLogTrend> {
-  const value = await http.get(
+  const value = await http.request<unknown>(
     `/api/v1/auditing/access-logs/trends?${buildTrendQuery(query)}`,
+    { method: 'GET' },
+    options?.signal,
     options
   );
   if (!isAuditingLogTrend(value)) {
@@ -134,10 +136,12 @@ export async function queryAuditingAccessLogTrend(
 export async function queryAuditingOperationLogTrend(
   http: HttpClient,
   query: AuditingLogTrendQuery,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<AuditingLogTrend> {
-  const value = await http.get(
+  const value = await http.request<unknown>(
     `/api/v1/auditing/operation-logs/trends?${buildTrendQuery(query)}`,
+    { method: 'GET' },
+    options?.signal,
     options
   );
   if (!isAuditingLogTrend(value)) {
@@ -149,10 +153,12 @@ export async function queryAuditingOperationLogTrend(
 export async function queryAuditingExceptionLogTrend(
   http: HttpClient,
   query: AuditingLogTrendQuery,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<AuditingLogTrend> {
-  const value = await http.get(
+  const value = await http.request<unknown>(
     `/api/v1/auditing/exception-logs/trends?${buildTrendQuery(query)}`,
+    { method: 'GET' },
+    options?.signal,
     options
   );
   if (!isAuditingLogTrend(value)) {
@@ -164,11 +170,13 @@ export async function queryAuditingExceptionLogTrend(
 export async function queryAuditingDomainChangeDiffs(
   http: HttpClient,
   traceId: string,
-  options?: RequestOptions
+  options?: RequestOptions & { signal?: AbortSignal }
 ): Promise<AuditingDomainChangeDiffQueryResult> {
   const params = new URLSearchParams({ traceId });
-  const value = await http.get(
+  const value = await http.request<unknown>(
     `/api/v1/auditing/domain-change-diffs?${params.toString()}`,
+    { method: 'GET' },
+    options?.signal,
     options
   );
   if (!isAuditingDomainChangeDiffQueryResult(value)) {

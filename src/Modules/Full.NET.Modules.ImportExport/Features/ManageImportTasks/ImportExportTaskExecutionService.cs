@@ -15,7 +15,7 @@ namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 internal sealed class ImportExportTaskExecutionService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    IHostFileContentReader hostFileContentReader,
+    ITenantResourceFileStore resourceFiles,
     ICurrentTenant currentTenant,
     IServiceScopeFactory scopeFactory,
     IOptionsMonitor<ImportExportOptions> options)
@@ -127,7 +127,7 @@ internal sealed class ImportExportTaskExecutionService(
     }
 
     /// <summary>打开错误回执 xlsx 内容。</summary>
-    public async Task<Result<HostFileContent>> OpenErrorReceiptAsync(
+    public async Task<Result<TenantResourceFileContent>> OpenErrorReceiptAsync(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
@@ -135,16 +135,16 @@ internal sealed class ImportExportTaskExecutionService(
         var task = await LoadTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
         if (task is null)
         {
-            return Result<HostFileContent>.Failure(TaskNotFoundError());
+            return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
 
         if (task.ErrorReceiptFileId is null || task.ExecutionFailedRowCount <= 0)
         {
-            return Result<HostFileContent>.Failure(ErrorReceiptNotReadyError());
+            return Result<TenantResourceFileContent>.Failure(ErrorReceiptNotReadyError());
         }
 
-        return await hostFileContentReader
-            .OpenReadyContentAsync(task.ErrorReceiptFileId.Value, cancellationToken)
+        return await resourceFiles
+            .OpenReadyContentAsync("import_export", task.Id, task.ErrorReceiptFileId.Value, cancellationToken)
             .ConfigureAwait(false);
     }
 

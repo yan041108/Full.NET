@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Text.Json.Nodes;
 using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Notifications.Contracts;
@@ -49,7 +49,7 @@ internal sealed class AliyunSmsRecipientEndpointVerificationSender(
             return Result<bool>.Failure(SendFailed());
         }
 
-        var templateParam = JsonSerializer.Serialize(new { code });
+        var templateParam = new JsonObject { ["code"] = code }.ToJsonString();
         var request = new NotificationProviderRequest(
             providerProfileVersionId,
             "sms",

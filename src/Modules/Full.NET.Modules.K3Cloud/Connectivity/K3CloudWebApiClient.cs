@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Full.NET.Modules.K3Cloud.Persistence;
 
 namespace Full.NET.Modules.K3Cloud.Connectivity;
@@ -142,18 +143,20 @@ internal sealed class K3CloudWebApiClient
         return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>按金蝶 WebAPI 协议构造请求，保持参数次序与 JSON 类型。</summary>
+    /// <param name="parameters">按协议传递的参数集合。</param>
     private static string BuildRequestBody(string[] parameters)
     {
-        var payload = new
+        var payload = new JsonObject
         {
-            format = 1,
-            useragent = "Full.NET",
-            rid = Guid.NewGuid().ToString("N"),
-            parameters,
-            timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
-            v = "1.0",
+            ["format"] = 1,
+            ["useragent"] = "Full.NET",
+            ["rid"] = Guid.NewGuid().ToString("N"),
+            ["parameters"] = new JsonArray(parameters.Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+            ["timestamp"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+            ["v"] = "1.0",
         };
-        return JsonSerializer.Serialize(payload);
+        return payload.ToJsonString();
     }
 
     private static string NormalizeBaseUrl(string baseUrl) =>

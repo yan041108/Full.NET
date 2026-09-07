@@ -24,6 +24,7 @@ import type {
   HostFolderTreeNode
 } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import ArtSearchBar, { type ArtSearchBarItem } from '../framework/art-design/components/ArtSearchBar.vue';
 import ArtTableActionGroup from '../framework/art-design/components/ArtTableActionGroup.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import {
@@ -48,7 +49,7 @@ import {
   updateHostFolder,
   uploadHostFile
 } from '../api/host-files';
-import { isPreviewableHostFile } from '@fullnet/client-contracts/host-files';
+import { isPreviewableHostFile } from '@fullnet/client-contracts';
 
 defineOptions({ name: 'HostFilesView' });
 

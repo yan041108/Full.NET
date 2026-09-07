@@ -53,7 +53,7 @@ internal sealed partial class WeChatMiniProgramNotificationProviderAdapter(
             templateId = config!.DefaultTemplateId;
         }
 
-        var appSecret = await secretResolver.ResolveAsync(request.SecretReference, cancellationToken)
+        var appSecret = await secretResolver.ResolveAsync(Descriptor.ProviderTypeKey, request.SecretReference, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrEmpty(appSecret))
         {

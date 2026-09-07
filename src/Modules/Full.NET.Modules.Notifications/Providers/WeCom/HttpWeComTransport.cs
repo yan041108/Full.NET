@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Full.NET.Modules.Notifications.Providers.WeCom;
 
@@ -50,23 +51,27 @@ internal sealed class HttpWeComTransport(IHttpClientFactory httpClientFactory) :
         }
     }
 
+    /// <summary>发送企业微信文本消息并保留收件目标与安全标志。</summary>
+    /// <param name="accessToken">提供程序授权令牌。</param>
+    /// <param name="command">已经编译和校验的外部调用参数。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public async ValueTask<string> SendTextAsync(
         string accessToken,
         WeComSendTextCommand command,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var payload = JsonSerializer.Serialize(new Dictionary<string, object?>(StringComparer.Ordinal)
+        var payload = new JsonObject
         {
             ["touser"] = command.ToUserId,
             ["msgtype"] = "text",
             ["agentid"] = command.AgentId,
-            ["text"] = new Dictionary<string, string>(StringComparer.Ordinal)
+            ["text"] = new JsonObject
             {
                 ["content"] = command.Content,
             },
             ["safe"] = 0,
-        });
+        }.ToJsonString();
         var client = httpClientFactory.CreateClient(HttpClientName);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,

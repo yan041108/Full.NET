@@ -87,11 +87,12 @@ public sealed class FullNetModuleSelectionTests
                 ["FullNet:Modules:Enabled:1"] = "Tenancy",
                 ["FullNet:Modules:Enabled:2"] = "Organization",
                 ["FullNet:Modules:Enabled:3"] = "Notifications",
+                ["FullNet:Modules:Enabled:4"] = "Files",
             }),
-            [new IdentityModule(), new TenancyModule(), new OrganizationModule(), new NotificationsModule()]);
+            [new IdentityModule(), new TenancyModule(), new OrganizationModule(), new Full.NET.Modules.Files.FilesModule(), new NotificationsModule()]);
 
         CollectionAssert.AreEquivalent(
-            new[] { "Identity", "Tenancy", "Organization", "Notifications" },
+            new[] { "Identity", "Tenancy", "Organization", "Files", "Notifications" },
             modules.Select(module => module.Name).ToArray());
     }
 

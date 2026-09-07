@@ -490,6 +490,7 @@ function currentUser(
     tenantId: activeTenantId,
     actorScope: 'host',
     isSuperAdministrator: true,
+      passwordChangeRequired: false,
     scope: activeTenantId
       ? `tenant:${activeTenantId.replaceAll('-', '')}`
       : 'host',

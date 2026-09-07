@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+vi.mock('../api/oauth-providers', () => ({ listPublicOAuthProviders: vi.fn().mockResolvedValue([]) }));
+
 import LoginView from './LoginView.vue';
 import { useSessionStore } from '../auth/session';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -15,6 +17,7 @@ describe('Vue 登录页', () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         accessToken: 'access-token', tokenType: 'Bearer',
         expiresAtUtc: '2026-07-17T04:00:00Z'
@@ -23,6 +26,7 @@ describe('Vue 登录页', () => {
         id: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f60', username: 'admin', displayName: '系统管理员',
         tenantId: null, actorScope: 'host', scope: 'host',
         isSuperAdministrator: true,
+      passwordChangeRequired: false,
         permissions: ['platform.dashboard.read'], sessionId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61',
         preferredLocale: 'zh-CN', profileVersion: 1
       }), { status: 200, headers: { 'content-type': 'application/json' } }))
@@ -32,11 +36,16 @@ describe('Vue 登录页', () => {
         icon: 'dashboard', order: 10,
         requiredPermission: 'platform.dashboard.read', children: []
       }]), { status: 200, headers: { 'content-type': 'application/json' } })));
+    const loginSpy = vi.spyOn(useSessionStore(pinia), 'login');
     const wrapper = mount(LoginView, { global: { plugins: [pinia] } });
 
     await wrapper.get('input[name="username"]').setValue('admin');
     await wrapper.get('input[name="password"]').setValue('FullNet!2026Secure');
     await wrapper.get('form').trigger('submit');
+    await flushPromises();
+    expect(vi.mocked(fetch).mock.calls.map(call => call[0])).toEqual(['/api/v1/tenancy/branding/current', '/api/v1/auth/login', '/api/v1/me', '/api/v1/navigation']);
+    await expect(loginSpy.mock.results[0]?.value).resolves.toBeUndefined();
+    expect(wrapper.find('[role="alert"]').exists(), wrapper.text()).toBe(false);
     await vi.waitFor(() => expect(useSessionStore().state).toBe('authenticated'));
 
     expect(wrapper.text()).toContain('安全会话已建立');

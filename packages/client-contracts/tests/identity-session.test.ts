@@ -99,6 +99,7 @@ function currentUser(
     actorScope: 'host',
     scope: 'host',
     isSuperAdministrator: true,
+      passwordChangeRequired: false,
     permissions: ['tenancy.tenants.switch', 'tenancy.tenants.read'],
     sessionId: '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61',
     preferredLocale,

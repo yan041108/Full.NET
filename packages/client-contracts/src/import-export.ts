@@ -110,6 +110,7 @@ export function isImportExportTaskDetailResponse(
   value: unknown
 ): value is ImportExportTaskDetailResponse {
   return isImportExportTaskResponse(value)
+    && 'previewRows' in value
     && Array.isArray(value.previewRows);
 }
 

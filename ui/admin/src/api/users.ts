@@ -29,12 +29,11 @@ export async function revealHostUserProfileFields(
   fieldKeys: readonly string[],
   signal?: AbortSignal
 ): Promise<Readonly<Record<string, string | null>>> {
-  const response = await http.request<Readonly<{ values: Readonly<Record<string, string | null>> }>>({
+  const response = await http.request<Readonly<{ values: Readonly<Record<string, string | null>> }>>(`/api/v1/identity/users/${encodeURIComponent(userId)}/reveal-profile-fields`, {
     method: 'POST',
-    path: `/api/v1/identity/users/${userId}/reveal-profile-fields`,
-    body: { fieldKeys },
-    signal
-  });
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ fieldKeys })
+  }, signal);
   return response.values;
 }
 
@@ -188,11 +187,7 @@ export async function unlockHostUserLogin(
   id: string,
   signal?: AbortSignal
 ): Promise<HostUser> {
-  return http.request<HostUser>({
-    method: 'POST',
-    path: `/api/v1/identity/users/${id}/unlock-login`,
-    signal
-  });
+  return http.request<HostUser>(`/api/v1/identity/users/${encodeURIComponent(id)}/unlock-login`, { method: 'POST' }, signal);
 }
 
 /** 查询 Host 用户当前角色集合。 */

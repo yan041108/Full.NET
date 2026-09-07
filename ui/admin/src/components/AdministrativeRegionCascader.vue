@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { ElCascader } from 'element-plus';
+import { ElCascader, type CascaderProps, type CascaderValue } from 'element-plus';
 import type { AdministrativeRegionChild } from '@fullnet/client-contracts';
 import { listAdministrativeRegionChildren } from '../api/administrative-regions';
 
-interface CascaderOption {
+type CascaderOption = {
   value: string;
   label: string;
   leaf: boolean;
@@ -36,12 +36,9 @@ watch(
   }
 );
 
-async function loadChildren(
-  node: { level: number; value: string; data: CascaderOption },
-  resolve: (nodes: CascaderOption[]) => void
-): Promise<void> {
+const loadChildren: NonNullable<CascaderProps['lazyLoad']> = async (node, resolve) => {
   try {
-    const parentId = node.level === 0 ? undefined : node.value;
+    const parentId = node.level === 0 ? undefined : String(node.value);
     const children = await listAdministrativeRegionChildren(parentId);
     resolve(children.map(mapChild));
   } catch {
@@ -57,8 +54,9 @@ function mapChild(child: AdministrativeRegionChild): CascaderOption {
   };
 }
 
-function handleChange(value: string[] | string): void {
-  const normalized = Array.isArray(value) ? value : [value];
+function handleChange(value: CascaderValue | null | undefined): void {
+  const normalized = (Array.isArray(value) ? value : value == null ? [] : [value])
+    .filter((item): item is string => typeof item === 'string');
   selected.value = normalized;
   emit('update:modelValue', normalized);
 }

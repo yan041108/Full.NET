@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import DOMPurify from 'dompurify';
 import {
   ElAlert,
   ElButton,
@@ -41,6 +42,13 @@ const { t } = useAdminI18n();
 const templates = ref<PrintingTemplate[]>([]);
 const selectedTemplateId = ref('');
 const preview = ref<PrintingTemplatePreview>();
+// 布局属于可编辑的不可信内容；必须在最终插入 DOM 前净化，覆盖数据库中已经保存的旧模板。
+const safePreviewHtml = computed(() => DOMPurify.sanitize(preview.value?.html ?? '', {
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'option'],
+  FORBID_ATTR: ['id', 'name'],
+  ALLOW_DATA_ATTR: false
+}));
 const loading = ref(false);
 const previewing = ref(false);
 const creating = ref(false);
@@ -58,11 +66,11 @@ const selectedTemplate = computed(() =>
 const printableTemplates = computed(() =>
   templates.value.filter(item => item.isEnabled && item.latestPublishedVersionNumber > 0));
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
-  return { title: t(fallbackKey), status: 500, type: 'about:blank' };
+  return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -194,7 +202,7 @@ onMounted(load);
     </ElCard>
 
     <section v-if="preview" class="printing-preview-surface print-only-surface">
-      <div class="printing-preview-html" v-html="preview.html" />
+      <div class="printing-preview-html" v-html="safePreviewHtml" />
     </section>
 
     <ElDialog

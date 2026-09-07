@@ -11,6 +11,12 @@ internal static partial class AiChatContentPolicy
     /// <summary>带入模型的历史消息条数上限。</summary>
     internal const int MaxHistoryMessages = 40;
 
+    /// <summary>发送给模型的历史正文总字符上限。</summary>
+    internal const int MaxHistoryCharacters = 64000;
+
+    /// <summary>单次请求向提供程序声明的最大生成 Token 数。</summary>
+    internal const int MaxCompletionTokens = 4096;
+
     /// <summary>默认会话标题。</summary>
     internal const string DefaultSessionTitle = "新对话";
 
@@ -57,6 +63,7 @@ internal static partial class AiChatContentPolicy
     public static string SanitizeExternalError(string message) =>
         message.Length <= 512 ? message : message[..512];
 
+    /// <summary>识别明显的凭据内容，防止用户把密钥意外发送给外部模型。</summary>
     [GeneratedRegex(@"(?i)(sk-[a-z0-9]{10,}|api[_-]?key\s*[:=]|bearer\s+[a-z0-9._-]{20,})")]
     private static partial Regex LikelySecretPattern();
 }

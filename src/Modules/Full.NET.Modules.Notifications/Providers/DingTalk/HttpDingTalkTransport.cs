@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Full.NET.Modules.Notifications.Providers.DingTalk;
 
@@ -97,15 +98,19 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         }
     }
 
+    /// <summary>创建钉钉审批实例并解析提供程序应答。</summary>
+    /// <param name="accessToken">提供程序授权令牌。</param>
+    /// <param name="command">已经编译和校验的外部调用参数。</param>
+    /// <param name="cancellationToken">取消当前操作的令牌。</param>
     public async ValueTask<string> CreateProcessInstanceAsync(
         string accessToken,
         DingTalkCreateProcessInstanceCommand command,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var formValues = new List<Dictionary<string, string>>
+        var formValues = new JsonArray
         {
-            new(StringComparer.Ordinal)
+            (JsonNode)new JsonObject
             {
                 ["name"] = "标题",
                 ["value"] = command.Title,
@@ -113,14 +118,14 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         };
         if (!string.IsNullOrWhiteSpace(command.Summary))
         {
-            formValues.Add(new Dictionary<string, string>(StringComparer.Ordinal)
+            formValues.Add((JsonNode)new JsonObject
             {
                 ["name"] = "摘要",
                 ["value"] = command.Summary!,
             });
         }
 
-        var payload = JsonSerializer.Serialize(new Dictionary<string, object?>(StringComparer.Ordinal)
+        var payload = new JsonObject
         {
             ["originatorUserId"] = command.OriginatorUserId,
             ["processCode"] = command.ProcessCode,
@@ -128,7 +133,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
             ["microappAgentId"] = command.AgentId,
             ["formComponentValues"] = formValues,
             ["requestId"] = command.RequestId,
-        });
+        }.ToJsonString();
         var client = httpClientFactory.CreateClient(HttpClientName);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -212,28 +217,30 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
         }
     }
 
+    /// <summary>以静态节点构造卡片投递协议，保持路由与卡片参数类型。</summary>
+    /// <param name="command">已经编译和校验的外部调用参数。</param>
     private static string BuildPayload(DingTalkCreateAndDeliverCommand command)
     {
-        var cardParamMap = new Dictionary<string, string>(StringComparer.Ordinal);
+        var cardParamMap = new JsonObject();
         foreach (var pair in command.CardParamMap)
         {
             cardParamMap[pair.Key] = pair.Value;
         }
 
-        var root = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var root = new JsonObject
         {
             ["cardTemplateId"] = command.CardTemplateId,
             ["outTrackId"] = command.OutTrackId,
             ["openSpaceId"] = command.OpenSpaceId,
-            ["cardData"] = new Dictionary<string, object>(StringComparer.Ordinal)
+            ["cardData"] = new JsonObject
             {
                 ["cardParamMap"] = cardParamMap,
             },
-            ["imRobotOpenSpaceModel"] = new Dictionary<string, object>(StringComparer.Ordinal)
+            ["imRobotOpenSpaceModel"] = new JsonObject
             {
                 ["supportForward"] = false,
             },
-            ["imRobotOpenDeliverModel"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            ["imRobotOpenDeliverModel"] = new JsonObject
             {
                 ["spaceType"] = "IM_ROBOT",
                 ["robotCode"] = command.RobotCode,
@@ -244,7 +251,7 @@ internal sealed class HttpDingTalkTransport(IHttpClientFactory httpClientFactory
             root["callbackRouteKey"] = command.CallbackRouteKey;
         }
 
-        return JsonSerializer.Serialize(root);
+        return root.ToJsonString();
     }
 
     private static DingTalkAccessToken ParseAccessToken(string body)

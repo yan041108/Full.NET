@@ -32,7 +32,7 @@ const draft = {
   }]
 } satisfies WorkflowFormSchema;
 const form = {
-  id: 'form-1', formKey: 'purchase.request', draft, draftRevision: 2,
+  id: 'form-1', formKey: 'purchase.request', statusKey: 'active', version: 1, draft, draftRevision: 2,
   latestPublishedVersionId: null, createdAtUtc: '2026-08-30T00:00:00Z', updatedAtUtc: null
 };
 const catalog = {
@@ -48,7 +48,8 @@ function mountWithPermissions(permissions: string[]) {
   setActivePinia(pinia);
   useSessionStore().currentUser = {
     id: 'user-1', username: 'starter', displayName: '管理员', tenantId: 'tenant-1',
-    actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false, permissions,
+    actorScope: 'tenant', scope: 'tenant', isSuperAdministrator: false,
+    passwordChangeRequired: false, permissions,
     sessionId: 'session-1', preferredLocale: 'zh-CN', profileVersion: 1
   };
   return mount(WorkflowFormsView, {

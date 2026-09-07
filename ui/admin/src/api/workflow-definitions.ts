@@ -117,7 +117,7 @@ export async function previewWorkflowAssignees(
   }
   const response = await http.request<{ users: Array<{ id: string; username: string; displayName: string }> }>(
     '/api/v1/workflow/definitions/assignee-preview',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   return response.users;
@@ -171,7 +171,7 @@ export async function setWorkflowDefinitionStatus(
 ): Promise<WorkflowDefinitionResponse> {
   return http.request<WorkflowDefinitionResponse>(
     `/api/v1/workflow/definitions/${definitionId}/status`,
-    { method: 'POST', body: { statusKey, expectedVersion } },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ statusKey, expectedVersion }) },
     signal
   );
 }

@@ -1,4 +1,6 @@
 import {
+  isHostFile,
+  isHostFilePage,
   filesCreateHostFolder,
   filesDeleteHostFile,
   filesDeleteHostFolder,
@@ -30,7 +32,7 @@ export async function listHostFiles(
   },
   signal?: AbortSignal
 ): Promise<HostFilePage> {
-  return filesListHostFiles(
+  const value = await filesListHostFiles(
     http,
     {
       page,
@@ -40,6 +42,8 @@ export async function listHostFiles(
     },
     signal
   );
+  if (!isHostFilePage(value)) throw new Error('client.invalid_host_file_page');
+  return value;
 }
 
 /** 上传 Host 文件。 */
@@ -48,7 +52,9 @@ export async function uploadHostFile(
   folderId?: string,
   signal?: AbortSignal
 ): Promise<HostFile> {
-  return filesUploadHostFile(http, { file, folderId }, signal);
+  const value = await filesUploadHostFile(http, { file, folderId }, signal);
+  if (!isHostFile(value)) throw new Error('client.invalid_host_file_response');
+  return value;
 }
 
 /** 批量上传 Host 文件并返回逐条结果。 */
@@ -104,13 +110,15 @@ export async function previewHostFileContent(
 export async function updateHostFileMetadata(
   fileId: string,
   body: {
-    expectedRevision: number;
+    expectedRevision: number | string;
     originalFileName: string;
     folderId: string | null;
   },
   signal?: AbortSignal
 ): Promise<HostFile> {
-  return filesUpdateHostFileMetadata(http, { fileId, body }, signal);
+  const value = await filesUpdateHostFileMetadata(http, { fileId, body }, signal);
+  if (!isHostFile(value)) throw new Error('client.invalid_host_file_response');
+  return value;
 }
 
 /** 删除指定 Host 文件。 */
@@ -118,7 +126,9 @@ export async function deleteHostFile(
   id: string,
   signal?: AbortSignal
 ): Promise<HostFile> {
-  return filesDeleteHostFile(http, { fileId: id }, signal);
+  const value = await filesDeleteHostFile(http, { fileId: id }, signal);
+  if (!isHostFile(value)) throw new Error('client.invalid_host_file_response');
+  return value;
 }
 
 /** 使用已认证客户端拉取文件内容，避免在 URL 中暴露令牌。 */
@@ -152,7 +162,7 @@ export async function createHostFolder(
 export async function updateHostFolder(
   folderId: string,
   body: {
-    expectedRevision: number;
+    expectedRevision: number | string;
     name: string;
     displayOrder: number;
   },
@@ -164,7 +174,7 @@ export async function updateHostFolder(
 /** 删除 Host 虚拟目录。 */
 export async function deleteHostFolder(
   folderId: string,
-  body: { expectedRevision: number },
+  body: { expectedRevision: number | string },
   signal?: AbortSignal
 ): Promise<HostFolderResponse> {
   return filesDeleteHostFolder(http, { folderId, body }, signal);

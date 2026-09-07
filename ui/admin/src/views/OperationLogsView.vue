@@ -164,7 +164,8 @@ function toProblem(error: unknown): FullNetProblemDetails {
               </template>
             </el-table-column>
 
-            <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
+            <!-- @vue-generic {AuditingOperationLog} -->
+          <el-table-column :label="t('auditAnalytics.viewDetail')" width="120" align="center">
               <template #default="{ row }">
                 <el-button link type="primary" @click.stop="openDetail(row)">
                   {{ t('auditAnalytics.viewDetail') }}

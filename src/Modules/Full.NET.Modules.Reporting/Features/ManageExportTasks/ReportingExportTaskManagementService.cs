@@ -17,8 +17,7 @@ namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 internal sealed class ReportingExportTaskManagementService(
     ReportingDefinitionQueryService definitionQueries,
     ReportingDefinitionExecutionService executionService,
-    IHostFileUploadWriter hostFileUploadWriter,
-    IHostFileContentReader hostFileContentReader,
+    ITenantResourceFileStore resourceFiles,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICurrentTenant currentTenant,
@@ -122,29 +121,24 @@ internal sealed class ReportingExportTaskManagementService(
         }
 
         var fileName = BuildFileName(definition.DefinitionKey, versionNumber, now);
-        var workbookBytes = ReportingExcelExportRenderer.Render(
-            collectOutcome.Columns!,
-            collectOutcome.Rows!);
-        if (workbookBytes.LongLength > ReportingExportPolicy.MaxExportBytes)
+        byte[] workbookBytes;
+        try
         {
-            await MarkFailedAsync(
-                    taskId,
-                    1,
-                    collectOutcome.RowCount,
-                    ReportingErrorCodes.ExportSizeLimitExceeded,
-                    "The generated export file exceeds the maximum allowed size.",
-                    cancellationToken)
-                .ConfigureAwait(false);
+            workbookBytes = ReportingExcelExportRenderer.Render(collectOutcome.Columns!, collectOutcome.Rows!);
+        }
+        catch (InvalidDataException)
+        {
+            const string message = "The export exceeds the input or output size limit.";
+            await MarkFailedAsync(taskId, 1, collectOutcome.RowCount,
+                ReportingErrorCodes.ExportSizeLimitExceeded, message, cancellationToken).ConfigureAwait(false);
             return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
-                ReportingErrorCodes.ExportSizeLimitExceeded,
-                "The generated export file exceeds the maximum allowed size.",
-                ErrorType.Validation));
+                ReportingErrorCodes.ExportSizeLimitExceeded, message, ErrorType.Validation));
         }
 
         await using var uploadStream = new MemoryStream(workbookBytes, writable: false);
-        var uploadResult = await hostFileUploadWriter
+        var uploadResult = await resourceFiles
             .UploadAsync(
-                requestedByUserId,
+                "reporting", taskId, requestedByUserId,
                 fileName,
                 WorkbookContentType,
                 uploadStream,
@@ -197,7 +191,7 @@ internal sealed class ReportingExportTaskManagementService(
     }
 
     /// <summary>打开已完成导出任务的文件内容流。</summary>
-    public async Task<Result<HostFileContent>> OpenDownloadAsync(
+    public async Task<Result<TenantResourceFileContent>> OpenDownloadAsync(
         Guid taskId,
         CancellationToken cancellationToken = default)
     {
@@ -210,28 +204,28 @@ internal sealed class ReportingExportTaskManagementService(
             .ConfigureAwait(false);
         if (record is null)
         {
-            return Result<HostFileContent>.Failure(TaskNotFoundError());
+            return Result<TenantResourceFileContent>.Failure(TaskNotFoundError());
         }
 
         if (!string.Equals(record.StatusKey, ReportingExportTaskStatusKeys.Succeeded, StringComparison.Ordinal)
             || record.OutputFileId is null)
         {
-            return Result<HostFileContent>.Failure(new Error(
+            return Result<TenantResourceFileContent>.Failure(new Error(
                 ReportingErrorCodes.ExportTaskNotReady,
                 "The reporting export task is not ready for download.",
                 ErrorType.Validation));
         }
 
-        var content = await hostFileContentReader
-            .OpenReadyContentAsync(record.OutputFileId.Value, cancellationToken)
+        var content = await resourceFiles
+            .OpenReadyContentAsync("reporting", taskId, record.OutputFileId.Value, cancellationToken)
             .ConfigureAwait(false);
         if (!content.IsSuccess)
         {
-            return Result<HostFileContent>.Failure(content.Error!);
+            return Result<TenantResourceFileContent>.Failure(content.Error!);
         }
 
         var file = content.Value!;
-        return Result<HostFileContent>.Success(new HostFileContent(
+        return Result<TenantResourceFileContent>.Success(new TenantResourceFileContent(
             file.Content,
             file.ContentType ?? WorkbookContentType,
             record.OutputFileName ?? file.OriginalFileName));
@@ -244,6 +238,7 @@ internal sealed class ReportingExportTaskManagementService(
         CancellationToken cancellationToken)
     {
         var allRows = new List<ReportingExecutionRow>();
+        var budget = new ReportingExportBudget();
         IReadOnlyList<ReportingExecutionColumnDefinition>? columns = null;
         var page = 1;
         while (allRows.Count < ReportingExportPolicy.MaxExportRows)
@@ -265,6 +260,16 @@ internal sealed class ReportingExportTaskManagementService(
             }
 
             var pageValue = pageResult.Value;
+            try
+            {
+                if (columns is null) budget.AddColumns(pageValue.Columns);
+                foreach (var row in pageValue.Rows) budget.AddRow(row);
+            }
+            catch (InvalidDataException)
+            {
+                return ExportCollectOutcome.Failed(ReportingErrorCodes.ExportSizeLimitExceeded,
+                    "The export input memory limit was exceeded.", allRows.Count);
+            }
             columns = pageValue.Columns;
             foreach (var row in pageValue.Rows)
             {
@@ -284,6 +289,12 @@ internal sealed class ReportingExportTaskManagementService(
                 break;
             }
 
+            // 恰好收满上限但仍有下一页时必须报告超限，不能把前 5000 行标为完整导出。
+            if (allRows.Count >= ReportingExportPolicy.MaxExportRows)
+            {
+                return ExportCollectOutcome.Failed(ReportingErrorCodes.ExportRowLimitExceeded,
+                    $"The export exceeds the maximum of {ReportingExportPolicy.MaxExportRows} rows.", allRows.Count);
+            }
             page++;
         }
 

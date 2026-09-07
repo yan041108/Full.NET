@@ -13,6 +13,16 @@ using Microsoft.Extensions.Options;
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
 /// <summary>支付订单创建与渠道下单。</summary>
+/// <param name="queryExecutor">当前模块查询执行器。</param>
+/// <param name="commandExecutor">当前模块写入执行器。</param>
+/// <param name="transaction">本地命令事务。</param>
+/// <param name="queries">订单响应查询服务。</param>
+/// <param name="weChatNativePayClient">微信渠道客户端。</param>
+/// <param name="alipayPagePayClient">支付宝渠道客户端。</param>
+/// <param name="activeTenants">权威租户状态目录。</param>
+/// <param name="clock">业务时钟。</param>
+/// <param name="idGenerator">业务唯一标识生成器。</param>
+/// <param name="databaseOptions">数据库提供程序选项。</param>
 internal sealed class PaymentOrderManagementService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -254,8 +264,12 @@ internal sealed class PaymentOrderManagementService(
             .ConfigureAwait(false);
     }
 
+    /// <summary>完整保留业务标识，避免 UUID v7 时间前缀在并发下产生相同渠道编号。</summary>
+    /// <param name="orderId">已生成且持久化关联的订单唯一标识。</param>
+    /// <param name="createdAtUtc">订单创建时间；不再参与截断编号，保留调用兼容性。</param>
+    /// <returns>固定 32 位的可重放订单编号。</returns>
     private static string BuildOutTradeNo(Guid orderId, DateTimeOffset createdAtUtc) =>
-        $"FN{createdAtUtc:yyyyMMddHHmmss}{orderId.ToString("N")[..8].ToUpperInvariant()}";
+        orderId.ToString("N");
 
     private static string? NormalizeOptional(string? value)
     {

@@ -53,6 +53,9 @@ function createProps(overrides: Partial<{
   canSubmit: boolean;
   effectiveFieldKeys: string[];
   showProfileTab: boolean;
+  canRevealPhoneNumber: boolean;
+  canRevealIdCardNumber: boolean;
+  revealingFieldKey: string | null;
   translate: (key: MessageKey) => string;
 }> = {}): {
   open: boolean;
@@ -88,6 +91,9 @@ function createProps(overrides: Partial<{
   canSubmit: boolean;
   effectiveFieldKeys: string[];
   showProfileTab: boolean;
+  canRevealPhoneNumber: boolean;
+  canRevealIdCardNumber: boolean;
+  revealingFieldKey: string | null;
   translate: (key: MessageKey) => string;
 } {
   return {
@@ -110,6 +116,9 @@ function createProps(overrides: Partial<{
     positionId: '',
     identityCommitted: false,
     saving: false,
+    canRevealPhoneNumber: false,
+    canRevealIdCardNumber: false,
+    revealingFieldKey: null,
     canAssignRoles: false,
     canCreate: true,
     canUpdate: false,

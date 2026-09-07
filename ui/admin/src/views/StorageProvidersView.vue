@@ -98,7 +98,7 @@ onMounted(() => {
         :stripe="tableZebra"
         :border="tableBorder"
         :header-cell-style="tableHeaderCellStyle"
-        :header-cell-class-name="tableHeaderBackground"
+        :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
       >
         <ElTableColumn prop="providerKey" :label="t('storageProviders.fieldProviderKey')" min-width="120" />
         <ElTableColumn prop="displayName" :label="t('storageProviders.fieldDisplayName')" min-width="160" />
@@ -125,11 +125,12 @@ onMounted(() => {
           min-width="260"
           show-overflow-tooltip
         />
-        <ElTableColumn :label="t('storageProviders.actions')" width="140" fixed="right">
+        <!-- @vue-generic {StorageProviderCatalogItem} -->
+          <ElTableColumn :label="t('storageProviders.actions')" width="140" fixed="right">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="files.storage_providers.test">
-                <ArtTableActionButton
+              <PermissionGate code="files.storage_providers.test">
+                <ArtTableActionButton type="view"
                   v-if="row.supportsConnectivityTest"
                   :loading="testingKey === row.providerKey"
                   @click="runConnectivityTest(row)"

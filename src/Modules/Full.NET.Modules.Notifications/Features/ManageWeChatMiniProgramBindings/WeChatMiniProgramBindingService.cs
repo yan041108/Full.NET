@@ -163,7 +163,7 @@ internal sealed class WeChatMiniProgramBindingService(
             return Result<WeChatMiniProgramBindingResponse>.Failure(ValidationFailed());
         }
 
-        var appSecret = await secretResolver.ResolveAsync(profile.SecretReference, cancellationToken)
+        var appSecret = await secretResolver.ResolveAsync(Providers.WeChatMiniProgram.WeChatMiniProgramNotificationProviderAdapter.ProviderTypeKeyValue, profile.SecretReference, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrEmpty(appSecret))
         {

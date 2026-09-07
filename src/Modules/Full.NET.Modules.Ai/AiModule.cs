@@ -44,8 +44,9 @@ public sealed class AiModule : IFullNetModule
             .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromMinutes(3));
         services.TryAddSingleton<AiModelConnectivityTester>();
         services.TryAddSingleton<AiChatGenerationRegistry>();
+        services.TryAddSingleton<AiChatGenerationLeaseMonitor>();
         services.TryAddSingleton<AiChatCompletionStreamer>();
-        services.TryAddSingleton<AiChatQuotaGuard>();
+        services.TryAddScoped<AiChatQuotaGuard>();
         services.TryAddScoped<AiModelConfigQueryService>();
         services.TryAddScoped<AiModelConfigManagementService>();
         services.TryAddScoped<AiModelConfigOperationsService>();

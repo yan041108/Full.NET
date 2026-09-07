@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
@@ -128,6 +129,7 @@ internal sealed class MqttMessagePublishService(
                     ("ClientId", request.ClientId),
                     ("Topic", topic),
                     ("PayloadSizeBytes", payloadSize),
+                    ("PayloadDigest", ComputePayloadDigest(request.Payload)),
                     ("Qos", request.Qos),
                     ("Status", MqttMessageStatuses.Pending),
                     ("IdempotencyKey", idempotencyKey),
@@ -201,6 +203,10 @@ internal sealed class MqttMessagePublishService(
         return null;
     }
 
+    /// <summary>幂等重放绑定原正文摘要；历史无摘要记录无法证明相同，必须失败关闭。</summary>
+    /// <param name="existing">已持久化的消息。</param>
+    /// <param name="request">重试请求。</param>
+    /// <param name="topic">规范化主题。</param>
     private static bool MatchesIdempotentReplay(
         MqttMessageRecord existing,
         PublishMqttMessageRequest request,
@@ -208,7 +214,14 @@ internal sealed class MqttMessagePublishService(
         string.Equals(existing.Topic, topic, StringComparison.Ordinal)
         && existing.Qos == request.Qos
         && existing.PayloadSizeBytes == Encoding.UTF8.GetByteCount(request.Payload)
-        && existing.ClientId == request.ClientId;
+        && existing.ClientId == request.ClientId
+        && existing.PayloadDigest is not null
+        && string.Equals(existing.PayloadDigest, ComputePayloadDigest(request.Payload), StringComparison.Ordinal);
+
+    /// <summary>按实际 UTF-8 消息字节计算稳定摘要，不持久化消息正文。</summary>
+    /// <param name="payload">原始正文。</param>
+    private static string ComputePayloadDigest(string payload) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
 
     private static Result<MqttMessageResponse> ValidationFailed() =>
         Result<MqttMessageResponse>.Failure(new Error(

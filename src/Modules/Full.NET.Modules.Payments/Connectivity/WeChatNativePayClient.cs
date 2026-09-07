@@ -11,7 +11,9 @@ using Full.NET.Modules.Payments.Security;
 namespace Full.NET.Modules.Payments.Connectivity;
 
 /// <summary>微信 Native 支付 API v3 客户端。</summary>
-internal sealed class WeChatNativePayClient(
+/// <param name="httpClientFactory">创建受控超时的支付提供程序客户端。</param>
+/// <param name="secretProtector">解密仅用于当前外部调用的商户凭据。</param>
+internal sealed partial class WeChatNativePayClient(
     IHttpClientFactory httpClientFactory,
     PaymentSecretProtector secretProtector)
 {
@@ -52,7 +54,7 @@ internal sealed class WeChatNativePayClient(
                 outTradeNo,
                 merchantConfig.NotifyUrl,
                 new WeChatNativePayAmount(amountMinor, currency)),
-            WeChatJsonOptions);
+            ProviderJson.WeChatNativePayRequest);
 
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var nonce = Guid.NewGuid().ToString("N");
@@ -89,7 +91,7 @@ internal sealed class WeChatNativePayClient(
                 $"WeChat Native pay request failed with status {(int)response.StatusCode}: {responseBody}");
         }
 
-        var parsed = JsonSerializer.Deserialize<WeChatNativePayResponse>(responseBody, WeChatJsonOptions);
+        var parsed = JsonSerializer.Deserialize(responseBody, ProviderJson.WeChatNativePayResponse);
         if (parsed?.CodeUrl is null or { Length: 0 })
         {
             return WeChatNativePayResult.Failure("WeChat Native pay response did not include code_url.");
@@ -127,7 +129,7 @@ internal sealed class WeChatNativePayClient(
             return WeChatTransactionQueryResult.Failure(responseBody.FailMessage!);
         }
 
-        var parsed = JsonSerializer.Deserialize<WeChatTransactionQueryResponse>(responseBody.Body!, WeChatJsonOptions);
+        var parsed = JsonSerializer.Deserialize(responseBody.Body!, ProviderJson.WeChatTransactionQueryResponse);
         if (parsed is null)
         {
             return WeChatTransactionQueryResult.Failure("WeChat transaction query response was invalid.");
@@ -171,7 +173,7 @@ internal sealed class WeChatNativePayClient(
                 outRefundNo,
                 reason,
                 new WeChatRefundAmount(amountMinor, totalMinor, currency)),
-            WeChatJsonOptions);
+            ProviderJson.WeChatDomesticRefundRequest);
 
         var responseBody = await SendSignedRequestAsync(
                 merchantConfig,
@@ -185,7 +187,7 @@ internal sealed class WeChatNativePayClient(
             return WeChatRefundResult.Failure(responseBody.FailMessage!);
         }
 
-        var parsed = JsonSerializer.Deserialize<WeChatDomesticRefundResponse>(responseBody.Body!, WeChatJsonOptions);
+        var parsed = JsonSerializer.Deserialize(responseBody.Body!, ProviderJson.WeChatDomesticRefundResponse);
         if (parsed is null)
         {
             return WeChatRefundResult.Failure("WeChat refund response was invalid.");
@@ -224,7 +226,7 @@ internal sealed class WeChatNativePayClient(
             return null;
         }
 
-        var parsed = JsonSerializer.Deserialize<WeChatCertificatesResponse>(responseBody.Body, WeChatJsonOptions);
+        var parsed = JsonSerializer.Deserialize(responseBody.Body, ProviderJson.WeChatCertificatesResponse);
         var apiV3Key = secretProtector.UnprotectApiV3Key(merchantConfig.ApiV3KeyProtected);
         foreach (var item in parsed?.Data ?? [])
         {
@@ -299,11 +301,22 @@ internal sealed class WeChatNativePayClient(
             ?? throw new InvalidOperationException("WeChat platform certificate does not contain an RSA public key.");
     }
 
+    /// <summary>支付提供程序请求和响应的闭合 JSON 元数据。</summary>
+    [JsonSerializable(typeof(WeChatCertificatesResponse))]
+    [JsonSerializable(typeof(WeChatDomesticRefundRequest))]
+    [JsonSerializable(typeof(WeChatDomesticRefundResponse))]
+    [JsonSerializable(typeof(WeChatNativePayRequest))]
+    [JsonSerializable(typeof(WeChatNativePayResponse))]
+    [JsonSerializable(typeof(WeChatTransactionQueryResponse))]
+    private partial class WeChatProviderJsonContext : JsonSerializerContext;
+
     private static readonly JsonSerializerOptions WeChatJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    private static readonly WeChatProviderJsonContext ProviderJson = new(WeChatJsonOptions);
 
     /// <summary>微信 Native 下单请求体。</summary>
     private sealed record WeChatNativePayRequest(

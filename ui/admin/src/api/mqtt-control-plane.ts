@@ -92,6 +92,7 @@ export async function publishMqttMessage(
     '/api/v1/mqtt/messages/publish',
     {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body)
     },
     signal

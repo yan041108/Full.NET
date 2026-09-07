@@ -374,7 +374,8 @@ onMounted(async () => {
         <ElTableColumn :label="t('hostJobExecutions.columnCreatedAt')" min-width="160">
           <template #default="{ row }">{{ formatUtc(row.createdAtUtc) }}</template>
         </ElTableColumn>
-        <ElTableColumn
+        <!-- @vue-generic {HostJobExecution} -->
+          <ElTableColumn
           v-if="canCancel"
           :label="t('hostJobExecutions.columnActions')"
           width="140"

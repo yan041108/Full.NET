@@ -50,7 +50,7 @@ internal sealed class SmtpNotificationProviderAdapter(
             return Failed(NotificationDeliveryRetry.Permanent);
         }
 
-        var password = await secretResolver.ResolveAsync(request.SecretReference, cancellationToken)
+        var password = await secretResolver.ResolveAsync(Descriptor.ProviderTypeKey, request.SecretReference, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrEmpty(password))
         {

@@ -53,10 +53,10 @@ const componentCount = computed(() => {
   }
 });
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -142,7 +142,7 @@ onMounted(() => {
 <template>
   <div class="goview-editor-view">
     <ArtTableHeader :title="t('goviewEditor.title')">
-      <PermissionGate permission="goview.projects.preview">
+      <PermissionGate code="goview.projects.preview">
         <ElButton
           data-testid="goview-editor-open-preview"
           :disabled="!project || project.latestPublishedVersionNumber <= 0"
@@ -151,7 +151,7 @@ onMounted(() => {
           {{ t('goviewEditor.openPreview') }}
         </ElButton>
       </PermissionGate>
-      <PermissionGate permission="goview.projects.update">
+      <PermissionGate code="goview.projects.update">
         <ElButton
           data-testid="goview-editor-save"
           type="primary"
@@ -161,7 +161,7 @@ onMounted(() => {
           {{ t('goviewEditor.saveDraft') }}
         </ElButton>
       </PermissionGate>
-      <PermissionGate permission="goview.projects.publish">
+      <PermissionGate code="goview.projects.publish">
         <ElButton
           v-if="session.can('goview.projects.publish')"
           data-testid="goview-editor-publish"

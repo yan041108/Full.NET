@@ -63,7 +63,7 @@ export async function createReportingDataSource(
 ): Promise<ReportingDataSource> {
   const value = await request<unknown>(
     '/api/v1/reporting/data-sources',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isReportingDataSource(value)) {
@@ -79,7 +79,7 @@ export async function updateReportingDataSource(
 ): Promise<ReportingDataSource> {
   const value = await request<unknown>(
     `/api/v1/reporting/data-sources/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isReportingDataSource(value)) {

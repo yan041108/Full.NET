@@ -31,6 +31,7 @@ function mountWithPermissions(permissions: string[]) {
     actorScope: 'tenant',
     scope: 'tenant',
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf298',
     preferredLocale: 'zh-CN',

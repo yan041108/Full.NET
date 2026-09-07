@@ -21,6 +21,7 @@ internal sealed class MqttClientRecord
     public DateTimeOffset? UpdatedAtUtc { get; init; }
 }
 
+/// <summary>消息发布事实及用于幂等比较的原正文摘要。</summary>
 internal sealed class MqttMessageRecord
 {
     public Guid Id { get; init; }
@@ -34,6 +35,9 @@ internal sealed class MqttMessageRecord
     public string Topic { get; init; } = string.Empty;
 
     public int PayloadSizeBytes { get; init; }
+
+    /// <summary>原 UTF-8 正文的 SHA-256 十六进制摘要；历史未保存正文的记录保持空值。</summary>
+    public string? PayloadDigest { get; init; }
 
     public int Qos { get; init; }
 

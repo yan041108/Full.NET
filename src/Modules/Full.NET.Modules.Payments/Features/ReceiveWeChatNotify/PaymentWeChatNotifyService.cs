@@ -9,13 +9,18 @@ using Full.NET.Modules.Payments.Contracts;
 using Full.NET.Modules.Payments.Domain;
 using Full.NET.Modules.Payments.Persistence;
 using Full.NET.Modules.Payments.Security;
-using Microsoft.Data.SqlClient;
-using MySqlConnector;
 
 namespace Full.NET.Modules.Payments.Features.ReceiveWeChatNotify;
 
 /// <summary>处理微信支付结果通知：验签、解密、幂等与订单状态更新。</summary>
-internal sealed class PaymentWeChatNotifyService(
+/// <param name="queryExecutor">支付模块查询执行器。</param>
+/// <param name="commandExecutor">支付模块写入执行器。</param>
+/// <param name="transaction">订单与回执的本地事务。</param>
+/// <param name="secretProtector">商户密钥保护器。</param>
+/// <param name="certificateResolver">平台验签公钥解析器。</param>
+/// <param name="clock">回执业务时钟。</param>
+/// <param name="idGenerator">回执唯一标识生成器。</param>
+internal sealed partial class PaymentWeChatNotifyService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
@@ -25,11 +30,6 @@ internal sealed class PaymentWeChatNotifyService(
     IIdGenerator idGenerator)
 {
     private const int MaxPayloadSummaryLength = 480;
-
-    private static readonly JsonSerializerOptions NotifyJsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    };
 
     /// <summary>处理微信 Native 支付通知。</summary>
     /// <param name="merchantConfigId">商户配置标识（通知 URL 路径参数）。</param>
@@ -41,7 +41,7 @@ internal sealed class PaymentWeChatNotifyService(
     /// <param name="rawBody">原始请求体。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>微信协议 ACK 响应。</returns>
-    public Task<WeChatPayNotifyAckResponse> HandleAsync(
+    public async Task<WeChatPayNotifyAckResponse> HandleAsync(
         Guid merchantConfigId,
         string requestPath,
         string timestamp,
@@ -49,19 +49,31 @@ internal sealed class PaymentWeChatNotifyService(
         string signature,
         string platformSerial,
         string rawBody,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => HandleCoreAsync(
-                merchantConfigId,
-                requestPath,
-                timestamp,
-                nonce,
-                signature,
-                platformSerial,
-                rawBody,
-                token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await transaction.ExecuteAsync(
+                token => HandleCoreAsync(merchantConfigId, requestPath, timestamp, nonce, signature,
+                    platformSerial, rawBody, token), cancellationToken).ConfigureAwait(false);
+        }
+        catch (DataCommandException exception) when (exception.Kind == DataCommandFailureKind.UniqueConstraint)
+        {
+            // 必须先让整个本地事务回滚；竞争失败不等于已成功处理，要求平台重试后读取胜者回执。
+            return FailAck("Concurrent notification receipt; retry the notification.");
+        }
+    }
 
+    /// <summary>仅把已验签、商户与订单归属一致的通知应用到允许的状态转换。</summary>
+    /// <param name="merchantConfigId">验签商户配置标识。</param>
+    /// <param name="requestPath">接收回调的路径。</param>
+    /// <param name="timestamp">原始通知时间戳。</param>
+    /// <param name="nonce">原始通知随机串。</param>
+    /// <param name="signature">通知签名。</param>
+    /// <param name="platformSerial">平台公钥序列号。</param>
+    /// <param name="rawBody">未改写的通知正文。</param>
+    /// <param name="cancellationToken">操作取消令牌。</param>
+    /// <returns>协议应答，不将拒绝回执伪装成处理成功。</returns>
     private async Task<WeChatPayNotifyAckResponse> HandleCoreAsync(
         Guid merchantConfigId,
         string requestPath,
@@ -104,7 +116,7 @@ internal sealed class PaymentWeChatNotifyService(
             return FailAck("Notify signature verification failed.");
         }
 
-        var envelope = JsonSerializer.Deserialize<WeChatNotifyEnvelope>(rawBody, NotifyJsonOptions);
+        var envelope = JsonSerializer.Deserialize(rawBody, NotifyJsonContext.Default.WeChatNotifyEnvelope);
         if (envelope?.Resource is null
             || string.IsNullOrWhiteSpace(envelope.Id)
             || string.IsNullOrWhiteSpace(envelope.EventType))
@@ -121,7 +133,10 @@ internal sealed class PaymentWeChatNotifyService(
             .ConfigureAwait(false);
         if (existing is not null)
         {
-            return SuccessAck();
+            return existing.ProcessStatusKey is PaymentNotifyProcessStatusKeys.Processed
+                or PaymentNotifyProcessStatusKeys.IgnoredDuplicate
+                ? SuccessAck()
+                : FailAck("The notification was previously rejected.");
         }
 
         var apiV3Key = secretProtector.UnprotectApiV3Key(merchantConfig.ApiV3KeyProtected);
@@ -139,9 +154,9 @@ internal sealed class PaymentWeChatNotifyService(
             return FailAck("Notify resource decryption failed.");
         }
 
-        var transactionPayload = JsonSerializer.Deserialize<WeChatTransactionNotifyPayload>(
+        var transactionPayload = JsonSerializer.Deserialize(
             decryptedPayload,
-            NotifyJsonOptions);
+            NotifyJsonContext.Default.WeChatTransactionNotifyPayload);
         if (transactionPayload is null
             || string.IsNullOrWhiteSpace(transactionPayload.OutTradeNo))
         {
@@ -191,6 +206,19 @@ internal sealed class PaymentWeChatNotifyService(
             return FailAck("Payment order was not found.");
         }
 
+        // 验签身份必须与被更新的订单绑定，Host 商户配置可以服务租户，但租户专属配置不得串租户。
+        if (order.MerchantConfigId != merchantConfigId
+            || merchantConfig.TenantId is { } merchantTenantId && order.TenantId != merchantTenantId
+            || order.ChannelKey != PaymentChannelKeys.WeChatNative
+            || merchantConfig.ChannelKey != PaymentChannelKeys.WeChatNative
+            || !string.Equals(order.Currency, transactionPayload.Amount?.Currency, StringComparison.Ordinal))
+        {
+            await InsertReceiptAsync(merchantConfigId, envelope.Id, envelope.EventType,
+                transactionPayload.OutTradeNo, PaymentNotifyProcessStatusKeys.Rejected,
+                "order binding mismatch", cancellationToken).ConfigureAwait(false);
+            return FailAck("Payment order binding mismatch.");
+        }
+
         var notifyAmount = transactionPayload.Amount?.Total ?? 0;
         if (notifyAmount != order.AmountMinor)
         {
@@ -221,8 +249,20 @@ internal sealed class PaymentWeChatNotifyService(
             return FailAck("Unsupported trade state.");
         }
 
-        // 已成功订单重复通知时只记幂等收据，不再改写状态。
-        if (order.TradeStateKey != PaymentTradeStateKeys.Succeeded)
+        // 支付成功后的退款生命周期不可被迟到支付通知倒退；其它终态也只能通过显式对账纠正。
+        var wasPaid = order.TradeStateKey is PaymentTradeStateKeys.Succeeded
+            or PaymentTradeStateKeys.Refunding or PaymentTradeStateKeys.Refunded;
+        if (wasPaid && mappedState != PaymentTradeStateKeys.Succeeded
+            || !wasPaid && order.TradeStateKey != mappedState
+                && order.TradeStateKey is not (PaymentTradeStateKeys.Created or PaymentTradeStateKeys.AwaitingPayment))
+        {
+            await InsertReceiptAsync(merchantConfigId, envelope.Id, envelope.EventType,
+                transactionPayload.OutTradeNo, PaymentNotifyProcessStatusKeys.Rejected,
+                "terminal state conflict", cancellationToken).ConfigureAwait(false);
+            return FailAck("Payment order terminal state conflict.");
+        }
+
+        if (!wasPaid && order.TradeStateKey != mappedState)
         {
             var now = clock.UtcNow;
             var paidAtUtc = mappedState == PaymentTradeStateKeys.Succeeded ? now : order.PaidAtUtc;
@@ -244,22 +284,10 @@ internal sealed class PaymentWeChatNotifyService(
             }
         }
 
-        try
-        {
-            await InsertReceiptAsync(
-                    merchantConfigId,
-                    envelope.Id,
-                    envelope.EventType,
-                    transactionPayload.OutTradeNo,
-                    PaymentNotifyProcessStatusKeys.Processed,
-                    BuildPayloadSummary(transactionPayload),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex) when (IsUniqueViolation(ex))
-        {
-            return SuccessAck();
-        }
+        await InsertReceiptAsync(
+            merchantConfigId, envelope.Id, envelope.EventType, transactionPayload.OutTradeNo,
+            PaymentNotifyProcessStatusKeys.Processed, BuildPayloadSummary(transactionPayload), cancellationToken)
+            .ConfigureAwait(false);
 
         return SuccessAck();
     }
@@ -306,10 +334,6 @@ internal sealed class PaymentWeChatNotifyService(
             ? summary
             : summary[..MaxPayloadSummaryLength];
 
-    private static bool IsUniqueViolation(Exception exception) =>
-        exception is SqlException { Number: 2601 or 2627 }
-        || exception is MySqlException { Number: 1062 };
-
     private static WeChatPayNotifyAckResponse SuccessAck() =>
         new("SUCCESS", "成功");
 
@@ -335,6 +359,15 @@ internal sealed class PaymentWeChatNotifyService(
         [property: JsonPropertyName("trade_state")] string? TradeState,
         [property: JsonPropertyName("amount")] WeChatNotifyAmount? Amount);
 
+    /// <summary>通知中的订单金额及币种，必须同时匹配本地订单。</summary>
+    /// <param name="Total">最小货币单位金额。</param>
+    /// <param name="Currency">支付币种。</param>
     private sealed record WeChatNotifyAmount(
-        [property: JsonPropertyName("total")] long Total);
+        [property: JsonPropertyName("total")] long Total,
+        [property: JsonPropertyName("currency")] string? Currency);
+
+    /// <summary>通知解析的闭合元数据，避免在 Native AOT 下回退到反射序列化。</summary>
+    [JsonSerializable(typeof(WeChatNotifyEnvelope))]
+    [JsonSerializable(typeof(WeChatTransactionNotifyPayload))]
+    private partial class NotifyJsonContext : JsonSerializerContext;
 }

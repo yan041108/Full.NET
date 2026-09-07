@@ -69,7 +69,7 @@ export async function createOpenAccessClient(
 ): Promise<CreateOpenAccessClientResult> {
   const value = await request<unknown>(
     '/api/v1/identity/open-access-clients',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isCreateOpenAccessClientResult(value)) {
@@ -85,7 +85,7 @@ export async function updateOpenAccessClient(
 ): Promise<OpenAccessClient> {
   const value = await request<unknown>(
     `/api/v1/identity/open-access-clients/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isOpenAccessClient(value)) {
@@ -100,7 +100,7 @@ export async function disableOpenAccessClient(
 ): Promise<OpenAccessClient> {
   const value = await request<unknown>(
     `/api/v1/identity/open-access-clients/${encodeURIComponent(id)}/disable`,
-    { method: 'POST', body: {} },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
     signal
   );
   if (!isOpenAccessClient(value)) {
@@ -115,7 +115,7 @@ export async function rotateOpenAccessClient(
 ): Promise<CreateOpenAccessClientResult> {
   const value = await request<unknown>(
     `/api/v1/identity/open-access-clients/${encodeURIComponent(id)}/rotate`,
-    { method: 'POST', body: {} },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
     signal
   );
   if (!isCreateOpenAccessClientResult(value)) {
@@ -162,7 +162,7 @@ export async function debugOpenAccessClientSignature(
 ): Promise<OpenAccessClientSignatureDebugResult> {
   const value = await request<unknown>(
     `/api/v1/identity/open-access-clients/${encodeURIComponent(id)}/signature-debug`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isOpenAccessClientSignatureDebugResult(value)) {

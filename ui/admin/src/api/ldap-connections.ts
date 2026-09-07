@@ -66,7 +66,7 @@ export async function createLdapConnection(
 ): Promise<LdapConnection> {
   const value = await request<unknown>(
     '/api/v1/identity/ldap-connections',
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isLdapConnection(value)) {
@@ -82,7 +82,7 @@ export async function updateLdapConnection(
 ): Promise<LdapConnection> {
   const value = await request<unknown>(
     `/api/v1/identity/ldap-connections/${encodeURIComponent(id)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isLdapConnection(value)) {
@@ -133,7 +133,7 @@ export async function testLdapAuthentication(
 ): Promise<TestLdapAuthenticationResult> {
   const value = await request<unknown>(
     `/api/v1/identity/ldap-connections/${encodeURIComponent(id)}/test-authentication`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isTestLdapAuthenticationResult(value)) {
@@ -149,7 +149,7 @@ export async function previewLdapSync(
 ): Promise<PreviewLdapSyncResponse> {
   const value = await request<unknown>(
     `/api/v1/identity/ldap-connections/${encodeURIComponent(id)}/preview-sync`,
-    { method: 'POST', body },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isPreviewLdapSyncResponse(value)) {

@@ -125,7 +125,7 @@ function updateConstraint(
   mutate(() => updateWorkflowFormField(
     workingSchema.value,
     field.fieldKey,
-    { constraints },
+    { constraints: { ...constraints } },
     props.catalog
   ));
 }
@@ -167,7 +167,7 @@ function updateSubtableConstraints(
   mutate(() => updateWorkflowFormField(
     workingSchema.value,
     field.fieldKey,
-    { constraints },
+    { constraints: { ...constraints } },
     props.catalog
   ));
 }

@@ -56,6 +56,7 @@ export async function createNotificationIntent(
 ): Promise<NotificationIntentResponse> {
   const value = await request<unknown>('/api/v1/notifications/intents', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
   }, signal);
   if (!isNotificationIntentResponse(value)) {

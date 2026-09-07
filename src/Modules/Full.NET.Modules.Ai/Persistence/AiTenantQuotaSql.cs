@@ -40,6 +40,16 @@ internal static class AiTenantQuotaSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>聊天用量路径读取当前租户配额，拒绝调用方指定其他租户。</summary>
+    public static readonly SqlStatement FindCurrentTenantQuota = new(
+        "ai.find_current_tenant_quota",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_ai_tenant_quota AS quota
+        WHERE quota.TenantId = @TenantId
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement Update = new(
         "ai.update_tenant_quota",
         """
@@ -51,33 +61,6 @@ internal static class AiTenantQuotaSql
             Version = Version + 1
         WHERE TenantId = @TenantId
           AND Version = @Version
-        """,
-        SqlDataScope.HostOnly);
-
-    public static readonly SqlStatement IncrementUsage = new(
-        "ai.increment_tenant_quota_usage",
-        """
-        UPDATE fn_ai_tenant_quota
-        SET UsedTokensThisMonth = UsedTokensThisMonth + @TokenDelta,
-            UsedRequestsThisMonth = UsedRequestsThisMonth + @RequestDelta,
-            QuotaMonthKey = @QuotaMonthKey,
-            UpdatedAtUtc = @UpdatedAtUtc,
-            Version = Version + 1
-        WHERE TenantId = @TenantId
-        """,
-        SqlDataScope.HostOnly);
-
-    public static readonly SqlStatement ResetMonthlyUsage = new(
-        "ai.reset_tenant_quota_monthly_usage",
-        """
-        UPDATE fn_ai_tenant_quota
-        SET UsedTokensThisMonth = 0,
-            UsedRequestsThisMonth = 0,
-            QuotaMonthKey = @QuotaMonthKey,
-            UpdatedAtUtc = @UpdatedAtUtc,
-            Version = Version + 1
-        WHERE TenantId = @TenantId
-          AND QuotaMonthKey <> @QuotaMonthKey
         """,
         SqlDataScope.HostOnly);
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref, watch } from 'vue';
 import {
   ElButton,
@@ -73,7 +74,7 @@ function formatBytes(value: number): string {
 function formatMetric(metric: ServerRuntimeMetric): string {
   if (metric.availability !== 'available') {
     return metric.unavailableReason
-      ?? t(`observabilityServerMonitor.availability.${metric.availability}`);
+      ?? translateRuntimeMessage(t, `observabilityServerMonitor.availability.${metric.availability}`);
   }
   if (metric.unit === 'bytes' && metric.longValue != null) {
     return formatBytes(metric.longValue);
@@ -189,7 +190,7 @@ onMounted(() => {
         </ElTableColumn>
         <ElTableColumn :label="t('observabilityServerMonitor.queryability')" min-width="140">
           <template #default="{ row }">
-            {{ t(`observabilityServerMonitor.queryability.${row.runtimeQueryability}`) }}
+            {{ translateRuntimeMessage(t, `observabilityServerMonitor.queryability.${row.runtimeQueryability}`) }}
           </template>
         </ElTableColumn>
       </ElTable>
@@ -232,14 +233,15 @@ onMounted(() => {
 
       <ElTable :data="runtime.metrics" class="observability-server-monitor__metrics">
         <ElTableColumn prop="label" :label="t('observabilityServerMonitor.metric')" min-width="160" />
-        <ElTableColumn :label="t('observabilityServerMonitor.metricValue')" min-width="160">
+        <!-- @vue-generic {ServerRuntimeMetric} -->
+          <ElTableColumn :label="t('observabilityServerMonitor.metricValue')" min-width="160">
           <template #default="{ row }">
             {{ formatMetric(row) }}
           </template>
         </ElTableColumn>
         <ElTableColumn :label="t('observabilityServerMonitor.metricAvailability')" min-width="140">
           <template #default="{ row }">
-            {{ t(`observabilityServerMonitor.availability.${row.availability}`) }}
+            {{ translateRuntimeMessage(t, `observabilityServerMonitor.availability.${row.availability}`) }}
           </template>
         </ElTableColumn>
       </ElTable>

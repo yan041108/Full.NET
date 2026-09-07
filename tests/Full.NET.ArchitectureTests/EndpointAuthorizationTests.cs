@@ -19,9 +19,28 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.ArchitectureTests;
 
+/// <summary>验证实际宿主路由的授权闭包和可选能力装配边界。</summary>
 [TestClass]
 public sealed class EndpointAuthorizationTests
 {
+    /// <summary>仅在提供程序和审批同步同时开启时暴露审批路由。</summary>
+    /// <param name="providerEnabled">提供程序开关。</param>
+    /// <param name="workflowEnabled">审批同步开关。</param>
+    [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public void DingTalk_routes_match_provider_and_workflow_switches(bool providerEnabled, bool workflowEnabled)
+    {
+        using var app = BuildApiApplication(providerEnabled, workflowEnabled);
+        var routes = CollectApiV1Endpoints(app)
+            .Where(endpoint => endpoint.RoutePattern.RawText!.StartsWith(
+                "/api/v1/notifications/dingtalk/approval-sync", StringComparison.Ordinal))
+            .ToArray();
+        Assert.AreEqual(providerEnabled && workflowEnabled, routes.Length > 0);
+    }
+
     [TestMethod]
     public void Api_v1_endpoints_explicitly_declare_authorization_or_anonymous_intent()
     {
@@ -599,7 +618,11 @@ public sealed class EndpointAuthorizationTests
             $"{HttpMethod.ToUpperInvariant()} {Route}|{PermissionCode}";
     }
 
-    private static WebApplication BuildApiApplication()
+    /// <summary>构建不连接外部资源的真实 API 装配用于路由元数据验证。</summary>
+    /// <param name="providerEnabled">是否开启钉钉提供程序。</param>
+    /// <param name="workflowEnabled">是否开启钉钉审批同步。</param>
+    /// <returns>已经映射模块路由的应用。</returns>
+    private static WebApplication BuildApiApplication(bool providerEnabled = false, bool workflowEnabled = false)
     {
         var builder = WebApplication.CreateBuilder();
         builder.Environment.EnvironmentName = "Testing";
@@ -615,6 +638,8 @@ public sealed class EndpointAuthorizationTests
             ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
             ["Tenancy:HostDomains:0"] = "localhost",
+            ["Notifications:Providers:DingTalk:Enabled"] = providerEnabled.ToString(),
+            ["Notifications:Providers:DingTalk:Workflow:Enabled"] = workflowEnabled.ToString(),
         });
         builder.AddFullNetServiceDefaults();
         builder.Services.AddFullNetDapper(builder.Configuration, builder.Environment.EnvironmentName);

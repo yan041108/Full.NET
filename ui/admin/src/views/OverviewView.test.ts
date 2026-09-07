@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+vi.mock('../api/platform-dashboard', () => ({
+  getHostDashboardSummary: vi.fn().mockResolvedValue({
+    activeTenantCount: 3, onlineSessionCount: 2, todayRequestCount: 10, todayErrorRate: 0,
+    recentActivities: [], accessTrafficTrend: null, businessEntries: []
+  })
+}));
+
 import OverviewView from './OverviewView.vue';
 
 afterEach(() => {
@@ -7,9 +14,10 @@ afterEach(() => {
 });
 
 describe('Vue 管理端概览页', () => {
-  it('呈现运营指标、系统脉搏和最近活动分区', () => {
+  it('呈现运营指标、系统脉搏和最近活动分区', async () => {
     const wrapper = mount(OverviewView);
 
+    await flushPromises();
     expect(wrapper.get('[data-testid="metric-grid"]').text()).toContain('活跃租户');
     expect(wrapper.get('[data-testid="open-api-docs"]').attributes('href')).toBe('/scalar/v1');
     expect(wrapper.text()).toContain('系统脉搏');
@@ -29,6 +37,7 @@ describe('Vue 管理端概览页', () => {
 
     const wrapper = mount(OverviewView);
 
+    await flushPromises();
     await wrapper.get('[data-testid="load-current-user"]').trigger('click');
     await flushPromises();
 
@@ -46,6 +55,7 @@ describe('Vue 管理端概览页', () => {
     const fetchMock = vi.fn().mockReturnValue(pendingResponse);
     vi.stubGlobal('fetch', fetchMock);
     const wrapper = mount(OverviewView);
+    await flushPromises();
     const button = wrapper.get('[data-testid="load-current-user"]');
 
     const firstClick = button.trigger('click');

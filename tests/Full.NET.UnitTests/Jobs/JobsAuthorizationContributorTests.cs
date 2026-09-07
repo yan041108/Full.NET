@@ -4,9 +4,11 @@ using Full.NET.Modules.Jobs.Contracts;
 
 namespace Full.NET.UnitTests.Jobs;
 
+/// <summary>任务定义、执行与计划的精确权限目录回归。</summary>
 [TestClass]
 public sealed class JobsAuthorizationContributorTests
 {
+    /// <summary>验证全部稳定权限及每个页面操作的授权映射。</summary>
     [TestMethod]
     public void Contributor_publishes_exact_host_job_permissions_actions_and_navigation()
     {
@@ -21,6 +23,7 @@ public sealed class JobsAuthorizationContributorTests
                 HostJobPermissions.DefinitionsRead,
                 HostJobPermissions.DefinitionsTrigger,
                 HostJobPermissions.DefinitionsUpdate,
+                HostJobPermissions.ExecutionsCancel,
                 HostJobPermissions.ExecutionsClear,
                 HostJobPermissions.ExecutionsRead,
                 HostJobPermissions.HealthRead,
@@ -32,6 +35,9 @@ public sealed class JobsAuthorizationContributorTests
                 HostJobPermissions.SchedulesUpdate,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
+
+        var cancelAction = catalog.Actions.Single(action => action.PermissionCode == HostJobPermissions.ExecutionsCancel);
+        Assert.AreEqual("host-job-executions", cancelAction.NavigationId);
 
         var hostJobs = catalog.Navigation.Single(item => item.Id == "host-jobs");
         Assert.AreEqual(HostJobPermissions.DefinitionsRead, hostJobs.RequiredPermission);

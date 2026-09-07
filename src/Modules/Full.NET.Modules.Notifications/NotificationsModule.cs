@@ -136,7 +136,8 @@ public sealed class NotificationsModule : IFullNetModule
             .AddOpenTelemetry()
             .WithMetrics(metrics =>
                 metrics.AddMeter(NotificationDeliveryTelemetry.MeterName));
-        if (configuration.GetValue<bool>("Notifications:Providers:DingTalk:Workflow:Enabled"))
+        if (configuration.GetValue<bool>("Notifications:Providers:DingTalk:Enabled")
+            && configuration.GetValue<bool>("Notifications:Providers:DingTalk:Workflow:Enabled"))
         {
             services.AddHostedService<Features.ManageDingTalkApprovalSync.DingTalkApprovalSyncHostedProcessor>();
         }
@@ -159,8 +160,17 @@ public sealed class NotificationsModule : IFullNetModule
         Features.ReceiveProviderReceipts.Endpoint.Map(endpoints);
         Features.ManageRecipientEndpoints.Endpoint.Map(endpoints);
         Features.VerifyRecipientEndpoints.Endpoint.Map(endpoints);
-        Features.ManageDingTalkApprovalSync.Endpoint.Map(endpoints);
-        Features.ManageWeChatMiniProgramBindings.Endpoint.Map(endpoints);
+        // 可选适配能力的路由、服务和轮询入口必须使用相同开关，避免禁用时仍推断不存在的 DI 参数。
+        var configuration = endpoints.ServiceProvider.GetRequiredService<IConfiguration>();
+        if (configuration.GetValue<bool>("Notifications:Providers:DingTalk:Enabled")
+            && configuration.GetValue<bool>("Notifications:Providers:DingTalk:Workflow:Enabled"))
+        {
+            Features.ManageDingTalkApprovalSync.Endpoint.Map(endpoints);
+        }
+        if (configuration.GetValue<bool>("Notifications:Providers:WeChatMiniProgram:Enabled"))
+        {
+            Features.ManageWeChatMiniProgramBindings.Endpoint.Map(endpoints);
+        }
     }
 
     private static void RegisterRealtimeHandlers(IServiceCollection services)

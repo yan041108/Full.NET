@@ -17,7 +17,10 @@ internal static class AiChatSql
                   session.IsGenerating,
                   session.CreatedAtUtc,
                   session.UpdatedAtUtc,
-                  session.Version
+                  session.Version,
+                  session.GenerationId,
+                  session.GenerationExpiresAtUtc,
+                  session.GenerationCancellationRequested
         """;
 
     private const string MessageColumns = """
@@ -99,22 +102,6 @@ internal static class AiChatSql
         """,
         SqlDataScope.Global);
 
-    public static readonly SqlStatement SetSessionGenerating = new(
-        "ai.set_chat_session_generating",
-        """
-        UPDATE fn_ai_chat_session
-        SET IsGenerating = @IsGenerating,
-            UpdatedAtUtc = @UpdatedAtUtc,
-            Version = Version + 1
-        WHERE Id = @SessionId
-          AND OwnerUserId = @OwnerUserId
-          AND (
-            (@ScopeTenantId IS NULL AND TenantId IS NULL)
-            OR TenantId = @ScopeTenantId
-          )
-        """,
-        SqlDataScope.Global);
-
     public static readonly SqlStatement TouchSessionAfterMessage = new(
         "ai.touch_chat_session_after_message",
         """
@@ -124,7 +111,8 @@ internal static class AiChatSql
             Title = CASE WHEN @ReplaceTitle = 1 THEN @Title ELSE Title END,
             UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
-        WHERE Id = @SessionId
+        WHERE Id = @SessionId AND GenerationId = @GenerationId AND OwnerUserId = @OwnerUserId
+          AND ((@ScopeTenantId IS NULL AND TenantId IS NULL) OR TenantId = @ScopeTenantId)
         """,
         SqlDataScope.Global);
 
@@ -176,6 +164,8 @@ internal static class AiChatSql
             CompletionTokens = @CompletionTokens
         WHERE Id = @MessageId
           AND SessionId = @SessionId
+          AND EXISTS (SELECT 1 FROM fn_ai_chat_session
+                      WHERE Id = @SessionId AND GenerationId = @GenerationId)
         """,
         SqlDataScope.Global);
 

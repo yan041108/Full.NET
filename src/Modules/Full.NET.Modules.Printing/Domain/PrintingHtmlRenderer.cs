@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Full.NET.Modules.Printing.Domain;
 
-/// <summary>将布局 HTML 与绑定字段渲染为可安全预览的 HTML 片段。</summary>
+/// <summary>渲染布局与已编码字段；布局仍属不可信 HTML，消费端必须在插入 DOM 前执行白名单净化。</summary>
 internal static partial class PrintingHtmlRenderer
 {
     [GeneratedRegex(@"\{\{\s*(?<key>[a-zA-Z0-9_]+)\s*\}\}", RegexOptions.CultureInvariant)]
@@ -34,7 +34,9 @@ internal static partial class PrintingHtmlRenderer
             });
     }
 
-    /// <summary>保存前剥离脚本标签，降低模板注入风险。</summary>
+    /// <summary>保存前剥离脚本标签；此预处理不是完整的安全净化，不能替代消费端 HTML 白名单。</summary>
+    /// <param name="layoutHtml">用户编辑的原始布局。</param>
+    /// <returns>仍需在消费边界净化的布局片段。</returns>
     public static string SanitizeLayoutHtml(string layoutHtml) =>
         ScriptTagRegex.Replace(layoutHtml ?? string.Empty, string.Empty);
 }

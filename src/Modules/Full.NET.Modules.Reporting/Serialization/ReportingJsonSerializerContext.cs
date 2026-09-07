@@ -31,4 +31,6 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(ReportingQueryPortDefinition))]
 [JsonSerializable(typeof(ReportingQueryPortParameterDefinition))]
 [JsonSerializable(typeof(ReportingParameterSchemaEntry))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingExecutionParameterValue>))]
+[JsonSerializable(typeof(IReadOnlyList<ReportingParameterSchemaEntry>))]
 internal partial class ReportingJsonSerializerContext : JsonSerializerContext;

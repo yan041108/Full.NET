@@ -47,7 +47,7 @@ internal sealed partial class WeComNotificationProviderAdapter(
             return Failed(NotificationDeliveryRetry.Permanent);
         }
 
-        var corpSecret = await secretResolver.ResolveAsync(request.SecretReference, cancellationToken)
+        var corpSecret = await secretResolver.ResolveAsync(Descriptor.ProviderTypeKey, request.SecretReference, cancellationToken)
             .ConfigureAwait(false);
         if (string.IsNullOrEmpty(corpSecret))
         {

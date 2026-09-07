@@ -26,7 +26,7 @@ export async function createK3CloudConnectionConfig(
   body: CreateK3CloudConnectionConfigRequest,
   signal?: AbortSignal
 ): Promise<K3CloudConnectionConfig> {
-  const value = await request<unknown>('/api/v1/k3cloud/connection-configs', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/k3cloud/connection-configs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isK3CloudConnectionConfig(value)) {
     throw new Error('client.invalid_k3cloud_connection_config');
   }
@@ -40,7 +40,7 @@ export async function updateK3CloudConnectionConfig(
 ): Promise<K3CloudConnectionConfig> {
   const value = await request<unknown>(
     `/api/v1/k3cloud/connection-configs/${encodeURIComponent(connectionConfigId)}`,
-    { method: 'PUT', body },
+    { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
   if (!isK3CloudConnectionConfig(value)) {
@@ -93,7 +93,7 @@ export async function createK3CloudDocumentSync(
   body: CreateK3CloudDocumentSyncRequest,
   signal?: AbortSignal
 ): Promise<K3CloudDocumentSync> {
-  const value = await request<unknown>('/api/v1/k3cloud/document-syncs', { method: 'POST', body }, signal);
+  const value = await request<unknown>('/api/v1/k3cloud/document-syncs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, signal);
   if (!isK3CloudDocumentSync(value)) {
     throw new Error('client.invalid_k3cloud_document_sync');
   }

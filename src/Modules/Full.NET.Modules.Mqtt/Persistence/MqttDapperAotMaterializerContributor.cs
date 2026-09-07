@@ -27,6 +27,8 @@ internal sealed class MqttDapperAotMaterializerContributor : IDapperAotMateriali
         UpdatedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 8),
     };
 
+    /// <summary>按显式投影读取消息，摘要追加末尾以保持既有列位置。</summary>
+    /// <param name="reader">数据库结果读取器。</param>
     private static MqttMessageRecord ReadMessageRecord(DbDataReader reader) => new()
     {
         Id = reader.GetGuid(0),
@@ -42,6 +44,7 @@ internal sealed class MqttDapperAotMaterializerContributor : IDapperAotMateriali
         PublishedAtUtc = AotDataReaderExtensions.ReadNullableDateTimeOffset(reader, 10),
         CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 11),
         CreatedByUserId = reader.GetGuid(12),
+        PayloadDigest = AotDataReaderExtensions.ReadNullableString(reader, 13),
     };
 }
 #endif

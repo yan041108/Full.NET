@@ -1,4 +1,4 @@
-import { downloadHostFileContent, uploadHostFile } from '../api/host-files';
+import { uploadHostFile } from '../api/host-files';
 import { http } from '../api/http';
 
 /** 上传工作流表单附件，返回 Host 文件标识。 */
@@ -6,7 +6,7 @@ export async function uploadWorkflowFormAttachment(
   file: File,
   signal?: AbortSignal
 ): Promise<string> {
-  const uploaded = await uploadHostFile(file, signal);
+  const uploaded = await uploadHostFile(file, undefined, signal);
   return uploaded.id;
 }
 
@@ -16,13 +16,11 @@ export async function downloadWorkflowFormAttachment(
   fileId: string,
   signal?: AbortSignal
 ): Promise<Blob> {
-  const response = await http.request<Blob>({
-    method: 'GET',
-    url: `/api/v1/workflow/instances/${instanceId}/form-attachments/${fileId}/content`,
-    responseType: 'blob',
+  return http.requestBlob(
+    `/api/v1/workflow/instances/${instanceId}/form-attachments/${fileId}/content`,
+    { method: 'GET' },
     signal
-  });
-  return response.data;
+  );
 }
 
 /** 打开工作流实例附件内容。 */

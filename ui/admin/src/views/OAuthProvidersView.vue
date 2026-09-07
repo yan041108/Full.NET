@@ -213,7 +213,7 @@ onMounted(() => {
       :title="t('oauthProviders.title')"
       :problem="problem"
     >
-      <PermissionGate permission="identity.oauth_providers.create">
+      <PermissionGate code="identity.oauth_providers.create">
         <ElButton type="primary" :icon="Plus" @click="openCreate">
           {{ t('oauthProviders.create') }}
         </ElButton>
@@ -236,7 +236,7 @@ onMounted(() => {
           :stripe="tableZebra"
           :border="tableBorder"
           :header-cell-style="tableHeaderCellStyle"
-          :header-cell-class-name="tableHeaderBackground"
+          :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
           v-loading="loading"
         >
           <ElTableColumn type="index" :index="rowIndex" width="60" />
@@ -251,14 +251,15 @@ onMounted(() => {
               </ElTag>
             </template>
           </ElTableColumn>
+          <!-- @vue-generic {OAuthProvider} -->
           <ElTableColumn width="180" fixed="right">
             <template #default="{ row }">
               <ArtTableActionGroup>
-                <PermissionGate permission="identity.oauth_providers.update">
-                  <ArtTableActionButton @click="openEdit(row)">{{ t('oauthProviders.edit') }}</ArtTableActionButton>
+                <PermissionGate code="identity.oauth_providers.update">
+                  <ArtTableActionButton type="edit" @click="openEdit(row)">{{ t('oauthProviders.edit') }}</ArtTableActionButton>
                 </PermissionGate>
-                <PermissionGate permission="identity.oauth_providers.delete">
-                  <ArtTableActionButton type="danger" @click="removeProvider(row)">
+                <PermissionGate code="identity.oauth_providers.delete">
+                  <ArtTableActionButton type="delete" @click="removeProvider(row)">
                     {{ t('oauthProviders.delete') }}
                   </ArtTableActionButton>
                 </PermissionGate>
@@ -278,10 +279,10 @@ onMounted(() => {
     </ElCard>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('oauthProviders.createTitle') : t('oauthProviders.editTitle')"
-      :loading="changing"
-      @submit="submitEditor"
+      :saving="changing"
+      @confirm="submitEditor"
     >
       <ElForm ref="editorFormRef" label-width="140px">
         <ElFormItem v-if="editorMode === 'create'" :label="t('oauthProviders.fieldProviderKey')">

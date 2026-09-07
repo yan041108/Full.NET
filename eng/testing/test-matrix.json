@@ -435,7 +435,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 669,
+        "minimum": 739,
         "timeout": "90m"
       }
     }

@@ -61,6 +61,7 @@ function authenticatedUser(permissions: string[]) {
     actorScope: 'host' as const,
     scope: 'host' as const,
     isSuperAdministrator: false,
+    passwordChangeRequired: false,
     permissions,
     sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf297',
     preferredLocale: 'zh-CN' as const,

@@ -348,11 +348,11 @@ async function submitQuotaEditor() {
   }
 }
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   if (isFullNetProblemDetails(error)) {
     return error;
   }
-  return { title: t(fallbackKey), status: 500, type: 'about:blank' };
+  return { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 onMounted(load);
@@ -403,7 +403,7 @@ onMounted(load);
               :stripe="tableZebra"
               :border="tableBorder"
               :header-cell-style="tableHeaderCellStyle"
-              :header-cell-class-name="tableHeaderBackground"
+              :header-cell-class-name="tableHeaderBackground ? 'art-table-header-background' : ''"
             >
               <el-table-column type="index" :index="rowIndex" width="56" />
               <el-table-column prop="name" :label="t('aiModelConfigs.fieldName')" min-width="140" />
@@ -426,21 +426,22 @@ onMounted(load);
                   <span v-else>-</span>
                 </template>
               </el-table-column>
-              <el-table-column :label="t('aiModelConfigs.actions')" width="220" fixed="right">
+              <!-- @vue-generic {AiModelConfigListItem} -->
+          <el-table-column :label="t('aiModelConfigs.actions')" width="220" fixed="right">
                 <template #default="{ row }">
                   <ArtTableActionGroup>
                     <PermissionGate code="ai.models.test">
-                      <ArtTableActionButton @click="runTest(row)">
+                      <ArtTableActionButton type="view" @click="runTest(row)">
                         {{ t('aiModelConfigs.testConnection') }}
                       </ArtTableActionButton>
                     </PermissionGate>
                     <PermissionGate code="ai.models.update">
-                      <ArtTableActionButton @click="openEdit(row)">
+                      <ArtTableActionButton type="edit" @click="openEdit(row)">
                         {{ t('aiModelConfigs.actionEdit') }}
                       </ArtTableActionButton>
                     </PermissionGate>
                     <PermissionGate code="ai.models.update">
-                      <ArtTableActionButton @click="runDisable(row)">
+                      <ArtTableActionButton type="delete" @click="runDisable(row)">
                         {{ t('aiModelConfigs.actionDisable') }}
                       </ArtTableActionButton>
                     </PermissionGate>
@@ -479,7 +480,8 @@ onMounted(load);
             <el-table-column prop="monthlyTokenLimit" :label="t('aiModelConfigs.fieldTokenLimit')" min-width="120" />
             <el-table-column prop="usedRequestsThisMonth" :label="t('aiModelConfigs.fieldUsedRequests')" min-width="120" />
             <el-table-column prop="monthlyRequestLimit" :label="t('aiModelConfigs.fieldRequestLimit')" min-width="120" />
-            <el-table-column :label="t('aiModelConfigs.actions')" width="120" fixed="right">
+            <!-- @vue-generic {AiTenantQuotaListItem} -->
+          <el-table-column :label="t('aiModelConfigs.actions')" width="120" fixed="right">
               <template #default="{ row }">
                 <PermissionGate code="ai.quotas.update">
                   <el-button link type="primary" @click="openQuotaEditor(row)">
@@ -504,7 +506,7 @@ onMounted(load);
     </el-card>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('aiModelConfigs.createTitle') : t('aiModelConfigs.editTitle')"
       :confirm-loading="changing"
       @confirm="submitEditor"
@@ -548,7 +550,7 @@ onMounted(load);
     </ArtFormDialog>
 
     <ArtFormDialog
-      v-model="quotaEditorOpen"
+      v-model:open="quotaEditorOpen"
       :title="t('aiModelConfigs.quotaEditTitle')"
       :confirm-loading="changing"
       @confirm="submitQuotaEditor"

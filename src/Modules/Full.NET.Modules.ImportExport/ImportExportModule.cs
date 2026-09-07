@@ -47,6 +47,8 @@ public sealed class ImportExportModule : IFullNetModule
             ImportExportOptionsValidator>());
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
+            Features.ManageImportTasks.ImportExportResourceFileOwner>());
         services.TryAddScoped<StaticImportSchemaRegistry>();
         services.TryAddScoped<Features.BrowseStaticSchemas.StaticImportSchemaQueryService>();
         services.TryAddScoped<Features.ManageImportTasks.ImportExportTaskManagementService>();

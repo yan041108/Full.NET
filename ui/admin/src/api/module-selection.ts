@@ -1,4 +1,7 @@
 import {
+  type IdentityModuleSelectionIssue,
+  type IdentityModuleSelectionModuleState,
+
   identityGetModuleSelectionRuntime,
   identityValidateModuleSelection,
   isIdentityModuleSelectionAnalysis,

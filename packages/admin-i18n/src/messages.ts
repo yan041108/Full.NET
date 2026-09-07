@@ -1,6 +1,9 @@
 import type { SupportedLocale } from './locale.js';
 
 export const zhCN = {
+  'common.cancel': '取消',
+  'common.loading': '加载中…',
+  'common.requestFailed': '请求失败，请重试',
   'users.export': '导出当前授权字段',
   'roles.fieldGrants': '字段授权',
   'roles.fieldGrantsTitle': '配置角色字段授权',
@@ -2862,8 +2865,6 @@ export const zhCN = {
   'navigation.personalSchedules.caption': '当前用户个人日历与待办',
   'navigation.hostReleaseNotes.title': '更新日志管理',
   'navigation.hostReleaseNotes.caption': '发布、编辑与撤回系统更新说明',
-  'navigation.backupExecutor.title': '授权备份',
-  'navigation.backupExecutor.caption': '任务目录、运行结果与受控下载',
   'navigation.myReleaseNotes.title': '我的更新',
   'navigation.myReleaseNotes.caption': '查看已发布的系统更新说明',
   'navigation.administrativeRegions.title': '区域管理',
@@ -3822,6 +3823,9 @@ export type MessageKey = keyof typeof zhCN;
 export type MessageParameters = Readonly<Record<string, string | number>>;
 
 const enUS = {
+  'common.cancel': 'Cancel',
+  'common.loading': 'Loading…',
+  'common.requestFailed': 'Request failed. Please try again.',
   'users.export': 'Export authorized fields',
   'roles.fieldGrants': 'Field grants',
   'roles.fieldGrantsTitle': 'Configure role field grants',
@@ -6683,8 +6687,6 @@ const enUS = {
   'navigation.personalSchedules.caption': 'Personal calendar and todos for the current user',
   'navigation.hostReleaseNotes.title': 'Release notes',
   'navigation.hostReleaseNotes.caption': 'Publish, edit, and retract system release notes',
-  'navigation.backupExecutor.title': 'Authorized backup',
-  'navigation.backupExecutor.caption': 'Task catalog, run results, and controlled download',
   'navigation.myReleaseNotes.title': 'My release notes',
   'navigation.myReleaseNotes.caption': 'Published system release notes for the current user',
   'navigation.administrativeRegions.title': 'Administrative regions',

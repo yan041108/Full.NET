@@ -350,6 +350,10 @@ MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，�
 
 提供文件元数据、上传、下载、删除、临时文件、权限和本地存储默认实现。S3、MinIO、OSS、COS 等作为独立 Provider；成熟生产参考拓扑使用集群外 S3 兼容对象存储，本地文件 Provider 只用于开发、测试或明确的单机部署。
 
+租户导入与报表通过 `ITenantResourceFileStore` 使用独立的 `fn_files_tenant_resource_file` 元数据，以可信 `TenantId + OwnerModuleKey + ResourceId + FileId` 校验访问。模块键来自代码，所属模块先授权资源；Files 生成对象键并控制 `pending → ready / released`。文件操作不得嵌套调用模块的本地事务，`IDataTransactionState` 只暴露事务状态用于失败关闭。资源释放先撤销可读性，再幂等删除对象；外部结果不确定的上传意图必须保留供对账，不能推断成功或直接删除可能已引用的文件。
+
+升级兼容路径保留旧任务的 Host 文件引用：仅在新元数据不存在、且注册的 `ITenantResourceFileOwner` 通过本模块租户 SQL 确认资源真实引用后，Files 内部才允许读取对应旧就绪对象。该受限读取不切换租户上下文、不扩大现有 Host API 权限、不暴露通用 UUID 回退；新合同的释放不会删除旧 Host 对象。Files 不跨模块读取任务表，所属模块端口也不得根据请求声明直接返回授权。双库迁移、恢复与所有权隔离测试完成前不将这一切片标记 `Verified`。
+
 ### 6.7 Notifications
 
 现有模块提供公告、站内通知、权威未读/已读和 SignalR 刷新提示。批准的扩展采用 `Intent → Recipient → Inbox/Delivery → Attempt`，提供不可变模板版本、多套 Provider Profile、Producer/Scene 显式 Binding、回执、偏好、死信与对账；邮件、短信、企业微信、公众号和钉钉作为可选 Provider。Profile Enabled 不代表自动发送，多个 Profile 只有在 `Single/FanOut/Failover/Match` Binding 中显式选择后才参与路由；Secret 只保存部署引用。完整边界见 [`Notifications 扩展 Spec`](2026-08-30-notifications-platform-extension-design.md)。
@@ -365,6 +369,14 @@ MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，�
 ### 6.10 Workflow（批准设计，尚未实现）
 
 采用 Full.NET 自有审批领域内核，拥有不可变定义/表单版本、实例、步骤、Todo、抄送、表单提交、执行日志和恢复控制面。Workflow-Vue3 与 VForm3 只承担受控设计/Web 适配，服务端把 Draft 编译为单一 Workflow IR 与 `WorkflowFormSchema`；uni-app 使用自研静态轻量渲染器。Workflow Todo 与 Notifications Inbox 分离，业务模块通过最小 Port 或有真实消费者的版本化事件协作。完整边界见 [`Workflow Spec`](2026-08-20-workflow-module-design.md)。
+
+### 6.11 AI 聊天运行边界（2026-09-07 审查修复）
+
+租户聊天仅使用本租户模型或明确共享的 Host 模型，管理模型/配额的 Host SQL 与聊天消费 SQL 分离。启用配额的租户在调用外部模型前，以短事务同时占用请求次数和保守 Token 预算，并写入 `fn_ai_quota_reservation`。完整提供程序用量按原预留月份幂等结算；取消、失败或进程中断而无法确认用量时保留预算，不能因断开 HTTP 而退还未知费用。未配置或关闭配额继续表示不限额。月份只能向前推进，上月迟到结算不修改新月份计数。
+
+会话生成以 `GenerationId` 与 30 秒持久化租约取得单一所有权，槽位获取和初始消息写入属于同一事务。外部流不持有本地事务。独立数据库作用域立即续租并每 5 秒观察取消，每轮等待最多 10 秒；独立本地期限保证驱动不响应时仍停止旧推理，单次请求另设 3 分钟上限。消息完成、租约释放、本地取消和注册清理都核对生成代次，过期任务可被新请求接替，旧任务不能覆盖后继状态。
+
+历史提示、协议帧、累计协议与正文分别限制规模；提供程序请求明确最大输出 Token。204/205 为配对前向迁移，205 发布需停止旧 API 实例并清理旧版无代次的生成状态。上述代码路径已有本地回归验证；双库并发、迁移恢复、真实提供程序及 Linux Native AOT 运行仍须独立验证，不能据此声明 `Verified` 或容量达标。
 
 ## 7. Dapper-first 数据层
 
@@ -535,6 +547,8 @@ Host 管理员管理平台和租户；Tenant 管理员管理当前租户。Tenan
 模块拥有自己的表，物理名统一为 `{owner_key}_{module_key}_{entity_key}` 的小写 snake_case。Full.NET 官方框架和官方模块的 OwnerKey 固定为 `fn`，具体项目在脚手架创建时冻结独立 OwnerKey（例如 `crm`）；项目扩展官方模块也必须使用项目 OwnerKey。`sys` 保留给数据库系统语义，禁止作为项目 OwnerKey；表名不得由租户或运行时配置动态拼接。
 
 默认主键为应用端生成的 UUID v7，C# 类型为 `Guid`，统一由 `IIdGenerator` 在写库前产生，因此父子记录、审计与 Outbox 可在同一事务中直接引用，不依赖数据库序列。SQL Server 持久化为 `uniqueidentifier`；MySQL 使用 RFC 9562 大端字节序的 `BINARY(16)`，只由 Full.NET 数据层统一转换，业务模块不得感知 `byte[]` 或自行交换字节。HTTP/JSON 始终使用规范 UUID 字符串。008/009 已完成 MySQL `char(36)` 的 expand→backfill→contract 迁移并具有双库恢复测试；尚未完成的是生产等价环境中的维护窗口、备份恢复和 RPO/RTO 演练，不能把构建验证表述为生产迁移认证。
+
+2026-09-07 审查修复补充：165–199 中 16 份已发布 MySQL 脚本的 UUID 文本类型发生回退。新库只对规范化换行后全文 SHA-256 精确匹配的历史内容作执行兼容，将 UUID 声明恢复为 `BINARY(16)`，原始嵌入脚本和记账名称保持不变。已有库由 203 前向迁移预检全部 68 列，在暂停 API/Worker 写入的维护窗口中按 `char(36) → varbinary(36) → BINARY(16)` 转换；非法文本失败关闭，16/36 字节中间态支持重跑，保留空值、索引和列说明，并恢复本模块文档外键。SQL Server 配对脚本仅验证 `uniqueidentifier`。双库升级、备份恢复与维护窗口验证未完成前，不得宣称迁移已通过生产认证。
 
 SQL Server 必须把主键约束与聚集索引分开显式设计：高频追加表优先采用 UUID 非聚集主键和符合时间/租户访问路径的显式聚集索引，不能假定 UUID v7 按 SQL Server `uniqueidentifier` 比较顺序天然追加。项目模板可通过独立 ADR 选择 Snowflake `long`；面向 JavaScript 的 API 必须输出十进制字符串，框架核心表继续采用 UUID v7。完整决策、迁移和验证门禁见 [ADR-0003](../../architecture/adr/ADR-0003-uuid-v7-primary-key-storage.md)。
 

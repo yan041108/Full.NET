@@ -1,0 +1,630 @@
+{
+  "source_baseline": "63b8dda230d4a9027b59ff37cbc0d2213d885753",
+  "observed_head": "1af03bc0b2cf5ee10b47129ffd59ebc797e73272",
+  "tracked_projects": 76,
+  "tracked_csharp_files": 2997,
+  "modules": 28,
+  "module_projects": 43,
+  "module_csharp_files": 1490,
+  "cross_module_project_references": [
+    {
+      "from": "Identity",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Identity/Full.NET.Modules.Identity.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Auditing",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Auditing/Full.NET.Modules.Auditing.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Files",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Files/Full.NET.Modules.Files.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Document",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Document/Full.NET.Modules.Document.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Document",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Document/Full.NET.Modules.Document.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Notifications",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Notifications",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Notifications",
+      "to": "Organization",
+      "project": "src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj",
+      "reference": "Full.NET.Modules.Organization.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Notifications",
+      "to": "Workflow",
+      "project": "src/Modules/Full.NET.Modules.Notifications/Full.NET.Modules.Notifications.csproj",
+      "reference": "Full.NET.Modules.Workflow.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Calendar",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Calendar/Full.NET.Modules.Calendar.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Platform",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Platform/Full.NET.Modules.Platform.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Regions",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Regions/Full.NET.Modules.Regions.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Jobs",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Jobs/Full.NET.Modules.Jobs.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Jobs",
+      "to": "Settings",
+      "project": "src/Modules/Full.NET.Modules.Jobs/Full.NET.Modules.Jobs.csproj",
+      "reference": "Full.NET.Modules.Settings.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Messaging",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Messaging/Full.NET.Modules.Messaging.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Tenancy",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Tenancy",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Tenancy",
+      "to": "Printing",
+      "project": "src/Modules/Full.NET.Modules.Tenancy/Full.NET.Modules.Tenancy.csproj",
+      "reference": "Full.NET.Modules.Printing.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Organization",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Organization/Full.NET.Modules.Organization.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Organization",
+      "to": "ImportExport",
+      "project": "src/Modules/Full.NET.Modules.Organization/Full.NET.Modules.Organization.csproj",
+      "reference": "Full.NET.Modules.ImportExport.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "ImportExport",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.ImportExport/Full.NET.Modules.ImportExport.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "ImportExport",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.ImportExport/Full.NET.Modules.ImportExport.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Reporting",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Reporting/Full.NET.Modules.Reporting.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Reporting",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Reporting/Full.NET.Modules.Reporting.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Printing",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Printing/Full.NET.Modules.Printing.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Ai",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Ai/Full.NET.Modules.Ai.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Payments",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Payments/Full.NET.Modules.Payments.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "GoView",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.GoView/Full.NET.Modules.GoView.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "K3Cloud",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.K3Cloud/Full.NET.Modules.K3Cloud.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Ocr",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Ocr/Full.NET.Modules.Ocr.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Ocr",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Ocr/Full.NET.Modules.Ocr.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Settings",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Settings/Full.NET.Modules.Settings.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "CodeGeneration",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.CodeGeneration/Full.NET.Modules.CodeGeneration.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "SerialNumbers",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.SerialNumbers/Full.NET.Modules.SerialNumbers.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "SerialNumbers",
+      "to": "DataApproval",
+      "project": "src/Modules/Full.NET.Modules.SerialNumbers/Full.NET.Modules.SerialNumbers.csproj",
+      "reference": "Full.NET.Modules.DataApproval.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "ObservabilityAdmin",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.ObservabilityAdmin/Full.NET.Modules.ObservabilityAdmin.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Workflow",
+      "to": "Files",
+      "project": "src/Modules/Full.NET.Modules.Workflow/Full.NET.Modules.Workflow.csproj",
+      "reference": "Full.NET.Modules.Files.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Workflow",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Workflow/Full.NET.Modules.Workflow.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Workflow",
+      "to": "Organization",
+      "project": "src/Modules/Full.NET.Modules.Workflow/Full.NET.Modules.Workflow.csproj",
+      "reference": "Full.NET.Modules.Organization.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "DataApproval",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.DataApproval/Full.NET.Modules.DataApproval.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "DataApproval",
+      "to": "Workflow",
+      "project": "src/Modules/Full.NET.Modules.DataApproval/Full.NET.Modules.DataApproval.csproj",
+      "reference": "Full.NET.Modules.Workflow.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "DataApproval",
+      "to": "SerialNumbers",
+      "project": "src/Modules/Full.NET.Modules.DataApproval/Full.NET.Modules.DataApproval.csproj",
+      "reference": "Full.NET.Modules.SerialNumbers.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Mqtt",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Mqtt/Full.NET.Modules.Mqtt.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    },
+    {
+      "from": "Cryptography",
+      "to": "Identity",
+      "project": "src/Modules/Full.NET.Modules.Cryptography/Full.NET.Modules.Cryptography.csproj",
+      "reference": "Full.NET.Modules.Identity.Contracts",
+      "kind": "Contracts"
+    }
+  ],
+  "concrete_cross_module_references": [],
+  "coverage": [
+    {
+      "module": "Identity",
+      "project_count": 2,
+      "csharp_files": 283,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "认证、TOTP、API Key、OIDC、Files 合同依赖",
+      "findings": "R14/R18",
+      "boundary_recommendation": "保留身份与授权边界；补齐文件依赖和 AOT 路径",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Identity",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Auditing",
+      "project_count": 1,
+      "csharp_files": 68,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "微批协调器及审计接入结构",
+      "findings": "—",
+      "boundary_recommendation": "保留审计边界；本轮未进行突发流量或丢弃策略压测",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Auditing",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Files",
+      "project_count": 2,
+      "csharp_files": 55,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "Host 文件 SQL、上传及内容 Contract 实现",
+      "findings": "R03",
+      "boundary_recommendation": "保留文件所有权；增加明确的租户资源合同",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Files",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Document",
+      "project_count": 1,
+      "csharp_files": 81,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "版本删除的跨模块事务调用、项目依赖",
+      "findings": "R18",
+      "boundary_recommendation": "保留文档生命周期；拆开文件引用操作与本地事务",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Document",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Notifications",
+      "project_count": 1,
+      "csharp_files": 136,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "模块装配、验证码、凭据解析、意图幂等、投递租约",
+      "findings": "R01/R08/R14/R18",
+      "boundary_recommendation": "保留通知核心；协议和审批同步以适配边界隔离",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Notifications",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Calendar",
+      "project_count": 1,
+      "csharp_files": 16,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "个人日程管理、所有者约束、AOT 错误定位",
+      "findings": "R14",
+      "boundary_recommendation": "当前独立边界可保留；多端行为未实测",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Calendar",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Platform",
+      "project_count": 1,
+      "csharp_files": 29,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "模块注册、备份制品控制、发布说明结构",
+      "findings": "—",
+      "boundary_recommendation": "限定平台控制面职责；避免继续吸收无归属业务",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Platform",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Regions",
+      "project_count": 1,
+      "csharp_files": 21,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "行政区划导入及层级校验",
+      "findings": "—",
+      "boundary_recommendation": "保留基础区划边界；大数据导入 SQL 往返待测",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Regions",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Jobs",
+      "project_count": 1,
+      "csharp_files": 44,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "执行器租约、续约、批量查询；单元测试失败归因",
+      "findings": "R18",
+      "boundary_recommendation": "保留任务调度边界；更新过期测试替身",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Jobs",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Messaging",
+      "project_count": 1,
+      "csharp_files": 33,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "切流协调器及 Outbox/Inbox 结构",
+      "findings": "—",
+      "boundary_recommendation": "保留可靠交付边界；CDC/Kafka/切流运行验证未执行",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Messaging",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Tenancy",
+      "project_count": 1,
+      "csharp_files": 66,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "租户解析、上下文、模块依赖及导出表面",
+      "findings": "R18",
+      "boundary_recommendation": "保留租户管理；同步文件依赖声明与公开合同清单",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Tenancy",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Organization",
+      "project_count": 2,
+      "csharp_files": 65,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "模块注册、Contracts 及导入依赖",
+      "findings": "R18",
+      "boundary_recommendation": "保留组织数据所有权；具体岗位/组织 CRUD 未逐项复核",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Organization",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "ImportExport",
+      "project_count": 2,
+      "csharp_files": 23,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "任务 SQL、领取、租户切换、文件访问",
+      "findings": "R02/R03/R17/R18",
+      "boundary_recommendation": "统一编排与任务恢复；各业务模块保留导入规则",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.ImportExport",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Reporting",
+      "project_count": 2,
+      "csharp_files": 57,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "数据访问依赖、导出任务、收集/渲染/文件调用",
+      "findings": "R02/R03/R17/R18",
+      "boundary_recommendation": "保留报表定义与执行；提供程序适配移出业务核心",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Reporting",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Printing",
+      "project_count": 2,
+      "csharp_files": 22,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "布局保存过滤、HTML 渲染与 Vue 预览链",
+      "findings": "R07/R13",
+      "boundary_recommendation": "保留打印模板；明确不可信布局和预览隔离边界",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Printing",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Ai",
+      "project_count": 2,
+      "csharp_files": 53,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "会话、流式响应、配额、取消、模型配置 SQL",
+      "findings": "R09/R10/R11/R13/R14/R16",
+      "boundary_recommendation": "保留 AI 编排；分清提供程序、用量和生成执行职责",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Ai",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Payments",
+      "project_count": 2,
+      "csharp_files": 50,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "订单/退款编号、外部调用事务、支付回调关联",
+      "findings": "R04/R05/R06/R13/R18",
+      "boundary_recommendation": "保留支付聚合；集中维护幂等和状态转换不变量",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Payments",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "GoView",
+      "project_count": 2,
+      "csharp_files": 18,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "模块依赖、项目访问及持久化路径抽查",
+      "findings": "R13",
+      "boundary_recommendation": "保留交互式可视化；与 Reporting 划清定义和数据访问职责",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.GoView",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "K3Cloud",
+      "project_count": 2,
+      "csharp_files": 26,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "创建/重试事务与 ERP 外部调用",
+      "findings": "R05/R13",
+      "boundary_recommendation": "作为外部 ERP 适配边界保留；避免承载本地业务所有权",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.K3Cloud",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Ocr",
+      "project_count": 2,
+      "csharp_files": 27,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "识别事务、Files 合同与提供程序调用",
+      "findings": "R05/R13/R18",
+      "boundary_recommendation": "保留识别任务边界；缩短事务及明确文件作用域",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Ocr",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Settings",
+      "project_count": 2,
+      "csharp_files": 61,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "诊断策略管理、提交与缓存失效顺序",
+      "findings": "—",
+      "boundary_recommendation": "保留配置治理；本轮未验证多实例缓存传播",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Settings",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "CodeGeneration",
+      "project_count": 1,
+      "csharp_files": 45,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "生成/应用控制结构及代码搜索",
+      "findings": "R18",
+      "boundary_recommendation": "保留开发工具边界；生成制品及契约漂移需收敛",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.CodeGeneration",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "SerialNumbers",
+      "project_count": 2,
+      "csharp_files": 20,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "Contracts、模块依赖及 DataApproval 接合",
+      "findings": "R18",
+      "boundary_recommendation": "序号规则与结果归本模块；勿把规则迁入审批引擎",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.SerialNumbers",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "ObservabilityAdmin",
+      "project_count": 1,
+      "csharp_files": 22,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "日志文件控制面与读取边界",
+      "findings": "—",
+      "boundary_recommendation": "保留运维查询边界；不可把审计写入职责迁入此处",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.ObservabilityAdmin",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Workflow",
+      "project_count": 2,
+      "csharp_files": 101,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "模块注册、审批集成、表单附件前后端链",
+      "findings": "R15/R18",
+      "boundary_recommendation": "保留流程运行时；业务审批结果由所属模块应用",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Workflow",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "DataApproval",
+      "project_count": 2,
+      "csharp_files": 31,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "申请服务、业务应用端口及依赖方向",
+      "findings": "R18",
+      "boundary_recommendation": "保留审批应用编排；明确 Workflow/SerialNumbers 合同方向",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.DataApproval",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Mqtt",
+      "project_count": 1,
+      "csharp_files": 20,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "发布流程、请求校验和幂等比较",
+      "findings": "R12",
+      "boundary_recommendation": "保留受控消息接入；与 Messaging 的可靠业务事件语义分开",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Mqtt",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    },
+    {
+      "module": "Cryptography",
+      "project_count": 1,
+      "csharp_files": 17,
+      "review_depth": "全局结构扫描＋所列调用链/实现抽查",
+      "reviewed_scope": "模块依赖、密钥控制及调用结构抽查",
+      "findings": "—",
+      "boundary_recommendation": "保留密钥与密码操作边界；本轮未做密码学实现认证",
+      "module_directory": "G:/wwwroot/github_fork/Full.NET/src/Modules/Full.NET.Modules.Cryptography",
+      "remaining": "其余用例未逐行人工审查；双库集成、真实浏览器、容量与故障注入未执行"
+    }
+  ]
+}

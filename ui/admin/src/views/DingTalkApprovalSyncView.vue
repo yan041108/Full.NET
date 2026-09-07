@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { translateRuntimeMessage } from '../i18n/runtimeMessage';
 import { computed, onMounted, ref } from 'vue';
 import {
   ElAlert,
@@ -122,7 +123,7 @@ function canRetryStatus(statusKey: string): boolean {
 
 function statusText(statusKey: string): string {
   const key = `dingtalkApprovalSync.status.${statusKey}`;
-  const translated = t(key);
+  const translated = translateRuntimeMessage(t, key);
   return translated === key ? statusKey : translated;
 }
 </script>
@@ -150,7 +151,7 @@ function statusText(statusKey: string): string {
       show-icon
     />
 
-    <PermissionGate :permission="'notifications.dingtalk_approval_sync.create'">
+    <PermissionGate :code="'notifications.dingtalk_approval_sync.create'">
       <ElCard shadow="never">
         <template #header>
           <h2>{{ t('dingtalkApprovalSync.createTitle') }}</h2>
@@ -246,7 +247,7 @@ function statusText(statusKey: string): string {
         <dt>{{ t('dingtalkApprovalSync.fields.lastError') }}</dt>
         <dd>{{ selected.lastErrorCode ?? '—' }}</dd>
       </dl>
-      <PermissionGate :permission="'notifications.dingtalk_approval_sync.retry'">
+      <PermissionGate :code="'notifications.dingtalk_approval_sync.retry'">
         <ElButton
           v-if="canRetryStatus(selected.statusKey)"
           type="warning"

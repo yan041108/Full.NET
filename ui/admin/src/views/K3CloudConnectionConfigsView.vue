@@ -55,10 +55,10 @@ const editorForm = reactive({
   version: 0
 });
 
-function toProblem(error: unknown, fallbackKey: string): FullNetProblemDetails {
+function toProblem(error: unknown, fallbackKey: Parameters<typeof t>[0]): FullNetProblemDetails {
   return isFullNetProblemDetails(error)
     ? error
-    : { title: t(fallbackKey), status: 500, type: 'about:blank' };
+    : { code: 'client.request_failed', title: t(fallbackKey), status: 500, type: 'about:blank' };
 }
 
 async function load(): Promise<void> {
@@ -164,7 +164,7 @@ onMounted(() => {
 <template>
   <div class="k3cloud-connection-configs-view">
     <ArtTableHeader :title="t('k3cloudConnections.title')">
-      <PermissionGate permission="k3cloud.connections.create">
+      <PermissionGate code="k3cloud.connections.create">
         <ElButton data-testid="k3cloud-connection-create" type="primary" :icon="Plus" @click="openCreate">
           {{ t('k3cloudConnections.addConnection') }}
         </ElButton>
@@ -185,15 +185,16 @@ onMounted(() => {
             </ElTag>
           </template>
         </ElTableColumn>
-        <ElTableColumn :label="t('k3cloudConnections.actions')" width="220" fixed="right">
+        <!-- @vue-generic {K3CloudConnectionConfig} -->
+          <ElTableColumn :label="t('k3cloudConnections.actions')" width="220" fixed="right">
           <template #default="{ row }">
             <ArtTableActionGroup>
-              <PermissionGate permission="k3cloud.connections.update">
-                <ArtTableActionButton @click="openEdit(row)">{{ t('k3cloudConnections.edit') }}</ArtTableActionButton>
+              <PermissionGate code="k3cloud.connections.update">
+                <ArtTableActionButton type="edit" @click="openEdit(row)">{{ t('k3cloudConnections.edit') }}</ArtTableActionButton>
               </PermissionGate>
-              <PermissionGate permission="k3cloud.connections.test">
-                <ArtTableActionButton
-                  data-testid="k3cloud-connection-test"
+              <PermissionGate code="k3cloud.connections.test">
+                <ArtTableActionButton type="view"
+                  test-id="k3cloud-connection-test"
                   :loading="testingId === row.id"
                   @click="runTest(row)"
                 >
@@ -207,7 +208,7 @@ onMounted(() => {
     </ElCard>
 
     <ArtFormDialog
-      v-model="editorOpen"
+      v-model:open="editorOpen"
       :title="editorMode === 'create' ? t('k3cloudConnections.createTitle') : t('k3cloudConnections.editTitle')"
       :confirm-loading="saving"
       @confirm="submitEditor"

@@ -15,8 +15,7 @@ namespace Full.NET.Modules.ImportExport.Features.ManageImportTasks;
 /// <summary>创建导入任务、上传源文件并同步执行预校验。</summary>
 internal sealed class ImportExportTaskManagementService(
     StaticImportSchemaRegistry registry,
-    IHostFileUploadWriter hostFileUploadWriter,
-    IHostFileContentReader hostFileContentReader,
+    ITenantResourceFileStore resourceFiles,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICurrentTenant currentTenant,
@@ -63,9 +62,10 @@ internal sealed class ImportExportTaskManagementService(
             return Result<ImportExportTaskDetailResponse>.Failure(WorksheetNotFoundError());
         }
 
-        var upload = await hostFileUploadWriter
+        var taskId = idGenerator.NewId();
+        var upload = await resourceFiles
             .UploadAsync(
-                requestedByUserId,
+                "import_export", taskId, requestedByUserId,
                 originalFileName,
                 WorkbookContentType,
                 content,
@@ -78,8 +78,8 @@ internal sealed class ImportExportTaskManagementService(
         }
 
         var uploaded = upload.Value!;
-        var openContent = await hostFileContentReader
-            .OpenReadyContentAsync(uploaded.FileId, cancellationToken)
+        var openContent = await resourceFiles
+            .OpenReadyContentAsync("import_export", taskId, uploaded.FileId, cancellationToken)
             .ConfigureAwait(false);
         if (!openContent.IsSuccess)
         {
@@ -108,7 +108,6 @@ internal sealed class ImportExportTaskManagementService(
         }
 
         var now = clock.UtcNow;
-        var taskId = idGenerator.NewId();
         string statusKey;
         int totalRows;
         int validRowCount;

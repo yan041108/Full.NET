@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Full.NET.Modules.Notifications.Contracts;
 using Full.NET.Modules.Notifications.Domain;
 using Full.NET.Modules.Notifications.Providers;
@@ -136,14 +137,15 @@ public sealed class SmtpNotificationProviderAdapterTests
         try
         {
             Environment.SetEnvironmentVariable(variableName, "runtime-secret");
-            var resolver = new EnvironmentNotificationSecretResolver();
+            var resolver = new EnvironmentNotificationSecretResolver(new ConfigurationBuilder().AddInMemoryCollection(
+                new Dictionary<string, string?> { ["Notifications:SecretReferences:email.smtp:0"] = $"env://{variableName}" }).Build());
 
             Assert.AreEqual(
                 "runtime-secret",
-                await resolver.ResolveAsync($"env://{variableName}", CancellationToken.None));
-            Assert.IsNull(await resolver.ResolveAsync(variableName, CancellationToken.None));
-            Assert.IsNull(await resolver.ResolveAsync("env://INVALID-NAME", CancellationToken.None));
-            Assert.IsNull(await resolver.ResolveAsync("vault://secret", CancellationToken.None));
+                await resolver.ResolveAsync("email.smtp", $"env://{variableName}", CancellationToken.None));
+            Assert.IsNull(await resolver.ResolveAsync("email.smtp", variableName, CancellationToken.None));
+            Assert.IsNull(await resolver.ResolveAsync("email.smtp", "env://INVALID-NAME", CancellationToken.None));
+            Assert.IsNull(await resolver.ResolveAsync("email.smtp", "vault://secret", CancellationToken.None));
         }
         finally
         {
@@ -187,6 +189,7 @@ public sealed class SmtpNotificationProviderAdapterTests
     private sealed class StubSecretResolver(string? secret) : INotificationSecretResolver
     {
         public ValueTask<string?> ResolveAsync(
+            string providerTypeKey,
             string? secretReference,
             CancellationToken cancellationToken)
         {

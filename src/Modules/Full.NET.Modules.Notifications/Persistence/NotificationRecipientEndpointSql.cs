@@ -115,9 +115,23 @@ internal static class NotificationRecipientEndpointSql
         """,
         SqlDataScope.Global);
 
-    /// <summary>验证边界读取当前用户拥有的待验证端点受保护值。</summary>
+    /// <summary>验证码短事务锁定当前用户端点，串行化冷却判断、换码与尝试预算。</summary>
     public static readonly SqlStatement FindOwnedPendingProtected = new(
         "notifications.recipient_endpoint.find_owned_pending_protected",
+        """
+        SELECT Id, UserId, ProviderProfileVersionId, EndpointKindKey,
+               ProtectedValue, VerificationStatusKey
+        FROM fn_notifications_recipient_endpoint WITH (UPDLOCK, HOLDLOCK)
+        WHERE Id = @Id
+          AND TenantScopeKey = @TenantScopeKey
+          AND UserId = @UserId
+          AND VerificationStatusKey = 'pending'
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>MySQL 验证码短事务通过端点行锁串行化发送和校验。</summary>
+    public static readonly SqlStatement FindOwnedPendingProtectedMySql = new(
+        "notifications.recipient_endpoint.find_owned_pending_protected.mysql",
         """
         SELECT Id, UserId, ProviderProfileVersionId, EndpointKindKey,
                ProtectedValue, VerificationStatusKey
@@ -126,6 +140,7 @@ internal static class NotificationRecipientEndpointSql
           AND TenantScopeKey = @TenantScopeKey
           AND UserId = @UserId
           AND VerificationStatusKey = 'pending'
+        FOR UPDATE
         """,
         SqlDataScope.Global);
 
