@@ -29,6 +29,59 @@ internal static class TenantResourceFileSql
         WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    /// <summary>列出所属资源全部就绪文件，供任务在上传成功后崩溃时绑定已有对象。</summary>
+    public static readonly SqlStatement ListReady = new("files.tenant_resource_file.list_ready", """
+        SELECT Id, OriginalFileName, CreatedAtUtc
+        FROM fn_files_tenant_resource_file
+        WHERE TenantId = @TenantId AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
+          AND StatusKey = 'ready'
+        ORDER BY CreatedAtUtc, Id
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>Worker 目录：陈旧 pending/ready 文件，具体操作必须在租户上下文中执行。</summary>
+    public static readonly SqlStatement SelectStaleSqlServer = new(
+        "files.tenant_resource_file.select_stale.sql_server",
+        """
+        SELECT TOP (@BatchSize)
+               Id, TenantId, OwnerModuleKey, ResourceId, ProviderKey, StorageKey, StatusKey, CreatedAtUtc
+        FROM fn_files_tenant_resource_file
+        WHERE StatusKey IN ('pending', 'ready')
+          AND CreatedAtUtc <= @CreatedBeforeUtc
+          AND (@HasCursor = 0
+               OR CreatedAtUtc > @AfterCreatedAtUtc
+               OR (CreatedAtUtc = @AfterCreatedAtUtc AND Id > @AfterId))
+        ORDER BY CreatedAtUtc, Id
+        """, SqlDataScope.Global);
+
+    /// <summary>MySQL Worker 陈旧租户资源文件目录。</summary>
+    public static readonly SqlStatement SelectStaleMySql = new(
+        "files.tenant_resource_file.select_stale.mysql",
+        """
+        SELECT Id, TenantId, OwnerModuleKey, ResourceId, ProviderKey, StorageKey, StatusKey, CreatedAtUtc
+        FROM fn_files_tenant_resource_file
+        WHERE StatusKey IN ('pending', 'ready')
+          AND CreatedAtUtc <= @CreatedBeforeUtc
+          AND (@HasCursor = 0
+               OR CreatedAtUtc > @AfterCreatedAtUtc
+               OR (CreatedAtUtc = @AfterCreatedAtUtc AND Id > @AfterId))
+        ORDER BY CreatedAtUtc, Id
+        LIMIT @BatchSize
+        """, SqlDataScope.Global);
+
+    /// <summary>对象存在时把陈旧 pending 提升为可读。</summary>
+    public static readonly SqlStatement PromotePending = new("files.tenant_resource_file.promote_pending", """
+        UPDATE fn_files_tenant_resource_file SET StatusKey = 'ready'
+        WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey
+          AND ResourceId = @ResourceId AND StatusKey = 'pending'
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>对象不存在时删除从未发布的 pending 元数据。</summary>
+    public static readonly SqlStatement PurgePending = new("files.tenant_resource_file.purge_pending", """
+        DELETE FROM fn_files_tenant_resource_file
+        WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey
+          AND ResourceId = @ResourceId AND StatusKey = 'pending'
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     /// <summary>只有持久化对象后才发布文件；已释放的意图不能复活。</summary>
     public static readonly SqlStatement MarkReady = new("files.tenant_resource_file.mark_ready", """
         UPDATE fn_files_tenant_resource_file SET StatusKey = 'ready'
@@ -54,3 +107,28 @@ internal static class TenantResourceFileSql
 /// <param name="StatusKey">上传和释放状态。</param>
 internal sealed record TenantResourceFileRecord(Guid Id, string OriginalFileName, string ContentType,
     long SizeBytes, string ContentHash, string ProviderKey, string StorageKey, string StatusKey);
+
+/// <summary>所属资源就绪文件的内部投影。</summary>
+/// <param name="Id">文件标识。</param>
+/// <param name="OriginalFileName">下载名。</param>
+/// <param name="CreatedAtUtc">创建时间 UTC。</param>
+internal sealed record TenantResourceFileReadyRecord(Guid Id, string OriginalFileName, DateTimeOffset CreatedAtUtc);
+
+/// <summary>租户资源文件对账扫描行。</summary>
+/// <param name="Id">文件标识。</param>
+/// <param name="TenantId">所属租户。</param>
+/// <param name="OwnerModuleKey">所属模块。</param>
+/// <param name="ResourceId">所属资源。</param>
+/// <param name="ProviderKey">存储提供程序。</param>
+/// <param name="StorageKey">对象键。</param>
+/// <param name="StatusKey">当前状态。</param>
+/// <param name="CreatedAtUtc">创建时间 UTC。</param>
+internal sealed record TenantResourceFileReconciliationRecord(
+    Guid Id,
+    Guid TenantId,
+    string OwnerModuleKey,
+    Guid ResourceId,
+    string ProviderKey,
+    string StorageKey,
+    string StatusKey,
+    DateTimeOffset CreatedAtUtc);

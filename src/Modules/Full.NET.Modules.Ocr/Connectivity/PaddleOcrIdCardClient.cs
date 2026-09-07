@@ -1,15 +1,23 @@
 using System.Net.Http.Headers;
 using System.Text;
+using Full.NET.Modules.Ocr.Domain;
 using Full.NET.Modules.Ocr.Persistence;
 
 namespace Full.NET.Modules.Ocr.Connectivity;
 
 /// <summary>PaddleOCR 身份证识别 HTTP 适配器。</summary>
-internal sealed class PaddleOcrIdCardClient
+internal sealed class PaddleOcrIdCardClient : IPaddleOcrIdCardClient
 {
     public const string HttpClientName = "Full.NET.Ocr.PaddleIdCard";
 
     /// <summary>将图片发送到 Provider 并解析身份证字段。</summary>
+    /// <param name="config">Provider 配置。</param>
+    /// <param name="apiKey">已解保护的 API 密钥；未配置时为空。</param>
+    /// <param name="content">源图片流；调用方负责释放。</param>
+    /// <param name="contentType">内容类型。</param>
+    /// <param name="fileName">原始文件名。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>识别结果；网络超时向外抛出，供任务服务按未知状态收敛。</returns>
     public async Task<(bool Succeeded, Domain.OcrIdCardParsedResult? Result, string RawJson, string Message)> RecognizeAsync(
         OcrProviderConfigRecord config,
         string? apiKey,
@@ -49,7 +57,7 @@ internal sealed class PaddleOcrIdCardClient
 
             return (true, parsed, Truncate(rawJson), message);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!UnknownExternalSideEffect.Matches(ex))
         {
             return (false, null, string.Empty, ex.Message);
         }

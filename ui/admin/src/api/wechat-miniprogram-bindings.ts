@@ -1,68 +1,88 @@
+import {
+  isPagedWeChatMiniProgramBindingResponse,
+  isWeChatMiniProgramBindingResponse,
+  type PagedWeChatMiniProgramBindingResponse,
+  type WeChatMiniProgramBindingResponse
+} from '@fullnet/client-contracts';
 import { request } from './http';
 
-export type WeChatMiniProgramSubscriptionResponse = {
-  templateId: string;
-  statusKey: string;
-  authorizedAtUtc: string;
-};
-
-export type WeChatMiniProgramBindingResponse = {
-  id: string;
-  userId: string;
-  appId: string;
-  providerProfileVersionId: string;
-  openIdMask: string;
-  verificationStatusKey: string;
-  recipientEndpointId: string | null;
-  subscriptions: WeChatMiniProgramSubscriptionResponse[];
-  createdAtUtc: string;
-  updatedAtUtc: string | null;
-};
-
-export type PagedWeChatMiniProgramBindingResponse = {
-  items: WeChatMiniProgramBindingResponse[];
-  page: number;
-  pageSize: number;
-  total: number;
-};
-
-function isBindingRecord(value: unknown): value is WeChatMiniProgramBindingResponse {
-  return typeof value === 'object'
-    && value !== null
-    && typeof (value as WeChatMiniProgramBindingResponse).id === 'string';
-}
-
-export function listWeChatMiniProgramBindings(
+/** 分页查询微信小程序 OpenId 绑定。 */
+export async function listWeChatMiniProgramBindings(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  signal?: AbortSignal
 ): Promise<PagedWeChatMiniProgramBindingResponse> {
-  return request(`/api/v1/notifications/wechat-miniprogram/bindings?page=${page}&pageSize=${pageSize}`, { method: 'GET' });
+  const value = await request<unknown>(
+    `/api/v1/notifications/wechat-miniprogram/bindings?page=${page}&pageSize=${pageSize}`,
+    { method: 'GET' },
+    signal
+  );
+  if (!isPagedWeChatMiniProgramBindingResponse(value)) {
+    throw new Error('client.invalid_wechat_miniprogram_binding_page');
+  }
+  return value;
 }
 
-export function listMyWeChatMiniProgramBindings(): Promise<WeChatMiniProgramBindingResponse[]> {
-  return request('/api/v1/notifications/wechat-miniprogram/bindings/mine', { method: 'GET' });
+/** 查询当前用户的微信小程序绑定。 */
+export async function listMyWeChatMiniProgramBindings(
+  signal?: AbortSignal
+): Promise<WeChatMiniProgramBindingResponse[]> {
+  const value = await request<unknown>(
+    '/api/v1/notifications/wechat-miniprogram/bindings/mine',
+    { method: 'GET' },
+    signal
+  );
+  if (!Array.isArray(value) || !value.every(isWeChatMiniProgramBindingResponse)) {
+    throw new Error('client.invalid_wechat_miniprogram_binding_list');
+  }
+  return value;
 }
 
-export function exchangeWeChatMiniProgramBinding(body: {
-  providerProfileVersionId: string;
-  jsCode: string;
-}): Promise<WeChatMiniProgramBindingResponse> {
-  return request('/api/v1/notifications/wechat-miniprogram/bindings/exchange', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(value => {
-    if (!isBindingRecord(value)) {
-      throw new TypeError('Invalid WeChat mini program binding response.');
-    }
-    return value;
-  });
-}
-
-export function recordWeChatMiniProgramSubscription(
-  appId: string,
-  body: { templateId: string; statusKey: string }
+/** 通过 js_code 交换并完成当前用户绑定。 */
+export async function exchangeWeChatMiniProgramBinding(
+  body: {
+    providerProfileVersionId: string;
+    jsCode: string;
+  },
+  signal?: AbortSignal
 ): Promise<WeChatMiniProgramBindingResponse> {
-  return request(`/api/v1/notifications/wechat-miniprogram/bindings/${encodeURIComponent(appId)}/subscriptions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(value => {
-    if (!isBindingRecord(value)) {
-      throw new TypeError('Invalid WeChat mini program binding response.');
-    }
-    return value;
-  });
+  const value = await request<unknown>(
+    '/api/v1/notifications/wechat-miniprogram/bindings/exchange',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    },
+    signal
+  );
+  if (!isWeChatMiniProgramBindingResponse(value)) {
+    throw new Error('client.invalid_wechat_miniprogram_binding');
+  }
+  return value;
 }
+
+/** 登记或更新订阅消息授权结果。 */
+export async function recordWeChatMiniProgramSubscription(
+  appId: string,
+  body: { templateId: string; statusKey: string },
+  signal?: AbortSignal
+): Promise<WeChatMiniProgramBindingResponse> {
+  const value = await request<unknown>(
+    `/api/v1/notifications/wechat-miniprogram/bindings/${encodeURIComponent(appId)}/subscriptions`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    },
+    signal
+  );
+  if (!isWeChatMiniProgramBindingResponse(value)) {
+    throw new Error('client.invalid_wechat_miniprogram_binding');
+  }
+  return value;
+}
+
+export type {
+  PagedWeChatMiniProgramBindingResponse,
+  WeChatMiniProgramBindingResponse
+};

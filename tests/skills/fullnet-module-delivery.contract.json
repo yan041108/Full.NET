@@ -7,11 +7,7 @@
     "references/future-architecture-evolution.md"
   ],
   "verification_terms": [
-    "变更风险分层",
-    "任务基线",
-    "test:integration:affected",
-    "未登记迁移安全降级",
-    "完整集合只保留给"
+    "rules/development-quality.md#11-测试与验证"
   ],
   "required_terms": [
     "AGENTS.md",

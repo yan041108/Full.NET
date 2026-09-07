@@ -9,7 +9,7 @@ description: Use when adding or extending a Full.NET module, CRUD feature, endpo
 
 先交付一条可运行、可验证的纵向切片，再扩展横向能力。每个切片同时满足模块边界、租户与授权、Dapper 双数据库、标准 API、中文注释和真实测试要求。
 
-开始前必须读取根目录 `AGENTS.md`、相关 `rules/`、架构规格和功能对标路线，并运行 `git rev-parse HEAD` 记录任务基线。工作区已脏或任务跨窗口时还必须使用 `pnpm test:task:start -- <task-id>` 创建任务快照。涉及数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成产物时，必须读取 `rules/naming-conventions.md`。需要精确路径、参考切片和验证命令时，读取 [交付地图](references/delivery-map.md)。
+开始前按根目录 `AGENTS.md` 与 [规则路由](../../../rules/README.md) 读取受影响章节；架构规格和对标路线只读本次能力相关部分。修改任务按入口记录基线和快照，已在当前上下文读取且未变化的内容无需重读。涉及数据库对象、公共标识符、API/JSON、稳定机器码、配置键、缓存键或生成产物时，必须读取 `rules/naming-conventions.md`。需要精确路径、参考切片和验证命令时，读取 [交付地图](references/delivery-map.md)。
 
 按任务加载参考，禁止把全部外部知识无条件塞入上下文：
 
@@ -133,15 +133,12 @@ Full.NET 当前基线保持强化型模块化单体。微服务、分片和多�
 
 ## 7. 完成验证
 
-1. 按 `inner`、`slice`、`merge` 阶段运行受影响测试和 `pnpm test:naming`，再运行 Release 构建；inner 使用 `pnpm test:inner`，禁止用 `test:e2e:real`、完整 `test:e2e:admin` 或 `test:integration:full` 代替。先执行 `test:integration:affected:plan` 审查影响集，再执行 affected。工作区已脏时使用任务快照，干净单窗口任务可使用任务基线。本地任务只运行受影响测试；完整集合只保留给 `main` CI 的互斥并行分片。
-2. 使用测试矩阵生成的最低发现数防止零测试假通过；增删测试只更新 `eng/testing/test-matrix.json`，README、开发文档、CI 与 Skill 不复制数字。
-3. 数据变更必须实际运行 SQL Server/MySQL 集成测试。依赖不可用时报告未验证项，不得写成通过。
-4. 检查 `git diff --check`、架构依赖、UTF-8、许可证和工作区状态。
-5. 更新功能对标状态时严格区分 Mapped、Implementing、Implemented 与 Verified。
-6. 检查是否命中规则演进触发条件；只有已有 Skill 出现真实缺口或处于里程碑集中复盘时才执行 Skills 复盘，普通任务只输出一行未触发结论。
-7. 存量不兼容名称只可在 `contracts/naming/naming-debt.json` 按类型、值和文件精确登记，并给出移除里程碑；禁止通配、目录豁免或让新生成代码继承债务。
+执行位置、影响集、双库、页面验收与能力状态统一遵守 [测试与验证](../../../rules/development-quality.md#11-测试与验证)。本 Skill 不另设本地 Integration 步骤；按任务选择快速检查，重型验证与未授权推送情形均由该规则决定。
 
-本地 Integration 只运行影响集：普通模块、认证与租户走对应 SQL Server/MySQL 聚焦测试；后台消息队列基础设施与 FusionCache 基础设施各自使用登记过的聚焦集；共享宿主与 Composition 执行 Smoke；测试矩阵已登记恢复集的迁移执行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块；迁移 Runner 执行 migrations 分片，Integration 工具执行 tooling。完整集合只保留给 `main` CI，不在本地任务中运行。
+- 模块交付重点检查授权、租户、SQL/事务、DI 和序列化的受影响路径；数据变化须有同场景双库证据，依赖不可用时保留未验证项。
+- 命名变化运行 `pnpm test:naming`；存量不兼容名称仅在 `contracts/naming/naming-debt.json` 精确登记并注明移除里程碑，禁止通配或让新生成代码继承债务。
+- 测试数量仅维护 `eng/testing/test-matrix.json`；相关文档和功能状态在达到交付节点时同步，不以计划勾选代替真实证据。
+- 规则或 Skill 出现真实缺口时修正；普通任务无需例行治理结论。
 
 ## 按需决策速查
 

@@ -11,11 +11,13 @@ import {
   getSelfServiceProfile as getSelfServiceProfileRequest,
   updateSelfServiceProfile as updateSelfServiceProfileRequest,
   uploadSelfServiceAvatar,
-  uploadSelfServiceSignature,
-  type SelfServiceProfileResponse,
-  type UpdateSelfServiceProfileRequest
+  uploadSelfServiceSignature
 } from '@fullnet/client-contracts';
 import { http } from './http';
+
+/** 自助档案类型跟随手写客户端返回值；生成模型把字段数组收成可变 Array，不能直接标注。 */
+type SelfServiceProfileResponse = Awaited<ReturnType<typeof getSelfServiceProfileRequest>>;
+type UpdateSelfServiceProfileRequest = Parameters<typeof updateSelfServiceProfileRequest>[1];
 
 /** 读取当前登录用户快照，并补一层手写契约校验防止生成守卫漏检。 */
 export async function getCurrentUser(

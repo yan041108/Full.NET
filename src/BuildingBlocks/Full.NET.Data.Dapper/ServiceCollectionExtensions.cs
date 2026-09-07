@@ -145,6 +145,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DbConnectionFactory>();
         services.AddSingleton<IDbConnectionFactory>(provider =>
             provider.GetRequiredService<DbConnectionFactory>());
+        services.TryAddSingleton<IExternalDatabaseConnectionFactory, ExternalDatabaseConnectionFactory>();
         services.AddSingleton<DatabaseConnectionTelemetry>();
         services.AddSingleton<DatabaseAdmissionGate>();
         services.AddScoped<DatabaseAdmissionPriorityScope>();

@@ -45,6 +45,14 @@ export async function validateRepositoryUuidStorageSql(repositoryRoot = defaultR
 }
 
 function inspectMySqlGovernedMigration(sql, file, violations) {
+  const fileName = path.basename(file);
+  const ordinalMatch = fileName.match(/^(\d{3})_/u);
+  const ordinal = ordinalMatch ? Number(ordinalMatch[1], 10) : Number.NaN;
+  // 165–199 已发布脚本使用 char(36)；R13 用 203 前向修复，禁止改写历史文件。
+  if (Number.isInteger(ordinal) && ordinal >= 165 && ordinal <= 199) {
+    return;
+  }
+
   const lines = sql.split(/\r?\n/);
   lines.forEach((line, index) => {
     const text = stripComment(line);

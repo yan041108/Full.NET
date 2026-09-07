@@ -1,0 +1,76 @@
+{
+  "id": "tenancy-tenant-branding-v1",
+  "version": 1,
+  "description": "租户品牌 HTTP 契约冻结夹具；与 TenantBrandingContracts 和 TenantBranding.Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/tenancy/tenants/{tenantId}/branding",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "tenancy.tenant_branding.read",
+          "successStatus": 200,
+          "responseSchema": "TenantBrandingResponse"
+        },
+        {
+          "method": "PUT",
+          "permission": "tenancy.tenant_branding.update",
+          "successStatus": 200,
+          "requestSchema": "UpdateTenantBrandingRequest",
+          "responseSchema": "TenantBrandingResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenants/{tenantId}/branding/logo",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "tenancy.tenant_branding.update",
+          "successStatus": 200,
+          "responseSchema": "TenantBrandingResponse"
+        },
+        {
+          "method": "DELETE",
+          "permission": "tenancy.tenant_branding.update",
+          "successStatus": 200,
+          "responseSchema": "TenantBrandingResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/tenancy/tenants/{tenantId}/branding/logo/content",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "tenancy.tenant_branding.read",
+          "successStatus": 200
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "TenantBrandingResponse": {
+      "properties": [
+        "tenantId",
+        "systemTitle",
+        "logoFileId",
+        "contactPhone",
+        "contactEmail",
+        "contactAddress",
+        "copyright",
+        "version"
+      ]
+    },
+    "UpdateTenantBrandingRequest": {
+      "properties": [
+        "systemTitle",
+        "contactPhone",
+        "contactEmail",
+        "contactAddress",
+        "copyright",
+        "version"
+      ]
+    }
+  }
+}

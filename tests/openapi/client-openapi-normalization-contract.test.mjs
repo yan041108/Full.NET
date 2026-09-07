@@ -204,8 +204,8 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   ), 'utf8');
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.entries.length, 381);
-  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 381);
+  assert.equal(manifest.entries.length, 525);
+  assert.equal(new Set(manifest.entries.map(entry => entry.operationId)).size, 525);
   assert.deepEqual(
     manifest.entries
       .filter(entry => entry.generatedGroup === 'workflow-forms')
@@ -217,16 +217,23 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'workflowUpdateFormDraft',
       'workflowPublishForm',
       'workflowGetFormComponentCatalog',
-      'workflowGetFormVersion'
+      'workflowGetFormVersion',
+      'workflowDeleteFormVersion',
+      'workflowListFormVersions',
+      'workflowSetFormStatus'
     ]
   );
   assert.deepEqual(
     [...new Set(manifest.entries.map(entry => entry.generatedGroup))].sort(),
     [
+      'ai-agent-tools',
+      'ai-chat',
+      'ai-model-configs',
       'auditing-host-access-logs',
       'auditing-host-exception-logs',
       'auditing-host-operation-logs',
       'auditing-host-outbound-call-logs',
+      'calendar-personal-schedules',
       'code-generation-catalog',
       'code-generation-previews',
       'code-generation-runs',
@@ -244,6 +251,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'document-host-tags',
       'files-host-files',
       'files-host-folders',
+      'goview-projects',
       'identity-auth-session',
       'identity-host-api-keys',
       'identity-host-menus',
@@ -255,9 +263,11 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'identity-module-selection',
       'identity-super-administrators',
       'identity-totp-enrollment',
+      'import-export',
       'jobs-host-job-health',
       'jobs-host-job-schedules',
       'jobs-host-jobs',
+      'k3cloud',
       'notifications-bindings',
       'notifications-deliveries',
       'notifications-host-announcement-receipts',
@@ -269,13 +279,25 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
       'observability-cache-policies',
       'observability-log-files',
       'observability-server-monitor',
+      'ocr',
       'organization-host-user-management',
       'organization-tenant-position-levels',
       'organization-tenant-positions',
       'organization-tenant-units',
       'organization-tenant-user-positions',
       'organization-tenant-user-units',
+      'payment-merchant-configs',
+      'payment-orders',
+      'payment-refunds',
       'platform-host-dashboard',
+      'platform-host-release-notes',
+      'platform-my-release-notes',
+      'printing-templates',
+      'regions-administrative-regions',
+      'reporting-data-sources',
+      'reporting-definitions',
+      'reporting-executions',
+      'reporting-export-tasks',
       'serial-numbers-rules',
       'settings-host-config-entries',
       'settings-host-diagnostic-policy',
@@ -299,7 +321,7 @@ test('manifest 与规范快照精确登记生成操作且 CI 只执行离线 che
   );
   assert.equal(
     Object.values(snapshot.paths).flatMap(pathItem => Object.values(pathItem)).length,
-    377
+    525
   );
   assert.equal(
     snapshot.paths['/api/v1/workflow/forms/component-catalog'].get.operationId,

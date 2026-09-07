@@ -1,6 +1,6 @@
 {
     "id": "data-approvals-v1",
-    "version": 2,
+    "version": 1,
     "description": "DataApproval 请求与场景 HTTP 契约冻结夹具；与 DataApprovalContracts 和 Endpoint 对齐。",
     "paths": [
         {

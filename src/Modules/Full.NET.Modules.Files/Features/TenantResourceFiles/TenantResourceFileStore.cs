@@ -128,6 +128,20 @@ internal sealed class TenantResourceFileStore(IQueryExecutor queries, ICommandEx
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey,
+        Guid resourceId, CancellationToken cancellationToken = default)
+    {
+        RequireScope(ownerModuleKey, resourceId);
+        var rows = await queries.QueryAsync<TenantResourceFileReadyRecord>(
+                TenantResourceFileSql.ListReady,
+                new Dictionary<string, object?> { ["OwnerModuleKey"] = ownerModuleKey, ["ResourceId"] = resourceId },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return rows.Select(row => new TenantResourceFileReadyItem(row.Id, row.OriginalFileName, row.CreatedAtUtc))
+            .ToArray();
+    }
+
+    /// <inheritdoc />
     public async Task ReleaseAsync(string ownerModuleKey, Guid resourceId, Guid fileId,
         CancellationToken cancellationToken = default)
     {

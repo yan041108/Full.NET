@@ -2,6 +2,24 @@
 IF COL_LENGTH(N'dbo.fn_workflow_step', N'ExecutionSequence') IS NULL
     ALTER TABLE dbo.fn_workflow_step ADD ExecutionSequence bigint NULL;
 
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_step')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_step'), N'ExecutionSequence', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'执行序号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ExecutionSequence';
+
 GO
 
 -- 动作记录的 InstanceRevision 是实例 CAS 后的权威单调事实；每个修订预留一百万个自动节点位置。

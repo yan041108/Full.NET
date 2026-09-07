@@ -1737,6 +1737,692 @@
       "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
       "reason": "Notifications 已发布错误码早于三段式 {module}.{area}.{reason} 规范；公共契约必须通过版本化兼容映射迁移，禁止在修复门禁时静默改名。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/206_ExternalSideEffectUnknownState.sql",
+      "reason": "206 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等替换支付/金蝶/OCR 状态 CHECK；约束名与允许值为脚本常量。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/207_TaskExecutionLease.sql",
+      "reason": "207 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等追加导入/报表执行租约列、索引并扩展报表状态 CHECK；全部对象名为脚本常量。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/208_MqttHostIdempotencyScope.sql",
+      "reason": "208 使用 INFORMATION_SCHEMA 与固定 PREPARE 语句幂等追加 MQTT ScopeTenantKey 生成列并替换 Host 空租户唯一索引；全部对象名为脚本常量。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/119_DataApprovalScenario.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/120_DataApprovalRequestRecovery.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/120_DataApprovalRequestRecovery.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/121_DataApprovalRequestApplication.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/121_DataApprovalRequestApplication.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/122_WorkflowInstanceInitiatorListIndex.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/123_WorkflowTodoHistoryListIndex.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/124_WorkflowBusinessTitle.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/125_WorkflowDefinitionLifecycle.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/126_WorkflowFormLifecycle.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/127_IdentityUserPasswordLifecycle.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/128_IdentityUserProfileAvatarSignature.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/129_TenancyTenantBranding.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_files_folder.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/130_FilesFolder.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/130_FilesFolder.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/132_CalendarPersonalSchedule.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/134_PlatformReleaseNote.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/136_RegionsAdministrativeRegion.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/138_IdentityOpenAccessClient.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/140_IdentityOpenAccessClientQuota.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_notifications_announcement_read_receipt.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/142_NotificationsAnnouncementReadReceipt.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "database_object",
+      "value": "IX_fn_notifications_announcement_read_receipt_Announcement_ReadAtUtc",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/142_NotificationsAnnouncementReadReceipt.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/157_Mqtt.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_document_version_deletion_audit.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/165_DocumentVersionDeletionAudit.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/165_DocumentVersionDeletionAudit.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_document_access_log.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/167_DocumentAccessLog.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/167_DocumentAccessLog.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_document_preview_task.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/169_DocumentPreviewTask.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/169_DocumentPreviewTask.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_import_export_task.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/171_ImportExportTask.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/171_ImportExportTask.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/173_ImportExportTaskExecution.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_reporting_data_source.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/175_ReportingDataSource.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/175_ReportingDataSource.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_reporting_group.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/177_ReportingDefinition.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_reporting_definition.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/177_ReportingDefinition.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_reporting_definition_version.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/177_ReportingDefinition.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/177_ReportingDefinition.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_reporting_export_task.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/180_ReportingExportTask.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_printing_template.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/182_PrintingTemplate.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_printing_template_version.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/182_PrintingTemplate.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ai_model_config.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/184_AiModelConfig.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ai_tenant_quota.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/184_AiModelConfig.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/184_AiModelConfig.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ai_chat_session.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/186_AiChatSession.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ai_chat_message.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/186_AiChatSession.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/186_AiChatSession.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ai_agent_tool_call.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/188_AiAgentToolCall.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/188_AiAgentToolCall.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_payment_merchant_config.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/190_PaymentMerchantConfig.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_payment_order.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/190_PaymentMerchantConfig.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/190_PaymentMerchantConfig.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_payment_notify_receipt.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/192_PaymentNotifyRefund.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_payment_refund.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/192_PaymentNotifyRefund.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/192_PaymentNotifyRefund.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/194_PaymentAlipayPagePay.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_goview_project.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/195_GoViewProject.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_goview_project_version.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/195_GoViewProject.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_k3cloud_connection_config.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/197_K3CloudFoundation.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_k3cloud_document_sync.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/197_K3CloudFoundation.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "table",
+      "value": "DUAL",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/199_OcrFoundation.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ocr_provider_config.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/199_OcrFoundation.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "primary_key",
+      "value": "fn_ocr_id_card_task.PRIMARY KEY",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/199_OcrFoundation.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/201_MqttPayloadDigest.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/203_PublishedModuleUuidStorage.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/205_AiChatGenerationLease.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "database_object",
+      "value": "IX_fn_notifications_announcement_read_receipt_Announcement_ReadAtUtc",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/142_NotificationsAnnouncementReadReceipt.sql",
+      "reason": "已发布迁移对象名早于当前静态命名压缩规则；禁止改写历史脚本，待前向迁移或 M1.0 兼容映射收敛。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/173_ImportExportTaskExecution.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/192_PaymentNotifyRefund.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/194_PaymentAlipayPagePay.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/205_AiChatGenerationLease.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/206_ExternalSideEffectUnknownState.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/207_TaskExecutionLease.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/208_MqttHostIdempotencyScope.sql",
+      "reason": "脚本使用 INFORMATION_SCHEMA、固定 PREPARE 或条件 DDL 幂等补齐结构；对象名均为脚本常量，由双库迁移恢复测试覆盖。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.chat.messages.cancel",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.chat.messages.send",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.chat.sessions.create",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.chat.sessions.delete",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.chat.sessions.read",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.chat.sessions.update",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.tools.calls.read",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "ai.tools.catalog.read",
+      "file": "src/Modules/Full.NET.Modules.Ai/AiAuthorizationContributor.cs",
+      "reason": "AI 聊天权限按 sessions/messages/tools 分层，四段码已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "notifications.announcements.received.mark_all_read",
+      "file": "src/Modules/Full.NET.Modules.Notifications/NotificationsAuthorizationContributor.cs",
+      "reason": "通知收件箱权限使用 received 子资源四段码，已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "notifications.announcements.received.mark_read",
+      "file": "src/Modules/Full.NET.Modules.Notifications/NotificationsAuthorizationContributor.cs",
+      "reason": "通知收件箱权限使用 received 子资源四段码，已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "notifications.announcements.received.read",
+      "file": "src/Modules/Full.NET.Modules.Notifications/NotificationsAuthorizationContributor.cs",
+      "reason": "通知收件箱权限使用 received 子资源四段码，已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "permission",
+      "value": "reporting.executions.columns.schema_name",
+      "file": "src/Modules/Full.NET.Modules.Reporting/ReportingAuthorizationContributor.cs",
+      "reason": "报表执行列权限使用 columns 子资源四段码，已对客户端与种子发布。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "identity.password_change_required",
+      "file": "src/Modules/Full.NET.Modules.Identity.Contracts/IdentityErrorCodes.cs",
+      "reason": "两段式 reason 码已进入登录与改密协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.execution_not_cancellable",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入作业执行协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "jobs.schedule_invalid_batch",
+      "file": "src/Modules/Full.NET.Modules.Jobs/Contracts/JobsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入作业计划协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.announcement_not_recipient",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入通知收件协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.intent_attachment_invalid",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入通知附件协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.intent_attachment_load_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入通知附件协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.receipt_not_supported",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入通知回执协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.wechat_miniprogram_binding_not_found",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入小程序绑定协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "error_code",
+      "value": "notifications.wechat_miniprogram_binding_validation_failed",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
+      "reason": "两段式 reason 码已进入小程序绑定协议，保留至 1.0 前统一治理。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

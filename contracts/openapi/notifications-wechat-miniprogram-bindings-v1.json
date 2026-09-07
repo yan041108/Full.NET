@@ -1,0 +1,81 @@
+{
+  "id": "notifications-wechat-miniprogram-bindings-v1",
+  "version": 1,
+  "description": "微信小程序绑定 HTTP 契约冻结夹具；与 WeChatMiniProgramBindingContracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/wechat-miniprogram/bindings",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.wechat_miniprogram_bindings.read",
+          "successStatus": 200,
+          "responseSchema": "WeChatMiniProgramBindingResponsePage"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/wechat-miniprogram/bindings/mine",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.wechat_miniprogram_bindings.read",
+          "successStatus": 200,
+          "responseSchema": "WeChatMiniProgramBindingResponseArray"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/wechat-miniprogram/bindings/exchange",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.wechat_miniprogram_bindings.bind",
+          "successStatus": 200,
+          "requestSchema": "ExchangeWeChatMiniProgramBindingRequest",
+          "responseSchema": "WeChatMiniProgramBindingResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/wechat-miniprogram/bindings/{appId}/subscriptions",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.wechat_miniprogram_bindings.record_subscription",
+          "successStatus": 200,
+          "requestSchema": "RecordWeChatMiniProgramSubscriptionRequest",
+          "responseSchema": "WeChatMiniProgramBindingResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "WeChatMiniProgramBindingResponse": {
+      "properties": [
+        "id",
+        "userId",
+        "appId",
+        "providerProfileVersionId",
+        "openIdMask",
+        "verificationStatusKey",
+        "recipientEndpointId",
+        "subscriptions",
+        "createdAtUtc",
+        "updatedAtUtc"
+      ]
+    },
+    "WeChatMiniProgramBindingResponsePage": {
+      "properties": ["items", "page", "pageSize", "total"]
+    },
+    "WeChatMiniProgramBindingResponseArray": {
+      "properties": ["id"]
+    },
+    "ExchangeWeChatMiniProgramBindingRequest": {
+      "properties": ["providerProfileVersionId", "jsCode"]
+    },
+    "RecordWeChatMiniProgramSubscriptionRequest": {
+      "properties": ["templateId", "statusKey"]
+    }
+  }
+}

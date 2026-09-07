@@ -87,6 +87,21 @@ internal static class PaymentOrderSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>按期望状态领取订单，保证并发退款只有一方能进入渠道调用。</summary>
+    public static readonly SqlStatement ClaimTradeState = new(
+        "payments.claim_order_trade_state",
+        """
+        UPDATE fn_payment_order
+        SET TradeStateKey = @TradeStateKey,
+            FailMessage = @FailMessage,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @OrderId
+          AND Version = @Version
+          AND TradeStateKey = @ExpectedTradeStateKey
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly string CountSqlServer = """
         SELECT COUNT(1)
         FROM fn_payment_order AS orders

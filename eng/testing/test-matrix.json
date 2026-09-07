@@ -392,6 +392,69 @@
       },
       "137": {
         "filter": "FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration137RegionsAdministrativeRegionActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "138": {
+        "filter": "FullyQualifiedName~Migration138IdentityOpenAccessClientRecoveryTests.MySql_|FullyQualifiedName~Migration138IdentityOpenAccessClientRecoveryTests.SqlServer_"
+      },
+      "139": {
+        "filter": "FullyQualifiedName~Migration139IdentityOpenAccessClientActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration139IdentityOpenAccessClientActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "140": {
+        "filter": "FullyQualifiedName~Migration140IdentityOpenAccessClientQuotaRecoveryTests.MySql_|FullyQualifiedName~Migration140IdentityOpenAccessClientQuotaRecoveryTests.SqlServer_"
+      },
+      "141": {
+        "filter": "FullyQualifiedName~Migration141IdentityOpenAccessClientDebugPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration141IdentityOpenAccessClientDebugPermissionRecoveryTests.SqlServer_"
+      },
+      "142": {
+        "filter": "FullyQualifiedName~Migration142NotificationsAnnouncementReadReceiptRecoveryTests.MySql_|FullyQualifiedName~Migration142NotificationsAnnouncementReadReceiptRecoveryTests.SqlServer_"
+      },
+      "143": {
+        "filter": "FullyQualifiedName~Migration143NotificationsAnnouncementReceiptPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration143NotificationsAnnouncementReceiptPermissionsRecoveryTests.SqlServer_"
+      },
+      "144": {
+        "filter": "FullyQualifiedName~Migration144NotificationsIntentAttachmentRecoveryTests.MySql_|FullyQualifiedName~Migration144NotificationsIntentAttachmentRecoveryTests.SqlServer_"
+      },
+      "145": {
+        "filter": "FullyQualifiedName~Migration145SerialNumberRuleDisableApprovalPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration145SerialNumberRuleDisableApprovalPermissionRecoveryTests.SqlServer_"
+      },
+      "146": {
+        "filter": "FullyQualifiedName~Migration146DocumentHostRollbackVersionPermissionRecoveryTests.MySql_|FullyQualifiedName~Migration146DocumentHostRollbackVersionPermissionRecoveryTests.SqlServer_"
+      },
+      "147": {
+        "filter": "FullyQualifiedName~Migration147IdentityRegistrationPolicyAndWaysRecoveryTests.MySql_|FullyQualifiedName~Migration147IdentityRegistrationPolicyAndWaysRecoveryTests.SqlServer_"
+      },
+      "148": {
+        "filter": "FullyQualifiedName~Migration148IdentityRegistrationActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration148IdentityRegistrationActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "149": {
+        "filter": "FullyQualifiedName~Migration149IdentityLdapConnectionRecoveryTests.MySql_|FullyQualifiedName~Migration149IdentityLdapConnectionRecoveryTests.SqlServer_"
+      },
+      "151": {
+        "filter": "FullyQualifiedName~Migration151IdentityOAuthProviderRecoveryTests.MySql_|FullyQualifiedName~Migration151IdentityOAuthProviderRecoveryTests.SqlServer_"
+      },
+      "153": {
+        "filter": "FullyQualifiedName~Migration153FilesStorageProviderActionPermissionsRecoveryTests.MySql_|FullyQualifiedName~Migration153FilesStorageProviderActionPermissionsRecoveryTests.SqlServer_"
+      },
+      "202": {
+        "filter": "FullyQualifiedName~Migration202TenantResourceFileRecoveryTests.MySql_|FullyQualifiedName~Migration202TenantResourceFileRecoveryTests.SqlServer_"
+      },
+      "203": {
+        "filter": "FullyQualifiedName~Migration203PublishedUuidStorageRecoveryTests.MySql_|FullyQualifiedName~Migration203PublishedUuidStorageRecoveryTests.SqlServer_"
+      },
+      "204": {
+        "filter": "FullyQualifiedName~Migration204AiQuotaReservationRecoveryTests.MySql_|FullyQualifiedName~Migration204AiQuotaReservationRecoveryTests.SqlServer_"
+      },
+      "205": {
+        "filter": "FullyQualifiedName~Migration205AiChatGenerationLeaseRecoveryTests.MySql_|FullyQualifiedName~Migration205AiChatGenerationLeaseRecoveryTests.SqlServer_"
+      },
+      "206": {
+        "filter": "FullyQualifiedName~Migration206ExternalSideEffectUnknownStateRecoveryTests.MySql_|FullyQualifiedName~Migration206ExternalSideEffectUnknownStateRecoveryTests.SqlServer_"
+      },
+      "207": {
+        "filter": "FullyQualifiedName~Migration207TaskExecutionLeaseRecoveryTests.MySql_|FullyQualifiedName~Migration207TaskExecutionLeaseRecoveryTests.SqlServer_"
+      },
+      "208": {
+        "filter": "FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.MySql_|FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -414,17 +477,17 @@
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 74,
+        "minimum": 75,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 406,
+        "minimum": 420,
         "timeout": "90m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
-        "minimum": 128,
+        "minimum": 162,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -435,7 +498,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 739,
+        "minimum": 788,
         "timeout": "90m"
       }
     }

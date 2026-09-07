@@ -1,0 +1,81 @@
+{
+  "id": "notifications-dingtalk-approval-sync-v1",
+  "version": 1,
+  "description": "钉钉审批镜像同步 HTTP 契约冻结夹具；与 DingTalkApprovalSyncContracts 和 Endpoint 对齐。",
+  "paths": [
+    {
+      "path": "/api/v1/notifications/dingtalk/approval-sync",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.dingtalk_approval_sync.read",
+          "successStatus": 200,
+          "responseSchema": "DingTalkApprovalSyncResponsePage"
+        },
+        {
+          "method": "POST",
+          "permission": "notifications.dingtalk_approval_sync.create",
+          "successStatus": 200,
+          "requestSchema": "CreateDingTalkApprovalSyncRequest",
+          "responseSchema": "DingTalkApprovalSyncResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/dingtalk/approval-sync/{syncId}",
+      "operations": [
+        {
+          "method": "GET",
+          "permission": "notifications.dingtalk_approval_sync.read",
+          "successStatus": 200,
+          "responseSchema": "DingTalkApprovalSyncResponse"
+        }
+      ]
+    },
+    {
+      "path": "/api/v1/notifications/dingtalk/approval-sync/{syncId}/retry",
+      "operations": [
+        {
+          "method": "POST",
+          "permission": "notifications.dingtalk_approval_sync.retry",
+          "successStatus": 200,
+          "responseSchema": "DingTalkApprovalSyncResponse"
+        }
+      ]
+    }
+  ],
+  "schemas": {
+    "DingTalkApprovalSyncResponse": {
+      "properties": [
+        "id",
+        "workflowInstanceId",
+        "idempotencyKey",
+        "dingTalkProcessInstanceId",
+        "processCode",
+        "originatorUserId",
+        "deptId",
+        "title",
+        "summary",
+        "statusKey",
+        "externalStatusKey",
+        "externalResultKey",
+        "lastErrorCode",
+        "lastSyncedAtUtc",
+        "createdAtUtc",
+        "updatedAtUtc"
+      ]
+    },
+    "DingTalkApprovalSyncResponsePage": {
+      "properties": ["items", "page", "pageSize", "total"]
+    },
+    "CreateDingTalkApprovalSyncRequest": {
+      "properties": [
+        "workflowInstanceId",
+        "originatorUserId",
+        "deptId",
+        "title",
+        "summary"
+      ]
+    }
+  }
+}

@@ -121,24 +121,40 @@ internal sealed class MqttMessagePublishService(
         var now = clock.UtcNow;
         var messageId = idGenerator.NewId();
         var payloadSize = Encoding.UTF8.GetByteCount(request.Payload);
-        await commandExecutor.ExecuteAsync(
-                MqttSql.InsertMessage,
-                MqttSqlParameters.Create(
-                    ("Id", messageId),
-                    ("TenantId", tenantId),
-                    ("ClientId", request.ClientId),
-                    ("Topic", topic),
-                    ("PayloadSizeBytes", payloadSize),
-                    ("PayloadDigest", ComputePayloadDigest(request.Payload)),
-                    ("Qos", request.Qos),
-                    ("Status", MqttMessageStatuses.Pending),
-                    ("IdempotencyKey", idempotencyKey),
-                    ("SummaryMessage", "Pending publish."),
-                    ("PublishedAtUtc", null),
-                    ("CreatedAtUtc", now),
-                    ("CreatedByUserId", actorUserId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        // 插入与唯一索引共同闭合并发窗口：Host 空租户依赖 ScopeTenantKey 哨兵，冲突后回读而不是再发 Broker。
+        try
+        {
+            await commandExecutor.ExecuteAsync(
+                    MqttSql.InsertMessage,
+                    MqttSqlParameters.Create(
+                        ("Id", messageId),
+                        ("TenantId", tenantId),
+                        ("ClientId", request.ClientId),
+                        ("Topic", topic),
+                        ("PayloadSizeBytes", payloadSize),
+                        ("PayloadDigest", ComputePayloadDigest(request.Payload)),
+                        ("Qos", request.Qos),
+                        ("Status", MqttMessageStatuses.Pending),
+                        ("IdempotencyKey", idempotencyKey),
+                        ("SummaryMessage", "Pending publish."),
+                        ("PublishedAtUtc", null),
+                        ("CreatedAtUtc", now),
+                        ("CreatedByUserId", actorUserId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (DataCommandException exception)
+            when (exception.Kind == DataCommandFailureKind.UniqueConstraint
+                  && idempotencyKey is not null)
+        {
+            return await ResolveUniqueIdempotencyAsync(
+                    request,
+                    topic,
+                    tenantId,
+                    idempotencyKey,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         var publishResult = await brokerPublisher.PublishAsync(
                 topic,
@@ -201,6 +217,40 @@ internal sealed class MqttMessagePublishService(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 并发插入触发幂等唯一约束后回读已有记录。摘要相同则回放首次结果，否则冲突关闭，禁止再向 Broker 发布。
+    /// </summary>
+    /// <param name="request">当前发布请求。</param>
+    /// <param name="topic">规范化主题。</param>
+    /// <param name="tenantId">当前租户；Host 为空。</param>
+    /// <param name="idempotencyKey">已规范化的幂等键。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>回放成功或稳定冲突。</returns>
+    private async Task<Result<MqttMessageResponse>> ResolveUniqueIdempotencyAsync(
+        PublishMqttMessageRequest request,
+        string topic,
+        Guid? tenantId,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var existing = await queryExecutor.QuerySingleOrDefaultAsync<MqttMessageRecord>(
+                MqttSql.FindMessageByIdempotency,
+                MqttSqlParameters.Create(
+                    ("TenantId", tenantId),
+                    ("IdempotencyKey", idempotencyKey)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null && MatchesIdempotentReplay(existing, request, topic))
+        {
+            return Result<MqttMessageResponse>.Success(MqttMessageQueryService.Map(existing));
+        }
+
+        return Result<MqttMessageResponse>.Failure(new Error(
+            MqttErrorCodes.IdempotencyConflict,
+            "The idempotency key was already used with different publish parameters.",
+            ErrorType.Conflict));
     }
 
     /// <summary>幂等重放绑定原正文摘要；历史无摘要记录无法证明相同，必须失败关闭。</summary>

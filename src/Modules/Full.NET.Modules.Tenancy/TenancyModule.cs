@@ -44,7 +44,8 @@ public sealed class TenancyModule : IFullNetModule
 
     public IReadOnlyCollection<string> Dependencies => ["Identity"];
 
-    public IReadOnlyCollection<string> OptionalContractDependencies => ["Printing"];
+    /// <summary>租户品牌 Logo 走 Files 合同，打印桥接走 Printing 合同；二者均不阻断无对应模块的最小预设。</summary>
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Files", "Printing"];
 
     public void AddServices(
         IServiceCollection services,

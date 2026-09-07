@@ -29,6 +29,7 @@ import {
   createOAuthProvider,
   deleteOAuthProvider,
   listOAuthProviders,
+  OAUTH_PROVIDER_CALLBACK_PATH,
   updateOAuthProvider
 } from '../api/oauth-providers';
 
@@ -57,7 +58,7 @@ const editorForm = reactive({
   clientId: '',
   clientSecret: '',
   scopes: 'openid profile email',
-  redirectPath: '/api/v1/identity/oauth/callback',
+  redirectPath: OAUTH_PROVIDER_CALLBACK_PATH,
   isEnabled: true
 });
 
@@ -130,7 +131,7 @@ function openCreate() {
     clientId: '',
     clientSecret: '',
     scopes: 'openid profile email',
-    redirectPath: '/api/v1/identity/oauth/callback',
+    redirectPath: OAUTH_PROVIDER_CALLBACK_PATH,
     isEnabled: true
   });
   editorOpen.value = true;

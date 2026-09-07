@@ -57,6 +57,14 @@ test('生成器只产生 Full.NET models、guards、operations 与公开入口',
     );
     assert.doesNotMatch(files['operations.generated.ts'], /requestBlob[\s\S]*readStream/u);
     assert.match(
+      files['operations.generated.ts'],
+      /export async function reportingDownloadExportTask\(/u
+    );
+    assert.doesNotMatch(
+      files['operations.generated.ts'],
+      /export async function aiStreamChatMessage\(/u
+    );
+    assert.match(
       files['index.generated.ts'],
       /^export \* from '\.\/(?:models|guards|operations)\.generated\.js';$/mu
     );
@@ -89,6 +97,31 @@ test('生成器把 JsonElement 空 Schema 收紧为 JSON 值守卫', async () =>
     files['guards.generated.ts'],
     /function isJsonValue\(value: unknown\): boolean/u
   );
+});
+
+test('生成器把 allOf 收成交叉类型与合取守卫', async () => {
+  const { renderGeneratedFiles } = await import(
+    '../../scripts/openapi/generate-fullnet-client.mjs'
+  );
+  const files = renderGeneratedFiles({
+    openapi: '3.1.0',
+    paths: {},
+    components: {
+      schemas: {
+        QuotaListItem: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string' } }
+        },
+        QuotaResponse: {
+          allOf: [{ $ref: '#/components/schemas/QuotaListItem' }]
+        }
+      }
+    }
+  });
+
+  assert.match(files['models.generated.ts'], /export type QuotaResponse = QuotaListItem;/u);
+  assert.match(files['guards.generated.ts'], /isQuotaListItem\(value\)/u);
 });
 
 test('零漂移检查接受 Git autocrlf 产生的 CRLF 工作树文件', async () => {
@@ -140,6 +173,117 @@ test('候选停止后只保留零外部依赖的仓库内生成实现', async ()
   );
 });
 
+test('生成器把 Excel 工作簿下载收成 Blob，并跳过 SSE 流式 Operation', async () => {
+  const { renderGeneratedFiles } = await import(
+    '../../scripts/openapi/generate-fullnet-client.mjs'
+  );
+  const files = renderGeneratedFiles({
+    openapi: '3.1.0',
+    paths: {
+      '/api/v1/reporting/export-tasks/{taskId}/download': {
+        get: {
+          operationId: 'reportingDownloadExportTask',
+          parameters: [
+            {
+              in: 'path',
+              name: 'taskId',
+              required: true,
+              schema: { type: 'string', format: 'uuid' }
+            }
+          ],
+          responses: {
+            200: {
+              content: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+                  schema: { type: 'string', format: 'binary' }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/v1/ai/chat/sessions/{sessionId}/messages/stream': {
+        post: {
+          operationId: 'aiStreamChatMessage',
+          parameters: [
+            {
+              in: 'path',
+              name: 'sessionId',
+              required: true,
+              schema: { type: 'string', format: 'uuid' }
+            }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' }
+              }
+            }
+          },
+          responses: {
+            200: {
+              content: {
+                'text/event-stream': {
+                  schema: { type: 'string' }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/v1/files/host-files/batch-upload': {
+        post: {
+          operationId: 'filesBatchUploadHostFiles',
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  required: ['files'],
+                  properties: {
+                    files: {
+                      type: 'array',
+                      items: { type: 'string', format: 'binary' }
+                    },
+                    folderId: { type: 'string', format: 'uuid' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              content: {
+                'application/json': {
+                  schema: { type: 'object' }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    components: { schemas: {} }
+  });
+
+  assert.match(files['operations.generated.ts'], /export async function reportingDownloadExportTask\(/u);
+  assert.match(files['operations.generated.ts'], /http\.requestBlob\(/u);
+  assert.doesNotMatch(
+    files['operations.generated.ts'],
+    /export async function aiStreamChatMessage\(/u
+  );
+  assert.match(
+    files['operations.generated.ts'],
+    /for \(const file of parameters\.files\) \{\s*body\.append\('files', file\);/u
+  );
+  assert.doesNotMatch(
+    files['operations.generated.ts'],
+    /body\.append\('files', String\(parameters\.files\)\)/u
+  );
+});
+
 test('三个 Vue 试点 API 只保留生成 Operation 薄适配层', async () => {
   const adapters = await Promise.all([
     'users.ts',
@@ -158,8 +302,13 @@ test('三个 Vue 试点 API 只保留生成 Operation 薄适配层', async () =>
   assert.doesNotMatch(combined, /\/api\/v1\//u);
   assert.doesNotMatch(combined, /\brequest(?:Blob)?\s*(?:<|\()/u);
   assert.match(combined, /identityListHostUsers\(http,/u);
+  assert.match(combined, /identityRevealHostUserProfileFields\(http,/u);
+  assert.match(combined, /identityUnlockHostUserLogin\(http,/u);
   assert.match(combined, /filesUploadHostFile\(http,/u);
   assert.match(combined, /filesDownloadHostFileContent\(http,/u);
+  assert.match(combined, /filesBatchUploadHostFiles\(http,/u);
+  assert.match(combined, /filesBatchDeleteHostFiles\(http,/u);
+  assert.match(combined, /filesPreviewHostFileContent\(http,/u);
   assert.match(combined, /settingsDeleteHostConfigEntry\(/u);
   assert.match(combined, /settingsBatchDeleteHostConfigEntries\(/u);
 });

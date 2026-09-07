@@ -2,6 +2,24 @@
 IF COL_LENGTH(N'dbo.fn_workflow_definition_version', N'FormVersionId') IS NULL
     ALTER TABLE dbo.fn_workflow_definition_version ADD FormVersionId uniqueidentifier NULL;
 
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_definition_version')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_definition_version'), N'FormVersionId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'表单版本标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_definition_version', @level2type=N'COLUMN', @level2name=N'FormVersionId';
+
 -- 102 尚未开放定义发布 API；若环境存在绕过应用写入的历史版本，必须人工确认绑定而不是猜测回填。
 EXEC(N'
     IF EXISTS (SELECT 1 FROM dbo.fn_workflow_definition_version WHERE FormVersionId IS NULL)

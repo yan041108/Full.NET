@@ -21,5 +21,5 @@ test('DataApproval OpenAPI 夹具与 C# 契约和端点一致', async () => {
   assert.match(endpointSource, /\.WithName\("dataApprovalsGetRequest"\)/u);
   assert.match(endpointSource, /\.WithName\("dataApprovalsCancelRequest"\)/u);
   assert.match(contractsSource, /record DataApprovalRequestResponse/u);
-  assert.match(contractsSource, /serial_numbers\.host_rule\.update/u);
+  assert.match(contractsSource, /data_approvals\.requests\.create/u);
 });

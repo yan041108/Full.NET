@@ -19,6 +19,9 @@ import {
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
+/** 签名调试默认目标路径，仅作为调试表单占位。 */
+export const OPEN_ACCESS_SIGNATURE_DEBUG_DEFAULT_PATH = '/api/v1/identity/users';
+
 function buildListQuery(query: OpenAccessClientListQuery): string {
   const params = new URLSearchParams();
   params.set('page', String(query.page ?? 1));

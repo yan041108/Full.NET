@@ -16,6 +16,96 @@ BEGIN
         CONSTRAINT PK_fn_mqtt_client PRIMARY KEY CLUSTERED (Id),
         CONSTRAINT UX_fn_mqtt_client_ClientKey UNIQUE (ClientKey)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'MQTT 客户端表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'ClientKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'客户端键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'ClientKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'Description', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'描述', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'Description';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'DisplayName', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'显示名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'DisplayName';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'IsEnabled', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'IsEnabled';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'SortOrder', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'排序顺序', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'SortOrder';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_client')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_client'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_client', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
 
     IF NOT EXISTS (
         SELECT 1
@@ -61,6 +151,123 @@ BEGIN
         CONSTRAINT CK_fn_mqtt_message_Status
             CHECK (Status IN (N'pending', N'published', N'failed'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'MQTT 消息表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'ClientId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'客户端标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'ClientId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'CreatedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'IdempotencyKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'幂等键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'IdempotencyKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'PayloadSizeBytes', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'载荷大小(字节)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'PayloadSizeBytes';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'PublishedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发布时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'PublishedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'Qos', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'服务质量等级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'Qos';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'Status', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'Status';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'SummaryMessage', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'摘要消息', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'SummaryMessage';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'Topic', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'主题', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'Topic';
 
     IF NOT EXISTS (
         SELECT 1

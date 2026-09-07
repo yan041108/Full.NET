@@ -353,8 +353,12 @@ public sealed class NativeAotStaticBindingRulesTests
         StringAssert.Contains(moduleSource, "FilesDapperAotMaterializerContributor");
         foreach (var recordType in new[]
                  {
+                     "TenantResourceFileRecord",
+                     "TenantResourceFileReadyRecord",
+                     "TenantResourceFileReconciliationRecord",
                      "HostFileListRecord",
                      "HostFileDetailRecord",
+                     "HostFolderRecord",
                      "DeletedHostFileBlobRecord",
                      "PendingHostFileRecord",
                      "HostFileReferenceClaimRecord",

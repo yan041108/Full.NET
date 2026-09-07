@@ -11,16 +11,27 @@ internal static class ImportExportTaskSql
         RequestedByUserId, CreatedAtUtc, PreviewCompletedAtUtc,
         ProcessedRowCount, SucceededRowCount, ExecutionFailedRowCount, NextLineNumber,
         ExecutionRowsJson, ErrorReceiptFileId, ExecutionStartedAtUtc, ExecutionCompletedAtUtc,
-        Version
+        LeaseId, LeaseExpiresAtUtc, Version
         """;
 
-    /// <summary>Worker 调度目录仅返回有排队任务的租户标识，不授予读取任务或文件的权限。</summary>
+    private const string InsertedColumns = """
+        inserted.Id, inserted.TenantId, inserted.SchemaKey, inserted.SchemaDisplayName, inserted.WorksheetKey, inserted.SourceFileId, inserted.SourceFileName, inserted.StatusKey, inserted.TotalRows, inserted.ValidRowCount, inserted.InvalidRowCount, inserted.PreviewRowsJson, inserted.ErrorCode, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.PreviewCompletedAtUtc, inserted.ProcessedRowCount, inserted.SucceededRowCount, inserted.ExecutionFailedRowCount, inserted.NextLineNumber, inserted.ExecutionRowsJson, inserted.ErrorReceiptFileId, inserted.ExecutionStartedAtUtc, inserted.ExecutionCompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.Version
+        """;
+
+    /// <summary>可领取条件：排队中，或执行中但租约已到期/缺失（升级前崩溃行）。</summary>
+    private const string ClaimablePredicate = """
+        (StatusKey = 'queued'
+         OR (StatusKey = 'executing'
+             AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)))
+        """;
+
+    /// <summary>Worker 调度目录仅返回有可领取任务的租户标识，不授予读取任务或文件的权限。</summary>
     public static readonly SqlStatement ListPendingTenantIdsSqlServer = new(
         "import_export.task.pending_tenants.sqlserver",
-        """
+        $"""
         SELECT TOP (@BatchSize) TenantId
         FROM fn_import_export_task
-        WHERE StatusKey = 'queued'
+        WHERE {ClaimablePredicate}
         GROUP BY TenantId
         ORDER BY MIN(CreatedAtUtc), TenantId
         """, SqlDataScope.Global);
@@ -28,10 +39,10 @@ internal static class ImportExportTaskSql
     /// <summary>MySQL Worker 调度目录；具体任务必须在可信租户上下文建立后领取。</summary>
     public static readonly SqlStatement ListPendingTenantIdsMySql = new(
         "import_export.task.pending_tenants.mysql",
-        """
+        $"""
         SELECT TenantId
         FROM fn_import_export_task
-        WHERE StatusKey = 'queued'
+        WHERE {ClaimablePredicate}
         GROUP BY TenantId
         ORDER BY MIN(CreatedAtUtc), TenantId
         LIMIT @BatchSize
@@ -48,7 +59,7 @@ internal static class ImportExportTaskSql
              @RequestedByUserId, @CreatedAtUtc, @PreviewCompletedAtUtc,
              @ProcessedRowCount, @SucceededRowCount, @ExecutionFailedRowCount, @NextLineNumber,
              @ExecutionRowsJson, @ErrorReceiptFileId, @ExecutionStartedAtUtc, @ExecutionCompletedAtUtc,
-             @Version)
+             @LeaseId, @LeaseExpiresAtUtc, @Version)
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -105,6 +116,8 @@ internal static class ImportExportTaskSql
             ExecutionStartedAtUtc = @ExecutionStartedAtUtc,
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
             ErrorCode = @ErrorCode,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = @ExpectedStatusKey
@@ -115,16 +128,18 @@ internal static class ImportExportTaskSql
         "import_export.task.claim_queued.sqlserver",
         $"""
         WITH candidates AS (
-            SELECT TOP (@BatchSize) Id
+            SELECT TOP (1) Id
             FROM fn_import_export_task WITH (UPDLOCK, READPAST, ROWLOCK)
-            WHERE TenantId = @TenantId AND StatusKey = 'queued'
+            WHERE TenantId = @TenantId AND {ClaimablePredicate}
             ORDER BY CreatedAtUtc, Id
         )
         UPDATE task
         SET StatusKey = 'executing',
             ExecutionStartedAtUtc = COALESCE(task.ExecutionStartedAtUtc, @Now),
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             Version = task.Version + 1
-        OUTPUT inserted.Id, inserted.TenantId, inserted.SchemaKey, inserted.SchemaDisplayName, inserted.WorksheetKey, inserted.SourceFileId, inserted.SourceFileName, inserted.StatusKey, inserted.TotalRows, inserted.ValidRowCount, inserted.InvalidRowCount, inserted.PreviewRowsJson, inserted.ErrorCode, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.PreviewCompletedAtUtc, inserted.ProcessedRowCount, inserted.SucceededRowCount, inserted.ExecutionFailedRowCount, inserted.NextLineNumber, inserted.ExecutionRowsJson, inserted.ErrorReceiptFileId, inserted.ExecutionStartedAtUtc, inserted.ExecutionCompletedAtUtc, inserted.Version
+        OUTPUT {InsertedColumns}
         FROM fn_import_export_task AS task
         INNER JOIN candidates ON candidates.Id = task.Id
         WHERE task.TenantId = @TenantId;
@@ -133,24 +148,26 @@ internal static class ImportExportTaskSql
 
     public static readonly SqlStatement SelectClaimableIdsMySql = new(
         "import_export.task.select_claimable_ids.mysql",
-        """
+        $"""
         SELECT Id
         FROM fn_import_export_task
-        WHERE TenantId = @TenantId AND StatusKey = 'queued'
+        WHERE TenantId = @TenantId AND {ClaimablePredicate}
         ORDER BY CreatedAtUtc, Id
-        LIMIT @BatchSize
+        LIMIT 1
         FOR UPDATE SKIP LOCKED
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
     public static readonly SqlStatement ClaimByIdsMySql = new(
         "import_export.task.claim_by_ids.mysql",
-        """
+        $"""
         UPDATE fn_import_export_task
         SET StatusKey = 'executing',
             ExecutionStartedAtUtc = COALESCE(ExecutionStartedAtUtc, @Now),
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             Version = Version + 1
-        WHERE TenantId = @TenantId AND StatusKey = 'queued'
+        WHERE TenantId = @TenantId AND {ClaimablePredicate}
           AND Id IN @Ids
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
@@ -178,9 +195,12 @@ internal static class ImportExportTaskSql
             ErrorReceiptFileId = @ErrorReceiptFileId,
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
             ErrorCode = @ErrorCode,
+            LeaseId = CASE WHEN @StatusKey = 'queued' OR @StatusKey IN ('execution_succeeded', 'execution_partial', 'execution_failed') THEN NULL ELSE LeaseId END,
+            LeaseExpiresAtUtc = CASE WHEN @StatusKey = 'queued' OR @StatusKey IN ('execution_succeeded', 'execution_partial', 'execution_failed') THEN NULL ELSE LeaseExpiresAtUtc END,
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
+          AND LeaseId = @LeaseId
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -191,9 +211,12 @@ internal static class ImportExportTaskSql
         SET StatusKey = 'execution_failed',
             ErrorCode = @ErrorCode,
             ExecutionCompletedAtUtc = @ExecutionCompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
           AND StatusKey = 'executing'
+          AND LeaseId = @LeaseId
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

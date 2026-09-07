@@ -8,30 +8,30 @@ using Full.NET.Modules.Payments.Persistence;
 
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
-/// <summary>与支付渠道对账并同步本地订单状态。</summary>
+/// <summary>与支付渠道对账并同步本地订单状态；渠道查询必须在事务外执行。</summary>
+/// <param name="queryExecutor">当前模块查询执行器。</param>
+/// <param name="commandExecutor">当前模块写入执行器。</param>
+/// <param name="transaction">本地命令事务。</param>
+/// <param name="queries">订单响应查询服务。</param>
+/// <param name="weChatNativePayClient">微信渠道客户端。</param>
+/// <param name="alipayPagePayClient">支付宝渠道客户端。</param>
+/// <param name="clock">业务时钟。</param>
 internal sealed class PaymentOrderReconciliationService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     PaymentOrderQueryService queries,
-    WeChatNativePayClient weChatNativePayClient,
-    AlipayPagePayClient alipayPagePayClient,
+    IWeChatNativePayClient weChatNativePayClient,
+    IAlipayPagePayClient alipayPagePayClient,
     IClock clock)
 {
     /// <summary>按订单标识查询渠道交易并回写本地状态。</summary>
     /// <param name="orderId">订单标识。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>同步后的订单详情。</returns>
-    public Task<Result<PaymentOrderResponse>> ReconcileAsync(
+    public async Task<Result<PaymentOrderResponse>> ReconcileAsync(
         Guid orderId,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => ReconcileCoreAsync(orderId, token),
-            cancellationToken);
-
-    private async Task<Result<PaymentOrderResponse>> ReconcileCoreAsync(
-        Guid orderId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var order = await queryExecutor.QuerySingleOrDefaultAsync<PaymentOrderRecord>(
                 PaymentOrderSql.FindById,
@@ -67,11 +67,21 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Validation));
         }
 
-        var providerSnapshot = await QueryProviderAsync(
-                merchantConfig,
-                order,
-                cancellationToken)
-            .ConfigureAwait(false);
+        ProviderQuerySnapshot providerSnapshot;
+        try
+        {
+            // 对账查询是远程副作用观察，不能占用本地事务连接。
+            providerSnapshot = await QueryProviderAsync(merchantConfig, order, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            return Result<PaymentOrderResponse>.Failure(new Error(
+                PaymentErrorCodes.OrderProviderUnknown,
+                exception.Message,
+                ErrorType.Conflict));
+        }
+
         if (!providerSnapshot.Succeeded)
         {
             return Result<PaymentOrderResponse>.Failure(new Error(
@@ -106,6 +116,24 @@ internal sealed class PaymentOrderReconciliationService(
             return await queries.GetByIdAsync(orderId, cancellationToken).ConfigureAwait(false);
         }
 
+        return await transaction.ExecuteResultAsync(
+                token => ApplyProviderSnapshotAsync(order, providerSnapshot, mappedState, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>在短事务中按当前版本回写对账快照。</summary>
+    /// <param name="order">对账前读取的订单。</param>
+    /// <param name="providerSnapshot">渠道查询快照。</param>
+    /// <param name="mappedState">映射后的本地状态。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>更新后的订单详情。</returns>
+    private async Task<Result<PaymentOrderResponse>> ApplyProviderSnapshotAsync(
+        PaymentOrderRecord order,
+        ProviderQuerySnapshot providerSnapshot,
+        string mappedState,
+        CancellationToken cancellationToken)
+    {
         var now = clock.UtcNow;
         var paidAtUtc = mappedState == PaymentTradeStateKeys.Succeeded ? now : order.PaidAtUtc;
         var affected = await commandExecutor.ExecuteAsync(
@@ -128,9 +156,14 @@ internal sealed class PaymentOrderReconciliationService(
                 ErrorType.Conflict));
         }
 
-        return await queries.GetByIdAsync(orderId, cancellationToken).ConfigureAwait(false);
+        return await queries.GetByIdAsync(order.Id, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>按渠道查询远程交易快照。</summary>
+    /// <param name="merchantConfig">商户配置。</param>
+    /// <param name="order">本地订单。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>查询快照。</returns>
     private async Task<ProviderQuerySnapshot> QueryProviderAsync(
         PaymentMerchantConfigRecord merchantConfig,
         PaymentOrderRecord order,
@@ -174,6 +207,10 @@ internal sealed class PaymentOrderReconciliationService(
             $"Unsupported payment channel: {order.ChannelKey}.");
     }
 
+    /// <summary>将渠道交易状态映射为本地稳定键。</summary>
+    /// <param name="channelKey">支付渠道键。</param>
+    /// <param name="tradeState">渠道状态。</param>
+    /// <returns>本地状态；无法映射时返回 null。</returns>
     private static string? MapTradeState(string channelKey, string? tradeState)
     {
         if (string.Equals(channelKey, PaymentChannelKeys.WeChatNative, StringComparison.Ordinal))
@@ -203,6 +240,12 @@ internal sealed class PaymentOrderReconciliationService(
         return null;
     }
 
+    /// <summary>渠道交易查询快照。</summary>
+    /// <param name="Succeeded">查询是否明确成功。</param>
+    /// <param name="TradeState">渠道交易状态。</param>
+    /// <param name="TransactionId">渠道交易标识。</param>
+    /// <param name="AmountMinor">渠道金额。</param>
+    /// <param name="FailMessage">失败摘要。</param>
     private sealed record ProviderQuerySnapshot(
         bool Succeeded,
         string? TradeState,

@@ -17,4 +17,7 @@ public static class PaymentRefundStateKeys
 
     /// <summary>退款已关闭。</summary>
     public const string Closed = "closed";
+
+    /// <summary>已向渠道发出退款请求，但本地无法确认成败，必须通过对账或幂等重试收敛。</summary>
+    public const string ProviderUnknown = "provider_unknown";
 }

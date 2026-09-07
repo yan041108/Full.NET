@@ -25,7 +25,7 @@ export interface PersonalScheduleListQuery {
   toUtc?: string;
 }
 
-/** 分页查询当前用户个人日程，并对响应页做失败关闭校验。 */
+/** 分页查询当前用户个人日程（/api/v1/calendar/my-personal-schedules），并对响应页做失败关闭校验。 */
 export async function listPersonalSchedules(
   query: PersonalScheduleListQuery = {},
   signal?: AbortSignal

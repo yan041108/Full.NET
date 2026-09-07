@@ -7,7 +7,7 @@ using Full.NET.Modules.K3Cloud.Persistence;
 namespace Full.NET.Modules.K3Cloud.Connectivity;
 
 /// <summary>金蝶 K3Cloud WebAPI 客户端；会话基于 Cookie，禁止通用远程方法反射调用。</summary>
-internal sealed class K3CloudWebApiClient
+internal sealed class K3CloudWebApiClient : IK3CloudWebApiClient
 {
     public const string HttpClientName = "Full.NET.K3Cloud.WebApi";
 

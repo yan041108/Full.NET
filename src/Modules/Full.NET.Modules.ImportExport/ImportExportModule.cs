@@ -61,8 +61,20 @@ public sealed class ImportExportModule : IFullNetModule
                 ImportExportJsonSerializerContext.Default));
     }
 
+    /// <summary>
+    /// 注册仅由 Worker 承载的导入任务循环，并在 Native AOT 下同步注册行物化器。
+    /// </summary>
+    /// <param name="services">Worker 宿主服务集合。</param>
+    /// <param name="configuration">宿主配置根。</param>
     public void AddBackgroundServices(IServiceCollection services, IConfiguration configuration)
     {
+#if FULLNET_AOT_COMPILE
+        new Persistence.ImportExportDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ITenantResourceFileOwner,
+            Features.ManageImportTasks.ImportExportResourceFileOwner>());
         services.TryAddScoped<ImportExportTaskRunner>();
         services.AddHostedService<ImportExportTaskHostedProcessor>();
     }

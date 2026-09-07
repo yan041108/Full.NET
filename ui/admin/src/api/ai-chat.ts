@@ -14,7 +14,7 @@ import {
 import { isFullNetProblemDetails, readProblemDetails } from '@fullnet/client-contracts';
 import { request, requestResponse } from './http';
 
-export interface AiChatStreamHandlers {
+export interface AiChatStreamOptions {
   onDelta: (delta: string) => void;
   onDone: (event: AiChatStreamDoneEvent) => void;
   onError: (message: string) => void;
@@ -115,7 +115,7 @@ export async function cancelAiChatGeneration(
 export async function streamAiChatMessage(
   sessionId: string,
   body: StreamAiChatMessageRequest,
-  handlers: AiChatStreamHandlers,
+  handlers: AiChatStreamOptions,
   signal?: AbortSignal
 ): Promise<void> {
   const response = await requestResponse(
@@ -171,7 +171,7 @@ export async function streamAiChatMessage(
 function dispatchStreamEvent(
   eventName: string,
   payload: string,
-  handlers: AiChatStreamHandlers
+  handlers: AiChatStreamOptions
 ): void {
   try {
     const data = JSON.parse(payload) as unknown;

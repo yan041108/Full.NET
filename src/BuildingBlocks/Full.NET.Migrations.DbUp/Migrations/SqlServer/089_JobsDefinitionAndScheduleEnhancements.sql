@@ -6,6 +6,24 @@ IF COL_LENGTH(N'dbo.fn_jobs_definition', N'GroupName') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_definition
         ADD GroupName nvarchar(64) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_definition')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_definition'), N'GroupName', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'分组名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_definition', @level2type=N'COLUMN', @level2name=N'GroupName';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -23,6 +41,24 @@ BEGIN
     ALTER TABLE dbo.fn_jobs_schedule
         ADD NumberOfRuns bigint NOT NULL
             CONSTRAINT DF_fn_jobs_schedule_NumberOfRuns DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_schedule')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_schedule'), N'NumberOfRuns', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'运行次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'NumberOfRuns';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -40,6 +76,24 @@ BEGIN
     ALTER TABLE dbo.fn_jobs_schedule
         ADD NumberOfErrors bigint NOT NULL
             CONSTRAINT DF_fn_jobs_schedule_NumberOfErrors DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_schedule')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_schedule'), N'NumberOfErrors', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'错误次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'NumberOfErrors';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -56,6 +110,24 @@ IF COL_LENGTH(N'dbo.fn_jobs_schedule', N'StartTime') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_schedule
         ADD StartTime datetimeoffset(7) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_schedule')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_schedule'), N'StartTime', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'开始时间', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'StartTime';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -72,6 +144,24 @@ IF COL_LENGTH(N'dbo.fn_jobs_schedule', N'EndTime') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_schedule
         ADD EndTime datetimeoffset(7) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_schedule')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_schedule'), N'EndTime', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'结束时间', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'EndTime';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -88,6 +178,24 @@ IF COL_LENGTH(N'dbo.fn_jobs_schedule', N'Args') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_jobs_schedule
         ADD Args nvarchar(500) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_jobs_schedule')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_jobs_schedule'), N'Args', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'调度参数(JSON)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_jobs_schedule', @level2type=N'COLUMN', @level2name=N'Args';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties

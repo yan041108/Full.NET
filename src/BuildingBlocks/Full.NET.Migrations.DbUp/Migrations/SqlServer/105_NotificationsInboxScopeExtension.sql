@@ -6,14 +6,68 @@ IF COL_LENGTH(N'dbo.fn_notifications_inbox_message', N'ScopeKey') IS NULL
         ADD ScopeKey varchar(16) NOT NULL
             CONSTRAINT DF_fn_notifications_inbox_message_ScopeKey DEFAULT ('host');
 
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_inbox_message')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_inbox_message'), N'ScopeKey', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'ScopeKey';
+
 IF COL_LENGTH(N'dbo.fn_notifications_inbox_message', N'TenantScopeKey') IS NULL
     ALTER TABLE dbo.fn_notifications_inbox_message
         ADD TenantScopeKey nvarchar(64) COLLATE Latin1_General_100_BIN2 NOT NULL
             CONSTRAINT DF_fn_notifications_inbox_message_TenantScopeKey DEFAULT (N'host');
 
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_inbox_message')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_inbox_message'), N'TenantScopeKey', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户作用域唯一键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'TenantScopeKey';
+
 IF COL_LENGTH(N'dbo.fn_notifications_inbox_message', N'IntentId') IS NULL
     ALTER TABLE dbo.fn_notifications_inbox_message
         ADD IntentId uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_inbox_message')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_inbox_message'), N'IntentId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'通知意图标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_inbox_message', @level2type=N'COLUMN', @level2name=N'IntentId';
 
 EXEC sys.sp_executesql N'
 UPDATE dbo.fn_notifications_inbox_message

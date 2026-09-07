@@ -1,14 +1,104 @@
 -- 多人审批采用追加式席位事实；步骤快照列保持可空，以支持旧 API 滚动升级和存量单人步骤。
 IF COL_LENGTH(N'dbo.fn_workflow_step', N'ApprovalModeKey') IS NULL
     ALTER TABLE dbo.fn_workflow_step ADD ApprovalModeKey varchar(16) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_step')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_step'), N'ApprovalModeKey', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'审批模式键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ApprovalModeKey';
 IF COL_LENGTH(N'dbo.fn_workflow_step', N'RequiredApprovalCount') IS NULL
     ALTER TABLE dbo.fn_workflow_step ADD RequiredApprovalCount int NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_step')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_step'), N'RequiredApprovalCount', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'所需审批数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'RequiredApprovalCount';
 IF COL_LENGTH(N'dbo.fn_workflow_step', N'ApprovalSlotCount') IS NULL
     ALTER TABLE dbo.fn_workflow_step ADD ApprovalSlotCount int NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_step')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_step'), N'ApprovalSlotCount', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'审批席位数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ApprovalSlotCount';
 IF COL_LENGTH(N'dbo.fn_workflow_action_record', N'ResultStatusKey') IS NULL
     ALTER TABLE dbo.fn_workflow_action_record ADD ResultStatusKey varchar(16) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_action_record')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_action_record'), N'ResultStatusKey', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'结果状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_action_record', @level2type=N'COLUMN', @level2name=N'ResultStatusKey';
 IF COL_LENGTH(N'dbo.fn_workflow_action_record', N'ResultTodoId') IS NULL
     ALTER TABLE dbo.fn_workflow_action_record ADD ResultTodoId uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_action_record')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_action_record'), N'ResultTodoId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'结果待办标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_action_record', @level2type=N'COLUMN', @level2name=N'ResultTodoId';
 GO
 
 IF OBJECT_ID(N'dbo.fn_workflow_approval_slot', N'U') IS NULL
@@ -33,6 +123,96 @@ BEGIN
         CONSTRAINT CK_fn_workflow_approval_slot_Revision CHECK (Revision > 0),
         CONSTRAINT CK_fn_workflow_approval_slot_Decision CHECK (DecisionKey IS NULL OR DecisionKey IN ('approve', 'reject', 'cancelled'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流会签席位表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'AssigneeUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'办理人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'AssigneeUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'DecidedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Decided At(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'DecidedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'DecisionKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'决策键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'DecisionKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'InstanceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'实例标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'InstanceId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'Revision', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'修订号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'Revision';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'StepId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'步骤标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'StepId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_approval_slot'), N'TodoId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'待办标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'TodoId';
 END;
 
 IF NOT EXISTS (

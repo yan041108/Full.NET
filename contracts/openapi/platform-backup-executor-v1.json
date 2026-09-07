@@ -1,0 +1,26 @@
+{
+  "id": "platform-backup-executor-v1",
+  "version": 1,
+  "description": "平台备份执行器 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/platform/backup-executor/status",
+      "operations": [
+        { "method": "GET", "permission": "platform.backup_tasks.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/backup-executor/tasks",
+      "operations": [
+        { "method": "GET", "permission": "platform.backup_tasks.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/platform/backup-executor/runs",
+      "operations": [
+        { "method": "GET", "permission": "platform.backup_runs.read", "successStatus": 200 }
+      ]
+    }
+  ],
+  "schemas": {}
+}

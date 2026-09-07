@@ -26,6 +26,114 @@ BEGIN
           AND minor_id = 0
           AND name = N'MS_Description'
     )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'数据审批场景表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'IsEnabled', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'IsEnabled';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'ScenarioKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'场景键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'ScenarioKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'ScopeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'ScopeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'TenantScopeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户作用域唯一键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'TenantScopeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'WorkflowDefinitionKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流定义键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'WorkflowDefinitionKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_dataapproval_scenario'), N'WorkflowDefinitionVersionId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流定义版本标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario', @level2type=N'COLUMN', @level2name=N'WorkflowDefinitionVersionId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_dataapproval_scenario')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'数据审批场景绑定表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_dataapproval_scenario';
 END;
 

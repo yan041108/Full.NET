@@ -250,11 +250,14 @@ internal sealed partial class PaymentWeChatNotifyService(
         }
 
         // 支付成功后的退款生命周期不可被迟到支付通知倒退；其它终态也只能通过显式对账纠正。
+        // created 与 provider_unknown 都还没有确认支付，允许通知推进到渠道权威状态。
         var wasPaid = order.TradeStateKey is PaymentTradeStateKeys.Succeeded
             or PaymentTradeStateKeys.Refunding or PaymentTradeStateKeys.Refunded;
         if (wasPaid && mappedState != PaymentTradeStateKeys.Succeeded
             || !wasPaid && order.TradeStateKey != mappedState
-                && order.TradeStateKey is not (PaymentTradeStateKeys.Created or PaymentTradeStateKeys.AwaitingPayment))
+                && order.TradeStateKey is not (PaymentTradeStateKeys.Created
+                    or PaymentTradeStateKeys.AwaitingPayment
+                    or PaymentTradeStateKeys.ProviderUnknown))
         {
             await InsertReceiptAsync(merchantConfigId, envelope.Id, envelope.EventType,
                 transactionPayload.OutTradeNo, PaymentNotifyProcessStatusKeys.Rejected,

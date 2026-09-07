@@ -1,0 +1,32 @@
+{
+  "id": "mqtt-control-plane-v1",
+  "version": 1,
+  "description": "MQTT 控制面 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/mqtt/status",
+      "operations": [
+        { "method": "GET", "permission": "mqtt.broker.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/mqtt/clients",
+      "operations": [
+        { "method": "GET", "permission": "mqtt.clients.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/mqtt/messages",
+      "operations": [
+        { "method": "GET", "permission": "mqtt.messages.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/mqtt/messages/publish",
+      "operations": [
+        { "method": "POST", "permission": "mqtt.messages.publish", "successStatus": 200 }
+      ]
+    }
+  ],
+  "schemas": {}
+}

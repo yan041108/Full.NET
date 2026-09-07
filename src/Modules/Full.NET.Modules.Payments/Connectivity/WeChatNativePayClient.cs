@@ -15,7 +15,7 @@ namespace Full.NET.Modules.Payments.Connectivity;
 /// <param name="secretProtector">解密仅用于当前外部调用的商户凭据。</param>
 internal sealed partial class WeChatNativePayClient(
     IHttpClientFactory httpClientFactory,
-    PaymentSecretProtector secretProtector)
+    PaymentSecretProtector secretProtector) : IWeChatNativePayClient
 {
     /// <summary>HttpClient 注册名称。</summary>
     public const string HttpClientName = "Full.NET.Payments.WeChatNative";

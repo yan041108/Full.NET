@@ -9,7 +9,7 @@ description: Use when analyzing or changing Full.NET request latency, throughput
 
 先用真实指标证明瓶颈，再做保持安全、租户、事务和双库语义的最小改动。静态代码形态只能生成假设，不能单独证明生产吞吐提升。
 
-开始前读取根目录 `AGENTS.md`、`rules/performance-engineering.md` 和受影响领域规则，并运行 `git rev-parse HEAD` 记录任务基线。工作区已脏或任务跨窗口时使用 `pnpm test:task:start -- <task-id>` 创建任务快照。需要命令、指标与场景矩阵时读取[性能地图](references/performance-map.md)。
+开始前按根目录 `AGENTS.md` 与 [规则路由](../../../rules/README.md) 读取 `rules/performance-engineering.md` 和受影响领域章节；已在上下文中的有效内容无需重读。修改任务按入口记录基线与快照，只读性能分析不创建快照。需要命令、指标与场景矩阵时读取[性能地图](references/performance-map.md)。
 
 ## 1. 建立性能契约
 
@@ -69,9 +69,9 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 ### 前端包体
 
 - Vue 页面优先路由动态导入，ECharts 保持按需加载。
-- Vue 与 Layui 分别记录 minified、gzip 和 Brotli；CI 使用基线相对退化预算。
+- 受影响 Vue 产物记录 minified、gzip 和 Brotli，CI 使用基线相对退化预算；Layui 已冻结，仅在明确授权修改其存量发布物时验证对应预算。
 - 首屏静态依赖图和大体积延迟 chunk 必须分别建立预算；禁止只把依赖移出首屏图来隐藏总体积回涨。
-- 拆包后验证首屏、权限导航、错误页、双端关键流程和缓存策略。
+- 拆包后验证受影响客户端的首屏、权限导航、错误页、关键流程和缓存策略。
 
 ## 4. 停止条件
 
@@ -86,13 +86,12 @@ Dapper 指标使用稳定 `StatementName`、Provider、操作类型和结果。O
 
 ## 5. 完成验证
 
-1. 重跑相同场景与相同环境，比较基线和候选。
-2. 运行受影响 Unit/Architecture/Compatibility/Integration；共享宿主、认证、Outbox、缓存或 Dapper 基础设施使用选择器登记的 Smoke、双库过滤集或专项分片。
-3. 数据库变化必须真实覆盖 SQL Server 与 MySQL。
-4. 前端变化运行双管理端测试、生产构建并记录包体。
-5. 更新 Verification、运行 `git diff --check` 和 `git status`。
-6. 只声明数据支持的收益；未执行生产等价压测时禁止承诺固定 QPS。
-7. 开发迭代使用 `pnpm test:inner`（`--phase inner`），切片关闭使用 `pnpm test:slice`，合并候选使用 `--phase merge`；先运行 `test:integration:affected:plan` 审查影响集，再运行 affected。inner 禁止 `test:e2e:real` 和完整 `test:e2e:admin`。工作区已脏时使用任务快照，干净单窗口任务可使用任务基线。本地任务禁止运行全量；完整集合只保留给 `main` CI 的互斥并行分片。
+执行位置、影响集、双库、页面验收与能力状态统一遵守 [测试与验证](../../../rules/development-quality.md#11-测试与验证)，不在本 Skill 另设本地 Integration 步骤。
+
+1. 重跑相同场景与环境，比较基线和候选的收益、错误率、P99、恢复和资源上限；环境重型实验按权威规则选择执行位置。
+2. 数据库变化必须有同场景 SQL Server 与 MySQL 证据；指标缺失时只给静态风险或未验证结论，不承诺固定 QPS。
+3. 前端变化构建受影响 Vue 产物并记录包体；冻结 Layui 仅在明确授权修改时运行相关检查。
+4. 性能基准证据按文档预算保存 Verification；局部优化的普通测试结果保留在 CI 与交付说明。按入口检查 `git diff --check` 与工作区状态。
 
 ## 常见错误
 

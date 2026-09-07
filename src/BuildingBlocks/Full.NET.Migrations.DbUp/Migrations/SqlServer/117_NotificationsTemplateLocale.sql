@@ -20,6 +20,24 @@ IF COL_LENGTH(N'dbo.fn_notifications_template', N'LocaleTag') IS NULL
 
     )
 
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'语言标签', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_template', @level2type=N'COLUMN', @level2name=N'LocaleTag';
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_template')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_template'), N'LocaleTag', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Locale Tag', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_template', @level2type=N'COLUMN', @level2name=N'LocaleTag';
 
 IF COL_LENGTH(N'dbo.fn_notifications_template', N'DefaultLocaleTag') IS NULL
@@ -43,12 +61,48 @@ IF COL_LENGTH(N'dbo.fn_notifications_template', N'DefaultLocaleTag') IS NULL
 
     )
 
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'默认语言标签', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_template', @level2type=N'COLUMN', @level2name=N'DefaultLocaleTag';
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_template')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_template'), N'DefaultLocaleTag', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Default Locale Tag', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_template', @level2type=N'COLUMN', @level2name=N'DefaultLocaleTag';
 
 IF COL_LENGTH(N'dbo.fn_notifications_template_version', N'LocaleTag') IS NULL
     ALTER TABLE dbo.fn_notifications_template_version
         ADD LocaleTag varchar(35) COLLATE Latin1_General_100_BIN2 NOT NULL
             CONSTRAINT DF_fn_notifications_template_version_LocaleTag DEFAULT ('zh-CN');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_template_version')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_template_version'), N'LocaleTag', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'语言标签', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_template_version', @level2type=N'COLUMN', @level2name=N'LocaleTag';
 
     IF NOT EXISTS (
 

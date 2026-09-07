@@ -15,4 +15,4 @@ CREATE TABLE IF NOT EXISTS fn_files_tenant_resource_file (
     CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间 UTC',
     CONSTRAINT PK_fn_files_tenant_resource_file PRIMARY KEY (Id),
     CONSTRAINT CK_fn_files_tenant_resource_file_StatusKey CHECK (StatusKey IN ('pending', 'ready', 'released'))
-) ENGINE=InnoDB COMMENT='租户业务资源文件所有权与上传生命周期';
+) COMMENT='文件租户资源文件表' ENGINE=InnoDB COMMENT='租户业务资源文件所有权与上传生命周期';

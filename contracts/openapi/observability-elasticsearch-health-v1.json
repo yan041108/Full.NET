@@ -1,0 +1,14 @@
+{
+  "id": "observability-elasticsearch-health-v1",
+  "version": 1,
+  "description": "Elasticsearch 日志管道健康 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/observability/elasticsearch-log-pipeline/health",
+      "operations": [
+        { "method": "GET", "permission": "observability.elasticsearch.read", "successStatus": 200 }
+      ]
+    }
+  ],
+  "schemas": {}
+}

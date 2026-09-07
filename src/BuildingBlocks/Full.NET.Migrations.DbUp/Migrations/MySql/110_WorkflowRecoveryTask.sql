@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS fn_workflow_recovery_task (
     LastError varchar(512) NULL COMMENT '最后错误摘要',
     CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
     UpdatedAtUtc datetime(6) NOT NULL COMMENT '更新时间(UTC)',
-    OpenOccupancyKey varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
+    OpenOccupancyKey varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '未关闭恢复任务占用键'
         GENERATED ALWAYS AS (
             CASE WHEN StatusKey IN ('pending', 'failed', 'dead_lettered')
                 THEN CONCAT(TenantScopeKey, '|', HEX(InstanceId), '|', KindKey, '|', IFNULL(HEX(StepId), 'NONE'))

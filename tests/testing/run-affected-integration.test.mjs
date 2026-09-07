@@ -168,10 +168,10 @@ test('客户端规范快照测试精确选择双库文档契约', () => {
 test('普通单模块改动选择双库聚焦测试', () => {
   for (const moduleName of [
     'Auditing',
-    'Files',
+    'Calendar',
     'Jobs',
-    'Notifications',
     'Organization',
+    'Regions',
     'SerialNumbers',
     'Settings'
   ]) {
@@ -188,6 +188,55 @@ test('普通单模块改动选择双库聚焦测试', () => {
       `FullyQualifiedName~${moduleName}Api`
     );
   }
+});
+
+test('ImportExport、Ai、Reporting、Files、Notifications 改动选择含持久化夹具的双库聚焦集', () => {
+  const cases = [
+    [
+      'src/Modules/Full.NET.Modules.ImportExport/Persistence/Queries.cs',
+      'ImportExport',
+      'FullyQualifiedName~ImportExportApi|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.'
+    ],
+    [
+      'src/Modules/Full.NET.Modules.Ai/Persistence/Queries.cs',
+      'Ai',
+      'FullyQualifiedName~Full.NET.IntegrationTests.Ai.'
+    ],
+    [
+      'src/Modules/Full.NET.Modules.Reporting/Persistence/Queries.cs',
+      'Reporting',
+      'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.'
+    ],
+    [
+      'src/Modules/Full.NET.Modules.Files/Persistence/Queries.cs',
+      'Files',
+      'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.'
+    ],
+    [
+      'src/Modules/Full.NET.Modules.Notifications/Persistence/Queries.cs',
+      'Notifications',
+      'FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.'
+    ]
+  ];
+
+  for (const [filePath, moduleName, filter] of cases) {
+    const selection = classifyChangedPaths([filePath]);
+    assert.equal(selection.mode, 'focused');
+    assert.deepEqual(selection.targets, [
+      { filter, kind: 'filter', name: moduleName }
+    ]);
+  }
+});
+
+test('未登记业务模块改动仍使用 Smoke', () => {
+  const selection = classifyChangedPaths([
+    'src/Modules/Full.NET.Modules.Payments/Persistence/Queries.cs'
+  ]);
+
+  assert.equal(selection.mode, 'focused');
+  assert.deepEqual(selection.targets, [
+    { kind: 'shard', name: 'smoke' }
+  ]);
 });
 
 test('单模块 Integration 夹具改动仍选择对应双库聚焦测试', () => {

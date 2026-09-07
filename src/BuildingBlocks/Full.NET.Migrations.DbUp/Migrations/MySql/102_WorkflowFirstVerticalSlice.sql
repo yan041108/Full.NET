@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS fn_workflow_instance (
     CancellationReason varchar(512) NULL COMMENT '取消原因',
     LeaseOwnerKey varchar(128) NULL COMMENT '执行租约持有者键',
     LeaseExpiresAtUtc datetime(6) NULL COMMENT '租约过期时间(UTC)',
-    ActiveBusinessKey varchar(258) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
+    ActiveBusinessKey varchar(258) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '占用中的实例业务唯一键'
         GENERATED ALWAYS AS (CASE WHEN StatusKey = 'active' THEN CONCAT(TenantScopeKey, '|', BusinessType, '|', BusinessId) ELSE NULL END) STORED COMMENT '活动实例业务唯一键',
     CONSTRAINT PK_fn_workflow_instance PRIMARY KEY (Id),
     CONSTRAINT FK_fn_workflow_instance_DefinitionVersion FOREIGN KEY (DefinitionVersionId) REFERENCES fn_workflow_definition_version(Id),

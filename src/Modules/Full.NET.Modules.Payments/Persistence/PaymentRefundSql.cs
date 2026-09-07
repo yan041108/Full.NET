@@ -62,6 +62,31 @@ internal static class PaymentRefundSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>领取已提交的退款意图，避免崩溃恢复窗口内两个请求同时调用渠道。</summary>
+    public static readonly SqlStatement ClaimInvocation = new(
+        "payments.claim_refund_invocation",
+        """
+        UPDATE fn_payment_refund
+        SET UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @RefundId
+          AND Version = @Version
+          AND RefundStateKey IN ('created', 'provider_unknown')
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>查找可恢复的退款意图，供订单进入退款中后的崩溃重试使用。</summary>
+    public static readonly SqlStatement ListRecoverableByOrderId = new(
+        "payments.list_recoverable_refunds_by_order",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_payment_refund AS refunds
+        WHERE refunds.OrderId = @OrderId
+          AND refunds.RefundStateKey IN ('created', 'provider_unknown')
+        ORDER BY refunds.CreatedAtUtc, refunds.Id
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly string CountSqlServer = """
         SELECT COUNT(1)
         FROM fn_payment_refund AS refunds

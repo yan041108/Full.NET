@@ -19,6 +19,87 @@ BEGIN
                 N'ignored_duplicate',
                 N'rejected'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'支付渠道回执表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'EventTypeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'事件类型键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'EventTypeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'MerchantConfigId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'商户配置标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'MerchantConfigId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'OutTradeNo', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'商户订单号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'OutTradeNo';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'PayloadSummary', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'载荷摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'PayloadSummary';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'ProcessStatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'回执处理状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'ProcessStatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_notify_receipt')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_notify_receipt'), N'ProviderNotifyId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'渠道通知标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_notify_receipt', @level2type=N'COLUMN', @level2name=N'ProviderNotifyId';
 END;
 
 IF NOT EXISTS (
@@ -60,6 +141,159 @@ BEGIN
         CONSTRAINT CK_fn_payment_refund_AmountMinor
             CHECK (AmountMinor > 0)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'支付退款表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'AmountMinor', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'金额(最小货币单位)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'AmountMinor';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'CompletedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'完成时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'CompletedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'Currency', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'币种', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'Currency';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'FailMessage', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'失败消息', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'FailMessage';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'MerchantConfigId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'商户配置标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'MerchantConfigId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'OrderId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'订单标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'OrderId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'OutRefundNo', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'商户退款号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'OutRefundNo';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'OutTradeNo', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'商户订单号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'OutTradeNo';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'ProviderRefundId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'渠道退款标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'ProviderRefundId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'Reason', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'原因说明', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'Reason';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'RefundStateKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'退款状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'RefundStateKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_payment_refund')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_payment_refund'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_payment_refund', @level2type=N'COLUMN', @level2name=N'Version';
 END;
 
 IF NOT EXISTS (

@@ -41,6 +41,19 @@ internal static class K3CloudDocumentSyncSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>领取可重试的同步记录，提交后才允许再次调用金蝶。</summary>
+    public static readonly SqlStatement ClaimRetry = new(
+        "k3cloud.document_sync.claim_retry",
+        """
+        UPDATE fn_k3cloud_document_sync
+        SET UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @Id
+          AND Version = @Version
+          AND StatusKey IN ('pending', 'save_failed', 'submit_failed', 'provider_unknown')
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindById = new(
         "k3cloud.document_sync.find_by_id",
         $"""

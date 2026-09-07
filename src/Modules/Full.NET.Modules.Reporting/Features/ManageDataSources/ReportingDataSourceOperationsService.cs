@@ -9,10 +9,16 @@ using Full.NET.Modules.Reporting.Security;
 namespace Full.NET.Modules.Reporting.Features.ManageDataSources;
 
 /// <summary>报表数据源连接测试。</summary>
+/// <param name="queryExecutor">本模块查询执行器。</param>
+/// <param name="commandExecutor">本模块命令执行器。</param>
+/// <param name="secretProtector">数据源密码保护器。</param>
+/// <param name="connectionTester">外部数据源连接测试器。</param>
+/// <param name="clock">时钟。</param>
 internal sealed class ReportingDataSourceOperationsService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     ReportingDataSourceSecretProtector secretProtector,
+    ReportingDataSourceConnectionTester connectionTester,
     IClock clock)
 {
     /// <summary>测试已保存数据源的连接可用性。</summary>
@@ -45,7 +51,7 @@ internal sealed class ReportingDataSourceOperationsService(
         }
 
         var password = secretProtector.Unprotect(row.PasswordProtected);
-        var outcome = await ReportingDataSourceConnectionTester
+        var outcome = await connectionTester
             .TestAsync(row, password, cancellationToken)
             .ConfigureAwait(false);
         var statusKey = outcome.Succeeded

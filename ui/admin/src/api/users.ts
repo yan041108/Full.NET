@@ -13,6 +13,8 @@ import {
   identityListHostUsers,
   identityReplaceHostUserRoles,
   identityResetHostUserPassword,
+  identityRevealHostUserProfileFields,
+  identityUnlockHostUserLogin,
   identityUpdateHostUser,
   type HostUser,
   type HostUserPage,
@@ -29,12 +31,8 @@ export async function revealHostUserProfileFields(
   fieldKeys: readonly string[],
   signal?: AbortSignal
 ): Promise<Readonly<Record<string, string | null>>> {
-  const response = await http.request<Readonly<{ values: Readonly<Record<string, string | null>> }>>(`/api/v1/identity/users/${encodeURIComponent(userId)}/reveal-profile-fields`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ fieldKeys })
-  }, signal);
-  return response.values;
+  const response = await identityRevealHostUserProfileFields(http, { userId, body: { fieldKeys: [...fieldKeys] } }, signal);
+  return response.values as Readonly<Record<string, string | null>>;
 }
 
 /** 分页查询 Host 用户列表。 */
@@ -187,7 +185,7 @@ export async function unlockHostUserLogin(
   id: string,
   signal?: AbortSignal
 ): Promise<HostUser> {
-  return http.request<HostUser>(`/api/v1/identity/users/${encodeURIComponent(id)}/unlock-login`, { method: 'POST' }, signal);
+  return identityUnlockHostUserLogin(http, { userId: id }, signal);
 }
 
 /** 查询 Host 用户当前角色集合。 */

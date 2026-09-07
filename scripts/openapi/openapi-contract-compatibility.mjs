@@ -290,7 +290,9 @@ function compareStableSettings(fileName, baseline, current, changes) {
         fileName,
         fieldName,
         baselineValue,
-        current[fieldName]
+        current[fieldName],
+        baseline,
+        current
       )
     ) {
       changes.push(
@@ -357,14 +359,31 @@ function isClientGenerationManifestEntryCompatible(baselineEntry, currentEntry) 
   return baselineEntry?.status === 'pilot' && currentEntry?.status === 'generated';
 }
 
-function isAllowedClientOpenApiSnapshotChange(fileName, fieldName, baselineValue, currentValue) {
-  if (fileName !== 'fullnet-client-v1.openapi.json') {
+function isAllowedClientOpenApiSnapshotChange(
+  fileName,
+  fieldName,
+  baselineValue,
+  currentValue,
+  baselineDocument
+) {
+  if (
+    fileName !== 'fullnet-client-v1.openapi.json'
+    && fileName !== 'identity-me-v1.json'
+  ) {
     return false;
   }
 
-  // 标准客户端快照允许按清单扩容：追加 path/method、schema、tag；既有 Operation/Schema 不得改写或删除。
+  // 标准客户端快照与 me 夹具允许按清单扩容：追加 path/method、schema、tag；既有 Operation/Schema 不得改写或删除。
+  // 规范化后的键顺序与未被路径引用的闲置 Schema 清理不视为破坏变化。
   if (fieldName === 'paths') {
-    return isAdditiveOpenApiPaths(baselineValue, currentValue);
+    return isAdditiveOpenApiPaths(
+      sortKeysDeep(baselineValue),
+      sortKeysDeep(currentValue)
+    );
+  }
+
+  if (fileName !== 'fullnet-client-v1.openapi.json') {
+    return false;
   }
 
   if (fieldName === 'tags') {
@@ -372,10 +391,31 @@ function isAllowedClientOpenApiSnapshotChange(fileName, fieldName, baselineValue
   }
 
   if (fieldName === 'components') {
-    return isAdditiveOpenApiComponents(baselineValue, currentValue);
+    return isAdditiveOpenApiComponents(
+      sortKeysDeep(baselineValue),
+      sortKeysDeep(currentValue),
+      baselineDocument
+    );
   }
 
   return false;
+}
+
+function sortKeysDeep(value) {
+  if (Array.isArray(value)) {
+    return value.map(sortKeysDeep);
+  }
+
+  if (!isPlainObject(value)) {
+    return value;
+  }
+
+  const result = {};
+  for (const key of Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'))) {
+    result[key] = sortKeysDeep(value[key]);
+  }
+
+  return result;
 }
 
 function isAdditiveOpenApiPaths(baselinePaths, currentPaths) {
@@ -410,9 +450,15 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
   const allowsOptionalQueryExpansion = approvedOptionalQueryExpansionOperationIds.has(
     baselineOperation.operationId
   );
+  const allowsAnonymousSecurityExpansion = isAnonymousSecurityExpansion(
+    baselineOperation,
+    currentOperation
+  );
   const ignoredFields = allowsOptionalQueryExpansion
     ? new Set(['responses', 'parameters'])
-    : new Set(['responses']);
+    : allowsAnonymousSecurityExpansion
+      ? new Set(['responses', 'security'])
+      : new Set(['responses']);
   const baselineFields = Object.keys(baselineOperation).filter(field => !ignoredFields.has(field));
   const currentFields = Object.keys(currentOperation).filter(field => !ignoredFields.has(field));
   if (!isDeepStrictEqual(baselineFields, currentFields)
@@ -443,6 +489,13 @@ const approvedOptionalQueryExpansionOperationIds = new Set([
   'serialNumbersListRules'
 ]);
 
+function isAnonymousSecurityExpansion(baselineOperation, currentOperation) {
+  // 匿名回调只允许从“未声明 security”补成空数组，禁止把已有 Bearer/ApiKey 改成公开。
+  return !Object.hasOwn(baselineOperation, 'security')
+    && Array.isArray(currentOperation.security)
+    && currentOperation.security.length === 0;
+}
+
 function isApprovedOptionalQueryParameterExpansion(baselineParameters, currentParameters) {
   const baseline = Array.isArray(baselineParameters) ? baselineParameters : [];
   if (!Array.isArray(currentParameters) || currentParameters.length < baseline.length) {
@@ -472,7 +525,11 @@ function isAdditiveOpenApiTags(baselineTags, currentTags) {
     currentTags.some((currentTag) => isDeepStrictEqual(baselineTag, currentTag)));
 }
 
-function isAdditiveOpenApiComponents(baselineComponents, currentComponents) {
+function isAdditiveOpenApiComponents(
+  baselineComponents,
+  currentComponents,
+  baselineDocument
+) {
   if (!isPlainObject(baselineComponents) || !isPlainObject(currentComponents)) {
     return false;
   }
@@ -485,6 +542,14 @@ function isAdditiveOpenApiComponents(baselineComponents, currentComponents) {
       }
 
       for (const [schemaName, baselineSchema] of Object.entries(baselineSection)) {
+        if (!Object.hasOwn(currentSection, schemaName)) {
+          if (isUnreferencedSnapshotSchema(baselineDocument, schemaName)) {
+            continue;
+          }
+
+          return false;
+        }
+
         if (!isCompatibleOpenApiSchemaRepair(
           schemaName,
           baselineSchema,
@@ -502,6 +567,72 @@ function isAdditiveOpenApiComponents(baselineComponents, currentComponents) {
   }
 
   return true;
+}
+
+function isUnreferencedSnapshotSchema(document, schemaName) {
+  if (!isPlainObject(document) || typeof schemaName !== 'string' || schemaName.length === 0) {
+    return false;
+  }
+
+  return !collectReachableSnapshotSchemaNames(document).has(schemaName);
+}
+
+function collectReachableSnapshotSchemaNames(document) {
+  const names = new Set();
+  const pending = collectOpenApiReferences(document?.paths);
+  const schemas = isPlainObject(document?.components) ? document.components.schemas : null;
+  if (!isPlainObject(schemas)) {
+    return names;
+  }
+
+  while (pending.length > 0) {
+    const reference = pending.pop();
+    const name = parseSnapshotSchemaReference(reference);
+    if (name === null || names.has(name) || !Object.hasOwn(schemas, name)) {
+      continue;
+    }
+
+    names.add(name);
+    pending.push(...collectOpenApiReferences(schemas[name]));
+  }
+
+  return names;
+}
+
+function collectOpenApiReferences(value, references = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectOpenApiReferences(item, references);
+    }
+    return references;
+  }
+
+  if (!isPlainObject(value)) {
+    return references;
+  }
+
+  if (typeof value.$ref === 'string') {
+    references.push(value.$ref);
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (key !== '$ref') {
+      collectOpenApiReferences(child, references);
+    }
+  }
+
+  return references;
+}
+
+function parseSnapshotSchemaReference(reference) {
+  if (typeof reference !== 'string') {
+    return null;
+  }
+
+  const match = /^#\/components\/schemas\/([^/]+)$/u.exec(reference);
+  return match
+    ? match[1].replaceAll('~1', '/').replaceAll('~0', '~')
+    : null;
 }
 
 const strictWorkflowSchemaMetadataRepairs = new Set([

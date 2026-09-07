@@ -1,0 +1,32 @@
+{
+  "id": "cryptography-gm-keys-v1",
+  "version": 1,
+  "description": "国密密钥与 SM2 签名 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/cryptography/status",
+      "operations": [
+        { "method": "GET", "permission": "cryptography.keys.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/cryptography/keys",
+      "operations": [
+        { "method": "GET", "permission": "cryptography.keys.read", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/cryptography/sm2/sign",
+      "operations": [
+        { "method": "POST", "permission": "cryptography.sm2.sign", "successStatus": 200 }
+      ]
+    },
+    {
+      "path": "/api/v1/cryptography/sm2/verify",
+      "operations": [
+        { "method": "POST", "permission": "cryptography.sm2.verify", "successStatus": 200 }
+      ]
+    }
+  ],
+  "schemas": {}
+}

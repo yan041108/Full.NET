@@ -92,6 +92,28 @@ public sealed class DependencyRulesTests
             actualModuleNames);
     }
 
+    /// <summary>
+    /// 锁定每个官方业务程序集都发布授权目录贡献者，避免新模块漏登记权限。
+    /// </summary>
+    [TestMethod]
+    public void Official_business_modules_publish_authorization_catalog_contributors()
+    {
+        var missing = BusinessModuleAssemblies
+            .Where(assembly => !assembly.GetTypes().Any(type =>
+                !type.IsAbstract
+                && typeof(Full.NET.Modules.Identity.Contracts.IAuthorizationCatalogContributor)
+                    .IsAssignableFrom(type)))
+            .Select(assembly => assembly.GetName().Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.HasCount(
+            0,
+            missing,
+            "下列官方模块缺少 IAuthorizationCatalogContributor："
+                + string.Join(", ", missing));
+    }
+
     [TestMethod]
     public void BuildingBlocks_DoNotDependOnModules()
     {
@@ -372,18 +394,26 @@ public sealed class DependencyRulesTests
                 typeof(Full.NET.Modules.Tenancy.Contracts.AssignHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ChangeTenantContextRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.CreateHostTenantPackageRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantAdministratorsPageResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantDirectoryPermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantMemberResponse).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.HostTenantMembersPageResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ITenantProvisioningService).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.ProvisionTenantRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyErrorCodes).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantManagementPermissions).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenancyTenantPackagePermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingPermissions).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantBrandingResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantChangedIntegrationEvent).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantContextSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantPackageSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantProvisionedIntegrationEvent).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.TenantRuntimeBrandingResponse).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.TenantSummary).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantPackageRequest).FullName,
                 typeof(Full.NET.Modules.Tenancy.Contracts.UpdateHostTenantRequest).FullName,
+                typeof(Full.NET.Modules.Tenancy.Contracts.UpdateTenantBrandingRequest).FullName,
                 typeof(TenancyModule).FullName,
             },
             exportedTypes);
@@ -1015,6 +1045,35 @@ public sealed class DependencyRulesTests
         CollectionAssert.AreEquivalent(
             new[] { "Identity", "Tenancy" },
             module.Dependencies.ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "ImportExport" },
+            module.OptionalContractDependencies.ToArray());
+    }
+
+    [TestMethod]
+    public void Identity_declares_files_as_optional_contract_dependency()
+    {
+        var module = new IdentityModule();
+
+        CollectionAssert.AreEquivalent(
+            Array.Empty<string>(),
+            module.Dependencies.ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "Files" },
+            module.OptionalContractDependencies.ToArray());
+    }
+
+    [TestMethod]
+    public void Tenancy_declares_files_and_printing_as_optional_contract_dependencies()
+    {
+        var module = new TenancyModule();
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Identity" },
+            module.Dependencies.ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "Files", "Printing" },
+            module.OptionalContractDependencies.ToArray());
     }
 
     [TestMethod]

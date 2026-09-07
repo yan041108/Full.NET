@@ -121,6 +121,43 @@ export function isHostFilePage(value: unknown): value is HostFilePage {
     && Number.isInteger(value.total);
 }
 
+/** 校验 Host 文件批量上传响应，避免把未知 JSON 提升为契约。 */
+export function isBatchUploadHostFilesResponse(
+  value: unknown
+): value is BatchUploadHostFilesResponse {
+  return isRecord(value)
+    && Number.isInteger(value.succeededCount)
+    && Array.isArray(value.results)
+    && value.results.every(isBatchUploadHostFileItem);
+}
+
+/** 校验 Host 文件批量删除响应，避免把未知 JSON 提升为契约。 */
+export function isBatchDeleteHostFilesResponse(
+  value: unknown
+): value is BatchDeleteHostFilesResponse {
+  return isRecord(value)
+    && Number.isInteger(value.succeededCount)
+    && Array.isArray(value.results)
+    && value.results.every(isBatchDeleteHostFileItem);
+}
+
+function isBatchUploadHostFileItem(value: unknown): value is BatchUploadHostFileItem {
+  return isRecord(value)
+    && typeof value.originalFileName === 'string'
+    && typeof value.succeeded === 'boolean'
+    && (value.file === null || isHostFile(value.file))
+    && (value.errorCode === null || typeof value.errorCode === 'string')
+    && (value.message === null || typeof value.message === 'string');
+}
+
+function isBatchDeleteHostFileItem(value: unknown): value is BatchDeleteHostFileItem {
+  return isRecord(value)
+    && isGuid(value.fileId)
+    && typeof value.succeeded === 'boolean'
+    && (value.errorCode === null || typeof value.errorCode === 'string')
+    && (value.message === null || typeof value.message === 'string');
+}
+
 function isGuid(value: unknown): value is string {
   return typeof value === 'string' && guidPattern.test(value);
 }

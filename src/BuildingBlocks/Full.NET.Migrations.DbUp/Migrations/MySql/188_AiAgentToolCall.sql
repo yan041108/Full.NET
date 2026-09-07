@@ -1,23 +1,22 @@
 -- 188：Agent Tool 调用审计表。
 
-CREATE TABLE IF NOT EXISTS fn_ai_agent_tool_call
-(
-    Id char(36) COLLATE utf8mb4_bin NOT NULL,
-    TenantId char(36) COLLATE utf8mb4_bin NULL,
-    ActorUserId char(36) COLLATE utf8mb4_bin NOT NULL,
-    ToolName varchar(128) COLLATE utf8mb4_bin NOT NULL,
-    PermissionCode varchar(128) COLLATE utf8mb4_bin NOT NULL,
-    StatusKey varchar(16) COLLATE utf8mb4_bin NOT NULL,
-    DurationMs int NULL,
-    InputSummary varchar(512) NOT NULL,
-    OutputSummary varchar(512) NULL,
-    ErrorCode varchar(64) COLLATE utf8mb4_bin NULL,
-    TraceId varchar(64) COLLATE utf8mb4_bin NULL,
-    CreatedAtUtc datetime(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS fn_ai_agent_tool_call (
+    Id char(36) COLLATE utf8mb4_bin NOT NULL COMMENT '逻辑主键',
+    TenantId char(36) COLLATE utf8mb4_bin NULL COMMENT '租户标识；NULL 表示 Host 级',
+    ActorUserId char(36) COLLATE utf8mb4_bin NOT NULL COMMENT '操作者用户标识',
+    ToolName varchar(128) COLLATE utf8mb4_bin NOT NULL COMMENT '工具名称',
+    PermissionCode varchar(128) COLLATE utf8mb4_bin NOT NULL COMMENT '权限码',
+    StatusKey varchar(16) COLLATE utf8mb4_bin NOT NULL COMMENT '状态键',
+    DurationMs int NULL COMMENT '耗时(毫秒)',
+    InputSummary varchar(512) NOT NULL COMMENT '输入摘要',
+    OutputSummary varchar(512) NULL COMMENT '输出摘要',
+    ErrorCode varchar(64) COLLATE utf8mb4_bin NULL COMMENT '错误码',
+    TraceId varchar(64) COLLATE utf8mb4_bin NULL COMMENT '追踪标识',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
     PRIMARY KEY (Id),
     CONSTRAINT CK_fn_ai_agent_tool_call_StatusKey
         CHECK (StatusKey IN ('succeeded', 'failed', 'denied'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) COMMENT='人工智能智能体工具调用表' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET @index_exists := (
     SELECT COUNT(*)

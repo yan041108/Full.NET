@@ -2,6 +2,24 @@
 IF COL_LENGTH(N'dbo.fn_mqtt_message', N'PayloadDigest') IS NULL
     ALTER TABLE dbo.fn_mqtt_message ADD PayloadDigest varchar(64) NULL;
 
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_mqtt_message')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_mqtt_message'), N'PayloadDigest', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'载荷摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_mqtt_message', @level2type=N'COLUMN', @level2name=N'PayloadDigest';
+
 IF NOT EXISTS (
     SELECT 1 FROM sys.extended_properties
     WHERE major_id = OBJECT_ID(N'dbo.fn_mqtt_message')

@@ -12,14 +12,14 @@ using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Payments.Features.ManageOrders;
 
-/// <summary>支付订单创建与渠道下单。</summary>
+/// <summary>支付订单创建与渠道下单；先提交本地意图，再在事务外调用渠道。</summary>
 /// <param name="queryExecutor">当前模块查询执行器。</param>
 /// <param name="commandExecutor">当前模块写入执行器。</param>
 /// <param name="transaction">本地命令事务。</param>
 /// <param name="queries">订单响应查询服务。</param>
 /// <param name="weChatNativePayClient">微信渠道客户端。</param>
 /// <param name="alipayPagePayClient">支付宝渠道客户端。</param>
-/// <param name="activeTenants">权威租户状态目录。</param>
+    /// <param name="activeTenants">权威租户状态目录；必须在事务外调用。</param>
 /// <param name="clock">业务时钟。</param>
 /// <param name="idGenerator">业务唯一标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序选项。</param>
@@ -28,25 +28,106 @@ internal sealed class PaymentOrderManagementService(
     ICommandExecutor commandExecutor,
     ICommandTransaction transaction,
     PaymentOrderQueryService queries,
-    WeChatNativePayClient weChatNativePayClient,
-    AlipayPagePayClient alipayPagePayClient,
+    IWeChatNativePayClient weChatNativePayClient,
+    IAlipayPagePayClient alipayPagePayClient,
     IIdentityActiveTenantDirectory activeTenants,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions)
 {
-    /// <summary>创建支付订单并调用对应渠道下单。</summary>
+    /// <summary>校验活动租户后创建支付订单并调用对应渠道下单。</summary>
     /// <param name="request">创建请求。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>创建结果或稳定业务错误。</returns>
-    public Task<Result<PaymentOrderResponse>> CreateAsync(
+    /// <returns>创建结果或稳定业务错误；渠道结果未知时返回未知错误且保留已提交意图。</returns>
+    public async Task<Result<PaymentOrderResponse>> CreateAsync(
         CreatePaymentOrderRequest request,
-        CancellationToken cancellationToken = default) =>
-        transaction.ExecuteAsync(
-            token => CreateCoreAsync(request, token),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var tenantExists = await activeTenants.IsActiveTenantAsync(request.TenantId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!tenantExists)
+        {
+            return Result<PaymentOrderResponse>.Failure(new Error(
+                PaymentErrorCodes.TenantNotFound,
+                "The specified tenant does not exist or is not active.",
+                ErrorType.Validation));
+        }
 
-    private async Task<Result<PaymentOrderResponse>> CreateCoreAsync(
+        var prepared = await transaction.ExecuteResultAsync(
+                token => PersistOrderIntentAsync(request, token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!prepared.IsSuccess)
+        {
+            return Result<PaymentOrderResponse>.Failure(prepared.Error!);
+        }
+
+        var intent = prepared.Value!;
+        ProviderInvocationResult providerResult;
+        try
+        {
+            // 渠道下单不可回滚，必须发生在意图事务提交之后。
+            providerResult = await InvokeProviderAsync(
+                    intent.MerchantConfig,
+                    intent.OutTradeNo,
+                    intent.AmountMinor,
+                    intent.Currency,
+                    intent.Description,
+                    intent.Subject,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (UnknownExternalSideEffect.Matches(exception))
+        {
+            await TryPersistProviderOutcomeAsync(
+                    intent,
+                    PaymentTradeStateKeys.ProviderUnknown,
+                    null,
+                    exception.Message,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return UnknownOrder(exception.Message);
+        }
+
+        var tradeStateKey = providerResult.Succeeded
+            ? PaymentTradeStateKeys.AwaitingPayment
+            : PaymentTradeStateKeys.Failed;
+        try
+        {
+            var persisted = await TryPersistProviderOutcomeAsync(
+                    intent,
+                    tradeStateKey,
+                    providerResult.PayUrl,
+                    providerResult.FailMessage,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!persisted)
+            {
+                return UnknownOrder("The payment order could not be updated after provider invocation.");
+            }
+        }
+        catch (Exception exception)
+        {
+            // 渠道已成功或结果未知时，本地回写失败不能撤销外部订单，只能保留已提交意图供对账。
+            return UnknownOrder(exception.Message);
+        }
+
+        if (!providerResult.Succeeded)
+        {
+            return Result<PaymentOrderResponse>.Failure(new Error(
+                PaymentErrorCodes.OrderProviderFailed,
+                providerResult.FailMessage ?? "Payment provider request failed.",
+                ErrorType.Validation));
+        }
+
+        return await queries.GetByIdAsync(intent.OrderId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>在短事务中写入渠道幂等键和 created 意图，不调用外部接口。</summary>
+    /// <param name="request">创建请求。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已提交的订单意图；校验失败时回滚且不产生渠道副作用。</returns>
+    private async Task<Result<PreparedPaymentOrder>> PersistOrderIntentAsync(
         CreatePaymentOrderRequest request,
         CancellationToken cancellationToken)
     {
@@ -58,24 +139,14 @@ internal sealed class PaymentOrderManagementService(
             request.ChannelKey);
         if (validationMessage is not null)
         {
-            return ValidationFailure<PaymentOrderResponse>(validationMessage);
-        }
-
-        var tenantExists = await activeTenants.IsActiveTenantAsync(request.TenantId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!tenantExists)
-        {
-            return Result<PaymentOrderResponse>.Failure(new Error(
-                PaymentErrorCodes.TenantNotFound,
-                "The specified tenant does not exist or is not active.",
-                ErrorType.Validation));
+            return ValidationFailure<PreparedPaymentOrder>(validationMessage);
         }
 
         var merchantConfig = await ResolveMerchantConfigAsync(request, cancellationToken)
             .ConfigureAwait(false);
         if (merchantConfig is null)
         {
-            return Result<PaymentOrderResponse>.Failure(new Error(
+            return Result<PreparedPaymentOrder>.Failure(new Error(
                 PaymentErrorCodes.MerchantConfigUnavailable,
                 "No enabled payment merchant configuration is available for this tenant.",
                 ErrorType.Validation));
@@ -83,7 +154,7 @@ internal sealed class PaymentOrderManagementService(
 
         if (!merchantConfig.IsEnabled)
         {
-            return Result<PaymentOrderResponse>.Failure(new Error(
+            return Result<PreparedPaymentOrder>.Failure(new Error(
                 PaymentErrorCodes.MerchantConfigUnavailable,
                 "The selected merchant configuration is not enabled.",
                 ErrorType.Validation));
@@ -95,7 +166,7 @@ internal sealed class PaymentOrderManagementService(
                 request.ChannelKey.Trim(),
                 StringComparison.Ordinal))
         {
-            return Result<PaymentOrderResponse>.Failure(new Error(
+            return Result<PreparedPaymentOrder>.Failure(new Error(
                 PaymentErrorCodes.MerchantConfigUnavailable,
                 "The selected merchant configuration does not match the requested channel.",
                 ErrorType.Validation));
@@ -125,58 +196,64 @@ internal sealed class PaymentOrderManagementService(
                     ("ProviderTransactionId", null),
                     ("FailMessage", null),
                     ("CreatedAtUtc", now),
-                    ("UpdatedAtUtc", null),
+                    ("UpdatedAtUtc", now),
                     ("PaidAtUtc", null),
                     ("Version", 1)),
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var providerResult = await InvokeProviderAsync(
-                merchantConfig,
-                outTradeNo,
-                request.AmountMinor,
-                request.Currency.Trim().ToUpperInvariant(),
-                description,
-                request.Subject.Trim(),
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        var tradeStateKey = providerResult.Succeeded
-            ? PaymentTradeStateKeys.AwaitingPayment
-            : PaymentTradeStateKeys.Failed;
-        var updatedAtUtc = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                PaymentOrderSql.UpdateProviderResult,
-                PaymentSqlParameters.Create(
-                    ("OrderId", orderId),
-                    ("TradeStateKey", tradeStateKey),
-                    ("CodeUrl", providerResult.PayUrl),
-                    ("ProviderTransactionId", null),
-                    ("FailMessage", providerResult.FailMessage),
-                    ("UpdatedAtUtc", updatedAtUtc),
-                    ("Version", 1)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (affected == 0)
-        {
-            return Result<PaymentOrderResponse>.Failure(new Error(
-                PaymentErrorCodes.OrderInvalid,
-                "The payment order could not be updated after provider invocation.",
-                ErrorType.Conflict));
-        }
-
-        if (!providerResult.Succeeded)
-        {
-            return Result<PaymentOrderResponse>.Failure(new Error(
-                PaymentErrorCodes.OrderProviderFailed,
-                providerResult.FailMessage ?? "Payment provider request failed.",
-                ErrorType.Validation));
-        }
-
-        return await queries.GetByIdAsync(orderId, cancellationToken)
-            .ConfigureAwait(false);
+        return Result<PreparedPaymentOrder>.Success(new PreparedPaymentOrder(
+            orderId,
+            merchantConfig,
+            outTradeNo,
+            request.AmountMinor,
+            request.Currency.Trim().ToUpperInvariant(),
+            request.Subject.Trim(),
+            description,
+            1));
     }
 
+    /// <summary>用独立短事务回写渠道结果；失败时保留 created/unknown 供对账，不抛给调用方伪装成功。</summary>
+    /// <param name="intent">已提交的订单意图。</param>
+    /// <param name="tradeStateKey">要写入的交易状态。</param>
+    /// <param name="payUrl">渠道支付链接。</param>
+    /// <param name="failMessage">失败或未知摘要。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>成功更新至少一行时返回 true。</returns>
+    private Task<bool> TryPersistProviderOutcomeAsync(
+        PreparedPaymentOrder intent,
+        string tradeStateKey,
+        string? payUrl,
+        string? failMessage,
+        CancellationToken cancellationToken) =>
+        transaction.ExecuteAsync(
+            async token =>
+            {
+                var affected = await commandExecutor.ExecuteAsync(
+                        PaymentOrderSql.UpdateProviderResult,
+                        PaymentSqlParameters.Create(
+                            ("OrderId", intent.OrderId),
+                            ("TradeStateKey", tradeStateKey),
+                            ("CodeUrl", payUrl),
+                            ("ProviderTransactionId", null),
+                            ("FailMessage", failMessage),
+                            ("UpdatedAtUtc", clock.UtcNow),
+                            ("Version", intent.Version)),
+                        token)
+                    .ConfigureAwait(false);
+                return affected > 0;
+            },
+            cancellationToken);
+
+    /// <summary>按商户渠道调用微信或支付宝；该方法必须在意图事务提交后执行。</summary>
+    /// <param name="merchantConfig">商户配置。</param>
+    /// <param name="outTradeNo">商户订单号。</param>
+    /// <param name="amountMinor">订单金额。</param>
+    /// <param name="currency">货币代码。</param>
+    /// <param name="description">商品描述。</param>
+    /// <param name="subject">商品标题。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>渠道调用结果。</returns>
     private async Task<ProviderInvocationResult> InvokeProviderAsync(
         PaymentMerchantConfigRecord merchantConfig,
         string outTradeNo,
@@ -224,6 +301,10 @@ internal sealed class PaymentOrderManagementService(
             $"Unsupported payment channel: {merchantConfig.ChannelKey}.");
     }
 
+    /// <summary>按请求解析启用中的商户配置。</summary>
+    /// <param name="request">创建请求。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>商户配置；不存在或不属于该租户时返回 null。</returns>
     private async Task<PaymentMerchantConfigRecord?> ResolveMerchantConfigAsync(
         CreatePaymentOrderRequest request,
         CancellationToken cancellationToken)
@@ -271,18 +352,57 @@ internal sealed class PaymentOrderManagementService(
     private static string BuildOutTradeNo(Guid orderId, DateTimeOffset createdAtUtc) =>
         orderId.ToString("N");
 
+    /// <summary>规范化可选文本字段。</summary>
+    /// <param name="value">原始文本。</param>
+    /// <returns>空白时返回 null。</returns>
     private static string? NormalizeOptional(string? value)
     {
         var normalized = value?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
+    /// <summary>构造订单校验失败结果。</summary>
+    /// <typeparam name="T">结果值类型。</typeparam>
+    /// <param name="message">校验消息。</param>
+    /// <returns>稳定校验错误。</returns>
     private static Result<T> ValidationFailure<T>(string message) =>
         Result<T>.Failure(new Error(
             PaymentErrorCodes.OrderInvalid,
             message,
             ErrorType.Validation));
 
+    /// <summary>构造渠道结果未知错误，提示必须通过对账收敛。</summary>
+    /// <param name="message">未知原因摘要。</param>
+    /// <returns>未知状态错误。</returns>
+    private static Result<PaymentOrderResponse> UnknownOrder(string message) =>
+        Result<PaymentOrderResponse>.Failure(new Error(
+            PaymentErrorCodes.OrderProviderUnknown,
+            message,
+            ErrorType.Conflict));
+
+    /// <summary>已提交的支付订单意图，包含后续渠道调用所需的稳定幂等键。</summary>
+    /// <param name="OrderId">订单标识。</param>
+    /// <param name="MerchantConfig">下单使用的商户配置。</param>
+    /// <param name="OutTradeNo">商户订单号。</param>
+    /// <param name="AmountMinor">订单金额。</param>
+    /// <param name="Currency">货币代码。</param>
+    /// <param name="Subject">商品标题。</param>
+    /// <param name="Description">商品描述。</param>
+    /// <param name="Version">意图提交后的乐观版本。</param>
+    private sealed record PreparedPaymentOrder(
+        Guid OrderId,
+        PaymentMerchantConfigRecord MerchantConfig,
+        string OutTradeNo,
+        long AmountMinor,
+        string Currency,
+        string Subject,
+        string Description,
+        int Version);
+
+    /// <summary>渠道下单结果。</summary>
+    /// <param name="Succeeded">渠道是否明确成功。</param>
+    /// <param name="PayUrl">支付链接。</param>
+    /// <param name="FailMessage">明确失败摘要。</param>
     private sealed record ProviderInvocationResult(
         bool Succeeded,
         string? PayUrl,

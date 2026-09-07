@@ -30,6 +30,12 @@ public static class K3CloudErrorCodes
     /// <summary>单据同步状态不允许重试。</summary>
     public const string DocumentSyncRetryNotAllowed = "k3cloud.document_sync.retry_not_allowed";
 
+    /// <summary>单据同步正在调用远程接口，并发重试不得再次产生副作用。</summary>
+    public const string DocumentSyncInProgress = "k3cloud.document_sync.in_progress";
+
     /// <summary>K3Cloud 远程调用失败。</summary>
     public const string RemoteCallFailed = "k3cloud.remote.call_failed";
+
+    /// <summary>K3Cloud 远程调用结果未知，本地意图已提交且不得当作失败回滚。</summary>
+    public const string RemoteCallUnknown = "k3cloud.remote.call_unknown";
 }

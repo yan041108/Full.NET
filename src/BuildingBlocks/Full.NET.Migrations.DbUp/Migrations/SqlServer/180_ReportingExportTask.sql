@@ -31,6 +31,177 @@ BEGIN
             CHECK (FormatKey IN (N'excel')),
         CONSTRAINT CK_fn_reporting_export_task_VersionNumber CHECK (VersionNumber > 0)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'报表导出任务表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'CompletedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'完成时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'CompletedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'DefinitionId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'定义标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'DefinitionId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'DefinitionKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'定义稳定键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'DefinitionKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'DefinitionName', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'定义名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'DefinitionName';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'ErrorCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'ErrorCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'ErrorMessage', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'错误消息', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'ErrorMessage';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'FormatKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'格式键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'FormatKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'OutputFileId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'输出文件标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'OutputFileId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'OutputFileName', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'输出文件名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'OutputFileName';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'ParametersJson', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Parameters(JSON)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'ParametersJson';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'RequestedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'请求人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'RequestedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'RowCount', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'行数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'RowCount';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'StatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'StatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_export_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_export_task'), N'VersionNumber', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_export_task', @level2type=N'COLUMN', @level2name=N'VersionNumber';
 END;
 
 IF NOT EXISTS (

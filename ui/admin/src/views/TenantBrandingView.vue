@@ -10,14 +10,13 @@ import {
 } from 'element-plus';
 import type { TenantBrandingResponse } from '@fullnet/client-contracts';
 import {
-  deleteCurrentTenantBrandingLogo,
-  downloadCurrentTenantBrandingLogoContent,
-  getCurrentTenantBranding,
-  updateCurrentTenantBranding,
-  uploadCurrentTenantBrandingLogo
-} from '@fullnet/client-contracts';
+  deleteCurrentScopeTenantBrandingLogo,
+  fetchCurrentScopeTenantBrandingLogoBlob,
+  getCurrentScopeTenantBranding,
+  updateCurrentScopeTenantBranding,
+  uploadCurrentScopeTenantBrandingLogo
+} from '../api/tenant-branding';
 import { useAdminI18n } from '../i18n/adminI18n';
-import { http } from '../api/http';
 
 defineOptions({ name: 'TenantBrandingView' });
 
@@ -50,7 +49,7 @@ async function refreshLogoPreview(hasLogo: boolean): Promise<void> {
   }
 
   try {
-    const blob = await downloadCurrentTenantBrandingLogoContent(http);
+    const blob = await fetchCurrentScopeTenantBrandingLogoBlob();
     logoPreviewUrl.value = URL.createObjectURL(blob);
   } catch {
     logoPreviewUrl.value = null;
@@ -69,7 +68,7 @@ function applyBranding(branding: TenantBrandingResponse): void {
 async function loadBranding(): Promise<void> {
   loading.value = true;
   try {
-    const branding = await getCurrentTenantBranding(http);
+    const branding = await getCurrentScopeTenantBranding();
     applyBranding(branding);
     await refreshLogoPreview(branding.logoFileId !== null);
   } finally {
@@ -80,7 +79,7 @@ async function loadBranding(): Promise<void> {
 async function saveBranding(): Promise<void> {
   saving.value = true;
   try {
-    const branding = await updateCurrentTenantBranding(http, {
+    const branding = await updateCurrentScopeTenantBranding({
       systemTitle: form.systemTitle || null,
       contactPhone: form.contactPhone || null,
       contactEmail: form.contactEmail || null,
@@ -105,7 +104,7 @@ async function handleLogoSelected(event: Event): Promise<void> {
 
   uploadingLogo.value = true;
   try {
-    const branding = await uploadCurrentTenantBrandingLogo(http, file);
+    const branding = await uploadCurrentScopeTenantBrandingLogo(file);
     applyBranding(branding);
     await refreshLogoPreview(true);
     ElMessage.success(t('tenantBranding.logoUploadSuccess'));
@@ -117,7 +116,7 @@ async function handleLogoSelected(event: Event): Promise<void> {
 async function removeLogo(): Promise<void> {
   removingLogo.value = true;
   try {
-    const branding = await deleteCurrentTenantBrandingLogo(http);
+    const branding = await deleteCurrentScopeTenantBrandingLogo();
     applyBranding(branding);
     await refreshLogoPreview(false);
     ElMessage.success(t('tenantBranding.logoRemoveSuccess'));

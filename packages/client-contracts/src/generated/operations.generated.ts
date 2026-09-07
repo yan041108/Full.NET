@@ -12,6 +12,15 @@ import type {
   AdministrativeRegionDatasetManifestResponse,
   AdministrativeRegionResponse,
   AdministrativeRegionTreeNodeResponse,
+  AiAgentToolCallListItem,
+  AiAgentToolCatalogItem,
+  AiChatMessageResponse,
+  AiChatSessionListItem,
+  AiChatSessionResponse,
+  AiModelConfigListItem,
+  AiModelConfigResponse,
+  AiTenantQuotaListItem,
+  AiTenantQuotaResponse,
   AssignHostTenantPackageRequest,
   AssignOrganizationPositionLevelRequest,
   AssignOrganizationPositionUnitRequest,
@@ -23,10 +32,15 @@ import type {
   BatchChangeHostJobScheduleStateResponse,
   BatchChangeHostJobScheduleStateResultItem,
   BatchDeleteConfigEntriesRequest,
+  BatchDeleteHostFileItem,
+  BatchDeleteHostFilesRequest,
+  BatchDeleteHostFilesResponse,
   BatchHostUserIdsRequest,
   BatchHostUserStatusItem,
   BatchHostUserStatusResponse,
   BatchUpdateConfigValuesRequest,
+  BatchUploadHostFileItem,
+  BatchUploadHostFilesResponse,
   BeginTotpEnrollmentResponse,
   CacheInvalidationOperationSummary,
   CacheInvalidationParameterSummary,
@@ -36,6 +50,7 @@ import type {
   CancelDataApprovalRequestBody,
   CancelWorkflowInstanceRequest,
   ChangeHostJobScheduleStateRequest,
+  ChangePasswordRequest,
   ChangePersonalScheduleRequest,
   ChangeSerialNumberRuleStatusRequest,
   CodeGenerationCatalogColumnListResponse,
@@ -68,13 +83,18 @@ import type {
   CodeGenerationTemplateResponse,
   ConfigEntryResponse,
   ConfigValueUpdate,
+  ConfirmOcrIdCardTaskRequest,
   ConfirmTotpEnrollmentRequest,
+  CopyHostRoleRequest,
   CreateAdministrativeRegionRequest,
+  CreateAiChatSessionRequest,
+  CreateAiModelConfigRequest,
   CreateCodeGenerationTemplateRequest,
   CreateConfigEntryRequest,
   CreateDataApprovalRequestBody,
   CreateDictItemRequest,
   CreateDictTypeRequest,
+  CreateGoViewProjectRequest,
   CreateHostAnnouncementRequest,
   CreateHostApiKeyRequest,
   CreateHostApiKeyResponse,
@@ -91,16 +111,27 @@ import type {
   CreateHostRoleRequest,
   CreateHostTenantPackageRequest,
   CreateHostUserRequest,
+  CreateK3CloudConnectionConfigRequest,
+  CreateK3CloudDocumentSyncRequest,
   CreateMyRecipientEndpointRequest,
   CreateNotificationBindingRequest,
   CreateNotificationProviderProfileRequest,
   CreateNotificationTemplateRequest,
+  CreateOcrIdCardTaskRequest,
   CreateOrganizationPositionLevelRequest,
   CreateOrganizationPositionRequest,
   CreateOrganizationUnitRequest,
   CreateOrganizationUserPositionRequest,
   CreateOrganizationUserUnitRequest,
+  CreatePaymentMerchantConfigRequest,
+  CreatePaymentOrderRequest,
+  CreatePaymentRefundRequest,
   CreatePersonalScheduleRequest,
+  CreatePrintingTemplateRequest,
+  CreateReportingDataSourceRequest,
+  CreateReportingDefinitionRequest,
+  CreateReportingExportTaskRequest,
+  CreateReportingGroupRequest,
   CreateSerialNumberRuleRequest,
   CreateWorkflowDefinitionRequest,
   CreateWorkflowFormRequest,
@@ -133,13 +164,20 @@ import type {
   EnumCatalogMember,
   EnumCatalogSummary,
   ExceptionLogResponse,
+  ExecuteReportingDefinitionRequest,
   FieldProjectionDefaultVisibility,
   FieldProjectionFieldDefinition,
   FieldProjectionResourceDefinition,
   FieldProjectionSensitivity,
+  GoViewProjectPreviewResponse,
+  GoViewProjectResponse,
+  GoViewProjectVersionResponse,
   GrantSuperAdministratorRequest,
+  HostAnnouncementReadReceiptResponse,
+  HostAnnouncementReadStatsResponse,
   HostAnnouncementResponse,
   HostAnnouncementTargetOrganization,
+  HostAnnouncementUnreadCountResponse,
   HostApiKeyResponse,
   HostDashboardActivityResponse,
   HostDashboardSummaryResponse,
@@ -180,7 +218,13 @@ import type {
   HostReleaseNoteResponse,
   HostRoleDataScopeResponse,
   HostRoleFieldGrantsResponse,
+  HostRoleMemberResponse,
+  HostRoleMembersAssignmentResponse,
+  HostRoleMembersPageResponse,
   HostRoleResponse,
+  HostTenantAdministratorsPageResponse,
+  HostTenantMemberResponse,
+  HostTenantMembersPageResponse,
   HostUserManagementOrganizationReferenceResponse,
   HostUserProfileResponse,
   HostUserProfileWriteRequest,
@@ -201,9 +245,15 @@ import type {
   ImportHostUserRowResult,
   ImportHostUsersRequest,
   ImportHostUsersResponse,
+  ImportOrganizationPositionRow,
+  ImportOrganizationPositionRowResult,
+  ImportOrganizationPositionsRequest,
+  ImportOrganizationPositionsResponse,
   InboxMessageResponse,
   InboxUnreadCountResponse,
   JsonElement,
+  K3CloudConnectionConfigResponse,
+  K3CloudDocumentSyncResponse,
   LocalePreferenceResponse,
   LogFileSummary,
   LogFileTail,
@@ -226,6 +276,8 @@ import type {
   NotificationTemplateParameterDefinition,
   NotificationTemplateParameterSchema,
   NotificationTemplateResponse,
+  OcrIdCardTaskResponse,
+  OcrProviderConfigResponse,
   OperationLogResponse,
   OrganizationAssignableUserResponse,
   OrganizationPositionLevelResponse,
@@ -236,6 +288,10 @@ import type {
   OutboundCallLogResponse,
   PagedResultOfAccessLogResponse,
   PagedResultOfAdministrativeRegionResponse,
+  PagedResultOfAiAgentToolCallListItem,
+  PagedResultOfAiChatSessionListItem,
+  PagedResultOfAiModelConfigListItem,
+  PagedResultOfAiTenantQuotaListItem,
   PagedResultOfCodeGenerationRunResponse,
   PagedResultOfCodeGenerationTemplateResponse,
   PagedResultOfConfigEntryResponse,
@@ -243,6 +299,7 @@ import type {
   PagedResultOfDictItemResponse,
   PagedResultOfDictTypeResponse,
   PagedResultOfExceptionLogResponse,
+  PagedResultOfHostAnnouncementReadReceiptResponse,
   PagedResultOfHostAnnouncementResponse,
   PagedResultOfHostApiKeyResponse,
   PagedResultOfHostDocumentAccessLogResponse,
@@ -261,11 +318,13 @@ import type {
   PagedResultOfHostUserResponse,
   PagedResultOfImportExportTaskResponse,
   PagedResultOfInboxMessageResponse,
+  PagedResultOfK3CloudDocumentSyncResponse,
   PagedResultOfMyReleaseNoteResponse,
   PagedResultOfNotificationBindingResponse,
   PagedResultOfNotificationDeliveryResponse,
   PagedResultOfNotificationProviderProfileResponse,
   PagedResultOfNotificationTemplateResponse,
+  PagedResultOfOcrIdCardTaskResponse,
   PagedResultOfOperationLogResponse,
   PagedResultOfOrganizationAssignableUserResponse,
   PagedResultOfOrganizationPositionLevelResponse,
@@ -274,7 +333,13 @@ import type {
   PagedResultOfOrganizationUserPositionResponse,
   PagedResultOfOrganizationUserUnitResponse,
   PagedResultOfOutboundCallLogResponse,
+  PagedResultOfPaymentMerchantConfigListItem,
+  PagedResultOfPaymentOrderListItem,
+  PagedResultOfPaymentRefundListItem,
   PagedResultOfPersonalScheduleResponse,
+  PagedResultOfReceivedHostAnnouncementListItemResponse,
+  PagedResultOfReportingDataSourceListItem,
+  PagedResultOfReportingExportTaskResponse,
   PagedResultOfSerialNumberRuleResponse,
   PagedResultOfTenantPackageSummary,
   PagedResultOfTenantSummary,
@@ -282,25 +347,58 @@ import type {
   PagedResultOfWorkflowRecoveryTaskResponse,
   PagedResultOfWorkflowTodoListItemResponse,
   PauseWorkflowInstanceRequest,
+  PaymentMerchantConfigListItem,
+  PaymentMerchantConfigResponse,
+  PaymentOrderListItem,
+  PaymentOrderResponse,
+  PaymentRefundListItem,
+  PaymentRefundResponse,
   PersonalScheduleResponse,
+  PreviewGoViewProjectRequest,
+  PreviewPrintingTemplateRequest,
   PreviewSerialNumberRequest,
   PreviewWorkflowAssigneeRequest,
+  PrintingFormFieldDefinition,
+  PrintingFormSchemaDefinition,
+  PrintingTemplatePreviewResponse,
+  PrintingTemplateResponse,
+  PrintingTemplateVersionResponse,
   ProblemDetails,
   ProvisionTenantRequest,
+  PublishGoViewProjectRequest,
   PublishHostAnnouncementRequest,
   PublishHostReleaseNoteRequest,
   PublishNotificationBindingRequest,
   PublishNotificationProviderProfileRequest,
   PublishNotificationTemplateRequest,
+  PublishPrintingTemplateRequest,
+  PublishReportingDefinitionRequest,
   PublishWorkflowDefinitionRequest,
   PublishWorkflowFormRequest,
   ReassignWorkflowInstanceRequest,
+  ReceivedHostAnnouncementDetailResponse,
+  ReceivedHostAnnouncementListItemResponse,
   RecipientEndpointResponse,
   ReconcileWorkflowRecoveryTaskRequest,
   RecoverWorkflowInstanceRequest,
   ReplaceHostRoleFieldGrantsRequest,
+  ReplaceHostRoleMembersRequest,
   ReplaceHostRolePermissionsRequest,
   ReplaceHostUserRolesRequest,
+  ReportingDataSourceListItem,
+  ReportingDataSourceResponse,
+  ReportingDefinitionResponse,
+  ReportingDefinitionVersionResponse,
+  ReportingExecutionColumnDefinition,
+  ReportingExecutionPageResponse,
+  ReportingExecutionParameterValue,
+  ReportingExecutionRow,
+  ReportingExportTaskDetailResponse,
+  ReportingExportTaskResponse,
+  ReportingGroupResponse,
+  ReportingParameterSchemaEntry,
+  ReportingQueryPortDefinition,
+  ReportingQueryPortParameterDefinition,
   ResetHostUserPasswordRequest,
   RestoreDiagnosticPolicyRequest,
   RestoreHostDocumentItemRequest,
@@ -310,9 +408,12 @@ import type {
   RetryNotificationDeliveryRequest,
   RetryWorkflowRecoveryTaskRequest,
   ReturnWorkflowTodoRequest,
+  RevealHostUserProfileFieldsRequest,
+  RevealHostUserProfileFieldsResponse,
   RevokeAllHostUserSessionsResponse,
   RevokeSuperAdministratorRequest,
   RollbackHostDocumentVersionRequest,
+  SelfServiceProfileResponse,
   SendHostInboxMessageRequest,
   SendRecipientEndpointVerificationResponse,
   SerialNumberPreviewResponse,
@@ -337,22 +438,33 @@ import type {
   StaticImportSchemaDefinition,
   StaticImportWorksheetDefinition,
   Stream,
+  StreamAiChatMessageRequest,
   SubmitSerialRuleDisableApprovalRequest,
   SubmitSerialRuleUpdateApprovalRequest,
   SuperAdministratorAuditResponse,
   SuperAdministratorChangeResponse,
   SuperAdministratorResponse,
+  TenantBrandingResponse,
   TenantPackageSummary,
+  TenantRuntimeBrandingResponse,
   TenantSummary,
+  TestAiModelConfigResult,
+  TestK3CloudConnectionConfigResult,
+  TestOcrProviderConfigResult,
+  TestReportingDataSourceResult,
   TokenResponse,
   TotpEnrollmentStatusResponse,
   UpdateAdministrativeRegionRequest,
+  UpdateAiChatSessionRequest,
+  UpdateAiModelConfigRequest,
+  UpdateAiTenantQuotaRequest,
   UpdateCodeGenerationTemplateRequest,
   UpdateConfigEntryRequest,
   UpdateDataApprovalScenarioBindingBody,
   UpdateDiagnosticPolicyRequest,
   UpdateDictItemRequest,
   UpdateDictTypeRequest,
+  UpdateGoViewProjectRequest,
   UpdateHostAnnouncementRequest,
   UpdateHostDocumentCategoryRequest,
   UpdateHostDocumentItemRequest,
@@ -369,20 +481,30 @@ import type {
   UpdateHostTenantPackageRequest,
   UpdateHostTenantRequest,
   UpdateHostUserRequest,
+  UpdateK3CloudConnectionConfigRequest,
   UpdateLocaleRequest,
   UpdateNotificationBindingRequest,
   UpdateNotificationProviderProfileRequest,
   UpdateNotificationTemplateRequest,
+  UpdateOcrProviderConfigRequest,
   UpdateOrganizationPositionLevelRequest,
   UpdateOrganizationPositionRequest,
   UpdateOrganizationUnitRequest,
   UpdateOrganizationUserPositionRequest,
   UpdateOrganizationUserUnitRequest,
+  UpdatePaymentMerchantConfigRequest,
   UpdatePersonalScheduleRequest,
+  UpdatePrintingTemplateRequest,
+  UpdateReportingDataSourceRequest,
+  UpdateReportingDefinitionRequest,
+  UpdateReportingGroupRequest,
+  UpdateSelfServiceProfileRequest,
   UpdateSerialNumberRuleRequest,
+  UpdateTenantBrandingRequest,
   UpdateWorkflowDefinitionDraftRequest,
   UpdateWorkflowFormDraftRequest,
   VerifyRecipientEndpointCodeRequest,
+  WeChatPayNotifyAckResponse,
   WorkflowAssigneePreviewResponse,
   WorkflowCcReadResponse,
   WorkflowCcResponse,
@@ -407,7 +529,6 @@ import type {
   WorkflowRecoveryTaskResponse,
   WorkflowTodoDetailResponse,
   WorkflowTodoListItemResponse,
-  WorkflowTodoResponse,
   WorkflowTodoReturnTargetResponse,
   WorkflowTodoRuntimeResponse
 } from './models.generated.js';
@@ -415,8 +536,17 @@ import {
   readAccessLogCursorPageResponse,
   readAdministrativeRegionDatasetManifestResponse,
   readAdministrativeRegionResponse,
+  readAiAgentToolCatalogItem,
+  readAiCancelChatGenerationResponse,
+  readAiChatSessionResponse,
+  readAiDeleteChatSessionResponse,
+  readAiListAgentToolsResponse,
+  readAiModelConfigResponse,
+  readAiTenantQuotaResponse,
   readBatchChangeHostJobScheduleStateResponse,
+  readBatchDeleteHostFilesResponse,
   readBatchHostUserStatusResponse,
+  readBatchUploadHostFilesResponse,
   readBeginTotpEnrollmentResponse,
   readCacheInvalidationResult,
   readCachePolicySummary,
@@ -455,7 +585,14 @@ import {
   readEnumCatalogDictGenerationPreview,
   readEnumCatalogDictGenerationResult,
   readFilesGetHostFolderTreeResponse,
+  readGoviewListProjectsResponse,
+  readGoviewListProjectVersionsResponse,
+  readGoViewProjectPreviewResponse,
+  readGoViewProjectResponse,
+  readGoViewProjectVersionResponse,
+  readHostAnnouncementReadStatsResponse,
   readHostAnnouncementResponse,
+  readHostAnnouncementUnreadCountResponse,
   readHostApiKeyResponse,
   readHostDashboardSummaryResponse,
   readHostDocumentCategoryResponse,
@@ -478,7 +615,11 @@ import {
   readHostReleaseNoteResponse,
   readHostRoleDataScopeResponse,
   readHostRoleFieldGrantsResponse,
+  readHostRoleMembersAssignmentResponse,
+  readHostRoleMembersPageResponse,
   readHostRoleResponse,
+  readHostTenantAdministratorsPageResponse,
+  readHostTenantMembersPageResponse,
   readHostUserManagementOrganizationReferenceResponse,
   readHostUserResponse,
   readHostUserRolesResponse,
@@ -496,10 +637,14 @@ import {
   readImportExportListStaticSchemasResponse,
   readImportExportTaskDetailResponse,
   readImportHostUsersResponse,
+  readImportOrganizationPositionsResponse,
   readInboxMessageResponse,
   readInboxUnreadCountResponse,
   readJobsListHostJobGroupsResponse,
   readJobsListHostJobScheduleDefinitionOptionsResponse,
+  readK3CloudConnectionConfigResponse,
+  readK3CloudDocumentSyncResponse,
+  readK3cloudListConnectionConfigsResponse,
   readLocalePreferenceResponse,
   readLogFileTail,
   readModuleCatalogEntryResponse,
@@ -514,6 +659,8 @@ import {
   readObservabilityListCachePoliciesResponse,
   readObservabilityListLogFilesResponse,
   readObservabilityListServerInstancesResponse,
+  readOcrIdCardTaskResponse,
+  readOcrProviderConfigResponse,
   readOrganizationPositionLevelResponse,
   readOrganizationPositionResponse,
   readOrganizationUnitResponse,
@@ -521,6 +668,10 @@ import {
   readOrganizationUserUnitResponse,
   readPagedResultOfAccessLogResponse,
   readPagedResultOfAdministrativeRegionResponse,
+  readPagedResultOfAiAgentToolCallListItem,
+  readPagedResultOfAiChatSessionListItem,
+  readPagedResultOfAiModelConfigListItem,
+  readPagedResultOfAiTenantQuotaListItem,
   readPagedResultOfCodeGenerationRunResponse,
   readPagedResultOfCodeGenerationTemplateResponse,
   readPagedResultOfConfigEntryResponse,
@@ -528,6 +679,7 @@ import {
   readPagedResultOfDictItemResponse,
   readPagedResultOfDictTypeResponse,
   readPagedResultOfExceptionLogResponse,
+  readPagedResultOfHostAnnouncementReadReceiptResponse,
   readPagedResultOfHostAnnouncementResponse,
   readPagedResultOfHostApiKeyResponse,
   readPagedResultOfHostDocumentAccessLogResponse,
@@ -546,11 +698,13 @@ import {
   readPagedResultOfHostUserResponse,
   readPagedResultOfImportExportTaskResponse,
   readPagedResultOfInboxMessageResponse,
+  readPagedResultOfK3CloudDocumentSyncResponse,
   readPagedResultOfMyReleaseNoteResponse,
   readPagedResultOfNotificationBindingResponse,
   readPagedResultOfNotificationDeliveryResponse,
   readPagedResultOfNotificationProviderProfileResponse,
   readPagedResultOfNotificationTemplateResponse,
+  readPagedResultOfOcrIdCardTaskResponse,
   readPagedResultOfOperationLogResponse,
   readPagedResultOfOrganizationAssignableUserResponse,
   readPagedResultOfOrganizationPositionLevelResponse,
@@ -559,18 +713,51 @@ import {
   readPagedResultOfOrganizationUserPositionResponse,
   readPagedResultOfOrganizationUserUnitResponse,
   readPagedResultOfOutboundCallLogResponse,
+  readPagedResultOfPaymentMerchantConfigListItem,
+  readPagedResultOfPaymentOrderListItem,
+  readPagedResultOfPaymentRefundListItem,
   readPagedResultOfPersonalScheduleResponse,
+  readPagedResultOfReceivedHostAnnouncementListItemResponse,
+  readPagedResultOfReportingDataSourceListItem,
+  readPagedResultOfReportingExportTaskResponse,
   readPagedResultOfSerialNumberRuleResponse,
   readPagedResultOfTenantPackageSummary,
   readPagedResultOfTenantSummary,
   readPagedResultOfWorkflowInstanceListItemResponse,
   readPagedResultOfWorkflowRecoveryTaskResponse,
   readPagedResultOfWorkflowTodoListItemResponse,
+  readPaymentMerchantConfigResponse,
+  readPaymentOrderResponse,
+  readPaymentRefundResponse,
   readPersonalScheduleResponse,
+  readPrintingFormSchemaDefinition,
+  readPrintingListFormSchemasResponse,
+  readPrintingListTemplatesResponse,
+  readPrintingListTemplateVersionsResponse,
+  readPrintingTemplatePreviewResponse,
+  readPrintingTemplateResponse,
+  readPrintingTemplateVersionResponse,
+  readReceivedHostAnnouncementDetailResponse,
   readRecipientEndpointResponse,
   readRegionsGetAdministrativeRegionTreeResponse,
   readRegionsListAdministrativeRegionChildrenResponse,
+  readReportingDataSourceResponse,
+  readReportingDefinitionResponse,
+  readReportingDefinitionVersionResponse,
+  readReportingDeleteDataSourceResponse,
+  readReportingDeleteDefinitionResponse,
+  readReportingDeleteGroupResponse,
+  readReportingExecutionPageResponse,
+  readReportingExportTaskDetailResponse,
+  readReportingGroupResponse,
+  readReportingListDefinitionsResponse,
+  readReportingListDefinitionVersionsResponse,
+  readReportingListGroupsResponse,
+  readReportingListQueryPortsResponse,
+  readReportingQueryPortDefinition,
+  readRevealHostUserProfileFieldsResponse,
   readRevokeAllHostUserSessionsResponse,
+  readSelfServiceProfileResponse,
   readSendRecipientEndpointVerificationResponse,
   readSerialNumberPreviewResponse,
   readSerialNumberRuleResponse,
@@ -589,10 +776,17 @@ import {
   readSettingsListTenantDictItemsByTypeCodeResponse,
   readStaticImportSchemaDefinition,
   readSuperAdministratorChangeResponse,
+  readTenantBrandingResponse,
   readTenantPackageSummary,
+  readTenantRuntimeBrandingResponse,
   readTenantSummary,
+  readTestAiModelConfigResult,
+  readTestK3CloudConnectionConfigResult,
+  readTestOcrProviderConfigResult,
+  readTestReportingDataSourceResult,
   readTokenResponse,
   readTotpEnrollmentStatusResponse,
+  readWeChatPayNotifyAckResponse,
   readWorkflowAssigneePreviewResponse,
   readWorkflowCcReadResponse,
   readWorkflowDefinitionResponse,
@@ -621,6 +815,413 @@ export type GeneratedJsonOperation<T> = (
   signal?: AbortSignal,
   options?: RequestOptions
 ) => Promise<T>;
+
+export interface AiCancelChatGenerationParameters {
+  readonly sessionId: string;
+}
+
+export async function aiCancelChatGeneration(
+  http: HttpClient,
+  parameters: AiCancelChatGenerationParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}/cancel`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiCancelChatGenerationResponse(value);
+}
+
+export interface AiCreateChatSessionParameters {
+  readonly body: CreateAiChatSessionRequest;
+}
+
+export async function aiCreateChatSession(
+  http: HttpClient,
+  parameters: AiCreateChatSessionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiChatSessionResponse> {
+  const path = `/api/v1/ai/chat/sessions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiChatSessionResponse(value);
+}
+
+export interface AiCreateModelConfigParameters {
+  readonly body: CreateAiModelConfigRequest;
+}
+
+export async function aiCreateModelConfig(
+  http: HttpClient,
+  parameters: AiCreateModelConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiModelConfigResponse> {
+  const path = `/api/v1/ai/model-configs`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiModelConfigResponse(value);
+}
+
+export interface AiDeleteChatSessionParameters {
+  readonly sessionId: string;
+}
+
+export async function aiDeleteChatSession(
+  http: HttpClient,
+  parameters: AiDeleteChatSessionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiDeleteChatSessionResponse(value);
+}
+
+export interface AiDisableModelConfigParameters {
+  readonly modelConfigId: string;
+}
+
+export async function aiDisableModelConfig(
+  http: HttpClient,
+  parameters: AiDisableModelConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiModelConfigResponse> {
+  const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiModelConfigResponse(value);
+}
+
+export interface AiGetAgentToolParameters {
+  readonly toolName: string;
+}
+
+export async function aiGetAgentTool(
+  http: HttpClient,
+  parameters: AiGetAgentToolParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiAgentToolCatalogItem> {
+  const path = `/api/v1/ai/agent-tools/${encodeURIComponent(String(parameters.toolName))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiAgentToolCatalogItem(value);
+}
+
+export interface AiGetChatSessionParameters {
+  readonly sessionId: string;
+}
+
+export async function aiGetChatSession(
+  http: HttpClient,
+  parameters: AiGetChatSessionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiChatSessionResponse> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiChatSessionResponse(value);
+}
+
+export interface AiGetModelConfigParameters {
+  readonly modelConfigId: string;
+}
+
+export async function aiGetModelConfig(
+  http: HttpClient,
+  parameters: AiGetModelConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiModelConfigResponse> {
+  const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiModelConfigResponse(value);
+}
+
+export interface AiGetTenantQuotaParameters {
+  readonly tenantId: string;
+}
+
+export async function aiGetTenantQuota(
+  http: HttpClient,
+  parameters: AiGetTenantQuotaParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiTenantQuotaResponse> {
+  const path = `/api/v1/ai/tenant-quotas/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiTenantQuotaResponse(value);
+}
+
+export interface AiListAgentToolCallsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+  readonly toolName?: string;
+  readonly statusKey?: string;
+}
+
+export async function aiListAgentToolCalls(
+  http: HttpClient,
+  parameters: AiListAgentToolCallsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiAgentToolCallListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  if (parameters.toolName !== undefined) {
+    query.set('toolName', String(parameters.toolName));
+  }
+  if (parameters.statusKey !== undefined) {
+    query.set('statusKey', String(parameters.statusKey));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/agent-tool-calls` : `/api/v1/ai/agent-tool-calls?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiAgentToolCallListItem(value);
+}
+
+export interface AiListAgentToolsParameters {
+
+}
+
+export async function aiListAgentTools(
+  http: HttpClient,
+  parameters: AiListAgentToolsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<AiAgentToolCatalogItem>> {
+  const path = `/api/v1/ai/agent-tools`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiListAgentToolsResponse(value);
+}
+
+export interface AiListChatSessionsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function aiListChatSessions(
+  http: HttpClient,
+  parameters: AiListChatSessionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiChatSessionListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/chat/sessions` : `/api/v1/ai/chat/sessions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiChatSessionListItem(value);
+}
+
+export interface AiListModelConfigsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+  readonly nameContains?: string;
+  readonly isEnabled?: boolean;
+}
+
+export async function aiListModelConfigs(
+  http: HttpClient,
+  parameters: AiListModelConfigsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiModelConfigListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  if (parameters.isEnabled !== undefined) {
+    query.set('isEnabled', String(parameters.isEnabled));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/model-configs` : `/api/v1/ai/model-configs?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiModelConfigListItem(value);
+}
+
+export interface AiListTenantQuotasParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+}
+
+export async function aiListTenantQuotas(
+  http: HttpClient,
+  parameters: AiListTenantQuotasParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfAiTenantQuotaListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  const path = query.size === 0 ? `/api/v1/ai/tenant-quotas` : `/api/v1/ai/tenant-quotas?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfAiTenantQuotaListItem(value);
+}
+
+export interface AiTestModelConfigParameters {
+  readonly modelConfigId: string;
+}
+
+export async function aiTestModelConfig(
+  http: HttpClient,
+  parameters: AiTestModelConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TestAiModelConfigResult> {
+  const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}/test`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTestAiModelConfigResult(value);
+}
+
+export interface AiUpdateChatSessionParameters {
+  readonly sessionId: string;
+  readonly body: UpdateAiChatSessionRequest;
+}
+
+export async function aiUpdateChatSession(
+  http: HttpClient,
+  parameters: AiUpdateChatSessionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiChatSessionResponse> {
+  const path = `/api/v1/ai/chat/sessions/${encodeURIComponent(String(parameters.sessionId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiChatSessionResponse(value);
+}
+
+export interface AiUpdateModelConfigParameters {
+  readonly modelConfigId: string;
+  readonly body: UpdateAiModelConfigRequest;
+}
+
+export async function aiUpdateModelConfig(
+  http: HttpClient,
+  parameters: AiUpdateModelConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiModelConfigResponse> {
+  const path = `/api/v1/ai/model-configs/${encodeURIComponent(String(parameters.modelConfigId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiModelConfigResponse(value);
+}
+
+export interface AiUpsertTenantQuotaParameters {
+  readonly tenantId: string;
+  readonly body: UpdateAiTenantQuotaRequest;
+}
+
+export async function aiUpsertTenantQuota(
+  http: HttpClient,
+  parameters: AiUpsertTenantQuotaParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<AiTenantQuotaResponse> {
+  const path = `/api/v1/ai/tenant-quotas/${encodeURIComponent(String(parameters.tenantId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readAiTenantQuotaResponse(value);
+}
 
 export interface AuditingListHostAccessLogsParameters {
   readonly page?: number;
@@ -2414,6 +3015,54 @@ export async function documentPublicAccessDocumentShare(
   return readHostDocumentShareAccessResponse(value);
 }
 
+export interface FilesBatchDeleteHostFilesParameters {
+  readonly body: BatchDeleteHostFilesRequest;
+}
+
+export async function filesBatchDeleteHostFiles(
+  http: HttpClient,
+  parameters: FilesBatchDeleteHostFilesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<BatchDeleteHostFilesResponse> {
+  const path = `/api/v1/files/host-files/batch-delete`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readBatchDeleteHostFilesResponse(value);
+}
+
+export interface FilesBatchUploadHostFilesParameters {
+  readonly files: Array<IFormFile>;
+  readonly folderId?: string;
+}
+
+export async function filesBatchUploadHostFiles(
+  http: HttpClient,
+  parameters: FilesBatchUploadHostFilesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<BatchUploadHostFilesResponse> {
+  const path = `/api/v1/files/host-files/batch-upload`;
+  const body = new FormData();
+  for (const file of parameters.files) {
+    body.append('files', file);
+  }
+  if (parameters.folderId !== undefined) {
+    body.append('folderId', String(parameters.folderId));
+  }
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readBatchUploadHostFilesResponse(value);
+}
+
 export interface FilesCreateHostFolderParameters {
   readonly body: CreateHostFolderRequest;
 }
@@ -2594,6 +3243,26 @@ export async function filesListHostFiles(
   return readPagedResultOfHostFileResponse(value);
 }
 
+export interface FilesPreviewHostFileContentParameters {
+  readonly fileId: string;
+}
+
+export async function filesPreviewHostFileContent(
+  http: HttpClient,
+  parameters: FilesPreviewHostFileContentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/files/host-files/${encodeURIComponent(String(parameters.fileId))}/preview`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface FilesUpdateHostFileMetadataParameters {
   readonly fileId: string;
   readonly body: UpdateHostFileMetadataRequest;
@@ -2666,6 +3335,174 @@ export async function filesUploadHostFile(
   return readHostFileResponse(value);
 }
 
+export interface GoviewCreateProjectParameters {
+  readonly body: CreateGoViewProjectRequest;
+}
+
+export async function goviewCreateProject(
+  http: HttpClient,
+  parameters: GoviewCreateProjectParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<GoViewProjectResponse> {
+  const path = `/api/v1/goview/projects`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoViewProjectResponse(value);
+}
+
+export interface GoviewGetProjectParameters {
+  readonly projectId: string;
+}
+
+export async function goviewGetProject(
+  http: HttpClient,
+  parameters: GoviewGetProjectParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<GoViewProjectResponse> {
+  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoViewProjectResponse(value);
+}
+
+export interface GoviewGetProjectVersionParameters {
+  readonly projectId: string;
+  readonly versionNumber: number | string;
+}
+
+export async function goviewGetProjectVersion(
+  http: HttpClient,
+  parameters: GoviewGetProjectVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<GoViewProjectVersionResponse> {
+  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoViewProjectVersionResponse(value);
+}
+
+export interface GoviewListProjectsParameters {
+  readonly nameContains?: null | string;
+}
+
+export async function goviewListProjects(
+  http: HttpClient,
+  parameters: GoviewListProjectsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<GoViewProjectResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  const path = query.size === 0 ? `/api/v1/goview/projects` : `/api/v1/goview/projects?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoviewListProjectsResponse(value);
+}
+
+export interface GoviewListProjectVersionsParameters {
+  readonly projectId: string;
+}
+
+export async function goviewListProjectVersions(
+  http: HttpClient,
+  parameters: GoviewListProjectVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<GoViewProjectVersionResponse>> {
+  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/versions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoviewListProjectVersionsResponse(value);
+}
+
+export interface GoviewPreviewProjectParameters {
+  readonly projectId: string;
+  readonly body: PreviewGoViewProjectRequest;
+}
+
+export async function goviewPreviewProject(
+  http: HttpClient,
+  parameters: GoviewPreviewProjectParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<GoViewProjectPreviewResponse> {
+  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoViewProjectPreviewResponse(value);
+}
+
+export interface GoviewPublishProjectParameters {
+  readonly projectId: string;
+  readonly body: PublishGoViewProjectRequest;
+}
+
+export async function goviewPublishProject(
+  http: HttpClient,
+  parameters: GoviewPublishProjectParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<GoViewProjectVersionResponse> {
+  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoViewProjectVersionResponse(value);
+}
+
+export interface GoviewUpdateProjectParameters {
+  readonly projectId: string;
+  readonly body: UpdateGoViewProjectRequest;
+}
+
+export async function goviewUpdateProject(
+  http: HttpClient,
+  parameters: GoviewUpdateProjectParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<GoViewProjectResponse> {
+  const path = `/api/v1/goview/projects/${encodeURIComponent(String(parameters.projectId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readGoViewProjectResponse(value);
+}
+
 export interface IdentityBatchDisableHostUsersParameters {
   readonly body: BatchHostUserIdsRequest;
 }
@@ -2728,6 +3565,28 @@ export async function identityBeginTotpEnrollment(
   return readBeginTotpEnrollmentResponse(value);
 }
 
+export interface IdentityChangePasswordParameters {
+  readonly body: ChangePasswordRequest;
+}
+
+export async function identityChangePassword(
+  http: HttpClient,
+  parameters: IdentityChangePasswordParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TokenResponse> {
+  const path = `/api/v1/me/password`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTokenResponse(value);
+}
+
 export interface IdentityConfirmTotpEnrollmentParameters {
   readonly body: ConfirmTotpEnrollmentRequest;
 }
@@ -2748,6 +3607,29 @@ export async function identityConfirmTotpEnrollment(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTotpEnrollmentStatusResponse(value);
+}
+
+export interface IdentityCopyHostRoleParameters {
+  readonly sourceRoleId: string;
+  readonly body: CopyHostRoleRequest;
+}
+
+export async function identityCopyHostRole(
+  http: HttpClient,
+  parameters: IdentityCopyHostRoleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.sourceRoleId))}/copy`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostRoleResponse(value);
 }
 
 export interface IdentityCreateHostApiKeyParameters {
@@ -2836,6 +3718,61 @@ export async function identityCreateHostUser(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
+}
+
+export interface IdentityDeleteHostRoleParameters {
+  readonly roleId: string;
+}
+
+export async function identityDeleteHostRole(
+  http: HttpClient,
+  parameters: IdentityDeleteHostRoleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<void> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  if (options === undefined) {
+    await http.request<void>(path, init, signal);
+  } else {
+    await http.request<void>(path, init, signal, options);
+  }
+}
+
+export interface IdentityDeleteSelfServiceAvatarParameters {
+
+}
+
+export async function identityDeleteSelfServiceAvatar(
+  http: HttpClient,
+  parameters: IdentityDeleteSelfServiceAvatarParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfServiceProfileResponse> {
+  const path = `/api/v1/me/profile/avatar`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfServiceProfileResponse(value);
+}
+
+export interface IdentityDeleteSelfServiceSignatureParameters {
+
+}
+
+export async function identityDeleteSelfServiceSignature(
+  http: HttpClient,
+  parameters: IdentityDeleteSelfServiceSignatureParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfServiceProfileResponse> {
+  const path = `/api/v1/me/profile/signature`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfServiceProfileResponse(value);
 }
 
 export interface IdentityDisableHostApiKeyParameters {
@@ -2946,6 +3883,24 @@ export async function identityEnableHostMenu(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostMenuResponse(value);
+}
+
+export interface IdentityEnableHostRoleParameters {
+  readonly roleId: string;
+}
+
+export async function identityEnableHostRole(
+  http: HttpClient,
+  parameters: IdentityEnableHostRoleParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostRoleResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/enable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostRoleResponse(value);
 }
 
 export interface IdentityEnableHostUserParameters {
@@ -3205,6 +4160,64 @@ export async function identityGetModuleSelectionRuntime(
   return readModuleSelectionAnalysisResponse(value);
 }
 
+export interface IdentityGetSelfServiceAvatarContentParameters {
+
+}
+
+export async function identityGetSelfServiceAvatarContent(
+  http: HttpClient,
+  parameters: IdentityGetSelfServiceAvatarContentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/me/profile/avatar/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface IdentityGetSelfServiceProfileParameters {
+
+}
+
+export async function identityGetSelfServiceProfile(
+  http: HttpClient,
+  parameters: IdentityGetSelfServiceProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfServiceProfileResponse> {
+  const path = `/api/v1/me/profile`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfServiceProfileResponse(value);
+}
+
+export interface IdentityGetSelfServiceSignatureContentParameters {
+
+}
+
+export async function identityGetSelfServiceSignatureContent(
+  http: HttpClient,
+  parameters: IdentityGetSelfServiceSignatureContentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/me/profile/signature/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface IdentityGetTotpEnrollmentStatusParameters {
 
 }
@@ -3453,6 +4466,33 @@ export async function identityListHostOnlineSessions(
   return readPagedResultOfHostOnlineSessionResponse(value);
 }
 
+export interface IdentityListHostRoleMembersParameters {
+  readonly roleId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function identityListHostRoleMembers(
+  http: HttpClient,
+  parameters: IdentityListHostRoleMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostRoleMembersPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members` : `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostRoleMembersPageResponse(value);
+}
+
 export interface IdentityListHostRolesParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -3627,6 +4667,29 @@ export async function identityReplaceHostRoleFieldGrants(
   return readHostRoleFieldGrantsResponse(value);
 }
 
+export interface IdentityReplaceHostRoleMembersParameters {
+  readonly roleId: string;
+  readonly body: ReplaceHostRoleMembersRequest;
+}
+
+export async function identityReplaceHostRoleMembers(
+  http: HttpClient,
+  parameters: IdentityReplaceHostRoleMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostRoleMembersAssignmentResponse> {
+  const path = `/api/v1/identity/roles/${encodeURIComponent(String(parameters.roleId))}/members`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostRoleMembersAssignmentResponse(value);
+}
+
 export interface IdentityReplaceHostRolePermissionsParameters {
   readonly roleId: string;
   readonly body: ReplaceHostRolePermissionsRequest;
@@ -3694,6 +4757,29 @@ export async function identityResetHostUserPassword(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostUserResponse(value);
+}
+
+export interface IdentityRevealHostUserProfileFieldsParameters {
+  readonly userId: string;
+  readonly body: RevealHostUserProfileFieldsRequest;
+}
+
+export async function identityRevealHostUserProfileFields(
+  http: HttpClient,
+  parameters: IdentityRevealHostUserProfileFieldsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<RevealHostUserProfileFieldsResponse> {
+  const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/reveal-profile-fields`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readRevealHostUserProfileFieldsResponse(value);
 }
 
 export interface IdentityRevokeAllHostUserOnlineSessionsParameters {
@@ -3789,6 +4875,24 @@ export async function identitySyncHostMenuCatalog(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readHostNavigationCatalogSyncResponse(value);
+}
+
+export interface IdentityUnlockHostUserLoginParameters {
+  readonly userId: string;
+}
+
+export async function identityUnlockHostUserLogin(
+  http: HttpClient,
+  parameters: IdentityUnlockHostUserLoginParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostUserResponse> {
+  const path = `/api/v1/identity/users/${encodeURIComponent(String(parameters.userId))}/unlock-login`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostUserResponse(value);
 }
 
 export interface IdentityUpdateHostMenuParameters {
@@ -3903,6 +5007,68 @@ export async function identityUpdatePreferredLocale(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readLocalePreferenceResponse(value);
+}
+
+export interface IdentityUpdateSelfServiceProfileParameters {
+  readonly body: UpdateSelfServiceProfileRequest;
+}
+
+export async function identityUpdateSelfServiceProfile(
+  http: HttpClient,
+  parameters: IdentityUpdateSelfServiceProfileParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfServiceProfileResponse> {
+  const path = `/api/v1/me/profile`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfServiceProfileResponse(value);
+}
+
+export interface IdentityUploadSelfServiceAvatarParameters {
+  readonly file: IFormFile;
+}
+
+export async function identityUploadSelfServiceAvatar(
+  http: HttpClient,
+  parameters: IdentityUploadSelfServiceAvatarParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfServiceProfileResponse> {
+  const path = `/api/v1/me/profile/avatar`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfServiceProfileResponse(value);
+}
+
+export interface IdentityUploadSelfServiceSignatureParameters {
+  readonly file: IFormFile;
+}
+
+export async function identityUploadSelfServiceSignature(
+  http: HttpClient,
+  parameters: IdentityUploadSelfServiceSignatureParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<SelfServiceProfileResponse> {
+  const path = `/api/v1/me/profile/signature`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readSelfServiceProfileResponse(value);
 }
 
 export interface IdentityValidateModuleSelectionParameters {
@@ -4650,6 +5816,189 @@ export async function jobsUpdateHostJobSchedule(
   return readHostJobScheduleResponse(value);
 }
 
+export interface K3cloudCreateConnectionConfigParameters {
+  readonly body: CreateK3CloudConnectionConfigRequest;
+}
+
+export async function k3cloudCreateConnectionConfig(
+  http: HttpClient,
+  parameters: K3cloudCreateConnectionConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<K3CloudConnectionConfigResponse> {
+  const path = `/api/v1/k3cloud/connection-configs`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3CloudConnectionConfigResponse(value);
+}
+
+export interface K3cloudCreateDocumentSyncParameters {
+  readonly body: CreateK3CloudDocumentSyncRequest;
+}
+
+export async function k3cloudCreateDocumentSync(
+  http: HttpClient,
+  parameters: K3cloudCreateDocumentSyncParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<K3CloudDocumentSyncResponse> {
+  const path = `/api/v1/k3cloud/document-syncs`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3CloudDocumentSyncResponse(value);
+}
+
+export interface K3cloudGetConnectionConfigParameters {
+  readonly connectionConfigId: string;
+}
+
+export async function k3cloudGetConnectionConfig(
+  http: HttpClient,
+  parameters: K3cloudGetConnectionConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<K3CloudConnectionConfigResponse> {
+  const path = `/api/v1/k3cloud/connection-configs/${encodeURIComponent(String(parameters.connectionConfigId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3CloudConnectionConfigResponse(value);
+}
+
+export interface K3cloudGetDocumentSyncParameters {
+  readonly syncId: string;
+}
+
+export async function k3cloudGetDocumentSync(
+  http: HttpClient,
+  parameters: K3cloudGetDocumentSyncParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<K3CloudDocumentSyncResponse> {
+  const path = `/api/v1/k3cloud/document-syncs/${encodeURIComponent(String(parameters.syncId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3CloudDocumentSyncResponse(value);
+}
+
+export interface K3cloudListConnectionConfigsParameters {
+
+}
+
+export async function k3cloudListConnectionConfigs(
+  http: HttpClient,
+  parameters: K3cloudListConnectionConfigsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<K3CloudConnectionConfigResponse>> {
+  const path = `/api/v1/k3cloud/connection-configs`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3cloudListConnectionConfigsResponse(value);
+}
+
+export interface K3cloudListDocumentSyncsParameters {
+  readonly page?: null | number | string;
+  readonly pageSize?: null | number | string;
+}
+
+export async function k3cloudListDocumentSyncs(
+  http: HttpClient,
+  parameters: K3cloudListDocumentSyncsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfK3CloudDocumentSyncResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/k3cloud/document-syncs` : `/api/v1/k3cloud/document-syncs?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfK3CloudDocumentSyncResponse(value);
+}
+
+export interface K3cloudRetryDocumentSyncParameters {
+  readonly syncId: string;
+}
+
+export async function k3cloudRetryDocumentSync(
+  http: HttpClient,
+  parameters: K3cloudRetryDocumentSyncParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<K3CloudDocumentSyncResponse> {
+  const path = `/api/v1/k3cloud/document-syncs/${encodeURIComponent(String(parameters.syncId))}/retry`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3CloudDocumentSyncResponse(value);
+}
+
+export interface K3cloudTestConnectionConfigParameters {
+  readonly connectionConfigId: string;
+}
+
+export async function k3cloudTestConnectionConfig(
+  http: HttpClient,
+  parameters: K3cloudTestConnectionConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TestK3CloudConnectionConfigResult> {
+  const path = `/api/v1/k3cloud/connection-configs/${encodeURIComponent(String(parameters.connectionConfigId))}/test`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTestK3CloudConnectionConfigResult(value);
+}
+
+export interface K3cloudUpdateConnectionConfigParameters {
+  readonly connectionConfigId: string;
+  readonly body: UpdateK3CloudConnectionConfigRequest;
+}
+
+export async function k3cloudUpdateConnectionConfig(
+  http: HttpClient,
+  parameters: K3cloudUpdateConnectionConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<K3CloudConnectionConfigResponse> {
+  const path = `/api/v1/k3cloud/connection-configs/${encodeURIComponent(String(parameters.connectionConfigId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readK3CloudConnectionConfigResponse(value);
+}
+
 export interface NotificationsCreateBindingParameters {
   readonly body: CreateNotificationBindingRequest;
 }
@@ -4861,6 +6210,60 @@ export async function notificationsGetDelivery(
   return readNotificationDeliveryResponse(value);
 }
 
+export interface NotificationsGetHostAnnouncementReadStatsParameters {
+  readonly announcementId: string;
+}
+
+export async function notificationsGetHostAnnouncementReadStats(
+  http: HttpClient,
+  parameters: NotificationsGetHostAnnouncementReadStatsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostAnnouncementReadStatsResponse> {
+  const path = `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read-stats`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostAnnouncementReadStatsResponse(value);
+}
+
+export interface NotificationsGetMyHostAnnouncementParameters {
+  readonly announcementId: string;
+}
+
+export async function notificationsGetMyHostAnnouncement(
+  http: HttpClient,
+  parameters: NotificationsGetMyHostAnnouncementParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReceivedHostAnnouncementDetailResponse> {
+  const path = `/api/v1/notifications/my-host-announcements/${encodeURIComponent(String(parameters.announcementId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReceivedHostAnnouncementDetailResponse(value);
+}
+
+export interface NotificationsGetMyHostAnnouncementUnreadCountParameters {
+
+}
+
+export async function notificationsGetMyHostAnnouncementUnreadCount(
+  http: HttpClient,
+  parameters: NotificationsGetMyHostAnnouncementUnreadCountParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostAnnouncementUnreadCountResponse> {
+  const path = `/api/v1/notifications/my-host-announcements/unread-count`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostAnnouncementUnreadCountResponse(value);
+}
+
 export interface NotificationsGetMyInboxUnreadCountParameters {
 
 }
@@ -4967,6 +6370,33 @@ export async function notificationsListDeliveries(
   return readPagedResultOfNotificationDeliveryResponse(value);
 }
 
+export interface NotificationsListHostAnnouncementReadReceiptsParameters {
+  readonly announcementId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function notificationsListHostAnnouncementReadReceipts(
+  http: HttpClient,
+  parameters: NotificationsListHostAnnouncementReadReceiptsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfHostAnnouncementReadReceiptResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read-receipts` : `/api/v1/notifications/host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read-receipts?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfHostAnnouncementReadReceiptResponse(value);
+}
+
 export interface NotificationsListHostAnnouncementsParameters {
   readonly page?: number;
   readonly pageSize?: number;
@@ -5007,6 +6437,40 @@ export async function notificationsListHostAnnouncements(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readPagedResultOfHostAnnouncementResponse(value);
+}
+
+export interface NotificationsListMyHostAnnouncementsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly title?: string;
+  readonly isRead?: boolean;
+}
+
+export async function notificationsListMyHostAnnouncements(
+  http: HttpClient,
+  parameters: NotificationsListMyHostAnnouncementsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfReceivedHostAnnouncementListItemResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.title !== undefined) {
+    query.set('title', String(parameters.title));
+  }
+  if (parameters.isRead !== undefined) {
+    query.set('isRead', String(parameters.isRead));
+  }
+  const path = query.size === 0 ? `/api/v1/notifications/my-host-announcements` : `/api/v1/notifications/my-host-announcements?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfReceivedHostAnnouncementListItemResponse(value);
 }
 
 export interface NotificationsListMyInboxMessagesParameters {
@@ -5131,6 +6595,24 @@ export async function notificationsListTemplates(
   return readPagedResultOfNotificationTemplateResponse(value);
 }
 
+export interface NotificationsMarkAllMyHostAnnouncementsReadParameters {
+
+}
+
+export async function notificationsMarkAllMyHostAnnouncementsRead(
+  http: HttpClient,
+  parameters: NotificationsMarkAllMyHostAnnouncementsReadParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostAnnouncementUnreadCountResponse> {
+  const path = `/api/v1/notifications/my-host-announcements/read-all`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostAnnouncementUnreadCountResponse(value);
+}
+
 export interface NotificationsMarkAllMyInboxMessagesReadParameters {
 
 }
@@ -5147,6 +6629,24 @@ export async function notificationsMarkAllMyInboxMessagesRead(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readInboxUnreadCountResponse(value);
+}
+
+export interface NotificationsMarkMyHostAnnouncementReadParameters {
+  readonly announcementId: string;
+}
+
+export async function notificationsMarkMyHostAnnouncementRead(
+  http: HttpClient,
+  parameters: NotificationsMarkMyHostAnnouncementReadParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReceivedHostAnnouncementDetailResponse> {
+  const path = `/api/v1/notifications/my-host-announcements/${encodeURIComponent(String(parameters.announcementId))}/read`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReceivedHostAnnouncementDetailResponse(value);
 }
 
 export interface NotificationsMarkMyInboxMessageReadParameters {
@@ -5597,6 +7097,177 @@ export async function observabilityTailLogFile(
   return readLogFileTail(value);
 }
 
+export interface OcrConfirmIdCardTaskParameters {
+  readonly taskId: string;
+  readonly body: ConfirmOcrIdCardTaskRequest;
+}
+
+export async function ocrConfirmIdCardTask(
+  http: HttpClient,
+  parameters: OcrConfirmIdCardTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OcrIdCardTaskResponse> {
+  const path = `/api/v1/ocr/id-card-tasks/${encodeURIComponent(String(parameters.taskId))}/confirm`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOcrIdCardTaskResponse(value);
+}
+
+export interface OcrCreateIdCardTaskParameters {
+  readonly body: CreateOcrIdCardTaskRequest;
+}
+
+export async function ocrCreateIdCardTask(
+  http: HttpClient,
+  parameters: OcrCreateIdCardTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OcrIdCardTaskResponse> {
+  const path = `/api/v1/ocr/id-card-tasks`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOcrIdCardTaskResponse(value);
+}
+
+export interface OcrGetIdCardTaskParameters {
+  readonly taskId: string;
+}
+
+export async function ocrGetIdCardTask(
+  http: HttpClient,
+  parameters: OcrGetIdCardTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OcrIdCardTaskResponse> {
+  const path = `/api/v1/ocr/id-card-tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOcrIdCardTaskResponse(value);
+}
+
+export interface OcrGetProviderConfigParameters {
+  readonly providerKey: string;
+}
+
+export async function ocrGetProviderConfig(
+  http: HttpClient,
+  parameters: OcrGetProviderConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OcrProviderConfigResponse> {
+  const path = `/api/v1/ocr/provider-configs/${encodeURIComponent(String(parameters.providerKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOcrProviderConfigResponse(value);
+}
+
+export interface OcrListIdCardTasksParameters {
+  readonly page?: null | number | string;
+  readonly pageSize?: null | number | string;
+}
+
+export async function ocrListIdCardTasks(
+  http: HttpClient,
+  parameters: OcrListIdCardTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfOcrIdCardTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/ocr/id-card-tasks` : `/api/v1/ocr/id-card-tasks?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfOcrIdCardTaskResponse(value);
+}
+
+export interface OcrRejectIdCardTaskParameters {
+  readonly taskId: string;
+  readonly body: ConfirmOcrIdCardTaskRequest;
+}
+
+export async function ocrRejectIdCardTask(
+  http: HttpClient,
+  parameters: OcrRejectIdCardTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OcrIdCardTaskResponse> {
+  const path = `/api/v1/ocr/id-card-tasks/${encodeURIComponent(String(parameters.taskId))}/reject`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOcrIdCardTaskResponse(value);
+}
+
+export interface OcrTestProviderConfigParameters {
+  readonly providerKey: string;
+}
+
+export async function ocrTestProviderConfig(
+  http: HttpClient,
+  parameters: OcrTestProviderConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TestOcrProviderConfigResult> {
+  const path = `/api/v1/ocr/provider-configs/${encodeURIComponent(String(parameters.providerKey))}/test`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTestOcrProviderConfigResult(value);
+}
+
+export interface OcrUpdateProviderConfigParameters {
+  readonly providerKey: string;
+  readonly body: UpdateOcrProviderConfigRequest;
+}
+
+export async function ocrUpdateProviderConfig(
+  http: HttpClient,
+  parameters: OcrUpdateProviderConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<OcrProviderConfigResponse> {
+  const path = `/api/v1/ocr/provider-configs/${encodeURIComponent(String(parameters.providerKey))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readOcrProviderConfigResponse(value);
+}
+
 export interface OrganizationAssignTenantPositionLevelParameters {
   readonly positionId: string;
   readonly body: AssignOrganizationPositionLevelRequest;
@@ -5935,6 +7606,46 @@ export async function organizationDisableTenantUserUnit(
   return readOrganizationUserUnitResponse(value);
 }
 
+export interface OrganizationDownloadTenantPositionImportTemplateParameters {
+
+}
+
+export async function organizationDownloadTenantPositionImportTemplate(
+  http: HttpClient,
+  parameters: OrganizationDownloadTenantPositionImportTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/organization/positions/import-template`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface OrganizationExportTenantPositionsWorkbookParameters {
+
+}
+
+export async function organizationExportTenantPositionsWorkbook(
+  http: HttpClient,
+  parameters: OrganizationExportTenantPositionsWorkbookParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/organization/positions/export-file`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface OrganizationGetHostUserManagementReferenceParameters {
   readonly tenantId: string;
 }
@@ -6007,6 +7718,48 @@ export async function organizationGetTenantUnit(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readOrganizationUnitResponse(value);
+}
+
+export interface OrganizationImportTenantPositionsParameters {
+  readonly body: ImportOrganizationPositionsRequest;
+}
+
+export async function organizationImportTenantPositions(
+  http: HttpClient,
+  parameters: OrganizationImportTenantPositionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportOrganizationPositionsResponse> {
+  const path = `/api/v1/organization/positions/import`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportOrganizationPositionsResponse(value);
+}
+
+export interface OrganizationImportTenantPositionsWorkbookParameters {
+  readonly file: IFormFile;
+}
+
+export async function organizationImportTenantPositionsWorkbook(
+  http: HttpClient,
+  parameters: OrganizationImportTenantPositionsWorkbookParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ImportOrganizationPositionsResponse> {
+  const path = `/api/v1/organization/positions/import-file`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readImportOrganizationPositionsResponse(value);
 }
 
 export interface OrganizationListAssignableTenantUserPositionUsersParameters {
@@ -6374,6 +8127,327 @@ export async function organizationUpdateTenantUserUnit(
   return readOrganizationUserUnitResponse(value);
 }
 
+export interface PaymentsCreateMerchantConfigParameters {
+  readonly body: CreatePaymentMerchantConfigRequest;
+}
+
+export async function paymentsCreateMerchantConfig(
+  http: HttpClient,
+  parameters: PaymentsCreateMerchantConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentMerchantConfigResponse> {
+  const path = `/api/v1/payments/merchant-configs`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentMerchantConfigResponse(value);
+}
+
+export interface PaymentsCreateOrderParameters {
+  readonly body: CreatePaymentOrderRequest;
+}
+
+export async function paymentsCreateOrder(
+  http: HttpClient,
+  parameters: PaymentsCreateOrderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentOrderResponse> {
+  const path = `/api/v1/payments/orders`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentOrderResponse(value);
+}
+
+export interface PaymentsCreateRefundParameters {
+  readonly orderId: string;
+  readonly body: CreatePaymentRefundRequest;
+}
+
+export async function paymentsCreateRefund(
+  http: HttpClient,
+  parameters: PaymentsCreateRefundParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentRefundResponse> {
+  const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}/refunds`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentRefundResponse(value);
+}
+
+export interface PaymentsDisableMerchantConfigParameters {
+  readonly merchantConfigId: string;
+}
+
+export async function paymentsDisableMerchantConfig(
+  http: HttpClient,
+  parameters: PaymentsDisableMerchantConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentMerchantConfigResponse> {
+  const path = `/api/v1/payments/merchant-configs/${encodeURIComponent(String(parameters.merchantConfigId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentMerchantConfigResponse(value);
+}
+
+export interface PaymentsGetMerchantConfigParameters {
+  readonly merchantConfigId: string;
+}
+
+export async function paymentsGetMerchantConfig(
+  http: HttpClient,
+  parameters: PaymentsGetMerchantConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentMerchantConfigResponse> {
+  const path = `/api/v1/payments/merchant-configs/${encodeURIComponent(String(parameters.merchantConfigId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentMerchantConfigResponse(value);
+}
+
+export interface PaymentsGetOrderParameters {
+  readonly orderId: string;
+}
+
+export async function paymentsGetOrder(
+  http: HttpClient,
+  parameters: PaymentsGetOrderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentOrderResponse> {
+  const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentOrderResponse(value);
+}
+
+export interface PaymentsGetRefundParameters {
+  readonly refundId: string;
+}
+
+export async function paymentsGetRefund(
+  http: HttpClient,
+  parameters: PaymentsGetRefundParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentRefundResponse> {
+  const path = `/api/v1/payments/refunds/${encodeURIComponent(String(parameters.refundId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentRefundResponse(value);
+}
+
+export interface PaymentsListMerchantConfigsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+  readonly channelKey?: string;
+  readonly nameContains?: string;
+  readonly isEnabled?: boolean;
+}
+
+export async function paymentsListMerchantConfigs(
+  http: HttpClient,
+  parameters: PaymentsListMerchantConfigsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfPaymentMerchantConfigListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  if (parameters.channelKey !== undefined) {
+    query.set('channelKey', String(parameters.channelKey));
+  }
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  if (parameters.isEnabled !== undefined) {
+    query.set('isEnabled', String(parameters.isEnabled));
+  }
+  const path = query.size === 0 ? `/api/v1/payments/merchant-configs` : `/api/v1/payments/merchant-configs?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfPaymentMerchantConfigListItem(value);
+}
+
+export interface PaymentsListOrdersParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+  readonly tradeStateKey?: string;
+  readonly outTradeNoContains?: string;
+}
+
+export async function paymentsListOrders(
+  http: HttpClient,
+  parameters: PaymentsListOrdersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfPaymentOrderListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  if (parameters.tradeStateKey !== undefined) {
+    query.set('tradeStateKey', String(parameters.tradeStateKey));
+  }
+  if (parameters.outTradeNoContains !== undefined) {
+    query.set('outTradeNoContains', String(parameters.outTradeNoContains));
+  }
+  const path = query.size === 0 ? `/api/v1/payments/orders` : `/api/v1/payments/orders?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfPaymentOrderListItem(value);
+}
+
+export interface PaymentsListRefundsParameters {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly tenantId?: string;
+  readonly orderId?: string;
+  readonly refundStateKey?: string;
+}
+
+export async function paymentsListRefunds(
+  http: HttpClient,
+  parameters: PaymentsListRefundsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfPaymentRefundListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  if (parameters.orderId !== undefined) {
+    query.set('orderId', String(parameters.orderId));
+  }
+  if (parameters.refundStateKey !== undefined) {
+    query.set('refundStateKey', String(parameters.refundStateKey));
+  }
+  const path = query.size === 0 ? `/api/v1/payments/refunds` : `/api/v1/payments/refunds?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfPaymentRefundListItem(value);
+}
+
+export interface PaymentsReconcileOrderParameters {
+  readonly orderId: string;
+}
+
+export async function paymentsReconcileOrder(
+  http: HttpClient,
+  parameters: PaymentsReconcileOrderParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentOrderResponse> {
+  const path = `/api/v1/payments/orders/${encodeURIComponent(String(parameters.orderId))}/reconcile`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentOrderResponse(value);
+}
+
+export interface PaymentsUpdateMerchantConfigParameters {
+  readonly merchantConfigId: string;
+  readonly body: UpdatePaymentMerchantConfigRequest;
+}
+
+export async function paymentsUpdateMerchantConfig(
+  http: HttpClient,
+  parameters: PaymentsUpdateMerchantConfigParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PaymentMerchantConfigResponse> {
+  const path = `/api/v1/payments/merchant-configs/${encodeURIComponent(String(parameters.merchantConfigId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPaymentMerchantConfigResponse(value);
+}
+
+export interface PaymentsWeChatNativeNotifyParameters {
+  readonly merchantConfigId: string;
+  readonly body: Readonly<Record<string, unknown>>;
+}
+
+export async function paymentsWeChatNativeNotify(
+  http: HttpClient,
+  parameters: PaymentsWeChatNativeNotifyParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<WeChatPayNotifyAckResponse> {
+  const path = `/api/v1/payments/wechat-native/notify/${encodeURIComponent(String(parameters.merchantConfigId))}`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readWeChatPayNotifyAckResponse(value);
+}
+
 export interface PlatformCreateHostReleaseNoteParameters {
   readonly body: CreateHostReleaseNoteRequest;
 }
@@ -6625,6 +8699,210 @@ export async function platformUpdateHostReleaseNote(
   return readHostReleaseNoteResponse(value);
 }
 
+export interface PrintingCreateTemplateParameters {
+  readonly body: CreatePrintingTemplateRequest;
+}
+
+export async function printingCreateTemplate(
+  http: HttpClient,
+  parameters: PrintingCreateTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplateResponse> {
+  const path = `/api/v1/printing/templates`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingTemplateResponse(value);
+}
+
+export interface PrintingGetFormSchemaParameters {
+  readonly formSchemaKey: string;
+}
+
+export async function printingGetFormSchema(
+  http: HttpClient,
+  parameters: PrintingGetFormSchemaParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingFormSchemaDefinition> {
+  const path = `/api/v1/printing/form-schemas/${encodeURIComponent(String(parameters.formSchemaKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingFormSchemaDefinition(value);
+}
+
+export interface PrintingGetTemplateParameters {
+  readonly templateId: string;
+}
+
+export async function printingGetTemplate(
+  http: HttpClient,
+  parameters: PrintingGetTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplateResponse> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingTemplateResponse(value);
+}
+
+export interface PrintingGetTemplateVersionParameters {
+  readonly templateId: string;
+  readonly versionNumber: number | string;
+}
+
+export async function printingGetTemplateVersion(
+  http: HttpClient,
+  parameters: PrintingGetTemplateVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplateVersionResponse> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingTemplateVersionResponse(value);
+}
+
+export interface PrintingListFormSchemasParameters {
+
+}
+
+export async function printingListFormSchemas(
+  http: HttpClient,
+  parameters: PrintingListFormSchemasParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<PrintingFormSchemaDefinition>> {
+  const path = `/api/v1/printing/form-schemas`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingListFormSchemasResponse(value);
+}
+
+export interface PrintingListTemplatesParameters {
+  readonly nameContains?: null | string;
+}
+
+export async function printingListTemplates(
+  http: HttpClient,
+  parameters: PrintingListTemplatesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<PrintingTemplateResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  const path = query.size === 0 ? `/api/v1/printing/templates` : `/api/v1/printing/templates?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingListTemplatesResponse(value);
+}
+
+export interface PrintingListTemplateVersionsParameters {
+  readonly templateId: string;
+}
+
+export async function printingListTemplateVersions(
+  http: HttpClient,
+  parameters: PrintingListTemplateVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<PrintingTemplateVersionResponse>> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/versions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingListTemplateVersionsResponse(value);
+}
+
+export interface PrintingPreviewTemplateParameters {
+  readonly templateId: string;
+  readonly body: PreviewPrintingTemplateRequest;
+}
+
+export async function printingPreviewTemplate(
+  http: HttpClient,
+  parameters: PrintingPreviewTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplatePreviewResponse> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/preview`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingTemplatePreviewResponse(value);
+}
+
+export interface PrintingPublishTemplateParameters {
+  readonly templateId: string;
+  readonly body: PublishPrintingTemplateRequest;
+}
+
+export async function printingPublishTemplate(
+  http: HttpClient,
+  parameters: PrintingPublishTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplateVersionResponse> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingTemplateVersionResponse(value);
+}
+
+export interface PrintingUpdateTemplateParameters {
+  readonly templateId: string;
+  readonly body: UpdatePrintingTemplateRequest;
+}
+
+export async function printingUpdateTemplate(
+  http: HttpClient,
+  parameters: PrintingUpdateTemplateParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PrintingTemplateResponse> {
+  const path = `/api/v1/printing/templates/${encodeURIComponent(String(parameters.templateId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPrintingTemplateResponse(value);
+}
+
 export interface RegionsApplyAdministrativeRegionImportParameters {
   readonly body: ImportAdministrativeRegionsRequest;
 }
@@ -6866,6 +9144,585 @@ export async function regionsUpdateAdministrativeRegion(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readAdministrativeRegionResponse(value);
+}
+
+export interface ReportingCreateDataSourceParameters {
+  readonly body: CreateReportingDataSourceRequest;
+}
+
+export async function reportingCreateDataSource(
+  http: HttpClient,
+  parameters: ReportingCreateDataSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDataSourceResponse> {
+  const path = `/api/v1/reporting/data-sources`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDataSourceResponse(value);
+}
+
+export interface ReportingCreateDefinitionParameters {
+  readonly body: CreateReportingDefinitionRequest;
+}
+
+export async function reportingCreateDefinition(
+  http: HttpClient,
+  parameters: ReportingCreateDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDefinitionResponse> {
+  const path = `/api/v1/reporting/definitions`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDefinitionResponse(value);
+}
+
+export interface ReportingCreateExportTaskParameters {
+  readonly body: CreateReportingExportTaskRequest;
+}
+
+export async function reportingCreateExportTask(
+  http: HttpClient,
+  parameters: ReportingCreateExportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingExportTaskDetailResponse> {
+  const path = `/api/v1/reporting/export-tasks`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingExportTaskDetailResponse(value);
+}
+
+export interface ReportingCreateGroupParameters {
+  readonly body: CreateReportingGroupRequest;
+}
+
+export async function reportingCreateGroup(
+  http: HttpClient,
+  parameters: ReportingCreateGroupParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingGroupResponse> {
+  const path = `/api/v1/reporting/groups`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingGroupResponse(value);
+}
+
+export interface ReportingDeleteDataSourceParameters {
+  readonly dataSourceId: string;
+}
+
+export async function reportingDeleteDataSource(
+  http: HttpClient,
+  parameters: ReportingDeleteDataSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDeleteDataSourceResponse(value);
+}
+
+export interface ReportingDeleteDefinitionParameters {
+  readonly definitionId: string;
+}
+
+export async function reportingDeleteDefinition(
+  http: HttpClient,
+  parameters: ReportingDeleteDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDeleteDefinitionResponse(value);
+}
+
+export interface ReportingDeleteGroupParameters {
+  readonly groupId: string;
+}
+
+export async function reportingDeleteGroup(
+  http: HttpClient,
+  parameters: ReportingDeleteGroupParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<boolean> {
+  const path = `/api/v1/reporting/groups/${encodeURIComponent(String(parameters.groupId))}`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDeleteGroupResponse(value);
+}
+
+export interface ReportingDisableDataSourceParameters {
+  readonly dataSourceId: string;
+}
+
+export async function reportingDisableDataSource(
+  http: HttpClient,
+  parameters: ReportingDisableDataSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDataSourceResponse> {
+  const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}/disable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDataSourceResponse(value);
+}
+
+export interface ReportingDownloadExportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function reportingDownloadExportTask(
+  http: HttpClient,
+  parameters: ReportingDownloadExportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/reporting/export-tasks/${encodeURIComponent(String(parameters.taskId))}/download`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
+export interface ReportingExecuteDefinitionParameters {
+  readonly definitionId: string;
+  readonly page?: number | string;
+  readonly pageSize?: number | string;
+  readonly body: ExecuteReportingDefinitionRequest;
+}
+
+export async function reportingExecuteDefinition(
+  http: HttpClient,
+  parameters: ReportingExecuteDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingExecutionPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/execute` : `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/execute?${query.toString()}`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingExecutionPageResponse(value);
+}
+
+export interface ReportingGetDataSourceParameters {
+  readonly dataSourceId: string;
+}
+
+export async function reportingGetDataSource(
+  http: HttpClient,
+  parameters: ReportingGetDataSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDataSourceResponse> {
+  const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDataSourceResponse(value);
+}
+
+export interface ReportingGetDefinitionParameters {
+  readonly definitionId: string;
+}
+
+export async function reportingGetDefinition(
+  http: HttpClient,
+  parameters: ReportingGetDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDefinitionResponse> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDefinitionResponse(value);
+}
+
+export interface ReportingGetDefinitionVersionParameters {
+  readonly definitionId: string;
+  readonly versionNumber: number | string;
+}
+
+export async function reportingGetDefinitionVersion(
+  http: HttpClient,
+  parameters: ReportingGetDefinitionVersionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDefinitionVersionResponse> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions/${encodeURIComponent(String(parameters.versionNumber))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDefinitionVersionResponse(value);
+}
+
+export interface ReportingGetExportTaskParameters {
+  readonly taskId: string;
+}
+
+export async function reportingGetExportTask(
+  http: HttpClient,
+  parameters: ReportingGetExportTaskParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingExportTaskDetailResponse> {
+  const path = `/api/v1/reporting/export-tasks/${encodeURIComponent(String(parameters.taskId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingExportTaskDetailResponse(value);
+}
+
+export interface ReportingGetGroupParameters {
+  readonly groupId: string;
+}
+
+export async function reportingGetGroup(
+  http: HttpClient,
+  parameters: ReportingGetGroupParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingGroupResponse> {
+  const path = `/api/v1/reporting/groups/${encodeURIComponent(String(parameters.groupId))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingGroupResponse(value);
+}
+
+export interface ReportingGetQueryPortParameters {
+  readonly queryPortKey: string;
+}
+
+export async function reportingGetQueryPort(
+  http: HttpClient,
+  parameters: ReportingGetQueryPortParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingQueryPortDefinition> {
+  const path = `/api/v1/reporting/query-ports/${encodeURIComponent(String(parameters.queryPortKey))}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingQueryPortDefinition(value);
+}
+
+export interface ReportingListDataSourcesParameters {
+  readonly page?: number | string;
+  readonly pageSize?: number | string;
+  readonly tenantId?: null | string;
+  readonly nameContains?: null | string;
+  readonly isEnabled?: null | boolean;
+}
+
+export async function reportingListDataSources(
+  http: HttpClient,
+  parameters: ReportingListDataSourcesParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfReportingDataSourceListItem> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.tenantId !== undefined) {
+    query.set('tenantId', String(parameters.tenantId));
+  }
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  if (parameters.isEnabled !== undefined) {
+    query.set('isEnabled', String(parameters.isEnabled));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/data-sources` : `/api/v1/reporting/data-sources?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfReportingDataSourceListItem(value);
+}
+
+export interface ReportingListDefinitionsParameters {
+  readonly groupId?: null | string;
+  readonly nameContains?: null | string;
+}
+
+export async function reportingListDefinitions(
+  http: HttpClient,
+  parameters: ReportingListDefinitionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ReportingDefinitionResponse>> {
+  const query = new URLSearchParams();
+  if (parameters.groupId !== undefined) {
+    query.set('groupId', String(parameters.groupId));
+  }
+  if (parameters.nameContains !== undefined) {
+    query.set('nameContains', String(parameters.nameContains));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/definitions` : `/api/v1/reporting/definitions?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingListDefinitionsResponse(value);
+}
+
+export interface ReportingListDefinitionVersionsParameters {
+  readonly definitionId: string;
+}
+
+export async function reportingListDefinitionVersions(
+  http: HttpClient,
+  parameters: ReportingListDefinitionVersionsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ReportingDefinitionVersionResponse>> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/versions`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingListDefinitionVersionsResponse(value);
+}
+
+export interface ReportingListExportTasksParameters {
+  readonly page?: number | string;
+  readonly pageSize?: number | string;
+  readonly definitionId?: null | string;
+}
+
+export async function reportingListExportTasks(
+  http: HttpClient,
+  parameters: ReportingListExportTasksParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<PagedResultOfReportingExportTaskResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  if (parameters.definitionId !== undefined) {
+    query.set('definitionId', String(parameters.definitionId));
+  }
+  const path = query.size === 0 ? `/api/v1/reporting/export-tasks` : `/api/v1/reporting/export-tasks?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readPagedResultOfReportingExportTaskResponse(value);
+}
+
+export interface ReportingListGroupsParameters {
+
+}
+
+export async function reportingListGroups(
+  http: HttpClient,
+  parameters: ReportingListGroupsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ReportingGroupResponse>> {
+  const path = `/api/v1/reporting/groups`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingListGroupsResponse(value);
+}
+
+export interface ReportingListQueryPortsParameters {
+
+}
+
+export async function reportingListQueryPorts(
+  http: HttpClient,
+  parameters: ReportingListQueryPortsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Array<ReportingQueryPortDefinition>> {
+  const path = `/api/v1/reporting/query-ports`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingListQueryPortsResponse(value);
+}
+
+export interface ReportingPublishDefinitionParameters {
+  readonly definitionId: string;
+  readonly body: PublishReportingDefinitionRequest;
+}
+
+export async function reportingPublishDefinition(
+  http: HttpClient,
+  parameters: ReportingPublishDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDefinitionVersionResponse> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}/publish`;
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDefinitionVersionResponse(value);
+}
+
+export interface ReportingTestDataSourceParameters {
+  readonly dataSourceId: string;
+}
+
+export async function reportingTestDataSource(
+  http: HttpClient,
+  parameters: ReportingTestDataSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TestReportingDataSourceResult> {
+  const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}/test`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTestReportingDataSourceResult(value);
+}
+
+export interface ReportingUpdateDataSourceParameters {
+  readonly dataSourceId: string;
+  readonly body: UpdateReportingDataSourceRequest;
+}
+
+export async function reportingUpdateDataSource(
+  http: HttpClient,
+  parameters: ReportingUpdateDataSourceParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDataSourceResponse> {
+  const path = `/api/v1/reporting/data-sources/${encodeURIComponent(String(parameters.dataSourceId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDataSourceResponse(value);
+}
+
+export interface ReportingUpdateDefinitionParameters {
+  readonly definitionId: string;
+  readonly body: UpdateReportingDefinitionRequest;
+}
+
+export async function reportingUpdateDefinition(
+  http: HttpClient,
+  parameters: ReportingUpdateDefinitionParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingDefinitionResponse> {
+  const path = `/api/v1/reporting/definitions/${encodeURIComponent(String(parameters.definitionId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingDefinitionResponse(value);
+}
+
+export interface ReportingUpdateGroupParameters {
+  readonly groupId: string;
+  readonly body: UpdateReportingGroupRequest;
+}
+
+export async function reportingUpdateGroup(
+  http: HttpClient,
+  parameters: ReportingUpdateGroupParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<ReportingGroupResponse> {
+  const path = `/api/v1/reporting/groups/${encodeURIComponent(String(parameters.groupId))}`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readReportingGroupResponse(value);
 }
 
 export interface SerialNumbersCreateRuleParameters {
@@ -8122,6 +10979,42 @@ export async function tenancyCreateHostTenantPackage(
   return readTenantPackageSummary(value);
 }
 
+export interface TenancyDeleteCurrentBrandingLogoParameters {
+
+}
+
+export async function tenancyDeleteCurrentBrandingLogo(
+  http: HttpClient,
+  parameters: TenancyDeleteCurrentBrandingLogoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/branding/logo`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
+export interface TenancyDeleteHostTenantBrandingLogoParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyDeleteHostTenantBrandingLogo(
+  http: HttpClient,
+  parameters: TenancyDeleteHostTenantBrandingLogoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding/logo`;
+  const init: RequestInit = { method: 'DELETE' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
 export interface TenancyDisableHostTenantParameters {
   readonly tenantId: string;
 }
@@ -8158,6 +11051,62 @@ export async function tenancyDisableHostTenantPackage(
   return readTenantPackageSummary(value);
 }
 
+export interface TenancyEnableHostTenantParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyEnableHostTenant(
+  http: HttpClient,
+  parameters: TenancyEnableHostTenantParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantSummary> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/enable`;
+  const init: RequestInit = { method: 'POST' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantSummary(value);
+}
+
+export interface TenancyGetCurrentBrandingParameters {
+
+}
+
+export async function tenancyGetCurrentBranding(
+  http: HttpClient,
+  parameters: TenancyGetCurrentBrandingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/branding`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
+export interface TenancyGetCurrentBrandingLogoContentParameters {
+
+}
+
+export async function tenancyGetCurrentBrandingLogoContent(
+  http: HttpClient,
+  parameters: TenancyGetCurrentBrandingLogoContentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/tenancy/branding/logo/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface TenancyGetHostTenantParameters {
   readonly tenantId: string;
 }
@@ -8176,6 +11125,44 @@ export async function tenancyGetHostTenant(
   return readTenantSummary(value);
 }
 
+export interface TenancyGetHostTenantBrandingParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyGetHostTenantBranding(
+  http: HttpClient,
+  parameters: TenancyGetHostTenantBrandingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
+export interface TenancyGetHostTenantBrandingLogoContentParameters {
+  readonly tenantId: string;
+}
+
+export async function tenancyGetHostTenantBrandingLogoContent(
+  http: HttpClient,
+  parameters: TenancyGetHostTenantBrandingLogoContentParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<Blob> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding/logo/content`;
+  const init: RequestInit = {
+    method: 'GET',
+    headers: { accept: 'application/octet-stream' }
+  };
+  return options === undefined
+    ? await http.requestBlob(path, init, signal)
+    : await http.requestBlob(path, init, signal, options);
+}
+
 export interface TenancyGetHostTenantPackageParameters {
   readonly packageId: string;
 }
@@ -8192,6 +11179,78 @@ export async function tenancyGetHostTenantPackage(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantPackageSummary(value);
+}
+
+export interface TenancyGetRuntimeBrandingParameters {
+
+}
+
+export async function tenancyGetRuntimeBranding(
+  http: HttpClient,
+  parameters: TenancyGetRuntimeBrandingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantRuntimeBrandingResponse> {
+  const path = `/api/v1/tenancy/branding/current`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantRuntimeBrandingResponse(value);
+}
+
+export interface TenancyListHostTenantAdministratorsParameters {
+  readonly tenantId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function tenancyListHostTenantAdministrators(
+  http: HttpClient,
+  parameters: TenancyListHostTenantAdministratorsParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostTenantAdministratorsPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/administrators` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/administrators?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostTenantAdministratorsPageResponse(value);
+}
+
+export interface TenancyListHostTenantMembersParameters {
+  readonly tenantId: string;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+export async function tenancyListHostTenantMembers(
+  http: HttpClient,
+  parameters: TenancyListHostTenantMembersParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<HostTenantMembersPageResponse> {
+  const query = new URLSearchParams();
+  if (parameters.page !== undefined) {
+    query.set('page', String(parameters.page));
+  }
+  if (parameters.pageSize !== undefined) {
+    query.set('pageSize', String(parameters.pageSize));
+  }
+  const path = query.size === 0 ? `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/members` : `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/members?${query.toString()}`;
+  const init: RequestInit = { method: 'GET' };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readHostTenantMembersPageResponse(value);
 }
 
 export interface TenancyListHostTenantPackagesParameters {
@@ -8246,6 +11305,28 @@ export async function tenancyListHostTenants(
   return readPagedResultOfTenantSummary(value);
 }
 
+export interface TenancyUpdateCurrentBrandingParameters {
+  readonly body: UpdateTenantBrandingRequest;
+}
+
+export async function tenancyUpdateCurrentBranding(
+  http: HttpClient,
+  parameters: TenancyUpdateCurrentBrandingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/branding`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
 export interface TenancyUpdateHostTenantParameters {
   readonly tenantId: string;
   readonly body: UpdateHostTenantRequest;
@@ -8269,6 +11350,29 @@ export async function tenancyUpdateHostTenant(
   return readTenantSummary(value);
 }
 
+export interface TenancyUpdateHostTenantBrandingParameters {
+  readonly tenantId: string;
+  readonly body: UpdateTenantBrandingRequest;
+}
+
+export async function tenancyUpdateHostTenantBranding(
+  http: HttpClient,
+  parameters: TenancyUpdateHostTenantBrandingParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding`;
+  const init: RequestInit = {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(parameters.body)
+  };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
 export interface TenancyUpdateHostTenantPackageParameters {
   readonly packageId: string;
   readonly body: UpdateHostTenantPackageRequest;
@@ -8290,6 +11394,47 @@ export async function tenancyUpdateHostTenantPackage(
     ? await http.request<unknown>(path, init, signal)
     : await http.request<unknown>(path, init, signal, options);
   return readTenantPackageSummary(value);
+}
+
+export interface TenancyUploadCurrentBrandingLogoParameters {
+  readonly file: IFormFile;
+}
+
+export async function tenancyUploadCurrentBrandingLogo(
+  http: HttpClient,
+  parameters: TenancyUploadCurrentBrandingLogoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/branding/logo`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
+}
+
+export interface TenancyUploadHostTenantBrandingLogoParameters {
+  readonly tenantId: string;
+  readonly file: IFormFile;
+}
+
+export async function tenancyUploadHostTenantBrandingLogo(
+  http: HttpClient,
+  parameters: TenancyUploadHostTenantBrandingLogoParameters,
+  signal?: AbortSignal,
+  options?: RequestOptions
+): Promise<TenantBrandingResponse> {
+  const path = `/api/v1/tenancy/tenants/${encodeURIComponent(String(parameters.tenantId))}/branding/logo`;
+  const body = new FormData();
+  body.append('file', parameters.file);
+  const init: RequestInit = { method: 'POST', body };
+  const value = options === undefined
+    ? await http.request<unknown>(path, init, signal)
+    : await http.request<unknown>(path, init, signal, options);
+  return readTenantBrandingResponse(value);
 }
 
 export interface WorkflowApproveTodoParameters {

@@ -49,7 +49,11 @@ public sealed class IdentityModule : IFullNetModule
 
     public string Name => "Identity";
 
+    /// <summary>Identity 是依赖图根模块，不声明硬依赖以免与 Files 头像引用形成环。</summary>
     public IReadOnlyCollection<string> Dependencies => [];
+
+    /// <summary>用户头像与签名通过 Files 合同读写；Files 未启用时自助资料媒体能力不可用。</summary>
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["Files"];
 
     public void AddServices(
         IServiceCollection services,

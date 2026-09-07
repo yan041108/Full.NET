@@ -45,6 +45,14 @@ test('001-009 历史与过渡迁移不受 010+ UUID 门禁约束', async () => {
   assert.deepEqual(violations, []);
 });
 
+test('165-199 已发布 MySQL 脚本的 char(36) 由 203 前向修复，不改写历史文件', async () => {
+  const violations = await validateUuidStorageSql([
+    path.join(productionMigrationRoot, 'MySql/165_DocumentVersionDeletionAudit.sql')
+  ], { repositoryRoot });
+
+  assert.deepEqual(violations, []);
+});
+
 test('仓库现有迁移满足 UUID 存储 SQL 门禁', async () => {
   const violations = await validateRepositoryUuidStorageSql(repositoryRoot);
   assert.deepEqual(violations, []);

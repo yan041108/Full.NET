@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS fn_serialnumbers_counter (
     Id BINARY(16) NOT NULL COMMENT '逻辑主键',
     RuleId BINARY(16) NOT NULL COMMENT '规则标识',
     TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
-    ScopeTenantKey BINARY(16)
+    ScopeTenantKey BINARY(16) COMMENT '作用域租户键'
         GENERATED ALWAYS AS
         (COALESCE(TenantId, 0x00000000000000000000000000000000))
         STORED COMMENT '作用域租户键',
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS fn_serialnumbers_allocation (
     Id BINARY(16) NOT NULL COMMENT '逻辑主键',
     RuleId BINARY(16) NOT NULL COMMENT '规则标识',
     TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
-    ScopeTenantKey BINARY(16)
+    ScopeTenantKey BINARY(16) COMMENT '作用域租户键'
         GENERATED ALWAYS AS
         (COALESCE(TenantId, 0x00000000000000000000000000000000))
         STORED COMMENT '作用域租户键',

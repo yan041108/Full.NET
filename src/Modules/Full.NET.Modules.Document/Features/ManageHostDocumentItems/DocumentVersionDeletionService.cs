@@ -15,8 +15,16 @@ namespace Full.NET.Modules.Document.Features.ManageHostDocumentItems;
 
 /// <summary>
 /// 文档历史版本删除协调器：统一处理授权删除与保留策略裁剪，
-/// 在事务内写入删除审计、删除版本行并释放 Files Claim，保证当前版本与最小保留数约束。
+/// 在本地事务内写入删除审计并删除版本行；Files Claim 在事务提交后释放，
+/// 与新增版本“先 Claim、事务外 Confirm/Release”的边界一致。
 /// </summary>
+/// <param name="queryExecutor">文档模块查询执行器。</param>
+/// <param name="commandExecutor">文档模块写入执行器。</param>
+/// <param name="transaction">版本删除短事务，不得包含 Files 合同调用。</param>
+/// <param name="hostFileReferenceClaimService">Files 引用 Claim 端口；仅在事务提交后释放。</param>
+/// <param name="retentionOptions">版本保留策略选项。</param>
+/// <param name="clock">删除审计时钟。</param>
+/// <param name="idGenerator">删除审计标识生成器。</param>
 internal sealed class DocumentVersionDeletionService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -27,7 +35,13 @@ internal sealed class DocumentVersionDeletionService(
     IIdGenerator idGenerator)
 {
     /// <summary>管理员授权删除单个历史版本，并要求文档项乐观并发版本匹配。</summary>
-    public Task<Result<HostDocumentItemResponse>> DeleteVersionManuallyAsync(
+    /// <param name="itemId">文档项标识。</param>
+    /// <param name="versionId">待删除版本标识。</param>
+    /// <param name="actorUserId">操作者用户标识。</param>
+    /// <param name="request">含文档项乐观版本的删除请求。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>删除后的文档项或稳定业务错误。</returns>
+    public async Task<Result<HostDocumentItemResponse>> DeleteVersionManuallyAsync(
         Guid itemId,
         Guid versionId,
         Guid actorUserId,
@@ -36,31 +50,33 @@ internal sealed class DocumentVersionDeletionService(
     {
         if (request.Version < 1)
         {
-            return Task.FromResult(Invalid());
+            return Invalid();
         }
 
-        return transaction.ExecuteResultAsync(
-            async token =>
-            {
-                var deleteResult = await DeleteVersionCoreAsync(
-                        itemId,
-                        versionId,
-                        actorUserId,
-                        HostDocumentVersionDeletionSourceKeys.Manual,
-                        request.Version,
-                        token)
-                    .ConfigureAwait(false);
-                if (!deleteResult.IsSuccess)
-                {
-                    return Result<HostDocumentItemResponse>.Failure(deleteResult.Error!);
-                }
+        var deleteResult = await transaction.ExecuteResultAsync(
+                token => DeleteVersionCoreAsync(
+                    itemId,
+                    versionId,
+                    actorUserId,
+                    HostDocumentVersionDeletionSourceKeys.Manual,
+                    request.Version,
+                    token),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!deleteResult.IsSuccess)
+        {
+            return Result<HostDocumentItemResponse>.Failure(deleteResult.Error!);
+        }
 
-                return await ReloadActiveAsync(itemId, token).ConfigureAwait(false);
-            },
-            cancellationToken);
+        await ReleaseDocumentVersionClaimAsync(versionId, cancellationToken).ConfigureAwait(false);
+        return await ReloadActiveAsync(itemId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>保留策略裁剪删除；无用户并发令牌，失败时返回 false 以便 Worker 继续处理其他版本。</summary>
+    /// <param name="itemId">文档项标识。</param>
+    /// <param name="versionId">待删除版本标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>本地删除是否成功；Claim 释放失败不回滚已提交的版本删除。</returns>
     public async Task<bool> TryDeleteVersionForRetentionAsync(
         Guid itemId,
         Guid versionId,
@@ -76,9 +92,23 @@ internal sealed class DocumentVersionDeletionService(
                     token),
                 cancellationToken)
             .ConfigureAwait(false);
-        return result.IsSuccess;
+        if (!result.IsSuccess)
+        {
+            return false;
+        }
+
+        await ReleaseDocumentVersionClaimAsync(versionId, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
+    /// <summary>在本地事务中校验约束、写入删除审计并删除版本行。</summary>
+    /// <param name="itemId">文档项标识。</param>
+    /// <param name="versionId">待删除版本标识。</param>
+    /// <param name="deletedByUserId">操作者；保留策略删除时为空。</param>
+    /// <param name="deletedBySourceKey">删除来源键。</param>
+    /// <param name="expectedItemVersion">手动删除时的文档项乐观版本。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>删除是否成功。</returns>
     private async Task<Result<bool>> DeleteVersionCoreAsync(
         Guid itemId,
         Guid versionId,
@@ -179,13 +209,18 @@ internal sealed class DocumentVersionDeletionService(
             return VersionNotFoundBool();
         }
 
-        var idempotencyKey = HostFileReferenceClaimIdempotencyKeys.DocumentVersion(versionId);
-        _ = await hostFileReferenceClaimService
-            .ReleaseAsync(idempotencyKey, cancellationToken)
-            .ConfigureAwait(false);
-
         return Result<bool>.Success(true);
     }
+
+    /// <summary>本地版本删除提交后再释放 Files Claim，避免跨模块共享本地事务。</summary>
+    /// <param name="versionId">已删除的文档版本标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private Task ReleaseDocumentVersionClaimAsync(
+        Guid versionId,
+        CancellationToken cancellationToken) =>
+        hostFileReferenceClaimService.ReleaseAsync(
+            HostFileReferenceClaimIdempotencyKeys.DocumentVersion(versionId),
+            cancellationToken);
 
     private Task<DocumentItemDetailRecord?> FindActiveAsync(
         Guid itemId,

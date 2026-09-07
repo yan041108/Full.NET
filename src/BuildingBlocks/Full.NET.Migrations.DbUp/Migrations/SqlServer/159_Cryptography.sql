@@ -21,6 +21,123 @@ BEGIN
         CONSTRAINT CK_fn_cryptography_key_Status
             CHECK (Status IN (N'active', N'retired'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'密码学密钥表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'Algorithm', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'算法', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'Algorithm';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'Description', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'描述', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'Description';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'DisplayName', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'显示名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'DisplayName';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'KeyKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'密钥稳定键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'KeyKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'PublicKeyFingerprint', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'公钥指纹', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'PublicKeyFingerprint';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'PublicKeyHex', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'公钥十六进制', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'PublicKeyHex';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'Purpose', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用途', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'Purpose';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'SortOrder', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'排序顺序', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'SortOrder';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'Status', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'Status';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_cryptography_key')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_cryptography_key'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_cryptography_key', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
 
     IF NOT EXISTS (
         SELECT 1

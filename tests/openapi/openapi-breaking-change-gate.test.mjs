@@ -564,6 +564,148 @@ test('标准客户端 OpenAPI 快照允许追加 path/schema/tag，禁止改写�
   );
 });
 
+test('标准客户端 OpenAPI 快照允许规范化键顺序并清理未被路径引用的 Schema', async () => {
+  const baseline = {
+    openapi: '3.1.0',
+    info: { title: 'Full.NET client', version: '1.0.0' },
+    paths: {
+      '/api/v1/identity/users': {
+        get: {
+          operationId: 'identityListHostUsers',
+          tags: ['IdentityHostUsers'],
+          security: [{ Bearer: [] }],
+          responses: {
+            '200': {
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/HostUserResponse' }
+                }
+              },
+              description: 'OK'
+            }
+          }
+        }
+      }
+    },
+    components: {
+      schemas: {
+        HostUserResponse: { type: 'object', properties: { id: { type: 'string' } } },
+        WorkflowTodoResponse: { type: 'object', properties: { id: { type: 'string' } } }
+      }
+    }
+  };
+
+  const canonicalized = clone(baseline);
+  canonicalized.paths['/api/v1/identity/users'].get = {
+    operationId: 'identityListHostUsers',
+    responses: canonicalized.paths['/api/v1/identity/users'].get.responses,
+    security: [{ Bearer: [] }],
+    tags: ['IdentityHostUsers']
+  };
+  delete canonicalized.components.schemas.WorkflowTodoResponse;
+
+  const canonicalizedResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': canonicalized }
+  );
+  assert.equal(canonicalizedResult.status, 0, canonicalizedResult.stderr);
+
+  const removedUsed = clone(canonicalized);
+  delete removedUsed.components.schemas.HostUserResponse;
+  const removedUsedResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': canonicalized },
+    { 'fullnet-client-v1.openapi.json': removedUsed }
+  );
+  assert.equal(removedUsedResult.status, 1);
+  assert.match(
+    removedUsedResult.stderr,
+    /stable setting changed: fullnet-client-v1\.openapi\.json components/u
+  );
+});
+
+test('标准客户端 OpenAPI 允许为匿名回调补空 security，禁止撤销已有认证', async () => {
+  const baseline = {
+    openapi: '3.1.0',
+    info: { title: 'Full.NET client', version: '1.0.0' },
+    paths: {
+      '/api/v1/payments/wechat-native/notify/{merchantConfigId}': {
+        post: {
+          operationId: 'paymentsWeChatNativeNotify',
+          tags: ['PaymentWeChatNotify'],
+          responses: { '200': { description: 'OK' } }
+        }
+      },
+      '/api/v1/identity/users': {
+        get: {
+          operationId: 'identityListHostUsers',
+          tags: ['IdentityHostUsers'],
+          security: [{ Bearer: [] }],
+          responses: { '200': { description: 'OK' } }
+        }
+      }
+    }
+  };
+
+  const declared = clone(baseline);
+  declared.paths['/api/v1/payments/wechat-native/notify/{merchantConfigId}']
+    .post.security = [];
+  const declaredResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': baseline },
+    { 'fullnet-client-v1.openapi.json': declared }
+  );
+  assert.equal(declaredResult.status, 0, declaredResult.stderr);
+
+  const stripped = clone(declared);
+  stripped.paths['/api/v1/identity/users'].get.security = [];
+  const strippedResult = await compareDirectories(
+    { 'fullnet-client-v1.openapi.json': declared },
+    { 'fullnet-client-v1.openapi.json': stripped }
+  );
+  assert.equal(strippedResult.status, 1);
+  assert.match(
+    strippedResult.stderr,
+    /stable setting changed: fullnet-client-v1\.openapi\.json paths/u
+  );
+});
+
+test('identity-me 夹具允许追加改密路径，禁止删除现有 me 读取', async () => {
+  const baseline = {
+    schemaVersion: 1,
+    paths: {
+      '/api/v1/me': {
+        get: {
+          operationId: 'identityGetCurrentUser',
+          responses: { '200': { description: 'OK' } }
+        }
+      }
+    }
+  };
+  const additive = clone(baseline);
+  additive.paths['/api/v1/me/password'] = {
+    post: {
+      operationId: 'identityChangePassword',
+      responses: { '200': { description: 'OK' } }
+    }
+  };
+  const additiveResult = await compareDirectories(
+    { 'identity-me-v1.json': baseline },
+    { 'identity-me-v1.json': additive }
+  );
+  assert.equal(additiveResult.status, 0, additiveResult.stderr);
+
+  const removed = clone(additive);
+  delete removed.paths['/api/v1/me'];
+  const removedResult = await compareDirectories(
+    { 'identity-me-v1.json': additive },
+    { 'identity-me-v1.json': removed }
+  );
+  assert.equal(removedResult.status, 1);
+  assert.match(
+    removedResult.stderr,
+    /stable setting changed: identity-me-v1\.json paths/u
+  );
+});
+
 test('标准客户端 OpenAPI 允许纠正既有 Workflow 严格草稿元数据但拒绝借机改写 schema', async () => {
   const baseline = {
     openapi: '3.1.0',

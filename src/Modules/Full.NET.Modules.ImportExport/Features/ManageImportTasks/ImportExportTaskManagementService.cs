@@ -169,6 +169,8 @@ internal sealed class ImportExportTaskManagementService(
                     ("ErrorReceiptFileId", null),
                     ("ExecutionStartedAtUtc", null),
                     ("ExecutionCompletedAtUtc", null),
+                    ("LeaseId", null),
+                    ("LeaseExpiresAtUtc", null),
                     ("Version", 1L)),
                 cancellationToken)
             .ConfigureAwait(false);

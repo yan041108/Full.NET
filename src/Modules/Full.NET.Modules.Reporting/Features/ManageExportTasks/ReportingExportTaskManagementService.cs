@@ -5,21 +5,28 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Files.Contracts;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
-using Full.NET.Modules.Reporting.Domain;
-using Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Persistence;
 
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 
-/// <summary>创建报表导出任务、同步执行查询并写入 Files。</summary>
+/// <summary>创建报表导出任务并同步领取执行；崩溃后由 Worker 按租约恢复。</summary>
+/// <param name="definitionQueries">报表定义读取。</param>
+/// <param name="resourceFiles">导出文件读取。</param>
+/// <param name="queryExecutor">受租户守卫保护的读执行器。</param>
+/// <param name="commandExecutor">受租户守卫保护的写执行器。</param>
+/// <param name="runner">导出领取与恢复执行器。</param>
+/// <param name="currentTenant">当前可信租户。</param>
+/// <param name="clock">时钟。</param>
+/// <param name="idGenerator">任务 UUID。</param>
 internal sealed class ReportingExportTaskManagementService(
     ReportingDefinitionQueryService definitionQueries,
-    ReportingDefinitionExecutionService executionService,
     ITenantResourceFileStore resourceFiles,
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
+    ReportingExportTaskRunner runner,
     ICurrentTenant currentTenant,
     IClock clock,
     IIdGenerator idGenerator)
@@ -27,7 +34,11 @@ internal sealed class ReportingExportTaskManagementService(
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    /// <summary>创建导出任务并同步完成 Excel 生成。</summary>
+    /// <summary>创建导出任务并尽量在同一请求内完成；失败时返回已持久化的错误。</summary>
+    /// <param name="request">创建请求。</param>
+    /// <param name="requestedByUserId">已授权主体。</param>
+    /// <param name="principal">列权限主体。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async Task<Result<ReportingExportTaskDetailResponse>> CreateAsync(
         CreateReportingExportTaskRequest request,
         Guid requestedByUserId,
@@ -74,6 +85,11 @@ internal sealed class ReportingExportTaskManagementService(
         var taskId = idGenerator.NewId();
         var now = clock.UtcNow;
         var parametersJson = ReportingExportTaskMapper.SerializeParameters(request.Parameters);
+        var permissionCodes = principal.FindAll(FullNetIdentityClaimTypes.Permission)
+            .Select(claim => claim.Value)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
         var record = new ReportingExportTaskRecord
         {
             Id = taskId,
@@ -84,10 +100,11 @@ internal sealed class ReportingExportTaskManagementService(
             DefinitionName = definition.Name,
             FormatKey = request.FormatKey,
             ParametersJson = parametersJson,
-            StatusKey = ReportingExportTaskStatusKeys.Processing,
+            StatusKey = ReportingExportTaskStatusKeys.Queued,
             RowCount = 0,
             RequestedByUserId = requestedByUserId,
             CreatedAtUtc = now,
+            ActorPermissionCodesJson = ReportingExportTaskMapper.SerializePermissionCodes(permissionCodes),
             Version = 1,
         };
 
@@ -97,100 +114,13 @@ internal sealed class ReportingExportTaskManagementService(
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var executeRequest = new ExecuteReportingDefinitionRequest(versionNumber, request.Parameters);
-        var collectOutcome = await CollectExportRowsAsync(
-                definition.Id,
-                executeRequest,
-                principal,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!collectOutcome.IsSuccess)
-        {
-            await MarkFailedAsync(
-                    taskId,
-                    1,
-                    collectOutcome.RowCount,
-                    collectOutcome.ErrorCode!,
-                    collectOutcome.ErrorMessage!,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
-                collectOutcome.ErrorCode!,
-                collectOutcome.ErrorMessage!,
-                ErrorType.Validation));
-        }
-
-        var fileName = BuildFileName(definition.DefinitionKey, versionNumber, now);
-        byte[] workbookBytes;
-        try
-        {
-            workbookBytes = ReportingExcelExportRenderer.Render(collectOutcome.Columns!, collectOutcome.Rows!);
-        }
-        catch (InvalidDataException)
-        {
-            const string message = "The export exceeds the input or output size limit.";
-            await MarkFailedAsync(taskId, 1, collectOutcome.RowCount,
-                ReportingErrorCodes.ExportSizeLimitExceeded, message, cancellationToken).ConfigureAwait(false);
-            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
-                ReportingErrorCodes.ExportSizeLimitExceeded, message, ErrorType.Validation));
-        }
-
-        await using var uploadStream = new MemoryStream(workbookBytes, writable: false);
-        var uploadResult = await resourceFiles
-            .UploadAsync(
-                "reporting", taskId, requestedByUserId,
-                fileName,
-                WorkbookContentType,
-                uploadStream,
-                workbookBytes.LongLength,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!uploadResult.IsSuccess)
-        {
-            await MarkFailedAsync(
-                    taskId,
-                    1,
-                    collectOutcome.RowCount,
-                    ReportingErrorCodes.ExportFailed,
-                    uploadResult.Error?.Message ?? "Failed to store export file.",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return Result<ReportingExportTaskDetailResponse>.Failure(uploadResult.Error!);
-        }
-
-        var completedAt = clock.UtcNow;
-        var affected = await commandExecutor.ExecuteAsync(
-                ReportingExportTaskSql.CompleteSucceeded,
-                ReportingSqlParameters.Create([
-                    ("Id", taskId),
-                    ("StatusKey", ReportingExportTaskStatusKeys.Succeeded),
-                    ("OutputFileId", uploadResult.Value!.FileId),
-                    ("OutputFileName", fileName),
-                    ("RowCount", collectOutcome.RowCount),
-                    ("CompletedAtUtc", completedAt),
-                    ("Version", 1L)]),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (affected == 0)
-        {
-            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
-                ReportingErrorCodes.ExportFailed,
-                "The export task completion update failed due to a concurrency conflict.",
-                ErrorType.Conflict));
-        }
-
-        var detail = await queryExecutor
-            .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
-                ReportingExportTaskSql.FindById,
-                ReportingSqlParameters.Create(("Id", taskId)),
-                cancellationToken)
-            .ConfigureAwait(false);
-        return detail is null
-            ? Result<ReportingExportTaskDetailResponse>.Failure(TaskNotFoundError())
-            : Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(detail));
+        await runner.RunOwnedAsync(taskId, principal, cancellationToken).ConfigureAwait(false);
+        return await LoadResultAsync(taskId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>打开已完成导出任务的文件内容流。</summary>
+    /// <param name="taskId">任务标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async Task<Result<TenantResourceFileContent>> OpenDownloadAsync(
         Guid taskId,
         CancellationToken cancellationToken = default)
@@ -231,108 +161,34 @@ internal sealed class ReportingExportTaskManagementService(
             record.OutputFileName ?? file.OriginalFileName));
     }
 
-    private async Task<ExportCollectOutcome> CollectExportRowsAsync(
-        Guid definitionId,
-        ExecuteReportingDefinitionRequest request,
-        ClaimsPrincipal principal,
-        CancellationToken cancellationToken)
-    {
-        var allRows = new List<ReportingExecutionRow>();
-        var budget = new ReportingExportBudget();
-        IReadOnlyList<ReportingExecutionColumnDefinition>? columns = null;
-        var page = 1;
-        while (allRows.Count < ReportingExportPolicy.MaxExportRows)
-        {
-            var pageResult = await executionService.ExecuteAsync(
-                    definitionId,
-                    request,
-                    page,
-                    ReportingExportPolicy.FetchPageSize,
-                    principal,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!pageResult.IsSuccess || pageResult.Value is null)
-            {
-                return ExportCollectOutcome.Failed(
-                    pageResult.Error?.Code ?? ReportingErrorCodes.ExportFailed,
-                    pageResult.Error?.Message ?? "Reporting export query failed.",
-                    allRows.Count);
-            }
-
-            var pageValue = pageResult.Value;
-            try
-            {
-                if (columns is null) budget.AddColumns(pageValue.Columns);
-                foreach (var row in pageValue.Rows) budget.AddRow(row);
-            }
-            catch (InvalidDataException)
-            {
-                return ExportCollectOutcome.Failed(ReportingErrorCodes.ExportSizeLimitExceeded,
-                    "The export input memory limit was exceeded.", allRows.Count);
-            }
-            columns = pageValue.Columns;
-            foreach (var row in pageValue.Rows)
-            {
-                if (allRows.Count >= ReportingExportPolicy.MaxExportRows)
-                {
-                    return ExportCollectOutcome.Failed(
-                        ReportingErrorCodes.ExportRowLimitExceeded,
-                        $"The export exceeds the maximum of {ReportingExportPolicy.MaxExportRows} rows.",
-                        allRows.Count);
-                }
-
-                allRows.Add(row);
-            }
-
-            if (!pageValue.HasMore)
-            {
-                break;
-            }
-
-            // 恰好收满上限但仍有下一页时必须报告超限，不能把前 5000 行标为完整导出。
-            if (allRows.Count >= ReportingExportPolicy.MaxExportRows)
-            {
-                return ExportCollectOutcome.Failed(ReportingErrorCodes.ExportRowLimitExceeded,
-                    $"The export exceeds the maximum of {ReportingExportPolicy.MaxExportRows} rows.", allRows.Count);
-            }
-            page++;
-        }
-
-        if (columns is null || columns.Count == 0)
-        {
-            return ExportCollectOutcome.Failed(
-                ReportingErrorCodes.ExecutionColumnsDenied,
-                "No result columns are visible for the current principal.",
-                allRows.Count);
-        }
-
-        return ExportCollectOutcome.Succeeded(columns, allRows);
-    }
-
-    private async Task MarkFailedAsync(
+    /// <summary>把持久化终态映射为创建 API 结果，失败任务仍返回业务错误。</summary>
+    /// <param name="taskId">任务标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private async Task<Result<ReportingExportTaskDetailResponse>> LoadResultAsync(
         Guid taskId,
-        long version,
-        int rowCount,
-        string errorCode,
-        string errorMessage,
         CancellationToken cancellationToken)
     {
-        await commandExecutor.ExecuteAsync(
-                ReportingExportTaskSql.CompleteFailed,
-                ReportingSqlParameters.Create(
-                    ("Id", taskId),
-                    ("StatusKey", ReportingExportTaskStatusKeys.Failed),
-                    ("RowCount", rowCount),
-                    ("ErrorCode", errorCode),
-                    ("ErrorMessage", errorMessage),
-                    ("CompletedAtUtc", clock.UtcNow),
-                    ("Version", version)),
+        var detail = await queryExecutor
+            .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
+                ReportingExportTaskSql.FindById,
+                ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
-    }
+        if (detail is null)
+        {
+            return Result<ReportingExportTaskDetailResponse>.Failure(TaskNotFoundError());
+        }
 
-    private static string BuildFileName(string definitionKey, int versionNumber, DateTimeOffset timestamp) =>
-        $"{definitionKey}-v{versionNumber}-{timestamp:yyyyMMddHHmmss}.xlsx";
+        if (string.Equals(detail.StatusKey, ReportingExportTaskStatusKeys.Failed, StringComparison.Ordinal))
+        {
+            return Result<ReportingExportTaskDetailResponse>.Failure(new Error(
+                detail.ErrorCode ?? ReportingErrorCodes.ExportFailed,
+                detail.ErrorMessage ?? "Reporting export failed.",
+                ErrorType.Validation));
+        }
+
+        return Result<ReportingExportTaskDetailResponse>.Success(ReportingExportTaskMapper.MapDetail(detail));
+    }
 
     private void EnsureTenantContext()
     {
@@ -350,34 +206,4 @@ internal sealed class ReportingExportTaskManagementService(
 
     private static Error TaskNotFoundError() =>
         new(ReportingErrorCodes.ExportTaskNotFound, "The reporting export task was not found.", ErrorType.NotFound);
-
-    private sealed class ExportCollectOutcome
-    {
-        public bool IsSuccess { get; init; }
-        public string? ErrorCode { get; init; }
-        public string? ErrorMessage { get; init; }
-        public int RowCount { get; init; }
-        public IReadOnlyList<ReportingExecutionColumnDefinition>? Columns { get; init; }
-        public IReadOnlyList<ReportingExecutionRow>? Rows { get; init; }
-
-        public static ExportCollectOutcome Succeeded(
-            IReadOnlyList<ReportingExecutionColumnDefinition> columns,
-            IReadOnlyList<ReportingExecutionRow> rows) =>
-            new()
-            {
-                IsSuccess = true,
-                Columns = columns,
-                Rows = rows,
-                RowCount = rows.Count,
-            };
-
-        public static ExportCollectOutcome Failed(string errorCode, string errorMessage, int rowCount) =>
-            new()
-            {
-                IsSuccess = false,
-                ErrorCode = errorCode,
-                ErrorMessage = errorMessage,
-                RowCount = rowCount,
-            };
-    }
 }

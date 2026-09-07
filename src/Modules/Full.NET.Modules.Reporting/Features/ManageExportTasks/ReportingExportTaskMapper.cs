@@ -58,9 +58,26 @@ internal static class ReportingExportTaskMapper
     public static string SerializeParameters(IReadOnlyList<ReportingExecutionParameterValue> parameters) =>
         JsonSerializer.Serialize(parameters, SerializerContext.IReadOnlyListReportingExecutionParameterValue);
 
+    /// <summary>序列化创建导出时的权限码快照。</summary>
+    /// <param name="permissionCodes">主体权限码。</param>
+    public static string SerializePermissionCodes(IReadOnlyList<string> permissionCodes) =>
+        JsonSerializer.Serialize(permissionCodes.ToArray(), SerializerContext.StringArray);
+
+    /// <summary>还原权限码快照；损坏时返回空集合，恢复路径会按无列权限失败关闭。</summary>
+    /// <param name="json">持久化 JSON。</param>
+    public static IReadOnlyList<string> DeserializePermissionCodes(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize(json, SerializerContext.StringArray) ?? [];
+    }
+
     /// <summary>从任务快照还原报表参数，保持既有空值语义。</summary>
     /// <param name="json">持久化的 JSON 快照。</param>
-    private static IReadOnlyList<ReportingExecutionParameterValue> DeserializeParameters(string json)
+    public static IReadOnlyList<ReportingExecutionParameterValue> DeserializeParameters(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {

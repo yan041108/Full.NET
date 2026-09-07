@@ -10,8 +10,11 @@ namespace Full.NET.Modules.Reporting.Persistence;
 internal sealed class ReportingDapperAotMaterializerContributor
     : IDapperAotMaterializerContributor
 {
-    public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar) =>
+    public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
+    {
         registrar.Register<ReportingDataSourceRecord>(ReadDataSource);
+        registrar.Register<ReportingExportTaskRecord>(ReadExportTask);
+    }
 
     private static ReportingDataSourceRecord ReadDataSource(DbDataReader reader) => new()
     {
@@ -32,6 +35,33 @@ internal sealed class ReportingDapperAotMaterializerContributor
         CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
         UpdatedAtUtc = ReadNullableDateTimeOffset(reader, "UpdatedAtUtc"),
         Version = ReadInt32(reader, "Version"),
+    };
+
+    /// <summary>读取导出任务行，列顺序与 SelectColumns 一致。</summary>
+    /// <param name="reader">数据读取器。</param>
+    private static ReportingExportTaskRecord ReadExportTask(DbDataReader reader) => new()
+    {
+        Id = ReadGuid(reader, "Id"),
+        TenantId = ReadGuid(reader, "TenantId"),
+        DefinitionId = ReadGuid(reader, "DefinitionId"),
+        VersionNumber = ReadInt32(reader, "VersionNumber"),
+        DefinitionKey = ReadString(reader, "DefinitionKey"),
+        DefinitionName = ReadString(reader, "DefinitionName"),
+        FormatKey = ReadString(reader, "FormatKey"),
+        ParametersJson = ReadString(reader, "ParametersJson"),
+        StatusKey = ReadString(reader, "StatusKey"),
+        OutputFileId = ReadNullableGuid(reader, "OutputFileId"),
+        OutputFileName = ReadNullableString(reader, "OutputFileName"),
+        RowCount = ReadInt32(reader, "RowCount"),
+        ErrorCode = ReadNullableString(reader, "ErrorCode"),
+        ErrorMessage = ReadNullableString(reader, "ErrorMessage"),
+        RequestedByUserId = ReadGuid(reader, "RequestedByUserId"),
+        CreatedAtUtc = ReadDateTimeOffset(reader, "CreatedAtUtc"),
+        CompletedAtUtc = ReadNullableDateTimeOffset(reader, "CompletedAtUtc"),
+        LeaseId = ReadNullableGuid(reader, "LeaseId"),
+        LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, "LeaseExpiresAtUtc"),
+        ActorPermissionCodesJson = ReadNullableString(reader, "ActorPermissionCodesJson"),
+        Version = Convert.ToInt64(reader.GetValue(RequiredOrdinal(reader, "Version")), CultureInfo.InvariantCulture),
     };
 
     private static int RequiredOrdinal(DbDataReader reader, string name) => reader.GetOrdinal(name);

@@ -2,7 +2,7 @@
 
 ## 1. 完成的定义
 
-代码能编译只是最低门槛。任务只有在需求覆盖、风险处理、分层验证证据、必要文档同步、治理触发检查和 Git 状态均清楚后才能声明完成。无法执行的验证必须明确列为未验证项，禁止把“预计通过”写成“已通过”。
+按任务范围判断完成：实施任务需覆盖需求、受影响风险、必要文档和新鲜验证证据；只读任务需提供有依据的结论与局限。无法执行的验证必须列为未验证项，禁止把“预计通过”写成“已通过”。本文按 `rules/README.md` 的任务路由读取，不要求每次通读所有领域。
 
 ### 当前已识别的高频遗漏
 
@@ -40,7 +40,7 @@
 
 1. 必须先确认当前请求是分析、诊断、实现、审查、合并还是发布；不得把只读请求扩展为代码修改。
 2. 必须检查 `git status`、当前分支、最近提交和适用的 `AGENTS.md`，保护用户已有改动。
-3. 多步骤任务必须建立可追踪计划；实现必须能映射到用户需求或已批准设计。
+3. 复杂、跨模块或高风险任务先列可追踪计划；普通多步骤任务可在会话内列步骤后直接执行。只有达到 §12.1 永久文档门槛时才创建计划文件，实现仍须映射到用户需求或已批准设计。
 4. 不确定项应优先从代码、测试和文档中查证。会显著改变功能、数据或外部状态的假设必须停止并取得授权。
 5. 禁止顺手重构无关区域、批量改格式或删除不明文件。
 
@@ -277,85 +277,77 @@
 
 ## 11. 测试与验证
 
-1. 新行为和缺陷修复必须先建立能失败的测试或可复现实验；文档和纯机械变更可用结构化检查代替行为测试。
-2. 至少覆盖成功、验证失败、权限失败、取消、并发、重复请求和依赖故障中与变更相关的路径。
-3. 数据层变更必须运行 SQL Server 与 MySQL 集成测试。取得提交与推送授权时，双库、Docker/Testcontainers 和其他外部依赖验证默认由 GitHub Actions 执行；GitHub Actions 不可用且本地依赖也不可用时，必须报告未验证项，禁止静默跳过后宣称通过。
-4. Full.NET 使用 Microsoft Testing Platform；必须通过测试矩阵生成的稳定命令执行套件并保留最低发现数门槛，不能只看到构建成功就认为测试已执行。Integration 验证必须按变更风险分层：本地先规划影响集并运行低成本直接测试；SQL、事务、租户过滤和迁移变更必须由 GitHub Actions 或必要的本地聚焦测试覆盖 SQL Server 与 MySQL；共享基础设施运行对应 Smoke、能力过滤集或专项分片；完整集合只由 `main` CI 并行分片执行。聚焦结果只能表述为聚焦通过，被门槛拒绝、零发现或降低门槛的运行不得作为完成证据。
-5. 测试套件、最低发现数、超时和 Integration 分片只维护在 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json)；README、开发指南、CI 与 Skill 只能引用稳定命令或该清单，禁止复制易变数字。增删测试后必须更新清单并运行 `pnpm test:integration:partitions` 与 `pnpm test:governance`；普通门槛变化不得再要求人工追加 `test-threshold-audit` 长文档。
-6. 架构、兼容性和序列化契约必须有专门测试；不能只依赖端到端测试偶然覆盖。
-7. 完成前必须运行 Release 构建、相关测试和 `git diff --check`；已推送的变更还必须核对目标提交的 GitHub Actions 必需工作流。报告测试总数、失败数和任何跳过项，不得用其他提交或过期工作流结果作为当前变更证据。
-8. 验证命令必须在最终代码状态下重新运行，禁止复用变更前的结果作为完成证据。凡测试会扫描或执行构建产物，测试入口必须在同一命令链先生成当前源码的新产物；禁止依赖工作区遗留产物产生假通过。
+本节是测试执行策略的唯一权威来源；入口、Skill 和命令地图只链接本节，不复制执行步骤。命令实现和机器门槛由 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json) 及测试脚本维护。
+
+1. 新行为和缺陷修复先建立能失败的测试或可复现实验；文档、纯机械和低风险配置变更使用直接结构检查，不为流程增加无信息量测试。
+2. 验证覆盖受影响的成功、失败、权限、租户、取消、并发、重复请求及依赖故障；架构和公共契约不能只依赖页面 E2E 偶然覆盖。数据行为在切片关闭时必须有 SQL Server 与 MySQL 同场景证据。
+3. 本地先运行受影响编译、静态检查、治理与无容器的 Unit/Architecture/Contract。涉及 .NET 构建产物时使用 Release 并确保产物来自当前源码；同一源码状态已构建时后续套件可用 `--no-build`，不重复构建。纯规则/文档改动不强制 .NET 构建；只读审查仅执行回答问题所需检查。
+4. 使用 Microsoft Testing Platform 与矩阵生成的稳定命令，保留最低发现数、退出码和跳过信息。零发现、失败或降低门槛不能作为通过证据；聚焦通过只证明聚焦范围。
+5. 只重跑受最终修改影响的验证。未改变输入的有效证据可复用；禁止用变更前结果证明已经改变的代码。交付报告实际命令、结果和未验证项，已推送的变更还应列出精确提交及所需工作流状态。
+6. 测试数量只维护在测试矩阵；增删受矩阵管理的测试时更新对应项并运行 `pnpm test:integration:partitions` 与 `pnpm test:governance`。不在 README、Skill、CI 或新审计文档中复制门槛。
 
 ### 11.1 Integration 变更风险分层
 
-| 变更范围 | 最低 Integration 验证 |
+| 变更范围 | 切片关闭所需 Integration 证据 |
 | --- | --- |
-| 文档、纯客户端或不接触服务端行为 | 不强制运行 Integration；执行直接相关的治理、客户端或契约测试 |
-| 单模块且不改变 SQL、事务、租户、认证授权或共享宿主 | inner 只运行快速测试；纵向 slice 关闭时运行受影响 Endpoint/用例的聚焦测试 |
-| SQL、Dapper 映射、事务、租户数据过滤或数据库行为 | 运行同一场景的 SQL Server 与 MySQL 聚焦测试 |
-| 新增或修改迁移 | 运行受影响迁移阶段的双库恢复测试，以及受影响模块的双库聚焦测试 |
-| 共享宿主、Composition 或未知服务端路径 | 运行双库 Smoke 影响集 |
-| 认证授权、租户基础设施、Outbox、缓存或其他已登记共享能力 | 运行对应能力的双库聚焦影响集 |
-| 迁移 Runner 或迁移测试基础设施 | 运行 migrations 分片 |
-| Integration 测试工具链 | 运行 Integration tooling 与治理契约 |
+| 文档、纯客户端或不接触服务端行为 | 不强制 Integration；执行直接相关的治理、客户端或契约检查 |
+| 单模块，不改变 SQL、事务、租户、认证授权或共享宿主 | 受影响 Endpoint/用例的聚焦测试 |
+| SQL、Dapper 映射、事务、租户过滤或数据库行为 | 同一场景的 SQL Server 与 MySQL 聚焦测试 |
+| 新增或修改迁移 | 对应双库恢复集与受影响模块；未登记迁移安全降级到 migrations 并追加可识别模块 |
+| 共享宿主、Composition 或未知服务端路径 | 双库 Smoke 影响集 |
+| 认证授权、租户基础设施、Outbox、缓存或其他共享能力 | 对应能力的双库聚焦影响集 |
+| 迁移 Runner 或共享迁移夹具 | migrations 分片 |
+| Integration 工具链 | Integration tooling 与治理契约 |
 
-验证按开发阶段收敛：
-
-| 阶段 | 触发时机 | 默认门禁 |
+| 阶段 | 时机 | 默认执行位置与门禁 |
 | --- | --- | --- |
-| `inner` | 每次代码迭代 | 本地编译、静态检查、Unit/Architecture/Contract；先规划高风险 Integration，默认不启动 Docker、完整浏览器或真实栈 |
-| `slice` | 一个 API＋数据库＋客户端纵向功能切片关闭，最长不超过两个工作日 | GitHub Actions 运行该切片全部 affected 双库 Integration 与受影响客户端测试；本地只补充不依赖容器的快速验证或故障复现 |
-| `merge` | PR、合并候选或每日功能列车 | GitHub Actions 运行 slice 影响集并追加双库 Smoke；默认排除 `messaging-heavy` 分片（Kafka/CDC/Capacity Docker 重测），Messaging 变更在 slice 验证，完整重测由 `main` CI 第五分片承担；诊断 CI 失败需要本地复核重测时使用 `--include-heavy` |
-| `main` | 受保护分支 CI | 运行测试矩阵中的完整互斥分片和汇总门禁 |
+| `inner` | 代码迭代 | 本地快速验证，规划高风险影响集，默认不启动 Docker、真实浏览器或真实栈 |
+| `slice` | 纵向切片关闭，最长不超过两个工作日 | GitHub Actions 执行 affected 双库 Integration 与受影响客户端测试；页面验收按下方专门规则 |
+| `merge` | PR、合并候选或每日功能列车 | GitHub Actions 执行 slice 影响集并追加双库 Smoke；默认排除 messaging-heavy，Messaging 变化先在 slice 验证 |
+| `main` | 受保护分支 CI | 测试矩阵中的完整互斥分片与汇总门禁 |
 
-本地任务禁止运行 `test:integration:full`，只运行从任务边界计算出的受影响测试；共享路径不得自动升级为完整集合。完整集合只保留给 `main` CI。准备发布时以最近一次目标 `main` CI 全量门禁为完整 Integration 证据，本地仍只补跑发布变更的影响集。
+代码、SQL、配置或脚本修改开始时记录 `git rev-parse HEAD`。工作区已脏或跨窗口时运行 `pnpm test:task:start -- <task-id>` 建立任务快照；干净单窗口任务使用任务基线。验证前用 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，干净任务将快照参数替换为 `--base <任务基线>`。只读任务不创建快照。
 
-本地标准入口为 `pnpm test:integration:affected:plan`；`pnpm test:inner`、`pnpm test:slice` 和 `pnpm test:integration:affected` 仅在影响集不需要环境重型依赖、定位 CI 失败、GitHub Actions 不可用或用户明确要求本地验证时执行。`inner` 禁止用 `pnpm test:e2e:real`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy` 代替内循环。`test:e2e:real` 只用于 `Verified` 关闭或真实 CORS/Cookie/Session 缺陷；完整 `test:e2e:admin` 属于 slice/客户端契约关闭，不进入每次代码迭代。`test:integration:full` 只保留为 CI 维护诊断入口，普通本地任务禁止调用。完成耗时基线或排查慢测时必须对受影响 TRX 运行 `pnpm test:integration:durations`，不得只凭单次墙钟时间修改并行度，也不得让多个用例共享可变业务数据库。只读 schema 模板克隆到独立数据库和本地 Testcontainers 复用只用于获准的本地聚焦复现，不能取代目标提交的 GitHub Actions 结果。
-
-代码、SQL、配置或脚本任务开始时必须记录 `git rev-parse HEAD`。工作区已脏或任务跨窗口时必须运行 `pnpm test:task:start -- <task-id>` 创建任务快照；后续通过 `--snapshot <task-id>` 只选择任务开始后真正改变的文件。干净且单窗口任务可继续使用 `--base <任务基线>`。先运行 `pnpm test:integration:affected:plan -- --snapshot <task-id> --phase <inner|slice|merge>` 审查影响集，再运行对应 affected 命令。`inner` 阶段聚焦测试与 Smoke 只强制 MySQL Provider，选择器不得用宽子串把迁移恢复或 `messaging-heavy` 卷进 inner；`slice` 与 `merge` 仍要求同场景 SQL Server 与 MySQL。`merge` 默认跳过 `messaging-heavy`；Messaging/Kafka/CDC/Capacity 变更先在 `slice` 验证，必要时追加 `--include-heavy`。选择器排除 `App_Data`、纯 `benchmarks/` 文档式变更等运行时或基准工件，合并多个过滤目标并按 UID 去重；已在测试矩阵登记恢复集的迁移运行对应双库恢复测试和受影响模块测试，未登记迁移安全降级到 migrations 分片并追加可识别的受影响模块，迁移 Runner 或共享夹具也运行 migrations 分片。不得通过遗漏路径、改写边界或手工缩小 `--filter` 规避受影响测试。
+选择器必须排除运行时工件和纯基准文档，合并过滤目标并按 UID 去重。不得遗漏路径、改写基线或手工缩小过滤器规避受影响测试；共享路径不能自动升级为完整集合。选择与过滤行为由 `pnpm test:integration:tooling` 验证。
 
 ### 11.2 新增 Integration 测试门禁
 
-1. 新增行为默认先在 Unit 或 Architecture 测试覆盖；只有 Unit 无法证明真实 DB、Broker、Connect、租户隔离或双 Provider 差异时，才允许新增 Integration 测试。
-2. 新增 Integration 测试前必须说明：为何 Unit 不足、是否必须双库 `[DataRow]`、能否并入现有 `[TestClass]`/fixture，以及是否属于 `messaging-heavy` 重测。
-3. Kafka/CDC/Capacity/Debezium 全链路或 `[RequiresDocker]` 长时测试只能进入 `messaging-heavy` 分片或专项 workflow，禁止加入 Smoke 或普通模块聚焦集。
-4. 增删 Integration 后必须更新 [`eng/testing/test-matrix.json`](../eng/testing/test-matrix.json) 并运行 `pnpm test:integration:partitions`；慢测排查使用 `pnpm test:integration:durations`，不得凭单次墙钟时间让多个用例共享可变业务数据库。
+1. 优先用 Unit 或 Architecture 覆盖行为；只有真实 DB、Broker、Connect、租户隔离或双 Provider 差异无法在这些层证明时才新增 Integration。
+2. 新增前说明 Unit 不足的原因、双库需求、可复用 fixture 与是否属于 messaging-heavy；说明可留在会话或 PR。
+3. Kafka/CDC/Capacity/Debezium 全链路与 `[RequiresDocker]` 长时测试只进入 messaging-heavy 或专项 workflow，禁止加入 Smoke 或普通模块聚焦集。
+4. 变更分片后运行 `pnpm test:integration:partitions`；排查慢测时对受影响 TRX 运行 `pnpm test:integration:durations`，不凭单次墙钟时间改变并行度。
 
 ### R-20260816-local-test-inner-budget：本地内循环必须走分层漏斗，禁止用全量套件冒充 inner
 
-- 状态：强制
-- 来源：项目所有者明确要求加快测试与开发速度，并授权修改测试规则；代理在 Document 等切片中把 `test:e2e:real`、完整 Playwright 和双库 Integration 当作每次迭代门禁，导致内循环数十分钟
-- 适用范围：本地开发、修复、重构和代理自动验证；不降低 `main` CI 全量分片或 `Verified` 真实栈门槛
-- 风险：每次改几行代码都启动完整浏览器、真实 Migrator/API/Worker 或 585 项 Integration，开发反馈被拖垮，同时把 inner 通过误报为 slice/`Verified`
-- 规则：先用 `pnpm test:integration:affected:plan -- --phase inner` 审查影响集；确需本地执行 inner Integration 时使用 `pnpm test:inner`。禁止在 inner 运行 `pnpm test:e2e:real`、`pnpm test:e2e:real:mysql`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 `messaging-heavy`。本地 inner 的 Smoke 与聚焦 Integration 必须附加 `FullyQualifiedName~MySql`，禁止再跑同场景 SQL Server。Identity/Tenancy/Outbox/CodeGeneration 过滤器必须限定到对应 API/模块测试命名空间，禁止用 `~Identity`、`~Outbox` 这类会命中迁移恢复或 CDC 重测的宽子串。确需本地关闭 slice 时使用 `pnpm test:slice` 或 `test:integration:affected --phase slice`，覆盖该纵向切片的双库 Integration 与受影响客户端测试。`test:e2e:real` 只用于功能 `Verified` 关闭，或修复真实 CORS、Cookie、CSRF、Session 与跨 Origin 凭据问题。每个 API Integration 用例仍必须使用独立数据库；允许把只读、已迁移的 schema 模板（不含租户/管理员/导航业务行）克隆到这些独立库，每个用例仍必须自行执行供给与引导。禁止多个用例共享同一可变业务库。本地聚焦复现可以复用 Testcontainers 容器；CI 必须销毁。设置 `FULLNET_TESTCONTAINERS_REUSE=0` 或 `FULLNET_API_SCHEMA_TEMPLATE=0` 可关闭对应加速
-- 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定 `test:inner`/`test:slice`、inner 禁令和模板克隆/复用入口；`pnpm test:governance` 与 `pnpm test:integration:tooling` 必须通过
-- 例外：用户在当前任务中明确要求运行真实栈或完整浏览器套件时可以执行，但不得把该结果写成 inner 完成证据
+- 状态与来源：强制；项目所有者要求缩短本地反馈，2026-09-07 授权合并重复规则。原标识保留。
+- 适用范围：本地开发与聚焦复现；不降低 main CI 或 Verified 门槛。
+- 执行：只有影响集不需环境重型依赖，或满足下一条的本地例外时，才执行 `pnpm test:inner`、`pnpm test:slice` 或 `pnpm test:integration:affected`。执行前使用 §11.1 的规划结果。
+- 边界：inner 不运行 `pnpm test:e2e:real`、完整 `pnpm test:e2e:admin`、`pnpm test:integration:full` 或 messaging-heavy；获准的本地 inner 聚焦与 Smoke 只强制 MySQL，过滤器附加 `FullyQualifiedName~MySql`。slice/merge 要求同场景双库，必要的重型诊断使用 `--include-heavy`。Identity/Tenancy/Outbox/CodeGeneration 过滤必须限定 API/模块命名空间，避免宽子串误选恢复或 CDC 测试。
+- 隔离：每个 API Integration 用例使用独立业务数据库，可从不含租户/管理员/导航业务数据的只读 schema 模板克隆，用例自行供给与引导。仅获准的本地复现可复用 Testcontainers；CI 必须销毁。可用 `FULLNET_TESTCONTAINERS_REUSE=0` 或 `FULLNET_API_SCHEMA_TEMPLATE=0` 关闭加速。
+- 例外：用户明确要求真实栈或完整浏览器时可执行，但不得称为 inner 证据；本地完整 Integration 与 messaging-heavy 全量仍禁止，完整集合只保留给 main CI。真实 CORS/Cookie/CSRF/Session 缺陷应验证真实边界，执行位置遵守下一条。
+- 验证：`pnpm test:integration:tooling` 覆盖选择器、Provider、过滤和分片行为；`pnpm test:governance` 检查命令、引用和 CI 接线。
 
 ### R-20260903-github-actions-first-verification：环境重型验证默认由 GitHub Actions 执行
 
-- 状态：强制
-- 来源：项目所有者明确要求后续测试尽可能使用 GitHub Actions，并授权更新项目规则
-- 适用范围：所有代码、SQL、配置、脚本和发布候选验证；不改变双库、Native AOT、最低发现数和发布候选门槛，功能建设期的页面验收节奏由 R-20260905-feature-first-page-acceptance 规定
-- 风险：在开发机重复启动 Docker、双数据库、Kafka/CDC、完整浏览器和 Linux Native AOT 会显著拖慢反馈并产生环境差异；反向地，只推送而不核对目标提交工作流又会把“已触发”误报为“已验证”
-- 规则：本地默认执行影响集规划、编译、静态检查、治理测试以及不依赖容器的直接 Unit/Architecture/Contract 测试。取得提交与推送授权后，Docker/Testcontainers、SQL Server/MySQL 双库 Integration、Kafka/CDC/Capacity、真实浏览器、Linux Native AOT publish/原生进程等环境重型验证必须优先交给 GitHub Actions。发布候选、`Verified` 关闭或用户指定的门禁必须按精确 commit SHA 核对所有必需工作流、等待终态并修复失败；功能建设期可以记录正在运行或仅页面验收失败的 Actions 后继续下一个功能切片，但不得将其作为通过证据，也不得延后安全、租户、数据、公共契约、双库或非页面回归。本地环境重型测试只用于定位 CI 失败、GitHub Actions 不可用时的受影响测试补偿，或用户明确要求；仍禁止本地完整 Integration、完整真实浏览器或 `messaging-heavy` 全量。远端执行不得降低发现数、删减双库、忽略退出码、把失败改成跳过，或通过 `continue-on-error` 绕过门禁
-- 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定 GitHub Actions 优先、目标提交核验和本地环境重型测试例外；`pnpm test:governance` 必须通过。代码任务交付记录必须列出目标提交及其必需工作流终态
-- 例外：任务没有提交或推送授权时不得擅自外部写入；应运行可用的本地快速验证，并把尚未获得目标提交 GitHub Actions 证据列为未验证项。GitHub Actions 故障或额度不可用时，可在本地运行选择器命中的环境重型影响集，但不得把局部结果表述为完整 CI 通过
+- 状态与来源：强制；项目所有者要求优先使用 GitHub Actions，2026-09-07 合并重复规则。原标识保留。
+- 执行：取得提交与推送授权后，Docker/Testcontainers、双库 Integration、Kafka/CDC/Capacity、真实浏览器和 Linux Native AOT publish/原生进程默认交给 GitHub Actions；本地重型测试仅用于定位 CI 失败、Actions 故障或额度不可用时补偿受影响验证，或用户明确要求。
+- 证据：发布候选、Verified 关闭与用户指定门禁必须按精确 commit SHA 核对必需工作流，等待终态并修复失败。不得降低发现数、删减双库、忽略退出码、把失败改为跳过或用 `continue-on-error` 绕过门禁。发布完整 Integration 证据来自目标 main 提交的全量门禁。
+- 未授权推送：继续完成可用本地快速验证，明确远端未验证项；不擅自提交或推送，也不为取得 CI 证据而机械阻塞已授权的本地修改。聚焦补偿不能宣称完整 CI 通过。
+- 验证：治理检查 CI 命令与汇总门禁，真实工作流终态证明执行结果；文档中出现关键词不构成通过证据。
 
 ### R-20260905-feature-first-page-acceptance：功能建设优先，页面验收集中收敛
 
-- 状态：强制
-- 来源：项目所有者明确要求当前以推进功能开发为主，功能完成后再配合人工调整逐页验收
-- 适用范围：模块功能建设阶段、Vue 页面实现、页面级 Playwright/真实栈 E2E 与能力状态标记；不适用于发布候选和已启动的逐页验收阶段
-- 风险：在页面仍需要项目所有者人工调整时强制每个增量提交的完整页面 E2E 全绿，会把开发时间消耗在即将变更的定位器和交互细节上，延误核心业务能力闭环
-- 规则：功能建设阶段不得以页面级真实栈 E2E 全绿作为每个增量切片的强制退出条件。每个切片仍必须先完成领域规则、API、精确权限、租户/数据边界、共享契约、可实行的 Unit/Architecture/Integration 及 Vue 类型检查与聚焦组件测试，且只能标记 `Implemented` 或 `Build-verified`。页面定位器、布局、文案和交互差异登记到待验收范围，不得为此反复阻塞功能切片。模块功能完成或项目所有者启动验收时，必须按页面逐一执行聚焦自动化与逐页人工验收，修复交互与视觉问题后才能升级为 `Verified`
-- 验证：`tests/governance/integration-test-feedback.test.mjs` 锁定功能优先阶段和逐页验收用词；功能切片交付必须列明已执行的非页面验证与延后的页面验收，能力状态不得越级
-- 例外：安全、权限绕过、租户越权、数据损坏、公共契约回归或与页面无关的真实运行故障仍必须立即修复；项目所有者明确指定某页面当前验收时，该页面恢复为当前切片门禁
+- 状态与来源：强制；项目所有者要求先推进功能，再集中逐页验收。
+- 建设期：切片先完成领域、API、精确权限、租户/数据、共享契约、可实行的 Unit/Architecture/Integration、Vue 类型检查及聚焦组件测试。页面定位器、布局、文案和交互差异列入待验收范围，不要求每次增量页面 E2E 全绿；可记录运行中或仅页面验收失败的 Actions 并继续下一切片，只能标记 Implemented 或 Build-verified。
+- 验收期：模块完成或用户启动逐页验收后，执行对应页面的聚焦自动化与人工验收，修复交互和视觉问题后才升级 Verified；发布候选也须完整核对必需门禁。
+- 立即处理：安全、权限绕过、租户越权、数据损坏、公共契约、双库或非页面真实运行回归不得延后。用户指定当前验收的页面恢复为当前切片门禁。
+- 验证：交付列明非页面验证与延后验收；真实自动化/人工证据决定状态，文字匹配不能证明能力完成。
 
 ## 12. 文档、依赖与发布许可
 
 ### 12.1 文档产物分层
 
-架构、设计和实施文档必须按职责分层，禁止用文件标题、目录习惯或完成勾选隐式提升决策状态：
+本节仅在需要永久文档时适用。普通任务的会话计划、只读审查答复和交付说明无需创建 Spec、ADR、Plan 或 Verification；用户明确要求保存报告时才将只读结果写入文件。永久文档不能通过标题、目录或完成勾选隐式提升决策状态。
 
 永久文档实行产物预算：
 
@@ -370,14 +362,14 @@
 | `docs/verification/` | 保存基于特定代码基线的评估、审查、实验和验证事实 | 必须记录日期、范围、输入或代码基线、方法、结论与未验证项；评估建议不自动覆盖已批准规格，也不能单独证明功能已实现 |
 | `docs/superpowers/specs/` | 保存经项目所有者或当前授权用户确认的长期设计、架构边界和验收条件 | 必须明确批准状态、适用范围和被替代关系；同一主题优先更新现有规格，禁止创建相互竞争的事实源 |
 | `docs/architecture/adr/` | 保存单项重大架构决策的上下文、候选方案、取舍、后果和替代关系 | 仅在改变长期基线、引入高迁移成本约束或多个可行方案需要保留决策理由时创建；首个 ADR 创建目录，文件使用 `ADR-NNNN-kebab-case-title.md`；ADR 与总体规格冲突时必须在同一任务同步规格摘要 |
-| `docs/superpowers/plans/` | 将已批准的 Spec 或 ADR 分解为可执行、可验证的实施步骤 | 必须引用批准依据并列出精确文件、验证和停止条件；计划勾选、提交存在或文档声称完成均不能替代新鲜构建、测试和 Verification 证据 |
+| `docs/superpowers/plans/` | 将已批准需求、Spec 或 ADR 分解为实施步骤 | 引用当前用户授权或批准文档，列出涉及文件、验证和停止条件；未改变长期基线的已授权任务不必先造 Spec/ADR。计划勾选不能替代新鲜验证证据 |
 
-文档状态按以下顺序流转：
+达到上述永久文档门槛后，按文档职责流转；这不是所有任务必须顺序完成的流水线：
 
-1. 分析、审查或实验先进入 `docs/verification/`，保持“建议稿”“复核记录”或真实验证状态；只读任务未经明确授权必须在此停止。
+1. 需要留存的评估、审查或实验进入 `docs/verification/`，保持建议稿或真实验证状态；建议本身不授权后续实施。普通只读答复直接在会话交付。
 2. 建议被项目所有者或当前授权用户确认后，更新对应 `docs/superpowers/specs/`；若命中重大单项决策门槛，同时新增 ADR 并同步规格摘要。
-3. 只有批准后的 Spec 或 ADR 才能产生 `docs/superpowers/plans/` 实施计划；探索性计划必须显式标为未批准且不得执行。
-4. 实施完成后，以新鲜自动化或人工验证更新 `docs/verification/` 和能力状态矩阵；验证失败、跳过或环境缺失必须如实保留。
+3. 永久实施计划可以依据当前用户明确授权；涉及长期架构、公共契约、迁移或安全决策时须引用相应批准依据。未批准的探索性方案不能因写入计划而自动执行。
+4. 实施完成后把普通验证留在 CI/TRX 与交付说明；达到独立 Verification 门槛才写文件，切片或里程碑关闭时更新能力矩阵。失败、跳过或环境缺失必须如实保留。
 5. 后续证据推翻旧决策时，必须显式标记替代、退役或重新评估，禁止只新增一份更新日期更晚但关系不明的文档。
 
 ### 12.2 一般文档、依赖与发布要求
@@ -400,7 +392,7 @@
 
 ## 14. 交付前遗漏清单
 
-完成声明前必须回答：
+完成前仅核对本任务实际影响的维度；无关项直接略过，不需要逐项输出“不适用”。只读任务以分析证据和局限交付，不套用实施清单：
 
 - 每项用户需求是否都能指向代码、测试或文档证据？
 - DI 注册、生命周期、启动顺序和健康检查是否真实可运行？
@@ -414,4 +406,4 @@
 - 文档是否准确描述当前状态，许可证与第三方通知是否完整？
 - 新增或修改的源代码注释是否为清晰中文且没有过期内容？
 - Git 工作区、分支、编码和跨平台状态是否干净可复现？
-- 本次是否出现值得按 [`rule-evolution.md`](rule-evolution.md) 升级的新经验？
+- 出现明确长期纠正、重复失败、高风险新类别或规则冲突时，是否按 [`rule-evolution.md`](rule-evolution.md) 处理？无触发证据不要求治理结论。

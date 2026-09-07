@@ -30,6 +30,168 @@ BEGIN
         CONSTRAINT CK_fn_reporting_data_source_LastTestStatusKey
             CHECK (LastTestStatusKey IS NULL OR LastTestStatusKey IN (N'succeeded', N'failed'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'报表数据源表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'DatabaseName', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'数据库名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'DatabaseName';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'IsEnabled', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'IsEnabled';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'LastTestMessage', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最近一次探测消息', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'LastTestMessage';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'LastTestStatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最近一次探测状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'LastTestStatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'LastTestedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Last Tested At(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'LastTestedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'Name', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'Name';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'PasswordProtected', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'受保护的密码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'PasswordProtected';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'Port', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'端口', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'Port';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'ProviderKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'存储提供程序键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'ProviderKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'ServerHost', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'服务器主机', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'ServerHost';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'TrustServerCertificate', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否信任服务器证书', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'TrustServerCertificate';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'Username', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'Username';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_reporting_data_source')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_reporting_data_source'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_reporting_data_source', @level2type=N'COLUMN', @level2name=N'Version';
 
     IF NOT EXISTS (
         SELECT 1

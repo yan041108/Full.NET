@@ -13,13 +13,26 @@ using Full.NET.Modules.Reporting.Security;
 namespace Full.NET.Modules.Reporting.Features.ExecuteDefinitions;
 
 /// <summary>对已发布报表定义执行受界 Query Port 并返回分页结果。</summary>
+/// <param name="queryExecutor">本模块查询执行器。</param>
+/// <param name="definitionQueries">报表定义查询。</param>
+/// <param name="secretProtector">数据源密码保护器。</param>
+/// <param name="connectionFactory">外部数据源连接工厂。</param>
+/// <param name="clock">时钟。</param>
 internal sealed class ReportingDefinitionExecutionService(
     IQueryExecutor queryExecutor,
     ReportingDefinitionQueryService definitionQueries,
     ReportingDataSourceSecretProtector secretProtector,
+    ReportingDataSourceConnectionFactory connectionFactory,
     IClock clock)
 {
     /// <summary>执行已发布版本并返回分页结果；SQL 失败时立即失败。</summary>
+    /// <param name="definitionId">报表定义标识。</param>
+    /// <param name="request">执行请求，含参数与可选版本。</param>
+    /// <param name="page">页码，小于 1 时按 1 处理。</param>
+    /// <param name="pageSize">页大小，受执行策略上限约束。</param>
+    /// <param name="principal">当前主体，用于结果列权限过滤。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>分页结果或业务失败。</returns>
     public async Task<Result<ReportingExecutionPageResponse>> ExecuteAsync(
         Guid definitionId,
         ExecuteReportingDefinitionRequest request,
@@ -114,18 +127,23 @@ internal sealed class ReportingDefinitionExecutionService(
             pageSize);
 
         var password = secretProtector.Unprotect(dataSource.PasswordProtected);
-        var connectionOutcome = await ReportingDataSourceConnectionFactory
+        var sessionOutcome = await connectionFactory
             .OpenAsync(dataSource, password, cancellationToken)
             .ConfigureAwait(false);
-        if (!connectionOutcome.Succeeded || connectionOutcome.Connection is null)
+        if (!sessionOutcome.Succeeded || sessionOutcome.Session is null)
         {
-            return ExecutionFailed(connectionOutcome.ErrorMessage ?? "Failed to open reporting data source.");
+            return ExecutionFailed(sessionOutcome.ErrorMessage ?? "Failed to open reporting data source.");
         }
 
-        await using (connectionOutcome.Connection)
+        await using (sessionOutcome.Session)
         {
-            var queryOutcome = await ReportingExternalQueryExecutor
-                .ExecuteAsync(connectionOutcome.Connection, sql, sqlParameters, cancellationToken)
+            var queryOutcome = await sessionOutcome.Session
+                .ExecuteQueryAsync(
+                    sql,
+                    sqlParameters,
+                    ReportingExecutionPolicy.CommandTimeoutSeconds,
+                    ReportingExecutionPolicy.MaxCellValueLength,
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (!queryOutcome.Succeeded)
             {

@@ -88,6 +88,120 @@ public sealed class Migration203PublishedUuidStorageRecoveryTests
         Assert.AreEqual(0, (await runner.MigrateAsync().ConfigureAwait(false)).ExecutedScriptCount);
     }
 
+    /// <summary>升级后必须恢复文档访问日志与预览任务对本模块文档项的外键。</summary>
+    [TestMethod]
+    public async Task MySql_restores_document_access_log_foreign_key_async()
+    {
+        var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync().ConfigureAwait(false);
+        var runner = CreateRunner(DatabaseProvider.MySql, connectionString);
+        await runner.MigrateAsync().ConfigureAwait(false);
+        await using var connection = MySqlConnection(connectionString);
+        var itemId = Guid.CreateVersion7();
+        var logId = Guid.CreateVersion7();
+        var userId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO fn_document_item (Id, TenantId, Title, IsDeleted, CreatedAtUtc, CreatedByUserId, Version)
+            VALUES (@ItemId, NULL, 'uuid-upgrade', 0, UTC_TIMESTAMP(6), @UserId, 1);
+            ALTER TABLE fn_document_access_log DROP FOREIGN KEY FK_fn_document_access_log_Item;
+            ALTER TABLE fn_document_preview_task DROP FOREIGN KEY FK_fn_document_preview_task_Item;
+            ALTER TABLE fn_document_access_log
+                MODIFY COLUMN Id char(36) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+                MODIFY COLUMN DocumentItemId char(36) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL;
+            INSERT INTO fn_document_access_log
+                (Id, DocumentItemId, DocumentTitle, AccessTypeKey, SourceKey, ActorUserId, OccurredAtUtc, ClientIpFingerprint)
+            VALUES (@LogId, @ItemIdText, 'uuid-upgrade', 'preview', 'authenticated', NULL, UTC_TIMESTAMP(6), NULL);
+            DELETE FROM schemaversions WHERE ScriptName LIKE '%203_PublishedModuleUuidStorage.sql';
+            """,
+            new
+            {
+                ItemId = itemId,
+                UserId = userId,
+                LogId = logId.ToString("D").ToUpperInvariant(),
+                ItemIdText = itemId.ToString("D").ToUpperInvariant(),
+            }).ConfigureAwait(false);
+        Assert.AreEqual(1, (await runner.MigrateAsync().ConfigureAwait(false)).ExecutedScriptCount);
+        Assert.AreEqual(itemId, await connection.QuerySingleAsync<Guid>(
+            "SELECT DocumentItemId FROM fn_document_access_log WHERE Id = @LogId",
+            new { LogId = logId }).ConfigureAwait(false));
+        Assert.AreEqual(16, await connection.ExecuteScalarAsync<int>(
+            "SELECT OCTET_LENGTH(DocumentItemId) FROM fn_document_access_log WHERE Id = @LogId",
+            new { LogId = logId }).ConfigureAwait(false));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_document_access_log'
+              AND CONSTRAINT_NAME = 'FK_fn_document_access_log_Item'
+            """).ConfigureAwait(false));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_document_preview_task'
+              AND CONSTRAINT_NAME = 'FK_fn_document_preview_task_Item'
+            """).ConfigureAwait(false));
+        Assert.AreEqual(0, (await runner.MigrateAsync().ConfigureAwait(false)).ExecutedScriptCount);
+    }
+
+    /// <summary>同一表内 BINARY(16) 与 VARBINARY(36) 中间态必须收敛，并保留已有 Guid。</summary>
+    [TestMethod]
+    public async Task MySql_mixed_binary_and_varbinary_uuid_columns_converge_async()
+    {
+        var connectionString = await SharedDatabaseFixture.CreateMySqlDatabaseAsync().ConfigureAwait(false);
+        var runner = CreateRunner(DatabaseProvider.MySql, connectionString);
+        await runner.MigrateAsync().ConfigureAwait(false);
+        await using var connection = MySqlConnection(connectionString);
+        var itemId = Guid.CreateVersion7();
+        var logId = Guid.CreateVersion7();
+        var userId = Guid.CreateVersion7();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO fn_document_item (Id, TenantId, Title, IsDeleted, CreatedAtUtc, CreatedByUserId, Version)
+            VALUES (@ItemId, NULL, 'mixed-uuid', 0, UTC_TIMESTAMP(6), @UserId, 1);
+            INSERT INTO fn_document_access_log
+                (Id, DocumentItemId, DocumentTitle, AccessTypeKey, SourceKey, ActorUserId, OccurredAtUtc, ClientIpFingerprint)
+            VALUES (@LogId, @ItemId, 'mixed-uuid', 'download', 'authenticated', NULL, UTC_TIMESTAMP(6), NULL);
+            ALTER TABLE fn_document_access_log DROP FOREIGN KEY FK_fn_document_access_log_Item;
+            ALTER TABLE fn_document_access_log MODIFY COLUMN DocumentItemId VARBINARY(36) NOT NULL;
+            DELETE FROM schemaversions WHERE ScriptName LIKE '%203_PublishedModuleUuidStorage.sql';
+            """,
+            new { ItemId = itemId, LogId = logId, UserId = userId }).ConfigureAwait(false);
+        Assert.AreEqual("varbinary", await connection.QuerySingleAsync<string>(
+            """
+            SELECT DATA_TYPE FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fn_document_access_log' AND COLUMN_NAME = 'DocumentItemId'
+            """).ConfigureAwait(false));
+        Assert.AreEqual("binary", await connection.QuerySingleAsync<string>(
+            """
+            SELECT DATA_TYPE FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fn_document_access_log' AND COLUMN_NAME = 'Id'
+            """).ConfigureAwait(false));
+        Assert.AreEqual(1, (await runner.MigrateAsync().ConfigureAwait(false)).ExecutedScriptCount);
+        Assert.AreEqual(itemId, await connection.QuerySingleAsync<Guid>(
+            "SELECT DocumentItemId FROM fn_document_access_log WHERE Id = @LogId",
+            new { LogId = logId }).ConfigureAwait(false));
+        Assert.AreEqual(logId, await connection.QuerySingleAsync<Guid>(
+            "SELECT Id FROM fn_document_access_log WHERE Id = @LogId",
+            new { LogId = logId }).ConfigureAwait(false));
+        Assert.AreEqual("binary", await connection.QuerySingleAsync<string>(
+            """
+            SELECT DATA_TYPE FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fn_document_access_log' AND COLUMN_NAME = 'DocumentItemId'
+            """).ConfigureAwait(false));
+        Assert.AreEqual(16, await connection.ExecuteScalarAsync<int>(
+            "SELECT OCTET_LENGTH(DocumentItemId) FROM fn_document_access_log WHERE Id = @LogId",
+            new { LogId = logId }).ConfigureAwait(false));
+        Assert.AreEqual(1, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'fn_document_access_log'
+              AND CONSTRAINT_NAME = 'FK_fn_document_access_log_Item'
+            """).ConfigureAwait(false));
+        Assert.AreEqual(0, (await runner.MigrateAsync().ConfigureAwait(false)).ExecutedScriptCount);
+    }
+
     /// <summary>创建使用标准 Binary16 Guid 字节序的测试连接。</summary>
     /// <param name="connectionString">隔离测试库连接字符串。</param>
     private static MySqlConnection MySqlConnection(string connectionString) => new(

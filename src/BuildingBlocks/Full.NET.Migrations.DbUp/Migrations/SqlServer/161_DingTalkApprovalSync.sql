@@ -27,6 +27,177 @@ BEGIN
             CHECK (StatusKey IN (
                 N'pending_outbound', N'outbound_failed', N'running', N'completed', N'terminated'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'通知钉钉审批同步表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'CreatedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'DeptId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'部门标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'DeptId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'DingTalkProcessInstanceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'钉钉流程实例标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'DingTalkProcessInstanceId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'ExternalResultKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外部结果键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'ExternalResultKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'ExternalStatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外部回执状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'ExternalStatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'IdempotencyKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'幂等键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'IdempotencyKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'LastErrorCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后错误码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'LastErrorCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'LastSyncedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Last Synced At(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'LastSyncedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'OriginatorUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发起人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'OriginatorUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'ProcessCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程编码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'ProcessCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'StatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'StatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'Summary', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'Summary';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'TenantScopeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户作用域唯一键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'TenantScopeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'Title', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'标题', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'Title';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_notifications_dingtalk_approval_sync'), N'WorkflowInstanceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流实例标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_notifications_dingtalk_approval_sync', @level2type=N'COLUMN', @level2name=N'WorkflowInstanceId';
 
     IF NOT EXISTS (
         SELECT 1

@@ -20,6 +20,87 @@ BEGIN
         CONSTRAINT CK_fn_document_access_log_SourceKey
             CHECK (SourceKey IN (N'authenticated', N'share'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档访问日志表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'AccessTypeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'访问类型键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'AccessTypeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'ActorUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'操作者用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'ActorUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'ClientIpFingerprint', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'客户端 IP 指纹', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'ClientIpFingerprint';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'DocumentItemId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档项标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'DocumentItemId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'DocumentTitle', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档标题', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'DocumentTitle';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'OccurredAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发生时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'OccurredAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_access_log')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_access_log'), N'SourceKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'来源键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_access_log', @level2type=N'COLUMN', @level2name=N'SourceKey';
 
     IF NOT EXISTS (
         SELECT 1

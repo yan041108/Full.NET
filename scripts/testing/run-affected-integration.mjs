@@ -28,21 +28,34 @@ const tenancyFilter =
 const codeGenerationFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Api.CodeGenerationApi'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.CodeGeneration.';
+const importExportFilter =
+  'FullyQualifiedName~ImportExportApi|FullyQualifiedName~Full.NET.IntegrationTests.ImportExport.';
+const aiFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Ai.';
+const reportingFilter = 'FullyQualifiedName~Full.NET.IntegrationTests.Reporting.';
+const filesFilter =
+  'FullyQualifiedName~FilesApi|FullyQualifiedName~Full.NET.IntegrationTests.Files.';
+const notificationsFilter =
+  'FullyQualifiedName~NotificationsApi|FullyQualifiedName~Full.NET.IntegrationTests.Notifications.';
 const outboxFilter =
   'FullyQualifiedName~Full.NET.IntegrationTests.Messaging.MessagingOutbox'
   + '|FullyQualifiedName~Full.NET.IntegrationTests.Messaging.OutboxRecoveryTests';
 const mergeDeferredShardNames = new Set(['messaging-heavy']);
 
 const focusedModules = new Set([
+  'Ai',
   'Auditing',
+  'Calendar',
   'CodeGeneration',
   'DataApproval',
   'Document',
   'Files',
+  'ImportExport',
   'Jobs',
   'Notifications',
   'ObservabilityAdmin',
   'Organization',
+  'Regions',
+  'Reporting',
   'SerialNumbers',
   'Settings',
   'Workflow'
@@ -195,6 +208,26 @@ function addModuleTarget(targets, moduleName) {
   }
   if (moduleName === 'CodeGeneration') {
     addTarget(targets, filterTarget('CodeGeneration', codeGenerationFilter));
+    return;
+  }
+  if (moduleName === 'ImportExport') {
+    addTarget(targets, filterTarget('ImportExport', importExportFilter));
+    return;
+  }
+  if (moduleName === 'Ai') {
+    addTarget(targets, filterTarget('Ai', aiFilter));
+    return;
+  }
+  if (moduleName === 'Reporting') {
+    addTarget(targets, filterTarget('Reporting', reportingFilter));
+    return;
+  }
+  if (moduleName === 'Files') {
+    addTarget(targets, filterTarget('Files', filesFilter));
+    return;
+  }
+  if (moduleName === 'Notifications') {
+    addTarget(targets, filterTarget('Notifications', notificationsFilter));
     return;
   }
   addTarget(targets, filterTarget(moduleName));

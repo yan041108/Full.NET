@@ -9,6 +9,8 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 审计趋势与域变更差异：/api/v1/auditing/access-logs/trends、/api/v1/auditing/operation-logs/trends、/api/v1/auditing/exception-logs/trends、/api/v1/auditing/domain-change-diffs。 */
+
 export type AuditLogTrendKind = 'access' | 'operation' | 'exception';
 
 export async function queryAuditLogTrend(

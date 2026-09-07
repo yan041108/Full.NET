@@ -1,6 +1,8 @@
 import {
   isHostFile,
   isHostFilePage,
+  filesBatchDeleteHostFiles,
+  filesBatchUploadHostFiles,
   filesCreateHostFolder,
   filesDeleteHostFile,
   filesDeleteHostFolder,
@@ -8,6 +10,7 @@ import {
   filesGetHostFolderTree,
   filesListHostFileReferences,
   filesListHostFiles,
+  filesPreviewHostFileContent,
   filesUpdateHostFileMetadata,
   filesUpdateHostFolder,
   filesUploadHostFile,
@@ -63,19 +66,7 @@ export async function batchUploadHostFiles(
   folderId?: string,
   signal?: AbortSignal
 ): Promise<BatchUploadHostFilesResponse> {
-  const body = new FormData();
-  for (const file of files) {
-    body.append('files', file, file.name);
-  }
-  if (folderId) {
-    body.append('folderId', folderId);
-  }
-
-  return http.request<BatchUploadHostFilesResponse>(
-    '/api/v1/files/host-files/batch-upload',
-    { method: 'POST', body },
-    signal
-  );
+  return filesBatchUploadHostFiles(http, { files, folderId }, signal);
 }
 
 /** 批量删除 Host 文件并返回逐条结果。 */
@@ -83,15 +74,7 @@ export async function batchDeleteHostFiles(
   fileIds: string[],
   signal?: AbortSignal
 ): Promise<BatchDeleteHostFilesResponse> {
-  return http.request<BatchDeleteHostFilesResponse>(
-    '/api/v1/files/host-files/batch-delete',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileIds })
-    },
-    signal
-  );
+  return filesBatchDeleteHostFiles(http, { body: { fileIds } }, signal);
 }
 
 /** 拉取可安全预览的文件内容。 */
@@ -99,11 +82,7 @@ export async function previewHostFileContent(
   id: string,
   signal?: AbortSignal
 ): Promise<Blob> {
-  return http.requestBlob(
-    `/api/v1/files/host-files/${id}/preview`,
-    { method: 'GET' },
-    signal
-  );
+  return filesPreviewHostFileContent(http, { fileId: id }, signal);
 }
 
 /** 更新 Host 文件元数据。 */

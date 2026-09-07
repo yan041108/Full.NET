@@ -28,6 +28,9 @@ public sealed class OcrModule : IFullNetModule
         "Files",
     ];
 
+    /// <summary>注册 OCR 模块服务，识别客户端通过接口暴露以便事务外调用可测试。</summary>
+    /// <param name="services">DI 容器。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -37,6 +40,8 @@ public sealed class OcrModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<OcrApiKeyProtector>();
         services.TryAddSingleton<PaddleOcrIdCardClient>();
+        services.TryAddSingleton<IPaddleOcrIdCardClient>(static provider =>
+            provider.GetRequiredService<PaddleOcrIdCardClient>());
         services.TryAddScoped<OcrProviderQueryService>();
         services.TryAddScoped<OcrProviderManagementService>();
         services.TryAddScoped<OcrProviderOperationsService>();

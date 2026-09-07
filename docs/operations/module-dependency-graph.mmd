@@ -1,25 +1,51 @@
 %% 自动生成：pnpm run generate:module-dependency-graph
 %% 源：src/Modules/*Module.cs IFullNetModule.Dependencies
 flowchart LR
+  Identity --> Ai
+  Tenancy --> Ai
   Identity --> Auditing
+  Identity --> Calendar
   Identity --> CodeGeneration
+  Identity --> Cryptography
   Identity --> DataApproval
   Workflow --> DataApproval
-  SerialNumbers --> DataApproval
   Identity --> Document
   Files --> Document
   Identity --> Files
+  Identity --> GoView
+  Tenancy --> GoView
+  Identity --> ImportExport
+  Files --> ImportExport
+  Tenancy --> ImportExport
   Identity --> Jobs
   Settings --> Jobs
+  Identity --> K3Cloud
+  Tenancy --> K3Cloud
   Identity --> Messaging
+  Identity --> Mqtt
   Identity --> Notifications
   Organization --> Notifications
+  Files --> Notifications
   Identity --> ObservabilityAdmin
+  Identity --> Ocr
+  Tenancy --> Ocr
+  Files --> Ocr
   Identity --> Organization
   Tenancy --> Organization
+  Identity --> Payments
+  Tenancy --> Payments
+  Identity --> Platform
+  Identity --> Printing
+  Tenancy --> Printing
+  Identity --> Regions
+  Identity --> Reporting
+  Files --> Reporting
+  Tenancy --> Reporting
   Identity --> SerialNumbers
+  DataApproval --> SerialNumbers
   Identity --> Settings
   Identity --> Tenancy
+  Files --> Workflow
   Identity --> Workflow
   Notifications --> Workflow
   Organization --> Workflow

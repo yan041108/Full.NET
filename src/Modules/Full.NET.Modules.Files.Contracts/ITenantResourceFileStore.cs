@@ -27,6 +27,14 @@ public interface ITenantResourceFileStore
     Task<Result<TenantResourceFileContent>> OpenReadyContentAsync(string ownerModuleKey, Guid resourceId,
         Guid fileId, CancellationToken cancellationToken = default);
 
+    /// <summary>列出所属资源当前可读的就绪文件，供任务崩溃后绑定已上传对象。</summary>
+    /// <param name="ownerModuleKey">受信所属模块键。</param>
+    /// <param name="resourceId">已授权的资源标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按创建时间升序的就绪文件；没有时返回空列表。</returns>
+    Task<IReadOnlyList<TenantResourceFileReadyItem>> ListReadyAsync(string ownerModuleKey, Guid resourceId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>撤销所有权可读状态并幂等删除对象；删除异常允许使用同一引用重试。</summary>
     /// <param name="ownerModuleKey">受信所属模块键。</param>
     /// <param name="resourceId">已授权的资源标识。</param>
@@ -47,3 +55,9 @@ public sealed record TenantResourceFileReference(Guid FileId, long SizeBytes, st
 /// <param name="ContentType">内容类型。</param>
 /// <param name="OriginalFileName">下载文件名。</param>
 public sealed record TenantResourceFileContent(Stream Content, string ContentType, string OriginalFileName);
+
+/// <summary>所属资源上已经可读的文件摘要，不暴露存储位置。</summary>
+/// <param name="FileId">文件标识。</param>
+/// <param name="OriginalFileName">下载文件名。</param>
+/// <param name="CreatedAtUtc">元数据创建时间 UTC。</param>
+public sealed record TenantResourceFileReadyItem(Guid FileId, string OriginalFileName, DateTimeOffset CreatedAtUtc);

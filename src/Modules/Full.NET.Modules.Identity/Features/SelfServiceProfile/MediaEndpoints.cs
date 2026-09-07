@@ -11,12 +11,14 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Features.SelfServiceProfile;
 
+/// <summary>当前用户头像与签名的自助媒体端点。</summary>
 internal static class MediaEndpoints
 {
     /// <summary>映射当前用户头像与签名媒体端点。</summary>
+    /// <param name="endpoints">路由构建器。</param>
     public static void Map(IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/v1/me/profile/avatar", UploadAvatar)
+        endpoints.MapPost("/api/v1/me/profile/avatar", UploadAvatarAsync)
             .WithName("identityUploadSelfServiceAvatar")
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
@@ -26,7 +28,7 @@ internal static class MediaEndpoints
             .RequireAuthorization()
             .DisableAntiforgery();
 
-        endpoints.MapDelete("/api/v1/me/profile/avatar", DeleteAvatar)
+        endpoints.MapDelete("/api/v1/me/profile/avatar", DeleteAvatarAsync)
             .WithName("identityDeleteSelfServiceAvatar")
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
@@ -34,7 +36,7 @@ internal static class MediaEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization();
 
-        endpoints.MapGet("/api/v1/me/profile/avatar/content", GetAvatarContent)
+        endpoints.MapGet("/api/v1/me/profile/avatar/content", GetAvatarContentAsync)
             .WithName("identityGetSelfServiceAvatarContent")
             .WithTags("IdentityMe")
             .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
@@ -43,7 +45,7 @@ internal static class MediaEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAuthorization();
 
-        endpoints.MapPost("/api/v1/me/profile/signature", UploadSignature)
+        endpoints.MapPost("/api/v1/me/profile/signature", UploadSignatureAsync)
             .WithName("identityUploadSelfServiceSignature")
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
@@ -53,7 +55,7 @@ internal static class MediaEndpoints
             .RequireAuthorization()
             .DisableAntiforgery();
 
-        endpoints.MapDelete("/api/v1/me/profile/signature", DeleteSignature)
+        endpoints.MapDelete("/api/v1/me/profile/signature", DeleteSignatureAsync)
             .WithName("identityDeleteSelfServiceSignature")
             .WithTags("IdentityMe")
             .Produces<SelfServiceProfileResponse>(StatusCodes.Status200OK)
@@ -61,7 +63,7 @@ internal static class MediaEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization();
 
-        endpoints.MapGet("/api/v1/me/profile/signature/content", GetSignatureContent)
+        endpoints.MapGet("/api/v1/me/profile/signature/content", GetSignatureContentAsync)
             .WithName("identityGetSelfServiceSignatureContent")
             .WithTags("IdentityMe")
             .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
@@ -71,7 +73,14 @@ internal static class MediaEndpoints
             .RequireAuthorization();
     }
 
-    private static async Task<IResult> UploadAvatar(
+    /// <summary>上传当前用户头像并返回更新后的资料。</summary>
+    /// <param name="file">上传文件。</param>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="service">媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> UploadAvatarAsync(
         IFormFile? file,
         ClaimsPrincipal principal,
         SelfServiceProfileMediaService service,
@@ -95,7 +104,14 @@ internal static class MediaEndpoints
                     token),
             cancellationToken).ConfigureAwait(false);
 
-    private static async Task<IResult> UploadSignature(
+    /// <summary>上传当前用户签名并返回更新后的资料。</summary>
+    /// <param name="file">上传文件。</param>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="service">媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> UploadSignatureAsync(
         IFormFile? file,
         ClaimsPrincipal principal,
         SelfServiceProfileMediaService service,
@@ -151,7 +167,13 @@ internal static class MediaEndpoints
         return mapper.Map(result, httpContext);
     }
 
-    private static async Task<IResult> DeleteAvatar(
+    /// <summary>删除当前用户头像。</summary>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="service">媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> DeleteAvatarAsync(
         ClaimsPrincipal principal,
         SelfServiceProfileMediaService service,
         IApiResultMapper mapper,
@@ -168,7 +190,13 @@ internal static class MediaEndpoints
         return mapper.Map(result, httpContext);
     }
 
-    private static async Task<IResult> DeleteSignature(
+    /// <summary>删除当前用户签名。</summary>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="service">媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> DeleteSignatureAsync(
         ClaimsPrincipal principal,
         SelfServiceProfileMediaService service,
         IApiResultMapper mapper,
@@ -185,7 +213,13 @@ internal static class MediaEndpoints
         return mapper.Map(result, httpContext);
     }
 
-    private static async Task<IResult> GetAvatarContent(
+    /// <summary>读取当前用户头像内容。</summary>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="service">媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> GetAvatarContentAsync(
         ClaimsPrincipal principal,
         SelfServiceProfileMediaService service,
         IApiResultMapper mapper,
@@ -200,7 +234,13 @@ internal static class MediaEndpoints
                 mediaService.OpenAvatarContentAsync(userId, actorScope, token),
             cancellationToken).ConfigureAwait(false);
 
-    private static async Task<IResult> GetSignatureContent(
+    /// <summary>读取当前用户签名内容。</summary>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="service">媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> GetSignatureContentAsync(
         ClaimsPrincipal principal,
         SelfServiceProfileMediaService service,
         IApiResultMapper mapper,

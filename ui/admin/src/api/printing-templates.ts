@@ -1,14 +1,17 @@
 import {
   isPrintingTemplate,
   isPrintingTemplatePreview,
+  printingGetFormSchema,
+  printingListFormSchemas,
   type CreatePrintingTemplateRequest,
   type PreviewPrintingTemplateRequest,
+  type PrintingFormSchemaDefinition,
   type PrintingTemplate,
   type PrintingTemplatePreview,
   type PublishPrintingTemplateRequest,
   type UpdatePrintingTemplateRequest
 } from '@fullnet/client-contracts';
-import { request } from './http';
+import { http, request } from './http';
 
 export async function listPrintingTemplates(
   nameContains?: string,
@@ -79,4 +82,19 @@ export async function previewPrintingTemplate(
     throw new Error('client.invalid_printing_template_preview');
   }
   return value;
+}
+
+/** 列出打印模板可用的表单 schema 目录。 */
+export async function listPrintingFormSchemas(
+  signal?: AbortSignal
+): Promise<PrintingFormSchemaDefinition[]> {
+  return printingListFormSchemas(http, {}, signal);
+}
+
+/** 读取指定打印表单 schema 定义。 */
+export async function getPrintingFormSchema(
+  formSchemaKey: string,
+  signal?: AbortSignal
+): Promise<PrintingFormSchemaDefinition> {
+  return printingGetFormSchema(http, { formSchemaKey }, signal);
 }

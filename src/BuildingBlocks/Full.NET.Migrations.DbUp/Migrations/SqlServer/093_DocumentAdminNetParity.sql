@@ -9,6 +9,24 @@ IF COL_LENGTH(N'dbo.fn_document_category', N'Code') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_category
         ADD Code nvarchar(64) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_category')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_category'), N'Code', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'编码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_category', @level2type=N'COLUMN', @level2name=N'Code';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -24,6 +42,24 @@ IF COL_LENGTH(N'dbo.fn_document_category', N'Icon') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_category
         ADD Icon nvarchar(128) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_category')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_category'), N'Icon', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'图标', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_category', @level2type=N'COLUMN', @level2name=N'Icon';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -39,6 +75,24 @@ IF COL_LENGTH(N'dbo.fn_document_category', N'Color') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_category
         ADD Color nvarchar(16) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_category')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_category'), N'Color', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'颜色', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_category', @level2type=N'COLUMN', @level2name=N'Color';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -54,6 +108,24 @@ IF COL_LENGTH(N'dbo.fn_document_category', N'Description') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_category
         ADD Description nvarchar(500) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_category')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_category'), N'Description', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'描述', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_category', @level2type=N'COLUMN', @level2name=N'Description';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -72,6 +144,24 @@ IF COL_LENGTH(N'dbo.fn_document_tag', N'Color') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_tag
         ADD Color nvarchar(16) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_tag')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_tag'), N'Color', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'颜色', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_tag', @level2type=N'COLUMN', @level2name=N'Color';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -88,6 +178,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_tag
         ADD UseCount int NOT NULL
             CONSTRAINT DF_fn_document_tag_UseCount DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_tag')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_tag'), N'UseCount', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'使用次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_tag', @level2type=N'COLUMN', @level2name=N'UseCount';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -104,6 +212,24 @@ IF COL_LENGTH(N'dbo.fn_document_tag', N'Code') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_tag
         ADD Code nvarchar(64) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_tag')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_tag'), N'Code', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'编码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_tag', @level2type=N'COLUMN', @level2name=N'Code';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -119,6 +245,24 @@ IF COL_LENGTH(N'dbo.fn_document_tag', N'Icon') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_tag
         ADD Icon nvarchar(128) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_tag')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_tag'), N'Icon', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'图标', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_tag', @level2type=N'COLUMN', @level2name=N'Icon';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -134,6 +278,24 @@ IF COL_LENGTH(N'dbo.fn_document_tag', N'Description') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_tag
         ADD Description nvarchar(500) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_tag')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_tag'), N'Description', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'描述', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_tag', @level2type=N'COLUMN', @level2name=N'Description';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -153,6 +315,24 @@ IF COL_LENGTH(N'dbo.fn_document_item', N'DocumentNo') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD DocumentNo nvarchar(64) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'DocumentNo', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档编号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'DocumentNo';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -169,6 +349,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD DocumentType int NOT NULL
             CONSTRAINT DF_fn_document_item_DocumentType DEFAULT (99);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'DocumentType', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'DocumentType';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -185,6 +383,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD SizeKb bigint NOT NULL
             CONSTRAINT DF_fn_document_item_SizeKb DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'SizeKb', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'大小(KB)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'SizeKb';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -200,6 +416,24 @@ IF COL_LENGTH(N'dbo.fn_document_item', N'Thumbnail') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD Thumbnail nvarchar(512) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'Thumbnail', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'缩略图', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'Thumbnail';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -216,6 +450,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD Status int NOT NULL
             CONSTRAINT DF_fn_document_item_Status DEFAULT (2);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'Status', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'Status';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -231,6 +483,24 @@ IF COL_LENGTH(N'dbo.fn_document_item', N'LastAccessTime') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD LastAccessTime datetimeoffset(7) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'LastAccessTime', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后访问时间', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'LastAccessTime';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -247,6 +517,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD AccessCount int NOT NULL
             CONSTRAINT DF_fn_document_item_AccessCount DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'AccessCount', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'访问次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'AccessCount';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -263,6 +551,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_item
         ADD Sort int NOT NULL
             CONSTRAINT DF_fn_document_item_Sort DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_item')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_item'), N'Sort', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'排序', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_item', @level2type=N'COLUMN', @level2name=N'Sort';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -282,6 +588,24 @@ IF COL_LENGTH(N'dbo.fn_document_version', N'ChangeDescription') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_version
         ADD ChangeDescription nvarchar(500) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_version')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_version'), N'ChangeDescription', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'变更说明', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_version', @level2type=N'COLUMN', @level2name=N'ChangeDescription';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -297,6 +621,24 @@ IF COL_LENGTH(N'dbo.fn_document_version', N'FileName') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_version
         ADD FileName nvarchar(260) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_version')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_version'), N'FileName', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文件名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_version', @level2type=N'COLUMN', @level2name=N'FileName';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -312,6 +654,24 @@ IF COL_LENGTH(N'dbo.fn_document_version', N'MimeType') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_version
         ADD MimeType nvarchar(128) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_version')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_version'), N'MimeType', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'MIME 类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_version', @level2type=N'COLUMN', @level2name=N'MimeType';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -327,6 +687,24 @@ IF COL_LENGTH(N'dbo.fn_document_version', N'Extension') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_version
         ADD Extension nvarchar(32) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_version')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_version'), N'Extension', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文件扩展名', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_version', @level2type=N'COLUMN', @level2name=N'Extension';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -421,6 +799,69 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'UserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档权限表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'DocumentId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'DocumentId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'PermissionLevel', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'权限级别', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'PermissionLevel';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'UserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'UserId';
     CREATE UNIQUE CLUSTERED INDEX CX_fn_document_permission_Scope_Document_User
         ON dbo.fn_document_permission(TenantId, DocumentId, UserId);
 END;
@@ -430,6 +871,24 @@ IF COL_LENGTH(N'dbo.fn_document_permission', N'TenantId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_permission
         ADD TenantId uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'TenantId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'TenantId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -446,6 +905,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_permission
         ADD DocumentId uniqueidentifier NOT NULL
             CONSTRAINT DF_fn_document_permission_DocumentId DEFAULT ('00000000-0000-0000-0000-000000000000');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'DocumentId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'DocumentId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -464,6 +941,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_permission
         ADD UserId uniqueidentifier NOT NULL
             CONSTRAINT DF_fn_document_permission_UserId DEFAULT ('00000000-0000-0000-0000-000000000000');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'UserId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'UserId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -482,6 +977,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_permission
         ADD PermissionLevel nvarchar(64) NOT NULL
             CONSTRAINT DF_fn_document_permission_PermissionLevel DEFAULT ('');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'PermissionLevel', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'权限级别', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'PermissionLevel';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -500,6 +1013,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_permission
         ADD CreatedAtUtc datetimeoffset(7) NOT NULL
             CONSTRAINT DF_fn_document_permission_CreatedAtUtc DEFAULT ('0001-01-01T00:00:00+00:00');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_permission')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_permission'), N'CreatedAtUtc', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_permission', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -650,6 +1181,114 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档分享表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'AccessCount', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'访问次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'AccessCount';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'DocumentId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'DocumentId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'ExpireTime', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'过期时间', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'ExpireTime';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'IsEnabled', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'IsEnabled';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'MaxAccessCount', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最大访问次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'MaxAccessCount';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'PasswordHash', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'密码哈希', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'PasswordHash';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'ShareCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'分享码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'ShareCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'Version';
     CREATE UNIQUE INDEX UX_fn_document_share_Scope_Code
         ON dbo.fn_document_share(TenantId, ShareCode);
     CREATE INDEX IX_fn_document_share_DocumentId
@@ -666,6 +1305,24 @@ BEGIN
     BEGIN
         ALTER TABLE dbo.fn_document_share
             ADD PasswordHash nvarchar(1024) NULL;
+
+        IF NOT EXISTS (
+
+            SELECT 1
+
+            FROM sys.extended_properties
+
+            WHERE class = 1
+
+              AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+              AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'PasswordHash', 'ColumnId')
+
+              AND name = N'MS_Description'
+
+        )
+
+            EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'密码哈希', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'PasswordHash';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -685,6 +1342,24 @@ IF NOT EXISTS (
     BEGIN
         ALTER TABLE dbo.fn_document_share
             ADD PasswordHash nvarchar(1024) NULL;
+
+        IF NOT EXISTS (
+
+            SELECT 1
+
+            FROM sys.extended_properties
+
+            WHERE class = 1
+
+              AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+              AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'PasswordHash', 'ColumnId')
+
+              AND name = N'MS_Description'
+
+        )
+
+            EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'密码哈希', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'PasswordHash';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -729,6 +1404,24 @@ IF COL_LENGTH(N'dbo.fn_document_share', N'TenantId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD TenantId uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'TenantId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'TenantId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -745,6 +1438,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD DocumentId uniqueidentifier NOT NULL
             CONSTRAINT DF_fn_document_share_DocumentId DEFAULT ('00000000-0000-0000-0000-000000000000');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'DocumentId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'文档标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'DocumentId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -763,6 +1474,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD ShareCode varchar(64) NOT NULL
             CONSTRAINT DF_fn_document_share_ShareCode DEFAULT ('');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'ShareCode', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'分享码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'ShareCode';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -781,6 +1510,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD ExpireTime datetimeoffset(7) NOT NULL
             CONSTRAINT DF_fn_document_share_ExpireTime DEFAULT ('0001-01-01T00:00:00+00:00');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'ExpireTime', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'过期时间', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'ExpireTime';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -798,6 +1545,24 @@ IF COL_LENGTH(N'dbo.fn_document_share', N'MaxAccessCount') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD MaxAccessCount int NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'MaxAccessCount', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最大访问次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'MaxAccessCount';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -814,6 +1579,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD AccessCount int NOT NULL
             CONSTRAINT DF_fn_document_share_AccessCount DEFAULT (0);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'AccessCount', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'访问次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'AccessCount';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -830,6 +1613,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD IsEnabled bit NOT NULL
             CONSTRAINT DF_fn_document_share_IsEnabled DEFAULT (1);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'IsEnabled', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'IsEnabled';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -846,6 +1647,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD Version bigint NOT NULL
             CONSTRAINT DF_fn_document_share_Version DEFAULT (1);
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'Version', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'Version';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -862,6 +1681,24 @@ BEGIN
     ALTER TABLE dbo.fn_document_share
         ADD CreatedAtUtc datetimeoffset(7) NOT NULL
             CONSTRAINT DF_fn_document_share_CreatedAtUtc DEFAULT ('0001-01-01T00:00:00+00:00');
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_document_share')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_document_share'), N'CreatedAtUtc', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_document_share', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties

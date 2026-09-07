@@ -67,7 +67,7 @@
 
 ## 验证命令
 
-先构建最终 Release 状态：
+以下是受影响 .NET 模块的快速命令参考，按任务选择；只有命名变化才运行命名检查。执行策略见下方权威链接。
 
 ```powershell
 pnpm test:naming
@@ -86,32 +86,11 @@ pnpm test:dotnet:architecture -- --no-build
 [`eng/testing/test-matrix.json`](../../../../eng/testing/test-matrix.json)；Skill
 不得复制这些易变数字。本地任务不得运行完整集合。
 
-Integration 按变更风险分层，优先使用仓库标准入口：
-
-```powershell
-$taskBase = git rev-parse HEAD
-pnpm test:inner -- --base $taskBase --plan
-pnpm test:inner -- --base $taskBase
-pnpm test:integration:affected:plan -- --base $taskBase
-pnpm test:integration:affected -- --base $taskBase
-pnpm test:integration:smoke
-pnpm test:integration:api:sqlserver
-pnpm test:integration:api:mysql
-pnpm test:integration:migrations
-pnpm test:integration:infrastructure
-pnpm test:integration:partitions
-pnpm test:integration:durations
-```
-
-本地只运行任务影响集；SQL、事务、租户过滤和迁移必须成对覆盖 SQL Server/MySQL。模块和共享能力使用对应双库过滤集，共享宿主使用 Smoke；测试矩阵已登记恢复集的迁移使用聚焦恢复集和受影响模块，未登记迁移安全降级到 migrations 并追加可识别模块；测试工具使用 tooling。完整集合只保留给 `main` CI 的互斥并行分片。
-
-增删测试时：
-
-- 只修改 `eng/testing/test-matrix.json` 中的门槛；
-- 运行 `pnpm test:integration:partitions` 与 `pnpm test:governance`；
-- README、CI 与 Skill 继续引用稳定命令，禁止复制新数字。
+Integration 的影响集、阶段、Provider、执行位置和未验证项统一按 [测试与验证](../../../../rules/development-quality.md#11-测试与验证) 选择；不要顺序执行一份通用重测清单。测试数量仍只维护在上述矩阵。
 
 ## 文档与状态
+
+普通任务使用会话计划与交付说明；仅达到 [文档预算](../../../../rules/development-quality.md#121-文档产物分层) 时创建下面的永久文档。
 
 - 架构决策：`docs/superpowers/specs/`；
 - 实施步骤：`docs/superpowers/plans/`；

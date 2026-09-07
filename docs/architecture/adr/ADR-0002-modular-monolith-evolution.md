@@ -2,7 +2,7 @@
 
 - 状态：已批准
 - 日期：2026-07-18
-- 修订：2026-07-22，明确模块项目拓扑门禁；2026-07-26，增加表所有权与消费方 Port 门禁；2026-08-07，明确模块内/模块间数据关联与事务标准；2026-08-08，补充存量债务退役、本地投影和跨模块状态机验收标准；2026-08-16，背景更新为 12 官方模块，architecture 债务目录清零表述
+- 修订：2026-07-22，明确模块项目拓扑门禁；2026-07-26，增加表所有权与消费方 Port 门禁；2026-08-07，明确模块内/模块间数据关联与事务标准；2026-08-08，补充存量债务退役、本地投影和跨模块状态机验收标准；2026-08-16，背景更新为当时 12 官方模块，architecture 债务目录清零表述；2026-09-07，同步当前 28 个官方模块、运行时预设与已合并的 Tenancy 主项目拓扑
 - 决策者：项目所有者在当前任务中明确确认
 - 适用范围：Full.NET 1.0 总体架构、宿主职责和后续模块运行拓扑演进
 - 来源评估：[Full.NET 综合架构方案评估](../../verification/architecture-assessment-2026-07-18.md)
@@ -10,7 +10,7 @@
 
 ## 背景
 
-Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的快速开发底座。代码已经具备显式模块入口、集中 Composition、API/Worker/Migrator Host Profile、双数据库迁移、事务 Outbox、缓存和架构测试；[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 已注册 **12 个官方业务模块**（Identity、Tenancy、Organization、Settings、Auditing、Files、Document、Notifications、Jobs、Messaging、CodeGeneration、SerialNumbers），各模块成熟度以 [`capability-status.md`](../../roadmap/capability-status.md) 为准。
+Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的快速开发底座。代码已经具备显式模块入口、集中 Composition、API/Worker/Migrator Host Profile、双数据库迁移、事务 Outbox、缓存和架构测试；[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 与 [`FullNetModuleSelection.OfficialModuleNames`](../../../src/Composition/Full.NET.Composition/FullNetModuleSelection.cs) 已注册 **28 个官方业务模块**（Identity、Auditing、Files、Document、Notifications、Calendar、Platform、Regions、Jobs、Messaging、Tenancy、Organization、ImportExport、Reporting、Printing、Ai、Settings、CodeGeneration、SerialNumbers、DataApproval、ObservabilityAdmin、Workflow、Mqtt、Cryptography、Payments、GoView、K3Cloud、Ocr），各模块成熟度以 [`capability-status.md`](../../roadmap/capability-status.md) 为准。权威清单以代码为准，禁止在 ADR 中另维护一份可漂移的模块表。
 
 需要在快速交付、模块生态和未来独立伸缩之间建立稳定边界。过早全面微服务化会放大双数据库、协议版本、可靠消息、部署和测试成本；只保留松散单体约定又会让模块随着业务增长直接共享内部代码和数据表。
 
@@ -45,25 +45,25 @@ Full.NET 当前定位是面向管理系统、企业应用和中小型 SaaS 的�
 
 1. CRUD、实体、菜单和用例只形成主项目内的目录与垂直切片，不得单独建立项目；
 2. 独立 Contracts 项目必须存在真实跨模块或外部编译期消费者，并用于隔离稳定公开契约；
-3. **isolation-only Contracts**（仅本模块 OpenAPI/序列化隔离、无外部 `.csproj` 消费者）允许保留，但必须在 ADR 或 wiki 登记豁免理由与退役条件；当前示例：`Organization.Contracts`、`Settings.Contracts`；
-4. **`Files.Contracts`** 已有真实跨模块消费者（Document），与 isolation-only 类别不同；
+3. **isolation-only Contracts**（仅本模块 OpenAPI/序列化隔离、无其他业务模块 `.csproj` 消费者）允许保留，但必须在 ADR 或 wiki 登记豁免理由与退役条件；当前示例：`Payments.Contracts`、`K3Cloud.Contracts`、`Ocr.Contracts`、`GoView.Contracts`、`Reporting.Contracts`、`Ai.Contracts`（仅本模块与 Composition 引用）；
+4. **`Files.Contracts`** 已有真实跨模块消费者（Document、Identity、Tenancy、Notifications、ImportExport、Reporting、Workflow、Ocr），与 isolation-only 类别不同；`Organization.Contracts`（Notifications、Workflow）与 `Settings.Contracts`（Jobs）同样已有跨模块消费者，不再属于 isolation-only 豁免；
 5. **`Identity.Contracts`** 作为平台 hub 允许跨模块引用，但禁止 owner-domain 写入/持久化类型进入 hub（Architecture `IdentityContractsHubBoundaryTests` + R-20260816）；
 6. 独立 `.Http`、`.Worker` 或其他适配项目必须证明同一核心被非该传输宿主复用，并产生可验证的依赖、打包或安全收益；
 7. 新增可选项目必须在已批准 Spec 或计划中记录消费者、依赖方向、收益和对应架构测试；
 8. 缺少上述证据时保持一个主项目，通过 `internal`、命名空间、显式注册入口、Host Profile 和架构测试维持边界。
 
-当前 `Identity.Contracts` 已被多个官方模块引用，可以保留；`Organization.Contracts` 与 `Settings.Contracts` 目前仅服务本模块 OpenAPI/序列化隔离，无外部 `.csproj` 消费者，属于 **isolation-only** 豁免。`Files.Contracts` 服务 Document 跨模块引用。`Tenancy.Http` 是待结合依赖硬化结果复核的存量拆分，不构成新模块模板。是否合并存量项目必须单独评估引用图、宿主装配和回归成本，不在本次文档决策中静默执行。
+当前 `Identity.Contracts` 已被多个官方模块引用，作为平台 hub 保留。`Organization.Contracts`、`Settings.Contracts` 与 `Files.Contracts` 均已有真实跨模块消费者。`Tenancy.Http` 已于 2026-07-23 合并回 `Full.NET.Modules.Tenancy` 主项目并删除；Composition 只引用主项目，Architecture `Composition_uses_tenancy_core_project_instead_of_http_split_project` 锁定不得恢复该拆分。存量 `.Http` 拆分不得作为新模块模板。是否合并其余 isolation-only Contracts 必须单独评估引用图、宿主装配和回归成本，不在本次文档决策中静默执行。
 
 ## 编译闭包与运行时模块裁剪（2026-08-16）
 
-1. **编译闭包**：[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 的 Composition 项目引用全部 12 个官方模块实现，保证 Admin.NET 对标、集成测试与 Architecture 扫描的完整闭包；这不是“第二个精简解决方案”。
+1. **编译闭包**：[`FullNetModuleCatalog`](../../../src/Composition/Full.NET.Composition/FullNetModuleCatalog.cs) 的 Composition 项目引用全部官方模块实现，保证 Admin.NET 对标、集成测试与 Architecture 扫描的完整闭包；这不是“第二个精简解决方案”。官方键清单以 [`FullNetModuleSelection.OfficialModuleNames`](../../../src/Composition/Full.NET.Composition/FullNetModuleSelection.cs) 为准。
 2. **运行时裁剪**：通过 `FullNet:Modules:Preset`（`Full` 默认 / `Minimal` 快速底座 / `Platform` 平台底座 / `Content` 内容底座）或 `FullNet:Modules:Enabled` 显式列表，控制 Api/Worker/Migrator **注册** 哪些模块；未启用模块不得暴露生产 HTTP Endpoint（Architecture 门禁验证）。
    - `Dependencies` 表示启用集必须闭合的运行时依赖；`OptionalContractDependencies` 只允许登记“生产者缺失时可安全退化为无事件输入”的事件消费或最小只读契约，不得用于同步服务解析、跨模块数据库访问或绕开运行时依赖校验。
-3. **预设模块集**：
+3. **预设模块集**（与 `FullNetModuleSelection` 预设集合一致）：
    - `Minimal` = Identity + Tenancy + Settings + Organization
-   - `Platform` = Minimal + Auditing + Notifications + Jobs + Messaging
-   - `Content` = Platform + Files + Document
-   - `Full` = 全部 12 官方模块（含 CodeGeneration、SerialNumbers）
+   - `Platform` = Minimal + Auditing + Files + Notifications + Calendar + Platform + Regions + Jobs + Messaging + ObservabilityAdmin + Mqtt + Cryptography
+   - `Content` = Platform + Document
+   - `Full` = `OfficialModuleNames` 全集
 4. **快速底座**：`Minimal` 仍须满足模块依赖 DAG，且 **必须** 包含 Identity。
 5. **禁止**：为裁剪而从 Composition 删除 `.csproj` 引用，或在宿主绕过 Catalog 手工 `AddModule`。
 

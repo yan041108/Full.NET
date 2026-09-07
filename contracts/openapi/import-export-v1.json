@@ -187,6 +187,16 @@
         "hasErrorReceipt",
         "version"
       ]
+    },
+    "Stream": {
+      "properties": []
+    },
+    "ImportExportCreateTaskMultipart": {
+      "properties": [
+        "schemaKey",
+        "worksheetKey",
+        "file"
+      ]
     }
   }
 }

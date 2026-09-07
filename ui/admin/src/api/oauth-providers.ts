@@ -11,6 +11,9 @@ import {
 } from '@fullnet/client-contracts';
 import { request } from './http';
 
+/** OAuth 回调相对路径，供管理端表单默认值使用，页面不得直接拼接请求。 */
+export const OAUTH_PROVIDER_CALLBACK_PATH = '/api/v1/identity/oauth/callback';
+
 function buildListQuery(query: OAuthProviderListQuery): string {
   const params = new URLSearchParams();
   params.set('page', String(query.page ?? 1));

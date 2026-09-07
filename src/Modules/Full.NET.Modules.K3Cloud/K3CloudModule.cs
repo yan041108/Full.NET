@@ -27,6 +27,9 @@ public sealed class K3CloudModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>注册 K3Cloud 模块服务，远程客户端通过接口暴露以便事务外调用可测试。</summary>
+    /// <param name="services">DI 容器。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -36,6 +39,8 @@ public sealed class K3CloudModule : IFullNetModule
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddSingleton<K3CloudPasswordProtector>();
         services.TryAddSingleton<K3CloudWebApiClient>();
+        services.TryAddSingleton<IK3CloudWebApiClient>(static provider =>
+            provider.GetRequiredService<K3CloudWebApiClient>());
         services.TryAddScoped<K3CloudConnectionQueryService>();
         services.TryAddScoped<K3CloudConnectionManagementService>();
         services.TryAddScoped<K3CloudConnectionOperationsService>();

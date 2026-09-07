@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS fn_workflow_countersign_chain (
     StatusKey varchar(16) NOT NULL COMMENT '加签链状态键',
     CreatedByUserId BINARY(16) NOT NULL COMMENT '发起加签的用户标识',
     CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
-    ActiveOriginKey BINARY(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
+    ActiveOriginKey BINARY(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin COMMENT '活动原始待办唯一键'
         GENERATED ALWAYS AS (CASE WHEN StatusKey = 'active' THEN OriginTodoId ELSE NULL END) STORED COMMENT '活动加签链占用键',
     CONSTRAINT PK_fn_workflow_countersign_chain PRIMARY KEY (Id),
     CONSTRAINT FK_fn_workflow_countersign_chain_Instance FOREIGN KEY (InstanceId) REFERENCES fn_workflow_instance(Id),

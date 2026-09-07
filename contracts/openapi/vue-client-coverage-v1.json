@@ -745,89 +745,918 @@
       "routePrefixes": [
         "/api/v1/workflow/forms"
       ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/administrative-regions.ts"
+      ],
+      "openApiFixture": "contracts/openapi/regions-administrative-regions-v1.json",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "routePrefixes": [
+        "/api/v1/regions/administrative-regions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-agent-tools.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
+      "routePrefixes": [
+        "/api/v1/ai/agent-tools",
+        "/api/v1/ai/agent-tool-calls"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-chat.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "routePrefixes": [
+        "/api/v1/ai/chat/sessions"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-model-configs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "routePrefixes": [
+        "/api/v1/ai/model-configs",
+        "/api/v1/ai/tenant-quotas"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/auditing-export.ts"
+      ],
+      "openApiFixture": "contracts/openapi/auditing-export-v1.json",
+      "apiModule": "ui/admin/src/api/auditing-export.ts",
+      "routePrefixes": [
+        "/api/v1/auditing/access-logs/exports",
+        "/api/v1/auditing/operation-logs/exports",
+        "/api/v1/auditing/exception-logs/exports"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/change-password.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-me-v1.json",
+      "apiModule": "ui/admin/src/api/changePassword.ts",
+      "routePrefixes": [
+        "/api/v1/me/password"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/generated/index.generated.ts"
+      ],
+      "openApiFixture": "contracts/openapi/data-approvals-v1.json",
+      "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
+      "routePrefixes": [
+        "/api/v1/data-approvals/scenarios"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/dingtalk-approval-sync.ts"
+      ],
+      "openApiFixture": "contracts/openapi/notifications-dingtalk-approval-sync-v1.json",
+      "apiModule": "ui/admin/src/api/dingtalk-approval-sync.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/dingtalk/approval-sync"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/goview-projects.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "routePrefixes": [
+        "/api/v1/goview/projects"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/grid-preferences.ts"
+      ],
+      "openApiFixture": "contracts/openapi/settings-grid-preferences-v1.json",
+      "apiModule": "ui/admin/src/api/grid-preferences.ts",
+      "routePrefixes": [
+        "/api/v1/me/grid-preferences"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/host-release-notes.ts"
+      ],
+      "openApiFixture": "contracts/openapi/platform-release-notes-v1.json",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "routePrefixes": [
+        "/api/v1/platform/host-release-notes"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/k3cloud.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "routePrefixes": [
+        "/api/v1/k3cloud/document-syncs",
+        "/api/v1/k3cloud/connection-configs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/identity-module-selection.ts"
+      ],
+      "openApiFixture": "contracts/openapi/identity-host-modules-v1.json",
+      "apiModule": "ui/admin/src/api/module-selection.ts",
+      "routePrefixes": [
+        "/api/v1/identity/modules/selection"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/my-release-notes.ts"
+      ],
+      "openApiFixture": "contracts/openapi/platform-release-notes-v1.json",
+      "apiModule": "ui/admin/src/api/my-release-notes.ts",
+      "routePrefixes": [
+        "/api/v1/platform/my-release-notes"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/notification-intents.ts"
+      ],
+      "openApiFixture": "contracts/openapi/notifications-templates-intents-v1.json",
+      "apiModule": "ui/admin/src/api/notification-intents.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/intents"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ocr.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "routePrefixes": [
+        "/api/v1/ocr/id-card-tasks",
+        "/api/v1/ocr/provider-configs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/payments.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "routePrefixes": [
+        "/api/v1/payments/merchant-configs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/payments.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "routePrefixes": [
+        "/api/v1/payments/orders"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/payments.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/payment-refunds.ts",
+      "routePrefixes": [
+        "/api/v1/payments/refunds"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/personal-schedules.ts"
+      ],
+      "openApiFixture": "contracts/openapi/calendar-personal-schedules-v1.json",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "routePrefixes": [
+        "/api/v1/calendar/my-personal-schedules"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/tenant-branding.ts"
+      ],
+      "openApiFixture": "contracts/openapi/tenancy-tenant-branding-v1.json",
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "routePrefixes": [
+        "/api/v1/tenancy/tenants"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/wechat-miniprogram-bindings.ts"
+      ],
+      "openApiFixture": "contracts/openapi/notifications-wechat-miniprogram-bindings-v1.json",
+      "apiModule": "ui/admin/src/api/wechat-miniprogram-bindings.ts",
+      "routePrefixes": [
+        "/api/v1/notifications/wechat-miniprogram/bindings"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/auditing-analytics.ts"
+      ],
+      "openApiFixture": "contracts/openapi/auditing-analytics-v1.json",
+      "apiModule": "ui/admin/src/api/auditing-analytics.ts",
+      "routePrefixes": [
+        "/api/v1/auditing/access-logs/trends",
+        "/api/v1/auditing/operation-logs/trends",
+        "/api/v1/auditing/exception-logs/trends",
+        "/api/v1/auditing/domain-change-diffs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/platform-backup-executor.ts"
+      ],
+      "openApiFixture": "contracts/openapi/platform-backup-executor-v1.json",
+      "apiModule": "ui/admin/src/api/backup-executor.ts",
+      "routePrefixes": [
+        "/api/v1/platform/backup-executor/status",
+        "/api/v1/platform/backup-executor/tasks",
+        "/api/v1/platform/backup-executor/runs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/cryptography-gm-keys.ts"
+      ],
+      "openApiFixture": "contracts/openapi/cryptography-gm-keys-v1.json",
+      "apiModule": "ui/admin/src/api/cryptography-gm-keys.ts",
+      "routePrefixes": [
+        "/api/v1/cryptography/status",
+        "/api/v1/cryptography/keys",
+        "/api/v1/cryptography/sm2/sign",
+        "/api/v1/cryptography/sm2/verify"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/mqtt-control-plane.ts"
+      ],
+      "openApiFixture": "contracts/openapi/mqtt-control-plane-v1.json",
+      "apiModule": "ui/admin/src/api/mqtt-control-plane.ts",
+      "routePrefixes": [
+        "/api/v1/mqtt/status",
+        "/api/v1/mqtt/clients",
+        "/api/v1/mqtt/messages"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/observability-elasticsearch-log-pipeline.ts"
+      ],
+      "openApiFixture": "contracts/openapi/observability-elasticsearch-health-v1.json",
+      "apiModule": "ui/admin/src/api/observability-elasticsearch-health.ts",
+      "routePrefixes": [
+        "/api/v1/observability/elasticsearch-log-pipeline/health"
+      ]
     }
   ],
   "infrastructureModules": [
     "ui/admin/src/preferences/grid-preferences.ts"
   ],
   "consumerModules": [
-    { "apiModule": "ui/admin/src/api/access-logs.ts", "consumers": ["ui/admin/src/views/AccessLogsView.vue"] },
-    { "apiModule": "ui/admin/src/api/api-keys.ts", "consumers": ["ui/admin/src/views/ApiKeysView.vue"] },
-    { "apiModule": "ui/admin/src/api/open-access-clients.ts", "consumers": ["ui/admin/src/views/OpenAccessClientsView.vue", "ui/admin/src/views/components/OpenAccessClientDetailDrawer.vue"] },
-    { "apiModule": "ui/admin/src/api/code-generation-previews.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
-    { "apiModule": "ui/admin/src/api/code-generation-runs.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
-    { "apiModule": "ui/admin/src/api/code-generation-templates.ts", "consumers": ["ui/admin/src/views/CodeGenerationTemplatesView.vue", "ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
-    { "apiModule": "ui/admin/src/api/code-generation-catalog.ts", "consumers": ["ui/admin/src/views/CodeGenerationPreviewsView.vue"] },
-    { "apiModule": "ui/admin/src/api/config-entries.ts", "consumers": ["ui/admin/src/views/ConfigEntriesView.vue"] },
-    { "apiModule": "ui/admin/src/api/diagnostic-policy.ts", "consumers": ["ui/admin/src/views/DiagnosticPolicyView.vue"] },
-    { "apiModule": "ui/admin/src/api/dict-types.ts", "consumers": ["ui/admin/src/views/DictTypesView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-document-categories.ts", "consumers": ["ui/admin/src/views/DocumentCategoriesView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-document-items.ts", "consumers": ["ui/admin/src/views/HostDocumentItemsView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-permissions.ts", "consumers": ["ui/admin/src/views/DocumentPermissionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-recycle-bin.ts", "consumers": ["ui/admin/src/views/DocumentRecycleBinView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-shares.ts", "consumers": ["ui/admin/src/views/DocumentSharesView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-preview-tasks.ts", "consumers": ["ui/admin/src/views/DocumentPreviewTasksView.vue"] },
-    { "apiModule": "ui/admin/src/api/import-export-tasks.ts", "consumers": ["ui/admin/src/views/ImportExportTasksView.vue"] },
-    { "apiModule": "ui/admin/src/api/reporting-data-sources.ts", "consumers": ["ui/admin/src/views/ReportingDataSourcesView.vue"] },
-    { "apiModule": "ui/admin/src/api/reporting-definitions.ts", "consumers": ["ui/admin/src/views/ReportingDefinitionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/reporting-executions.ts", "consumers": ["ui/admin/src/views/ReportingExecuteView.vue"] },
-    { "apiModule": "ui/admin/src/api/reporting-export-tasks.ts", "consumers": ["ui/admin/src/views/ReportingExportTasksView.vue"] },
-    { "apiModule": "ui/admin/src/api/printing-templates.ts", "consumers": ["ui/admin/src/views/PrintingPreviewView.vue"] },
-    { "apiModule": "ui/admin/src/api/ai-model-configs.ts", "consumers": ["ui/admin/src/views/AiModelConfigsView.vue", "ui/admin/src/views/AiChatView.vue"] },
-    { "apiModule": "ui/admin/src/api/ai-chat.ts", "consumers": ["ui/admin/src/views/AiChatView.vue"] },
-    { "apiModule": "ui/admin/src/api/ai-agent-tools.ts", "consumers": ["ui/admin/src/views/AiAgentToolsView.vue"] },
-    { "apiModule": "ui/admin/src/api/payment-merchant-configs.ts", "consumers": ["ui/admin/src/views/PaymentMerchantConfigsView.vue", "ui/admin/src/views/PaymentOrdersView.vue"] },
-    { "apiModule": "ui/admin/src/api/payment-orders.ts", "consumers": ["ui/admin/src/views/PaymentOrdersView.vue"] },
-    { "apiModule": "ui/admin/src/api/payment-refunds.ts", "consumers": ["ui/admin/src/views/PaymentRefundsView.vue"] },
-    { "apiModule": "ui/admin/src/api/document-statistics.ts", "consumers": ["ui/admin/src/views/DocumentStatisticsView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-document-tags.ts", "consumers": ["ui/admin/src/views/DocumentTagsView.vue"] },
-    { "apiModule": "ui/admin/src/api/enum-catalogs.ts", "consumers": ["ui/admin/src/views/EnumCatalogsView.vue"] },
-    { "apiModule": "ui/admin/src/api/exception-logs.ts", "consumers": ["ui/admin/src/views/ExceptionLogsView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-announcements.ts", "consumers": ["ui/admin/src/views/HostAnnouncementsView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-files.ts", "consumers": ["ui/admin/src/views/HostFilesView.vue"] },
-    { "apiModule": "ui/admin/src/api/storage-providers.ts", "consumers": ["ui/admin/src/views/StorageProvidersView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-job-schedules.ts", "consumers": ["ui/admin/src/views/HostJobSchedulesView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-job-health.ts", "consumers": ["ui/admin/src/views/HostJobHealthView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-jobs.ts", "consumers": ["ui/admin/src/views/HostJobsView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-user-organization-reference.ts", "consumers": ["ui/admin/src/views/UsersView.vue", "ui/admin/src/views/RolesView.vue"] },
-    { "apiModule": "ui/admin/src/api/inbox-messages.ts", "consumers": ["ui/admin/src/views/InboxMessagesView.vue"] },
-    { "apiModule": "ui/admin/src/api/me.ts", "consumers": ["ui/admin/src/views/OverviewView.vue"] },
-    { "apiModule": "ui/admin/src/api/menus.ts", "consumers": ["ui/admin/src/views/MenusView.vue"] },
-    { "apiModule": "ui/admin/src/api/module-catalog.ts", "consumers": ["ui/admin/src/views/ModuleCatalogView.vue"] },
-    { "apiModule": "ui/admin/src/api/notification-platform.ts", "consumers": ["ui/admin/src/views/NotificationTemplatesView.vue", "ui/admin/src/views/NotificationProviderProfilesView.vue", "ui/admin/src/views/NotificationBindingsView.vue", "ui/admin/src/views/NotificationDeliveriesView.vue"] },
-    { "apiModule": "ui/admin/src/api/online-sessions.ts", "consumers": ["ui/admin/src/views/OnlineSessionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/personal-schedules.ts", "consumers": ["ui/admin/src/views/PersonalSchedulesView.vue"] },
-    { "apiModule": "ui/admin/src/api/host-release-notes.ts", "consumers": ["ui/admin/src/views/HostReleaseNotesView.vue"] },
-    { "apiModule": "ui/admin/src/api/my-release-notes.ts", "consumers": ["ui/admin/src/views/MyReleaseNotesView.vue", "ui/admin/src/components/ReleaseNoteUnreadPrompt.vue"] },
-    { "apiModule": "ui/admin/src/api/administrative-regions.ts", "consumers": ["ui/admin/src/views/AdministrativeRegionsView.vue", "ui/admin/src/components/AdministrativeRegionCascader.vue"] },
-    { "apiModule": "ui/admin/src/api/observability-log-files.ts", "consumers": ["ui/admin/src/views/ObservabilityLogFilesView.vue"] },
-    { "apiModule": "ui/admin/src/api/observability-server-monitor.ts", "consumers": ["ui/admin/src/views/ObservabilityServerMonitorView.vue"] },
-    { "apiModule": "ui/admin/src/api/observability-cache-policies.ts", "consumers": ["ui/admin/src/views/ObservabilityCachePoliciesView.vue"] },
-    { "apiModule": "ui/admin/src/api/operation-logs.ts", "consumers": ["ui/admin/src/views/OperationLogsView.vue"] },
-    { "apiModule": "ui/admin/src/api/org-position-levels.ts", "consumers": ["ui/admin/src/views/OrgPositionLevelsView.vue", "ui/admin/src/views/OrgPositionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/org-positions.ts", "consumers": ["ui/admin/src/views/OrgPositionsView.vue", "ui/admin/src/views/OrgUserPositionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/org-units.ts", "consumers": ["ui/admin/src/views/OrgUnitsView.vue", "ui/admin/src/views/OrgUserUnitsView.vue", "ui/admin/src/views/RolesView.vue", "ui/admin/src/views/OrgPositionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/org-user-positions.ts", "consumers": ["ui/admin/src/views/OrgUserPositionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/org-user-units.ts", "consumers": ["ui/admin/src/views/OrgUserUnitsView.vue"] },
-    { "apiModule": "ui/admin/src/api/outbound-call-logs.ts", "consumers": ["ui/admin/src/views/OutboundCallLogsView.vue"] },
-    { "apiModule": "ui/admin/src/api/platform-dashboard.ts", "consumers": ["ui/admin/src/views/OverviewView.vue"] },
-    { "apiModule": "ui/admin/src/api/roles.ts", "consumers": ["ui/admin/src/views/RolesView.vue", "ui/admin/src/views/UsersView.vue"] },
-    { "apiModule": "ui/admin/src/api/serial-number-rules.ts", "consumers": ["ui/admin/src/views/SerialNumberRulesView.vue"] },
-    { "apiModule": "ui/admin/src/api/data-approval-requests.ts", "consumers": ["ui/admin/src/views/DataApprovalRequestsView.vue"] },
-    { "apiModule": "ui/admin/src/api/superAdministrators.ts", "consumers": ["ui/admin/src/views/SuperAdministratorsView.vue"] },
-    { "apiModule": "ui/admin/src/api/tenant-dict-types.ts", "consumers": ["ui/admin/src/views/TenantDictTypesView.vue"] },
-    { "apiModule": "ui/admin/src/api/tenant-packages.ts", "consumers": ["ui/admin/src/views/TenantPackagesView.vue", "ui/admin/src/views/TenantsView.vue"] },
-    { "apiModule": "ui/admin/src/api/tenants.ts", "consumers": ["ui/admin/src/views/TenantsView.vue"] },
-    { "apiModule": "ui/admin/src/api/totpEnrollment.ts", "consumers": ["ui/admin/src/views/SuperAdministratorsView.vue"] },
-    { "apiModule": "ui/admin/src/api/users.ts", "consumers": ["ui/admin/src/views/UsersView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-cc.ts", "consumers": ["ui/admin/src/views/WorkflowCcView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-definitions.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-todos.ts", "consumers": ["ui/admin/src/views/WorkflowTodosView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-runtime.ts", "consumers": ["ui/admin/src/views/WorkflowDefinitionsView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-instances.ts", "consumers": ["ui/admin/src/views/WorkflowInstancesView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts", "consumers": ["ui/admin/src/views/WorkflowRecoveryTasksView.vue"] },
-    { "apiModule": "ui/admin/src/api/workflow-forms.ts", "consumers": ["ui/admin/src/views/WorkflowFormsView.vue"] },
-    { "apiModule": "ui/admin/src/api/oauth-providers.ts", "consumers": ["ui/admin/src/views/OAuthProvidersView.vue", "ui/admin/src/views/LoginView.vue"] },
-    { "apiModule": "ui/admin/src/api/oauth-links.ts", "consumers": ["ui/admin/src/views/SecuritySettingsView.vue", "ui/admin/src/views/LoginView.vue"] }
+    {
+      "apiModule": "ui/admin/src/api/access-logs.ts",
+      "consumers": [
+        "ui/admin/src/views/AccessLogsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/api-keys.ts",
+      "consumers": [
+        "ui/admin/src/views/ApiKeysView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/open-access-clients.ts",
+      "consumers": [
+        "ui/admin/src/views/OpenAccessClientsView.vue",
+        "ui/admin/src/views/components/OpenAccessClientDetailDrawer.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/code-generation-previews.ts",
+      "consumers": [
+        "ui/admin/src/views/CodeGenerationPreviewsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/code-generation-runs.ts",
+      "consumers": [
+        "ui/admin/src/views/CodeGenerationPreviewsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/code-generation-templates.ts",
+      "consumers": [
+        "ui/admin/src/views/CodeGenerationTemplatesView.vue",
+        "ui/admin/src/views/CodeGenerationPreviewsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/code-generation-catalog.ts",
+      "consumers": [
+        "ui/admin/src/views/CodeGenerationPreviewsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/config-entries.ts",
+      "consumers": [
+        "ui/admin/src/views/ConfigEntriesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/diagnostic-policy.ts",
+      "consumers": [
+        "ui/admin/src/views/DiagnosticPolicyView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/dict-types.ts",
+      "consumers": [
+        "ui/admin/src/views/DictTypesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-document-categories.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentCategoriesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-document-items.ts",
+      "consumers": [
+        "ui/admin/src/views/HostDocumentItemsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-permissions.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentPermissionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-recycle-bin.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentRecycleBinView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-shares.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentSharesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-preview-tasks.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentPreviewTasksView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/import-export-tasks.ts",
+      "consumers": [
+        "ui/admin/src/views/ImportExportTasksView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/reporting-data-sources.ts",
+      "consumers": [
+        "ui/admin/src/views/ReportingDataSourcesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "consumers": [
+        "ui/admin/src/views/ReportingDefinitionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/reporting-executions.ts",
+      "consumers": [
+        "ui/admin/src/views/ReportingExecuteView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/reporting-export-tasks.ts",
+      "consumers": [
+        "ui/admin/src/views/ReportingExportTasksView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/printing-templates.ts",
+      "consumers": [
+        "ui/admin/src/views/PrintingPreviewView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "consumers": [
+        "ui/admin/src/views/AiModelConfigsView.vue",
+        "ui/admin/src/views/AiChatView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-chat.ts",
+      "consumers": [
+        "ui/admin/src/views/AiChatView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
+      "consumers": [
+        "ui/admin/src/views/AiAgentToolsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/payment-merchant-configs.ts",
+      "consumers": [
+        "ui/admin/src/views/PaymentMerchantConfigsView.vue",
+        "ui/admin/src/views/PaymentOrdersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "consumers": [
+        "ui/admin/src/views/PaymentOrdersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/payment-refunds.ts",
+      "consumers": [
+        "ui/admin/src/views/PaymentRefundsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-statistics.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentStatisticsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-document-tags.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentTagsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/enum-catalogs.ts",
+      "consumers": [
+        "ui/admin/src/views/EnumCatalogsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/exception-logs.ts",
+      "consumers": [
+        "ui/admin/src/views/ExceptionLogsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-announcements.ts",
+      "consumers": [
+        "ui/admin/src/views/HostAnnouncementsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "consumers": [
+        "ui/admin/src/views/HostFilesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/storage-providers.ts",
+      "consumers": [
+        "ui/admin/src/views/StorageProvidersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "consumers": [
+        "ui/admin/src/views/HostJobSchedulesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-job-health.ts",
+      "consumers": [
+        "ui/admin/src/views/HostJobHealthView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-jobs.ts",
+      "consumers": [
+        "ui/admin/src/views/HostJobsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-user-organization-reference.ts",
+      "consumers": [
+        "ui/admin/src/views/UsersView.vue",
+        "ui/admin/src/views/RolesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/inbox-messages.ts",
+      "consumers": [
+        "ui/admin/src/views/InboxMessagesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/me.ts",
+      "consumers": [
+        "ui/admin/src/views/OverviewView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/menus.ts",
+      "consumers": [
+        "ui/admin/src/views/MenusView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/module-catalog.ts",
+      "consumers": [
+        "ui/admin/src/views/ModuleCatalogView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/notification-platform.ts",
+      "consumers": [
+        "ui/admin/src/views/NotificationTemplatesView.vue",
+        "ui/admin/src/views/NotificationProviderProfilesView.vue",
+        "ui/admin/src/views/NotificationBindingsView.vue",
+        "ui/admin/src/views/NotificationDeliveriesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/online-sessions.ts",
+      "consumers": [
+        "ui/admin/src/views/OnlineSessionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "consumers": [
+        "ui/admin/src/views/PersonalSchedulesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "consumers": [
+        "ui/admin/src/views/HostReleaseNotesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/my-release-notes.ts",
+      "consumers": [
+        "ui/admin/src/views/MyReleaseNotesView.vue",
+        "ui/admin/src/components/ReleaseNoteUnreadPrompt.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "consumers": [
+        "ui/admin/src/views/AdministrativeRegionsView.vue",
+        "ui/admin/src/components/AdministrativeRegionCascader.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/observability-log-files.ts",
+      "consumers": [
+        "ui/admin/src/views/ObservabilityLogFilesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/observability-server-monitor.ts",
+      "consumers": [
+        "ui/admin/src/views/ObservabilityServerMonitorView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/observability-cache-policies.ts",
+      "consumers": [
+        "ui/admin/src/views/ObservabilityCachePoliciesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/operation-logs.ts",
+      "consumers": [
+        "ui/admin/src/views/OperationLogsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-position-levels.ts",
+      "consumers": [
+        "ui/admin/src/views/OrgPositionLevelsView.vue",
+        "ui/admin/src/views/OrgPositionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-positions.ts",
+      "consumers": [
+        "ui/admin/src/views/OrgPositionsView.vue",
+        "ui/admin/src/views/OrgUserPositionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-units.ts",
+      "consumers": [
+        "ui/admin/src/views/OrgUnitsView.vue",
+        "ui/admin/src/views/OrgUserUnitsView.vue",
+        "ui/admin/src/views/RolesView.vue",
+        "ui/admin/src/views/OrgPositionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-user-positions.ts",
+      "consumers": [
+        "ui/admin/src/views/OrgUserPositionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/org-user-units.ts",
+      "consumers": [
+        "ui/admin/src/views/OrgUserUnitsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/outbound-call-logs.ts",
+      "consumers": [
+        "ui/admin/src/views/OutboundCallLogsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/platform-dashboard.ts",
+      "consumers": [
+        "ui/admin/src/views/OverviewView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/roles.ts",
+      "consumers": [
+        "ui/admin/src/views/RolesView.vue",
+        "ui/admin/src/views/UsersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "consumers": [
+        "ui/admin/src/views/SerialNumberRulesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/data-approval-requests.ts",
+      "consumers": [
+        "ui/admin/src/views/DataApprovalRequestsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/superAdministrators.ts",
+      "consumers": [
+        "ui/admin/src/views/SuperAdministratorsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenant-dict-types.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantDictTypesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenant-packages.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantPackagesView.vue",
+        "ui/admin/src/views/TenantsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenants.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/totpEnrollment.ts",
+      "consumers": [
+        "ui/admin/src/views/SuperAdministratorsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/users.ts",
+      "consumers": [
+        "ui/admin/src/views/UsersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-cc.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowCcView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowDefinitionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-todos.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowTodosView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-runtime.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowDefinitionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-instances.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowInstancesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-recovery-tasks.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowRecoveryTasksView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "consumers": [
+        "ui/admin/src/views/WorkflowFormsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/oauth-providers.ts",
+      "consumers": [
+        "ui/admin/src/views/OAuthProvidersView.vue",
+        "ui/admin/src/views/LoginView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/oauth-links.ts",
+      "consumers": [
+        "ui/admin/src/views/SecuritySettingsView.vue",
+        "ui/admin/src/views/LoginView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/registration-ways.ts",
+      "consumers": [
+        "ui/admin/src/views/RegistrationWaysView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ldap-connections.ts",
+      "consumers": [
+        "ui/admin/src/views/LdapConnectionsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/my-host-announcements.ts",
+      "consumers": [
+        "ui/admin/src/views/MyHostAnnouncementsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/document-access-logs.ts",
+      "consumers": [
+        "ui/admin/src/views/DocumentStatisticsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/auditing-export.ts",
+      "consumers": [
+        "ui/admin/src/views/components/AuditLogExportDialog.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/changePassword.ts",
+      "consumers": [
+        "ui/admin/src/views/SecuritySettingsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/data-approval-scenarios.ts",
+      "consumers": [
+        "ui/admin/src/views/DataApprovalScenariosView.vue",
+        "ui/admin/src/views/DataApprovalRequestsView.vue",
+        "ui/admin/src/views/SerialNumberRulesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/dingtalk-approval-sync.ts",
+      "consumers": [
+        "ui/admin/src/views/DingTalkApprovalSyncView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/goview-projects.ts",
+      "consumers": [
+        "ui/admin/src/views/GoViewProjectsView.vue",
+        "ui/admin/src/views/GoViewEditorView.vue",
+        "ui/admin/src/views/GoViewPreviewView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/grid-preferences.ts",
+      "consumers": [
+        "ui/admin/src/views/UsersView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/k3cloud.ts",
+      "consumers": [
+        "ui/admin/src/views/K3CloudConnectionConfigsView.vue",
+        "ui/admin/src/views/K3CloudDocumentSyncsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/module-selection.ts",
+      "consumers": [
+        "ui/admin/src/views/ModuleSelectionPreviewView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/notification-intents.ts",
+      "consumers": [
+        "ui/admin/src/views/NotificationDeliveriesView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ocr.ts",
+      "consumers": [
+        "ui/admin/src/views/OcrIdCardTasksView.vue",
+        "ui/admin/src/views/OcrProviderConfigView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/tenant-branding.ts",
+      "consumers": [
+        "ui/admin/src/views/TenantsView.vue",
+        "ui/admin/src/views/TenantBrandingView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/wechat-miniprogram-bindings.ts",
+      "consumers": [
+        "ui/admin/src/views/WeChatMiniProgramBindingsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/auditing-analytics.ts",
+      "consumers": [
+        "ui/admin/src/views/components/AuditLogTrendPanel.vue",
+        "ui/admin/src/views/components/AuditLogDetailDrawer.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/backup-executor.ts",
+      "consumers": [
+        "ui/admin/src/views/BackupExecutorView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/cryptography-gm-keys.ts",
+      "consumers": [
+        "ui/admin/src/views/CryptographyGmKeysView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/mqtt-control-plane.ts",
+      "consumers": [
+        "ui/admin/src/views/MqttControlPlaneView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/observability-elasticsearch-health.ts",
+      "consumers": [
+        "ui/admin/src/views/ObservabilityElasticsearchHealthView.vue"
+      ]
+    }
   ]
 }

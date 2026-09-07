@@ -87,8 +87,7 @@ public sealed partial class ModuleTableOwnershipTests
         foreach (Match match in TableNameRegex().Matches(File.ReadAllText(path)))
         {
             var table = match.Value;
-            var owner = TableOwnerRegex().Match(table).Groups["owner"].Value;
-            if (!string.Equals(sourceModule, owner, StringComparison.OrdinalIgnoreCase))
+            if (!OwnsTable(sourceModule, table))
             {
                 yield return new TableAccess(sourceModule, table, relativePath);
             }
@@ -159,6 +158,24 @@ public sealed partial class ModuleTableOwnershipTests
         return violations
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    /// <summary>
+    /// 目录名与表名前缀不完全相同的官方模块：Payments 表是 <c>fn_payment_*</c>，
+    /// ImportExport 表是 <c>fn_import_export_*</c>（扫描器只取首段 <c>import</c>）。
+    /// </summary>
+    private static bool OwnsTable(string sourceModule, string table)
+    {
+        var owner = TableOwnerRegex().Match(table).Groups["owner"].Value;
+        if (string.Equals(sourceModule, owner, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return (string.Equals(sourceModule, "payments", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(owner, "payment", StringComparison.OrdinalIgnoreCase))
+            || (string.Equals(sourceModule, "importexport", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(owner, "import", StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool ContainsWildcard(string value) =>

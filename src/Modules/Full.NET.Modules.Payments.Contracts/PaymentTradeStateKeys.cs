@@ -18,6 +18,9 @@ public static class PaymentTradeStateKeys
     /// <summary>创建或渠道调用失败。</summary>
     public const string Failed = "failed";
 
+    /// <summary>已向渠道发出请求，但本地无法确认成败，必须通过对账收敛。</summary>
+    public const string ProviderUnknown = "provider_unknown";
+
     /// <summary>退款处理中。</summary>
     public const string Refunding = "refunding";
 

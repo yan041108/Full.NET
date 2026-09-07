@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS fn_ai_quota_reservation (
     SettledAtUtc datetime(6) NULL COMMENT '结算完成时间 UTC',
     CONSTRAINT PK_fn_ai_quota_reservation PRIMARY KEY (Id),
     CONSTRAINT CK_fn_ai_quota_reservation_Tokens CHECK (ReservedTokens > 0 AND (ActualTokens IS NULL OR ActualTokens >= 0))
-) ENGINE=InnoDB COMMENT='租户 AI 用量预留与一次性结算凭据';
+) COMMENT='人工智能配额预留表' ENGINE=InnoDB COMMENT='租户 AI 用量预留与一次性结算凭据';

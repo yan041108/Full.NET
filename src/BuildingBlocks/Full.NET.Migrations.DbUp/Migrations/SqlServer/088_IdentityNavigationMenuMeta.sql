@@ -1,6 +1,24 @@
 ﻿IF COL_LENGTH(N'dbo.fn_identity_navigation', N'MenuType') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD MenuType varchar(16) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'MenuType', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'菜单类型', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'MenuType';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -15,6 +33,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'Redirect') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD Redirect varchar(256) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'Redirect', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重定向路径', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Redirect';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -29,6 +65,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'LinkUrl') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD LinkUrl varchar(512) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'LinkUrl', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'外链地址', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'LinkUrl';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -43,6 +97,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'IsHidden') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD IsHidden bit NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'IsHidden', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否隐藏', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'IsHidden';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -57,6 +129,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'IsKeepAlive') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD IsKeepAlive bit NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'IsKeepAlive', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否缓存页面', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'IsKeepAlive';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -71,6 +161,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'IsAffix') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD IsAffix bit NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'IsAffix', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否固定标签', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'IsAffix';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -85,6 +193,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'IsEmbedded') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD IsEmbedded bit NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'IsEmbedded', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否内嵌页面', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'IsEmbedded';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -99,6 +225,24 @@ END;
 IF COL_LENGTH(N'dbo.fn_identity_navigation', N'Remark') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_navigation ADD Remark nvarchar(500) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_navigation')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_navigation'), N'Remark', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'备注', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_navigation', @level2type=N'COLUMN', @level2name=N'Remark';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties

@@ -20,5 +20,11 @@ internal sealed class ReportingExportTaskRecord
     public Guid RequestedByUserId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? CompletedAtUtc { get; set; }
+    /// <summary>当前执行租约；未领取或已完成后为空。</summary>
+    public Guid? LeaseId { get; set; }
+    /// <summary>租约到期时间；到期后允许其他 Worker 重新领取。</summary>
+    public DateTimeOffset? LeaseExpiresAtUtc { get; set; }
+    /// <summary>创建导出时主体权限码 JSON 快照，供崩溃恢复重建授权。</summary>
+    public string? ActorPermissionCodesJson { get; set; }
     public long Version { get; set; }
 }

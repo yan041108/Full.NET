@@ -29,6 +29,9 @@ public sealed class PaymentsModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>注册支付模块服务，渠道客户端通过接口暴露以便事务外调用可测试。</summary>
+    /// <param name="services">DI 容器。</param>
+    /// <param name="configuration">宿主配置。</param>
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
@@ -49,7 +52,11 @@ public sealed class PaymentsModule : IFullNetModule
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
         services.TryAddSingleton<WeChatNativePayClient>();
+        services.TryAddSingleton<IWeChatNativePayClient>(static provider =>
+            provider.GetRequiredService<WeChatNativePayClient>());
         services.TryAddSingleton<AlipayPagePayClient>();
+        services.TryAddSingleton<IAlipayPagePayClient>(static provider =>
+            provider.GetRequiredService<AlipayPagePayClient>());
         services.TryAddSingleton<IWeChatPayPlatformCertificateResolver, WeChatPayPlatformCertificateResolver>();
         services.TryAddScoped<PaymentMerchantConfigQueryService>();
         services.TryAddScoped<PaymentMerchantConfigManagementService>();

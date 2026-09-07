@@ -13,6 +13,87 @@ BEGIN
         CONSTRAINT PK_fn_ai_quota_reservation PRIMARY KEY NONCLUSTERED (Id),
         CONSTRAINT CK_fn_ai_quota_reservation_Tokens CHECK (ReservedTokens > 0 AND (ActualTokens IS NULL OR ActualTokens >= 0))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'人工智能配额预留表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'ActualTokens', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'实际消耗 Token 数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'ActualTokens';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'IsSettled', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否已结算', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'IsSettled';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'QuotaMonthKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'配额月份键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'QuotaMonthKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'ReservedTokens', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'预留 Token 数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'ReservedTokens';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'SettledAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Settled At(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'SettledAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_ai_quota_reservation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_ai_quota_reservation'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_ai_quota_reservation', @level2type=N'COLUMN', @level2name=N'TenantId';
     CREATE CLUSTERED INDEX IX_fn_ai_quota_reservation_CreatedAtUtc_Id ON dbo.fn_ai_quota_reservation (CreatedAtUtc, Id);
 END;
 

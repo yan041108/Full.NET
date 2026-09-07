@@ -292,6 +292,21 @@ function renderRequestInitialization(operation, schemas) {
     for (const [name, schema] of Object.entries(operation.request.schema.properties ?? {})
       .sort(([left], [right]) => compareText(left, right))) {
       const access = `parameters.${typescriptProperty(name)}`;
+      if (isBinaryArraySchema(schema, schemas)) {
+        const loop = [
+          `  for (const file of ${access}) {`,
+          `    body.append('${name}', file);`,
+          '  }'
+        ];
+        if (!required.has(name)) {
+          lines.push(`  if (${access} !== undefined) {`);
+          lines.push(...loop.map(line => `  ${line}`));
+          lines.push('  }');
+        } else {
+          lines.push(...loop);
+        }
+        continue;
+      }
       const appendValue = isBinarySchema(schema, schemas) ? access : `String(${access})`;
       if (!required.has(name)) {
         lines.push(`  if (${access} !== undefined) {`);
@@ -338,6 +353,11 @@ function collectOperations(document) {
       if (!httpMethods.has(method)) {
         continue;
       }
+      const response = describeResponse(operation.responses);
+      // SSE 仍由手写流式客户端消费；生成器只产出 JSON/Blob/204 Operation。
+      if (response.kind === 'sse') {
+        continue;
+      }
       operations.push({
         operationId: operation.operationId,
         method,
@@ -349,7 +369,7 @@ function collectOperations(document) {
           schema: parameter.schema
         })),
         request: describeRequest(operation.requestBody),
-        response: describeResponse(operation.responses)
+        response
       });
     }
   }
@@ -389,8 +409,11 @@ function describeResponse(responses) {
     return { kind: 'void' };
   }
   const content = response.content ?? {};
-  if (content['application/octet-stream']) {
+  if (isBlobSuccessContent(content)) {
     return { kind: 'blob' };
+  }
+  if (content['text/event-stream']) {
+    return { kind: 'sse' };
   }
   const json = Object.entries(content).find(([mediaType]) =>
     mediaType === 'application/json' || mediaType.endsWith('+json'))?.[1];
@@ -398,6 +421,13 @@ function describeResponse(responses) {
     throw new Error(`客户端生成器不支持成功响应 ${status} 的 media type。`);
   }
   return { kind: 'json', schema: json.schema };
+}
+
+function isBlobSuccessContent(content) {
+  // 工作簿下载与 octet-stream 都走认证 Blob 客户端，避免生成器把非 JSON 成功响应当成失败。
+  return Object.keys(content).some(mediaType =>
+    mediaType === 'application/octet-stream'
+    || mediaType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
 
 function responseReaderName(operation) {
@@ -422,6 +452,9 @@ function schemaType(schema) {
   }
   if (Array.isArray(schema.anyOf)) {
     return schema.anyOf.map(item => schemaType(item)).join(' | ');
+  }
+  if (Array.isArray(schema.allOf)) {
+    return schema.allOf.map(item => schemaType(item)).join(' & ');
   }
   const types = effectiveTypes(schema);
   if (types.length > 1) {
@@ -462,6 +495,11 @@ function guardExpression(schema, valueExpression) {
   }
   if (isUnconstrainedJsonSchema(schema)) {
     return `isJsonValue(${valueExpression})`;
+  }
+  if (Array.isArray(schema.allOf)) {
+    return schema.allOf
+      .map(item => `(${guardExpression(item, valueExpression)})`)
+      .join(' && ');
   }
   const combination = schema.oneOf ?? schema.anyOf;
   if (Array.isArray(combination)) {
@@ -557,6 +595,15 @@ function isBinarySchema(schema, schemas) {
     return referencedSchema !== undefined && isBinarySchema(referencedSchema, schemas);
   }
   return effectiveTypes(schema).includes('string') && schema.format === 'binary';
+}
+
+function isBinaryArraySchema(schema, schemas) {
+  // 批量上传需要逐个 append 文件字段，禁止把 File[] 序列化成 String(array)。
+  if (isReference(schema)) {
+    const referencedSchema = schemas[referenceName(schema)];
+    return referencedSchema !== undefined && isBinaryArraySchema(referencedSchema, schemas);
+  }
+  return effectiveTypes(schema).includes('array') && isBinarySchema(schema.items, schemas);
 }
 
 function referenceName(schema) {

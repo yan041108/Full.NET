@@ -27,6 +27,9 @@ public static class PaymentErrorCodes
     /// <summary>支付订单渠道调用失败。</summary>
     public const string OrderProviderFailed = "payments.order.provider_failed";
 
+    /// <summary>支付订单渠道调用结果未知，本地意图已提交且不得当作失败回滚。</summary>
+    public const string OrderProviderUnknown = "payments.order.provider_unknown";
+
     /// <summary>租户不存在或不可用。</summary>
     public const string TenantNotFound = "payments.tenant.not_found";
 
@@ -44,6 +47,12 @@ public static class PaymentErrorCodes
 
     /// <summary>退款渠道调用失败。</summary>
     public const string RefundProviderFailed = "payments.refund.provider_failed";
+
+    /// <summary>退款渠道调用结果未知，本地意图已提交且不得当作失败回滚。</summary>
+    public const string RefundProviderUnknown = "payments.refund.provider_unknown";
+
+    /// <summary>已有退款正在调用渠道，并发请求不得再次产生副作用。</summary>
+    public const string RefundInProgress = "payments.refund.in_progress";
 
     /// <summary>订单状态不允许当前操作。</summary>
     public const string OrderStateInvalid = "payments.order.state_invalid";

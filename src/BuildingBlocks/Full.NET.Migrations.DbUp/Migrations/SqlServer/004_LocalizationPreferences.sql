@@ -2,6 +2,24 @@
 -- 每个列、回填、空值约束和默认约束独立收敛，避免存在列时跳过后续修复。
 IF COL_LENGTH(N'dbo.fn_identity_user', N'PreferredLocale') IS NULL
     ALTER TABLE dbo.fn_identity_user ADD PreferredLocale varchar(35) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_user')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_user'), N'PreferredLocale', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'首选语言区域', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user', @level2type=N'COLUMN', @level2name=N'PreferredLocale';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -56,6 +74,24 @@ IF @preferredDefaultName IS NULL
 
 IF COL_LENGTH(N'dbo.fn_identity_user', N'ProfileVersion') IS NULL
     ALTER TABLE dbo.fn_identity_user ADD ProfileVersion int NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_user')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_user'), N'ProfileVersion', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'资料版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user', @level2type=N'COLUMN', @level2name=N'ProfileVersion';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -109,6 +145,24 @@ IF @profileDefaultName IS NULL
 
 IF COL_LENGTH(N'dbo.fn_tenant_tenant', N'DefaultLocale') IS NULL
     ALTER TABLE dbo.fn_tenant_tenant ADD DefaultLocale varchar(35) NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_tenant_tenant')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_tenant_tenant'), N'DefaultLocale', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'默认语言区域', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenant_tenant', @level2type=N'COLUMN', @level2name=N'DefaultLocale';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties

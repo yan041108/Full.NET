@@ -42,6 +42,9 @@ public sealed class OrganizationModule : IFullNetModule
         "Tenancy",
     ];
 
+    /// <summary>岗位静态导入扩展 ImportExport 合同；最小预设不含导入模块时组织主路径仍可运行。</summary>
+    public IReadOnlyCollection<string> OptionalContractDependencies => ["ImportExport"];
+
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)

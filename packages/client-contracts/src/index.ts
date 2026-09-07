@@ -26,11 +26,6 @@ export {
   uploadSelfServiceSignature
 } from './self-service-profile.js';
 
-export type {
-  SelfServiceProfileResponse,
-  UpdateSelfServiceProfileRequest
-} from './self-service-profile.js';
-
 export {
   createHttpClient
 } from './http.js';
@@ -344,12 +339,12 @@ export type {
 export {
   isPreviewableHostFile,
   isHostFile,
-  isHostFilePage
+  isHostFilePage,
+  isBatchUploadHostFilesResponse,
+  isBatchDeleteHostFilesResponse
 } from './host-files.js';
 
 export type {
-  BatchDeleteHostFilesResponse,
-  BatchUploadHostFilesResponse,
   HostFile,
   HostFilePage
 } from './host-files.js';
@@ -1001,6 +996,40 @@ export type {
 } from './inbox-messages.js';
 
 export {
+  isNotificationIntentResponse
+} from './notification-intents.js';
+
+export type {
+  CreateNotificationIntentRequest,
+  NotificationIntentAttachment,
+  NotificationIntentRecipient,
+  NotificationIntentResponse
+} from './notification-intents.js';
+
+export {
+  isDingTalkApprovalSyncResponse,
+  isPagedDingTalkApprovalSyncResponse
+} from './dingtalk-approval-sync.js';
+
+export type {
+  CreateDingTalkApprovalSyncRequest,
+  DingTalkApprovalSyncResponse,
+  PagedDingTalkApprovalSyncResponse
+} from './dingtalk-approval-sync.js';
+
+export {
+  isPagedWeChatMiniProgramBindingResponse,
+  isWeChatMiniProgramBindingResponse,
+  isWeChatMiniProgramSubscriptionResponse
+} from './wechat-miniprogram-bindings.js';
+
+export type {
+  PagedWeChatMiniProgramBindingResponse,
+  WeChatMiniProgramBindingResponse,
+  WeChatMiniProgramSubscriptionResponse
+} from './wechat-miniprogram-bindings.js';
+
+export {
   isPersonalSchedule,
   isPersonalSchedulePage,
   isPersonalScheduleStatus,
@@ -1062,12 +1091,6 @@ export {
   updateHostTenantBranding,
   uploadCurrentTenantBrandingLogo,
   uploadHostTenantBrandingLogo
-} from './tenant-branding.js';
-
-export type {
-  TenantBrandingResponse,
-  TenantRuntimeBrandingResponse,
-  UpdateTenantBrandingRequest
 } from './tenant-branding.js';
 
 export {

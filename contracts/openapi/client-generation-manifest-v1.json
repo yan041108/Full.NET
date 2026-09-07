@@ -5,7 +5,8 @@
     "identityRefreshSession",
     "identityLogout",
     "identityListPublicRegistrationWays",
-    "documentPublicAccessDocumentShare"
+    "documentPublicAccessDocumentShare",
+    "paymentsWeChatNativeNotify"
   ],
   "entries": [
     {
@@ -388,6 +389,12 @@
     },
     {
       "operationId": "identityRevealHostUserProfileFields",
+      "apiModule": "ui/admin/src/api/users.ts",
+      "generatedGroup": "identity-host-users",
+      "status": "generated"
+    },
+    {
+      "operationId": "identityUnlockHostUserLogin",
       "apiModule": "ui/admin/src/api/users.ts",
       "generatedGroup": "identity-host-users",
       "status": "generated"
@@ -1144,6 +1151,24 @@
     },
     {
       "operationId": "filesDownloadHostFileContent",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesPreviewHostFileContent",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesBatchUploadHostFiles",
+      "apiModule": "ui/admin/src/api/host-files.ts",
+      "generatedGroup": "files-host-files",
+      "status": "generated"
+    },
+    {
+      "operationId": "filesBatchDeleteHostFiles",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-files",
       "status": "generated"
@@ -2886,6 +2911,252 @@
       "operationId": "filesDeleteHostFolder",
       "apiModule": "ui/admin/src/api/host-files.ts",
       "generatedGroup": "files-host-folders",
+      "status": "generated"
+    },
+    {
+      "operationId": "calendarCreateMyPersonalSchedule",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "generatedGroup": "calendar-personal-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "calendarDeleteMyPersonalSchedule",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "generatedGroup": "calendar-personal-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "calendarGetMyPersonalSchedule",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "generatedGroup": "calendar-personal-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "calendarListMyPersonalSchedules",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "generatedGroup": "calendar-personal-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "calendarSetMyPersonalScheduleStatus",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "generatedGroup": "calendar-personal-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "calendarUpdateMyPersonalSchedule",
+      "apiModule": "ui/admin/src/api/personal-schedules.ts",
+      "generatedGroup": "calendar-personal-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsBatchPauseHostJobSchedules",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "jobsBatchResumeHostJobSchedules",
+      "apiModule": "ui/admin/src/api/host-job-schedules.ts",
+      "generatedGroup": "jobs-host-job-schedules",
+      "status": "generated"
+    },
+    {
+      "operationId": "paymentsWeChatNativeNotify",
+      "apiModule": "ui/admin/src/api/payment-orders.ts",
+      "generatedGroup": "payment-orders",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformCreateHostReleaseNote",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformDeleteHostReleaseNote",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformGetHostReleaseNote",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformGetLatestUnreadReleaseNote",
+      "apiModule": "ui/admin/src/api/my-release-notes.ts",
+      "generatedGroup": "platform-my-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformListHostReleaseNotes",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformListMyReleaseNotes",
+      "apiModule": "ui/admin/src/api/my-release-notes.ts",
+      "generatedGroup": "platform-my-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformMarkMyReleaseNoteRead",
+      "apiModule": "ui/admin/src/api/my-release-notes.ts",
+      "generatedGroup": "platform-my-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformPublishHostReleaseNote",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformRetractHostReleaseNote",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "platformUpdateHostReleaseNote",
+      "apiModule": "ui/admin/src/api/host-release-notes.ts",
+      "generatedGroup": "platform-host-release-notes",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsApplyAdministrativeRegionImport",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsCreateAdministrativeRegion",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsDeleteAdministrativeRegion",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsGetAdministrativeRegion",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsGetAdministrativeRegionTree",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsGetLatestAdministrativeRegionDatasetManifest",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsListAdministrativeRegionChildren",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsListAdministrativeRegions",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsPreviewAdministrativeRegionImport",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "regionsUpdateAdministrativeRegion",
+      "apiModule": "ui/admin/src/api/administrative-regions.ts",
+      "generatedGroup": "regions-administrative-regions",
+      "status": "generated"
+    },
+    {
+      "operationId": "reportingGetDefinition",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingGetDefinitionVersion",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingGetGroup",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "reportingGetQueryPort",
+      "apiModule": "ui/admin/src/api/reporting-definitions.ts",
+      "generatedGroup": "reporting-definitions",
+      "status": "manual"
+    },
+    {
+      "operationId": "serialNumbersPreviewRuleDisableApproval",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "serialNumbersSubmitRuleDisableApproval",
+      "apiModule": "ui/admin/src/api/serial-number-rules.ts",
+      "generatedGroup": "serial-numbers-rules",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowDeleteDefinitionVersion",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowDeleteFormVersion",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowListFormVersions",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowPreviewAssignees",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowSetDefinitionStatus",
+      "apiModule": "ui/admin/src/api/workflow-definitions.ts",
+      "generatedGroup": "workflow-definitions",
+      "status": "generated"
+    },
+    {
+      "operationId": "workflowSetFormStatus",
+      "apiModule": "ui/admin/src/api/workflow-forms.ts",
+      "generatedGroup": "workflow-forms",
       "status": "generated"
     }
   ]

@@ -180,6 +180,159 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'序列号规则表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'CreatedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'Description', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'描述', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'Description';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'DisplayName', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'显示名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'DisplayName';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'DisplayOrder', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'显示顺序', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'DisplayOrder';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'IsEnabled', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'IsEnabled';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'MaximumValue', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最大值', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'MaximumValue';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'MinimumValue', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最小值', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'MinimumValue';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'Pattern', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'编号模式', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'Pattern';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'ResetInterval', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重置周期', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'ResetInterval';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'RuleKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'规则键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'RuleKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'Scope', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'Scope';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'UpdatedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'UpdatedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_rule')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_rule'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_rule', @level2type=N'COLUMN', @level2name=N'Version';
 END;
 
 IF NOT EXISTS
@@ -209,6 +362,69 @@ BEGIN
         CONSTRAINT CK_fn_serialnumbers_counter_LastValue
             CHECK (LastValue >= 1)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'序列号计数器表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_counter'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_counter'), N'LastValue', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后计数值', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter', @level2type=N'COLUMN', @level2name=N'LastValue';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_counter'), N'ResetBucket', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重置桶', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter', @level2type=N'COLUMN', @level2name=N'ResetBucket';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_counter'), N'RuleId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'规则标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter', @level2type=N'COLUMN', @level2name=N'RuleId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_counter'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_counter')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_counter'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_counter', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
     IF NOT EXISTS (
         SELECT 1
         FROM sys.extended_properties
@@ -317,6 +533,96 @@ BEGIN
         CONSTRAINT CK_fn_serialnumbers_allocation_SequenceValue
             CHECK (SequenceValue >= 1)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'序列号分配记录表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'AllocatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'分配时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'AllocatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'IdempotencyKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'幂等键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'IdempotencyKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'ResetBucket', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'重置桶', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'ResetBucket';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'RuleId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'规则标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'RuleId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'RuleKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'规则键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'RuleKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'SequenceValue', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'序列值', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'SequenceValue';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'SerialNumber', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'序列号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'SerialNumber';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_serialnumbers_allocation')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_serialnumbers_allocation'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_serialnumbers_allocation', @level2type=N'COLUMN', @level2name=N'TenantId';
     IF NOT EXISTS (
         SELECT 1
         FROM sys.extended_properties

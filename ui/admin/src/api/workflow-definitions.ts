@@ -1,16 +1,20 @@
 import {
   workflowCreateDefinition,
+  workflowDeleteDefinitionVersion,
   workflowGetDefinition,
   workflowGetNodeTypeCatalog,
   workflowListRecipientCandidates,
+  workflowPreviewAssignees,
   workflowPublishDefinition,
+  workflowSetDefinitionStatus,
   workflowUpdateDefinitionDraft,
   type WorkflowDefinitionDraft,
   type WorkflowDefinitionResponse,
   type WorkflowDefinitionVersionResponse,
   type WorkflowNodeTypeCatalogResponse,
   type WorkflowNodeTypeResponse,
-  type WorkflowRecipientCandidatePageResponse
+  type WorkflowRecipientCandidatePageResponse,
+  type WorkflowRecipientCandidateResponse
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
@@ -110,16 +114,13 @@ export async function previewWorkflowAssignees(
   assigneePolicy: Record<string, unknown>,
   initiatorUserId?: string,
   signal?: AbortSignal
-): Promise<Array<{ id: string; username: string; displayName: string }>> {
-  const body: Record<string, unknown> = { assigneePolicy };
-  if (initiatorUserId !== undefined) {
-    body.initiatorUserId = initiatorUserId;
-  }
-  const response = await http.request<{ users: Array<{ id: string; username: string; displayName: string }> }>(
-    '/api/v1/workflow/definitions/assignee-preview',
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
-    signal
-  );
+): Promise<ReadonlyArray<WorkflowRecipientCandidateResponse>> {
+  const response = await workflowPreviewAssignees(http, {
+    body: {
+      assigneePolicy,
+      initiatorUserId: initiatorUserId ?? null
+    }
+  }, signal);
   return response.users;
 }
 
@@ -169,11 +170,10 @@ export async function setWorkflowDefinitionStatus(
   expectedVersion: number,
   signal?: AbortSignal
 ): Promise<WorkflowDefinitionResponse> {
-  return http.request<WorkflowDefinitionResponse>(
-    `/api/v1/workflow/definitions/${definitionId}/status`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ statusKey, expectedVersion }) },
-    signal
-  );
+  return workflowSetDefinitionStatus(http, {
+    definitionId,
+    body: { statusKey, expectedVersion }
+  }, signal);
 }
 
 /** 删除未被运行实例引用的定义版本。 */
@@ -181,11 +181,7 @@ export async function deleteWorkflowDefinitionVersion(
   versionId: string,
   signal?: AbortSignal
 ): Promise<void> {
-  await http.request<void>(
-    `/api/v1/workflow/definition-versions/${versionId}`,
-    { method: 'DELETE' },
-    signal
-  );
+  await workflowDeleteDefinitionVersion(http, { versionId }, signal);
 }
 
 /** 导出定义设计器所需的草稿、目录与已发布版本模型，供编辑页和发布流程共享同一契约。 */

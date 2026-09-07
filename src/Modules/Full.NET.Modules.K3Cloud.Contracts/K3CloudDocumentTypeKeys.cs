@@ -24,6 +24,9 @@ public static class K3CloudDocumentSyncStatusKeys
 
     /// <summary>Save 成功但 Submit 失败。</summary>
     public const string SubmitFailed = "submit_failed";
+
+    /// <summary>已向金蝶发出 Save/Submit，但本地无法确认成败。</summary>
+    public const string ProviderUnknown = "provider_unknown";
 }
 
 /// <summary>单据同步最近执行步骤键。</summary>

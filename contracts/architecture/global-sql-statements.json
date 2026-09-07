@@ -3631,154 +3631,1329 @@
       ]
     },
     {
-      "statementName": "data_approval.request.count", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.CountRequests", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "审批请求计数只允许在当前可信 TenantScopeKey 内执行。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.count",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.CountRequests",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "审批请求计数只允许在当前可信 TenantScopeKey 内执行。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.find_by_business_id", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestByBusinessId", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "工作流业务标识反查审批请求时必须同时校验当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.find_by_business_id",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestByBusinessId",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工作流业务标识反查审批请求时必须同时校验当前可信作用域。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.find_by_id", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestById", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "按标识读取审批请求必须同时校验当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.find_by_id",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestById",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按标识读取审批请求必须同时校验当前可信作用域。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.find_by_idempotency", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestByIdempotency", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "幂等回放只能在当前可信作用域内命中审批请求。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.find_by_idempotency",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindRequestByIdempotency",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "幂等回放只能在当前可信作用域内命中审批请求。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.insert", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.InsertRequest", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "新建审批请求将当前可信 TenantScopeKey 显式持久化，不依赖隐式租户绑定。", "requiredSqlFragments": ["fn_dataapproval_request", "@TenantScopeKey"]
+      "statementName": "data_approval.request.insert",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.InsertRequest",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "新建审批请求将当前可信 TenantScopeKey 显式持久化，不依赖隐式租户绑定。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "@TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.link_workflow", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.LinkWorkflowInstance", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "关联工作流实例必须同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.link_workflow",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.LinkWorkflowInstance",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "关联工作流实例必须同时校验当前可信作用域与乐观并发版本。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.record_recovery_failure", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.RecordRecoveryFailure", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "记录工作流关联失败必须同时校验当前可信作用域与乐观并发版本，并递增恢复尝试次数。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "RecoveryAttemptCount = RecoveryAttemptCount + 1"]
+      "statementName": "data_approval.request.record_recovery_failure",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.RecordRecoveryFailure",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "记录工作流关联失败必须同时校验当前可信作用域与乐观并发版本，并递增恢复尝试次数。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey",
+        "RecoveryAttemptCount = RecoveryAttemptCount + 1"
+      ]
     },
     {
-      "statementName": "data_approval.request.list_pending_recovery.sqlserver", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingRecoverySqlServer", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待恢复请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'pending'", "TOP (@BatchSize)"]
+      "statementName": "data_approval.request.list_pending_recovery.sqlserver",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingRecoverySqlServer",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待恢复请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "StatusKey = 'pending'",
+        "TOP (@BatchSize)"
+      ]
     },
     {
-      "statementName": "data_approval.request.list_pending_recovery.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingRecoveryMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待恢复请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'pending'", "LIMIT @BatchSize"]
+      "statementName": "data_approval.request.list_pending_recovery.mysql",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingRecoveryMySql",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待恢复请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "StatusKey = 'pending'",
+        "LIMIT @BatchSize"
+      ]
     },
     {
-      "statementName": "data_approval.request.mark_application_pending", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.MarkApplicationPending", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "进入批准后业务应用阶段必须同时校验当前可信作用域、in_review 状态与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "StatusKey = @ExpectedStatusKey"]
+      "statementName": "data_approval.request.mark_application_pending",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.MarkApplicationPending",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "进入批准后业务应用阶段必须同时校验当前可信作用域、in_review 状态与乐观并发版本。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey",
+        "StatusKey = @ExpectedStatusKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.record_application_failure", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.RecordApplicationFailure", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "记录业务应用失败必须同时校验当前可信作用域、in_review 状态与乐观并发版本，并递增应用尝试次数。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "ApplicationAttemptCount = ApplicationAttemptCount + 1"]
+      "statementName": "data_approval.request.record_application_failure",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.RecordApplicationFailure",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "记录业务应用失败必须同时校验当前可信作用域、in_review 状态与乐观并发版本，并递增应用尝试次数。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey",
+        "ApplicationAttemptCount = ApplicationAttemptCount + 1"
+      ]
     },
     {
-      "statementName": "data_approval.request.complete_approved_application", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.CompleteApprovedApplication", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "业务应用成功后才能把请求收敛为 approved，并同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey", "StatusKey = @ExpectedStatusKey"]
+      "statementName": "data_approval.request.complete_approved_application",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.CompleteApprovedApplication",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "业务应用成功后才能把请求收敛为 approved，并同时校验当前可信作用域与乐观并发版本。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey",
+        "StatusKey = @ExpectedStatusKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.list_pending_application.sqlserver", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingApplicationSqlServer", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待应用请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'in_review'", "TOP (@BatchSize)"]
+      "statementName": "data_approval.request.list_pending_application.sqlserver",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingApplicationSqlServer",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待应用请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "StatusKey = 'in_review'",
+        "TOP (@BatchSize)"
+      ]
     },
     {
-      "statementName": "data_approval.request.list_pending_application.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingApplicationMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待应用请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。", "requiredSqlFragments": ["fn_dataapproval_request", "StatusKey = 'in_review'", "LIMIT @BatchSize"]
+      "statementName": "data_approval.request.list_pending_application.mysql",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListPendingApplicationMySql",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "DataApproval Worker 必须跨 Host 与租户有界扫描待应用请求；候选只能交给可信租户解析器建立作用域后处理，管理 API 不得复用。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "StatusKey = 'in_review'",
+        "LIMIT @BatchSize"
+      ]
     },
     {
-      "statementName": "data_approval.request.page.mysql", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsMySql", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "MySQL 审批请求分页只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.page.mysql",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsMySql",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 审批请求分页只允许读取当前可信作用域。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.page.sqlserver", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsSqlServer", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "SQL Server 审批请求分页只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.page.sqlserver",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.PageRequestsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "SQL Server 审批请求分页只允许读取当前可信作用域。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.request.update_status", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateStatus", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "审批终态回写必须同时校验当前可信作用域、原状态和乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_request", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.request.update_status",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateStatus",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "审批终态回写必须同时校验当前可信作用域、原状态和乐观并发版本。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_request",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.scenario.find_by_key", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindScenarioByKey", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "按场景键读取审批策略绑定必须同时校验当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_scenario", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.scenario.find_by_key",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.FindScenarioByKey",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按场景键读取审批策略绑定必须同时校验当前可信作用域。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_scenario",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.scenario.insert", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.InsertScenario", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "首次持久化场景绑定将当前可信 TenantScopeKey 显式写入，不依赖隐式租户绑定。", "requiredSqlFragments": ["fn_dataapproval_scenario", "@TenantScopeKey"]
+      "statementName": "data_approval.scenario.insert",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.InsertScenario",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "首次持久化场景绑定将当前可信 TenantScopeKey 显式写入，不依赖隐式租户绑定。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_scenario",
+        "@TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.scenario.list", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListScenarios", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "场景绑定列表只允许读取当前可信作用域。", "requiredSqlFragments": ["fn_dataapproval_scenario", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.scenario.list",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.ListScenarios",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "场景绑定列表只允许读取当前可信作用域。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_scenario",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "data_approval.scenario.update_binding", "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateScenarioBinding", "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs", "category": "explicit_tenant_anchor", "reason": "更新场景绑定必须同时校验当前可信作用域与乐观并发版本。", "requiredSqlFragments": ["fn_dataapproval_scenario", "TenantScopeKey = @TenantScopeKey"]
+      "statementName": "data_approval.scenario.update_binding",
+      "declaration": "Full.NET.Modules.DataApproval.Persistence.DataApprovalSql.UpdateScenarioBinding",
+      "file": "src/Modules/Full.NET.Modules.DataApproval/Persistence/DataApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新场景绑定必须同时校验当前可信作用域与乐观并发版本。",
+      "requiredSqlFragments": [
+        "fn_dataapproval_scenario",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
     },
     {
-      "statementName": "identity.workflow.find_active_host_roles_by_ids", "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.FindActiveHostRolesByIds", "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs", "category": "host_catalog", "reason": "Workflow 候选角色仅读取 Host 授权目录中的活动角色，不应绑定当前租户。", "requiredSqlFragments": ["fn_identity_role", "TenantId IS NULL"]
+      "statementName": "identity.workflow.find_active_host_roles_by_ids",
+      "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.FindActiveHostRolesByIds",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs",
+      "category": "host_catalog",
+      "reason": "Workflow 候选角色仅读取 Host 授权目录中的活动角色，不应绑定当前租户。",
+      "requiredSqlFragments": [
+        "fn_identity_role",
+        "TenantId IS NULL"
+      ]
     },
     {
-      "statementName": "identity.workflow.list_active_host_role_members_by_role_ids", "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIds", "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs", "category": "host_catalog", "reason": "Workflow 角色成员解析基于 Host 角色目录，返回前仍由业务服务执行范围与状态校验。", "requiredSqlFragments": ["fn_identity_user_role", "fn_identity_role"]
+      "statementName": "identity.workflow.list_active_host_role_members_by_role_ids",
+      "declaration": "Full.NET.Modules.Identity.Persistence.WorkflowRoleMemberSql.ListActiveHostRoleMembersByRoleIds",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/WorkflowRoleMemberSql.cs",
+      "category": "host_catalog",
+      "reason": "Workflow 角色成员解析基于 Host 角色目录，返回前仍由业务服务执行范围与状态校验。",
+      "requiredSqlFragments": [
+        "fn_identity_user_role",
+        "fn_identity_role"
+      ]
     },
     {
-      "statementName": "notifications.platform.template.find_by_key_and_locale", "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateByKeyAndLocale", "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs", "category": "explicit_tenant_anchor", "reason": "通知模板的本地化回退需显式同时查询 Host 与当前租户候选，作用域由 TenantScopeKey 锨定。", "requiredSqlFragments": ["fn_notifications_template", "@TenantScopeKey"]
+      "statementName": "notifications.platform.template.find_by_key_and_locale",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.FindTemplateByKeyAndLocale",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "通知模板的本地化回退需显式同时查询 Host 与当前租户候选，作用域由 TenantScopeKey 锨定。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "@TenantScopeKey"
+      ]
     },
     {
-      "statementName": "notifications.platform.template.list_locales_by_key", "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListTemplateLocalesByKey", "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs", "category": "explicit_tenant_anchor", "reason": "模板语言清单需显式合并 Host 与当前租户可见项，查询必须保留作用域锨点。", "requiredSqlFragments": ["fn_notifications_template", "@TenantScopeKey"]
+      "statementName": "notifications.platform.template.list_locales_by_key",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.ListTemplateLocalesByKey",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "模板语言清单需显式合并 Host 与当前租户可见项，查询必须保留作用域锨点。",
+      "requiredSqlFragments": [
+        "fn_notifications_template",
+        "@TenantScopeKey"
+      ]
     },
     {
-      "statementName": "workflow.countersign_chain.cancel", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelCountersignChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_chain"]
+      "statementName": "workflow.countersign_chain.cancel",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelCountersignChain",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_chain"
+      ]
     },
     {
-      "statementName": "workflow.countersign_chain.complete", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteCountersignChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_chain"]
+      "statementName": "workflow.countersign_chain.complete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteCountersignChain",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_chain"
+      ]
     },
     {
-      "statementName": "workflow.countersign_chain.find_active_by_origin_todo", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveCountersignChainByOriginTodo", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "查找活动会签链必须从当前作用域的原始待办定位。", "requiredSqlFragments": ["fn_workflow_countersign_chain", "TenantScopeKey"]
+      "statementName": "workflow.countersign_chain.find_active_by_origin_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindActiveCountersignChainByOriginTodo",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "查找活动会签链必须从当前作用域的原始待办定位。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_chain",
+        "TenantScopeKey"
+      ]
     },
     {
-      "statementName": "workflow.countersign_chain.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCountersignChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_chain"]
+      "statementName": "workflow.countersign_chain.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCountersignChain",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_chain"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.activate", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ActivateCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.activate",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ActivateCountersignItem",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.cancel_pending", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingCountersignItems", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.cancel_pending",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelPendingCountersignItems",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.complete", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.complete",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CompleteCountersignItem",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.find_by_todo", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindCountersignItemByTodoId", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "待办反查会签项必须联结流程实例并校验当前作用域。", "requiredSqlFragments": ["fn_workflow_countersign_item", "TenantScopeKey"]
+      "statementName": "workflow.countersign_item.find_by_todo",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindCountersignItemByTodoId",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "待办反查会签项必须联结流程实例并校验当前作用域。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item",
+        "TenantScopeKey"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.find_next_pending", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextPendingCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.find_next_pending",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextPendingCountersignItem",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.find_next_pending_mysql", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextPendingCountersignItemMySql", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.find_next_pending_mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindNextPendingCountersignItemMySql",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCountersignItem", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCountersignItem",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.countersign_item.list_by_chain", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListCountersignItemsByChain", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_countersign_item"]
+      "statementName": "workflow.countersign_item.list_by_chain",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListCountersignItemsByChain",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_countersign_item"
+      ]
     },
     {
-      "statementName": "workflow.parallel_approval_step.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelApprovalStep", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_step"]
+      "statementName": "workflow.parallel_approval_step.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelApprovalStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_step"
+      ]
     },
     {
-      "statementName": "workflow.parallel_branch_arrival.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelBranchArrival", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_branch_arrival"]
+      "statementName": "workflow.parallel_branch_arrival.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelBranchArrival",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_branch_arrival"
+      ]
     },
     {
-      "statementName": "workflow.parallel_join.cancel_waiting_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelWaitingParallelJoinsByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+      "statementName": "workflow.parallel_join.cancel_waiting_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelWaitingParallelJoinsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_join"
+      ]
     },
     {
-      "statementName": "workflow.parallel_join.find_by_id", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindParallelJoinById", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+      "statementName": "workflow.parallel_join.find_by_id",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindParallelJoinById",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_join"
+      ]
     },
     {
-      "statementName": "workflow.parallel_join.find_waiting_by_instance_and_join_node", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindWaitingParallelJoinByInstanceAndJoinNode", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+      "statementName": "workflow.parallel_join.find_waiting_by_instance_and_join_node",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindWaitingParallelJoinByInstanceAndJoinNode",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_join"
+      ]
     },
     {
-      "statementName": "workflow.parallel_join.increment_arrival", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.IncrementParallelJoinArrival", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+      "statementName": "workflow.parallel_join.increment_arrival",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.IncrementParallelJoinArrival",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_join"
+      ]
     },
     {
-      "statementName": "workflow.parallel_join.insert", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelJoin", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+      "statementName": "workflow.parallel_join.insert",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertParallelJoin",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_join"
+      ]
     },
     {
-      "statementName": "workflow.parallel_join.list_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListParallelJoinsByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_parallel_join"]
+      "statementName": "workflow.parallel_join.list_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ListParallelJoinsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_parallel_join"
+      ]
     },
     {
-      "statementName": "workflow.step.cancel_all_active_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelAllActiveStepsByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_step"]
+      "statementName": "workflow.step.cancel_all_active_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelAllActiveStepsByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_step"
+      ]
     },
     {
-      "statementName": "workflow.step.insert_completed_parallel_gateway", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedParallelGatewayStep", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_step"]
+      "statementName": "workflow.step.insert_completed_parallel_gateway",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.InsertCompletedParallelGatewayStep",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_step"
+      ]
     },
     {
-      "statementName": "workflow.todo.cancel_all_active_by_instance", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelAllActiveTodosByInstance", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。", "requiredSqlFragments": ["fn_workflow_todo"]
+      "statementName": "workflow.todo.cancel_all_active_by_instance",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.CancelAllActiveTodosByInstance",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "该子表语句只在 Workflow 服务已于同一本地事务内通过带 TenantScopeKey 的实例查询完成授权后执行；目录登记用于明确这一事务级作用域前置条件。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo"
+      ]
     },
     {
-      "statementName": "workflow.todo.reactivate_after_before_countersign", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReactivateOriginTodoAfterBeforeCountersign", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "前加签完成后恢复原待办必须校验当前作用域和修订号。", "requiredSqlFragments": ["fn_workflow_todo", "TenantScopeKey"]
+      "statementName": "workflow.todo.reactivate_after_before_countersign",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.ReactivateOriginTodoAfterBeforeCountersign",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "前加签完成后恢复原待办必须校验当前作用域和修订号。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey"
+      ]
     },
     {
-      "statementName": "workflow.todo.suspend_for_before_countersign", "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.SuspendOriginTodoForBeforeCountersign", "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs", "category": "explicit_tenant_anchor", "reason": "前加签时挂起原待办必须校验当前作用域和修订号。", "requiredSqlFragments": ["fn_workflow_todo", "TenantScopeKey"]
+      "statementName": "workflow.todo.suspend_for_before_countersign",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.SuspendOriginTodoForBeforeCountersign",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "前加签时挂起原待办必须校验当前作用域和修订号。",
+      "requiredSqlFragments": [
+        "fn_workflow_todo",
+        "TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "ai.acquire_chat_generation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatGenerationSql.Acquire",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatGenerationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "生成租约按会话所有者与显式 ScopeTenantId 守卫，Host 会话要求 TenantId 为空。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.delete_chat_messages_by_session",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.DeleteMessagesBySession",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除消息前必须已通过同一所有者与 ScopeTenantId 读取会话。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_message",
+        "SessionId = @SessionId"
+      ]
+    },
+    {
+      "statementName": "ai.delete_chat_session",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.DeleteSession",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除会话按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.fail_abandoned_chat_messages",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatGenerationSql.FailAbandonedMessages",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatGenerationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "只在已取得同一会话所有者租约后收敛崩溃留下的流式消息。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_message",
+        "SessionId = @SessionId",
+        "StatusKey = 'streaming'"
+      ]
+    },
+    {
+      "statementName": "ai.find_chat_session_by_id",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.FindSessionById",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "会话读取绑定所有者与显式 ScopeTenantId。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.insert_agent_tool_call",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentToolCallSql.InsertCall",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentToolCallSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "工具调用审计把受信 TenantId 作为写入值显式落库，不依赖当前 SqlTenantBinding。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_ai_agent_tool_call",
+        "@TenantId",
+        "@ActorUserId"
+      ]
+    },
+    {
+      "statementName": "ai.insert_chat_message",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.InsertMessage",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "消息写入发生在已通过所有者守卫的会话事务内。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_ai_chat_message",
+        "@SessionId"
+      ]
+    },
+    {
+      "statementName": "ai.insert_chat_session",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.InsertSession",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "新建会话把受信 TenantId 与 OwnerUserId 作为写入值显式落库。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_ai_chat_session",
+        "@TenantId",
+        "@OwnerUserId"
+      ]
+    },
+    {
+      "statementName": "ai.list_chat_messages_by_session",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.ListMessagesBySession",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出消息前必须已通过同一所有者与 ScopeTenantId 读取会话。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_message",
+        "Id = @SessionId"
+      ]
+    },
+    {
+      "statementName": "ai.list_recent_chat_messages_for_model",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.ListRecentMessagesForModel",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "模型上下文读取绑定会话标识，调用方必须先通过所有者守卫。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_message",
+        "SessionId = @SessionId"
+      ]
+    },
+    {
+      "statementName": "ai.release_chat_generation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatGenerationSql.Release",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatGenerationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "释放生成槽位必须匹配所有者、ScopeTenantId 与当前 GenerationId。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.renew_chat_generation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatGenerationSql.Renew",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatGenerationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "续租必须匹配所有者、ScopeTenantId 与未取消的当前一代。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.request_chat_generation_cancellation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatGenerationSql.RequestCancellation",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatGenerationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "取消请求绑定所有者、ScopeTenantId 与当前 GenerationId。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.touch_chat_session_after_message",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.TouchSessionAfterMessage",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新会话摘要必须匹配所有者与显式 ScopeTenantId。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "ai.update_chat_message",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.UpdateMessage",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新消息发生在已通过所有者守卫的会话事务内。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_message",
+        "@SessionId"
+      ]
+    },
+    {
+      "statementName": "ai.update_chat_session_title",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiChatSql.UpdateSessionTitle",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiChatSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "改标题绑定所有者、版本与显式 ScopeTenantId。",
+      "requiredSqlFragments": [
+        "fn_ai_chat_session",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "calendar.count_personal_schedules",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.CountForOwner",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "个人日程计数按所有者与显式 ScopeTenantId 守卫，Host 行要求 TenantId 为空。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule"
+      ]
+    },
+    {
+      "statementName": "calendar.delete_personal_schedule",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.DeleteForOwner",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "删除个人日程按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "calendar.find_personal_schedule_for_owner",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.FindForOwnerById",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "读取个人日程按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "calendar.list_personal_schedules.mysql",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.ListMySql",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出个人日程按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule"
+      ]
+    },
+    {
+      "statementName": "calendar.list_personal_schedules.sql_server",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.ListSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出个人日程按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule"
+      ]
+    },
+    {
+      "statementName": "calendar.set_personal_schedule_status",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.SetStatusForOwner",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新日程状态按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "calendar.update_personal_schedule",
+      "declaration": "Full.NET.Modules.Calendar.Persistence.PersonalScheduleSql.UpdateForOwner",
+      "file": "src/Modules/Full.NET.Modules.Calendar/Persistence/PersonalScheduleSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新个人日程按所有者与显式 ScopeTenantId 守卫。",
+      "requiredSqlFragments": [
+        "fn_calendar_personal_schedule",
+        "OwnerUserId = @OwnerUserId",
+        "@ScopeTenantId IS NULL"
+      ]
+    },
+    {
+      "statementName": "files.tenant_resource_file.authorized_legacy_reference",
+      "declaration": "Full.NET.Modules.Files.Persistence.TenantResourceFileSql.FindAuthorizedLegacyReference",
+      "file": "src/Modules/Full.NET.Modules.Files/Persistence/TenantResourceFileSql.cs",
+      "category": "host_catalog",
+      "reason": "只读取已确认引用的 Host 文件对象，SQL 固定 TenantId IS NULL。",
+      "requiredSqlFragments": [
+        "fn_files_file",
+        "TenantId IS NULL",
+        "StorageState = 'ready'"
+      ]
+    },
+    {
+      "statementName": "files.tenant_resource_file.select_stale.mysql",
+      "declaration": "Full.NET.Modules.Files.Persistence.TenantResourceFileSql.SelectStaleMySql",
+      "file": "src/Modules/Full.NET.Modules.Files/Persistence/TenantResourceFileSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 陈旧租户资源目录不授予文件访问权，具体操作必须进入租户上下文。",
+      "requiredSqlFragments": [
+        "fn_files_tenant_resource_file",
+        "StatusKey IN ('pending', 'ready')"
+      ]
+    },
+    {
+      "statementName": "files.tenant_resource_file.select_stale.sql_server",
+      "declaration": "Full.NET.Modules.Files.Persistence.TenantResourceFileSql.SelectStaleSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Files/Persistence/TenantResourceFileSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 陈旧租户资源目录不授予文件访问权，具体操作必须进入租户上下文。",
+      "requiredSqlFragments": [
+        "fn_files_tenant_resource_file",
+        "StatusKey IN ('pending', 'ready')"
+      ]
+    },
+    {
+      "statementName": "identity.find_active_tenant_role_for_registration_way",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationWaySql.FindActiveTenantRole",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "公开注册在租户上下文建立前按显式 TenantId 校验默认角色。",
+      "requiredSqlFragments": [
+        "fn_identity_role",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "identity.find_registration_way_by_tenant_and_code",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationWaySql.FindByTenantAndCode",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "公开注册按显式租户与注册方式编码读取。",
+      "requiredSqlFragments": [
+        "fn_identity_user_registration_way",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "identity.get_registration_policy",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationPolicySql.GetPolicy",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationSql.cs",
+      "category": "host_catalog",
+      "reason": "公开注册策略是 Host 单例目录，按固定策略标识读取。",
+      "requiredSqlFragments": [
+        "fn_identity_registration_policy",
+        "Id = @PolicyId"
+      ]
+    },
+    {
+      "statementName": "identity.list_enabled_registration_ways_by_tenant",
+      "declaration": "Full.NET.Modules.Identity.Persistence.RegistrationWaySql.ListEnabledByTenant",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/RegistrationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "公开注册列出指定租户已启用的注册方式。",
+      "requiredSqlFragments": [
+        "fn_identity_user_registration_way",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "identity.reset_user_password_by_identity",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.ResetUserPasswordByIdentity",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "verified_identity",
+      "reason": "自助改密按已验证用户标识与 ScopeKey 更新口令，不依赖当前租户绑定。",
+      "requiredSqlFragments": [
+        "fn_identity_user",
+        "Id = @UserId",
+        "ScopeKey = @ScopeKey"
+      ]
+    },
+    {
+      "statementName": "import_export.task.pending_tenants.mysql",
+      "declaration": "Full.NET.Modules.ImportExport.Persistence.ImportExportTaskSql.ListPendingTenantIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.ImportExport/Persistence/ImportExportTaskSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 调度目录只返回有可领取任务的租户标识。",
+      "requiredSqlFragments": [
+        "fn_import_export_task",
+        "StatusKey = 'queued'"
+      ]
+    },
+    {
+      "statementName": "import_export.task.pending_tenants.sqlserver",
+      "declaration": "Full.NET.Modules.ImportExport.Persistence.ImportExportTaskSql.ListPendingTenantIdsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.ImportExport/Persistence/ImportExportTaskSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 调度目录只返回有可领取任务的租户标识。",
+      "requiredSqlFragments": [
+        "fn_import_export_task",
+        "StatusKey = 'queued'"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.CountForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像按显式 TenantScopeKey 计数。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像按标识与 TenantScopeKey 精确读取。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.find_by_process_instance_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.FindByProcessInstanceId",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像按外部流程实例与 TenantScopeKey 读取。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.find_by_workflow_instance",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.FindByWorkflowInstance",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像按工作流实例与 TenantScopeKey 读取。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像写入显式 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.ListForScopeMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像列表绑定 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.ListForScopeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "钉钉审批镜像列表绑定 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.list_poll_candidates",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.ListPollCandidates",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 轮询候选目录不授予业务读写权，后续更新必须带 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.list_poll_candidates.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.ListPollCandidatesMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 轮询候选目录不授予业务读写权，后续更新必须带 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync"
+      ]
+    },
+    {
+      "statementName": "notifications.dingtalk_approval_sync.update_mirror_state",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.DingTalkApprovalSyncSql.UpdateMirrorState",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/DingTalkApprovalSyncSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新钉钉审批镜像必须匹配 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_dingtalk_approval_sync",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.intent_attachment.count_pending_deliveries",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationIntentAttachmentSql.CountPendingDeliveriesByIntent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationIntentAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件投递计数发生在已按 TenantScopeKey 授权的 Intent 事务内。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "IntentId = @IntentId"
+      ]
+    },
+    {
+      "statementName": "notifications.intent_attachment.exists_for_probe",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationIntentAttachmentSql.ExistsForProbe",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationIntentAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件探测发生在已按 TenantScopeKey 授权的 Intent 事务内。",
+      "requiredSqlFragments": [
+        "fn_notifications_intent_attachment",
+        "FileId = @FileId"
+      ]
+    },
+    {
+      "statementName": "notifications.intent_attachment.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationIntentAttachmentSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationIntentAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "附件写入发生在已按 TenantScopeKey 授权的 Intent 事务内。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_notifications_intent_attachment",
+        "@IntentId",
+        "@FileId"
+      ]
+    },
+    {
+      "statementName": "notifications.intent_attachment.list_by_intent",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationIntentAttachmentSql.ListByIntent",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationIntentAttachmentSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出附件发生在已按 TenantScopeKey 授权的 Intent 事务内。",
+      "requiredSqlFragments": [
+        "fn_notifications_intent_attachment",
+        "IntentId = @IntentId"
+      ]
+    },
+    {
+      "statementName": "notifications.platform.delivery.renew_lease",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationPlatformSql.RenewDeliveryLease",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationPlatformSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "投递租约续租绑定投递标识与当前租约世代。",
+      "requiredSqlFragments": [
+        "fn_notifications_delivery",
+        "LeaseGeneration = @LeaseGeneration"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.find_id_by_user_profile_kind",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.FindIdByUserProfileKind",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "收件端点按 TenantScopeKey、用户与 Profile 精确查找。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.find_owned_pending_protected.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.FindOwnedPendingProtectedMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "验证码短事务按 TenantScopeKey 与当前用户锁定待验证端点。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.recipient_endpoint.rebind_verified_value",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.NotificationRecipientEndpointSql.RebindVerifiedValue",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/NotificationRecipientEndpointSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "已验证端点重绑必须匹配 TenantScopeKey 与当前用户。",
+      "requiredSqlFragments": [
+        "fn_notifications_recipient_endpoint",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.count_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.CountForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "小程序绑定按显式 TenantScopeKey 计数。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.find_by_id",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "小程序绑定按标识与 TenantScopeKey 精确读取。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.find_by_user_app",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.FindByUserApp",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "小程序绑定按用户、AppId 与 TenantScopeKey 读取。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.insert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "小程序绑定写入显式 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.list_for_scope.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.ListForScopeMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "小程序绑定列表绑定 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.list_for_scope.sql_server",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.ListForScopeSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "小程序绑定列表绑定 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.list_mine_for_scope",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.ListMineForScope",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "当前用户小程序绑定列表绑定 TenantScopeKey 与 UserId。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_binding.update",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.Update",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新小程序绑定必须匹配 TenantScopeKey。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_binding",
+        "TenantScopeKey = @TenantScopeKey"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_subscription.list_by_binding",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.ListSubscriptionsByBinding",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "订阅授权读取绑定 BindingId，调用方必须先通过 TenantScopeKey 授权。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_subscription",
+        "BindingId = @BindingId"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_subscription.upsert",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.UpsertSubscription",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "订阅授权写入绑定 BindingId，调用方必须先通过 TenantScopeKey 授权。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_subscription",
+        "@BindingId"
+      ]
+    },
+    {
+      "statementName": "notifications.wechat_miniprogram_subscription.upsert.mysql",
+      "declaration": "Full.NET.Modules.Notifications.Persistence.WeChatMiniProgramBindingSql.UpsertSubscriptionMySql",
+      "file": "src/Modules/Full.NET.Modules.Notifications/Persistence/WeChatMiniProgramBindingSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "订阅授权写入绑定 BindingId，调用方必须先通过 TenantScopeKey 授权。",
+      "requiredSqlFragments": [
+        "fn_notifications_wechat_miniprogram_subscription",
+        "@BindingId"
+      ]
+    },
+    {
+      "statementName": "organization.find_active_position_by_tenant_and_id",
+      "declaration": "Full.NET.Modules.Organization.Persistence.PositionSql.FindActiveByTenantAndId",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/PositionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "跨模块读取活动职位按显式 TenantId 与职位标识守卫。",
+      "requiredSqlFragments": [
+        "fn_organization_position",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "organization.membership.count_active",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.CountActiveMembership",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "成员关系计数按显式 TenantId、组织单元与用户守卫。",
+      "requiredSqlFragments": [
+        "fn_organization_user_unit",
+        "TenantId = @TenantId",
+        "UserId = @UserId"
+      ]
+    },
+    {
+      "statementName": "organization.membership.list_active_by_user",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.ListActiveMembershipsByUser",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "host_tenant_catalog",
+      "reason": "按已验证用户列出全部活动成员关系，供 Host/租户投影消费。",
+      "requiredSqlFragments": [
+        "fn_organization_user_unit",
+        "UserId = @UserId",
+        "IsActive = 1"
+      ]
+    },
+    {
+      "statementName": "organization.membership.list_active_users_by_tenant_unit",
+      "declaration": "Full.NET.Modules.Organization.Persistence.OrganizationMembershipSql.ListActiveUsersByTenantAndUnit",
+      "file": "src/Modules/Full.NET.Modules.Organization/Persistence/OrganizationMembershipSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按显式租户与组织单元列出活动成员。",
+      "requiredSqlFragments": [
+        "fn_organization_user_unit",
+        "TenantId = @TenantId"
+      ]
+    },
+    {
+      "statementName": "reporting.export_task.pending_tenants.mysql",
+      "declaration": "Full.NET.Modules.Reporting.Persistence.ReportingExportTaskSql.ListPendingTenantIdsMySql",
+      "file": "src/Modules/Full.NET.Modules.Reporting/Persistence/ReportingExportTaskSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 调度目录只返回有可领取导出任务的租户标识。",
+      "requiredSqlFragments": [
+        "fn_reporting_export_task",
+        "StatusKey = 'queued'"
+      ]
+    },
+    {
+      "statementName": "reporting.export_task.pending_tenants.sqlserver",
+      "declaration": "Full.NET.Modules.Reporting.Persistence.ReportingExportTaskSql.ListPendingTenantIdsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Reporting/Persistence/ReportingExportTaskSql.cs",
+      "category": "host_catalog",
+      "reason": "Worker 调度目录只返回有可领取导出任务的租户标识。",
+      "requiredSqlFragments": [
+        "fn_reporting_export_task",
+        "StatusKey = 'queued'"
+      ]
+    },
+    {
+      "statementName": "tenancy.tenant_branding.is_logo_referenced",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.IsTenantLogoReferenced",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "host_catalog",
+      "reason": "释放 Files Claim 前探测任意租户是否仍引用该 Logo 文件。",
+      "requiredSqlFragments": [
+        "fn_tenancy_tenant",
+        "LogoFileId = @FileId"
+      ]
+    },
+    {
+      "statementName": "tenancy.tenant_branding.logo_exists",
+      "declaration": "Full.NET.Modules.Tenancy.Persistence.TenantSql.TenantLogoExists",
+      "file": "src/Modules/Full.NET.Modules.Tenancy/Persistence/TenantSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按显式租户标识确认 Logo 文件仍属于该租户。",
+      "requiredSqlFragments": [
+        "fn_tenancy_tenant",
+        "Id = @TenantId",
+        "LogoFileId = @FileId"
+      ]
     }
   ]
 }

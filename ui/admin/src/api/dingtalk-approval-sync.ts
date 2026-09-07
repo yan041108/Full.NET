@@ -1,51 +1,13 @@
+import {
+  isDingTalkApprovalSyncResponse,
+  isPagedDingTalkApprovalSyncResponse,
+  type CreateDingTalkApprovalSyncRequest,
+  type DingTalkApprovalSyncResponse,
+  type PagedDingTalkApprovalSyncResponse
+} from '@fullnet/client-contracts';
 import { request } from './http';
 
-export type DingTalkApprovalSyncResponse = {
-  id: string;
-  workflowInstanceId: string;
-  idempotencyKey: string;
-  dingTalkProcessInstanceId: string | null;
-  processCode: string;
-  originatorUserId: string;
-  deptId: number;
-  title: string;
-  summary: string | null;
-  statusKey: string;
-  externalStatusKey: string | null;
-  externalResultKey: string | null;
-  lastErrorCode: string | null;
-  lastSyncedAtUtc: string | null;
-  createdAtUtc: string;
-  updatedAtUtc: string | null;
-};
-
-export type PagedDingTalkApprovalSyncResponse = {
-  items: DingTalkApprovalSyncResponse[];
-  page: number;
-  pageSize: number;
-  total: number;
-};
-
-export type CreateDingTalkApprovalSyncRequest = {
-  workflowInstanceId: string;
-  originatorUserId: string;
-  deptId: number;
-  title: string;
-  summary?: string | null;
-};
-
-function isSyncRecord(value: unknown): value is DingTalkApprovalSyncResponse {
-  return typeof value === 'object'
-    && value !== null
-    && typeof (value as DingTalkApprovalSyncResponse).id === 'string';
-}
-
-function isPagedSync(value: unknown): value is PagedDingTalkApprovalSyncResponse {
-  return typeof value === 'object'
-    && value !== null
-    && Array.isArray((value as PagedDingTalkApprovalSyncResponse).items);
-}
-
+/** 分页查询钉钉审批镜像同步记录。 */
 export async function listDingTalkApprovalSync(
   page = 1,
   pageSize = 20,
@@ -56,12 +18,13 @@ export async function listDingTalkApprovalSync(
     { method: 'GET' },
     signal
   );
-  if (!isPagedSync(value)) {
+  if (!isPagedDingTalkApprovalSyncResponse(value)) {
     throw new Error('client.invalid_dingtalk_approval_sync');
   }
   return value;
 }
 
+/** 读取单条钉钉审批镜像同步记录。 */
 export async function getDingTalkApprovalSync(
   syncId: string,
   signal?: AbortSignal
@@ -71,12 +34,13 @@ export async function getDingTalkApprovalSync(
     { method: 'GET' },
     signal
   );
-  if (!isSyncRecord(value)) {
+  if (!isDingTalkApprovalSyncResponse(value)) {
     throw new Error('client.invalid_dingtalk_approval_sync');
   }
   return value;
 }
 
+/** 为工作流实例登记钉钉审批镜像同步。 */
 export async function createDingTalkApprovalSync(
   body: CreateDingTalkApprovalSyncRequest,
   signal?: AbortSignal
@@ -86,12 +50,13 @@ export async function createDingTalkApprovalSync(
     { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
     signal
   );
-  if (!isSyncRecord(value)) {
+  if (!isDingTalkApprovalSyncResponse(value)) {
     throw new Error('client.invalid_dingtalk_approval_sync');
   }
   return value;
 }
 
+/** 对失败出站记录发起补偿重试。 */
 export async function retryDingTalkApprovalSync(
   syncId: string,
   signal?: AbortSignal
@@ -101,8 +66,14 @@ export async function retryDingTalkApprovalSync(
     { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
     signal
   );
-  if (!isSyncRecord(value)) {
+  if (!isDingTalkApprovalSyncResponse(value)) {
     throw new Error('client.invalid_dingtalk_approval_sync');
   }
   return value;
 }
+
+export type {
+  CreateDingTalkApprovalSyncRequest,
+  DingTalkApprovalSyncResponse,
+  PagedDingTalkApprovalSyncResponse
+};

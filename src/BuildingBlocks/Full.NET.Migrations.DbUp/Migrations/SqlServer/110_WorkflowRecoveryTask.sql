@@ -46,6 +46,168 @@ BEGIN
         CONSTRAINT CK_fn_workflow_recovery_task_Revision CHECK (Revision > 0),
         CONSTRAINT CK_fn_workflow_recovery_task_Generation CHECK (LeaseGeneration >= 0)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流恢复任务表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'AttemptCount', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'已尝试次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'AttemptCount';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'InstanceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程实例标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'InstanceId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'KindKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'恢复种类键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'KindKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'LastError', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后错误摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LastError';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'LeaseExpiresAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租约过期时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LeaseExpiresAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'LeaseGeneration', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租约世代', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LeaseGeneration';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'LeaseOwnerKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'执行租约持有者键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LeaseOwnerKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'NextAttemptAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次尝试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'Revision', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'修订号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'Revision';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'ScopeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'ScopeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'StatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'恢复任务状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'StatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'StepId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程步骤标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'StepId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'TenantScopeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户作用域唯一键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'TenantScopeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_recovery_task')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_recovery_task'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
 
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流恢复任务表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'Id';

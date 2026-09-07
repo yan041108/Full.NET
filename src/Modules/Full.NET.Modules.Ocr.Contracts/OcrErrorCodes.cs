@@ -29,4 +29,7 @@ public static class OcrErrorCodes
 
     /// <summary>OCR 远程调用失败。</summary>
     public const string RemoteCallFailed = "ocr.remote.call_failed";
+
+    /// <summary>OCR 远程调用结果未知，本地任务意图已提交且不得当作失败回滚。</summary>
+    public const string RemoteCallUnknown = "ocr.remote.call_unknown";
 }

@@ -18,6 +18,87 @@ BEGIN
         CONSTRAINT CK_fn_workflow_countersign_chain_Direction CHECK (DirectionKey IN ('before', 'after')),
         CONSTRAINT CK_fn_workflow_countersign_chain_Status CHECK (StatusKey IN ('active', 'completed', 'cancelled'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流会签链表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'CreatedByUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'DirectionKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'方向键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'DirectionKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'InstanceId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'实例标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'InstanceId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'OriginTodoId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'原始待办标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'OriginTodoId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'StatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'StatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_chain')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_chain'), N'StepId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'步骤标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'StepId';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流加签链表',
         @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键',
@@ -55,6 +136,69 @@ BEGIN
         CONSTRAINT CK_fn_workflow_countersign_item_Sequence CHECK (SequenceNo > 0),
         CONSTRAINT CK_fn_workflow_countersign_item_Status CHECK (StatusKey IN ('pending', 'active', 'completed', 'cancelled'))
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流会签项表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_item'), N'AssigneeUserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'办理人用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'AssigneeUserId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_item'), N'ChainId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'会签链标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'ChainId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_item'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_item'), N'SequenceNo', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'序号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'SequenceNo';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_item'), N'StatusKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'StatusKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_workflow_countersign_item')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_workflow_countersign_item'), N'TodoId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'待办标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'TodoId';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流加签项表',
         @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item';
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键',

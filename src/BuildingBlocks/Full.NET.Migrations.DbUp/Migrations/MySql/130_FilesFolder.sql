@@ -1,20 +1,19 @@
 -- 130：Host 虚拟目录与文件元数据修订号；目录仅表达逻辑归属，不映射磁盘路径。
 
-CREATE TABLE IF NOT EXISTS fn_files_folder
-(
-    Id BINARY(16) NOT NULL,
-    TenantId BINARY(16) NULL,
-    ParentId BINARY(16) NULL,
-    Name varchar(128) NOT NULL,
-    DisplayOrder int NOT NULL DEFAULT 0,
-    Revision bigint NOT NULL DEFAULT 0,
-    CreatedAtUtc datetime(6) NOT NULL,
-    CreatedByUserId BINARY(16) NOT NULL,
-    UpdatedAtUtc datetime(6) NULL,
-    UpdatedByUserId BINARY(16) NULL,
-    DeletedAtUtc datetime(6) NULL,
+CREATE TABLE IF NOT EXISTS fn_files_folder (
+    Id BINARY(16) NOT NULL COMMENT '逻辑主键',
+    TenantId BINARY(16) NULL COMMENT '租户标识；NULL 表示 Host 级',
+    ParentId BINARY(16) NULL COMMENT '父级标识',
+    Name varchar(128) NOT NULL COMMENT '名称',
+    DisplayOrder int NOT NULL DEFAULT 0 COMMENT '显示顺序',
+    Revision bigint NOT NULL DEFAULT 0 COMMENT '修订号',
+    CreatedAtUtc datetime(6) NOT NULL COMMENT '创建时间(UTC)',
+    CreatedByUserId BINARY(16) NOT NULL COMMENT '创建人用户标识',
+    UpdatedAtUtc datetime(6) NULL COMMENT '更新时间(UTC)',
+    UpdatedByUserId BINARY(16) NULL COMMENT '更新人用户标识',
+    DeletedAtUtc datetime(6) NULL COMMENT '删除时间(UTC)',
     PRIMARY KEY (Id)
-);
+) COMMENT='文件虚拟目录表';
 
 SET @index_exists := (
     SELECT COUNT(1)

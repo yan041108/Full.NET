@@ -33,4 +33,5 @@ namespace Full.NET.Modules.Reporting.Serialization;
 [JsonSerializable(typeof(ReportingParameterSchemaEntry))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingExecutionParameterValue>))]
 [JsonSerializable(typeof(IReadOnlyList<ReportingParameterSchemaEntry>))]
+[JsonSerializable(typeof(string[]))]
 internal partial class ReportingJsonSerializerContext : JsonSerializerContext;

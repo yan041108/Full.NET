@@ -2,11 +2,13 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
+import { previewWorkflowAssignees } from '../api/workflow-definitions';
 import WorkflowVue3Designer from './WorkflowVue3Designer.vue';
 
 vi.mock('../api/workflow-definitions', () => ({
   listWorkflowRoleCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
   listWorkflowOrganizationUnitCandidates: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, total: 0 }),
+  previewWorkflowAssignees: vi.fn().mockResolvedValue([]),
   listWorkflowRecipientCandidates: vi.fn().mockResolvedValue({
     items: [
       {
@@ -276,6 +278,37 @@ describe('WorkflowVue3Designer', () => {
       ['client.invalid_workflow_approval_policy']
     ]);
     expect(document.body.querySelector('[data-testid="workflow-approval-mode"]')).not.toBeNull();
+    wrapper.unmount();
+  });
+
+  it('办理人预览接受只读候选数组并渲染显示名', async () => {
+    vi.mocked(previewWorkflowAssignees).mockResolvedValueOnce(Object.freeze([
+      Object.freeze({
+        id: '019c1a90-8f9b-7b9c-9cf4-b2c7f5a1d001',
+        username: 'finance',
+        displayName: '财务'
+      })
+    ]));
+    const wrapper = mount(WorkflowVue3Designer, {
+      attachTo: document.body,
+      props: {
+        disabled: false,
+        modelValue: {
+          id: 'start', type: 0, nodeName: '发起人', childNode: {
+            id: 'approve', type: 1, nodeName: '审批人', childNode: null
+          }
+        }
+      },
+      global: { plugins: [createPinia()] }
+    });
+
+    await wrapper.findAll('.node-wrap-box').at(1)!.trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="workflow-assignee-preview"]').trigger('click');
+    await flushPromises();
+
+    expect(previewWorkflowAssignees).toHaveBeenCalled();
+    expect(wrapper.get('.workflow-assignee-preview__users').text()).toContain('财务 (finance)');
     wrapper.unmount();
   });
 });

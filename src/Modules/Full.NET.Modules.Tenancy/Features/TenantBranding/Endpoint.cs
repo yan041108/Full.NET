@@ -12,8 +12,11 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Tenancy.Features.TenantBranding;
 
+/// <summary>租户品牌 Logo 与运行时品牌读取的 HTTP 端点。</summary>
 internal static class Endpoint
 {
+    /// <summary>映射当前租户品牌查询、更新与 Logo 媒体端点。</summary>
+    /// <param name="group">租户品牌路由组。</param>
     public static void Map(RouteGroupBuilder group)
     {
         group.MapGet("/branding/current", async (
@@ -66,7 +69,7 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAuthorization(FullNetPermissionPolicies.For(TenantBrandingPermissions.Update));
 
-        group.MapPost("/branding/logo", UploadCurrentLogo)
+        group.MapPost("/branding/logo", UploadCurrentLogoAsync)
             .WithName("tenancyUploadCurrentBrandingLogo")
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -75,20 +78,22 @@ internal static class Endpoint
             .RequireAuthorization(FullNetPermissionPolicies.For(TenantBrandingPermissions.Update))
             .DisableAntiforgery();
 
-        group.MapDelete("/branding/logo", DeleteCurrentLogo)
+        group.MapDelete("/branding/logo", DeleteCurrentLogoAsync)
             .WithName("tenancyDeleteCurrentBrandingLogo")
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .RequireAuthorization(FullNetPermissionPolicies.For(TenantBrandingPermissions.Update));
 
-        group.MapGet("/branding/logo/content", GetCurrentLogoContent)
+        group.MapGet("/branding/logo/content", GetCurrentLogoContentAsync)
             .WithName("tenancyGetCurrentBrandingLogoContent")
             .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
             .ProducesProblem(StatusCodes.Status404NotFound)
             .AllowAnonymous();
     }
 
+    /// <summary>映射 Host 管理员按租户标识管理品牌与 Logo 的端点。</summary>
+    /// <param name="group">Host 租户路由组。</param>
     public static void MapHostTenantBranding(RouteGroupBuilder group)
     {
         group.MapGet("/{tenantId:guid}/branding", async (
@@ -132,7 +137,7 @@ internal static class Endpoint
         .RequireAuthorization(FullNetPermissionPolicies.For(
             TenancyTenantManagementPermissions.Update));
 
-        group.MapPost("/{tenantId:guid}/branding/logo", UploadHostLogo)
+        group.MapPost("/{tenantId:guid}/branding/logo", UploadHostLogoAsync)
             .WithName("tenancyUploadHostTenantBrandingLogo")
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -142,7 +147,7 @@ internal static class Endpoint
                 TenancyTenantManagementPermissions.Update))
             .DisableAntiforgery();
 
-        group.MapDelete("/{tenantId:guid}/branding/logo", DeleteHostLogo)
+        group.MapDelete("/{tenantId:guid}/branding/logo", DeleteHostLogoAsync)
             .WithName("tenancyDeleteHostTenantBrandingLogo")
             .Produces<TenantBrandingResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -150,14 +155,22 @@ internal static class Endpoint
             .RequireAuthorization(FullNetPermissionPolicies.For(
                 TenancyTenantManagementPermissions.Update));
 
-        group.MapGet("/{tenantId:guid}/branding/logo/content", GetHostLogoContent)
+        group.MapGet("/{tenantId:guid}/branding/logo/content", GetHostLogoContentAsync)
             .WithName("tenancyGetHostTenantBrandingLogoContent")
             .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
             .ProducesProblem(StatusCodes.Status404NotFound)
             .AllowAnonymous();
     }
 
-    private static async Task<IResult> UploadHostLogo(
+    /// <summary>由 Host 管理员为指定租户上传品牌 Logo。</summary>
+    /// <param name="tenantId">目标租户标识。</param>
+    /// <param name="file">上传文件。</param>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="mediaService">品牌媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> UploadHostLogoAsync(
         Guid tenantId,
         IFormFile? file,
         ClaimsPrincipal principal,
@@ -183,7 +196,15 @@ internal static class Endpoint
                     token),
             cancellationToken).ConfigureAwait(false);
 
-    private static async Task<IResult> UploadCurrentLogo(
+    /// <summary>为当前租户上传品牌 Logo。</summary>
+    /// <param name="file">上传文件。</param>
+    /// <param name="principal">当前主体。</param>
+    /// <param name="currentTenant">当前租户上下文。</param>
+    /// <param name="mediaService">品牌媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> UploadCurrentLogoAsync(
         IFormFile? file,
         ClaimsPrincipal principal,
         ICurrentTenant currentTenant,
@@ -249,7 +270,13 @@ internal static class Endpoint
         return mapper.Map(result, httpContext);
     }
 
-    private static async Task<IResult> DeleteHostLogo(
+    /// <summary>由 Host 管理员删除指定租户的品牌 Logo。</summary>
+    /// <param name="tenantId">目标租户标识。</param>
+    /// <param name="mediaService">品牌媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> DeleteHostLogoAsync(
         Guid tenantId,
         TenantBrandingMediaService mediaService,
         IApiResultMapper mapper,
@@ -261,7 +288,13 @@ internal static class Endpoint
         return mapper.Map(result, httpContext);
     }
 
-    private static async Task<IResult> DeleteCurrentLogo(
+    /// <summary>删除当前租户的品牌 Logo。</summary>
+    /// <param name="currentTenant">当前租户上下文。</param>
+    /// <param name="mediaService">品牌媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> DeleteCurrentLogoAsync(
         ICurrentTenant currentTenant,
         TenantBrandingMediaService mediaService,
         IApiResultMapper mapper,
@@ -280,7 +313,13 @@ internal static class Endpoint
         return mapper.Map(result, httpContext);
     }
 
-    private static async Task<IResult> GetHostLogoContent(
+    /// <summary>匿名读取指定租户品牌 Logo 内容。</summary>
+    /// <param name="tenantId">目标租户标识。</param>
+    /// <param name="mediaService">品牌媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> GetHostLogoContentAsync(
         Guid tenantId,
         TenantBrandingMediaService mediaService,
         IApiResultMapper mapper,
@@ -293,7 +332,13 @@ internal static class Endpoint
             httpContext,
             cancellationToken).ConfigureAwait(false);
 
-    private static async Task<IResult> GetCurrentLogoContent(
+    /// <summary>匿名读取当前租户品牌 Logo 内容。</summary>
+    /// <param name="currentTenant">当前租户上下文。</param>
+    /// <param name="mediaService">品牌媒体服务。</param>
+    /// <param name="mapper">API 结果映射器。</param>
+    /// <param name="httpContext">当前 HTTP 上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private static async Task<IResult> GetCurrentLogoContentAsync(
         ICurrentTenant currentTenant,
         TenantBrandingMediaService mediaService,
         IApiResultMapper mapper,

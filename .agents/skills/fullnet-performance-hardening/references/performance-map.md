@@ -199,14 +199,15 @@ Dapper 失败原因、连接池、数据库锁/日志、进程和容器资源。
 
 ```powershell
 pnpm --filter @fullnet/admin build
-pnpm --filter @fullnet/admin-layui build
 pnpm test:performance-governance
 pnpm test:bundle-budgets
 ```
 
-记录 Vite 输出的 JS/CSS minified 与 gzip；首屏静态依赖图和大体积延迟 chunk 分别设预算。发布环境额外记录 Brotli 和浏览器首屏瀑布。
+仅在明确授权修改冻结 Layui 时补充其构建；普通 Vue 优化不执行双端流程。记录 Vite 输出的 JS/CSS minified 与 gzip；首屏静态依赖图和大体积延迟 chunk 分别设预算。发布环境额外记录 Brotli 和浏览器首屏瀑布。
 
 ## 仓库验证
+
+以下是按影响选择的快速命令参考，不要求每项性能任务顺序执行全部命令：
 
 ```powershell
 pnpm test:skills
@@ -220,4 +221,4 @@ pnpm test:dotnet:architecture -- --no-build
 
 测试数量、超时与分片只维护在
 [`eng/testing/test-matrix.json`](../../../../eng/testing/test-matrix.json)，Skill
-不得复制易变数字。本地数据库、认证、共享宿主、Outbox、缓存或 Dapper 基础设施变更按照 `rules/development-quality.md` 第 11.1 节运行 `test:integration:affected` 选择出的影响集；完整集合只由 `main` CI 并行分片执行。
+不得复制易变数字。影响集、执行位置、双库与门禁统一按 [测试与验证](../../../../rules/development-quality.md#11-测试与验证) 选择；本地图不定义独立的本地重测流程。

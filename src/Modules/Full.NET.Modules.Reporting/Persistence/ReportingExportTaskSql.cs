@@ -8,8 +8,43 @@ internal static class ReportingExportTaskSql
     private const string SelectColumns = """
         Id, TenantId, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey,
         ParametersJson, StatusKey, OutputFileId, OutputFileName, RowCount, ErrorCode, ErrorMessage,
-        RequestedByUserId, CreatedAtUtc, CompletedAtUtc, Version
+        RequestedByUserId, CreatedAtUtc, CompletedAtUtc, LeaseId, LeaseExpiresAtUtc,
+        ActorPermissionCodesJson, Version
         """;
+
+    private const string InsertedColumns = """
+        inserted.Id, inserted.TenantId, inserted.DefinitionId, inserted.VersionNumber, inserted.DefinitionKey, inserted.DefinitionName, inserted.FormatKey, inserted.ParametersJson, inserted.StatusKey, inserted.OutputFileId, inserted.OutputFileName, inserted.RowCount, inserted.ErrorCode, inserted.ErrorMessage, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.CompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.ActorPermissionCodesJson, inserted.Version
+        """;
+
+    /// <summary>可领取条件：排队中，或处理中但租约已到期/缺失。</summary>
+    private const string ClaimablePredicate = """
+        (StatusKey = 'queued'
+         OR (StatusKey = 'processing'
+             AND (LeaseExpiresAtUtc IS NULL OR LeaseExpiresAtUtc <= @Now)))
+        """;
+
+    /// <summary>Worker 调度目录只返回有可领取导出任务的租户。</summary>
+    public static readonly SqlStatement ListPendingTenantIdsSqlServer = new(
+        "reporting.export_task.pending_tenants.sqlserver",
+        $"""
+        SELECT TOP (@BatchSize) TenantId
+        FROM fn_reporting_export_task
+        WHERE {ClaimablePredicate}
+        GROUP BY TenantId
+        ORDER BY MIN(CreatedAtUtc), TenantId
+        """, SqlDataScope.Global);
+
+    /// <summary>MySQL Worker 调度目录。</summary>
+    public static readonly SqlStatement ListPendingTenantIdsMySql = new(
+        "reporting.export_task.pending_tenants.mysql",
+        $"""
+        SELECT TenantId
+        FROM fn_reporting_export_task
+        WHERE {ClaimablePredicate}
+        GROUP BY TenantId
+        ORDER BY MIN(CreatedAtUtc), TenantId
+        LIMIT @BatchSize
+        """, SqlDataScope.Global);
 
     public static readonly SqlStatement Insert = new(
         "reporting.export_task.insert",
@@ -19,7 +54,8 @@ internal static class ReportingExportTaskSql
         VALUES
             (@Id, @TenantId, @DefinitionId, @VersionNumber, @DefinitionKey, @DefinitionName, @FormatKey,
              @ParametersJson, @StatusKey, @OutputFileId, @OutputFileName, @RowCount, @ErrorCode, @ErrorMessage,
-             @RequestedByUserId, @CreatedAtUtc, @CompletedAtUtc, @Version)
+             @RequestedByUserId, @CreatedAtUtc, @CompletedAtUtc, @LeaseId, @LeaseExpiresAtUtc,
+             @ActorPermissionCodesJson, @Version)
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -62,6 +98,87 @@ internal static class ReportingExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement ClaimQueuedSqlServer = new(
+        "reporting.export_task.claim.sqlserver",
+        $"""
+        WITH candidates AS (
+            SELECT TOP (1) Id
+            FROM fn_reporting_export_task WITH (UPDLOCK, READPAST, ROWLOCK)
+            WHERE TenantId = @TenantId AND {ClaimablePredicate}
+            ORDER BY CreatedAtUtc, Id
+        )
+        UPDATE task
+        SET StatusKey = 'processing',
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
+            Version = task.Version + 1
+        OUTPUT {InsertedColumns}
+        FROM fn_reporting_export_task AS task
+        INNER JOIN candidates ON candidates.Id = task.Id
+        WHERE task.TenantId = @TenantId;
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ClaimByIdSqlServer = new(
+        "reporting.export_task.claim_by_id.sqlserver",
+        $"""
+        UPDATE fn_reporting_export_task
+        SET StatusKey = 'processing',
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
+            Version = Version + 1
+        OUTPUT {InsertedColumns}
+        WHERE TenantId = @TenantId AND Id = @Id
+          AND {ClaimablePredicate};
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement SelectClaimableIdsMySql = new(
+        "reporting.export_task.select_claimable_ids.mysql",
+        $"""
+        SELECT Id
+        FROM fn_reporting_export_task
+        WHERE TenantId = @TenantId AND {ClaimablePredicate}
+        ORDER BY CreatedAtUtc, Id
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement SelectClaimableIdByIdMySql = new(
+        "reporting.export_task.select_claimable_id_by_id.mysql",
+        $"""
+        SELECT Id
+        FROM fn_reporting_export_task
+        WHERE TenantId = @TenantId AND Id = @Id AND {ClaimablePredicate}
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement ClaimByIdsMySql = new(
+        "reporting.export_task.claim_by_ids.mysql",
+        $"""
+        UPDATE fn_reporting_export_task
+        SET StatusKey = 'processing',
+            LeaseId = @LeaseId,
+            LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
+            Version = Version + 1
+        WHERE TenantId = @TenantId AND {ClaimablePredicate}
+          AND Id IN @Ids
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement SelectByIds = new(
+        "reporting.export_task.select_by_ids",
+        $"""
+        SELECT {SelectColumns}
+        FROM fn_reporting_export_task
+        WHERE TenantId = @TenantId AND Id IN @Ids
+        ORDER BY CreatedAtUtc, Id
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement CompleteSucceeded = new(
         "reporting.export_task.complete_succeeded",
         """
@@ -73,9 +190,12 @@ internal static class ReportingExportTaskSql
             ErrorCode = NULL,
             ErrorMessage = NULL,
             CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
-          AND Version = @Version
+          AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
@@ -88,9 +208,12 @@ internal static class ReportingExportTaskSql
             ErrorCode = @ErrorCode,
             ErrorMessage = @ErrorMessage,
             CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
             Version = Version + 1
         WHERE TenantId = @TenantId AND Id = @Id
-          AND Version = @Version
+          AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 }

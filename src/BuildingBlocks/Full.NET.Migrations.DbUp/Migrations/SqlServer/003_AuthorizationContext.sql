@@ -113,6 +113,105 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'Version';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证角色表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'Code', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'编码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'Code';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'CreatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'Id', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'Id';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'IsActive', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否启用', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'IsActive';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'IsSystem', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'是否系统内置', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'IsSystem';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'Name', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'名称', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'Name';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'ScopeKey', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'ScopeKey';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'TenantId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识；NULL 表示 Host 级', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'TenantId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'UpdatedAtUtc', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role'), N'Version', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role', @level2type=N'COLUMN', @level2name=N'Version';
     CREATE UNIQUE INDEX UX_fn_identity_role_Scope_Code
         ON dbo.fn_identity_role(ScopeKey, Code);
     CREATE INDEX IX_fn_identity_role_Tenant
@@ -131,6 +230,33 @@ BEGIN
         CONSTRAINT FK_fn_identity_user_role_Role
             FOREIGN KEY (RoleId) REFERENCES dbo.fn_identity_role(Id)
     );
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_user_role')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证用户角色表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user_role';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_user_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_user_role'), N'RoleId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'角色标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user_role', @level2type=N'COLUMN', @level2name=N'RoleId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_user_role')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_user_role'), N'UserId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'用户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user_role', @level2type=N'COLUMN', @level2name=N'UserId';
     IF NOT EXISTS (
         SELECT 1
         FROM sys.extended_properties
@@ -197,12 +323,57 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'角色标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_permission', @level2type=N'COLUMN', @level2name=N'RoleId';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role_permission')
+          AND minor_id = 0
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'身份认证角色权限表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_permission';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role_permission'), N'PermissionCode', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'权限码', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_permission', @level2type=N'COLUMN', @level2name=N'PermissionCode';
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.extended_properties
+        WHERE class = 1
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_role_permission')
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_role_permission'), N'RoleId', 'ColumnId')
+          AND name = N'MS_Description'
+    )
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'角色标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_role_permission', @level2type=N'COLUMN', @level2name=N'RoleId';
 END;
 
 IF COL_LENGTH(N'dbo.fn_identity_refresh_session', N'ActiveTenantId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_refresh_session
         ADD ActiveTenantId uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_refresh_session')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_refresh_session'), N'ActiveTenantId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'当前活动租户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_refresh_session', @level2type=N'COLUMN', @level2name=N'ActiveTenantId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties
@@ -218,6 +389,24 @@ IF COL_LENGTH(N'dbo.fn_identity_auth_audit', N'ContextTenantId') IS NULL
 BEGIN
     ALTER TABLE dbo.fn_identity_auth_audit
         ADD ContextTenantId uniqueidentifier NULL;
+
+    IF NOT EXISTS (
+
+        SELECT 1
+
+        FROM sys.extended_properties
+
+        WHERE class = 1
+
+          AND major_id = OBJECT_ID(N'dbo.fn_identity_auth_audit')
+
+          AND minor_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.fn_identity_auth_audit'), N'ContextTenantId', 'ColumnId')
+
+          AND name = N'MS_Description'
+
+    )
+
+        EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'上下文租户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_auth_audit', @level2type=N'COLUMN', @level2name=N'ContextTenantId';
 IF NOT EXISTS (
     SELECT 1
     FROM sys.extended_properties

@@ -63,66 +63,44 @@ test('仓库必须提供分层 Integration 命令和耗时分析入口', async (
   );
 });
 
-test('开发规则必须按开发阶段分层，并把完整集合留给 main CI', async () => {
+test('验证策略引用的命令必须真实存在，规则标识保持可追踪', async () => {
   const rules = await read('rules/development-quality.md');
-  assert.match(rules, /变更风险分层/);
-  assert.match(rules, /inner/);
-  assert.match(rules, /slice/);
-  assert.match(rules, /merge/);
-  assert.match(rules, /任务快照/);
-  assert.match(rules, /共享宿主/);
-  assert.match(rules, /SQL Server 与 MySQL/);
-  assert.match(rules, /未登记迁移.*migrations/);
-  assert.doesNotMatch(
-    rules,
-    /聚焦运行（`--filter` \/ `-g`）只能作为迭代手段/,
-    '规则不得再把所有聚焦运行一律降级为仅迭代证据'
-  );
-  assert.match(rules, /test:integration:affected:plan/);
-  assert.match(rules, /test:integration:affected/);
-  assert.match(rules, /messaging-heavy/);
-  assert.match(rules, /11\.2 新增 Integration 测试门禁/);
-  assert.match(rules, /任务基线/);
-  assert.match(rules, /完整集合只保留给 `main` CI/);
-  assert.match(rules, /本地任务禁止运行 `test:integration:full`/);
-  assert.match(rules, /R-20260816-local-test-inner-budget/);
-  assert.match(rules, /R-20260903-github-actions-first-verification/);
-  assert.match(rules, /R-20260905-feature-first-page-acceptance/);
-  assert.match(rules, /功能建设阶段不得以页面级真实栈 E2E 全绿作为每个增量切片的强制退出条件/);
-  assert.match(rules, /逐页人工验收/);
-  assert.match(rules, /环境重型验证必须优先交给 GitHub Actions/);
-  assert.match(rules, /按精确 commit SHA 核对所有必需工作流/);
-  assert.match(rules, /GitHub Actions 不可用时的受影响测试补偿/);
-  assert.match(rules, /pnpm test:inner/);
-  assert.match(rules, /禁止在 inner 运行 `pnpm test:e2e:real`/);
-  assert.match(rules, /只读、已迁移的 schema 模板/);
-  assert.match(rules, /附加 `FullyQualifiedName~MySql`/);
-  assert.match(rules, /禁止用 `~Identity`/);
+  const { scripts } = JSON.parse(await read('package.json'));
+  const commands = new Set([...rules.matchAll(/\bpnpm (test:[a-z0-9:-]+)/g)].map(match => match[1]));
+  assert.ok(commands.size > 0, '验证策略必须提供可执行入口');
+  for (const command of commands) {
+    assert.ok(scripts[command], `验证策略引用了不存在的命令：${command}`);
+  }
+  // 标识用于历史链接；不固定规则正文的句式或把文字出现当成执行通过。
+  for (const id of [
+    'R-20260816-local-test-inner-budget',
+    'R-20260903-github-actions-first-verification',
+    'R-20260905-feature-first-page-acceptance'
+  ]) {
+    assert.ok(rules.split('\n').some(line => line.startsWith(`### ${id}：`)), `规则标识丢失：${id}`);
+  }
 });
 
-test('其它任务窗口使用快照和受影响测试选择器，不复制测试总数', async () => {
-  const agents = await read('AGENTS.md');
-  const performanceSkill = await read(
-    '.agents/skills/fullnet-performance-hardening/SKILL.md'
-  );
-  const moduleSkill = await read(
-    '.agents/skills/fullnet-module-delivery/SKILL.md'
-  );
-
-  for (const source of [agents, performanceSkill, moduleSkill]) {
-    assert.match(source, /git rev-parse HEAD/);
-    assert.match(source, /test:integration:affected:plan/);
-    assert.match(source, /test:integration:affected/);
-    assert.match(source, /完整集合只保留给 `main` CI/);
+test('入口与项目 Skill 必须直达同一验证策略，避免复制本地重测步骤', async () => {
+  const authority = path.join(repositoryRoot, 'rules/development-quality.md');
+  for (const file of [
+    'AGENTS.md',
+    '.agents/skills/fullnet-module-delivery/SKILL.md',
+    '.agents/skills/fullnet-module-delivery/references/delivery-map.md',
+    '.agents/skills/fullnet-performance-hardening/SKILL.md',
+    '.agents/skills/fullnet-performance-hardening/references/performance-map.md'
+  ]) {
+    const source = await read(file);
+    const links = [...source.matchAll(/\]\(([^)#]+)#([^)]*)\)/g)];
+    const policyLinks = links.filter(([, target, anchor]) =>
+      path.resolve(repositoryRoot, path.dirname(file), target) === authority &&
+      anchor === '11-测试与验证');
+    assert.ok(policyLinks.length > 0, `${file} 必须链接权威验证章节`);
+    const policy = await readFile(authority, 'utf8');
+    assert.ok(policy.includes('## 11. 测试与验证'), '验证章节链接失效');
+    // Skill 是策略消费者；复制可执行重测命令会在策略更新后继续误导后续任务。
+    assert.doesNotMatch(source, /pnpm test:(?:inner|slice|integration:affected)(?![a-z:-])/, `${file} 不应复制本地 Integration 执行命令`);
   }
-  assert.match(agents, /test:task:start/);
-  assert.match(agents, /test:integration:affected:plan/);
-  assert.match(agents, /R-20260816-local-test-inner-budget/);
-  assert.match(agents, /R-20260903-github-actions-first-verification/);
-  assert.match(agents, /R-20260905-feature-first-page-acceptance/);
-  assert.match(agents, /功能纵向切片优先/);
-  assert.match(agents, /默认交给 GitHub Actions/);
-  assert.match(agents, /核对目标提交的必需工作流/);
 });
 
 test('统一构建后的快速套件必须显式跳过重复构建', async () => {

@@ -51,5 +51,11 @@ internal sealed class ImportExportTaskRecord
 
     public DateTimeOffset? ExecutionCompletedAtUtc { get; init; }
 
+    /// <summary>当前执行租约；未领取或已完成后为空。</summary>
+    public Guid? LeaseId { get; init; }
+
+    /// <summary>租约到期时间；到期后允许其他 Worker 重新领取。</summary>
+    public DateTimeOffset? LeaseExpiresAtUtc { get; init; }
+
     public long Version { get; init; }
 }

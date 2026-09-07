@@ -3,6 +3,7 @@
   "max_lines": 260,
   "reference": "references/performance-map.md",
   "verification_terms": [
+    "rules/development-quality.md#11-测试与验证",
     "P50",
     "P95",
     "P99",

@@ -14,6 +14,20 @@
           }
         }
       }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "operationId": "identityChangePassword",
+        "responses": {
+          "200": {
+            "description": "Rotated session tokens after a successful password change",
+            "responseSchema": "TokenResponse"
+          },
+          "401": {
+            "description": "Current session is no longer active"
+          }
+        }
+      }
     }
   },
   "schemas": {

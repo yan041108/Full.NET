@@ -38,6 +38,8 @@ internal sealed class ImportExportDapperAotMaterializerContributor
         ErrorReceiptFileId = ReadNullableGuid(reader, "ErrorReceiptFileId"),
         ExecutionStartedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionStartedAtUtc"),
         ExecutionCompletedAtUtc = ReadNullableDateTimeOffset(reader, "ExecutionCompletedAtUtc"),
+        LeaseId = ReadNullableGuid(reader, "LeaseId"),
+        LeaseExpiresAtUtc = ReadNullableDateTimeOffset(reader, "LeaseExpiresAtUtc"),
         Version = ReadInt64(reader, "Version"),
     };
 

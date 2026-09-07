@@ -222,7 +222,6 @@ test('治理演进和永久文档使用证据触发而不是每任务扩张', as
   assert.match(qualityRules, /性能基准、安全审计、恢复演练或发布.*Verification/);
 
   assert.match(ruleEvolution, /触发式复盘/);
-  assert.match(ruleEvolution, /未命中触发条件.*一行/);
   assert.doesNotMatch(
     ruleEvolution,
     /每项开发、修复、重构、审查或合并任务结束前[\s\S]{0,40}必须执行一次规则复盘/
@@ -231,4 +230,14 @@ test('治理演进和永久文档使用证据触发而不是每任务扩张', as
   assert.match(skillEvolution, /里程碑集中复盘/);
   assert.match(skillEvolution, /冻结新增项目 Skill/);
   assert.doesNotMatch(skillEvolution, /更新命中的候选次数/);
+
+  // 按需读取仍须可发现全部主题，路由到章节时也要验证目标，避免只有文件存在。
+  const index = await read('rules/README.md');
+  const links = [...index.matchAll(/\]\((development-quality\.md)#([^)]*)\)/g)];
+  assert.ok(links.length > 0, '索引需要把任务路由到具体质量章节');
+  const anchors = new Set([...qualityRules.matchAll(/^#{2,4} (.+)$/gm)].map(([, heading]) =>
+    heading.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s/g, '-')));
+  for (const [, , anchor] of links) {
+    assert.ok(anchors.has(anchor), `质量章节链接失效：${anchor}`);
+  }
 });

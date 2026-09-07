@@ -19,6 +19,9 @@ public static class OcrIdCardTaskStatusKeys
     /// <summary>识别失败。</summary>
     public const string Failed = "failed";
 
+    /// <summary>已向识别提供程序发出请求，但本地无法确认成败。</summary>
+    public const string ProviderUnknown = "provider_unknown";
+
     /// <summary>人工确认通过。</summary>
     public const string Confirmed = "confirmed";
 

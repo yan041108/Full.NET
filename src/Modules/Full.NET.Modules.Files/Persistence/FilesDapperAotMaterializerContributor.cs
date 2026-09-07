@@ -13,6 +13,8 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
         registrar.Register<TenantResourceFileRecord>(ReadTenantResourceFileRecord);
+        registrar.Register<TenantResourceFileReadyRecord>(ReadTenantResourceFileReadyRecord);
+        registrar.Register<TenantResourceFileReconciliationRecord>(ReadTenantResourceFileReconciliationRecord);
         registrar.Register<HostFileListRecord>(ReadHostFileListRecord);
         registrar.Register<HostFileDetailRecord>(ReadHostFileDetailRecord);
         registrar.Register<HostFolderRecord>(ReadHostFolderRecord);
@@ -26,6 +28,25 @@ internal sealed class FilesDapperAotMaterializerContributor : IDapperAotMaterial
     private static TenantResourceFileRecord ReadTenantResourceFileRecord(DbDataReader reader) =>
         new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetInt64(3),
             reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7));
+
+    /// <summary>读取就绪文件摘要，与 ListReady 固定投影一致。</summary>
+    /// <param name="reader">数据读取器。</param>
+    private static TenantResourceFileReadyRecord ReadTenantResourceFileReadyRecord(DbDataReader reader) =>
+        new(reader.GetGuid(0), reader.GetString(1), AotDataReaderExtensions.ReadDateTimeOffset(reader, 2));
+
+    /// <summary>读取租户资源对账扫描行，与 SelectStale 固定投影一致。</summary>
+    /// <param name="reader">数据读取器。</param>
+    private static TenantResourceFileReconciliationRecord ReadTenantResourceFileReconciliationRecord(
+        DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetGuid(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            AotDataReaderExtensions.ReadDateTimeOffset(reader, 7));
 
     private static HostFileListRecord ReadHostFileListRecord(DbDataReader reader) =>
         new(

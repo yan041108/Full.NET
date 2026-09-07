@@ -1,9 +1,12 @@
 import {
   workflowCreateForm,
+  workflowDeleteFormVersion,
   workflowGetForm,
   workflowGetFormComponentCatalog,
   workflowListForms,
+  workflowListFormVersions,
   workflowPublishForm,
+  workflowSetFormStatus,
   workflowUpdateFormDraft,
   isWorkflowFormSchema,
   type PublishWorkflowFormRequest,
@@ -76,11 +79,10 @@ export async function setWorkflowFormStatus(
   expectedVersion: number,
   signal?: AbortSignal
 ): Promise<WorkflowFormResponse> {
-  return http.request<GeneratedWorkflowFormResponse>(
-    `/api/v1/workflow/forms/${formId}/status`,
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ statusKey, expectedVersion }) },
-    signal
-  ).then(readSafeForm);
+  return readSafeForm(await workflowSetFormStatus(http, {
+    formId,
+    body: { statusKey, expectedVersion }
+  }, signal));
 }
 
 /** 列出工作流表单的全部已发布版本。 */
@@ -88,11 +90,7 @@ export async function listWorkflowFormVersions(
   formId: string,
   signal?: AbortSignal
 ): Promise<WorkflowFormVersionResponse[]> {
-  return http.request<WorkflowFormVersionResponse[]>(
-    `/api/v1/workflow/forms/${formId}/versions`,
-    { method: 'GET' },
-    signal
-  );
+  return workflowListFormVersions(http, { formId }, signal);
 }
 
 /** 删除未被运行实例引用的表单版本。 */
@@ -100,11 +98,7 @@ export async function deleteWorkflowFormVersion(
   versionId: string,
   signal?: AbortSignal
 ): Promise<void> {
-  await http.request<void>(
-    `/api/v1/workflow/form-versions/${versionId}`,
-    { method: 'DELETE' },
-    signal
-  );
+  await workflowDeleteFormVersion(http, { versionId }, signal);
 }
 
 /** 导出表单发布、组件目录与版本模型，供设计器、发布确认弹窗与版本面板共享同一契约。 */

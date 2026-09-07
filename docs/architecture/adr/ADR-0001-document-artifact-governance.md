@@ -2,6 +2,7 @@
 
 - 状态：已批准
 - 日期：2026-07-18
+- 修订：2026-09-07，项目所有者批准规则精简；永久文档预算优先适用，普通会话计划与只读答复不进入完整文档流水线。
 - 决策者：项目所有者在当前任务中明确确认
 - 适用范围：Full.NET 仓库内的架构评估、设计规格、重大决策、实施计划和验证记录
 
@@ -27,12 +28,12 @@ Full.NET 已经同时使用 `docs/verification/`、`docs/superpowers/specs/` 和
 
 采用方案二：双层强制。
 
-1. 根 `AGENTS.md` 在每项任务开始前要求识别文档产物分层，并链接到详细规则。
+1. 根 `AGENTS.md` 提供文档产物分层入口；达到永久文档预算或用户要求保存报告时读取详细规则，普通任务使用会话计划和交付说明。
 2. `rules/development-quality.md` 第 12.1 节是分层职责和状态流转的唯一规则事实源。
 3. `docs/verification/` 保存评估、审查、实验和验证事实，不自动改变已批准架构。
 4. `docs/superpowers/specs/` 保存经明确确认的长期设计和架构基线。
 5. `docs/architecture/adr/` 保存重大单项决策的上下文、备选方案、取舍和替代关系。
-6. `docs/superpowers/plans/` 只分解已批准 Spec 或 ADR，不充当设计批准或完成证据。
+6. `docs/superpowers/plans/` 分解已批准需求、Spec 或 ADR；当前用户的明确实施授权可作为依据，未改变长期基线的任务不必先创建 Spec/ADR。计划不充当设计批准或完成证据。
 
 ## 后果
 
@@ -53,5 +54,5 @@ Full.NET 已经同时使用 `docs/verification/`、`docs/superpowers/specs/` 和
 
 - 根 `AGENTS.md` 必须包含指向 `rules/development-quality.md` 第 12.1 节的入口；
 - 详细规则必须同时覆盖 `docs/verification/`、`docs/superpowers/specs/`、`docs/architecture/adr/` 和 `docs/superpowers/plans/`；
-- 新计划必须能链接到已批准 Spec 或 ADR；
+- 永久计划必须注明明确需求授权或链接已批准 Spec/ADR；涉及长期基线变化仍须对应决策；
 - `git diff --check` 必须无空白错误。

@@ -6,6 +6,8 @@ import {
 } from '@fullnet/client-contracts';
 import { http } from './http';
 
+/** 受控导出审计日志：/api/v1/auditing/access-logs/exports、/api/v1/auditing/operation-logs/exports、/api/v1/auditing/exception-logs/exports。 */
+
 export type AuditLogExportKind = 'access' | 'operation' | 'exception';
 
 export async function exportAuditLogs(

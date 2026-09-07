@@ -24,6 +24,7 @@ import {
   debugOpenAccessClientSignature,
   getOpenAccessClientUsage,
   listOpenAccessClientAccessLogs,
+  OPEN_ACCESS_SIGNATURE_DEBUG_DEFAULT_PATH,
   type OpenAccessClientAccessLogPage,
   type OpenAccessClientSignatureDebugResult,
   type OpenAccessClientUsage
@@ -52,7 +53,7 @@ const logsPageSize = ref(20);
 const debugForm = reactive({
   secret: '',
   method: 'GET',
-  path: '/api/v1/identity/users',
+  path: OPEN_ACCESS_SIGNATURE_DEBUG_DEFAULT_PATH,
   query: 'page=1&pageSize=1',
   bodyBase64: '',
   timestamp: '',
