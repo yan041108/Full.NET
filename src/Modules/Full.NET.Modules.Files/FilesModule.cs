@@ -111,6 +111,7 @@ public sealed class FilesModule : IFullNetModule
         services.TryAddScoped<DeletedHostFileBlobCleanupRunner>();
         services.TryAddScoped<PendingHostFileReconciliationRunner>();
         services.TryAddScoped<PendingHostFileReferenceClaimReconciliationRunner>();
+        services.TryAddSingleton<TenantResourceFileReconciliationCursor>();
         services.TryAddScoped<PendingTenantResourceFileReconciliationRunner>();
         services.AddHostedService<DeletedHostFileBlobCleanupHostedProcessor>();
         services.AddHostedService<PendingHostFileReconciliationHostedProcessor>();

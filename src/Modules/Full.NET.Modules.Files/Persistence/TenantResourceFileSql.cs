@@ -45,7 +45,7 @@ internal static class TenantResourceFileSql
         SELECT TOP (@BatchSize)
                Id, TenantId, OwnerModuleKey, ResourceId, ProviderKey, StorageKey, StatusKey, CreatedAtUtc
         FROM fn_files_tenant_resource_file
-        WHERE StatusKey IN ('pending', 'ready')
+        WHERE StatusKey IN ('pending', 'ready', 'released')
           AND CreatedAtUtc <= @CreatedBeforeUtc
           AND (@HasCursor = 0
                OR CreatedAtUtc > @AfterCreatedAtUtc
@@ -59,7 +59,7 @@ internal static class TenantResourceFileSql
         """
         SELECT Id, TenantId, OwnerModuleKey, ResourceId, ProviderKey, StorageKey, StatusKey, CreatedAtUtc
         FROM fn_files_tenant_resource_file
-        WHERE StatusKey IN ('pending', 'ready')
+        WHERE StatusKey IN ('pending', 'ready', 'released')
           AND CreatedAtUtc <= @CreatedBeforeUtc
           AND (@HasCursor = 0
                OR CreatedAtUtc > @AfterCreatedAtUtc
@@ -94,6 +94,13 @@ internal static class TenantResourceFileSql
         UPDATE fn_files_tenant_resource_file SET StatusKey = 'released'
         WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey AND ResourceId = @ResourceId
         """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+    /// <summary>物理删除成功后移除释放墓碑，失败时必须保留供下轮重试。</summary>
+    public static readonly SqlStatement PurgeReleased = new("files.tenant_resource_file.purge_released", """
+        DELETE FROM fn_files_tenant_resource_file
+        WHERE TenantId = @TenantId AND Id = @Id AND OwnerModuleKey = @OwnerModuleKey
+          AND ResourceId = @ResourceId AND StatusKey = 'released'
+        """, SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
 }
 
 /// <summary>文件内容定位仅在 Files 实现内部使用。</summary>

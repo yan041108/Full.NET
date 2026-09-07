@@ -46,11 +46,12 @@ internal static class K3CloudDocumentSyncSql
         "k3cloud.document_sync.claim_retry",
         """
         UPDATE fn_k3cloud_document_sync
-        SET UpdatedAtUtc = @UpdatedAtUtc,
+        SET StatusKey = 'pending',
+            UpdatedAtUtc = @UpdatedAtUtc,
             Version = Version + 1
         WHERE Id = @Id
           AND Version = @Version
-          AND StatusKey IN ('pending', 'save_failed', 'submit_failed', 'provider_unknown')
+          AND StatusKey IN ('save_failed', 'submit_failed', 'save_succeeded')
         """,
         SqlDataScope.HostOnly);
 

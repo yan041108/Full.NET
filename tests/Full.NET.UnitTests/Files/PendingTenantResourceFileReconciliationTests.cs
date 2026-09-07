@@ -68,8 +68,64 @@ public sealed class PendingTenantResourceFileReconciliationTests
         var result = await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None);
 
         Assert.AreEqual(1, result.Released);
-        Assert.AreEqual("released", store.Files[ready.Id].StatusKey);
+        Assert.IsFalse(store.Files.ContainsKey(ready.Id));
         await storage.Received(1).DeleteAsync("orphan", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Released_blob_is_retried_after_previous_process_stopped()
+    {
+        // 模拟释放已提交、物理删除前进程退出；新作用域必须仍能发现该对象。
+        StringAssert.Contains(TenantResourceFileSql.SelectStaleSqlServer.Text, "'released'");
+        StringAssert.Contains(TenantResourceFileSql.SelectStaleMySql.Text, "'released'");
+        var tenant = Guid.NewGuid();
+        var file = NewRecord(tenant, "released", "local", "retry");
+        var store = new FileStore([file]);
+        var storage = Substitute.For<IFileStorageProvider>();
+        var runner = CreateRunner(store, tenant, _ => true, localStorage: storage);
+        await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None);
+        await storage.Received(1).DeleteAsync("retry", Arg.Any<CancellationToken>());
+        Assert.IsFalse(store.Files.ContainsKey(file.Id));
+    }
+
+    [TestMethod]
+    public async Task Bounded_scan_continues_past_referenced_files_on_next_round()
+    {
+        var tenant = Guid.NewGuid();
+        var first = NewRecord(tenant, "ready", "local", "keep") with { CreatedAtUtc = DateTimeOffset.UtcNow.AddHours(-2) };
+        var second = NewRecord(tenant, "pending", "local", "next");
+        var store = new FileStore([first, second]);
+        var owner = Substitute.For<ITenantResourceFileOwner>();
+        owner.OwnerModuleKey.Returns("reporting");
+        owner.IsReferencedAsync(first.ResourceId, first.Id, Arg.Any<CancellationToken>()).Returns(true);
+        var cursor = new TenantResourceFileReconciliationCursor();
+        var runner = CreateRunner(store, tenant, _ => true, owner, cursor: cursor);
+        var options = EnabledOptions();
+        options.BatchSize = 1;
+        options.MaxBatchesPerRun = 1;
+        await runner.RunOnceAsync(options, CancellationToken.None);
+        var nextScope = CreateRunner(store, tenant, _ => true, owner, cursor: cursor);
+        await nextScope.RunOnceAsync(options, CancellationToken.None);
+        Assert.AreEqual("ready", store.Files[second.Id].StatusKey);
+    }
+
+    [TestMethod]
+    public async Task Delete_failure_keeps_tombstone_and_next_round_retries()
+    {
+        var tenant = Guid.NewGuid();
+        var file = NewRecord(tenant, "released", "local", "retry");
+        var store = new FileStore([file]);
+        var storage = Substitute.For<IFileStorageProvider>();
+        var attempts = 0;
+        storage.DeleteAsync("retry", Arg.Any<CancellationToken>()).Returns(_ =>
+            ++attempts == 1 ? Task.FromException(new IOException("storage unavailable")) : Task.CompletedTask);
+        var runner = CreateRunner(store, tenant, _ => true, localStorage: storage);
+        var first = await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None);
+        Assert.AreEqual(1, first.Skipped);
+        Assert.AreEqual("released", store.Files[file.Id].StatusKey);
+        await runner.RunOnceAsync(EnabledOptions(), CancellationToken.None);
+        Assert.AreEqual(2, attempts);
+        Assert.IsFalse(store.Files.ContainsKey(file.Id));
     }
 
     private static PendingTenantResourceFileReconciliationRunner CreateRunner(
@@ -77,7 +133,8 @@ public sealed class PendingTenantResourceFileReconciliationTests
         Guid tenantId,
         Func<string, bool> exists,
         ITenantResourceFileOwner? owner = null,
-        IFileStorageProvider? localStorage = null)
+        IFileStorageProvider? localStorage = null,
+        TenantResourceFileReconciliationCursor? cursor = null)
     {
         var resolver = Substitute.For<IActiveTenantContextResolver>();
         resolver.ResolveActiveByIdAsync(tenantId, Arg.Any<CancellationToken>())
@@ -103,7 +160,7 @@ public sealed class PendingTenantResourceFileReconciliationTests
             resolver,
             new CurrentTenantAccessor(),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            clock);
+            clock, cursor);
     }
 
     private static TenantResourceFileReconciliationRecord NewRecord(
@@ -157,7 +214,14 @@ public sealed class PendingTenantResourceFileReconciliationTests
         {
             if (statement.Name == TenantResourceFileSql.SelectStaleSqlServer.Name)
             {
-                var rows = Files.Values.Select(file => file.ToRecord()).Cast<T>().ToArray();
+                var values = (IReadOnlyDictionary<string, object?>)parameters!;
+                var cursor = (DateTimeOffset)values["AfterCreatedAtUtc"]!;
+                var afterId = (Guid?)values["AfterId"];
+                var rows = Files.Values.Select(file => file.ToRecord())
+                    .Where(file => (int)values["HasCursor"]! == 0 || file.CreatedAtUtc > cursor
+                        || (file.CreatedAtUtc == cursor && file.Id.CompareTo(afterId!.Value) > 0))
+                    .OrderBy(file => file.CreatedAtUtc).ThenBy(file => file.Id)
+                    .Take((int)values["BatchSize"]!).Cast<T>().ToArray();
                 return Task.FromResult<IReadOnlyList<T>>(rows);
             }
 
@@ -172,6 +236,12 @@ public sealed class PendingTenantResourceFileReconciliationTests
             if (!Files.TryGetValue(id, out var file))
             {
                 return Task.FromResult(0);
+            }
+
+            if (statement.Name == TenantResourceFileSql.PurgeReleased.Name && file.StatusKey == "released")
+            {
+                Files.Remove(id);
+                return Task.FromResult(1);
             }
 
             if (statement.Name == TenantResourceFileSql.PromotePending.Name && file.StatusKey == "pending")

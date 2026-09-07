@@ -23,7 +23,7 @@ public sealed class K3CloudDocumentSyncSideEffectTests
     public async Task Save_and_submit_runs_after_intent_commit_async()
     {
         var fixture = CreateFixture();
-        fixture.Client.SaveAndSubmitAsync(
+        fixture.Client.SaveDocumentAsync(
                 Arg.Any<K3CloudConnectionConfigRecord>(),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -53,7 +53,7 @@ public sealed class K3CloudDocumentSyncSideEffectTests
     public async Task Timeout_persists_provider_unknown_async()
     {
         var fixture = CreateFixture();
-        fixture.Client.When(client => client.SaveAndSubmitAsync(
+        fixture.Client.When(client => client.SaveDocumentAsync(
                 Arg.Any<K3CloudConnectionConfigRecord>(),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -81,7 +81,7 @@ public sealed class K3CloudDocumentSyncSideEffectTests
         var fixture = CreateFixture();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        fixture.Client.SaveAndSubmitAsync(
+        fixture.Client.SaveDocumentAsync(
                 Arg.Any<K3CloudConnectionConfigRecord>(),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
@@ -110,12 +110,97 @@ public sealed class K3CloudDocumentSyncSideEffectTests
         Assert.IsTrue(firstResult.IsSuccess);
         Assert.IsFalse(second.IsSuccess);
         Assert.AreEqual(K3CloudErrorCodes.DocumentSyncInProgress, second.Error!.Code);
-        await fixture.Client.Received(1).SaveAndSubmitAsync(
+        await fixture.Client.Received(1).SaveDocumentAsync(
             Arg.Any<K3CloudConnectionConfigRecord>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("provider_unknown")]
+    [DataRow("pending")]
+    public async Task Ambiguous_previous_invocation_is_not_replayed_async(string status)
+    {
+        var fixture = CreateFixture();
+        var id = Guid.NewGuid();
+        fixture.Store.Records[id] = new K3CloudDocumentSyncRecord
+        {
+            Id = id, ConnectionConfigId = fixture.Connection.Id,
+            DocumentTypeKey = K3CloudDocumentTypeKeys.SalSaleOrder,
+            BusinessKey = "ambiguous", PayloadJson = "{}", StatusKey = status,
+            CreatedAtUtc = DateTimeOffset.UnixEpoch, Version = 1,
+        };
+        var result = await fixture.Service.RetryAsync(id);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(K3CloudErrorCodes.RemoteCallUnknown, result.Error!.Code);
+        Assert.AreEqual(0, fixture.Client.ReceivedCalls().Count());
+    }
+
+    [TestMethod]
+    public async Task Definitive_submit_failure_retries_only_saved_document()
+    {
+        var fixture = CreateFixture();
+        var id = Guid.NewGuid();
+        fixture.Store.Records[id] = new K3CloudDocumentSyncRecord
+        {
+            Id = id, ConnectionConfigId = fixture.Connection.Id,
+            DocumentTypeKey = K3CloudDocumentTypeKeys.SalSaleOrder,
+            BusinessKey = "saved", PayloadJson = "{}", StatusKey = K3CloudDocumentSyncStatusKeys.SubmitFailed,
+            ExternalBillId = "42", ExternalBillNo = "SO-42", CreatedAtUtc = DateTimeOffset.UnixEpoch, Version = 1,
+        };
+        fixture.Client.SubmitDocumentAsync(fixture.Connection, Arg.Any<string>(), "SAL_SaleOrder", "42", "SO-42", Arg.Any<CancellationToken>())
+            .Returns((true, "ok"));
+        var result = await fixture.Service.RetryAsync(id);
+        Assert.IsTrue(result.IsSuccess);
+        await fixture.Client.DidNotReceiveWithAnyArgs().SaveDocumentAsync(default!, default!, default!, default!);
+        await fixture.Client.Received(1).SubmitDocumentAsync(fixture.Connection, Arg.Any<string>(), "SAL_SaleOrder", "42", "SO-42", Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task Submit_timeout_keeps_saved_identity_and_blocks_blind_retry()
+    {
+        var fixture = CreateFixture();
+        fixture.Client.SaveDocumentAsync(Arg.Any<K3CloudConnectionConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((true, "55", "SO-55", "ok"));
+        fixture.Client.SubmitDocumentAsync(Arg.Any<K3CloudConnectionConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<(bool, string)>(new HttpRequestException("timeout")));
+        var result = await fixture.Service.CreateAsync(Guid.NewGuid(), new CreateK3CloudDocumentSyncRequest(
+            fixture.Connection.Id, K3CloudDocumentTypeKeys.SalSaleOrder, "saved-timeout", "{}"));
+        Assert.IsFalse(result.IsSuccess);
+        var saved = fixture.Store.Records.Values.Single();
+        Assert.AreEqual("55", saved.ExternalBillId);
+        Assert.AreEqual(K3CloudDocumentSyncStatusKeys.ProviderUnknown, saved.StatusKey);
+        var retry = await fixture.Service.RetryAsync(saved.Id);
+        Assert.AreEqual(K3CloudErrorCodes.RemoteCallUnknown, retry.Error!.Code);
+        await fixture.Client.Received(1).SaveDocumentAsync(Arg.Any<K3CloudConnectionConfigRecord>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    [DataRow("{}")]
+    [DataRow("null")]
+    [DataRow("{\"Result\":{\"ResponseStatus\":{}}}")]
+    public void Missing_provider_result_is_unknown_not_retryable_failure(string response)
+    {
+        Assert.ThrowsExactly<System.Text.Json.JsonException>(() => K3CloudWebApiClient.ReadExplicitSuccess(response));
+    }
+
+    [TestMethod]
+    public async Task Number_only_saved_document_reports_submit_failure()
+    {
+        var fixture = CreateFixture();
+        fixture.Client.SaveDocumentAsync(Arg.Any<K3CloudConnectionConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((true, (string?)null, "SO-55", "ok"));
+        fixture.Client.SubmitDocumentAsync(Arg.Any<K3CloudConnectionConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns((false, "rejected"));
+        await fixture.Service.CreateAsync(Guid.NewGuid(), new CreateK3CloudDocumentSyncRequest(
+            fixture.Connection.Id, K3CloudDocumentTypeKeys.SalSaleOrder, "number-only", "{}"));
+        var saved = fixture.Store.Records.Values.Single();
+        Assert.AreEqual(K3CloudDocumentSyncStatusKeys.SubmitFailed, saved.StatusKey);
+        Assert.AreEqual(K3CloudDocumentSyncStepKeys.Submit, saved.LastStepKey);
     }
 
     /// <summary>建立带真实事务提交语义的单据同步服务。</summary>
@@ -143,6 +228,16 @@ public sealed class K3CloudDocumentSyncSideEffectTests
         var ids = Substitute.For<IIdGenerator>();
         ids.NewId().Returns(_ => Guid.NewGuid());
         var client = Substitute.For<IK3CloudWebApiClient>();
+        client.SubmitDocumentAsync(Arg.Any<K3CloudConnectionConfigRecord>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.IsFalse(coordinator.HasTransaction);
+                var saved = store.Records.Values.Single();
+                Assert.IsFalse(string.IsNullOrWhiteSpace(saved.ExternalBillId));
+                Assert.IsTrue(coordinator.CommitCount >= 2);
+                return (true, "ok");
+            });
         var options = Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer });
         return new SyncFixture(
             connection,
@@ -273,6 +368,7 @@ public sealed class K3CloudDocumentSyncSideEffectTests
                         (int)values["Version"]!,
                         current =>
                         {
+                            current.StatusKey = K3CloudDocumentSyncStatusKeys.Pending;
                             current.UpdatedAtUtc = values["UpdatedAtUtc"] as DateTimeOffset?;
                             current.Version += 1;
                             return current;

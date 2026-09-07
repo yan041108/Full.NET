@@ -15,17 +15,24 @@ internal interface IK3CloudWebApiClient
         string password,
         CancellationToken cancellationToken = default);
 
-    /// <summary>登录后执行 Save 与 Submit；调用方必须先提交本地同步意图。</summary>
+    /// <summary>仅保存单据；返回的标识必须先持久化，才能提交。</summary>
     /// <param name="config">连接配置。</param>
-    /// <param name="password">已解保护的明文密码，仅用于本次调用。</param>
-    /// <param name="formId">金蝶表单标识。</param>
-    /// <param name="payloadJson">已持久化的单据载荷。</param>
+    /// <param name="password">本次调用的解密密码。</param>
+    /// <param name="formId">表单标识。</param>
+    /// <param name="payloadJson">原始单据载荷。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>远程单据标识或失败摘要。</returns>
-    Task<(bool Succeeded, string? BillId, string? BillNo, string Message)> SaveAndSubmitAsync(
-        K3CloudConnectionConfigRecord config,
-        string password,
-        string formId,
-        string payloadJson,
+    Task<(bool Succeeded, string? BillId, string? BillNo, string Message)> SaveDocumentAsync(
+        K3CloudConnectionConfigRecord config, string password, string formId, string payloadJson,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>只提交已保存的单据，禁止重新执行 Save。</summary>
+    /// <param name="config">连接配置。</param>
+    /// <param name="password">本次调用的解密密码。</param>
+    /// <param name="formId">表单标识。</param>
+    /// <param name="billId">持久化的外部单据标识。</param>
+    /// <param name="billNo">持久化的外部单据编号。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<(bool Succeeded, string Message)> SubmitDocumentAsync(
+        K3CloudConnectionConfigRecord config, string password, string formId, string? billId, string? billNo,
         CancellationToken cancellationToken = default);
 }

@@ -108,28 +108,17 @@ internal sealed class TenantPositionsStaticImportSchemaHandler(
             }
 
             var capabilities = ResolveImportCapabilities(context);
-            var importResult = await managementService
-                .ImportAsync(
-                    new ImportOrganizationPositionsRequest(batchRows),
-                    capabilities,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!importResult.IsSuccess)
+            if (context.TaskId is not Guid taskId || taskId == Guid.Empty)
+                return Result<StaticImportBatchExecutionResult>.Failure(new Error(ValidationErrorCodes.Failed,
+                    "Durable task identity is required for resumable import.", ErrorType.Validation));
+            var executionRows = new StaticImportRowExecutionResult[batchRows.Length];
+            for (var index = 0; index < batchRows.Length; index++)
             {
-                return Result<StaticImportBatchExecutionResult>.Failure(importResult.Error!);
-            }
-
-            var importRows = importResult.Value!.Results;
-            var executionRows = new StaticImportRowExecutionResult[importRows.Count];
-            for (var index = 0; index < importRows.Count; index++)
-            {
-                var rowResult = importRows[index];
-                executionRows[index] = new StaticImportRowExecutionResult(
-                    batchValidRows[index].LineNumber,
-                    rowResult.Succeeded,
-                    rowResult.PositionId,
-                    rowResult.ErrorCode,
-                    rowResult.Message);
+                var line = batchValidRows[index].LineNumber;
+                var imported = await managementService.ImportTaskRowAsync(taskId, line, batchRows[index],
+                    capabilities, cancellationToken).ConfigureAwait(false);
+                executionRows[index] = new StaticImportRowExecutionResult(line, imported.IsSuccess,
+                    imported.IsSuccess ? imported.Value!.PositionId : null, imported.Error?.Code, imported.Error?.Message);
             }
             return Result<StaticImportBatchExecutionResult>.Success(
                 new StaticImportBatchExecutionResult(executionRows));

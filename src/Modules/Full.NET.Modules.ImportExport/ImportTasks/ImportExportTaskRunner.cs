@@ -145,7 +145,7 @@ internal sealed class ImportExportTaskRunner(
             var previewContext = new StaticImportPreviewContext(
                 task.RequestedByUserId,
                 executionState.CapabilityFlags
-                ?? new Dictionary<string, bool>(StringComparer.Ordinal));
+                ?? new Dictionary<string, bool>(StringComparer.Ordinal)) { TaskId = task.Id };
             Result<StaticImportBatchExecutionResult> batchResult;
             try
             {

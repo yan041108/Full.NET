@@ -15,6 +15,8 @@ internal sealed class OrganizationDapperAotMaterializerContributor : IDapperAotM
 {
     public void RegisterMaterializers(DapperAotMaterializerRegistrar registrar)
     {
+        registrar.Register<PositionImportReceiptRecord>(reader => new(
+            AotDataReaderExtensions.ReadNullableGuid(reader, 0), reader.GetString(1)));
         registrar.Register<OrganizationUnitRecord>(ReadOrganizationUnitRecord);
         registrar.Register<OrganizationUnitListRow>(ReadOrganizationUnitListRow);
         registrar.Register<OrganizationUnitParentLink>(ReadOrganizationUnitParentLink);

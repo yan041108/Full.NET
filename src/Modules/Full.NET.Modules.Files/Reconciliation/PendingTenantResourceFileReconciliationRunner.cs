@@ -37,6 +37,7 @@ internal sealed record PendingTenantResourceFileReconciliationResult(
 /// <param name="currentTenant">租户上下文写入器。</param>
 /// <param name="databaseOptions">数据库提供程序。</param>
 /// <param name="clock">时钟。</param>
+/// <param name="cursor">Worker 跨轮共享游标；直接调用未提供时仅在本实例内保留。</param>
 internal sealed class PendingTenantResourceFileReconciliationRunner(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
@@ -45,8 +46,10 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
     IActiveTenantContextResolver tenantResolver,
     ICurrentTenantContextWriter currentTenant,
     IOptions<DatabaseOptions> databaseOptions,
-    IClock clock)
+    IClock clock,
+    TenantResourceFileReconciliationCursor? cursor = null)
 {
+    private readonly TenantResourceFileReconciliationCursor _cursor = cursor ?? new();
     private readonly DatabaseProvider _provider = databaseOptions.Value.Provider;
 
     /// <summary>扫描一批陈旧文件并按状态推进或回收。</summary>
@@ -55,6 +58,20 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
     public async Task<PendingTenantResourceFileReconciliationResult> RunOnceAsync(
         PendingTenantResourceFileReconciliationOptions options,
         CancellationToken cancellationToken)
+    {
+        await _cursor.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await RunCoreAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _cursor.Gate.Release();
+        }
+    }
+
+    private async Task<PendingTenantResourceFileReconciliationResult> RunCoreAsync(
+        PendingTenantResourceFileReconciliationOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (!options.Enabled)
@@ -69,9 +86,9 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
         var released = 0;
         var skipped = 0;
         var batches = 0;
-        var hasCursor = false;
-        var afterCreatedAtUtc = DateTimeOffset.UnixEpoch;
-        Guid? afterId = null;
+        var hasCursor = _cursor.Id is not null;
+        var afterCreatedAtUtc = _cursor.CreatedAtUtc;
+        Guid? afterId = _cursor.Id;
 
         while (batches < options.MaxBatchesPerRun)
         {
@@ -90,6 +107,7 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             batches++;
             if (records.Count == 0)
             {
+                _cursor.Reset();
                 break;
             }
 
@@ -122,7 +140,8 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
                             skipped++;
                         }
                     }
-                    else if (await ShouldReleaseReadyAsync(record, cancellationToken).ConfigureAwait(false))
+                    else if (record.StatusKey == "released"
+                        || await ShouldReleaseReadyAsync(record, cancellationToken).ConfigureAwait(false))
                     {
                         var parameters = OwnedParameters(record);
                         var current = await queryExecutor
@@ -143,8 +162,20 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
                                 .ConfigureAwait(false);
                         }
 
+                        // 只有对象删除成功才移除墓碑；异常/崩溃后 released 仍会被后续扫描重试。
+                        await commandExecutor.ExecuteAsync(TenantResourceFileSql.PurgeReleased,
+                            parameters, cancellationToken).ConfigureAwait(false);
                         released++;
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    // 单个存储或所属模块故障不能阻塞后续文件；状态保留到下一次环扫重试。
+                    skipped++;
                 }
                 finally
                 {
@@ -156,8 +187,11 @@ internal sealed class PendingTenantResourceFileReconciliationRunner(
             hasCursor = true;
             afterCreatedAtUtc = last.CreatedAtUtc;
             afterId = last.Id;
+            _cursor.CreatedAtUtc = afterCreatedAtUtc;
+            _cursor.Id = afterId;
             if (records.Count < options.BatchSize)
             {
+                _cursor.Reset();
                 break;
             }
         }

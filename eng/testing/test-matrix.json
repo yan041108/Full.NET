@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2268,
+      "minimum": 2282,
       "timeout": "10m",
       "selections": {
         "code-generation-realtime": {
@@ -455,6 +455,9 @@
       },
       "208": {
         "filter": "FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.MySql_|FullyQualifiedName~Migration208MqttHostIdempotencyScopeRecoveryTests.SqlServer_"
+      },
+      "209": {
+        "filter": "FullyQualifiedName~Migration209PositionImportReceiptTests.MySql_|FullyQualifiedName~Migration209PositionImportReceiptTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -482,7 +485,7 @@
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 420,
+        "minimum": 424,
         "timeout": "90m"
       },
       "infrastructure": {
@@ -498,7 +501,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 788,
+        "minimum": 792,
         "timeout": "90m"
       }
     }

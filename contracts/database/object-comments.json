@@ -1590,6 +1590,18 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_organization_position_import": {
+      "comment": "组织机构position import表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "LineNumber": "Line Number",
+        "PayloadHash": "载荷哈希",
+        "PositionId": "岗位标识",
+        "TaskId": "任务标识",
+        "TenantId": "租户标识；NULL 表示 Host 级"
+      }
+    },
     "fn_organization_position_level": {
       "comment": "组织机构职级表",
       "columns": {

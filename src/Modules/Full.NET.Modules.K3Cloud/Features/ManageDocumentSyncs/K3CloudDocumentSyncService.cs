@@ -175,6 +175,15 @@ internal sealed class K3CloudDocumentSyncService(
                 ErrorType.Conflict));
         }
 
+        // 过期只说明调用方失联，不能证明远端未创建或未提交；未知结果必须先对账。
+        if (record.StatusKey is K3CloudDocumentSyncStatusKeys.Pending or K3CloudDocumentSyncStatusKeys.ProviderUnknown
+            || (record.StatusKey is K3CloudDocumentSyncStatusKeys.SubmitFailed or K3CloudDocumentSyncStatusKeys.SaveSucceeded
+                && string.IsNullOrWhiteSpace(record.ExternalBillId) && string.IsNullOrWhiteSpace(record.ExternalBillNo)))
+        {
+            return Result<PreparedDocumentSync>.Failure(new Error(K3CloudErrorCodes.RemoteCallUnknown,
+                "Reconcile the previous remote invocation before retrying this sync record.", ErrorType.Conflict));
+        }
+
         var connection = await connectionQueries
             .FindRecordAsync(record.ConnectionConfigId, cancellationToken)
             .ConfigureAwait(false);
@@ -200,6 +209,7 @@ internal sealed class K3CloudDocumentSyncService(
                 ErrorType.Conflict));
         }
 
+        record.StatusKey = K3CloudDocumentSyncStatusKeys.Pending;
         record.UpdatedAtUtc = now;
         record.Version += 1;
         return Result<PreparedDocumentSync>.Success(new PreparedDocumentSync(record, connection));
@@ -230,29 +240,50 @@ internal sealed class K3CloudDocumentSyncService(
         (bool Succeeded, string? BillId, string? BillNo, string Message) outcome;
         try
         {
-            outcome = await webApiClient
-                .SaveAndSubmitAsync(prepared.Connection, password, formId, record.PayloadJson, cancellationToken)
-                .ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(record.ExternalBillId) && string.IsNullOrWhiteSpace(record.ExternalBillNo))
+            {
+                var saved = await webApiClient.SaveDocumentAsync(prepared.Connection, password, formId,
+                    record.PayloadJson, cancellationToken).ConfigureAwait(false);
+                if (!saved.Succeeded)
+                {
+                    return await FailAsync(record, K3CloudDocumentSyncStepKeys.Save,
+                        K3CloudDocumentSyncStatusKeys.SaveFailed, K3CloudErrorCodes.RemoteCallFailed,
+                        saved.Message, cancellationToken).ConfigureAwait(false);
+                }
+
+                record.ExternalBillId = saved.BillId;
+                record.ExternalBillNo = saved.BillNo;
+                if (string.IsNullOrWhiteSpace(saved.BillId) && string.IsNullOrWhiteSpace(saved.BillNo))
+                {
+                    throw new InvalidOperationException("Save succeeded without a durable document identity.");
+                }
+
+                // Save 结果先提交；后续任何重试只能引用这张单据，不能重放新增载荷。
+                record.LastStepKey = K3CloudDocumentSyncStepKeys.Submit;
+                record.UpdatedAtUtc = clock.UtcNow;
+                if (!await transaction.ExecuteAsync(token => UpdateAsync(record, token), cancellationToken).ConfigureAwait(false))
+                {
+                    return UnknownSync("The saved document identity could not be persisted.");
+                }
+            }
+
+            var submitted = await webApiClient.SubmitDocumentAsync(prepared.Connection, password, formId,
+                record.ExternalBillId, record.ExternalBillNo, cancellationToken).ConfigureAwait(false);
+            outcome = (submitted.Succeeded, record.ExternalBillId, record.ExternalBillNo, submitted.Message);
         }
-        catch (Exception exception) when (UnknownExternalSideEffect.Matches(exception))
+        catch (Exception exception)
         {
-            return await FailAsync(
-                record,
-                K3CloudDocumentSyncStepKeys.Save,
-                K3CloudDocumentSyncStatusKeys.ProviderUnknown,
-                K3CloudErrorCodes.RemoteCallUnknown,
-                exception.Message,
-                cancellationToken).ConfigureAwait(false);
+            return await FailAsync(record,
+                string.IsNullOrWhiteSpace(record.ExternalBillId) && string.IsNullOrWhiteSpace(record.ExternalBillNo)
+                    ? K3CloudDocumentSyncStepKeys.Save : K3CloudDocumentSyncStepKeys.Submit,
+                K3CloudDocumentSyncStatusKeys.ProviderUnknown, K3CloudErrorCodes.RemoteCallUnknown,
+                exception.Message, cancellationToken, record.ExternalBillId, record.ExternalBillNo).ConfigureAwait(false);
         }
 
         if (!outcome.Succeeded)
         {
-            var statusKey = string.IsNullOrWhiteSpace(outcome.BillId)
-                ? K3CloudDocumentSyncStatusKeys.SaveFailed
-                : K3CloudDocumentSyncStatusKeys.SubmitFailed;
-            var stepKey = string.IsNullOrWhiteSpace(outcome.BillId)
-                ? K3CloudDocumentSyncStepKeys.Save
-                : K3CloudDocumentSyncStepKeys.Submit;
+            var statusKey = K3CloudDocumentSyncStatusKeys.SubmitFailed;
+            var stepKey = K3CloudDocumentSyncStepKeys.Submit;
             return await FailAsync(
                 record,
                 stepKey,

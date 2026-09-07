@@ -64,39 +64,52 @@ internal sealed class K3CloudWebApiClient : IK3CloudWebApiClient
         return (succeeded, responseBody, message);
     }
 
-    /// <summary>登录后执行 Save 与 Submit 链式调用。</summary>
-    public async Task<(bool Succeeded, string? BillId, string? BillNo, string Message)> SaveAndSubmitAsync(
-        K3CloudConnectionConfigRecord config,
-        string password,
-        string formId,
-        string payloadJson,
+    /// <inheritdoc />
+    public async Task<(bool Succeeded, string? BillId, string? BillNo, string Message)> SaveDocumentAsync(
+        K3CloudConnectionConfigRecord config, string password, string formId, string payloadJson,
         CancellationToken cancellationToken = default)
     {
         using var client = CreateSessionClient();
         var login = await LoginAsync(client, config, password, cancellationToken).ConfigureAwait(false);
-        if (!login.Succeeded)
-        {
-            return (false, null, null, login.Message);
-        }
+        if (!login.Succeeded) return (false, null, null, login.Message);
+        var response = await PostAsync(client, config.BaseUrl, SavePath,
+            BuildRequestBody([formId, payloadJson]), cancellationToken).ConfigureAwait(false);
+        var success = ReadExplicitSuccess(response);
+        var parsed = Domain.K3CloudResponseParser.TryParseSaveResult(response, out var id, out var number, out var message);
+        if (success && !parsed) throw new JsonException("Save succeeded without a document identity.");
+        return (parsed, id, number, message);
+    }
 
-        var saveBody = BuildRequestBody([formId, payloadJson]);
-        var saveResponse = await PostAsync(client, config.BaseUrl, SavePath, saveBody, cancellationToken)
-            .ConfigureAwait(false);
-        if (!Domain.K3CloudResponseParser.TryParseSaveResult(saveResponse, out var billId, out var billNo, out var saveMessage))
-        {
-            return (false, null, null, saveMessage);
-        }
+    /// <inheritdoc />
+    public async Task<(bool Succeeded, string Message)> SubmitDocumentAsync(
+        K3CloudConnectionConfigRecord config, string password, string formId, string? billId, string? billNo,
+        CancellationToken cancellationToken = default)
+    {
+        using var client = CreateSessionClient();
+        var login = await LoginAsync(client, config, password, cancellationToken).ConfigureAwait(false);
+        if (!login.Succeeded) return (false, login.Message);
+        var payload = Domain.K3CloudResponseParser.BuildSubmitPayload(billId ?? "", billNo ?? "");
+        var response = await PostAsync(client, config.BaseUrl, SubmitPath,
+            BuildRequestBody([formId, payload]), cancellationToken).ConfigureAwait(false);
+        ReadExplicitSuccess(response);
+        var success = Domain.K3CloudResponseParser.TryParseSubmitSuccess(response, out var message);
+        return (success, message);
+    }
 
-        var submitPayload = Domain.K3CloudResponseParser.BuildSubmitPayload(billId, billNo);
-        var submitBody = BuildRequestBody([formId, submitPayload]);
-        var submitResponse = await PostAsync(client, config.BaseUrl, SubmitPath, submitBody, cancellationToken)
-            .ConfigureAwait(false);
-        if (!Domain.K3CloudResponseParser.TryParseSubmitSuccess(submitResponse, out var submitMessage))
+    /// <summary>缺失或畸形响应属于结果未知，禁止伪装成确定失败后重发 Save。</summary>
+    internal static bool ReadExplicitSuccess(string response)
+    {
+        using var document = JsonDocument.Parse(response);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("Result", out var result) || result.ValueKind != JsonValueKind.Object
+            || !result.TryGetProperty("ResponseStatus", out var status) || status.ValueKind != JsonValueKind.Object
+            || !status.TryGetProperty("IsSuccess", out var success)
+            || success.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
-            return (false, billId, billNo, submitMessage);
+            throw new JsonException("K3Cloud response does not provide an explicit operation result.");
         }
-
-        return (true, billId, billNo, submitMessage);
+        return success.GetBoolean();
     }
 
     private static async Task<(bool Succeeded, string Message)> LoginAsync(
@@ -140,6 +153,7 @@ internal sealed class K3CloudWebApiClient : IK3CloudWebApiClient
         var requestUri = new Uri(new Uri(NormalizeBaseUrl(baseUrl)), path);
         using var content = new StringContent(body, Encoding.UTF8, "application/json");
         using var response = await client.PostAsync(requestUri, content, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
 

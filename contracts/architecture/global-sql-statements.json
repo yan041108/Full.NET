@@ -4452,7 +4452,7 @@
       "reason": "Worker 陈旧租户资源目录不授予文件访问权，具体操作必须进入租户上下文。",
       "requiredSqlFragments": [
         "fn_files_tenant_resource_file",
-        "StatusKey IN ('pending', 'ready')"
+        "StatusKey IN ('pending', 'ready', 'released')"
       ]
     },
     {
@@ -4463,7 +4463,7 @@
       "reason": "Worker 陈旧租户资源目录不授予文件访问权，具体操作必须进入租户上下文。",
       "requiredSqlFragments": [
         "fn_files_tenant_resource_file",
-        "StatusKey IN ('pending', 'ready')"
+        "StatusKey IN ('pending', 'ready', 'released')"
       ]
     },
     {

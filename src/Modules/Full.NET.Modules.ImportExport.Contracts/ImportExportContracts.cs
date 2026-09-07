@@ -90,7 +90,11 @@ public sealed record StaticImportSchemaDefinition(
 /// <summary>静态导入预校验上下文。</summary>
 public sealed record StaticImportPreviewContext(
     Guid RequestedByUserId,
-    IReadOnlyDictionary<string, bool> CapabilityFlags);
+    IReadOnlyDictionary<string, bool> CapabilityFlags)
+{
+    /// <summary>执行时由调度方提供的持久化任务标识；预览时为空，处理器以它和原始行号建立幂等。</summary>
+    public Guid? TaskId { get; init; }
+}
 
 /// <summary>单行预校验结果。</summary>
 public sealed record StaticImportRowPreviewResult(
