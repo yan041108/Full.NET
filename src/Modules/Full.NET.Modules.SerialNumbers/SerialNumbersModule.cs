@@ -5,6 +5,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.SerialNumbers.Features.AllocateSerialNumbers;
 using Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
+using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.SerialNumbers.Features.ManageHostSerialRules;
 using Full.NET.Modules.SerialNumbers.Serialization;
 using Microsoft.AspNetCore.Routing;
@@ -62,6 +63,26 @@ public sealed class SerialNumbersModule : IFullNetModule
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
                 SerialNumbersJsonSerializerContext.Default));
+    }
+
+    /// <summary>
+    /// Worker 侧 DataApproval 应用恢复需要流水号审批 Applier；不重复装配 HTTP 目录与分配 API。
+    /// </summary>
+    public void AddBackgroundServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+#if FULLNET_AOT_COMPILE
+        new Persistence.SerialNumbersDapperAotMaterializerContributor()
+            .RegisterMaterializers(
+                new global::Full.NET.Data.Dapper.DapperAotMaterializerRegistrar());
+#endif
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
+        services.TryAddScoped<IDataApprovalScenarioPolicyPort, Features.DataApprovalBridge.WorkerSerialRuleApprovalScenarioPolicy>();
+        services.TryAddScoped<HostSerialRuleService>();
+        services.TryAddScoped<ISerialRuleChangeApprovalApplier, Features.DataApprovalBridge.SerialRuleChangeApprovalApplier>();
+        services.TryAddScoped<ISerialRuleDisableApprovalApplier, Features.DataApprovalBridge.SerialRuleDisableApprovalApplier>();
     }
 
     /// <summary>
