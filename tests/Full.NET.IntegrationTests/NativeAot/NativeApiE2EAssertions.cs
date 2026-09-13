@@ -47,7 +47,7 @@ internal static class NativeApiE2EAssertions
             provider,
             connectionString,
             new Dictionary<string, string?>(),
-            TimeSpan.FromMinutes(2),
+            NativeAotTestTimeouts.ProcessStartup,
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();
@@ -76,7 +76,7 @@ internal static class NativeApiE2EAssertions
             provider,
             connectionString,
             settingsOverrides ?? new Dictionary<string, string?>(),
-            TimeSpan.FromMinutes(2),
+            NativeAotTestTimeouts.ProcessStartup,
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();

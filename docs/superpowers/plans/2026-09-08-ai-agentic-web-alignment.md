@@ -721,4 +721,5 @@ git branch --show-current
 - 2026-09-13（续 11）：`b43bc875` 补充 `AiMcpRemoteToolRecord` Native AOT 行物化器（预防性）；CI `34755218231` 日志显示 agent-tools 500 实为 `IReadOnlyList<AiAgentToolCatalogItem>` 未纳入 `AiJsonSerializerContext`。
 - 2026-09-13（续 12）：`6d43085a` 在 `AiJsonSerializerContext` 注册 `IReadOnlyList<AiAgentToolCatalogItem>`；CI `34756767453` **AI 独立探针双库 Passed**（`NativeApiAiE2ETests`）。workflow 仍 4 失败（SerialNumbers/Workflow 60s 超时，与 AI 无关）。
 - 2026-09-13（续 13）：Worker 启动失败根因：`Notifications` 后台闭包依赖 `IHostFileReferenceClaimService`，`FilesModule.AddBackgroundServices` 未注册跨模块引用契约；已抽取 `RegisterHostFileReferencePorts` 并在 Worker 路径注册。Native API E2E `HttpClient` 超时 60s→120s 缓解 CI 流水号/工作流慢路径。
-- 未执行/未关闭：共享 Native E2E 超时复验、Worker Native E2E 复验、Vue 集中 a11y/移动端人工验收。T15 AI Native 闭包验收已绿，整体未关闭。
+- 2026-09-13（续 14）：流水号 Native E2E 挂起根因：`HostSerialRuleService` 注入 `IDataApprovalScenarioPolicyPort` 与 `SerialRuleChangeApprovalSource` 形成 scoped DI 环；已拆出 `HostSerialRuleReader`、审批门禁上移至 Endpoint，Worker 退役命令剥离模块 `IHostedService`（`WorkerMaintenanceRegistration`），统一 `NativeAotTestTimeouts`（启动 5m / HTTP 3m）。
+- 未执行/未关闭：共享 Native E2E / Worker Native E2E CI 复验、Vue 集中 a11y/移动端人工验收。T15 AI Native 闭包验收已绿，整体未关闭。

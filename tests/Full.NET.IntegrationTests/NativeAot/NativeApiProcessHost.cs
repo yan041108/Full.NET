@@ -164,8 +164,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         var client = new HttpClient
         {
             BaseAddress = BaseAddress,
-            // Native AOT 外部进程在 CI 上首次命中复杂写路径（流水号/工作流）可能超过 60s。
-            Timeout = TimeSpan.FromSeconds(120),
+            Timeout = NativeAotTestTimeouts.HttpClient,
         };
         client.DefaultRequestHeaders.TryAddWithoutValidation("Host", hostHeader);
         return client;
@@ -261,6 +260,7 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             ["Identity__LoginRateLimitPermitLimitPerMinute"] = "1000",
             ["Identity__AllowedOrigins__0"] = "http://localhost",
             ["Tenancy__HostDomains__0"] = "localhost",
+            ["Realtime__Enabled"] = "false",
             ["Realtime__AllowSharedRedisInDevelopment"] = "true",
             ["Files__Local__RootPath"] = Path.Combine(
                 Path.GetTempPath(),

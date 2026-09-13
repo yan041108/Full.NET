@@ -51,7 +51,7 @@ internal static class NativeWorkerE2EAssertions
                 connectionString,
                 MessageType,
                 1,
-                TimeSpan.FromMinutes(2),
+                NativeAotTestTimeouts.WorkerOneShotCommand,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -134,7 +134,7 @@ internal static class NativeWorkerE2EAssertions
                 artifact,
                 provider,
                 connectionString,
-                TimeSpan.FromMinutes(2),
+                NativeAotTestTimeouts.ProcessStartup,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -190,7 +190,7 @@ internal static class NativeWorkerE2EAssertions
                 artifact,
                 provider,
                 connectionString,
-                TimeSpan.FromMinutes(2),
+                NativeAotTestTimeouts.ProcessStartup,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -253,7 +253,7 @@ internal static class NativeWorkerE2EAssertions
                 artifact,
                 provider,
                 connectionString,
-                TimeSpan.FromMinutes(2),
+                NativeAotTestTimeouts.ProcessStartup,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -311,7 +311,7 @@ internal static class NativeWorkerE2EAssertions
                     artifact,
                     provider,
                     connectionString,
-                    TimeSpan.FromMinutes(2),
+                    NativeAotTestTimeouts.ProcessStartup,
                     cancellationToken,
                     scenario.StorageRoot,
                     enableFilesUploadReconciliation: true)
@@ -372,7 +372,7 @@ internal static class NativeWorkerE2EAssertions
                     artifact,
                     provider,
                     connectionString,
-                    TimeSpan.FromMinutes(2),
+                    NativeAotTestTimeouts.ProcessStartup,
                     cancellationToken,
                     scenario.StorageRoot,
                     enableFilesCleanup: true)
@@ -431,7 +431,7 @@ internal static class NativeWorkerE2EAssertions
                 artifact,
                 provider,
                 connectionString,
-                TimeSpan.FromMinutes(2),
+                NativeAotTestTimeouts.ProcessStartup,
                 cancellationToken,
                 enableFilesReferenceClaimReconciliation: true)
             .ConfigureAwait(false);

@@ -3,7 +3,6 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
-using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.SerialNumbers.Domain;
 using Full.NET.Modules.SerialNumbers.Persistence;
@@ -20,7 +19,7 @@ internal sealed class HostSerialRuleService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    IDataApprovalScenarioPolicyPort approvalScenarioPolicy)
+    HostSerialRuleReader ruleReader)
 {
     public async Task<Result<PagedResult<SerialNumberRuleResponse>>> ListAsync(
         int page,
@@ -93,16 +92,10 @@ internal sealed class HostSerialRuleService(
             ? value
             : null;
 
-    public async Task<Result<SerialNumberRuleResponse>> GetAsync(
+    public Task<Result<SerialNumberRuleResponse>> GetAsync(
         Guid ruleId,
-        CancellationToken cancellationToken = default)
-    {
-        var row = await FindAsync(ruleId, cancellationToken)
-            .ConfigureAwait(false);
-        return row is null
-            ? NotFound()
-            : Result<SerialNumberRuleResponse>.Success(Map(row));
-    }
+        CancellationToken cancellationToken = default) =>
+        ruleReader.GetAsync(ruleId, cancellationToken);
 
     public Task<Result<SerialNumberRuleResponse>> CreateAsync(
         Guid actorUserId,
@@ -138,16 +131,6 @@ internal sealed class HostSerialRuleService(
         UpdateSerialNumberRuleRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (await approvalScenarioPolicy.BlocksDirectWriteAsync(
-                DataApprovalScenarioKeys.SerialRuleHostUpdate,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return Result<SerialNumberRuleResponse>.Failure(new Error(
-                SerialNumberErrorCodes.UpdateRequiresApproval,
-                "The serial number rule update must be submitted for approval.",
-                ErrorType.Conflict));
-        }
-
         var input = Normalize(
             null,
             request.DisplayName,
@@ -184,18 +167,6 @@ internal sealed class HostSerialRuleService(
         if (version < 1)
         {
             return Invalid();
-        }
-
-        if (!isEnabled &&
-            await approvalScenarioPolicy.BlocksDirectWriteAsync(
-                    DataApprovalScenarioKeys.SerialRuleHostDisable,
-                    cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return Result<SerialNumberRuleResponse>.Failure(new Error(
-                SerialNumberErrorCodes.DisableRequiresApproval,
-                "The serial number rule disable must be submitted for approval.",
-                ErrorType.Conflict));
         }
 
         return await transaction.ExecuteAsync(
@@ -437,14 +408,6 @@ internal sealed class HostSerialRuleService(
             Version = version + 1,
         });
     }
-
-    private Task<SerialNumberRuleRecord?> FindAsync(
-        Guid ruleId,
-        CancellationToken cancellationToken) =>
-        queryExecutor.QuerySingleOrDefaultAsync<SerialNumberRuleRecord>(
-            SerialNumberSql.FindRuleById,
-            SerialNumbersSqlParameters.Create(("Id", ruleId)),
-            cancellationToken);
 
     private Task<SerialNumberRuleRecord?> FindForMutationAsync(
         Guid ruleId,

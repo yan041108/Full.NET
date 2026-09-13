@@ -60,7 +60,7 @@ public sealed class NativeApiSignalRJsonE2ETests
             provider,
             connectionString,
             settings,
-            TimeSpan.FromMinutes(2));
+            NativeAotTestTimeouts.ProcessStartup);
 
         using var client = host.CreateClient();
         var token = await NativeApiE2EAssertions.LoginAsync(

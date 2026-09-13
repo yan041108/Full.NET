@@ -87,6 +87,10 @@ builder.Services.AddSingleton<
 builder.Services.AddFullNetApplicationModules(
     builder.Configuration,
     FullNetHostProfile.Worker);
+if (commandLine.VersionRetirement is not null)
+{
+    WorkerMaintenanceRegistration.StripBackgroundLoops(builder.Services);
+}
 
 var rawMode = builder.Configuration
     .GetSection(MessagingWorkerOptions.SectionName)

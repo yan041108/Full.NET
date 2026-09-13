@@ -8,14 +8,14 @@ namespace Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
 
 /// <summary>为 DataApproval 提供流水号规则变更前的稳定快照。</summary>
 internal sealed class SerialRuleChangeApprovalSource(
-    HostSerialRuleService ruleService) : ISerialRuleChangeApprovalSource
+    HostSerialRuleReader ruleReader) : ISerialRuleChangeApprovalSource
 {
     /// <inheritdoc />
     public async Task<Result<SerialRuleApprovalSnapshot>> GetSnapshotAsync(
         Guid ruleId,
         CancellationToken cancellationToken = default)
     {
-        var result = await ruleService.GetAsync(ruleId, cancellationToken)
+        var result = await ruleReader.GetAsync(ruleId, cancellationToken)
             .ConfigureAwait(false);
         if (!result.IsSuccess)
         {

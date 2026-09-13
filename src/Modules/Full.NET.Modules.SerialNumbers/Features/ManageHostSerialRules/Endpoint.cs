@@ -1,5 +1,6 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
+using Full.NET.Modules.DataApproval.Contracts;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.SerialNumbers.Contracts;
 using Full.NET.Modules.SerialNumbers.Features.DataApprovalBridge;
@@ -109,6 +110,7 @@ internal static class Endpoint
             Guid ruleId,
             UpdateSerialNumberRuleRequest request,
             HostSerialRuleService service,
+            IDataApprovalScenarioPolicyPort approvalScenarioPolicy,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -116,6 +118,18 @@ internal static class Endpoint
             if (!TryResolveUserId(httpContext, out var actorUserId))
             {
                 return Results.Unauthorized();
+            }
+
+            if (await approvalScenarioPolicy.BlocksDirectWriteAsync(
+                    DataApprovalScenarioKeys.SerialRuleHostUpdate,
+                    cancellationToken).ConfigureAwait(false))
+            {
+                return mapper.Map(
+                    Result<SerialNumberRuleResponse>.Failure(new Error(
+                        SerialNumberErrorCodes.UpdateRequiresApproval,
+                        "The serial number rule update must be submitted for approval.",
+                        ErrorType.Conflict)),
+                    httpContext);
             }
 
             var result = await service.UpdateAsync(
@@ -140,6 +154,7 @@ internal static class Endpoint
             Guid ruleId,
             ChangeSerialNumberRuleStatusRequest request,
             HostSerialRuleService service,
+            IDataApprovalScenarioPolicyPort approvalScenarioPolicy,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -148,6 +163,7 @@ internal static class Endpoint
                 request,
                 true,
                 service,
+                approvalScenarioPolicy,
                 mapper,
                 httpContext,
                 cancellationToken))
@@ -165,6 +181,7 @@ internal static class Endpoint
             Guid ruleId,
             ChangeSerialNumberRuleStatusRequest request,
             HostSerialRuleService service,
+            IDataApprovalScenarioPolicyPort approvalScenarioPolicy,
             IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -173,6 +190,7 @@ internal static class Endpoint
                 request,
                 false,
                 service,
+                approvalScenarioPolicy,
                 mapper,
                 httpContext,
                 cancellationToken))
@@ -320,6 +338,7 @@ internal static class Endpoint
         ChangeSerialNumberRuleStatusRequest request,
         bool isEnabled,
         HostSerialRuleService service,
+        IDataApprovalScenarioPolicyPort approvalScenarioPolicy,
         IApiResultMapper mapper,
         HttpContext httpContext,
         CancellationToken cancellationToken)
@@ -327,6 +346,20 @@ internal static class Endpoint
         if (!TryResolveUserId(httpContext, out var actorUserId))
         {
             return Results.Unauthorized();
+        }
+
+        if (!isEnabled &&
+            await approvalScenarioPolicy.BlocksDirectWriteAsync(
+                    DataApprovalScenarioKeys.SerialRuleHostDisable,
+                    cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return mapper.Map(
+                Result<SerialNumberRuleResponse>.Failure(new Error(
+                    SerialNumberErrorCodes.DisableRequiresApproval,
+                    "The serial number rule disable must be submitted for approval.",
+                    ErrorType.Conflict)),
+                httpContext);
         }
 
         var result = await service.SetEnabledAsync(

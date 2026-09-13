@@ -52,6 +52,7 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<SerialNumberPreviewService>();
+        services.TryAddScoped<HostSerialRuleReader>();
         services.TryAddScoped<HostSerialRuleService>();
         services.TryAddScoped<SerialRuleUpdateApprovalService>();
         services.TryAddScoped<SerialRuleDisableApprovalService>();
@@ -80,6 +81,7 @@ public sealed class SerialNumbersModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.TryAddScoped<IDataApprovalScenarioPolicyPort, Features.DataApprovalBridge.WorkerSerialRuleApprovalScenarioPolicy>();
+        services.TryAddScoped<HostSerialRuleReader>();
         services.TryAddScoped<HostSerialRuleService>();
         services.TryAddScoped<ISerialRuleChangeApprovalApplier, Features.DataApprovalBridge.SerialRuleChangeApprovalApplier>();
         services.TryAddScoped<ISerialRuleDisableApprovalApplier, Features.DataApprovalBridge.SerialRuleDisableApprovalApplier>();

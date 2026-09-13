@@ -27,7 +27,7 @@ public sealed class NativeApiSmokeTests
             DatabaseProvider.SqlServer,
             connectionString,
             new Dictionary<string, string?>(),
-            TimeSpan.FromMinutes(2));
+            NativeAotTestTimeouts.ProcessStartup);
 
         using var client = host.CreateClient();
         using (var live = await client.GetAsync("/health/live"))

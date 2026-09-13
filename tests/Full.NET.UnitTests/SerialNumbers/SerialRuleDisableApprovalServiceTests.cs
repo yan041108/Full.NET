@@ -19,15 +19,17 @@ public sealed class SerialRuleDisableApprovalServiceTests
     [TestMethod]
     public async Task Preview_returns_validation_error_when_disable_approval_not_required()
     {
+        var queryExecutor = Substitute.For<IQueryExecutor>();
+        var ruleReader = new HostSerialRuleReader(queryExecutor);
         var ruleService = new HostSerialRuleService(
-            Substitute.For<IQueryExecutor>(),
+            queryExecutor,
             Substitute.For<IMultiResultQueryExecutor>(),
             Substitute.For<ICommandExecutor>(),
             Substitute.For<ICommandTransaction>(),
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(),
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer, ConnectionString = "unused" }),
-            Substitute.For<IDataApprovalScenarioPolicyPort>());
+            ruleReader);
         var approvalSource = Substitute.For<ISerialRuleChangeApprovalSource>();
         var submissionPort = Substitute.For<IDataApprovalSubmissionPort>();
         var scenarioPolicy = Substitute.For<IDataApprovalScenarioPolicyPort>();
