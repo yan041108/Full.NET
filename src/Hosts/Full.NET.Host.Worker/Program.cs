@@ -201,16 +201,32 @@ try
         JsonSerializer.Serialize(
             report,
             WorkerJsonSerializerContext.Default.OutboxVersionRetirementReport));
-    return report.CanRetire ? 0 : 2;
+    await Console.Out.FlushAsync();
+    return ExitVersionRetirement(report.CanRetire ? 0 : 2);
 }
 catch (OutboxVersionRetirementException exception)
 {
     await WriteErrorAsync(exception.Code);
-    return 1;
+    await Console.Error.FlushAsync();
+    return ExitVersionRetirement(1);
 }
 finally
 {
-    await app.StopAsync();
+    using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+    try
+    {
+        await app.StopAsync(stopTimeout.Token).ConfigureAwait(false);
+    }
+    catch (OperationCanceledException)
+    {
+        // 一次性命令已写出机器结果，不得因 Kestrel 优雅停机阻塞进程退出。
+    }
+}
+
+static int ExitVersionRetirement(int exitCode)
+{
+    Environment.Exit(exitCode);
+    return exitCode;
 }
 
 static Task WriteErrorAsync(string code) =>

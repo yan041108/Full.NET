@@ -28,7 +28,7 @@ internal static class NativeApiWorkflowE2EAssertions
             provider,
             connectionString,
             new Dictionary<string, string?>(),
-            TimeSpan.FromMinutes(3),
+            NativeAotTestTimeouts.ProcessStartup,
             cancellationToken).ConfigureAwait(false);
 
         using var client = host.CreateClient();
@@ -40,9 +40,19 @@ internal static class NativeApiWorkflowE2EAssertions
         var assets = await PublishAssetsAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
 
-        await VerifyLinearApprovalAsync(client, token, assets, cancellationToken)
+        await VerifyLinearApprovalAsync(
+                client,
+                token,
+                assets,
+                host.LogFilePath,
+                cancellationToken)
             .ConfigureAwait(false);
-        await VerifyTerminalRejectionAsync(client, token, assets, cancellationToken)
+        await VerifyTerminalRejectionAsync(
+                client,
+                token,
+                assets,
+                host.LogFilePath,
+                cancellationToken)
             .ConfigureAwait(false);
 
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
@@ -53,6 +63,7 @@ internal static class NativeApiWorkflowE2EAssertions
         HttpClient client,
         string token,
         PublishedWorkflowAssets assets,
+        string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
         using var startResponse = await client.SendAsync(
@@ -68,7 +79,8 @@ internal static class NativeApiWorkflowE2EAssertions
                 startResponse,
                 HttpStatusCode.Created,
                 "Start Workflow instance in Native Host.Api",
-                cancellationToken)
+                cancellationToken,
+                nativeLogFilePath)
             .ConfigureAwait(false);
         using var started = JsonDocument.Parse(
             await startResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
@@ -126,6 +138,7 @@ internal static class NativeApiWorkflowE2EAssertions
         HttpClient client,
         string token,
         PublishedWorkflowAssets assets,
+        string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
         using var startResponse = await client.SendAsync(
@@ -141,7 +154,8 @@ internal static class NativeApiWorkflowE2EAssertions
                 startResponse,
                 HttpStatusCode.Created,
                 "Start rejectable Workflow in Native Host.Api",
-                cancellationToken)
+                cancellationToken,
+                nativeLogFilePath)
             .ConfigureAwait(false);
         using var started = JsonDocument.Parse(
             await startResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));

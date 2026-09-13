@@ -723,4 +723,5 @@ git branch --show-current
 - 2026-09-13（续 13）：Worker 启动失败根因：`Notifications` 后台闭包依赖 `IHostFileReferenceClaimService`，`FilesModule.AddBackgroundServices` 未注册跨模块引用契约；已抽取 `RegisterHostFileReferencePorts` 并在 Worker 路径注册。Native API E2E `HttpClient` 超时 60s→120s 缓解 CI 流水号/工作流慢路径。
 - 2026-09-13（续 14）：流水号 Native E2E 挂起根因：`HostSerialRuleService` 注入 `IDataApprovalScenarioPolicyPort` 与 `SerialRuleChangeApprovalSource` 形成 scoped DI 环；已拆出 `HostSerialRuleReader`、审批门禁上移至 Endpoint，Worker 退役命令剥离模块 `IHostedService`（`WorkerMaintenanceRegistration`），统一 `NativeAotTestTimeouts`（启动 5m / HTTP 3m）。
 - 2026-09-13（续 15）：CI `34764372414` 证实流水号已通过（失败点前移至 Document `POST /document/host/items` 500）；补 `DocumentJsonSerializerContext` 的 `IReadOnlyList<Guid>`；撤销误伤 SignalR 的 `Realtime__Enabled=false`；Worker 退役扫描改为剥离全部 `IHostedService`（含工厂注册）。工作流实例启动仍 180s 超时，待下一轮排查。
+- 2026-09-13（续 16）：Worker 退役命令在写出 JSON 后 `Environment.Exit`，避免 `StopAsync` 阻塞进程退出；Workflow E2E 失败时附带原生日志路径；`WorkflowJsonSerializerContext` 补 `JsonElement` 元数据。
 - 未执行/未关闭：Document/Workflow Native E2E CI 复验、Worker 退役扫描复验、Vue 集中 a11y/移动端人工验收。T15 AI Native 闭包验收已绿，整体未关闭。

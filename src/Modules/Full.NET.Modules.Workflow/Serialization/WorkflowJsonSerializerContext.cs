@@ -82,6 +82,7 @@ namespace Full.NET.Modules.Workflow.Serialization;
 [JsonSerializable(typeof(RetryWorkflowRecoveryTaskRequest))]
 [JsonSerializable(typeof(ReconcileWorkflowRecoveryTaskRequest))]
 [JsonSerializable(typeof(PagedResult<WorkflowRecoveryTaskResponse>))]
+[JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 internal partial class WorkflowJsonSerializerContext : JsonSerializerContext;
