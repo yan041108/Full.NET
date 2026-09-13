@@ -588,6 +588,8 @@ public sealed class IdentityModuleRegistrationTests
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<OrganizationUnitProjectionReconciliationService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<OrganizationUnitChangedIntegrationEventHandler>(
+            ServiceLifetime.Scoped),
         RegistrationExpectation.Type<
             IIntegrationEventHandler,
             OrganizationUnitChangedIntegrationEventHandler>(

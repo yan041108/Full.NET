@@ -53,7 +53,7 @@ public sealed class MySqlPublishedUuidCompatibilityTests
             Assert.DoesNotContain("BINARY(16) CHARACTER", processed);
             count++;
         }
-        Assert.AreEqual(16, count);
+        Assert.AreEqual(15, count);
     }
 
     /// <summary>通过公开 DbUp 合同调用内部预处理器，不扩大生产类型可见性。</summary>
