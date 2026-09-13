@@ -37,4 +37,40 @@ public sealed class AiBudgetRowReaderTests
         Assert.IsNull(value.ReservedCost); Assert.IsNull(value.InputTokens); Assert.IsNull(value.PriceVersionId);
         Assert.AreEqual(30L, value.ReservedTokens); Assert.IsTrue(value.LegacyTracked); Assert.AreEqual("unknown", value.UsageStatus);
     }
+
+    [TestMethod]
+    public void Mcp_remote_tool_maps_executable_catalog_columns()
+    {
+        using var table = new DataTable();
+        foreach (var name in new[] { "ConnectionId" }) table.Columns.Add(name, typeof(Guid));
+        foreach (var name in new[]
+                 {
+                     "ConnectionKey", "EndpointUrl", "LocalToolName", "RemoteToolName", "InputSchemaJson",
+                     "InputSchemaHash", "SideEffectKey", "PermissionCode", "ApprovalStatusKey", "ServiceTokenProtected"
+                 })
+            table.Columns.Add(name, typeof(string));
+        table.Columns.Add("ToolVersion", typeof(int));
+        var connectionId = Guid.NewGuid();
+        var row = table.NewRow();
+        row["ConnectionId"] = connectionId;
+        row["ConnectionKey"] = "demo";
+        row["EndpointUrl"] = "https://mcp.example";
+        row["LocalToolName"] = "local.tool";
+        row["RemoteToolName"] = "remote.tool";
+        row["ToolVersion"] = 2;
+        row["InputSchemaJson"] = "{}";
+        row["InputSchemaHash"] = "abc";
+        row["SideEffectKey"] = "read";
+        row["PermissionCode"] = "ai.agent-tools.view";
+        row["ApprovalStatusKey"] = "approved";
+        row["ServiceTokenProtected"] = "protected";
+        table.Rows.Add(row);
+        using var reader = table.CreateDataReader();
+        Assert.IsTrue(reader.Read());
+        var value = AiBudgetRowReaders.ReadMcpRemoteTool(reader);
+        Assert.AreEqual(connectionId, value.ConnectionId);
+        Assert.AreEqual("local.tool", value.LocalToolName);
+        Assert.AreEqual(2, value.ToolVersion);
+        Assert.AreEqual("approved", value.ApprovalStatusKey);
+    }
 }

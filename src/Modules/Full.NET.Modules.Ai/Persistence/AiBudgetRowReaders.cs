@@ -15,8 +15,26 @@ internal static class AiBudgetRowReaders
         registrar.Register<AiOperationBudgetTotals>(ReadTotals);
         registrar.Register<AiModelPriceRecord>(ReadPrice);
         registrar.Register<AiTenantQuotaRecord>(ReadQuota);
+        registrar.Register<AiMcpRemoteToolRecord>(ReadMcpRemoteTool);
     }
 #endif
+
+    internal static AiMcpRemoteToolRecord ReadMcpRemoteTool(DbDataReader reader) => new()
+    {
+        ConnectionId = reader.GetGuid(reader.GetOrdinal("ConnectionId")),
+        ConnectionKey = Text(reader, "ConnectionKey"),
+        EndpointUrl = Text(reader, "EndpointUrl"),
+        LocalToolName = Text(reader, "LocalToolName"),
+        RemoteToolName = Text(reader, "RemoteToolName"),
+        ToolVersion = checked((int)Integer(reader, "ToolVersion")),
+        InputSchemaJson = Text(reader, "InputSchemaJson"),
+        InputSchemaHash = Text(reader, "InputSchemaHash"),
+        SideEffectKey = Text(reader, "SideEffectKey"),
+        PermissionCode = Text(reader, "PermissionCode"),
+        ApprovalStatusKey = Text(reader, "ApprovalStatusKey"),
+        ServiceTokenProtected = Text(reader, "ServiceTokenProtected"),
+    };
+
     internal static AiOperationBudgetTotals ReadTotals(DbDataReader reader) => new()
     {
         MonthlyRequests = Integer(reader, "MonthlyRequests"), MonthlyTokens = Integer(reader, "MonthlyTokens"),
