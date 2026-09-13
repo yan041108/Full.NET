@@ -718,4 +718,5 @@ git branch --show-current
 - 2026-09-13（续 8）：`FullyQualifiedName~Full.NET.IntegrationTests.Ai` 全量顺序验证 **34/34** PASS（含 Chat、Budget、Quota、WorkflowCheckpoint、ApprovalRecovery 与上述 MCP/Run/AG-UI 切片）。T15 双库集成与协议验收本地门禁已关闭；仍缺 Linux native 进程 E2E（Actions）与 Vue a11y/移动端人工验收。
 - 2026-09-13（续 9）：推送 `28cdddcd` 触发 Actions；`api-native-aot-linux` publish 因未登记 `Serilog.Sinks.Elasticsearch`/`Elasticsearch.Net`/`System.Linq.Expressions` ILC 告警失败。补登记 `api-native-aot-publish-warnings.mjs` 与 governance 测试后重推。
 - 2026-09-13（续 10）：`bf83589c` Actions publish 已通过；E2E 4 失败为 SerialNumbers/Workflow 60s 超时（未执行到 `VerifyAiModuleNativeClosureAsync`）。新增 `NativeApiAiE2ETests` 双库独立探针（agent-tools + MCP metadata），`nativeAotIntegration.minimum` 7→9。
-- 未执行/未关闭：Actions 上 AI 独立 Native E2E 待绿、Worker 原生 DI 启动失败、Vue 集中 a11y/移动端人工验收。T15 整体未关闭。
+- 2026-09-13（续 11）：`b43bc875` 根因：`GET /api/v1/ai/agent-tools` 在 Native AOT 下因未注册 `AiMcpRemoteToolRecord` Dapper 行物化器返回 500。在 `AiBudgetRowReaders.Register()` 增加 `ReadMcpRemoteTool` 与单元测试；已推送待 `api-native-aot-linux` 复验 AI 独立探针。
+- 未执行/未关闭：Actions 上 AI 独立 Native E2E 待绿、SerialNumbers/Workflow 共享 E2E 超时、Worker 原生 DI 启动失败、Vue 集中 a11y/移动端人工验收。T15 整体未关闭。
