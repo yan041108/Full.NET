@@ -15,7 +15,7 @@ BEGIN
         StatusKey varchar(32) COLLATE Latin1_General_100_BIN2 NOT NULL,
         OutputFileId uniqueidentifier NULL,
         OutputFileName nvarchar(260) NULL,
-        RowCount int NOT NULL
+        [RowCount] int NOT NULL
             CONSTRAINT DF_fn_reporting_export_task_RowCount DEFAULT (0),
         ErrorCode varchar(128) COLLATE Latin1_General_100_BIN2 NULL,
         ErrorMessage nvarchar(1024) NULL,

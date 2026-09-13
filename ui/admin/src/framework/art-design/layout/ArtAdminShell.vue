@@ -265,6 +265,8 @@ function updateViewport(): void {
   }
 }
 
+// 注册和解绑必须使用同一个 MediaQueryList，重复 matchMedia 会创建新对象。
+let viewportQuery: MediaQueryList | undefined;
 onMounted(() => {
   syncTabs();
   syncActiveMenuGroup();
@@ -272,16 +274,16 @@ onMounted(() => {
   window.addEventListener('resize', updateViewport);
   window.addEventListener('keydown', onDocumentKeydown);
   if (typeof window.matchMedia === 'function') {
-    window.matchMedia('(max-width: 820px)').addEventListener('change', updateViewport);
+    viewportQuery = window.matchMedia('(max-width: 820px)');
+    viewportQuery.addEventListener('change', updateViewport);
   }
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateViewport);
   window.removeEventListener('keydown', onDocumentKeydown);
-  if (typeof window.matchMedia === 'function') {
-    window.matchMedia('(max-width: 820px)').removeEventListener('change', updateViewport);
-  }
+  viewportQuery?.removeEventListener('change', updateViewport);
+  viewportQuery = undefined;
 });
 
 watch(

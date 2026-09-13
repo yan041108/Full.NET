@@ -142,6 +142,8 @@ BEGIN
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'版权声明', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_tenancy_tenant', @level2type=N'COLUMN', @level2name=N'Copyright';
 END;
 
+GO
+
 IF NOT EXISTS (
     SELECT 1
     FROM sys.indexes

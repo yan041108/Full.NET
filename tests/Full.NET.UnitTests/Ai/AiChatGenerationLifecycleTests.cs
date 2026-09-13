@@ -1,3 +1,4 @@
+using Full.NET.AI.Abstractions.Budgets;
 using System.IO.Pipelines;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Tenancy;
@@ -17,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using NSubstitute.Extensions;
 
 namespace Full.NET.UnitTests.Ai;
 
@@ -45,6 +47,7 @@ public sealed class AiChatGenerationLifecycleTests
             .Returns(new AiChatSessionRecord { Id = sessionId, OwnerUserId = ownerId, ModelConfigId = Guid.NewGuid() });
         queries.QuerySingleOrDefaultAsync<AiModelConfigRecord>(Arg.Any<SqlStatement>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new AiModelConfigRecord { IsEnabled = true, ProviderKey = "ollama" });
+        queries.ReturnsForAll<Task<IReadOnlyList<AiChatMessageRecord>>>(Task.FromResult<IReadOnlyList<AiChatMessageRecord>>([]));
         var coordinator = new RecordingDbTransactionCoordinator();
         var transaction = new DapperCommandTransaction(coordinator);
         var commands = Substitute.For<ICommandExecutor>();
@@ -58,16 +61,22 @@ public sealed class AiChatGenerationLifecycleTests
             if (call.Arg<SqlStatement>() == AiChatGenerationSql.Release) Assert.IsFalse(coordinator.HasTransaction);
             return 1;
         });
-        await using var services = new ServiceCollection().BuildServiceProvider();
+        var budget = Substitute.For<IAiOperationBudgetStore>();
+        budget.ReserveAsync(Arg.Any<AiOperationRequest>(), Arg.Any<CancellationToken>()).Returns(call =>
+            new AiOperationReservation(call.Arg<AiOperationRequest>()!.OperationId, true, "reserved", 100, null, null));
+        await using var services = new ServiceCollection()
+            .AddScoped<ICurrentTenantContextWriter, CurrentTenantAccessor>()
+            .AddScoped<ICommandExecutor>(_ => commands).AddScoped<IAiOperationBudgetStore>(_ => budget).BuildServiceProvider();
         var monitor = new AiChatGenerationLeaseMonitor(services.GetRequiredService<IServiceScopeFactory>(), clock,
             NullLogger<AiChatGenerationLeaseMonitor>.Instance);
         var registry = new AiChatGenerationRegistry();
         var options = Options.Create(new DatabaseOptions());
         var service = new AiChatStreamService(queries, commands, transaction,
             new AiChatSessionQueryService(queries, tenant, options, clock),
-            new AiChatCompletionStreamer(Substitute.For<IHttpClientFactory>()), registry, monitor,
-            new AiChatQuotaGuard(queries, commands, transaction, clock),
-            new AiApiKeySecretProtector(new EphemeralDataProtectionProvider()), tenant, options, clock, ids);
+            TestAiProviders.Streamer(Substitute.For<IHttpClientFactory>()), registry, monitor,
+            budget,
+            new AiChatCleanupScope(services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AiChatCleanupScope>.Instance),
+            tenant, options, clock, ids);
         var context = new DefaultHttpContext();
         using var body = new MemoryStream();
         var response = Substitute.For<IHttpResponseBodyFeature>();
@@ -75,7 +84,8 @@ public sealed class AiChatGenerationLifecycleTests
         response.Writer.Returns(PipeWriter.Create(body));
         response.StartAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new IOException("HTTP start failed")));
         context.Features.Set(response);
-        await service.StreamAsync(sessionId, ownerId, new StreamAiChatMessageRequest("hello"), context);
+        await service.StreamAsync(sessionId, ownerId, new StreamAiChatMessageRequest("hello"), new AiChatHttpOutput(context));
+        await response.Received(failInsertion ? 0 : 1).StartAsync(Arg.Any<CancellationToken>());
         Assert.AreEqual(failInsertion ? 1 : 0, coordinator.RollbackCount);
         Assert.AreEqual(failInsertion ? 0 : 1, coordinator.CommitCount);
         await commands.Received(failInsertion ? 0 : 1).ExecuteAsync(AiChatGenerationSql.Release,

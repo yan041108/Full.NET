@@ -15,6 +15,7 @@ import {
 } from 'element-plus';
 import type { AiAgentToolCallListItem, AiAgentToolCatalogItem, FullNetProblemDetails } from '@fullnet/client-contracts';
 import { isFullNetProblemDetails } from '@fullnet/client-contracts';
+import PermissionGate from '../components/PermissionGate.vue';
 import ArtTableHeader from '../framework/art-design/components/ArtTableHeader.vue';
 import { useArtCrudTableLayout } from '../framework/art-design/composables/useArtCrudTableLayout';
 import { useAdminI18n } from '../i18n/adminI18n';
@@ -131,7 +132,12 @@ onMounted(() => {
 
 <template>
   <section class="ai-agent-tools-view art-page-stack art-full-height" :aria-busy="loading">
-    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiAgentTools.title') }}</h1>
+    <div class="ai-agent-tools-heading-row">
+      <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiAgentTools.title') }}</h1>
+      <PermissionGate code="ai.agent_runs.read">
+        <router-link class="ai-agent-tools-runs-link" to="/ai/agent-runs">{{ t('navigation.aiAgentRuns.title') }}</router-link>
+      </PermissionGate>
+    </div>
 
     <el-alert
       v-if="problem"
@@ -226,3 +232,17 @@ onMounted(() => {
     </el-card>
   </section>
 </template>
+
+<style scoped>
+.ai-agent-tools-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-agent-tools-runs-link {
+  font-size: 14px;
+  white-space: nowrap;
+}
+</style>

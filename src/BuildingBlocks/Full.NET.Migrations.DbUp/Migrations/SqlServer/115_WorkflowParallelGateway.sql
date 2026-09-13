@@ -119,28 +119,17 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'StatusKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流并行汇合状态表',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程实例标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'InstanceId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'分叉节点键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'ForkNodeKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'汇合节点键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'JoinNodeKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'需要到达汇合的分支总数',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'RequiredBranchCount';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'已到达汇合的分支数',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'ArrivedBranchCount';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'汇合状态键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'StatusKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发修订号',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'Revision';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'汇合完成时间(UTC)',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'CompletedAtUtc';
+
+
+
+
+
+
+
+
+
+
+
 END;
 
 IF OBJECT_ID(N'dbo.fn_workflow_parallel_branch_arrival', N'U') IS NULL
@@ -200,16 +189,11 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'并行汇合标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_branch_arrival', @level2type=N'COLUMN', @level2name=N'ParallelJoinId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流并行分支到达事实表',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_branch_arrival';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_branch_arrival', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'所属汇合状态标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_branch_arrival', @level2type=N'COLUMN', @level2name=N'ParallelJoinId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'稳定分支键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_branch_arrival', @level2type=N'COLUMN', @level2name=N'BranchKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'到达汇合时间(UTC)',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_branch_arrival', @level2type=N'COLUMN', @level2name=N'ArrivedAtUtc';
+
+
+
+
+
 END;
 
 IF COL_LENGTH(N'dbo.fn_workflow_step', N'ParallelJoinId') IS NULL
@@ -233,8 +217,7 @@ BEGIN
     )
 
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'并行汇合标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ParallelJoinId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'并行汇合状态标识；非并行步骤为空',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ParallelJoinId';
+
 END;
 
 IF COL_LENGTH(N'dbo.fn_workflow_step', N'ParallelBranchKey') IS NULL
@@ -258,9 +241,10 @@ BEGIN
     )
 
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'并行分支键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ParallelBranchKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'并行分支键；非并行步骤为空',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_step', @level2type=N'COLUMN', @level2name=N'ParallelBranchKey';
+
 END;
+
+GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes

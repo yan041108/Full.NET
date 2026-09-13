@@ -22,9 +22,10 @@ BEGIN
     )
 
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'网关类型键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'GatewayTypeKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'网关类型键：parallel 或 inclusive',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_parallel_join', @level2type=N'COLUMN', @level2name=N'GatewayTypeKey';
+
 END;
+
+GO
 
 IF EXISTS (
     SELECT 1 FROM sys.check_constraints
@@ -35,6 +36,8 @@ BEGIN
         DROP CONSTRAINT CK_fn_workflow_parallel_join_RequiredBranchCount;
 END;
 
+GO
+
 IF NOT EXISTS (
     SELECT 1 FROM sys.check_constraints
     WHERE name = N'CK_fn_workflow_parallel_join_RequiredBranchCount'
@@ -44,6 +47,8 @@ BEGIN
         ADD CONSTRAINT CK_fn_workflow_parallel_join_RequiredBranchCount
             CHECK (RequiredBranchCount >= 1 AND RequiredBranchCount <= 8);
 END;
+
+GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.check_constraints

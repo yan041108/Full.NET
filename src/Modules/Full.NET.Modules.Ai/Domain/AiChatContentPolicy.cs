@@ -57,11 +57,11 @@ internal static partial class AiChatContentPolicy
         return null;
     }
 
-    /// <summary>截断对外错误文本，避免回显过长提供程序响应。</summary>
+    /// <summary>不回显不可信异常正文，避免供应商把凭据或业务数据带入客户端错误。</summary>
     /// <param name="message">原始错误文本。</param>
-    /// <returns>截断后的文本。</returns>
+    /// <returns>固定安全说明。</returns>
     public static string SanitizeExternalError(string message) =>
-        message.Length <= 512 ? message : message[..512];
+        "AI request failed. Please retry or contact the administrator.";
 
     /// <summary>识别明显的凭据内容，防止用户把密钥意外发送给外部模型。</summary>
     [GeneratedRegex(@"(?i)(sk-[a-z0-9]{10,}|api[_-]?key\s*[:=]|bearer\s+[a-z0-9._-]{20,})")]

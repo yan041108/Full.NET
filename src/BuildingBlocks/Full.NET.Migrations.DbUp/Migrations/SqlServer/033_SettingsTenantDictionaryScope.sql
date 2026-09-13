@@ -42,6 +42,8 @@ BEGIN
     DROP INDEX UX_fn_settings_dict_type_Code ON dbo.fn_settings_dict_type;
 END;
 
+GO
+
 IF NOT EXISTS (
     SELECT 1
     FROM sys.indexes
@@ -53,6 +55,8 @@ BEGIN
             ON dbo.fn_settings_dict_type (Code)
             WHERE TenantId IS NULL');
 END;
+
+GO
 
 IF NOT EXISTS (
     SELECT 1

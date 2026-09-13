@@ -2423,6 +2423,20 @@
       "file": "src/Modules/Full.NET.Modules.Notifications/Contracts/NotificationsErrorCodes.cs",
       "reason": "两段式 reason 码已进入小程序绑定协议，保留至 1.0 前统一治理。",
       "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "dynamic_sql",
+      "value": "dynamic_sql",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/210_AiToolExecutionStatus.sql",
+      "reason": "210 使用 INFORMATION_SCHEMA 与固定 PREPARE 幂等扩展工具审计状态 CHECK；对象名和允许值均为脚本常量，恢复用例已编写，真实双库执行待 CI。",
+      "removalMilestone": "M1.0"
+    },
+    {
+      "kind": "unsupported_sql",
+      "value": "unsupported_ddl",
+      "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/210_AiToolExecutionStatus.sql",
+      "reason": "210 使用条件 DDL 幂等扩展工具审计状态 CHECK；对象名和允许值均为脚本常量，保留历史数据，恢复用例已编写，真实双库执行待 CI。",
+      "removalMilestone": "M1.0"
     }
   ]
 }

@@ -46,10 +46,22 @@ SET LocaleTag = 'zh-CN',
     DefaultLocaleTag = 'zh-CN'
 WHERE LocaleTag IS NULL OR DefaultLocaleTag IS NULL;
 
+DROP TRIGGER IF EXISTS TR_fn_notifications_template_version_Immutable;
+
 UPDATE fn_notifications_template_version v
 INNER JOIN fn_notifications_template t ON t.Id = v.TemplateId
 SET v.LocaleTag = t.LocaleTag
 WHERE v.LocaleTag IS NULL OR v.LocaleTag = '';
+
+DROP TRIGGER IF EXISTS TR_fn_notifications_template_version_Immutable;
+DELIMITER $$
+CREATE TRIGGER TR_fn_notifications_template_version_Immutable
+BEFORE UPDATE ON fn_notifications_template_version
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Published notification template versions are immutable.';
+END$$
+DELIMITER ;
 
 SET @old_index_exists := (
     SELECT COUNT(*)

@@ -7,13 +7,13 @@ namespace Full.NET.UnitTests.Ai;
 public sealed class AiAgentToolCatalogTests
 {
     [TestMethod]
-    public void Catalog_contains_only_read_or_none_side_effects()
+    public void Catalog_only_exposes_approved_side_effect_categories()
     {
         foreach (var tool in AiAgentToolCatalog.List())
         {
-            Assert.IsTrue(
-                tool.SideEffectKey is AiAgentToolSideEffectKeys.None or AiAgentToolSideEffectKeys.Read,
-                tool.ToolName);
+            var allowed = tool.SideEffectKey is AiAgentToolSideEffectKeys.None or AiAgentToolSideEffectKeys.Read
+                || (tool.SideEffectKey == AiAgentToolSideEffectKeys.Write && tool.ToolName == "ai.chat.sessions.rename");
+            Assert.IsTrue(allowed, tool.ToolName);
         }
     }
 

@@ -46,6 +46,8 @@ BEGIN
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'签名文件标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user_profile', @level2type=N'COLUMN', @level2name=N'SignatureFileId';
 END;
 
+GO
+
 IF NOT EXISTS (
     SELECT 1
     FROM sys.indexes
@@ -56,6 +58,8 @@ BEGIN
         ON dbo.fn_identity_user_profile(AvatarFileId)
         WHERE AvatarFileId IS NOT NULL;
 END;
+
+GO
 
 IF NOT EXISTS (
     SELECT 1

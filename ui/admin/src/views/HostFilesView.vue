@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue';
+import { useBlobPreview } from '../composables/useBlobPreview';
 import {
   ElButton,
   ElCard,
@@ -74,7 +75,8 @@ const selectedFiles = ref<File[]>([]);
 const uploadResults = ref<BatchUploadHostFilesResponse | null>(null);
 const selectedRows = ref<HostFile[]>([]);
 const previewDialogVisible = ref(false);
-const previewUrl = ref<string | null>(null);
+const filePreview = useBlobPreview();
+const previewUrl = filePreview.url;
 const previewTitle = ref('');
 const loading = ref(false);
 const changing = ref(false);
@@ -292,12 +294,7 @@ async function preview(file: HostFile): Promise<void> {
   changing.value = true;
   problem.value = undefined;
   try {
-    if (previewUrl.value) {
-      URL.revokeObjectURL(previewUrl.value);
-      previewUrl.value = null;
-    }
-    const blob = await previewHostFileContent(file.id);
-    previewUrl.value = URL.createObjectURL(blob);
+    if (!await filePreview.load(() => previewHostFileContent(file.id))) return;
     previewTitle.value = file.originalFileName;
     previewDialogVisible.value = true;
   } catch (error: unknown) {
@@ -310,10 +307,7 @@ async function preview(file: HostFile): Promise<void> {
 
 function closePreviewDialog(): void {
   previewDialogVisible.value = false;
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value);
-    previewUrl.value = null;
-  }
+  filePreview.clear();
 }
 
 function canPreviewFile(file: HostFile): boolean {

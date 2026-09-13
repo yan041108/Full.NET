@@ -23,6 +23,7 @@ Vue 管理端必须优先形成完整、可访问、可真实验收的业务闭�
 | --- | --- | --- | --- |
 | C0 公共契约 | Build-verified | 会话、ProblemDetails、租户、导航、主要模块 API 客户端与运行时校验已存在 | 授权树和逐操作权限契约 |
 | C1 Vue 壳层 | Build-verified | Art Design Pro 壳层、路由、主题、导航、会话、国际化与现有模块页面 | 富文本、人工辅助技术验收、进一步视觉收敛 |
+| C1-SSO 标准认证中心接入 | Mapped | 2026-09-13 方向与阶段已确认；[Identity 规格 §14](../superpowers/specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认) | P0/P1 先验证两个受控应用；P3 才迁移 Vue，当前尚未实施 |
 | C1-Legacy Layui | Frozen | 历史壳层、页面、测试和真实栈证据保留 | 不再补齐功能；另行制定退役计划 |
 | C2 后台业务 | Implementing | Identity、Tenancy、Organization、Settings、Auditing、Files、Notifications、CodeGeneration 等已有 Vue 切片 | 逐页面/逐操作授权；未完成模块继续只做 Vue |
 | C3 uni-app | Build-verified foundation | 三目标工程与基础契约已建立 | 按[批准计划](../superpowers/plans/2026-08-30-workflow-designer-form-runtime.md)交付首个 Workflow 表单纵向样例；当前仍未实现 |
@@ -61,6 +62,14 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 详细权限模型见 [Vue 页面/操作授权设计](../superpowers/specs/2026-08-02-vue-action-authorization-design.md)、[Identity Users 样板计划](../superpowers/plans/2026-08-02-vue-action-authorization.md)和[三级授权补齐与 W4–W5 计划](../superpowers/plans/2026-08-03-vue-action-authorization-w4-w5.md)。
 
 ## 5. 阶段计划
+
+### C1-SSO：认证中心与 Vue 接入专项
+
+按 [ADR-0011](../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 和[唯一活动计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md) 依次推进 P0→P3。P0/P1 的第二客户端是验证夹具，不新增第二套后台产品，不解冻 Layui。
+
+Vue 迁移前先证明服务端换码、主 Cookie 与应用 Cookie 分离、CSRF／跨站回调、权威会话撤销和两个应用 SSO。P3 再根据证据选择 BFF／服务端回调及票据存储，保留旧认证入口回退；不得仅开启 `SaveTokens` 就宣称自动刷新或令牌已保存在服务端。协议端点遵循 OAuth/OIDC 原生契约，普通管理接口继续使用共享 OpenAPI／ProblemDetails 运行时。
+
+**退出条件：** 研究矩阵 V01—V24 对应证据及双库、Linux Native AOT、Vue 真实栈关键流程齐备；未执行、跳过或失败不提升能力状态。当前为 `Mapped`，P0 尚未开始。
 
 ### C0：公共客户端契约底座
 
@@ -119,6 +128,7 @@ Layui 的缺失、失败或不兼容不再阻止新功能进入 `Implemented`、
 - CRUD 默认生成 `read/create/update/delete`，其他动作必须由 Schema 明确声明；
 - 不再新增 Layui 页面、JavaScript API 或路由生成能力；
 - Realtime、文件、导入导出、打印、表单设计器、大屏和 AI/Agent 工作台分别建立 Vue 适配切片。
+- AI 管理端（2026-09-12）：`AiModelConfigsView`、`AiChatView`、`AiAgentToolsView`、`AiAgentRunsView`、`AiMcpRemoteConnectionsView` 已有组件测试与精确权限接线；**Build-verified**，待双库 real-stack、WCAG 与标准协议客户端验收后升 **Verified**。
 
 OpenAPI 驱动客户端生成按 [`ADR-0007`](../architecture/adr/ADR-0007-openapi-driven-client-generation-boundary.md) 和[专项实施计划](../superpowers/plans/2026-08-21-openapi-driven-client-generation.md)执行。`document-statistics.ts` 已迁移（现 230 条 `generated`）；Document 模块与 `vue-client-coverage-v1.json` 所列 45 个 Vue 生产 API 模块均已登记 manifest，OpenAPI 客户端单模块迁移阶段收官。
 

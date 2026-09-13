@@ -43,11 +43,61 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
-ALTER TABLE fn_files_file
-    ADD COLUMN IF NOT EXISTS FolderId BINARY(16) NULL,
-    ADD COLUMN IF NOT EXISTS Revision bigint NOT NULL DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS UpdatedAtUtc datetime(6) NULL,
-    ADD COLUMN IF NOT EXISTS UpdatedByUserId BINARY(16) NULL;
+SET @folder_id_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_files_file'
+      AND COLUMN_NAME = 'FolderId');
+SET @ddl := IF(
+    @folder_id_exists = 0,
+    'ALTER TABLE fn_files_file ADD COLUMN FolderId BINARY(16) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @revision_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_files_file'
+      AND COLUMN_NAME = 'Revision');
+SET @ddl := IF(
+    @revision_exists = 0,
+    'ALTER TABLE fn_files_file ADD COLUMN Revision bigint NOT NULL DEFAULT 0',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @updated_at_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_files_file'
+      AND COLUMN_NAME = 'UpdatedAtUtc');
+SET @ddl := IF(
+    @updated_at_exists = 0,
+    'ALTER TABLE fn_files_file ADD COLUMN UpdatedAtUtc datetime(6) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @updated_by_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_files_file'
+      AND COLUMN_NAME = 'UpdatedByUserId');
+SET @ddl := IF(
+    @updated_by_exists = 0,
+    'ALTER TABLE fn_files_file ADD COLUMN UpdatedByUserId BINARY(16) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @index_exists := (
     SELECT COUNT(1)

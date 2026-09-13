@@ -352,6 +352,37 @@ internal sealed class FullNetApiFactory(
                     now,
                     1),
                 cancellationToken);
+            // Agent Tool 执行 Port 逐次重查数据库权限快照；仅写入 JWT 不足以通过 CurrentSessionAuthorization。
+            var roleId = Guid.CreateVersion7();
+            await command.ExecuteAsync(
+                IdentitySql.InsertRole,
+                new
+                {
+                    Id = roleId,
+                    TenantId = (Guid?)null,
+                    ScopeKey = "host",
+                    Code = $"test-{suffix}",
+                    Name = "Integration Test Role",
+                    IsSystem = false,
+                    IsActive = true,
+                    IsSuperAdministrator = false,
+                    DataScopeKind = "all",
+                    CreatedAtUtc = now,
+                    Version = 1,
+                },
+                cancellationToken);
+            foreach (var permission in permissions.Distinct(StringComparer.Ordinal))
+            {
+                await command.ExecuteAsync(
+                    IdentitySql.EnsureRolePermission,
+                    new { RoleId = roleId, PermissionCode = permission },
+                    cancellationToken);
+            }
+
+            await command.ExecuteAsync(
+                IdentitySql.EnsureUserRole,
+                new { UserId = userId, RoleId = roleId },
+                cancellationToken);
             var accessToken = scope.ServiceProvider
                 .GetRequiredService<IAccessTokenIssuer>()
                 .Issue(user, sessionId, null, permissions, false)

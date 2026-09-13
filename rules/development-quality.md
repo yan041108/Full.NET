@@ -220,7 +220,7 @@
 
 ## 7. API、错误与序列化契约
 
-1. 对外 HTTP API 必须使用标准 HTTP 状态码与 ProblemDetails；领域失败不得默认返回 `200 OK`。
+1. 对外业务 HTTP API 必须使用标准 HTTP 状态码与 ProblemDetails；领域失败不得默认返回 `200 OK`。按 [ADR-0011](../docs/architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 明确注册的 OAuth/OIDC 协议端点使用协议规定的响应、错误、字段和重定向，不进入业务包络或普通 JSON 命名转换；客户端管理与普通业务 API 不适用此例外，协议边界仍须保留认证、授权、限流和秘密保护。
 2. Admin.NET 包络只能由 Compatibility 适配层显式启用，核心业务与标准端点不得依赖兼容模型。
 3. Minimal API/FastEndpoints 的每条端点必须显式声明 `RequireAuthorization(...)`/权限策略或 `AllowAnonymous()`，并声明输入验证、状态码和取消传播；禁止依赖默认行为表达安全意图。匿名端点必须有契约测试锁定最小返回字段；异常统一交给异常处理管道。
 4. JSON 使用 System.Text.Json。高频或 Native AOT 路径应使用源生成上下文；新增多态或自定义转换器必须有往返和兼容测试。

@@ -552,7 +552,8 @@ export {
   isAiModelConfigPage,
   isAiTenantQuota,
   isAiTenantQuotaPage,
-  isTestAiModelConfigResult
+  isTestAiModelConfigResult,
+  isTestAiModelEmbeddingResult
 } from './ai-model-configs.js';
 
 export type {
@@ -566,6 +567,8 @@ export type {
   AiTenantQuotaPage,
   CreateAiModelConfigRequest,
   TestAiModelConfigResult,
+  TestAiModelEmbeddingRequest,
+  TestAiModelEmbeddingResult,
   UpdateAiModelConfigRequest,
   UpdateAiTenantQuotaRequest
 } from './ai-model-configs.js';
@@ -600,6 +603,32 @@ export type {
   AiAgentToolCallPage,
   AiAgentToolCatalogItem
 } from './ai-agent-tools.js';
+
+export {
+  isAiAgentRunResponse,
+  isCreateAiAgentRunResponse
+} from './ai-agent-runs.js';
+
+export type {
+  AgUiRunProgressState,
+  AiAgentRunResponse,
+  CreateAiAgentRunRequest,
+  CreateAiAgentRunResponse
+} from './ai-agent-runs.js';
+
+export {
+  isAiMcpRemoteConnectionList,
+  isAiMcpRemoteConnectionResponse,
+  isAiMcpRemoteDiscoveredToolList
+} from './ai-mcp-remote-connections.js';
+
+export type {
+  AiMcpRemoteConnectionListItem,
+  AiMcpRemoteConnectionResponse,
+  AiMcpRemoteDiscoveredToolItem,
+  ApproveAiMcpRemoteToolRequest,
+  CreateAiMcpRemoteConnectionRequest
+} from './ai-mcp-remote-connections.js';
 
 export {
   isPaymentMerchantConfig,

@@ -17,11 +17,12 @@ internal static class Endpoint
         var catalogGroup = endpoints.MapGroup("/api/v1/ai/agent-tools")
             .WithTags("AiAgentTools");
 
-        catalogGroup.MapGet("/", (
+        catalogGroup.MapGet("/", async (
+            AiAgentToolCatalogService catalog,
             IApiResultMapper mapper,
             HttpContext httpContext) =>
         {
-            var result = AiAgentToolCatalogService.List();
+            var result = await catalog.ListAsync(httpContext.RequestAborted).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("aiListAgentTools")
@@ -30,12 +31,13 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(AiAgentToolPermissions.CatalogRead));
 
-        catalogGroup.MapGet("/{toolName}", (
+        catalogGroup.MapGet("/{toolName}", async (
             string toolName,
+            AiAgentToolCatalogService catalog,
             IApiResultMapper mapper,
             HttpContext httpContext) =>
         {
-            var result = AiAgentToolCatalogService.GetByName(toolName);
+            var result = await catalog.GetByNameAsync(toolName, httpContext.RequestAborted).ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("aiGetAgentTool")

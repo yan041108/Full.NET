@@ -6,6 +6,9 @@ namespace Full.NET.Modules.Notifications.Providers.DingTalk;
 internal sealed class DingTalkAccessTokenCache(IDingTalkTransport transport, IClock clock)
 {
     private static readonly TimeSpan RenewalSkew = TimeSpan.FromSeconds(60);
+    // 保留既有进程内 Provider 缓存；容量封顶避免历史配置永久累积。
+    private const int MaximumEntries = 1024;
+    private DateTimeOffset _nextCleanupUtc;
     private readonly object _sync = new();
     private readonly Dictionary<string, CachedToken> _tokens = new(StringComparer.Ordinal);
 
@@ -18,9 +21,11 @@ internal sealed class DingTalkAccessTokenCache(IDingTalkTransport transport, ICl
         string appSecret,
         CancellationToken cancellationToken)
     {
-        var now = clock.UtcNow;
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_sync)
         {
+            var now = clock.UtcNow;
+            RemoveExpired(now);
             if (_tokens.TryGetValue(appKey, out var cached)
                 && cached.ExpiresAtUtc > now.Add(RenewalSkew))
             {
@@ -32,10 +37,27 @@ internal sealed class DingTalkAccessTokenCache(IDingTalkTransport transport, ICl
             .ConfigureAwait(false);
         lock (_sync)
         {
+            var now = clock.UtcNow;
+            RemoveExpired(now);
+            if (issued.ExpiresAtUtc <= now.Add(RenewalSkew)) return issued.Token;
+            if (!_tokens.ContainsKey(appKey) && _tokens.Count >= MaximumEntries)
+            {
+                // 最早失效的条目优先退出；淘汰只增加回源，不延长凭据有效期。
+                _tokens.Remove(_tokens.MinBy(pair => pair.Value.ExpiresAtUtc).Key);
+            }
             _tokens[appKey] = new CachedToken(issued.Token, issued.ExpiresAtUtc);
         }
 
         return issued.Token;
+    }
+
+    private void RemoveExpired(DateTimeOffset now)
+    {
+        if (now < _nextCleanupUtc) return;
+        _nextCleanupUtc = now.AddMinutes(1);
+        foreach (var key in _tokens.Where(pair => pair.Value.ExpiresAtUtc <= now.Add(RenewalSkew))
+                     .Select(pair => pair.Key).ToArray())
+            _tokens.Remove(key);
     }
 
     private sealed record CachedToken(string Token, DateTimeOffset ExpiresAtUtc);

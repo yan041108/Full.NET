@@ -22,6 +22,9 @@ export interface AiAgentToolCallListItem {
   outputSummary: string | null;
   errorCode: string | null;
   traceId: string | null;
+  runId: string | null;
+  argumentsHash: string | null;
+  approvalId: string | null;
   createdAtUtc: string;
 }
 
@@ -76,6 +79,9 @@ export function isAiAgentToolCallListItem(value: unknown): value is AiAgentToolC
     && (value.outputSummary === null || typeof value.outputSummary === 'string')
     && (value.errorCode === null || typeof value.errorCode === 'string')
     && (value.traceId === null || typeof value.traceId === 'string')
+    && (value.runId === null || isGuid(value.runId))
+    && (value.argumentsHash === null || typeof value.argumentsHash === 'string')
+    && (value.approvalId === null || isGuid(value.approvalId))
     && typeof value.createdAtUtc === 'string';
 }
 

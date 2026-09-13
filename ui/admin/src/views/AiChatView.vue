@@ -242,7 +242,12 @@ onMounted(async () => {
 
 <template>
   <section class="ai-chat-view art-page-stack art-full-height" :aria-busy="loading || sending">
-    <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiChat.title') }}</h1>
+    <div class="ai-chat-heading-row">
+      <h1 class="art-sr-heading" data-route-heading tabindex="-1">{{ t('aiChat.title') }}</h1>
+      <PermissionGate code="ai.agent_runs.read">
+        <router-link class="ai-chat-runs-link" to="/ai/agent-runs">{{ t('navigation.aiAgentRuns.title') }}</router-link>
+      </PermissionGate>
+    </div>
 
     <el-alert
       v-if="problem"
@@ -348,6 +353,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.ai-chat-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-chat-runs-link {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
 .ai-chat-layout {
   display: grid;
   grid-template-columns: 280px 1fr;

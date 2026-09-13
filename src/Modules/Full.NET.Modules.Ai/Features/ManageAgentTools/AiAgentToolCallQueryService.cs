@@ -73,5 +73,8 @@ internal sealed class AiAgentToolCallQueryService(
             row.OutputSummary,
             row.ErrorCode,
             row.TraceId,
+            row.RunId,
+            row.ArgumentsHash,
+            row.ApprovalId,
             row.CreatedAtUtc);
 }

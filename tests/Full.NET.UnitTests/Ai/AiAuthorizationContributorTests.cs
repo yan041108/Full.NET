@@ -29,6 +29,17 @@ public sealed class AiAuthorizationContributorTests
                 AiChatPermissions.Cancel,
                 AiAgentToolPermissions.CatalogRead,
                 AiAgentToolPermissions.CallsRead,
+                AiAgentRunPermissions.Read,
+                AiAgentRunPermissions.Create,
+                AiAgentRunPermissions.Cancel,
+                AiAgentRunPermissions.Resume,
+                AiAgentApprovalPermissions.Read,
+                AiAgentApprovalPermissions.Request,
+                AiAgentApprovalPermissions.Decide,
+                AiAgentApprovalPermissions.Delegate,
+                AiMcpPermissions.Read,
+                AiMcpPermissions.Manage,
+                AiMcpPermissions.RemoteInvoke,
             },
             catalog.Permissions.Select(permission => permission.Code).ToArray());
 

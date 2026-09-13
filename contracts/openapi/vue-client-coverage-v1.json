@@ -769,6 +769,26 @@
     },
     {
       "clientContractModules": [
+        "packages/client-contracts/src/ai-agent-runs.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "routePrefixes": [
+        "/api/v1/ai/agent/runs"
+      ]
+    },
+    {
+      "clientContractModules": [
+        "packages/client-contracts/src/ai-mcp-remote-connections.ts"
+      ],
+      "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "routePrefixes": [
+        "/api/v1/ai/mcp/remote-connections"
+      ]
+    },
+    {
+      "clientContractModules": [
         "packages/client-contracts/src/ai-chat.ts"
       ],
       "openApiFixture": "contracts/openapi/fullnet-client-v1.openapi.json",
@@ -1188,6 +1208,18 @@
       "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
       "consumers": [
         "ui/admin/src/views/AiAgentToolsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "consumers": [
+        "ui/admin/src/views/AiAgentRunsView.vue"
+      ]
+    },
+    {
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "consumers": [
+        "ui/admin/src/views/AiMcpRemoteConnectionsView.vue"
       ]
     },
     {

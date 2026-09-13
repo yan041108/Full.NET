@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
+import { useBlobPreview } from '../composables/useBlobPreview';
 import {
   ElButton,
   ElCard,
@@ -25,7 +26,8 @@ const loading = ref(false);
 const saving = ref(false);
 const uploadingLogo = ref(false);
 const removingLogo = ref(false);
-const logoPreviewUrl = ref<string | null>(null);
+const logoPreview = useBlobPreview();
+const logoPreviewUrl = logoPreview.url;
 const version = ref(0);
 const form = reactive({
   systemTitle: '',
@@ -35,24 +37,16 @@ const form = reactive({
   copyright: ''
 });
 
-function revokePreview(url: string | null): void {
-  if (url) {
-    URL.revokeObjectURL(url);
-  }
-}
-
 async function refreshLogoPreview(hasLogo: boolean): Promise<void> {
-  revokePreview(logoPreviewUrl.value);
-  logoPreviewUrl.value = null;
+  logoPreview.clear();
   if (!hasLogo) {
     return;
   }
 
   try {
-    const blob = await fetchCurrentScopeTenantBrandingLogoBlob();
-    logoPreviewUrl.value = URL.createObjectURL(blob);
+    await logoPreview.load(fetchCurrentScopeTenantBrandingLogoBlob);
   } catch {
-    logoPreviewUrl.value = null;
+    // 预览失败保留空白，不能清理并发新请求的结果。
   }
 }
 
@@ -129,9 +123,6 @@ onMounted(() => {
   void loadBranding();
 });
 
-onUnmounted(() => {
-  revokePreview(logoPreviewUrl.value);
-});
 </script>
 
 <template>

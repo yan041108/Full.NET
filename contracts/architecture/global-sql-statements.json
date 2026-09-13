@@ -4954,6 +4954,699 @@
         "Id = @TenantId",
         "LogoFileId = @FileId"
       ]
+    },
+    {
+      "statementName": "ai.tool_list_models.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiToolExecutionSql.ListModelsSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiToolExecutionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "显式限制可信租户或 Host 范围；工具回执另以操作主键、主体和 started 状态保护。",
+      "requiredSqlFragments": [
+        "fn_ai_model_config",
+        "IsEnabled = 1",
+        "@ScopeTenantId IS NULL",
+        "TenantId = @ScopeTenantId"
+      ]
+    },
+    {
+      "statementName": "ai.tool_list_models.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiToolExecutionSql.ListModelsMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiToolExecutionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "显式限制可信租户或 Host 范围；工具回执另以操作主键、主体和 started 状态保护。",
+      "requiredSqlFragments": [
+        "fn_ai_model_config",
+        "IsEnabled = 1",
+        "@ScopeTenantId IS NULL",
+        "TenantId = @ScopeTenantId"
+      ]
+    },
+    {
+      "statementName": "ai.complete_tool_operation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiToolExecutionSql.Complete",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiToolExecutionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "显式限制可信租户或 Host 范围；工具回执另以操作主键、主体和 started 状态保护。",
+      "requiredSqlFragments": [
+        "fn_ai_agent_tool_call",
+        "Id = @OperationId",
+        "ActorUserId = @ActorUserId",
+        "StatusKey = 'started'",
+        "TenantId = @ScopeTenantId"
+      ]
+    },
+    {
+      "statementName": "ai.ensure_budget_scope.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiOperationBudgetSql.EnsureSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiOperationBudgetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "ScopeKey 仅由可信当前租户编码为 UUID N 或 host；预算短事务先锁定该 scope，所有账本查询和变更限定同一 scope。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_budget_scope"
+      ]
+    },
+    {
+      "statementName": "ai.ensure_budget_scope.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiOperationBudgetSql.EnsureMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiOperationBudgetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "ScopeKey 仅由可信当前租户编码为 UUID N 或 host；预算短事务先锁定该 scope，所有账本查询和变更限定同一 scope。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_budget_scope"
+      ]
+    },
+    {
+      "statementName": "ai.find_budget_operation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiOperationBudgetSql.Find",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiOperationBudgetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "ScopeKey 仅由可信当前租户编码为 UUID N 或 host；预算短事务先锁定该 scope，所有账本查询和变更限定同一 scope。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_operation_budget"
+      ]
+    },
+    {
+      "statementName": "ai.sum_budget_operations",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiOperationBudgetSql.Totals",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiOperationBudgetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "ScopeKey 仅由可信当前租户编码为 UUID N 或 host；预算短事务先锁定该 scope，所有账本查询和变更限定同一 scope。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_operation_budget"
+      ]
+    },
+    {
+      "statementName": "ai.insert_budget_operation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiOperationBudgetSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiOperationBudgetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "ScopeKey 仅由可信当前租户编码为 UUID N 或 host；预算短事务先锁定该 scope，所有账本查询和变更限定同一 scope。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_operation_budget"
+      ]
+    },
+    {
+      "statementName": "ai.settle_budget_operation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiOperationBudgetSql.Settle",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiOperationBudgetSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "ScopeKey 仅由可信当前租户编码为 UUID N 或 host；预算短事务先锁定该 scope，所有账本查询和变更限定同一 scope。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_operation_budget"
+      ]
+    },
+    {
+      "statementName": "ai.find_model_price.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiModelPriceSql.FindSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiModelPriceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "共享 Host 模型价格与当前租户模型价格经同模块模型配置限定可见；版本只从持久化价格表读取。",
+      "requiredSqlFragments": [
+        "model.TenantId IS NULL",
+        "model.TenantId = @ScopeTenantId",
+        "price.ModelConfigId = @ModelConfigId"
+      ]
+    },
+    {
+      "statementName": "ai.find_model_price.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiModelPriceSql.FindMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiModelPriceSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "共享 Host 模型价格与当前租户模型价格经同模块模型配置限定可见；版本只从持久化价格表读取。",
+      "requiredSqlFragments": [
+        "model.TenantId IS NULL",
+        "model.TenantId = @ScopeTenantId",
+        "price.ModelConfigId = @ModelConfigId"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.find_owned",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindOwned",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "管理读取限定 ScopeKey 与 ActorUserId，防止跨用户枚举运行。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@ActorUserId",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.scan_queued.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ScanQueuedSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 扫描 queued 运行；领取前仍经租约条件过滤。",
+      "requiredSqlFragments": [
+        "StatusKey = 'queued'",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.scan_queued.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ScanQueuedMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL Worker 扫描 queued 运行。",
+      "requiredSqlFragments": [
+        "StatusKey = 'queued'",
+        "LIMIT @BatchSize"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.cancel_owned",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.CancelOwned",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "取消必须匹配本人与 scope，运行中由 Worker 感知终态。",
+      "requiredSqlFragments": [
+        "@ActorUserId",
+        "StatusKey IN ('queued', 'running')"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.find_by_id",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 领取后按 RunId 加载冻结绑定；后续仍重验会话。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_worker.upsert_heartbeat.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentWorkerSql.UpsertSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 心跳写入全局实例表，供就绪门禁判断。",
+      "requiredSqlFragments": [
+        "fn_ai_agent_worker_instance",
+        "@RuntimeVersion"
+      ]
+    },
+    {
+      "statementName": "ai.agent_worker.upsert_heartbeat.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentWorkerSql.UpsertMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL Worker 心跳 upsert。",
+      "requiredSqlFragments": [
+        "fn_ai_agent_worker_instance",
+        "ON DUPLICATE KEY UPDATE"
+      ]
+    },
+    {
+      "statementName": "ai.agent_worker.has_fresh",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentWorkerSql.HasFreshWorker",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentWorkerSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "API 创建运行前要求匹配版本的新鲜 Worker 心跳。",
+      "requiredSqlFragments": [
+        "@RuntimeVersion",
+        "LastHeartbeatAtUtc"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.find_by_client_request",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindByClientRequest",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "幂等创建按可信 ScopeKey 与 ActorUserId 定位运行；不接受模型参数覆盖主体。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@ActorUserId",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.insert",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.InsertRun",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "运行创建写入冻结绑定与预算；ScopeKey 仅来自可信租户或 Host 编码。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.acquire_lease.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.AcquireLeaseSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "Worker 领取运行租约并递增代次；过期或空闲租约才可抢占。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@WorkerId",
+        "LeaseEpoch"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.acquire_lease.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.AcquireLeaseMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL Worker 领取运行租约并递增代次；过期或空闲租约才可抢占。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@WorkerId",
+        "LeaseEpoch"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.select_lease",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.SelectLease",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "领取后读取新版本与租约代次供 fencing 回传（SqlServer/MySQL 共用）。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@WorkerId",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.renew_lease",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.RenewLease",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "续租必须匹配 Worker、租约代次与行版本，旧 Worker 不能续租。",
+      "requiredSqlFragments": [
+        "@LeaseEpoch",
+        "@Version",
+        "LeaseOwner"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.update_status",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.UpdateRunStatus",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "进度提交在有效租约下更新状态；终态不可被无租约写入覆盖。",
+      "requiredSqlFragments": [
+        "@LeaseEpoch",
+        "@Version",
+        "StatusKey"
+      ]
+    },
+    {
+      "statementName": "ai.agent_step.insert",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.InsertStep",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "步骤与运行同事务提交；OperationId 全局唯一防止重复副作用。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@OperationId",
+        "fn_ai_agent_step"
+      ]
+    },
+    {
+      "statementName": "ai.agent_checkpoint.insert",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.InsertCheckpoint",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "检查点按 Run 序号追加；恢复只读取已提交序号。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@Sequence",
+        "fn_ai_agent_checkpoint"
+      ]
+    },
+    {
+      "statementName": "ai.agent_event.insert",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.InsertEvent",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "事件流按 Run 序号追加供重连重放；不触发外部副作用。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@Sequence",
+        "fn_ai_agent_event"
+      ]
+    },
+    {
+      "statementName": "ai.agent_checkpoint.find_latest",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindLatestCheckpoint",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "读取运行最新检查点供恢复与 AG-UI 重放。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_agent_checkpoint"
+      ]
+    },
+    {
+      "statementName": "ai.agent_checkpoint.find_latest.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.FindLatestCheckpointMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 读取运行最新检查点。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_agent_checkpoint"
+      ]
+    },
+    {
+      "statementName": "ai.agent_event.list_after.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.ListAfterSequenceMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 按序号增量读取事件流。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@AfterSequence",
+        "fn_ai_agent_event"
+      ]
+    },
+    {
+      "statementName": "ai.agent_event.list_after.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.ListAfterSequenceSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "SqlServer 按序号增量读取事件流。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@AfterSequence",
+        "fn_ai_agent_event"
+      ]
+    },
+    {
+      "statementName": "ai.agent_event.max_sequence",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.MaxSequence",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "查询运行事件最大序号用于追加写入。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_agent_event"
+      ]
+    },
+    {
+      "statementName": "ai.agent_run.resume_owned",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentRunSql.ResumeOwned",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentRunSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "主体恢复 awaiting_approval 运行；版本条件更新。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@ActorUserId",
+        "fn_ai_agent_run"
+      ]
+    },
+    {
+      "statementName": "ai.agent_step.list_by_run",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.ListSteps",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按运行列出步骤审计。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_agent_step"
+      ]
+    },
+    {
+      "statementName": "ai.consume_agent_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.Consume",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "写工具执行前消费已批准绑定；版本条件更新。",
+      "requiredSqlFragments": [
+        "@Id",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.count_active_agent_delegation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentDelegationSql.CountActive",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "校验代行审批是否仍在有效委托范围内。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@GrantorUserId",
+        "fn_ai_agent_delegation"
+      ]
+    },
+    {
+      "statementName": "ai.count_approved_unconsumed_for_run",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.CountApprovedUnconsumedForRun",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "恢复运行前统计未消费批准。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "@ScopeKey",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.decide_agent_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.Decide",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "审批决定写入；版本与 pending 状态门禁。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@ExpectedVersion",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.find_agent_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.FindById",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按 ScopeKey 读取审批详情供代行决定。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.find_agent_approval_by_operation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.FindByOperation",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按 OperationId 定位审批绑定。",
+      "requiredSqlFragments": [
+        "@OperationId",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.find_mcp_remote_connection_by_id",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.FindConnectionById",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "读取受管 MCP 远端连接配置。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_mcp_remote_connection"
+      ]
+    },
+    {
+      "statementName": "ai.find_mcp_remote_tool_approval_by_local",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.FindApprovalByLocalName",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "按本地工具名查找 MCP 工具批准记录。",
+      "requiredSqlFragments": [
+        "@LocalToolName",
+        "fn_ai_mcp_remote_tool_approval"
+      ]
+    },
+    {
+      "statementName": "ai.find_owned_agent_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.FindOwnedById",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "请求者读取本人审批；代行者通过服务层扩展。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@ActorUserId",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.find_owned_agent_delegation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentDelegationSql.FindOwnedById",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "授权人读取本人创建的委托。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@GrantorUserId",
+        "fn_ai_agent_delegation"
+      ]
+    },
+    {
+      "statementName": "ai.insert_agent_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentApprovalSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentApprovalSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "创建写工具审批请求；OperationId 幂等。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@OperationId",
+        "fn_ai_agent_approval"
+      ]
+    },
+    {
+      "statementName": "ai.insert_agent_delegation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentDelegationSql.Insert",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "创建有限范围与期限的审批委托。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_agent_delegation"
+      ]
+    },
+    {
+      "statementName": "ai.insert_mcp_remote_connection",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.InsertConnection",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "登记受管 MCP 远端连接元数据。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_mcp_remote_connection"
+      ]
+    },
+    {
+      "statementName": "ai.insert_mcp_remote_tool_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.InsertApproval",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "登记 MCP 远端工具暴露批准。",
+      "requiredSqlFragments": [
+        "@ConnectionId",
+        "fn_ai_mcp_remote_tool_approval"
+      ]
+    },
+    {
+      "statementName": "ai.list_mcp_remote_connections",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.ListConnections",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出 Scope 内 MCP 远端连接。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "fn_ai_mcp_remote_connection"
+      ]
+    },
+    {
+      "statementName": "ai.list_mcp_remote_tool_approvals",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.ListApprovalsByConnection",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "列出连接的已批准 MCP 工具。",
+      "requiredSqlFragments": [
+        "@ConnectionId",
+        "fn_ai_mcp_remote_tool_approval"
+      ]
+    },
+    {
+      "statementName": "ai.list_owned_agent_delegations",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentDelegationSql.ListOwned",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "授权人列出本人有效委托。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@GrantorUserId",
+        "fn_ai_agent_delegation"
+      ]
+    },
+    {
+      "statementName": "ai.operation_budget.find_by_run.mysql",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.FindBudgetByRunMySql",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "MySQL 按运行读取预算账本行。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_operation_budget"
+      ]
+    },
+    {
+      "statementName": "ai.operation_budget.find_by_run.sqlserver",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentEventSql.FindBudgetByRunSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentEventSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "SqlServer 按运行读取预算账本行。",
+      "requiredSqlFragments": [
+        "@RunId",
+        "fn_ai_operation_budget"
+      ]
+    },
+    {
+      "statementName": "ai.revoke_owned_agent_delegation",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiAgentDelegationSql.RevokeOwned",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiAgentDelegationSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "授权人撤销委托；版本条件更新。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@GrantorUserId",
+        "fn_ai_agent_delegation"
+      ]
+    },
+    {
+      "statementName": "ai.touch_existing_tool_call",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiToolExecutionSql.TouchExistingCall",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiToolExecutionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "重复拒绝审计幂等确认行存在。",
+      "requiredSqlFragments": [
+        "@OperationId",
+        "@ActorUserId",
+        "fn_ai_agent_tool_call"
+      ]
+    },
+    {
+      "statementName": "ai.transition_denied_approval_to_started",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiToolExecutionSql.TransitionDeniedApprovalToStarted",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiToolExecutionSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "批准后从 denied 审计行过渡到 started 再执行。",
+      "requiredSqlFragments": [
+        "@OperationId",
+        "ai.tool.approval_required",
+        "fn_ai_agent_tool_call"
+      ]
+    },
+    {
+      "statementName": "ai.update_mcp_remote_connection",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.UpdateConnection",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新 MCP 远端连接配置；版本条件写入。",
+      "requiredSqlFragments": [
+        "@ScopeKey",
+        "@Version",
+        "fn_ai_mcp_remote_connection"
+      ]
+    },
+    {
+      "statementName": "ai.update_mcp_remote_tool_approval",
+      "declaration": "Full.NET.Modules.Ai.Persistence.AiMcpRemoteSql.UpdateApproval",
+      "file": "src/Modules/Full.NET.Modules.Ai/Persistence/AiMcpRemoteSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "更新 MCP 工具批准元数据。",
+      "requiredSqlFragments": [
+        "@ConnectionId",
+        "fn_ai_mcp_remote_tool_approval"
+      ]
     }
   ]
 }

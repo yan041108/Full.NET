@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { useBlobPreview } from '../composables/useBlobPreview';
 import {
   ElButton,
   ElCard,
@@ -45,8 +46,10 @@ const removingAvatar = ref(false);
 const removingSignature = ref(false);
 const avatarFileId = ref<string | null>(null);
 const signatureFileId = ref<string | null>(null);
-const avatarPreviewUrl = ref<string | null>(null);
-const signaturePreviewUrl = ref<string | null>(null);
+const avatarPreview = useBlobPreview();
+const signaturePreview = useBlobPreview();
+const avatarPreviewUrl = avatarPreview.url;
+const signaturePreviewUrl = signaturePreview.url;
 const username = ref('');
 const displayName = ref('');
 const userVersion = ref(0);
@@ -83,33 +86,23 @@ const profileDictOptions = ref<Record<string, HostUserProfileDictOption[]>>({
   [HOST_USER_PROFILE_DICT_CODES.emergencyContactRelation]: []
 });
 
-function revokePreview(url: string | null): void {
-  if (url) {
-    URL.revokeObjectURL(url);
-  }
-}
-
 async function refreshMediaPreviews(): Promise<void> {
-  revokePreview(avatarPreviewUrl.value);
-  revokePreview(signaturePreviewUrl.value);
-  avatarPreviewUrl.value = null;
-  signaturePreviewUrl.value = null;
+  avatarPreview.clear();
+  signaturePreview.clear();
 
   if (avatarFileId.value) {
     try {
-      const blob = await fetchProfileAvatarBlob();
-      avatarPreviewUrl.value = URL.createObjectURL(blob);
+      await avatarPreview.load(fetchProfileAvatarBlob);
     } catch {
-      avatarPreviewUrl.value = null;
+      // 头像预览失败不影响资料操作。
     }
   }
 
   if (signatureFileId.value) {
     try {
-      const blob = await fetchProfileSignatureBlob();
-      signaturePreviewUrl.value = URL.createObjectURL(blob);
+      await signaturePreview.load(fetchProfileSignatureBlob);
     } catch {
-      signaturePreviewUrl.value = null;
+      // 签名预览失败不影响资料操作。
     }
   }
 }
@@ -336,10 +329,6 @@ onMounted(async () => {
   await loadProfile();
 });
 
-onUnmounted(() => {
-  revokePreview(avatarPreviewUrl.value);
-  revokePreview(signaturePreviewUrl.value);
-});
 
 const canEditDisplayName = computed(() => true);
 </script>

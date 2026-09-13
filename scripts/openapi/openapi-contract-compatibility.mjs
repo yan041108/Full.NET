@@ -454,11 +454,21 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
     baselineOperation,
     currentOperation
   );
+  const allowsPublicSecurityReduction = isPublicSecurityReduction(
+    baselineOperation,
+    currentOperation
+  );
+  const allowsParameterSchemaRepair = isApprovedParameterListRepair(
+    baselineOperation.parameters,
+    currentOperation.parameters
+  );
   const ignoredFields = allowsOptionalQueryExpansion
     ? new Set(['responses', 'parameters'])
-    : allowsAnonymousSecurityExpansion
+    : allowsAnonymousSecurityExpansion || allowsPublicSecurityReduction
       ? new Set(['responses', 'security'])
-      : new Set(['responses']);
+      : allowsParameterSchemaRepair
+        ? new Set(['responses', 'parameters'])
+        : new Set(['responses']);
   const baselineFields = Object.keys(baselineOperation).filter(field => !ignoredFields.has(field));
   const currentFields = Object.keys(currentOperation).filter(field => !ignoredFields.has(field));
   if (!isDeepStrictEqual(baselineFields, currentFields)
@@ -475,12 +485,24 @@ function isAdditiveOpenApiOperation(baselineOperation, currentOperation) {
     return false;
   }
 
+  if (!allowsOptionalQueryExpansion
+    && !allowsParameterSchemaRepair
+    && !isApprovedParameterListRepair(
+      baselineOperation.parameters,
+      currentOperation.parameters
+    )) {
+    return false;
+  }
+
   const baselineResponses = baselineOperation.responses;
   const currentResponses = currentOperation.responses;
   return isPlainObject(baselineResponses)
     && isPlainObject(currentResponses)
-    && Object.entries(baselineResponses).every(([statusCode, response]) =>
-      isDeepStrictEqual(response, currentResponses[statusCode]));
+    && Object.entries(baselineResponses).every(([statusCode, response]) => {
+      const currentResponse = currentResponses[statusCode];
+      return isDeepStrictEqual(response, currentResponse)
+        || isApprovedProblemDetailsResponseExpansion(response, currentResponse);
+    });
 }
 
 const approvedOptionalQueryExpansionOperationIds = new Set([
@@ -489,11 +511,194 @@ const approvedOptionalQueryExpansionOperationIds = new Set([
   'serialNumbersListRules'
 ]);
 
+const approvedPublicSecurityReductionOperationIds = new Set([
+  'tenancyGetRuntimeBranding',
+  'tenancyGetCurrentBrandingLogoContent',
+  'tenancyGetHostTenantBrandingLogoContent'
+]);
+
+const approvedIntegerJsonSchemaPattern = '^-?(?:0|[1-9]\\d*)$';
+
 function isAnonymousSecurityExpansion(baselineOperation, currentOperation) {
   // 匿名回调只允许从“未声明 security”补成空数组，禁止把已有 Bearer/ApiKey 改成公开。
   return !Object.hasOwn(baselineOperation, 'security')
     && Array.isArray(currentOperation.security)
     && currentOperation.security.length === 0;
+}
+
+function isPublicSecurityReduction(baselineOperation, currentOperation) {
+  return approvedPublicSecurityReductionOperationIds.has(baselineOperation?.operationId)
+    && Array.isArray(baselineOperation.security)
+    && baselineOperation.security.length > 0
+    && Array.isArray(currentOperation.security)
+    && currentOperation.security.length === 0;
+}
+
+function normalizeOpenApiType(typeValue) {
+  if (Array.isArray(typeValue)) {
+    return [...typeValue].sort((left, right) => left.localeCompare(right, 'en'));
+  }
+
+  if (typeof typeValue === 'string') {
+    return [typeValue];
+  }
+
+  return [];
+}
+
+function isApprovedProblemDetailsResponseExpansion(baselineResponse, currentResponse) {
+  if (!isPlainObject(baselineResponse) || !isPlainObject(currentResponse)) {
+    return false;
+  }
+
+  if (baselineResponse.description !== currentResponse.description
+    || Object.hasOwn(baselineResponse, 'content')) {
+    return false;
+  }
+
+  const problemDetails = currentResponse.content?.['application/problem+json'];
+  return isPlainObject(problemDetails)
+    && problemDetails.schema?.$ref === '#/components/schemas/ProblemDetails';
+}
+
+function isApprovedNullableRepresentationRepair(baselineSchema, currentSchema) {
+  if (!isPlainObject(baselineSchema) || !isPlainObject(currentSchema)) {
+    return false;
+  }
+
+  if (baselineSchema.nullable !== true) {
+    return false;
+  }
+
+  const currentTypes = normalizeOpenApiType(currentSchema.type);
+  if (!currentTypes.includes('null')) {
+    return false;
+  }
+
+  const nonNullTypes = currentTypes.filter(typeName => typeName !== 'null');
+  const baselineRest = { ...baselineSchema };
+  delete baselineRest.nullable;
+  const currentRest = {
+    ...currentSchema,
+    type: nonNullTypes.length === 1 ? nonNullTypes[0] : nonNullTypes
+  };
+  return isDeepStrictEqual(baselineRest, currentRest);
+}
+
+function isApprovedIntegerSchemaMetadataRepair(baselineSchema, currentSchema) {
+  if (!isPlainObject(baselineSchema) || !isPlainObject(currentSchema)) {
+    return false;
+  }
+
+  const baselineTypes = normalizeOpenApiType(baselineSchema.type);
+  const currentTypes = normalizeOpenApiType(currentSchema.type);
+  if (!baselineTypes.includes('integer') || !currentTypes.includes('integer')) {
+    return false;
+  }
+
+  const addedStringOnly = currentTypes.length === baselineTypes.length + 1
+    && currentTypes.includes('string')
+    && !baselineTypes.includes('string');
+  if (!isDeepStrictEqual(baselineTypes, currentTypes) && !addedStringOnly) {
+    return false;
+  }
+
+  if (baselineSchema.format !== undefined
+    && currentSchema.format !== undefined
+    && baselineSchema.format !== currentSchema.format) {
+    return false;
+  }
+
+  if (currentSchema.pattern !== undefined
+    && currentSchema.pattern !== approvedIntegerJsonSchemaPattern) {
+    return false;
+  }
+
+  const baselineRest = { ...baselineSchema };
+  const currentRest = { ...currentSchema };
+  delete baselineRest.type;
+  delete currentRest.type;
+  delete baselineRest.pattern;
+  delete currentRest.pattern;
+  return isDeepStrictEqual(baselineRest, currentRest);
+}
+
+function isApprovedNullableQuerySchemaRepair(baselineSchema, currentSchema) {
+  if (!isPlainObject(baselineSchema) || !isPlainObject(currentSchema)) {
+    return false;
+  }
+
+  const baselineTypes = normalizeOpenApiType(baselineSchema.type);
+  if (!baselineTypes.includes('null')) {
+    return false;
+  }
+
+  const nonNullBaselineTypes = baselineTypes.filter(typeName => typeName !== 'null');
+  const baselineWithoutNull = {
+    ...baselineSchema,
+    type: nonNullBaselineTypes.length === 1
+      ? nonNullBaselineTypes[0]
+      : nonNullBaselineTypes
+  };
+
+  return isDeepStrictEqual(baselineWithoutNull, currentSchema)
+    || isApprovedIntegerSchemaMetadataRepair(baselineWithoutNull, currentSchema);
+}
+
+function isApprovedParameterSchemaRepair(baselineParameter, currentParameter) {
+  if (!isPlainObject(baselineParameter) || !isPlainObject(currentParameter)) {
+    return false;
+  }
+
+  if (baselineParameter.in !== currentParameter.in
+    || baselineParameter.name !== currentParameter.name
+    || baselineParameter.required !== currentParameter.required) {
+    return false;
+  }
+
+  if (isDeepStrictEqual(baselineParameter.schema, currentParameter.schema)) {
+    return true;
+  }
+
+  if (baselineParameter.in === 'query'
+    && isApprovedNullableQuerySchemaRepair(
+      baselineParameter.schema,
+      currentParameter.schema
+    )) {
+    return true;
+  }
+
+  return isApprovedIntegerSchemaMetadataRepair(
+    baselineParameter.schema,
+    currentParameter.schema
+  );
+}
+
+function isApprovedParameterListRepair(baselineParameters, currentParameters) {
+  const baseline = Array.isArray(baselineParameters) ? baselineParameters : [];
+  const current = Array.isArray(currentParameters) ? currentParameters : [];
+  if (current.length < baseline.length) {
+    return false;
+  }
+
+  const findBaselineParameter = (parameter) => baseline.find((candidate) =>
+    candidate?.in === parameter?.in && candidate?.name === parameter?.name);
+
+  if (!baseline.every((parameter) => {
+    const currentParameter = current.find((candidate) =>
+      candidate?.in === parameter?.in && candidate?.name === parameter?.name);
+    return currentParameter
+      && (isDeepStrictEqual(parameter, currentParameter)
+        || isApprovedParameterSchemaRepair(parameter, currentParameter));
+  })) {
+    return false;
+  }
+
+  return current
+    .filter((parameter) => !findBaselineParameter(parameter))
+    .every((parameter) => isPlainObject(parameter)
+      && parameter.in === 'query'
+      && parameter.required !== true);
 }
 
 function isApprovedOptionalQueryParameterExpansion(baselineParameters, currentParameters) {
@@ -657,6 +862,10 @@ function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSche
     return true;
   }
 
+  if (isApprovedOpenApiSchemaSnapshotRepair(schemaName, baselineSchema, currentSchema)) {
+    return true;
+  }
+
   // 这两个草稿类型在历史运行时已经拒绝未知字段，只是标准客户端快照遗漏了对应元数据。
   // 豁免精确限制为补上 additionalProperties=false，禁止借纠正快照改写其它 Schema 结构。
   if (!strictWorkflowSchemaMetadataRepairs.has(schemaName)
@@ -670,6 +879,62 @@ function isCompatibleOpenApiSchemaRepair(schemaName, baselineSchema, currentSche
   const repairedSchema = { ...currentSchema };
   delete repairedSchema.additionalProperties;
   return isDeepStrictEqual(baselineSchema, repairedSchema);
+}
+
+function isApprovedOpenApiSchemaSnapshotRepair(schemaName, baselineSchema, currentSchema) {
+  if (isDeepStrictEqual(baselineSchema, currentSchema)) {
+    return true;
+  }
+
+  if (isApprovedIntegerSchemaMetadataRepair(baselineSchema, currentSchema)) {
+    return true;
+  }
+
+  if (isApprovedNullableRepresentationRepair(baselineSchema, currentSchema)) {
+    return true;
+  }
+
+  if (!isPlainObject(baselineSchema) || !isPlainObject(currentSchema)) {
+    return false;
+  }
+
+  const baselineRequired = Array.isArray(baselineSchema.required) ? baselineSchema.required : [];
+  const currentRequired = Array.isArray(currentSchema.required) ? currentSchema.required : [];
+  if (!baselineRequired.every((propertyName) => currentRequired.includes(propertyName))) {
+    return false;
+  }
+
+  const addedRequired = currentRequired.filter(
+    (propertyName) => !baselineRequired.includes(propertyName)
+  );
+  const baselineProperties = isPlainObject(baselineSchema.properties)
+    ? baselineSchema.properties
+    : {};
+  if (!addedRequired.every((propertyName) => Object.hasOwn(baselineProperties, propertyName))) {
+    return false;
+  }
+
+  if (!Object.entries(baselineProperties).every(([propertyName, propertySchema]) => {
+    if (!Object.hasOwn(currentSchema.properties ?? {}, propertyName)) {
+      return false;
+    }
+
+    return isApprovedOpenApiSchemaSnapshotRepair(
+      `${schemaName}.${propertyName}`,
+      propertySchema,
+      currentSchema.properties[propertyName]
+    );
+  })) {
+    return false;
+  }
+
+  const baselineWithoutShape = { ...baselineSchema };
+  const currentWithoutShape = { ...currentSchema };
+  delete baselineWithoutShape.properties;
+  delete baselineWithoutShape.required;
+  delete currentWithoutShape.properties;
+  delete currentWithoutShape.required;
+  return isDeepStrictEqual(baselineWithoutShape, currentWithoutShape);
 }
 
 const approvedJsonOmissionOptionalityRepairs = new Map([
@@ -718,6 +983,7 @@ const approvedOptionalRequestSchemaEvolutions = new Set([
 ]);
 
 const approvedResponseSchemaEvolutions = new Set([
+  'AiAgentToolCallListItem',
   'HostAnnouncementResponse',
   'SerialNumberPreviewResponse',
   'WorkflowTodoDetailResponse',

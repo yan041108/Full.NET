@@ -7,7 +7,6 @@ using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Connectivity;
 using Full.NET.Modules.Ai.Domain;
 using Full.NET.Modules.Ai.Persistence;
-using Full.NET.Modules.Ai.Security;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Ai.Features.ManageModelConfigs;
@@ -16,7 +15,6 @@ namespace Full.NET.Modules.Ai.Features.ManageModelConfigs;
 internal sealed class AiModelConfigOperationsService(
     IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
-    AiApiKeySecretProtector secretProtector,
     AiModelConnectivityTester connectivityTester,
     IClock clock)
 {
@@ -41,14 +39,8 @@ internal sealed class AiModelConfigOperationsService(
                 ErrorType.NotFound));
         }
 
-        string? apiKey = null;
-        if (!string.IsNullOrWhiteSpace(row.ApiKeyProtected))
-        {
-            apiKey = secretProtector.Unprotect(row.ApiKeyProtected);
-        }
-
         var outcome = await connectivityTester
-            .TestAsync(row, apiKey, cancellationToken)
+            .TestAsync(row, cancellationToken)
             .ConfigureAwait(false);
         var statusKey = outcome.Succeeded
             ? AiModelTestStatusKeys.Succeeded

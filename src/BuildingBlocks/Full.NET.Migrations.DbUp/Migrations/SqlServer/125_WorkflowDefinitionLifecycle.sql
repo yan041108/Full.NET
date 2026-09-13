@@ -39,9 +39,9 @@ BEGIN
 
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_definition', @level2type=N'COLUMN', @level2name=N'StatusKey';
 
-END
+END;
 
-
+GO
 
 IF NOT EXISTS (
 

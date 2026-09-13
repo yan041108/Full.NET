@@ -82,6 +82,7 @@
 | 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limit.exceeded` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
 | Elasticsearch 日志 | Elasticsearch Observability | Provider | M5+ | Mapped |
 | OAuth 2.0 外部登录 | Identity OAuth Providers | Provider | M5+ | Mapped |
+| OIDC 认证中心与跨应用 SSO（项目自有扩展） | Identity + 协议适配 + Vue | Core + Client | P0→P3 专项 | Mapped（2026-09-13 方向与阶段已确认，P0 未开始；区别于外部登录客户端，不代表 Admin.NET 参考能力已验证；见 [ADR-0011](../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 与[执行计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)） |
 | APIJSON 零代码查询 | APIJSON Compatibility | Compatibility | M5+ | Mapped |
 | 数据库视图与实体维护 | DatabaseTools + CodeGeneration | Official Module | M5+ | Mapped |
 
@@ -169,6 +170,21 @@ Document 队列 #1 已于 2026-08-16 完成功能实现并关闭，当前保持 
 建议执行顺序：**B1 Identity + CodeGeneration** → **B2 RBAC Verified** → **B3 Workflow 核心首切片** → **Workflow 设计器/表单跨端** → 其余 B3；Notifications 平台扩展可按独立资源与迁移号协调执行，但首个外部 Provider 必须另过厂商门禁。
 
 AI 对标不止复制模型配置和聊天页面。Full.NET 的验收范围还包括 `Microsoft.Extensions.AI` 供应商中立抽象、模型/Token/费用配额、显式 Tool 权限、Agent 会话与步骤、人工审批、MCP Client/Server、AG-UI 或等价标准 Web 协议、租户隔离和可靠审计。预览协议包必须封装在独立适配器中，不能成为核心稳定 API。
+
+### 4.3 AI / Agentic Web 能力状态（2026-09-12）
+
+下列状态只反映当前仓库证据；**Build-verified** 不等于生产 **Verified**，也禁止用目录存在或计划勾选直接升档。详细实施记录见 [`2026-09-08-ai-agentic-web-alignment`](../superpowers/plans/2026-09-08-ai-agentic-web-alignment.md)。
+
+| 能力 | 状态 | 已验证范围 | 未关闭项 |
+| --- | --- | --- | --- |
+| AI Chat（中立 Provider、配额、流式） | Build-verified | 单元/架构门禁；Ollama/OpenAI 受控协议测试 | 双库 real-stack、付费供应商、旧 SSE 公开退役公告 |
+| Agent Runtime（Run/租约/检查点/审批） | Build-verified | 单元 + 租约/检查点集成切片；Native Worker Agent 心跳探针 | 双库审批恢复 E2E、服务重启全链路、容量认证 |
+| 显式工作流 / 多 Agent 示例 | Build-verified | `fullnet-chat-rename-workflow-v1` 静态图、子步骤预算隔离、检查点恢复单元/集成 | 并行节点、生产 Baseline 注册、完整故障矩阵 |
+| MCP Server | Build-verified | 标准元数据端点、互操作/授权集成测试（需 Docker） | Linux 原生 publish 运行、标准外部客户端 CI 证据 |
+| MCP Client（远端连接） | Build-verified | 管理 API、策略、统一执行器、迁移 215 | 故障矩阵、双库 API、真实远端服务验收 |
+| AG-UI | Build-verified | 协议映射与持久事件单元/集成切片 | 标准客户端重连、Native AOT 可达路径 |
+| Embedding | Build-verified | OpenAI/Ollama/Azure 适配、测试端点、预算 | 生产模型验收、双库费用结算 |
+| Azure OpenAI Provider | Build-verified | Chat/Embedding/连通性切片 | 真实 Azure 部署验收、密钥轮换演练 |
 
 Realtime 对标分两阶段：M2 先交付 `IRealtimePublisher`、SignalR JSON Hub Protocol、连接鉴权、租户分组和 Redis Backplane；M3 的 Notifications 再消费该抽象实现公告、站内信、未读数和多渠道通知。业务模块不得直接持有 `IHubContext`。
 

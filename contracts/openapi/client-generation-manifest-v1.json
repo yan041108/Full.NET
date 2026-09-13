@@ -6,7 +6,10 @@
     "identityLogout",
     "identityListPublicRegistrationWays",
     "documentPublicAccessDocumentShare",
-    "paymentsWeChatNativeNotify"
+    "paymentsWeChatNativeNotify",
+    "tenancyGetRuntimeBranding",
+    "tenancyGetCurrentBrandingLogoContent",
+    "tenancyGetHostTenantBrandingLogoContent"
   ],
   "entries": [
     {
@@ -2506,6 +2509,12 @@
       "status": "manual"
     },
     {
+      "operationId": "aiTestModelEmbeddings",
+      "apiModule": "ui/admin/src/api/ai-model-configs.ts",
+      "generatedGroup": "ai-model-configs",
+      "status": "manual"
+    },
+    {
       "operationId": "aiListTenantQuotas",
       "apiModule": "ui/admin/src/api/ai-model-configs.ts",
       "generatedGroup": "ai-model-configs",
@@ -2581,6 +2590,114 @@
       "operationId": "aiListAgentToolCalls",
       "apiModule": "ui/admin/src/api/ai-agent-tools.ts",
       "generatedGroup": "ai-agent-tools",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCreateAgentRun",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-runs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetAgentRun",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-runs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCancelAgentRun",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-runs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiResumeAgentRun",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-runs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiStreamAgentRunEvents",
+      "apiModule": "ui/admin/src/api/ai-agent-runs.ts",
+      "generatedGroup": "ai-agent-runs",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiListMcpRemoteConnections",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetMcpRemoteConnection",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCreateMcpRemoteConnection",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiUpdateMcpRemoteConnection",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiDiscoverMcpRemoteTools",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiListMcpRemoteToolApprovals",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiApproveMcpRemoteTool",
+      "apiModule": "ui/admin/src/api/ai-mcp-remote-connections.ts",
+      "generatedGroup": "ai-mcp-remote-connections",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCreateAgentApproval",
+      "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
+      "generatedGroup": "ai-agent-approvals",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiGetAgentApproval",
+      "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
+      "generatedGroup": "ai-agent-approvals",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiDecideAgentApproval",
+      "apiModule": "ui/admin/src/api/ai-agent-approvals.ts",
+      "generatedGroup": "ai-agent-approvals",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiCreateAgentDelegation",
+      "apiModule": "ui/admin/src/api/ai-agent-delegations.ts",
+      "generatedGroup": "ai-agent-delegations",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiListAgentDelegations",
+      "apiModule": "ui/admin/src/api/ai-agent-delegations.ts",
+      "generatedGroup": "ai-agent-delegations",
+      "status": "manual"
+    },
+    {
+      "operationId": "aiRevokeAgentDelegation",
+      "apiModule": "ui/admin/src/api/ai-agent-delegations.ts",
+      "generatedGroup": "ai-agent-delegations",
       "status": "manual"
     },
     {

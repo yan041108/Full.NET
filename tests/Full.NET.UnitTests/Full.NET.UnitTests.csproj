@@ -1,4 +1,11 @@
 <Project Sdk="MSTest.Sdk">
+  <!-- 直接验证原生读取源文件，避免为 JIT 业务模块开放 ADO.NET 依赖。 -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);FULLNET_AI_ROW_READER_TESTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(FullNetAotAnalysis)' != 'true' and '$(FullNetPublishMode)' != 'NativeAot' and '$(PublishAot)' != 'true'">
+    <Compile Include="../../src/Modules/Full.NET.Modules.Ai/Persistence/AiBudgetRowReaders.cs" Link="Ai/AiBudgetRowReaders.cs" />
+  </ItemGroup>
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>

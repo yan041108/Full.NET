@@ -99,24 +99,15 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'步骤标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'StepId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流加签链表',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程实例标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'InstanceId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程步骤标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'StepId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发起加签的原待办标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'OriginTodoId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'加签方向键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'DirectionKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'加签链状态键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'StatusKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'发起加签的用户标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'CreatedByUserId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_chain', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
+
+
+
+
+
+
+
+
+
 END;
 
 IF OBJECT_ID(N'dbo.fn_workflow_countersign_item', N'U') IS NULL
@@ -199,20 +190,13 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'待办标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'TodoId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流加签项表',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'所属加签链标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'ChainId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'加签顺序号',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'SequenceNo';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'加签办理人标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'AssigneeUserId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'关联待办标识',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'TodoId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'加签项状态键',
-        @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_countersign_item', @level2type=N'COLUMN', @level2name=N'StatusKey';
+
+
+
+
+
+
+
 END;
 
 IF NOT EXISTS (

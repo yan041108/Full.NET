@@ -30,6 +30,9 @@ internal static class IdentityAuthenticationServiceCollectionExtensions
 
         services.TryAddSingleton<IdentityAuthenticationRegistrationMarker>();
         services.TryAddScoped<AccessSessionValidator>();
+        services.TryAddScoped<Full.NET.Modules.Identity.Contracts.ICurrentSessionAuthorization, CurrentSessionAuthorization>();
+        services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
+        services.TryAddScoped<Full.NET.Modules.Identity.Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
         services.TryAddScoped<FullNetJwtBearerEvents>();
         // Data Protection 由宿主 AddFullNetDataProtection 统一配置共享 Key Ring，禁止此处裸注册。
         services.TryAddSingleton<TotpSecretProtector>();

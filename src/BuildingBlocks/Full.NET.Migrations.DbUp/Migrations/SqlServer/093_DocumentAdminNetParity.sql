@@ -1723,6 +1723,8 @@ BEGIN
         ON dbo.fn_document_share(TenantId, ShareCode);
 END;
 
+GO
+
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE name = N'IX_fn_document_share_DocumentId'

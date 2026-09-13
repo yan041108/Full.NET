@@ -4,7 +4,7 @@ namespace Full.NET.Modules.Regions.Contracts;
 public static class RegionsErrorCodes
 {
     /// <summary>错误码前缀，用于资源文件分组。</summary>
-    public const string Prefix = "regions";
+    public const string Prefix = "regions.";
 
     /// <summary>请求校验失败。</summary>
     public const string ValidationFailed = "regions.administrative_region_validation_failed";

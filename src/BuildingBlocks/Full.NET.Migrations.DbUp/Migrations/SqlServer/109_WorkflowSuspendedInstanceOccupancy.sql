@@ -27,6 +27,8 @@ BEGIN
             END) PERSISTED;
 END
 
+GO
+
 IF NOT EXISTS (
     SELECT 1
     FROM sys.indexes

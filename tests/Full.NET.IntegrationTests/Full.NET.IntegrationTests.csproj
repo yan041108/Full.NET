@@ -39,5 +39,6 @@
     <PackageReference Include="Testcontainers.MySql" />
     <PackageReference Include="Testcontainers.Kafka" />
     <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
 </Project>

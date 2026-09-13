@@ -30,7 +30,9 @@ BEGIN
           AND name = N'MS_Description'
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'乐观并发版本号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_form_definition', @level2type=N'COLUMN', @level2name=N'Version';
-END
+END;
+
+GO
 
 IF NOT EXISTS (
     SELECT 1
@@ -42,6 +44,8 @@ BEGIN
         ADD CONSTRAINT CK_fn_workflow_form_definition_StatusKey
             CHECK (StatusKey IN ('active', 'disabled', 'archived'));
 END
+
+GO
 
 IF NOT EXISTS (
     SELECT 1

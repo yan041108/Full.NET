@@ -20,6 +20,9 @@ internal static class AiModelConfigFieldValidator
     /// <summary>OpenAI 兼容 API 默认端点。</summary>
     internal const string DefaultOpenAiCompatibleEndpoint = "https://api.openai.com/v1";
 
+    /// <summary>Azure OpenAI 默认端点占位；实际资源地址由管理员配置。</summary>
+    internal const string DefaultAzureOpenAiEndpoint = "https://example.openai.azure.com";
+
     /// <summary>Ollama 默认端点。</summary>
     internal const string DefaultOllamaEndpoint = "http://127.0.0.1:11434";
 
@@ -28,7 +31,8 @@ internal static class AiModelConfigFieldValidator
     /// <returns>是否受支持。</returns>
     public static bool IsSupportedProvider(string? providerKey) =>
         string.Equals(providerKey, AiProviderKeys.OpenAiCompatible, StringComparison.Ordinal)
-        || string.Equals(providerKey, AiProviderKeys.Ollama, StringComparison.Ordinal);
+        || string.Equals(providerKey, AiProviderKeys.Ollama, StringComparison.Ordinal)
+        || string.Equals(providerKey, AiProviderKeys.AzureOpenAi, StringComparison.Ordinal);
 
     /// <summary>解析提供程序默认端点基址。</summary>
     /// <param name="providerKey">提供程序键。</param>
@@ -36,13 +40,16 @@ internal static class AiModelConfigFieldValidator
     public static string ResolveDefaultEndpoint(string providerKey) =>
         string.Equals(providerKey, AiProviderKeys.Ollama, StringComparison.Ordinal)
             ? DefaultOllamaEndpoint
-            : DefaultOpenAiCompatibleEndpoint;
+            : string.Equals(providerKey, AiProviderKeys.AzureOpenAi, StringComparison.Ordinal)
+                ? DefaultAzureOpenAiEndpoint
+                : DefaultOpenAiCompatibleEndpoint;
 
     /// <summary>指定提供程序是否要求 API 密钥。</summary>
     /// <param name="providerKey">提供程序键。</param>
     /// <returns>是否要求密钥。</returns>
     public static bool RequiresApiKey(string providerKey) =>
-        string.Equals(providerKey, AiProviderKeys.OpenAiCompatible, StringComparison.Ordinal);
+        string.Equals(providerKey, AiProviderKeys.OpenAiCompatible, StringComparison.Ordinal)
+        || string.Equals(providerKey, AiProviderKeys.AzureOpenAi, StringComparison.Ordinal);
 
     /// <summary>校验模型配置元数据。</summary>
     /// <param name="name">显示名称。</param>
@@ -65,7 +72,7 @@ internal static class AiModelConfigFieldValidator
 
         if (!IsSupportedProvider(providerKey))
         {
-            return "Provider key must be openai_compatible or ollama.";
+            return "Provider key must be openai_compatible, ollama, or azure_openai.";
         }
 
         if (!IsSafeEndpoint(endpointBaseUrl))

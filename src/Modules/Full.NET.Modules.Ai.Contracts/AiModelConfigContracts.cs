@@ -8,6 +8,9 @@ public static class AiProviderKeys
 
     /// <summary>Ollama 本地推理服务。</summary>
     public const string Ollama = "ollama";
+
+    /// <summary>Azure OpenAI 托管服务；ModelId 为 deployment 名称。</summary>
+    public const string AzureOpenAi = "azure_openai";
 }
 
 /// <summary>模型连通性测试状态键。</summary>
@@ -136,3 +139,21 @@ public sealed record UpdateAiModelConfigRequest(
 /// <param name="Succeeded">是否成功。</param>
 /// <param name="Message">结果摘要。</param>
 public sealed record TestAiModelConfigResult(bool Succeeded, string Message);
+
+/// <summary>Embedding 能力测试请求；不向客户端返回完整向量。</summary>
+/// <param name="Input">单条测试输入。</param>
+/// <param name="BatchInputs">可选批量输入；与 <paramref name="Input"/> 二选一。</param>
+public sealed record TestAiModelEmbeddingRequest(string? Input, IReadOnlyList<string>? BatchInputs);
+
+/// <summary>Embedding 能力测试结果；仅暴露维度与计量摘要。</summary>
+/// <param name="Succeeded">是否成功。</param>
+/// <param name="Message">结果摘要。</param>
+/// <param name="Dimensions">向量维度。</param>
+/// <param name="InputCount">输入条数。</param>
+/// <param name="InputTokens">提供程序返回的输入 Token 数。</param>
+public sealed record TestAiModelEmbeddingResult(
+    bool Succeeded,
+    string Message,
+    int Dimensions,
+    int InputCount,
+    int? InputTokens);

@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../AI/Full.NET.Agents/Full.NET.Agents.csproj" />
+    <ProjectReference Include="../../AI/Full.NET.AgenticWeb.AgUi/Full.NET.AgenticWeb.AgUi.csproj" />
+    <ProjectReference Include="../../AI/Full.NET.AgenticWeb.Mcp/Full.NET.AgenticWeb.Mcp.csproj" />
+    <ProjectReference Include="../../AI/Full.NET.AI.Abstractions/Full.NET.AI.Abstractions.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Abstractions\Full.NET.Abstractions.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Full.NET.Data.Abstractions\Full.NET.Data.Abstractions.csproj" />

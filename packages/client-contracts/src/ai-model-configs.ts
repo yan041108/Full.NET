@@ -72,6 +72,19 @@ export interface TestAiModelConfigResult {
   message: string;
 }
 
+export interface TestAiModelEmbeddingRequest {
+  input?: string | null;
+  batchInputs?: string[] | null;
+}
+
+export interface TestAiModelEmbeddingResult {
+  succeeded: boolean;
+  message: string;
+  dimensions: number;
+  inputCount: number;
+  inputTokens: number | null;
+}
+
 export interface AiModelConfigListQuery {
   page?: number;
   pageSize?: number;
@@ -198,6 +211,15 @@ export function isTestAiModelConfigResult(value: unknown): value is TestAiModelC
   return isRecord(value)
     && typeof value.succeeded === 'boolean'
     && typeof value.message === 'string';
+}
+
+export function isTestAiModelEmbeddingResult(value: unknown): value is TestAiModelEmbeddingResult {
+  return isRecord(value)
+    && typeof value.succeeded === 'boolean'
+    && typeof value.message === 'string'
+    && typeof value.dimensions === 'number'
+    && typeof value.inputCount === 'number'
+    && isNullableNumber(value.inputTokens);
 }
 
 export function isAiTenantQuotaListItem(value: unknown): value is AiTenantQuotaListItem {

@@ -267,6 +267,16 @@ export function createAppRouter(
         component: () => import('../views/AiAgentToolsView.vue')
       },
       {
+        name: 'ai-mcp-remote-connections',
+        path: '/ai/mcp-remote-connections',
+        component: () => import('../views/AiMcpRemoteConnectionsView.vue')
+      },
+      {
+        name: 'ai-agent-runs',
+        path: '/ai/agent-runs',
+        component: () => import('../views/AiAgentRunsView.vue')
+      },
+      {
         name: 'payment-merchant-configs',
         path: '/payments/merchant-configs',
         component: () => import('../views/PaymentMerchantConfigsView.vue')

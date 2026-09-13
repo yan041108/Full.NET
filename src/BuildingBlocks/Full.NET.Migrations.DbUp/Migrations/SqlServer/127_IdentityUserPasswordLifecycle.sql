@@ -47,6 +47,8 @@ BEGIN
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Password Changed At(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_identity_user', @level2type=N'COLUMN', @level2name=N'PasswordChangedAtUtc';
 END;
 
+GO
+
 UPDATE dbo.fn_identity_user
 SET PasswordChangedAtUtc = COALESCE(UpdatedAtUtc, CreatedAtUtc)
 WHERE PasswordChangedAtUtc IS NULL;

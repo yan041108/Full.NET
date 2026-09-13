@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../Full.NET.Agents/Full.NET.Agents.csproj" />
+    <ProjectReference Include="../../Modules/Full.NET.Modules.Ai.Contracts/Full.NET.Modules.Ai.Contracts.csproj" />
+    <ProjectReference Include="../../Modules/Full.NET.Modules.Identity.Contracts/Full.NET.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../BuildingBlocks/Full.NET.Abstractions/Full.NET.Abstractions.csproj" />
+    <ProjectReference Include="../../BuildingBlocks/Full.NET.Hosting/Full.NET.Hosting.csproj" />
+  </ItemGroup>
+</Project>

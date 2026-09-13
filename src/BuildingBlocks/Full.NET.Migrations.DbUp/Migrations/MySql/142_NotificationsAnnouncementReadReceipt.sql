@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS fn_notifications_announcement_read_receipt (
     CONSTRAINT FK_fn_notifications_announcement_read_receipt_Announcement
         FOREIGN KEY (AnnouncementId) REFERENCES fn_notifications_announcement(Id),
     KEY IX_fn_notifications_announcement_read_receipt_User_ReadAtUtc (UserId, ReadAtUtc, AnnouncementId),
-    KEY IX_fn_notifications_announcement_read_receipt_Announcement_ReadAtUtc (AnnouncementId, ReadAtUtc, UserId)
+    KEY IX_fn_notif_ann_read_rcpt_Announcement_ReadAt (AnnouncementId, ReadAtUtc, UserId)
 ) COMMENT='通知公告已读回执表';

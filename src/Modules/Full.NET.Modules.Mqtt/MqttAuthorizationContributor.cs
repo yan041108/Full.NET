@@ -44,7 +44,7 @@ internal sealed class MqttAuthorizationContributor : IAuthorizationCatalogContri
             "MQTT Control Plane",
             "connection",
             75,
-            MqttPermissions.BrokerRead),
+            MqttPermissions.MessagesRead),
     ];
 
     /// <inheritdoc />

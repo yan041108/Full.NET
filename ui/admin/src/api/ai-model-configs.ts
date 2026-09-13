@@ -4,6 +4,7 @@ import {
   isAiTenantQuota,
   isAiTenantQuotaPage,
   isTestAiModelConfigResult,
+  isTestAiModelEmbeddingResult,
   type AiModelConfig,
   type AiModelConfigListQuery,
   type AiModelConfigPage,
@@ -12,6 +13,7 @@ import {
   type AiTenantQuotaPage,
   type CreateAiModelConfigRequest,
   type TestAiModelConfigResult,
+  type TestAiModelEmbeddingResult,
   type UpdateAiModelConfigRequest,
   type UpdateAiTenantQuotaRequest
 } from '@fullnet/client-contracts';
@@ -130,6 +132,26 @@ export async function testAiModelConfig(
   );
   if (!isTestAiModelConfigResult(value)) {
     throw new Error('client.invalid_ai_model_config_test_result');
+  }
+  return value;
+}
+
+export async function testAiModelEmbeddings(
+  id: string,
+  input: string,
+  signal?: AbortSignal
+): Promise<TestAiModelEmbeddingResult> {
+  const value = await request<unknown>(
+    `/api/v1/ai/model-configs/${encodeURIComponent(id)}/test-embeddings`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ input, batchInputs: null })
+    },
+    signal
+  );
+  if (!isTestAiModelEmbeddingResult(value)) {
+    throw new Error('client.invalid_ai_model_embedding_test_result');
   }
   return value;
 }

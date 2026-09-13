@@ -2,6 +2,7 @@
 
 - 日期：2026-07-17
 - 状态：已确认
+- 2026-09-13 演进确认：新增 §14 OIDC 认证中心与 SSO，按 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 和[执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)推进；P0 尚未开始，不改变已实现能力的验证状态。原文双管理端描述为历史切片边界，后续仅持续交付 Vue，Layui 保持冻结。
 - 决策方式：依据项目所有者“后续自动确认（按推荐方案来）”的持续授权，采用推荐方案
 - 适用范围：Identity 后端模块、SQL Server/MySQL 迁移、Vue/Layui 双管理端登录会话
 
@@ -115,7 +116,7 @@ Access Token 使用 JWT Bearer，仅用于 Full.NET API 访问，默认有效期
 - 私钥只来自 Secret Provider、证书存储或外部密钥服务，不提交到仓库；
 - 配置缺失、活动 KeyId 不存在或密钥强度不合格时生产环境启动失败。
 
-开发和测试环境在没有配置密钥时允许生成进程级临时 RSA 密钥，并输出明确警告；重启后旧 Access Token 失效是可接受的开发行为。后续标准 OIDC Provider 可以替换 `IAccessTokenIssuer`，API 继续使用 JwtBearer 认证。
+开发和测试环境在没有配置密钥时允许生成进程级临时 RSA 密钥，并输出明确警告；重启后旧 Access Token 失效是可接受的开发行为。`IAccessTokenIssuer` 是令牌签发扩展点，不独自承担 OIDC 服务端；后续按 §14 同时补齐客户端、协议、会话与资源验证适配，保留现有权威会话校验。
 
 ## 7. Refresh Token、Cookie 与 CSRF
 
@@ -153,7 +154,7 @@ Refresh Token 是 256 位密码学随机不透明值，数据库只保存 SHA-25
 - `identity.origin_not_allowed`；
 - `identity.validation_failed`。
 
-外部 API 始终使用标准状态码与 ProblemDetails。Admin.NET 包络只由兼容适配器转换，Identity 核心 Endpoint 不直接返回统一成功包络。
+业务 API 使用标准状态码与 ProblemDetails。Admin.NET 包络只由兼容适配器转换，Identity 核心业务 Endpoint 不直接返回统一成功包络。§14 实际注册的 OAuth/OIDC 协议端点按 ADR-0011 使用协议规定的响应与错误；该例外不适用于客户端管理或普通业务 API。
 
 ## 9. 双管理端会话实现
 
@@ -222,7 +223,7 @@ SQL Server 与 MySQL 分别验证：
 4. 组织、职位与数据范围；
 5. 在线用户、强制下线、验证码和外部 OIDC Provider。
 
-任何后续扩展都必须复用本切片的会话族、审计、ProblemDetails 和双端等价门禁，不得另建一套旁路认证协议。
+后续扩展必须保留本切片的会话撤销、审计与业务 ProblemDetails 语义；新增标准 OIDC 会话按 §14 与旧会话族受控关联，不形成绕过认证的旁路。新功能只执行 Vue 主交付线门禁，历史 Layui 双端门禁不再扩大后续交付范围。
 
 ## 13. 参考资料
 
@@ -230,3 +231,60 @@ SQL Server 与 MySQL 分别验证：
 - [ASP.NET Core 10 Authentication 概览](https://learn.microsoft.com/aspnet/core/security/authentication/?view=aspnetcore-10.0)
 - [PasswordHasher&lt;TUser&gt; API](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.identity.passwordhasher-1?view=aspnetcore-10.0)
 - [Microsoft.AspNetCore.Authentication.JwtBearer 10.0.10（MIT）](https://www.nuget.org/packages/Microsoft.AspNetCore.Authentication.JwtBearer/10.0.10)
+
+## 14. OIDC 认证中心与 SSO 演进（2026-09-13 已确认）
+
+### 14.1 授权、状态与唯一来源
+
+项目所有者已确认[研究建议](../../verification/2026-09-13-identity-oidc-sso-research-validation.md)并要求同步项目文档及执行计划。采用 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 的路线：保留现有 Identity，优先验证 OpenIddict，依次推进 P0 可行性、P1 最小 SSO、P2 接入治理和 P3 Vue 迁移。文档已确认，运行能力未验证；当前步骤见[唯一活动执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)。
+
+本节补充原规格的 OIDC 扩展与协议响应边界；除明确列出的补充外，不替代旧登录、刷新、改密、权限与租户契约。现有外部 OIDC 登录是客户端能力，不作为新服务端已经实现的证据。
+
+### 14.2 功能与部署范围
+
+- Identity 模块拥有账号、安全策略、协议状态与会话管理；Composition 装配，API/Worker/Migrator 继续分工。
+- 不新增独立生产认证宿主或平行用户库；不引入 EF Core。Store 使用自有执行器、显式 SQL 与双库迁移。
+- 首期使用 Host 账号和两个固定注册的第一方客户端；第二客户端仅用于证明 SSO，不新增持续维护的后台产品。
+- 交互式接入要求授权码 + PKCE S256。公开客户端不依赖 client secret，机密客户端同时执行客户端认证；精确注册回调、退出回跳与允许 scope。
+- 新中心入口在发布验收前不得作为生产默认入口；旧认证入口在迁移与回退验证完成前保持可用。
+
+### 14.3 协议和资源授权契约
+
+| 边界 | 要求 |
+| --- | --- |
+| Discovery／JWKS | 稳定 HTTPS Issuer；元数据与实际端点一致；JWKS 仅公钥 |
+| Authorize／Token | 客户端、redirect_uri、scope、PKCE 绑定；授权码一次性原子消费；错误遵守协议 |
+| ID Token／UserInfo | 最小身份信息；客户端验证签名、iss、aud、nonce、有效期，UserInfo sub 与认证结果一致 |
+| Access Token／资源 API | 按资源设置 aud；检查 token 类型、scope、用户权限、权威会话、租户和数据归属 |
+| 退出／撤销 | 当前应用、中心全部会话、管理员强制下线分开；后续请求和刷新遵守权威状态 |
+| 管理 API | 继续标准状态码、ProblemDetails、逐页面／逐操作权限和源生成契约 |
+
+协议端点采用协议原生字段名、重定向和错误格式，不交给业务包络或通用 camelCase 转换。具体 URI 和启用集合随 P0/P1 冻结，不能把全部 `/connect/*` 通配为匿名旁路；协议处理器仍负责客户端／用户认证及授权。登录和会话写 UI 保留 Origin、CSRF、可信代理、限流与秘密保护。
+
+`scope` 与 `fullnet_scope` 保持独立；一般外部客户端不得获得完整管理权限、安全戳或超管声明。JWT 验证器必须拒绝 ID Token 替代 Access Token。OpenIddict Access Token 加密及现有 JwtBearer 的适配在 P0 验证，不默认共享中心私钥给资源 API。
+
+### 14.4 会话与可信上下文
+
+1. 中心登录会话稳定表示一次中心认证；应用会话绑定客户端和该中心认证；刷新令牌族管理该应用的续期与重用检测。三者各有生命周期，不复用不断轮换的旧刷新记录 ID 表达稳定 SSO sid。
+2. 旧 `/api/v1/auth/*` 会话仍执行现有事件与 `AccessSessionValidator`。OIDC 会话通过独立、可验证的适配获得可信主体，不以放宽旧 Claim 要求方式接入。
+3. 禁用账号、改密、安全戳变化和强制下线后，中心不能凭旧 Cookie 重新授权；已进入处理中的请求不承诺回溯撤销，但后续鉴权必须读取权威状态。
+4. OAuth 授权结果不直接决定租户身份。tenant 参数仅是选择请求，经应用可用租户、用户成员关系与上下文切换授权检查后建立可信上下文；A 切租户不隐式改变 B。
+5. 复用主认证会话不等于 `idsrv.session` Cookie 存在即通过；`prompt`、`max_age`、consent 和认证强度仍需满足。现有 TOTP 强重认证不自动等于完整 OIDC MFA 登录。
+6. 第一方受保护 Full.NET 路径保留权威检查；未来外部离线 API 必须给出令牌窗口、撤销延迟与故障策略，未测量前不声称全局即时下线。
+
+### 14.5 存储、多实例与客户端
+
+Application、Authorization、Scope、Token Store 保持在 Identity 内，底层采用自有执行与事务边界。授权码消费、刷新轮换、授权撤销、客户端停用、账号状态检查与过期清理必须覆盖并发和故障窗口；所有新增表使用应用端 UUID v7、模块命名规则及成对迁移。迁移编号在实施时根据真实最大值分配，不在文档预占。
+
+中心与各客户端的主 Cookie 按各自服务边界设置。正常 SSO 使用顶层跳转；BFF／服务端换码、令牌存储和 Data Protection 需通过双实例实测后再迁移 Vue。不能复用旧 `SameSite=Strict` Refresh Cookie 充当跨站 OIDC 主认证 Cookie，也不能为 SSO 降低旧 Cookie 安全属性。协议临时 Cookie 按所选 response_mode 和真实浏览器路径验证。
+
+签名、加密和 Data Protection key ring 分清职责；同一服务的多实例共享必要材料，不让所有业务应用共享中心解密能力。组件进程缓存不能削弱客户端禁用／撤销；关键状态失败关闭。退出通知的持久化、幂等和重试随 P2 定义，不用缓存 Outbox 替代权威状态。
+
+### 14.6 门禁、迁移与排除项
+
+- P0：验证组件版本／闭包、双库 Store、一次性授权码、旧会话衔接和 Linux 原生运行。失败则记录原因，不关闭 AOT 或降低安全语义换绿。
+- P1：两个受控客户端真实浏览器 SSO、协议负向用例、主会话与本地会话独立。
+- P2：客户端管理、scope、授权／刷新／撤销、全局退出、双实例和密钥轮换；先冻结传播时限，再记录实测结果。
+- P3：Vue 接入、契约兼容、回退与旧入口退役。只清客户端状态不能算服务端撤销；只切换 UI 入口不能算令牌信任回退。
+- V01—V24 为稳定场景编号；所有任务保留真实执行证据，未执行／跳过不能标通过。执行位置与测试影响集遵守开发质量 §11。
+- 暂不扩大到动态客户端注册、SAML/CAS、机器身份、设备流、令牌交换、跨租户账号合并或 Layui 新功能。

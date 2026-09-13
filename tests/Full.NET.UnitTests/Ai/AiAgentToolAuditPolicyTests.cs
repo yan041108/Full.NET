@@ -15,11 +15,11 @@ public sealed class AiAgentToolAuditPolicyTests
     }
 
     [TestMethod]
-    public void Summarize_truncates_long_text()
+    public void Summarize_omits_untrusted_long_text()
     {
         var summary = AiAgentToolAuditPolicy.Summarize(new string('A', 600));
 
-        Assert.IsLessThanOrEqualTo(summary.Length, AiAgentToolAuditPolicy.MaxSummaryLength);
-        Assert.EndsWith("...", summary);
+        Assert.IsLessThanOrEqualTo(AiAgentToolAuditPolicy.MaxSummaryLength, summary.Length);
+        Assert.AreEqual("[redacted]", summary);
     }
 }

@@ -103,4 +103,6 @@ Vue/Layui 的浏览器契约、原创管理壳、登录、启动恢复、刷新�
 
 ## 当前边界
 
+2026-09-13 已确认标准 OIDC 认证中心与 SSO 演进，当前为 `Mapped`，P0 可行性验证尚未开始。方案复用现有 Identity 账号、权限和权威会话，优先验证 OpenIddict；双库与 Native AOT 通过后再推进跨应用 SSO、接入治理及 Vue 迁移。见 [Identity 设计](docs/superpowers/specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认)、[ADR-0011](docs/architecture/adr/ADR-0011-identity-oidc-sso-evolution.md)、[执行计划](docs/superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)和[研究验证矩阵](docs/verification/2026-09-13-identity-oidc-sso-research-validation.md)。
+
 M1 聚焦可运行的基础设施与第一条租户垂直切片，M2 已落地跨传输验证管道、Identity 安全会话、Host 用户/角色/菜单与组织授权切片、在线会话、API Key，以及 Vue/Layui 双端权限导航。当前能力仍不等于完整后台 RBAC，租户级角色、完整数据范围和更多业务模块授权仍需继续交付。SignalR 鉴权 Hub、用户/租户分组、JSON Hub 协议、可选 Redis Backplane、专用 ready 探针、SQL Server/MySQL 双 API 节点 stop/start 故障恢复，以及 Vue/Layui 管理端认证连接、首次失败退避恢复、切租户重连、未读徽标、当前通知页刷新、独立 Worker Outbox 修复推送和双库真实浏览器断网恢复 E2E 已达 `Build-verified`；生产多副本编排/告警与 Redis Cluster/Sentinel 仍未完成。真实服务拆分后才引入 gRPC + Protobuf；AI、MCP 与 Agentic Web/AG-UI 位于独立的 M5+ 计划中。

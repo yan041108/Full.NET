@@ -8,6 +8,14 @@ the complete license texts.
 
 - .NET, ASP.NET Core, Microsoft.Extensions, MSTest and .NET Aspire — MIT
   https://github.com/dotnet
+- Microsoft.Extensions.AI.Abstractions 10.9.0 — MIT
+  https://github.com/dotnet/extensions
+- Microsoft Agent Framework (Microsoft.Agents.AI / Microsoft.Agents.AI.Abstractions) 1.20.0 — MIT
+  https://github.com/microsoft/agent-framework
+- Model Context Protocol SDK for C# (ModelContextProtocol / ModelContextProtocol.AspNetCore) 2.2.0 — MIT
+  https://github.com/modelcontextprotocol/csharp-sdk
+- Microsoft.ML.Tokenizers 2.0.0 — MIT
+  https://github.com/dotnet/machinelearning
 - Dapper — Apache-2.0
   https://github.com/DapperLib/Dapper
 - AWS SDK for .NET (AWSSDK.S3 / AWSSDK.Core) — Apache-2.0

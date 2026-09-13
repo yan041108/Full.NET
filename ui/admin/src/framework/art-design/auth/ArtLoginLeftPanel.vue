@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
+import { useBlobPreview } from '../../../composables/useBlobPreview';
 import {
   downloadCurrentTenantBrandingLogoContent,
   getRuntimeTenantBranding
@@ -11,34 +12,24 @@ defineOptions({ name: 'ArtLoginLeftPanel' });
 
 const { t } = useAdminI18n();
 const systemTitle = ref<string | null>(null);
-const logoPreviewUrl = ref<string | null>(null);
-
-function revokePreview(): void {
-  if (logoPreviewUrl.value) {
-    URL.revokeObjectURL(logoPreviewUrl.value);
-    logoPreviewUrl.value = null;
-  }
-}
+const logoPreview = useBlobPreview();
+const logoPreviewUrl = logoPreview.url;
 
 onMounted(() => {
   void (async () => {
     try {
-      const branding = await getRuntimeTenantBranding(http);
-      systemTitle.value = branding.systemTitle;
-      if (branding.hasLogo) {
-        const blob = await downloadCurrentTenantBrandingLogoContent(http);
-        logoPreviewUrl.value = URL.createObjectURL(blob);
-      }
+      await logoPreview.load(async () => {
+        const branding = await getRuntimeTenantBranding(http);
+        systemTitle.value = branding.systemTitle;
+        return branding.hasLogo ? downloadCurrentTenantBrandingLogoContent(http) : null;
+      });
     } catch {
       systemTitle.value = null;
-      revokePreview();
+      logoPreview.clear();
     }
   })();
 });
 
-onUnmounted(() => {
-  revokePreview();
-});
 </script>
 
 <template>

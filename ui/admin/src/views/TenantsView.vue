@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, onScopeDispose, reactive, ref, watch } from 'vue';
+import { useBlobPreview } from '../composables/useBlobPreview';
 import { useRouter } from 'vue-router';
 import {
   ElDialog,
@@ -111,11 +112,13 @@ const administratorsVisible = ref(false);
 const directoryItems = ref<HostTenantMember[]>([]);
 const directoryTenant = ref<HostTenant | null>(null);
 const brandingVisible = ref(false);
+let brandingGeneration = 0;
 const brandingTenant = ref<HostTenant | null>(null);
 const brandingSaving = ref(false);
 const brandingUploadingLogo = ref(false);
 const brandingRemovingLogo = ref(false);
-const brandingLogoPreviewUrl = ref<string | null>(null);
+const brandingPreview = useBlobPreview();
+const brandingLogoPreviewUrl = brandingPreview.url;
 const brandingVersion = ref(0);
 const brandingForm = reactive({
   systemTitle: '',
@@ -545,23 +548,24 @@ async function openMembers(tenant: HostTenant): Promise<void> {
 }
 
 function revokeBrandingPreview(): void {
-  if (brandingLogoPreviewUrl.value) {
-    URL.revokeObjectURL(brandingLogoPreviewUrl.value);
-    brandingLogoPreviewUrl.value = null;
-  }
+  brandingGeneration++;
+  brandingPreview.clear();
 }
 
+// 弹窗关闭立即使整个上传/下载链失效，不等待关闭动画结束。
+watch(brandingVisible, visible => { if (!visible) revokeBrandingPreview(); }, { flush: 'sync' });
+onScopeDispose(revokeBrandingPreview);
+
 async function refreshBrandingLogoPreview(tenantId: string, hasLogo: boolean): Promise<void> {
-  revokeBrandingPreview();
+  brandingPreview.clear();
   if (!hasLogo) {
     return;
   }
 
   try {
-    const blob = await fetchTenantBrandingLogoBlob(tenantId);
-    brandingLogoPreviewUrl.value = URL.createObjectURL(blob);
+    await brandingPreview.load(() => fetchTenantBrandingLogoBlob(tenantId));
   } catch {
-    brandingLogoPreviewUrl.value = null;
+    // 预览失败保留空白，不能覆盖并发新请求的结果。
   }
 }
 
@@ -570,10 +574,12 @@ async function openBranding(tenant: HostTenant): Promise<void> {
     return;
   }
 
+  const generation = ++brandingGeneration;
   changing.value = true;
   problem.value = undefined;
   try {
     const branding = await getTenantBranding(tenant.id);
+    if (generation !== brandingGeneration) return;
     brandingTenant.value = tenant;
     brandingVersion.value = branding.version;
     brandingForm.systemTitle = branding.systemTitle ?? '';
@@ -582,6 +588,7 @@ async function openBranding(tenant: HostTenant): Promise<void> {
     brandingForm.contactAddress = branding.contactAddress ?? '';
     brandingForm.copyright = branding.copyright ?? '';
     await refreshBrandingLogoPreview(tenant.id, branding.logoFileId !== null);
+    if (generation !== brandingGeneration) return;
     brandingVisible.value = true;
   } catch (error: unknown) {
     problem.value = toProblem(error, 'tenants.operationFailed');
@@ -623,10 +630,14 @@ async function handleBrandingLogoSelected(event: Event): Promise<void> {
   }
 
   brandingUploadingLogo.value = true;
+  const tenantId = brandingTenant.value.id;
+  const generation = brandingGeneration;
   try {
-    const branding = await uploadTenantBrandingLogo(brandingTenant.value.id, file);
+    const branding = await uploadTenantBrandingLogo(tenantId, file);
+    if (generation !== brandingGeneration || !brandingVisible.value || brandingTenant.value?.id !== tenantId) return;
     brandingVersion.value = branding.version;
-    await refreshBrandingLogoPreview(brandingTenant.value.id, true);
+    await refreshBrandingLogoPreview(tenantId, true);
+    if (generation !== brandingGeneration) return;
     ElMessage.success(t('tenantBranding.logoUploadSuccess'));
   } catch (error: unknown) {
     problem.value = toProblem(error, 'tenants.operationFailed');
@@ -641,10 +652,13 @@ async function removeBrandingLogo(): Promise<void> {
   }
 
   brandingRemovingLogo.value = true;
+  const tenantId = brandingTenant.value.id;
+  const generation = brandingGeneration;
   try {
-    const branding = await removeTenantBrandingLogo(brandingTenant.value.id);
+    const branding = await removeTenantBrandingLogo(tenantId);
+    if (generation !== brandingGeneration || !brandingVisible.value || brandingTenant.value?.id !== tenantId) return;
     brandingVersion.value = branding.version;
-    await refreshBrandingLogoPreview(brandingTenant.value.id, false);
+    await refreshBrandingLogoPreview(tenantId, false);
     ElMessage.success(t('tenantBranding.logoRemoveSuccess'));
   } catch (error: unknown) {
     problem.value = toProblem(error, 'tenants.operationFailed');
@@ -1049,7 +1063,6 @@ function toProblem(
       v-model="brandingVisible"
       :title="t('tenantBranding.title')"
       width="640px"
-      @closed="revokeBrandingPreview()"
     >
       <p class="art-dialog-hint">{{ t('tenantBranding.caption') }}</p>
       <el-form label-width="120px">

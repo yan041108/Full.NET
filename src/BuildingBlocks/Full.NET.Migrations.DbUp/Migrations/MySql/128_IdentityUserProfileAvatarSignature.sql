@@ -1,6 +1,30 @@
-ALTER TABLE fn_identity_user_profile
-    ADD COLUMN IF NOT EXISTS AvatarFileId BINARY(16) NULL,
-    ADD COLUMN IF NOT EXISTS SignatureFileId BINARY(16) NULL;
+SET @avatar_file_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_identity_user_profile'
+      AND COLUMN_NAME = 'AvatarFileId');
+SET @ddl := IF(
+    @avatar_file_exists = 0,
+    'ALTER TABLE fn_identity_user_profile ADD COLUMN AvatarFileId BINARY(16) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @signature_file_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'fn_identity_user_profile'
+      AND COLUMN_NAME = 'SignatureFileId');
+SET @ddl := IF(
+    @signature_file_exists = 0,
+    'ALTER TABLE fn_identity_user_profile ADD COLUMN SignatureFileId BINARY(16) NULL',
+    'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @index_exists := (
     SELECT COUNT(1)

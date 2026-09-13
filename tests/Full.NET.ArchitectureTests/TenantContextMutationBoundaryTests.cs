@@ -18,6 +18,14 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Hosts/Full.NET.Host.Worker/OutboxProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/OutboxRetentionProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/Program.cs",
+        // 工具审计仅复制可信请求作用域，不从工具参数获取租户，不派发业务操作。
+        "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiToolAuditPort.cs",
+        // 领取运行后按持久化记录恢复可信租户作用域，用于会话重验与预算结算。
+        "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs",
+        // Worker 心跳写入 Global 作用域表，固定 Host 上下文，不从运行参数推断租户。
+        "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentWorkerHeartbeatService.cs",
+        // 独立清理作用域只接收已授权请求捕获的租户，结束时清除上下文，不用于新模型派发。
+        "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatCleanupScope.cs",
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatGenerationLeaseMonitor.cs",
         "src/Modules/Full.NET.Modules.Auditing/Retention/AuditingRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.CodeGeneration/Retention/CodeGenerationCheckpointRetentionHostedProcessor.cs",

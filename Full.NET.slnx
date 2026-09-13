@@ -1,4 +1,14 @@
 <Solution>
+  <Folder Name="/src/AI/">
+    <Project Path="src/AI/Full.NET.Agents/Full.NET.Agents.csproj" />
+    <Project Path="src/AI/Full.NET.AI.Providers.Http/Full.NET.AI.Providers.Http.csproj" />
+    <Project Path="src/AI/Full.NET.AI.Abstractions/Full.NET.AI.Abstractions.csproj" />
+    <Project Path="src/AI/Full.NET.AI.Providers.OpenAI/Full.NET.AI.Providers.OpenAI.csproj" />
+    <Project Path="src/AI/Full.NET.AI.Providers.Ollama/Full.NET.AI.Providers.Ollama.csproj" />
+    <Project Path="src/AI/Full.NET.AI.Providers.AzureOpenAI/Full.NET.AI.Providers.AzureOpenAI.csproj" />
+    <Project Path="src/AI/Full.NET.AgenticWeb.AgUi/Full.NET.AgenticWeb.AgUi.csproj" />
+    <Project Path="src/AI/Full.NET.AgenticWeb.Mcp/Full.NET.AgenticWeb.Mcp.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Full.NET.Benchmarks/Full.NET.Benchmarks.csproj" />
   </Folder>

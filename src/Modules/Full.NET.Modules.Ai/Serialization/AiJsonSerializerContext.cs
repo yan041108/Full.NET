@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Ai.Contracts;
+using Full.NET.Modules.Ai.Runtime;
 
 namespace Full.NET.Modules.Ai.Serialization;
 
@@ -10,6 +11,18 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(CreateAiModelConfigRequest))]
 [JsonSerializable(typeof(UpdateAiModelConfigRequest))]
 [JsonSerializable(typeof(TestAiModelConfigResult))]
+[JsonSerializable(typeof(TestAiModelEmbeddingRequest))]
+[JsonSerializable(typeof(TestAiModelEmbeddingResult))]
+[JsonSerializable(typeof(AiMcpRemoteConnectionListItem))]
+[JsonSerializable(typeof(AiMcpRemoteConnectionResponse))]
+[JsonSerializable(typeof(CreateAiMcpRemoteConnectionRequest))]
+[JsonSerializable(typeof(UpdateAiMcpRemoteConnectionRequest))]
+[JsonSerializable(typeof(AiMcpRemoteDiscoveredToolItem))]
+[JsonSerializable(typeof(ApproveAiMcpRemoteToolRequest))]
+[JsonSerializable(typeof(AiMcpRemoteToolApprovalItem))]
+[JsonSerializable(typeof(IReadOnlyList<AiMcpRemoteConnectionListItem>))]
+[JsonSerializable(typeof(IReadOnlyList<AiMcpRemoteDiscoveredToolItem>))]
+[JsonSerializable(typeof(IReadOnlyList<AiMcpRemoteToolApprovalItem>))]
 [JsonSerializable(typeof(PagedResult<AiModelConfigListItem>))]
 [JsonSerializable(typeof(AiTenantQuotaListItem))]
 [JsonSerializable(typeof(AiTenantQuotaResponse))]
@@ -28,4 +41,18 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(AiChatStreamDeltaEvent))]
 [JsonSerializable(typeof(AiChatStreamDoneEvent))]
 [JsonSerializable(typeof(AiChatStreamErrorEvent))]
+[JsonSerializable(typeof(CreateAiAgentRunRequest))]
+[JsonSerializable(typeof(CreateAiAgentRunResponse))]
+[JsonSerializable(typeof(AiAgentRunResponse))]
+[JsonSerializable(typeof(AgentRunBudgetSnapshot))]
+[JsonSerializable(typeof(CreateAiAgentApprovalRequest))]
+[JsonSerializable(typeof(CreateAiAgentApprovalResponse))]
+[JsonSerializable(typeof(DecideAiAgentApprovalRequest))]
+[JsonSerializable(typeof(AiAgentApprovalResponse))]
+[JsonSerializable(typeof(Features.ManageAgentApprovals.AiAgentApprovalPresentation))]
+[JsonSerializable(typeof(CreateAiAgentDelegationRequest))]
+[JsonSerializable(typeof(CreateAiAgentDelegationResponse))]
+[JsonSerializable(typeof(RevokeAiAgentDelegationRequest))]
+[JsonSerializable(typeof(AiAgentDelegationResponse))]
+[JsonSerializable(typeof(IReadOnlyList<AiAgentDelegationResponse>))]
 internal partial class AiJsonSerializerContext : JsonSerializerContext;

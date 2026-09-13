@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Serialization;
 
@@ -60,9 +61,10 @@ internal static class AiChatSseWriter
         string payload,
         CancellationToken cancellationToken)
     {
-        await using var writer = new StreamWriter(responseBody, leaveOpen: true);
-        await writer.WriteAsync($"event: {eventName}\n").ConfigureAwait(false);
-        await writer.WriteAsync($"data: {payload}\n\n").ConfigureAwait(false);
-        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        // 直接将取消传递至实际写入，避免 StreamWriter 在失败释放时补刷已取消的事件。
+        cancellationToken.ThrowIfCancellationRequested();
+        var bytes = Encoding.UTF8.GetBytes($"event: {eventName}\ndata: {payload}\n\n");
+        await responseBody.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await responseBody.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 }

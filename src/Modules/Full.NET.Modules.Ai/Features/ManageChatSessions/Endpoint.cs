@@ -148,6 +148,7 @@ internal static class Endpoint
             Guid sessionId,
             StreamAiChatMessageRequest request,
             AiChatStreamService streamService,
+            IApiResultMapper mapper,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
@@ -156,11 +157,15 @@ internal static class Endpoint
                 return Results.Unauthorized();
             }
 
-            await streamService.StreamAsync(sessionId, userId, request, httpContext, cancellationToken)
+            var result = await streamService.StreamAsync(sessionId, userId, request, new Full.NET.Modules.Ai.Streaming.AiChatHttpOutput(httpContext), cancellationToken)
                 .ConfigureAwait(false);
-            return Results.Empty;
+            return result.IsSuccess ? Results.Empty : mapper.Map(result, httpContext);
         })
         .WithName("aiStreamChatMessage")
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status500InternalServerError)
         .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)

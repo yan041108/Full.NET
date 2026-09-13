@@ -31,14 +31,17 @@ internal sealed class AiChatQuotaGuard(
     /// <param name="reservedTokens">根据完整提示和最大输出估计的保守预算。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     public Task<Result<AiQuotaReservation>> ReserveAsync(Guid reservationId, long reservedTokens,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) => ReserveAtAsync(reservationId, reservedTokens, clock.UtcNow, cancellationToken);
+
+    /// <summary>与统一账本使用同一 UTC 时间，等待锁或跨月不能改变兼容预留月份。</summary>
+    internal Task<Result<AiQuotaReservation>> ReserveAtAsync(Guid reservationId, long reservedTokens, DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(reservedTokens);
         return transaction.ExecuteAsync(async token =>
         {
             var quota = await queryExecutor.QuerySingleOrDefaultAsync<AiTenantQuotaRecord>(
                 AiTenantQuotaSql.FindCurrentTenantQuota, null, token).ConfigureAwait(false);
-            var now = clock.UtcNow;
             var month = now.ToString("yyyy-MM", CultureInfo.InvariantCulture);
             // 保留原有配置语义：未配置或关闭配额表示不限额，不把关闭开关解释为禁用 AI。
             if (quota is null || !quota.IsEnabled)

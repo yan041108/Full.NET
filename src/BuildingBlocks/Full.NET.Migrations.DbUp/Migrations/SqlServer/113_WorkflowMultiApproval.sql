@@ -215,6 +215,8 @@ BEGIN
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'待办标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_approval_slot', @level2type=N'COLUMN', @level2name=N'TodoId';
 END;
 
+GO
+
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE object_id = OBJECT_ID(N'dbo.fn_workflow_approval_slot')

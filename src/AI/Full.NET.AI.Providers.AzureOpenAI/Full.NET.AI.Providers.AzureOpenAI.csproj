@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Full.NET.AI.Providers.Http/Full.NET.AI.Providers.Http.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../Full.NET.AI.Abstractions/Full.NET.AI.Abstractions.csproj" />
+    <Compile Include="../Shared/HttpChatClient.cs" Link="Internal/HttpChatClient.cs" />
+    <Compile Include="../Shared/HttpEmbeddingClient.cs" Link="Internal/HttpEmbeddingClient.cs" />
+    <Compile Include="../Shared/AiResponseLineReader.cs" Link="Internal/AiResponseLineReader.cs" />
+    <Compile Include="../Shared/IEmbeddingTransport.cs" Link="Internal/IEmbeddingTransport.cs" />
+    <Compile Include="../Shared/EmbeddingBatchResult.cs" Link="Internal/EmbeddingBatchResult.cs" />
+  </ItemGroup>
+</Project>

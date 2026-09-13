@@ -69,6 +69,9 @@ export function createVueNotificationsRealtime(
   let sessionGeneration = 0;
   let loadTransition = Promise.resolve();
   let disposed = false;
+  let refreshEnabled = false;
+  let loading = false;
+  let pendingLoad: { generation: number; refreshInbox: boolean } | undefined;
 
   /** 仅把实时消息转换为本地修订号或刷新提示，真正未读数仍以 HTTP 权威值为准。 */
   const onMessage = (message: RealtimeMessage): void => {
@@ -106,6 +109,8 @@ export function createVueNotificationsRealtime(
   });
   const unsubscribeSession = options.session.subscribe(snapshot => {
     const generation = ++sessionGeneration;
+    refreshEnabled = snapshot.state === 'authenticated' && !snapshot.switching;
+    pendingLoad = undefined;
     if (snapshot.state !== 'authenticated') {
       unreadCount.value = 0;
       return;
@@ -119,12 +124,27 @@ export function createVueNotificationsRealtime(
     void queueUnreadCountLoad(generation, false);
   });
 
-  /** 串行化未读数刷新，并通过 sessionGeneration 丢弃过期会话返回值。 */
+  /** 最多保留一个在途请求和一个合并刷新，防止通知风暴形成无界 Promise 链。 */
   function queueUnreadCountLoad(
     generation: number,
     refreshInbox: boolean
   ): Promise<void> {
-    loadTransition = loadTransition.then(async () => {
+    if (disposed || !refreshEnabled || generation !== sessionGeneration) return Promise.resolve();
+    pendingLoad = {
+      generation,
+      refreshInbox: refreshInbox || (pendingLoad?.generation === generation && pendingLoad.refreshInbox)
+    };
+    if (!loading) {
+      loading = true;
+      loadTransition = drainLoads();
+    }
+    return loadTransition;
+  }
+
+  async function drainLoads(): Promise<void> {
+    while (!disposed && refreshEnabled && pendingLoad) {
+      const { generation, refreshInbox } = pendingLoad;
+      pendingLoad = undefined;
       try {
         const loadUnreadCount = options.loadUnreadCount ?? getInboxUnreadCount;
         const response = await loadUnreadCount();
@@ -137,8 +157,8 @@ export function createVueNotificationsRealtime(
       } catch {
         // 初始未读数失败保持零值，实时连接和站内信页面仍可独立恢复。
       }
-    });
-    return loadTransition;
+    }
+    loading = false;
   }
 
   return {
@@ -154,6 +174,7 @@ export function createVueNotificationsRealtime(
       }
 
       disposed = true;
+      pendingLoad = undefined;
       sessionGeneration++;
       unsubscribeSession();
       await realtime.dispose();

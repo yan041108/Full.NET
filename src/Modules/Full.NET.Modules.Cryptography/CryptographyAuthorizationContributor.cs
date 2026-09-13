@@ -14,7 +14,7 @@ internal sealed class CryptographyAuthorizationContributor : IAuthorizationCatal
         new PermissionDefinition(
             CryptographyPermissions.KeysRead,
             "读取国密密钥目录与部署状态",
-            AuthorizationScope.Host),
+            AuthorizationScope.Host | AuthorizationScope.Tenant),
         new PermissionDefinition(
             CryptographyPermissions.Sm2Sign,
             "执行受控 SM2 签名",

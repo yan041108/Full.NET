@@ -8,11 +8,20 @@ public static class AiAgentToolSideEffectKeys
 
     /// <summary>只读查询，不修改业务状态。</summary>
     public const string Read = "read";
+
+    /// <summary>写入业务状态，默认需要人工审批。</summary>
+    public const string Write = "write";
 }
 
 /// <summary>Agent Tool 调用状态键。</summary>
 public static class AiAgentToolCallStatusKeys
 {
+    /// <summary>已持久化执行意图，尚无终态回执。</summary>
+    public const string Started = "started";
+
+    /// <summary>执行已取消。</summary>
+    public const string Cancelled = "cancelled";
+
     /// <summary>调用成功完成。</summary>
     public const string Succeeded = "succeeded";
 
@@ -69,6 +78,9 @@ public sealed record AiAgentToolCallListItem(
     string? OutputSummary,
     string? ErrorCode,
     string? TraceId,
+    Guid? RunId,
+    string? ArgumentsHash,
+    Guid? ApprovalId,
     DateTimeOffset CreatedAtUtc);
 
 /// <summary>Agent Tool 调用审计查询参数。</summary>

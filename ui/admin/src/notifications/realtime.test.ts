@@ -8,6 +8,55 @@ import {
 import { createVueNotificationsRealtime } from './realtime';
 
 describe('Vue Notifications 实时状态', () => {
+  it('慢请求期间将刷新风暴合并为一次后续刷新', async () => {
+    const session = createSession();
+    const first = Promise.withResolvers<{ unreadCount: number }>();
+    const loadUnreadCount = vi.fn().mockReturnValueOnce(first.promise)
+      .mockResolvedValue({ unreadCount: 8 });
+    let onMessage: NotificationsRealtimeOptions['onMessage'] | undefined;
+    const state = createVueNotificationsRealtime({
+      session, loadUnreadCount,
+      realtimeFactory: options => {
+        onMessage = options.onMessage;
+        return { whenSettled: async () => undefined, dispose: async () => undefined };
+      }
+    });
+    session.publish(authenticatedSnapshot());
+    await Promise.resolve();
+    for (let i = 0; i < 1000; i++) {
+      onMessage?.({ code: NOTIFICATIONS_REALTIME_CODES.inboxUnreadCountChanged });
+    }
+    first.resolve({ unreadCount: 1 });
+    await state.whenSettled();
+    expect(loadUnreadCount).toHaveBeenCalledTimes(2);
+    expect(state.unreadCount.value).toBe(8);
+    await state.dispose();
+  });
+
+  it('退出会话丢弃慢请求之后排队的刷新', async () => {
+    const session = createSession();
+    const first = Promise.withResolvers<{ unreadCount: number }>();
+    const loadUnreadCount = vi.fn().mockReturnValueOnce(first.promise)
+      .mockResolvedValue({ unreadCount: 8 });
+    let onMessage: NotificationsRealtimeOptions['onMessage'] | undefined;
+    const state = createVueNotificationsRealtime({
+      session, loadUnreadCount,
+      realtimeFactory: options => {
+        onMessage = options.onMessage;
+        return { whenSettled: async () => undefined, dispose: async () => undefined };
+      }
+    });
+    session.publish(authenticatedSnapshot());
+    await Promise.resolve();
+    onMessage?.({ code: NOTIFICATIONS_REALTIME_CODES.inboxUnreadCountChanged });
+    session.publish(anonymousSnapshot());
+    first.resolve({ unreadCount: 99 });
+    await state.whenSettled();
+    expect(loadUnreadCount).toHaveBeenCalledOnce();
+    expect(state.unreadCount.value).toBe(0);
+    await state.dispose();
+  });
+
   it('显式禁用时不连接 Hub 也不查询未读数', async () => {
     const session = createSession();
     const loadUnreadCount = vi.fn();

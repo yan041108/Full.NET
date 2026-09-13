@@ -125,6 +125,11 @@ internal static class NativeWorkerE2EAssertions
                 connectionString,
                 cancellationToken)
             .ConfigureAwait(false);
+        var agentHeartbeatCountBefore = await ReadAgentWorkerHeartbeatCountAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
         await using var host = await NativeWorkerProcessHost.StartAsync(
                 artifact,
                 provider,
@@ -137,6 +142,13 @@ internal static class NativeWorkerE2EAssertions
                 provider,
                 connectionString,
                 heartbeatCountBefore,
+                host.LogFilePath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await WaitForAgentWorkerHeartbeatAsync(
+                provider,
+                connectionString,
+                agentHeartbeatCountBefore,
                 host.LogFilePath,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -489,6 +501,54 @@ internal static class NativeWorkerE2EAssertions
         return await connection.QuerySingleAsync<long>(
                 new CommandDefinition(
                     "SELECT COUNT(*) FROM fn_jobs_worker_instance WHERE TenantId IS NULL",
+                    cancellationToken: cancellationToken))
+            .ConfigureAwait(false);
+    }
+
+    private static async Task WaitForAgentWorkerHeartbeatAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        long heartbeatCountBefore,
+        string logFilePath,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (DateTime.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var count = await ReadAgentWorkerHeartbeatCountAsync(
+                    provider,
+                    connectionString,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (count > heartbeatCountBefore)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        Assert.Fail(
+            $"Native Worker 未在 30 秒内写入 Agent 运行心跳。日志：{logFilePath}");
+    }
+
+    private static async Task<long> ReadAgentWorkerHeartbeatCountAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken)
+    {
+        await using DbConnection connection = provider switch
+        {
+            DatabaseProvider.SqlServer => new SqlConnection(connectionString),
+            DatabaseProvider.MySql => new MySqlConnection(connectionString),
+            _ => throw new InvalidOperationException(
+                $"Unsupported database provider '{provider}'."),
+        };
+        return await connection.QuerySingleAsync<long>(
+                new CommandDefinition(
+                    "SELECT COUNT(*) FROM fn_ai_agent_worker_instance WHERE WorkerRole = 'ai-agent'",
                     cancellationToken: cancellationToken))
             .ConfigureAwait(false);
     }

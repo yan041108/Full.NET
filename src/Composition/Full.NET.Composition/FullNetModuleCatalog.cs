@@ -1,3 +1,11 @@
+using Full.NET.AI.Abstractions.Credentials;
+using Full.NET.AI.Abstractions.Models;
+using Full.NET.AI.Providers.Http;
+using Full.NET.AI.Abstractions.Connectivity;
+using Full.NET.AI.Providers.OpenAI;
+using Full.NET.AI.Providers.Ollama;
+using Full.NET.AI.Providers.AzureOpenAI;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.Identity;
@@ -101,6 +109,11 @@ public static class FullNetModuleCatalog
             case FullNetHostProfile.Api:
                 services.AddFullNetModularity();
                 var apiModules = CreateModules(configuration);
+                // Provider 消费 Ai 的请求凭据作用域；裁剪 Ai 模块时不能留下悬空依赖。
+                if (apiModules.Any(module => module is AiModule))
+                {
+                    AddAiProviderServices(services, configuration);
+                }
                 foreach (var module in apiModules)
                 {
                     services.AddFullNetModule(module, configuration);
@@ -122,13 +135,21 @@ public static class FullNetModuleCatalog
                 break;
 
             case FullNetHostProfile.Worker:
+            {
                 // Worker 只装配各模块声明的后台能力，避免把 HTTP、认证和完整模块依赖图带入后台进程。
-                foreach (var module in CreateModules(configuration))
+                var workerModules = CreateModules(configuration);
+                if (workerModules.Any(module => module is AiModule))
+                {
+                    AddAiProviderServices(services, configuration);
+                }
+
+                foreach (var module in workerModules)
                 {
                     module.AddBackgroundServices(services, configuration);
                 }
 
                 break;
+            }
 
             default:
                 throw new ArgumentOutOfRangeException(
@@ -181,6 +202,19 @@ public static class FullNetModuleCatalog
 
     private static IReadOnlyList<IFullNetModule> CreateModules(IConfiguration configuration) =>
         FullNetModuleSelection.ResolveEnabledModules(configuration, CreateAllModules());
+
+    private static void AddAiProviderServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddAiProviderHttpClients(configuration);
+        services.TryAddSingleton(new OpenAiGatewayPolicy(configuration));
+        services.TryAddSingleton<IAiModelCredentialProtector, AiModelCredentialProtector>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelConnectivityProbe, OpenAiModelClientFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelConnectivityProbe, OllamaModelClientFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelConnectivityProbe, AzureOpenAiModelClientFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelClientFactory, OpenAiModelClientFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelClientFactory, OllamaModelClientFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IAiModelClientFactory, AzureOpenAiModelClientFactory>());
+    }
 
     private static readonly string[] OfficialHostProfiles =
     [

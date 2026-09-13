@@ -72,6 +72,49 @@ public sealed class MqttTopicAccessPolicyTests
 public sealed class MqttPublishRateLimiterTests
 {
     [TestMethod]
+    public void TryAcquire_removes_inactive_user_windows()
+    {
+        var limiter = new MqttPublishRateLimiter();
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 100; i++)
+            Assert.IsTrue(limiter.TryAcquire(Guid.CreateVersion7(), 2, now));
+        Assert.IsTrue(limiter.TryAcquire(Guid.CreateVersion7(), 2, now.AddMinutes(2)));
+        var entries = typeof(MqttPublishRateLimiter)
+            .GetField("_windows", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(limiter)!;
+        Assert.AreEqual(1, (int)entries.GetType().GetProperty("Count")!.GetValue(entries)!);
+    }
+
+    [TestMethod]
+    public void TryAcquire_bounds_users_without_evicting_active_quota()
+    {
+        var limiter = new MqttPublishRateLimiter();
+        var now = DateTimeOffset.UtcNow;
+        var first = Guid.CreateVersion7();
+        Assert.IsTrue(limiter.TryAcquire(first, 1, now));
+        for (var i = 1; i < 10000; i++)
+            Assert.IsTrue(limiter.TryAcquire(Guid.CreateVersion7(), 1, now));
+        Assert.IsFalse(limiter.TryAcquire(Guid.CreateVersion7(), 1, now));
+        Assert.IsFalse(limiter.TryAcquire(first, 1, now));
+        Assert.IsTrue(limiter.TryAcquire(Guid.CreateVersion7(), 1, now.AddMinutes(2)));
+    }
+
+    [TestMethod]
+    public void TryAcquire_preserves_quota_under_concurrent_cleanup()
+    {
+        var limiter = new MqttPublishRateLimiter();
+        var user = Guid.CreateVersion7();
+        var now = DateTimeOffset.UtcNow;
+        limiter.TryAcquire(Guid.CreateVersion7(), 1, now.AddMinutes(-2));
+        var accepted = 0;
+        Parallel.For(0, 1000, _ =>
+        {
+            if (limiter.TryAcquire(user, 10, now)) Interlocked.Increment(ref accepted);
+        });
+        Assert.AreEqual(10, accepted);
+    }
+
+    [TestMethod]
     public void TryAcquire_enforces_per_user_minute_window()
     {
         var limiter = new MqttPublishRateLimiter();

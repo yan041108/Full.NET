@@ -341,6 +341,9 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<
             IdentityAuthenticationRegistrationMarker>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<AccessSessionValidator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<ICurrentSessionAuthorization, CurrentSessionAuthorization>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IBackgroundSessionAuthorization, BackgroundSessionAuthorization>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<FullNetJwtBearerEvents>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<TotpSecretProtector>(ServiceLifetime.Singleton),
         RegistrationExpectation.Self<LdapBindPasswordProtector>(ServiceLifetime.Singleton),

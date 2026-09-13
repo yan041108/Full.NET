@@ -209,24 +209,24 @@ BEGIN
     )
         EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
 
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'工作流恢复任务表', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'逻辑主键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'Id';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'TenantId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'作用域键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'ScopeKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租户作用域唯一键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'TenantScopeKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程实例标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'InstanceId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'流程步骤标识', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'StepId';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'恢复种类键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'KindKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'恢复任务状态键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'StatusKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'已尝试次数', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'AttemptCount';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'修订号', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'Revision';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'执行租约持有者键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LeaseOwnerKey';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租约过期时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LeaseExpiresAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'租约世代', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LeaseGeneration';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'下次尝试时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'NextAttemptAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'最后错误摘要', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'LastError';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'创建时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'CreatedAtUtc';
-    EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'更新时间(UTC)', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'UpdatedAtUtc';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'未关闭恢复任务占用键', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'fn_workflow_recovery_task', @level2type=N'COLUMN', @level2name=N'OpenOccupancyKey';
 END;
 

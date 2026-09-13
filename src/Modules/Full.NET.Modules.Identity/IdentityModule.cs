@@ -189,6 +189,9 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IIntegrationEventHandlerRegistry,
             global::Full.NET.Generated.IntegrationEventHandlerRegistry>());
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddScoped<Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
+        services.TryAddScoped<Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
     }
 
     private static void AddOrganizationUnitProjection(IServiceCollection services)

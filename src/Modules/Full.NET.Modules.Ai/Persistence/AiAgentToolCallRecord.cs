@@ -25,5 +25,11 @@ internal sealed class AiAgentToolCallRecord
 
     public string? TraceId { get; init; }
 
+    public Guid? RunId { get; init; }
+
+    public string? ArgumentsHash { get; init; }
+
+    public Guid? ApprovalId { get; init; }
+
     public DateTimeOffset CreatedAtUtc { get; init; }
 }

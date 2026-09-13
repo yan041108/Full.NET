@@ -42,6 +42,7 @@ import {
   listAiModelConfigs,
   listAiTenantQuotas,
   testAiModelConfig,
+  testAiModelEmbeddings,
   updateAiModelConfig,
   upsertAiTenantQuota
 } from '../api/ai-model-configs';
@@ -110,13 +111,18 @@ const searchItems = computed<ArtSearchBarItem[]>(() => [
 
 const providerOptions = computed(() => [
   { value: 'openai_compatible', label: t('aiModelConfigs.providerOpenAiCompatible') },
-  { value: 'ollama', label: t('aiModelConfigs.providerOllama') }
+  { value: 'ollama', label: t('aiModelConfigs.providerOllama') },
+  { value: 'azure_openai', label: t('aiModelConfigs.providerAzureOpenAi') }
 ]);
 
 function providerLabel(providerKey: string) {
-  return providerKey === 'ollama'
-    ? t('aiModelConfigs.providerOllama')
-    : t('aiModelConfigs.providerOpenAiCompatible');
+  if (providerKey === 'ollama') {
+    return t('aiModelConfigs.providerOllama');
+  }
+  if (providerKey === 'azure_openai') {
+    return t('aiModelConfigs.providerAzureOpenAi');
+  }
+  return t('aiModelConfigs.providerOpenAiCompatible');
 }
 
 function testStatusTagType(statusKey: string | null): 'success' | 'danger' | 'info' {
@@ -199,9 +205,15 @@ function resetEditor() {
 }
 
 function onProviderChange(providerKey: string) {
-  editorForm.endpointBaseUrl = providerKey === 'ollama'
-    ? 'http://127.0.0.1:11434'
-    : 'https://api.openai.com/v1';
+  if (providerKey === 'ollama') {
+    editorForm.endpointBaseUrl = 'http://127.0.0.1:11434';
+    return;
+  }
+  if (providerKey === 'azure_openai') {
+    editorForm.endpointBaseUrl = 'https://example.openai.azure.com';
+    return;
+  }
+  editorForm.endpointBaseUrl = 'https://api.openai.com/v1';
 }
 
 function openCreate() {
@@ -288,6 +300,27 @@ async function runTest(row: AiModelConfigListItem) {
     await loadModels();
   } catch (error) {
     ElMessage.error(toProblem(error, 'aiModelConfigs.testFailed').title);
+  } finally {
+    changing.value = false;
+  }
+}
+
+async function runEmbeddingTest(row: AiModelConfigListItem) {
+  changing.value = true;
+  try {
+    const result = await testAiModelEmbeddings(row.id, t('aiModelConfigs.embeddingTestInput'));
+    if (result.succeeded) {
+      ElMessage.success(
+        t('aiModelConfigs.embeddingTestSuccess', {
+          dimensions: result.dimensions,
+          inputCount: result.inputCount
+        })
+      );
+    } else {
+      ElMessage.error(result.message);
+    }
+  } catch (error) {
+    ElMessage.error(toProblem(error, 'aiModelConfigs.embeddingTestFailed').title);
   } finally {
     changing.value = false;
   }
@@ -427,12 +460,17 @@ onMounted(load);
                 </template>
               </el-table-column>
               <!-- @vue-generic {AiModelConfigListItem} -->
-          <el-table-column :label="t('aiModelConfigs.actions')" width="220" fixed="right">
+          <el-table-column :label="t('aiModelConfigs.actions')" width="300" fixed="right">
                 <template #default="{ row }">
                   <ArtTableActionGroup>
                     <PermissionGate code="ai.models.test">
                       <ArtTableActionButton type="view" @click="runTest(row)">
                         {{ t('aiModelConfigs.testConnection') }}
+                      </ArtTableActionButton>
+                    </PermissionGate>
+                    <PermissionGate code="ai.models.test">
+                      <ArtTableActionButton type="view" @click="runEmbeddingTest(row)">
+                        {{ t('aiModelConfigs.testEmbeddings') }}
                       </ArtTableActionButton>
                     </PermissionGate>
                     <PermissionGate code="ai.models.update">
@@ -537,8 +575,17 @@ onMounted(load);
         <el-form-item :label="t('aiModelConfigs.fieldApiKey')">
           <el-input v-model="editorForm.apiKey" type="password" show-password autocomplete="new-password" />
         </el-form-item>
-        <el-form-item v-if="editorForm.providerKey === 'openai_compatible'" :label="t('aiModelConfigs.fieldOrganizationId')">
+        <el-form-item
+          v-if="editorForm.providerKey === 'openai_compatible'"
+          :label="t('aiModelConfigs.fieldOrganizationId')"
+        >
           <el-input v-model="editorForm.organizationId" />
+        </el-form-item>
+        <el-form-item
+          v-if="editorForm.providerKey === 'azure_openai'"
+          :label="t('aiModelConfigs.fieldApiVersion')"
+        >
+          <el-input v-model="editorForm.organizationId" placeholder="2024-10-21" />
         </el-form-item>
         <el-form-item :label="t('aiModelConfigs.fieldDefault')">
           <el-switch v-model="editorForm.isDefault" />

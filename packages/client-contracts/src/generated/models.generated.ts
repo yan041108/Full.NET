@@ -90,6 +90,8 @@ export interface AdministrativeRegionTreeNodeResponse {
 
 export interface AiAgentToolCallListItem {
   readonly actorUserId: string;
+  readonly approvalId?: null | string;
+  readonly argumentsHash?: null | string;
   readonly createdAtUtc: string;
   readonly durationMs?: null | number | string;
   readonly errorCode?: null | string;
@@ -97,6 +99,7 @@ export interface AiAgentToolCallListItem {
   readonly inputSummary: string;
   readonly outputSummary?: null | string;
   readonly permissionCode: string;
+  readonly runId?: null | string;
   readonly statusKey: string;
   readonly tenantId?: null | string;
   readonly toolName: string;

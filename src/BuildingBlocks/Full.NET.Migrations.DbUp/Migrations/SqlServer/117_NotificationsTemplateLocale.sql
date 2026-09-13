@@ -129,6 +129,9 @@ SET LocaleTag = ''zh-CN'',
 WHERE LocaleTag IS NULL OR DefaultLocaleTag IS NULL;
 ';
 
+IF OBJECT_ID(N'dbo.TR_fn_notifications_template_version_Immutable', N'TR') IS NOT NULL
+    DISABLE TRIGGER dbo.TR_fn_notifications_template_version_Immutable ON dbo.fn_notifications_template_version;
+
 EXEC sys.sp_executesql N'
 UPDATE dbo.fn_notifications_template_version
 SET LocaleTag = t.LocaleTag
@@ -137,6 +140,9 @@ INNER JOIN dbo.fn_notifications_template t ON t.Id = dbo.fn_notifications_templa
 WHERE dbo.fn_notifications_template_version.LocaleTag IS NULL
    OR dbo.fn_notifications_template_version.LocaleTag = '''';
 ';
+
+IF OBJECT_ID(N'dbo.TR_fn_notifications_template_version_Immutable', N'TR') IS NOT NULL
+    ENABLE TRIGGER dbo.TR_fn_notifications_template_version_Immutable ON dbo.fn_notifications_template_version;
 
 IF EXISTS (
     SELECT 1

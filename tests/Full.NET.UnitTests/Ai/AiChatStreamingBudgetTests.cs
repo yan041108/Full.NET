@@ -18,8 +18,8 @@ public sealed class AiChatStreamingBudgetTests
         var factory = Substitute.For<IHttpClientFactory>();
         factory.CreateClient(Arg.Any<string>()).Returns(client);
         var count = 0;
-        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new AiChatCompletionStreamer(factory).StreamAsync(
-            Model(), "test-key", [], _ => { count++; return Task.CompletedTask; }));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => TestAiProviders.Streamer(factory).StreamAsync(
+            Model(), [], _ => { count++; return Task.CompletedTask; }));
         Assert.AreEqual(0, count);
     }
 
@@ -32,8 +32,8 @@ public sealed class AiChatStreamingBudgetTests
         var factory = Substitute.For<IHttpClientFactory>();
         factory.CreateClient(Arg.Any<string>()).Returns(client);
         var characters = 0;
-        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => new AiChatCompletionStreamer(factory).StreamAsync(
-            Model(), "test-key", [], delta => { characters += delta.Length; return Task.CompletedTask; }));
+        await Assert.ThrowsExactlyAsync<InvalidDataException>(() => TestAiProviders.Streamer(factory).StreamAsync(
+            Model(), [], delta => { characters += delta.Length; return Task.CompletedTask; }));
         Assert.IsTrue(characters <= 1024 * 1024);
     }
 
@@ -49,7 +49,7 @@ public sealed class AiChatStreamingBudgetTests
         using var client = new HttpClient(new ResponseHandler(body));
         var factory = Substitute.For<IHttpClientFactory>();
         factory.CreateClient(Arg.Any<string>()).Returns(client);
-        var result = await new AiChatCompletionStreamer(factory).StreamAsync(Model(), "test-key", [], _ => Task.CompletedTask);
+        var result = await TestAiProviders.Streamer(factory).StreamAsync(Model(), [], _ => Task.CompletedTask);
         Assert.AreEqual("hello", result.Content);
     }
 
@@ -74,7 +74,7 @@ public sealed class AiChatStreamingBudgetTests
         using var client = new HttpClient(new ResponseHandler(body));
         var factory = Substitute.For<IHttpClientFactory>();
         factory.CreateClient(Arg.Any<string>()).Returns(client);
-        var result = await new AiChatCompletionStreamer(factory).StreamAsync(Model(), "test-key", [], _ => Task.CompletedTask);
+        var result = await TestAiProviders.Streamer(factory).StreamAsync(Model(), [], _ => Task.CompletedTask);
         Assert.AreEqual("hello", result.Content);
         Assert.AreEqual(10, result.PromptTokens);
         Assert.AreEqual(2, result.CompletionTokens);
@@ -83,7 +83,7 @@ public sealed class AiChatStreamingBudgetTests
     /// <summary>构建仅用于隔离协议读取测试的模型。</summary>
     private static AiModelConfigRecord Model() => new()
     {
-        ProviderKey = "openai_compatible", EndpointBaseUrl = "https://provider.test", ModelId = "test",
+        IsEnabled = true, ApiKeyProtected = TestAiProviders.Protect("test-key"), ProviderKey = "openai_compatible", EndpointBaseUrl = "https://provider.test", ModelId = "test",
     };
 
     /// <summary>提供固定协议内容，测试不连接外部服务。</summary>

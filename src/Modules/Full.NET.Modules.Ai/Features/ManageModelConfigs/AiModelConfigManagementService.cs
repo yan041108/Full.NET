@@ -6,7 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Ai.Domain;
 using Full.NET.Modules.Ai.Persistence;
-using Full.NET.Modules.Ai.Security;
+using Full.NET.AI.Abstractions.Credentials;
 using Full.NET.Modules.Identity.Contracts;
 
 namespace Full.NET.Modules.Ai.Features.ManageModelConfigs;
@@ -18,7 +18,7 @@ internal sealed class AiModelConfigManagementService(
     ICommandTransaction transaction,
     AiModelConfigQueryService queries,
     IIdentityActiveTenantDirectory activeTenants,
-    AiApiKeySecretProtector secretProtector,
+    IAiModelCredentialProtector secretProtector,
     IClock clock,
     IIdGenerator idGenerator)
 {

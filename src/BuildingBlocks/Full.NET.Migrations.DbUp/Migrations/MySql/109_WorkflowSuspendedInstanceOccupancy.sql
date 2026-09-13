@@ -17,11 +17,7 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 ALTER TABLE fn_workflow_instance
-    MODIFY COLUMN ActiveBusinessKey varchar(258) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
-        GENERATED ALWAYS AS (
-            CASE WHEN StatusKey IN ('active', 'suspended')
-                THEN CONCAT(TenantScopeKey, '|', BusinessType, '|', BusinessId)
-                ELSE NULL END) STORED COMMENT '占用中的实例业务唯一键';
+    MODIFY COLUMN ActiveBusinessKey varchar(258) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin GENERATED ALWAYS AS (CASE WHEN StatusKey IN ('active', 'suspended') THEN CONCAT(TenantScopeKey, '|', BusinessType, '|', BusinessId) ELSE NULL END) STORED COMMENT '占用中的实例业务唯一键';
 
 SET @hasActiveBusinessKeyUnique := (
     SELECT COUNT(1)

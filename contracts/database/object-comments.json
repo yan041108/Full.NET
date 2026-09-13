@@ -1,6 +1,82 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_agent_checkpoint": {
+      "comment": "人工智能agent checkpoint表",
+      "columns": {
+        "Checksum": "Checksum",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DefinitionVersion": "Definition Version",
+        "FormatVersion": "Format Version",
+        "FrameworkVersion": "Framework Version",
+        "Id": "逻辑主键",
+        "PayloadProtected": "Payload Protected",
+        "RunId": "运行标识",
+        "Sequence": "Sequence"
+      }
+    },
+    "fn_ai_agent_event": {
+      "comment": "人工智能agent event表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "EventType": "事件类型",
+        "Id": "逻辑主键",
+        "Payload": "消息正文",
+        "PayloadVersion": "Payload Version",
+        "RunId": "运行标识",
+        "Sequence": "Sequence"
+      }
+    },
+    "fn_ai_agent_run": {
+      "comment": "人工智能agent run表",
+      "columns": {
+        "ActorScope": "Actor Scope",
+        "ActorUserId": "操作者用户标识",
+        "AuthorizationBindingId": "Authorization Binding标识",
+        "BudgetJson": "Budget(JSON)",
+        "ClientRequestId": "Client Request标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DeadlineAtUtc": "Deadline At(UTC)",
+        "DefinitionKey": "定义稳定键",
+        "DefinitionVersion": "Definition Version",
+        "EffectiveScope": "Effective Scope",
+        "Id": "逻辑主键",
+        "LeaseEpoch": "Lease Epoch",
+        "LeaseExpiresAtUtc": "租约过期时间(UTC)",
+        "LeaseOwner": "Lease Owner",
+        "RequestHash": "完整请求绑定摘要",
+        "ScopeKey": "作用域键",
+        "SecurityStamp": "安全戳",
+        "SessionId": "会话标识",
+        "StatusKey": "状态键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_agent_step": {
+      "comment": "人工智能agent step表",
+      "columns": {
+        "ArgumentDigest": "Argument Digest",
+        "Attempt": "Attempt",
+        "Cost": "Cost",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Currency": "币种",
+        "ErrorCode": "错误码",
+        "Id": "逻辑主键",
+        "InputTokens": "Input Tokens",
+        "ModelConfigVersion": "Model Config Version",
+        "OperationId": "Operation标识",
+        "OutputTokens": "Output Tokens",
+        "PriceVersionId": "价格版本标识",
+        "RunId": "运行标识",
+        "StatusKey": "状态键",
+        "StepKey": "Step Key",
+        "ToolVersion": "Tool Version",
+        "TraceId": "追踪标识",
+        "UpdatedAtUtc": "更新时间(UTC)"
+      }
+    },
     "fn_ai_agent_tool_call": {
       "comment": "人工智能智能体工具调用表",
       "columns": {
@@ -16,6 +92,24 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "ToolName": "工具名称",
         "TraceId": "追踪标识"
+      }
+    },
+    "fn_ai_agent_worker_instance": {
+      "comment": "人工智能agent worker instance表",
+      "columns": {
+        "HostProfile": "Host Profile",
+        "InstanceId": "实例标识",
+        "LastHeartbeatAtUtc": "Last Heartbeat At(UTC)",
+        "RuntimeVersion": "Runtime Version",
+        "StartedAtUtc": "开始时间(UTC)",
+        "WorkerRole": "Worker Role"
+      }
+    },
+    "fn_ai_budget_scope": {
+      "comment": "人工智能预算作用域表",
+      "columns": {
+        "Id": "逻辑主键",
+        "ScopeKey": "作用域键"
       }
     },
     "fn_ai_chat_message": {
@@ -70,6 +164,51 @@
         "TenantId": "租户标识；NULL 表示 Host 级",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_model_price": {
+      "comment": "人工智能模型价格版本表",
+      "columns": {
+        "CachedInputPerMillion": "每百万缓存输入 Token 单价",
+        "Currency": "币种",
+        "Id": "逻辑主键",
+        "InputPerMillion": "每百万普通输入 Token 单价",
+        "ModelConfigId": "模型配置标识",
+        "ModelId": "模型标识",
+        "OutputPerMillion": "每百万输出 Token 单价",
+        "ProviderKey": "存储提供程序键",
+        "ValidFromUtc": "Valid From(UTC)"
+      }
+    },
+    "fn_ai_operation_budget": {
+      "comment": "人工智能操作预算账本表",
+      "columns": {
+        "CachedInputPerMillion": "每百万缓存输入 Token 单价",
+        "CachedInputTokens": "缓存输入 Token 数",
+        "ChargedCost": "已知或保守记账费用；未知时为空",
+        "ChargedTokens": "已知或保守记账 Token 数",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Currency": "币种",
+        "Id": "逻辑主键",
+        "InputPerMillion": "每百万普通输入 Token 单价",
+        "InputTokens": "Input Tokens",
+        "LegacyTracked": "是否同时占用兼容租户配额",
+        "ModelConfigId": "模型配置标识",
+        "ModelId": "模型标识",
+        "Outcome": "结果",
+        "OutputPerMillion": "每百万输出 Token 单价",
+        "OutputTokens": "Output Tokens",
+        "PriceVersionId": "价格版本标识",
+        "ProviderKey": "存储提供程序键",
+        "QuotaMonthKey": "配额月份键",
+        "RequestHash": "完整请求绑定摘要",
+        "ReservedCost": "预留费用；未知时为空",
+        "ReservedTokens": "预留 Token 数",
+        "RunId": "运行标识",
+        "ScopeKey": "作用域键",
+        "SettledAtUtc": "Settled At(UTC)",
+        "TraceId": "追踪标识",
+        "UsageStatus": "用量计量状态"
       }
     },
     "fn_ai_quota_reservation": {

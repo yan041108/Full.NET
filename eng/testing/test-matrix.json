@@ -4,9 +4,25 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2282,
+      "minimum": 2527,
       "timeout": "10m",
       "selections": {
+        "memory-lifecycle": {
+          "filter": "FullyQualifiedName~WeComAccessTokenCacheTests|FullyQualifiedName~DingTalkAccessTokenCacheTests|FullyQualifiedName~MqttPublishRateLimiterTests|FullyQualifiedName~WeChatPayPlatformCertificateResolverTests|FullyQualifiedName~McpClientConnectionManagerTests",
+          "minimum": 19
+        },
+        "ai-module": {
+          "filter": "FullyQualifiedName~Full.NET.UnitTests.Ai.",
+          "minimum": 318
+        },
+        "ai-runtime": {
+          "filter": "FullyQualifiedName~AiAgentRunReadiness|FullyQualifiedName~AiAgentRunState|FullyQualifiedName~AiAgentRunManagement|FullyQualifiedName~AiAgentRunCoordinator|FullyQualifiedName~AiAgentToolLoop|FullyQualifiedName~AiCheckpointCompatibility|FullyQualifiedName~AgentWorkflowRunner|FullyQualifiedName~AiMultiAgentBudget",
+          "minimum": 52
+        },
+        "ai-provider": {
+          "filter": "FullyQualifiedName~AiGatewayCapabilityTests|FullyQualifiedName~AiCredentialBoundaryTests|FullyQualifiedName~AiProviderEndpointPolicyTests|FullyQualifiedName~AiProviderSafetyRegressionTests|FullyQualifiedName~AiChatStreamingBudgetTests|FullyQualifiedName~AiModelConnectivityTesterTests|FullyQualifiedName~AiChatContentPolicyTests|FullyQualifiedName~AiAgentToolAuditPolicyTests|FullyQualifiedName~AiEmbeddingProviderContractTests|FullyQualifiedName~AzureOpenAiProviderTests",
+          "minimum": 120
+        },
         "code-generation-realtime": {
           "filter": "FullyQualifiedName~CodeGeneration|FullyQualifiedName~Realtime",
           "minimum": 371
@@ -22,9 +38,13 @@
     "architecture": {
       "project": "tests/Full.NET.ArchitectureTests/Full.NET.ArchitectureTests.csproj",
       "assembly": "tests/Full.NET.ArchitectureTests/bin/Release/net10.0/Full.NET.ArchitectureTests.dll",
-      "minimum": 161,
+      "minimum": 167,
       "timeout": "10m",
       "selections": {
+        "ai-agentic-boundaries": {
+          "filter": "FullyQualifiedName~AiDependencyBoundaryTests",
+          "minimum": 6
+        },
         "api-native-aot": {
           "filter": "FullyQualifiedName~NativeAot|FullyQualifiedName~MemoryPackControlledProtocol",
           "minimum": 36
@@ -458,6 +478,24 @@
       },
       "209": {
         "filter": "FullyQualifiedName~Migration209PositionImportReceiptTests.MySql_|FullyQualifiedName~Migration209PositionImportReceiptTests.SqlServer_"
+      },
+      "210": {
+        "filter": "FullyQualifiedName~Migration210AiToolExecutionStatusTests.MySql_|FullyQualifiedName~Migration210AiToolExecutionStatusTests.SqlServer_"
+      },
+      "211": {
+        "filter": "FullyQualifiedName~Migration211AiOperationBudgetTests.MySql_|FullyQualifiedName~Migration211AiOperationBudgetTests.SqlServer_"
+      },
+      "212": {
+        "filter": "FullyQualifiedName~Migration212AiAgentRuntimeTests.MySql_|FullyQualifiedName~Migration212AiAgentRuntimeTests.SqlServer_"
+      },
+      "213": {
+        "filter": "FullyQualifiedName~Migration213AiAgentWorkerHeartbeatTests.MySql_|FullyQualifiedName~Migration213AiAgentWorkerHeartbeatTests.SqlServer_"
+      },
+      "214": {
+        "filter": "FullyQualifiedName~Migration214AiAgentApprovalTests.MySql_|FullyQualifiedName~Migration214AiAgentApprovalTests.SqlServer_"
+      },
+      "215": {
+        "filter": "FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.MySql_|FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -475,22 +513,22 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 74,
+        "minimum": 81,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 75,
+        "minimum": 81,
         "timeout": "60m"
       },
       "migrations": {
         "filter": "FullyQualifiedName~Full.NET.IntegrationTests.Migrations",
-        "minimum": 424,
+        "minimum": 460,
         "timeout": "90m"
       },
       "infrastructure": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot&FullyQualifiedName!~ApiSqlServerTests&FullyQualifiedName!~ApiMySqlTests&FullyQualifiedName!~Full.NET.IntegrationTests.Migrations&FullyQualifiedName!~KafkaCapacityRunnerTests&FullyQualifiedName!~KafkaOutboxCdcCapacityRunnerTests&FullyQualifiedName!~MySqlCdcDebeziumInboxE2ETests&FullyQualifiedName!~SqlServerCdcDebeziumInboxE2ETests&FullyQualifiedName!~OrganizationCdcKafkaIdentityProjectionMySqlE2ETests&FullyQualifiedName!~OrganizationUnitCdcKafkaEndToEndTests&FullyQualifiedName!~OrganizationUnitCdcKafkaFaultMatrixTests&FullyQualifiedName!~EventDeliveryCutoverTests&FullyQualifiedName!~EventDeliveryRollbackTests&FullyQualifiedName!~CdcCrashPointTests&FullyQualifiedName!~KafkaFailureRecoveryTests&FullyQualifiedName!~KafkaReplayTests&FullyQualifiedName!~KafkaSubscriptionTests&FullyQualifiedName!~MySqlBinlogShadowTests&FullyQualifiedName!~SqlServerCdcShadowTests",
-        "minimum": 162,
+        "minimum": 177,
         "timeout": "60m"
       },
       "messaging-heavy": {
@@ -501,7 +539,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 792,
+        "minimum": 856,
         "timeout": "90m"
       }
     }

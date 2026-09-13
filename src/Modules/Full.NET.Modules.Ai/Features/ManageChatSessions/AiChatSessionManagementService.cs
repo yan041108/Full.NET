@@ -57,6 +57,14 @@ internal sealed class AiChatSessionManagementService(
             token => RenameCoreAsync(sessionId, ownerUserId, request, token),
             cancellationToken);
 
+    /// <summary>由外层事务包裹的写工具重命名；不得再嵌套开启事务。</summary>
+    internal Task<Result<AiChatSessionResponse>> RenameInCurrentTransactionAsync(
+        Guid sessionId,
+        Guid ownerUserId,
+        UpdateAiChatSessionRequest request,
+        CancellationToken cancellationToken = default) =>
+        RenameCoreAsync(sessionId, ownerUserId, request, cancellationToken);
+
     /// <summary>删除已授权会话与本模块消息。</summary>
     /// <param name="sessionId">已授权的会话标识。</param>
     /// <param name="ownerUserId">当前会话所有者。</param>

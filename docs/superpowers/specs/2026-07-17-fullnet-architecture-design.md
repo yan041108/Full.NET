@@ -326,6 +326,8 @@ MemoryPack 集成事件使用显式 `[MemoryPackable]` 与 `partial` 类型，�
 
 安全基础能力复用 ASP.NET Core Identity，数据存储实现自有 Dapper Store，不引入 EF Core Store。
 
+2026-09-13 已确认 OIDC 认证中心与 SSO 演进：Identity 保留账号和权威会话，优先验证 OpenIddict 协议服务端，经 P0 双库／Native AOT 门禁后依次交付最小 SSO、接入治理和 Vue 迁移。逻辑认证中心不自动拆分生产宿主或用户数据库。边界以 [ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 和 [Identity 规格 §14](2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认) 为准，任务见[执行计划](../plans/2026-09-13-identity-oidc-sso-evolution.md)；P0 尚未开始，不宣称 OIDC 服务端或 SSO 已实现。
+
 ### 6.2 Organization
 
 提供组织树、部门、岗位、职级、用户多组织关系、主部门、兼任部门、负责人和数据范围。
@@ -681,6 +683,8 @@ API 使用 `/api/v1` 版本前缀和 OpenAPI。成功响应直接返回强类型
 
 错误响应使用 ProblemDetails，并增加稳定的 `code`、`traceId` 和可选字段错误集合。状态码规则：
 
+上述规则面向业务 API。按 ADR-0011 明确注册的 OAuth/OIDC 协议端点使用协议要求的路径、字段、响应和错误，不进入 ProblemDetails／Admin.NET 业务包络或普通 JSON 命名转换；客户端管理仍为普通业务 API。此例外不削弱认证、授权、限流和敏感信息保护。
+
 | 场景 | HTTP 状态码 |
 |---|---:|
 | 参数验证失败 | 400 |
@@ -720,6 +724,8 @@ JSON 统一使用 System.Text.Json 的 Web 默认语义和 UTF-8 输出。每个
 - API Key 只保存哈希。
 
 同源管理后台默认将 Access Token 保存在内存，Refresh Token 使用 `HttpOnly + Secure + SameSite` Cookie，并启用 CSRF 防护。移动端和第三方客户端使用独立 Token 交换方式。
+
+新增 OIDC 中心会话、客户端会话与刷新令牌族分别建模；标准 OAuth `scope` 与既有 `fullnet_scope` 不混用。停用账号、改密和强制下线继续影响后续权威会话校验，不能仅凭 JWT 验签通过放行。Vue 的服务端回调／BFF 与 Cookie 存储方案进入 P3，经过多实例与迁移回退验证后再改变现有浏览器契约。
 
 ### 15.2 租户识别
 
@@ -820,6 +826,8 @@ HTTP -> Endpoint -> Command/Query -> Dapper SQL
 单实例使用本机 SignalR；自建多实例使用同机房 Redis Backplane。开发环境可以与 FusionCache 共用 Redis；生产参考拓扑使用独立 `Realtime` Redis，与 `Cache/Backplane` Redis 分离，例外必须有容量和故障域证据。除非客户端被约束为 WebSockets-only 且启用 `SkipNegotiation`，负载均衡入口必须为 SignalR 保持连接亲和；在线状态使用 Redis TTL 或可替换 Presence Store，不保存在某一台 API 的进程内存。
 
 ## 18. AI 与 Agentic Web
+
+安全、数据所有权、工具审批与持久恢复按 [AI 与 Agentic Web 专项设计](2026-09-08-ai-agentic-web-security-runtime-design.md) 实施；各能力的完成状态以实际验证证据为准。
 
 AI 分层如下：
 
@@ -949,6 +957,7 @@ Full.NET 引入 eShop 的工程和可靠性模式，但不照搬其服务数量�
 |---|---|
 | `eShop.AppHost` | `Full.NET.AppHost`，编排 API、Worker、数据库和 Redis |
 | `eShop.ServiceDefaults` | `Full.NET.Hosting/Observability`，统一日志、OpenTelemetry、健康检查和弹性配置；管理型可观测能力后续作为独立模块 |
+| `Identity.API` 的账号／协议／登录 UI 分工 | 已批准按 ADR-0011 在 Identity 内演进标准 OIDC 与 SSO；优先验证 OpenIddict，保留 Dapper、权威会话与 AOT，P0 尚未开始 |
 | 服务独立边界 | 模块边界与公开 `Contracts` |
 | 服务拥有自己的数据 | 模块拥有自己的表，禁止跨模块直接访问 |
 | Integration Event 与 EventBus | 模块 Integration Event 与可替换 EventBus Provider |

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <ProjectReference Include="../Full.NET.AI.Abstractions/Full.NET.AI.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

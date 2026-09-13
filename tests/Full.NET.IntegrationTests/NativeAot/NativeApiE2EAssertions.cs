@@ -8,6 +8,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Data.Abstractions;
 using Full.NET.Data.MySql;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Ai.Contracts;
 using Full.NET.Modules.Auditing.Contracts;
 using Full.NET.Modules.CodeGeneration.Contracts;
 using Full.NET.Modules.Document.Contracts;
@@ -89,6 +90,7 @@ internal static class NativeApiE2EAssertions
                 host.LogFilePath,
                 cancellationToken)
             .ConfigureAwait(false);
+        await VerifyAiModuleNativeClosureAsync(client, token, cancellationToken).ConfigureAwait(false);
         await VerifyReadinessAsync(client, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
@@ -1154,6 +1156,40 @@ internal static class NativeApiE2EAssertions
         using var response = await client.GetAsync("/health/ready", cancellationToken)
             .ConfigureAwait(false);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task VerifyAiModuleNativeClosureAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using (var request = Authorized(HttpMethod.Get, "/api/v1/ai/agent-tools", accessToken))
+        using (var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false))
+        {
+            await AssertStatusAsync(
+                    response,
+                    HttpStatusCode.OK,
+                    "Read Native AOT AI agent tool catalog",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var tools = await response.Content
+                .ReadFromJsonAsync<IReadOnlyList<AiAgentToolCatalogItem>>(cancellationToken)
+                .ConfigureAwait(false);
+            Assert.IsNotNull(tools);
+            Assert.IsTrue(tools.Any(tool => tool.ToolName == "ai.tools.ping"));
+        }
+
+        using var metadataResponse = await client
+            .GetAsync("/.well-known/oauth-protected-resource/ai/mcp", cancellationToken)
+            .ConfigureAwait(false);
+        await AssertStatusAsync(
+                metadataResponse,
+                HttpStatusCode.OK,
+                "Read Native AOT MCP protected resource metadata",
+                cancellationToken)
+            .ConfigureAwait(false);
+        using var metadata = JsonDocument.Parse(await metadataResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        Assert.AreEqual("fullnet://ai/mcp", metadata.RootElement.GetProperty("resource").GetString());
     }
 
     private static async Task VerifyMessagingDeadLetterFlowAsync(
