@@ -218,14 +218,14 @@ public sealed class NotificationsModule : IFullNetModule
             IIntegrationEventHandler,
             Features.ProjectWorkflowNotifications.WorkflowTodoEscalationRequestedIntegrationEventHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            Features.ProjectWorkflowNotifications.WorkflowInstanceCompletedIntegrationEventHandler>());
+            Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceCompletedSink,
+            Features.ProjectWorkflowNotifications.WorkflowInstanceCompletedNotificationSink>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            Features.ProjectWorkflowNotifications.WorkflowInstanceRejectedIntegrationEventHandler>());
+            Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceRejectedSink,
+            Features.ProjectWorkflowNotifications.WorkflowInstanceRejectedNotificationSink>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            Features.ProjectWorkflowNotifications.WorkflowInstanceCancelledIntegrationEventHandler>());
+            Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceCancelledSink,
+            Features.ProjectWorkflowNotifications.WorkflowInstanceCancelledNotificationSink>());
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
 using Full.NET.Abstractions.Ids;
-using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modularity.Modules;
 using Full.NET.Modules.DataApproval.Contracts;
@@ -10,6 +9,7 @@ using Full.NET.Modules.DataApproval.Features.ManageScenarios;
 using Full.NET.Modules.DataApproval.Features.ProjectWorkflowOutcomes;
 using Full.NET.Modules.DataApproval.Serialization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Workflow.Contracts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,15 +53,6 @@ public sealed class DataApprovalModule : IFullNetModule
         services.TryAddScoped<IDataApprovalSubmissionPort>(
             provider => provider.GetRequiredService<DataApprovalSubmissionAdapter>());
         services.TryAddScoped<DataApprovalWorkflowOutcomeService>();
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceCompletedDataApprovalHandler>());
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceRejectedDataApprovalHandler>());
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceCancelledDataApprovalHandler>());
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(
                 0,
@@ -93,14 +84,14 @@ public sealed class DataApprovalModule : IFullNetModule
         services.AddHostedService<DataApprovalRequestApplicationRecoveryHostedProcessor>();
         services.TryAddScoped<DataApprovalWorkflowOutcomeService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceCompletedDataApprovalHandler>());
+            IWorkflowInstanceCompletedSink,
+            WorkflowInstanceCompletedDataApprovalSink>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceRejectedDataApprovalHandler>());
+            IWorkflowInstanceRejectedSink,
+            WorkflowInstanceRejectedDataApprovalSink>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
-            IIntegrationEventHandler,
-            WorkflowInstanceCancelledDataApprovalHandler>());
+            IWorkflowInstanceCancelledSink,
+            WorkflowInstanceCancelledDataApprovalSink>());
     }
 
     /// <inheritdoc />

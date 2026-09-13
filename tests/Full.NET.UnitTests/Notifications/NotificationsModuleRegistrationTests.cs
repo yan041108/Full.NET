@@ -41,11 +41,22 @@ public sealed class NotificationsModuleRegistrationTests
                 typeof(WorkflowTodoAssignedIntegrationEventHandler),
                 typeof(WorkflowTodoReminderRequestedIntegrationEventHandler),
                 typeof(WorkflowTodoEscalationRequestedIntegrationEventHandler),
-                typeof(WorkflowInstanceCompletedIntegrationEventHandler),
-                typeof(WorkflowInstanceRejectedIntegrationEventHandler),
-                typeof(WorkflowInstanceCancelledIntegrationEventHandler),
             },
             handlerTypes);
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                typeof(WorkflowInstanceCompletedNotificationSink),
+                typeof(WorkflowInstanceRejectedNotificationSink),
+                typeof(WorkflowInstanceCancelledNotificationSink),
+            },
+            services
+                .Where(descriptor =>
+                    descriptor.ServiceType == typeof(Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceCompletedSink)
+                    || descriptor.ServiceType == typeof(Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceRejectedSink)
+                    || descriptor.ServiceType == typeof(Full.NET.Modules.Workflow.Contracts.IWorkflowInstanceCancelledSink))
+                .Select(descriptor => descriptor.ImplementationType)
+                .ToArray());
         Assert.IsTrue(services.Any(descriptor =>
             descriptor.ServiceType == typeof(NotificationRealtimeDelivery)
             && descriptor.Lifetime == ServiceLifetime.Scoped));

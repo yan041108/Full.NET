@@ -11,7 +11,9 @@ namespace Full.NET.IntegrationTests.NativeAot;
 /// </summary>
 internal sealed class MinioTestEnvironment : IAsyncDisposable
 {
-    private const string MinioImage = "minio/minio:RELEASE.2024-12-18T13-15-44Z";
+    // 上游 minio/minio 已停止在 Docker Hub 发布；CI 会收到 pull access denied。
+    private const string DefaultMinioImage =
+        "ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z";
     private const string RootUser = "minioadmin";
     private const string RootPassword = "minioadmin";
     private const ushort ApiPort = 9000;
@@ -38,7 +40,13 @@ internal sealed class MinioTestEnvironment : IAsyncDisposable
 
     public static async Task<MinioTestEnvironment> StartAsync()
     {
-        var container = new ContainerBuilder(MinioImage)
+        var image = Environment.GetEnvironmentVariable("FULLNET_MINIO_TEST_IMAGE");
+        if (string.IsNullOrWhiteSpace(image))
+        {
+            image = DefaultMinioImage;
+        }
+
+        var container = new ContainerBuilder(image.Trim())
             .WithCommand("server", "/data", "--console-address", ":9001")
             .WithEnvironment("MINIO_ROOT_USER", RootUser)
             .WithEnvironment("MINIO_ROOT_PASSWORD", RootPassword)

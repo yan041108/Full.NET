@@ -19,8 +19,10 @@ using Full.NET.Modules.Workflow.Features.ManageMyCc;
 using RecoveryEndpoint = Full.NET.Modules.Workflow.Features.ManageRecoveryTasks.Endpoint;
 using Full.NET.Modules.Workflow.Features.ManageRecoveryTasks;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Messaging;
 using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Workflow.Contracts;
+using Full.NET.Modules.Workflow.Features.ProjectWorkflowTerminalEvents;
 using Full.NET.Modules.Workflow.Domain;
 using Full.NET.Modules.Workflow.Features;
 using Full.NET.Modules.Workflow.Features.CrossModulePorts;
@@ -144,5 +146,14 @@ public sealed class WorkflowModule : IFullNetModule
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IHostFileReferenceClaimProbe,
             WorkflowFormSubmissionAttachmentProbe>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            WorkflowInstanceCompletedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            WorkflowInstanceRejectedIntegrationEventHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<
+            IIntegrationEventHandler,
+            WorkflowInstanceCancelledIntegrationEventHandler>());
     }
 }
