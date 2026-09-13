@@ -98,7 +98,7 @@ internal static class NativeApiE2EAssertions
             .ConfigureAwait(false);
         await VerifySerialNumbersFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
-        await VerifyDocumentFlowAsync(client, token, cancellationToken)
+        await VerifyDocumentFlowAsync(client, token, host.LogFilePath, cancellationToken)
             .ConfigureAwait(false);
         await VerifyAuditingFlowAsync(client, token, cancellationToken)
             .ConfigureAwait(false);
@@ -856,6 +856,7 @@ internal static class NativeApiE2EAssertions
     private static async Task VerifyDocumentFlowAsync(
         HttpClient client,
         string accessToken,
+        string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
         var suffix = Guid.NewGuid().ToString("N");
@@ -915,7 +916,8 @@ internal static class NativeApiE2EAssertions
                     category.Id,
                     [tag.Id]),
                 HttpStatusCode.Created,
-                cancellationToken)
+                cancellationToken,
+                nativeLogFilePath)
             .ConfigureAwait(false);
 
         using (var getRequest = Authorized(
