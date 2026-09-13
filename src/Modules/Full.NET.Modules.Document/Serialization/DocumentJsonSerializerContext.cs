@@ -7,6 +7,10 @@ namespace Full.NET.Modules.Document.Serialization;
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(HostDocumentItemResponse))]
+[JsonSerializable(typeof(HostDocumentType))]
+[JsonSerializable(typeof(HostDocumentStatus))]
+[JsonSerializable(typeof(HostDocumentTagAssignmentResponse))]
+[JsonSerializable(typeof(IReadOnlyList<HostDocumentTagAssignmentResponse>))]
 [JsonSerializable(typeof(HostDocumentVersionResponse))]
 [JsonSerializable(typeof(CreateHostDocumentItemRequest))]
 [JsonSerializable(typeof(UpdateHostDocumentItemRequest))]
@@ -31,6 +35,7 @@ namespace Full.NET.Modules.Document.Serialization;
 [JsonSerializable(typeof(DeleteHostDocumentTagRequest))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentCategoryResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentTagResponse>))]
+[JsonSerializable(typeof(Guid[]))]
 [JsonSerializable(typeof(IReadOnlyList<Guid>))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentPermissionEntry>))]
 [JsonSerializable(typeof(SetHostDocumentPermissionsRequest))]
