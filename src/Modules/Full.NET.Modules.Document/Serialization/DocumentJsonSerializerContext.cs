@@ -31,6 +31,8 @@ namespace Full.NET.Modules.Document.Serialization;
 [JsonSerializable(typeof(DeleteHostDocumentTagRequest))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentCategoryResponse>))]
 [JsonSerializable(typeof(IReadOnlyList<HostDocumentTagResponse>))]
+[JsonSerializable(typeof(IReadOnlyList<Guid>))]
+[JsonSerializable(typeof(IReadOnlyList<HostDocumentPermissionEntry>))]
 [JsonSerializable(typeof(SetHostDocumentPermissionsRequest))]
 [JsonSerializable(typeof(HostDocumentPermissionEntry))]
 [JsonSerializable(typeof(HostDocumentPermissionResponse))]

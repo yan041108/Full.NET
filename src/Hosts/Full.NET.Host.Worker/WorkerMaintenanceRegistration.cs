@@ -7,28 +7,16 @@ namespace Full.NET.Host.Worker;
 internal static class WorkerMaintenanceRegistration
 {
     /// <summary>
-    /// 退役扫描等一次性命令只需解析 Handler 与 Outbox 读取端口，不得启动模块后台循环。
+    /// 退役扫描等一次性命令只需解析 Handler 与 Outbox 读取端口，不得启动任何后台循环（含工厂注册的 IHostedService）。
     /// </summary>
     internal static void StripBackgroundLoops(IServiceCollection services)
     {
         for (var index = services.Count - 1; index >= 0; index--)
         {
-            var descriptor = services[index];
-            if (descriptor.ServiceType != typeof(IHostedService)
-                || descriptor.ImplementationType is null)
+            if (services[index].ServiceType == typeof(IHostedService))
             {
-                continue;
+                services.RemoveAt(index);
             }
-
-            if (string.Equals(
-                    descriptor.ImplementationType.Name,
-                    "MySqlSchemaModeStartupValidator",
-                    StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            services.RemoveAt(index);
         }
     }
 }

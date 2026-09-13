@@ -260,7 +260,6 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
             ["Identity__LoginRateLimitPermitLimitPerMinute"] = "1000",
             ["Identity__AllowedOrigins__0"] = "http://localhost",
             ["Tenancy__HostDomains__0"] = "localhost",
-            ["Realtime__Enabled"] = "false",
             ["Realtime__AllowSharedRedisInDevelopment"] = "true",
             ["Files__Local__RootPath"] = Path.Combine(
                 Path.GetTempPath(),
