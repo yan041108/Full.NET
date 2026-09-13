@@ -88,8 +88,15 @@ test('publish warning 门禁只接受 ADR 登记的程序集与告警码', async
 /root/.nuget/packages/microsoft.data.sqlclient.internal.logging/7.0.2/Microsoft.Data.SqlClient.Internal.Logging.dll : warning IL2104: trim
 /root/.nuget/packages/system.configuration.configurationmanager/9.0.13/System.Configuration.ConfigurationManager.dll : warning IL2104: trim
 /root/.nuget/packages/confluent.kafka/2.15.0/lib/net10.0/Confluent.Kafka.dll : warning IL2104: trim
+/root/.nuget/packages/serilog.sinks.elasticsearch/10.0.0/Serilog.Sinks.Elasticsearch.dll : warning IL2104: trim
+/root/.nuget/packages/serilog.sinks.elasticsearch/10.0.0/Serilog.Sinks.Elasticsearch.dll : warning IL3053: aot
+/root/.nuget/packages/elasticsearch.net/7.17.5/Elasticsearch.Net.dll : warning IL2104: trim
+/root/.nuget/packages/elasticsearch.net/7.17.5/Elasticsearch.Net.dll : warning IL3053: aot
+ILC : warning IL3000: Elasticsearch.Net.ClientVersionInfo.DetermineClientVersion(Type): reflection
+ILC : warning IL3002: Elasticsearch.Net.RuntimeVersionInfo.TryGetVersionFromAssemblyPath(Assembly,String&): reflection
+/root/.nuget/packages/microsoft.netcore.app.runtime.nativeaot.linux-x64/10.0.12/System.Linq.Expressions.dll : warning IL3053: aot
 `);
-  assert.equal(accepted.length, 9);
+  assert.equal(accepted.length, 16);
 
   assert.throws(
     () => validatePublishWarnings(
