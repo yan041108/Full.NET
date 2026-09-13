@@ -175,6 +175,7 @@ public sealed class IdentityModule : IFullNetModule
         AddOrganizationUnitProjection(services);
         // Workflow 通知事件必须按可信 Host/Tenant 作用域批量校验收件人，只注册所需目录而不装配完整 HTTP 身份域。
         services.AddNotificationRecipientDirectories();
+        services.TryAddScoped<OrganizationUnitChangedIntegrationEventHandler>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<
             IIntegrationEventHandler,
             OrganizationUnitChangedIntegrationEventHandler>());

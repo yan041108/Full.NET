@@ -14,23 +14,19 @@ namespace Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 /// <see cref="LegacyIntegrationEventHandlerSubscriptionAdapter"/> 保留给全局轮询的向后兼容，
 /// 两者在 Worker 并存期间按 Topic 目录的所有权精确分流。
 /// 
-/// 为什么通过 IEnumerable 解析具体 handler：
-/// IIntegrationEventHandler 使用 TryAddEnumerable(ServiceType=接口) 注册，
-/// 容器无法按"具体实现类型"直接解析（TryAddEnumerable 不注册 Self 描述符），
-/// 所以 Kafka 订阅从 IEnumerable 中找到匹配 EventType 的那个。
+/// 为什么直接注入具体 Handler 而不是 <see cref="IEnumerable{IIntegrationEventHandler}"/>：
+/// 目录构造会解析全部订阅；若订阅在构造期枚举所有 Handler，会连带拉起依赖
+/// <see cref="IOutboxWriter"/> 的投影服务并再次解析目录，形成 Scoped DI 环。
 /// </remarks>
 [IntegrationEventSubscription(
     "fullnet.identity.organization-unit-projection",
     IdentityOrganizationUnitProjectionIntegrationEventTypes.UnitChanged,
     1)]
 internal sealed class OrganizationUnitChangedKafkaSubscription(
-    IEnumerable<IIntegrationEventHandler> handlers)
+    OrganizationUnitChangedIntegrationEventHandler handler)
     : IIntegrationEventSubscription
 {
-    private readonly OrganizationUnitChangedIntegrationEventHandler _handler =
-        handlers
-            .OfType<OrganizationUnitChangedIntegrationEventHandler>()
-            .Single();
+    private readonly OrganizationUnitChangedIntegrationEventHandler _handler = handler;
 
     /// <summary>稳定 Kafka Consumer Group 标识，进入遥测 consumer_code 标签。</summary>
     public string ConsumerName => "fullnet.identity.organization-unit-projection";

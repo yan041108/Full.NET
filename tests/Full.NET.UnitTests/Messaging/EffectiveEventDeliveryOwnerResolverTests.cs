@@ -14,7 +14,7 @@ public sealed class EffectiveEventDeliveryOwnerResolverTests
         store.FindAsync("fullnet.notifications.inbox.received", 1, Arg.Any<CancellationToken>())
             .Returns((EventStreamOwnershipRecord?)null);
         var catalog = new IntegrationEventSubscriptionCatalog([], []);
-        var resolver = new EffectiveEventDeliveryOwnerResolver(catalog, store);
+        var resolver = new EffectiveEventDeliveryOwnerResolver(() => catalog, store);
 
         var owner = await resolver.GetDeliveryOwnerAsync(
             "fullnet.notifications.inbox.received",

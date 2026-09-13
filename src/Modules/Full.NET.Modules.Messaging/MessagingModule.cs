@@ -93,7 +93,10 @@ public sealed class MessagingModule : IFullNetModule
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());
         services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
-        services.AddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
+        services.AddScoped<IEffectiveEventDeliveryOwnerResolver>(provider =>
+            new EffectiveEventDeliveryOwnerResolver(
+                () => provider.GetRequiredService<IntegrationEventSubscriptionCatalog>(),
+                provider.GetRequiredService<IEventStreamOwnershipStore>()));
     }
 
     private static void RegisterSubscriptionCatalog(IServiceCollection services)

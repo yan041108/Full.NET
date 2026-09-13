@@ -9,9 +9,11 @@ namespace Full.NET.Modules.Messaging;
 /// 业务事务写 Outbox 前必须调用本解析器确定发布链路，避免按瞬时配置造成双发布。
 /// 迁移期 Topic 目录可能尚未登记既有可靠事件流，此时回退为 <see cref="EventDeliveryOwner.LegacyPolling"/>，
 /// 保证未登记流仍由 Legacy Worker 发布，不在业务事务中因目录不完整而停止写 Outbox。
+/// 目录通过延迟访问器解析，避免在 <see cref="IntegrationEventSubscriptionCatalog"/> 构造期间
+/// 因订阅/Handler 依赖 <see cref="IOutboxWriter"/> 再次解析目录而形成 DI 环。
 /// </remarks>
 internal sealed class EffectiveEventDeliveryOwnerResolver(
-    IntegrationEventSubscriptionCatalog catalog,
+    Func<IntegrationEventSubscriptionCatalog> catalogAccessor,
     IEventStreamOwnershipStore ownershipStore) : IEffectiveEventDeliveryOwnerResolver
 {
     /// <summary>
@@ -28,6 +30,7 @@ internal sealed class EffectiveEventDeliveryOwnerResolver(
         var persisted = await ownershipStore
             .FindAsync(eventType, schemaVersion, cancellationToken)
             .ConfigureAwait(false);
+        var catalog = catalogAccessor();
         if (persisted is not null)
         {
             return catalog.ResolveDeliveryOwner(

@@ -107,6 +107,7 @@ internal static class NativeApiE2EAssertions
                 connectionString,
                 client,
                 token,
+                host.LogFilePath,
                 cancellationToken)
             .ConfigureAwait(false);
         await VerifyMessagingDeliveryStatusAsync(client, token, cancellationToken)
@@ -1228,6 +1229,7 @@ internal static class NativeApiE2EAssertions
         string connectionString,
         HttpClient client,
         string accessToken,
+        string? nativeLogFilePath,
         CancellationToken cancellationToken)
     {
         const string consumerName = "fullnet.native_aot.unregistered.consumer";
@@ -1264,7 +1266,8 @@ internal static class NativeApiE2EAssertions
                 replayResponse,
                 HttpStatusCode.UnprocessableEntity,
                 "Replay Native AOT dead letter through the Outbox envelope materializer",
-                cancellationToken)
+                cancellationToken,
+                nativeLogFilePath)
             .ConfigureAwait(false);
         using var problem = JsonDocument.Parse(
             await replayResponse.Content.ReadAsStringAsync(cancellationToken)
