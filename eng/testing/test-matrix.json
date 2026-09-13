@@ -7,6 +7,10 @@
       "minimum": 2527,
       "timeout": "10m",
       "selections": {
+        "async-lifecycle": {
+          "filter": "FullyQualifiedName~CodeGenerationApplyGateTests|FullyQualifiedName~CodeGenerationApplyServiceTests|FullyQualifiedName~CodeGenerationRollbackServiceTests|FullyQualifiedName~GenerationRollbackCheckpointStoreTests|FullyQualifiedName~KafkaConsumerLagObserverTests",
+          "minimum": 45
+        },
         "memory-lifecycle": {
           "filter": "FullyQualifiedName~WeComAccessTokenCacheTests|FullyQualifiedName~DingTalkAccessTokenCacheTests|FullyQualifiedName~MqttPublishRateLimiterTests|FullyQualifiedName~WeChatPayPlatformCertificateResolverTests|FullyQualifiedName~McpClientConnectionManagerTests",
           "minimum": 19
@@ -43,6 +47,10 @@
       "selections": {
         "ai-agentic-boundaries": {
           "filter": "FullyQualifiedName~AiDependencyBoundaryTests",
+          "minimum": 6
+        },
+        "async-boundaries": {
+          "filter": "FullyQualifiedName~AsyncBoundaryTests",
           "minimum": 6
         },
         "api-native-aot": {

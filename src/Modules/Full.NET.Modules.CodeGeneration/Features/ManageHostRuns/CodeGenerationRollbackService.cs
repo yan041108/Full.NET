@@ -127,7 +127,7 @@ internal sealed class CodeGenerationRollbackService(
         }
         finally
         {
-            applyGate.Release();
+            await applyGate.ReleaseAsync().ConfigureAwait(false);
         }
     }
 
@@ -248,7 +248,7 @@ internal sealed class CodeGenerationRollbackService(
         }
         finally
         {
-            applyGate.Release();
+            await applyGate.ReleaseAsync().ConfigureAwait(false);
         }
     }
 

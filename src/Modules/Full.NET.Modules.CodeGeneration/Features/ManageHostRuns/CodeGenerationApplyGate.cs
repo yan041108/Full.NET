@@ -10,17 +10,17 @@ internal sealed class CodeGenerationApplyGate(
     IOptions<CodeGenerationApplyOptions> options,
     ICodeGenerationWorkspaceLockBackend distributedLock)
 {
-    private readonly SemaphoreSlim semaphore = new(1, 1);
-    private IAsyncDisposable? distributedLease;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private IAsyncDisposable? _distributedLease;
 
     /// <summary>
     /// 先以非阻塞信号量串行化本进程 Apply/Rollback；若启用分布式 Gate 再叠加数据库会话锁跨实例互斥。
-    /// 分布式锁获取失败时必须先释放信号量再返回 false，避免本进程被永久占位。成功后必须由调用方在 finally 调用 <see cref="Release"/>。
+    /// 分布式锁获取失败或取消时必须释放信号量，避免本进程被永久占位。成功后必须由调用方在 finally 等待 <see cref="ReleaseAsync"/>。
     /// </summary>
     /// <returns>成功进入临界区返回 true；本进程或跨实例已被占用返回 false。</returns>
     public async Task<bool> TryEnterAsync(CancellationToken cancellationToken)
     {
-        if (!await semaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        if (!await _semaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false))
         {
             return false;
         }
@@ -30,32 +30,43 @@ internal sealed class CodeGenerationApplyGate(
             return true;
         }
 
-        var resource = CodeGenerationWorkspaceLockResource.Create(
-            options.Value.WorkspaceRoot);
-        distributedLease = await distributedLock.TryAcquireAsync(
-            resource,
-            cancellationToken).ConfigureAwait(false);
-        if (distributedLease is null)
+        try
         {
-            semaphore.Release();
-            return false;
-        }
+            var resource = CodeGenerationWorkspaceLockResource.Create(options.Value.WorkspaceRoot);
+            _distributedLease = await distributedLock.TryAcquireAsync(resource, cancellationToken).ConfigureAwait(false);
+            if (_distributedLease is null)
+            {
+                _semaphore.Release();
+                return false;
+            }
 
-        return true;
+            return true;
+        }
+        catch
+        {
+            _semaphore.Release();
+            throw;
+        }
     }
 
     /// <summary>
     /// 释放临界区：先释放分布式租约（若持有）再释放信号量；必须与 <see cref="TryEnterAsync"/> 成对调用，否则信号量永久占用导致后续请求全部失败。
     /// </summary>
-    public void Release()
+    public async ValueTask ReleaseAsync()
     {
-        var lease = distributedLease;
-        distributedLease = null;
-        if (lease is not null)
+        var lease = _distributedLease;
+        _distributedLease = null;
+        try
         {
-            lease.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            if (lease is not null)
+            {
+                await lease.DisposeAsync().ConfigureAwait(false);
+            }
         }
-
-        semaphore.Release();
+        finally
+        {
+            // 释放异常也不能使本地 Gate 永久占位；异常仍向调用方传播。
+            _semaphore.Release();
+        }
     }
 }

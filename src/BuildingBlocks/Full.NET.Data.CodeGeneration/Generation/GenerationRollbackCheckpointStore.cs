@@ -128,7 +128,7 @@ public static class GenerationRollbackCheckpointStore
                 json,
                 cancellationToken);
             // Windows 在刚写完的目录上立即 Move 可能被索引或杀毒短暂锁住。
-            MovePendingDirectory(pendingPath, finalPath);
+            await MovePendingDirectoryAsync(pendingPath, finalPath, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
@@ -360,11 +360,12 @@ public static class GenerationRollbackCheckpointStore
         return contents;
     }
 
-    private static void MovePendingDirectory(string pendingPath, string finalPath)
+    private static async Task MovePendingDirectoryAsync(string pendingPath, string finalPath, CancellationToken cancellationToken)
     {
         const int maxAttempts = 8;
         for (var attempt = 1; ; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 Directory.Move(pendingPath, finalPath);
@@ -374,7 +375,8 @@ public static class GenerationRollbackCheckpointStore
                 attempt < maxAttempts
                 && exception is IOException or UnauthorizedAccessException)
             {
-                Thread.Sleep(TimeSpan.FromMilliseconds(25 * attempt));
+                // 目录重命名没有异步 API；仅重试等待异步化，保持同卷原子发布。
+                await Task.Delay(TimeSpan.FromMilliseconds(25 * attempt), cancellationToken).ConfigureAwait(false);
             }
         }
     }

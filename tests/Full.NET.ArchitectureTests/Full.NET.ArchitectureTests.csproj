@@ -50,5 +50,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 </Project>

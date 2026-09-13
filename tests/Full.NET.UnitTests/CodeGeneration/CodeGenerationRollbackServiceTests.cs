@@ -493,7 +493,7 @@ public sealed class CodeGenerationRollbackServiceTests
         }
         finally
         {
-            gate.Release();
+            await gate.ReleaseAsync();
         }
     }
 

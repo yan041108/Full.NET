@@ -22,6 +22,29 @@
 3. 同一响应需要总数和列表时应优先评估 QueryMultiple；高容量历史表应优先评估稳定游标分页。继续使用深 OFFSET 或 contains 扫描时必须提供数据规模、执行计划和上界。
 4. SQL、索引、迁移、锁或分页行为变化必须成对提供 SQL Server/MySQL 实现、执行计划与真实集成验证。
 
+### R-20260913-async-call-chain：I/O 与释放调用链必须异步贯通
+
+- 状态：强制。
+- 来源：2026-09-13 项目所有者确认同步阻塞治理；CodeGeneration 租约释放同步等待、Kafka 在 Task.Run 内 GetResult、检查点 Thread.Sleep 重试提供了实际缺陷证据。
+- 适用范围：`src/` 中 API、Worker、基础设施及其下游调用；测试与工具不得被当作生产实现的同步桥接入口。
+- 风险：同步等待占用线程池并放大排队、尾延迟和内存滞留；锁释放或取消路径遗漏还会永久占位。静态违规不等同于已测得生产性能退化。
+
+1. 有原生异步 I/O 接口时必须沿调用链使用 `await` 或直接返回任务；禁止以 Task/ValueTask 的 `.Result`、`.Wait()`、`WaitAll/WaitAny`、awaiter `.GetResult()` 转回同步。同步辅助函数、构造函数和释放函数不得隐藏这种桥接。
+2. 禁止以 `Task.Run`、`StartNew` 或 fire-and-forget 包装阻塞来伪装异步。CPU 密集卸载不是 I/O 优化，必须另有明确并发与调度预算，不默认放行。`ConfigureAwait(false)` 不能消除同步等待。
+3. 异步资源必须 `await using` 或在 `finally` 中等待释放；本地 Gate 在获取失败、取消和释放异常时也必须保持可恢复。清理不得直接继承已经取消的请求令牌而被跳过，必要时使用独立有界清理期限。
+4. 重试/轮询等待必须使用可取消的 `Task.Delay`，禁止 `Thread.Sleep`。纯内存计算、短临界区与 `SemaphoreSlim.Wait(0)` 非阻塞探测无需异步化。
+5. 取消和超时必须贯穿实际可取消边界。SDK 不支持取消时必须设置其原生请求超时，等待在途操作结束后才释放资源；仅取消等待不代表底层操作停止，禁止遗留无人观察的任务。取消不得被普通失败兜底吞掉。
+6. 只有同步接口的第三方/OS 操作不得机械套 Task.Run。必须在下表按具体成员登记原因、并发/超时、取消与资源归属；新增桥接须经明确审查授权，不得通配命名空间或整个模块。持续阻塞操作使用有界、受宿主管理的执行边界。
+
+验证：`pnpm test:dotnet:architecture --selection async-boundaries` 使用 Roslyn 符号检查 Task/ValueTask 等待、BCL awaiter GetResult、Thread.Sleep、Task.Run 和 TaskFactory.StartNew；随 main Architecture 门禁执行，并以正反例验证业务 Result 不被误判。检查不替代完整编译与同步 SDK I/O、自定义封装的调用链审查。新增机器禁用项的例外必须同时提供精确成员清单与测试，当前此类例外为空。
+
+存量边界：此轮消除已确认的同步等待异步任务，不宣称所有同步文件/SDK I/O 已迁移。Kafka Consumer/Replay 的同步 Consume、元数据等存量路径仍需专项评估；下表仅登记本轮修改涉及的边界，未登记存量不构成新增代码的豁免。修改这些存量路径时必须补齐上述审查与精确登记。
+
+| 精确同步/取消边界 | 原因与限制 | 退出条件/验证 |
+| --- | --- | --- |
+| `GenerationRollbackCheckpointStore.MovePendingDirectoryAsync` 内 `Directory.Move` | OS 没有对应异步原子目录重命名；同卷发布不得替换成复制。单次 OS 调用不可取消；最多 8 次尝试，等待可取消，总退避 700ms（不含 OS 调用耗时），受工作区 Apply Gate 串行化 | .NET 提供等价异步原子操作时替换；检查点与回滚测试覆盖一致性 |
+| `KafkaLagQueryClient` 三个 `Read*Async` 与 `Dispose` | 查询使用原生异步接口，但 SDK 无 CancellationToken；各请求 RequestTimeout 为 10 秒，每采样串行最多一个在途请求。取消后不再发起下一请求，等待在途结束再同步释放 Admin native handle；释放无可配置硬超时，不声称整体截止时间是硬 SLA | SDK 支持取消/异步释放时复审；延迟、取消、失败关闭及真实 Kafka 专项验证 |
+
 ## 3. 安全、Audit 与缓存
 
 1. Session、API Key、安全戳、权限和租户状态缓存必须保持 `rules/development-quality.md` 第 8 节的安全关键缓存语义；性能收益不能放宽撤销时效或 fail-closed。

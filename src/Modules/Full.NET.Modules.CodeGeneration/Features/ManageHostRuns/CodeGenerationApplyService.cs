@@ -320,7 +320,7 @@ internal sealed class CodeGenerationApplyService(
         }
         finally
         {
-            applyGate.Release();
+            await applyGate.ReleaseAsync().ConfigureAwait(false);
         }
     }
 

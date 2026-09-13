@@ -309,7 +309,7 @@ public sealed class CodeGenerationApplyServiceTests
         }
         finally
         {
-            fixture.Gate.Release();
+            await fixture.Gate.ReleaseAsync();
         }
     }
 

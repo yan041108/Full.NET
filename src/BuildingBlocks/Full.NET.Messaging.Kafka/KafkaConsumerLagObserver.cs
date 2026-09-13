@@ -1,166 +1,85 @@
 using Confluent.Kafka;
-using Confluent.Kafka.Admin;
 
 namespace Full.NET.Messaging.Kafka;
 
-/// <summary>
-/// 观察业务 Consumer Group 在目标 Topic 上的滞后，用于回退前排空证明与低基数 lag 指标。
-/// </summary>
+/// <summary>观察消费组滞后；未知或失败不能作为回退排空证明。</summary>
 internal sealed class KafkaConsumerLagObserver
 {
+    private readonly Func<KafkaMessagingOptions, IKafkaLagQueryClient> _createClient;
+
+    public KafkaConsumerLagObserver() : this(options => new KafkaLagQueryClient(options)) { }
+
+    internal KafkaConsumerLagObserver(Func<KafkaMessagingOptions, IKafkaLagQueryClient> createClient) =>
+        _createClient = createClient;
+
     public async Task<bool> WaitUntilDrainedAsync(
-        KafkaMessagingOptions kafkaOptions,
-        string topicName,
-        string consumerGroupId,
-        TimeSpan timeout,
-        TimeSpan pollInterval,
-        CancellationToken cancellationToken)
+        KafkaMessagingOptions kafkaOptions, string topicName, string consumerGroupId,
+        TimeSpan timeout, TimeSpan pollInterval, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(topicName);
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerGroupId);
-        if (timeout <= TimeSpan.Zero)
+        if (timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        if (pollInterval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(pollInterval));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout);
+        try
         {
-            throw new ArgumentOutOfRangeException(nameof(timeout));
-        }
-
-        var deadline = DateTime.UtcNow.Add(timeout);
-        while (DateTime.UtcNow < deadline)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var lag = await ObserveLagAsync(
-                    kafkaOptions,
-                    topicName,
-                    consumerGroupId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (lag is { TotalLagMessages: 0 })
+            while (true)
             {
-                return true;
+                var lag = await ObserveLagAsync(kafkaOptions, topicName, consumerGroupId, deadline.Token).ConfigureAwait(false);
+                if (lag is { TotalLagMessages: 0 }) return true;
+                await Task.Delay(pollInterval, deadline.Token).ConfigureAwait(false);
             }
-
-            await Task.Delay(pollInterval, cancellationToken).ConfigureAwait(false);
         }
-
-        var finalLag = await ObserveLagAsync(
-                kafkaOptions,
-                topicName,
-                consumerGroupId,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return finalLag is { TotalLagMessages: 0 };
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
-    /// <summary>
-    /// 采样一次 Group 滞后并写入 <see cref="KafkaMessagingTelemetry"/>；失败时返回 null。
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="lagRetentionRatioOverride"/> 由平台按“最老未消费年龄 / Topic 保留期”计算后传入；
-    /// 未提供时写入 0，避免用消息条数冒充时间占比触发假告警。
-    /// </remarks>
-    public Task<KafkaConsumerLagSnapshot?> ObserveLagAsync(
-        KafkaMessagingOptions kafkaOptions,
-        string topicName,
-        string consumerGroupId,
-        CancellationToken cancellationToken,
-        double? lagRetentionRatioOverride = null) =>
-        Task.Run(() =>
+    /// <summary>采样后写低基数指标；调用取消传播，查询失败返回 null。</summary>
+    /// <remarks>SDK 查询不支持 CancellationToken，单次请求最多等待 10 秒；等待其结束再释放客户端，禁止提前释放仍在使用的 native handle。</remarks>
+    public async Task<KafkaConsumerLagSnapshot?> ObserveLagAsync(
+        KafkaMessagingOptions kafkaOptions, string topicName, string consumerGroupId,
+        CancellationToken cancellationToken, double? lagRetentionRatioOverride = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
         {
-            try
+            using var client = _createClient(kafkaOptions);
+            var partitions = await client.ReadPartitionsAsync(topicName).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (partitions.Count == 0) return null;
+            var committed = await client.ReadCommittedOffsetsAsync(consumerGroupId, partitions).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var ends = await client.ReadEndOffsetsAsync(partitions).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            long totalLag = 0;
+            foreach (var partition in partitions)
             {
-                using var admin = new AdminClientBuilder(kafkaOptions.BuildClientConfig()).Build();
-                var metadata = admin.GetMetadata(topicName, TimeSpan.FromSeconds(10));
-                var topic = metadata.Topics.FirstOrDefault(
-                    candidate => string.Equals(candidate.Topic, topicName, StringComparison.Ordinal));
-                if (topic is null || topic.Partitions.Count == 0)
-                {
-                    var emptyRatio = lagRetentionRatioOverride ?? 0d;
-                    KafkaMessagingTelemetry.UpdateConsumerLag(
-                        "kafka",
-                        consumerGroupId,
-                        lagMessages: 0,
-                        lagRetentionRatio: emptyRatio);
-                    return new KafkaConsumerLagSnapshot(0, emptyRatio);
-                }
-
-                var partitions = topic.Partitions
-                    .Select(partition => new TopicPartition(
-                        topicName,
-                        new Partition(partition.PartitionId)))
-                    .ToList();
-                var committed = admin
-                    .ListConsumerGroupOffsetsAsync(
-                        [new ConsumerGroupTopicPartitions(consumerGroupId, partitions)],
-                        new ListConsumerGroupOffsetsOptions
-                        {
-                            RequestTimeout = TimeSpan.FromSeconds(10),
-                        })
-                    .GetAwaiter()
-                    .GetResult();
-
-                long totalLag = 0;
-                using var consumer = new ConsumerBuilder<Ignore, Ignore>(
-                        kafkaOptions.BuildConsumerConfig($"fullnet.lag.probe.{Guid.NewGuid():N}"))
-                    .Build();
-                foreach (var partition in partitions)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var watermark = consumer.QueryWatermarkOffsets(partition, TimeSpan.FromSeconds(10));
-                    var highWatermark = watermark.High.Value;
-                    if (highWatermark == 0)
-                    {
-                        continue;
-                    }
-
-                    var committedGroup = committed.FirstOrDefault(group => string.Equals(
-                        group.Group,
-                        consumerGroupId,
-                        StringComparison.Ordinal));
-                    if (committedGroup is null || committedGroup.Partitions is null)
-                    {
-                        totalLag += highWatermark;
-                        continue;
-                    }
-
-                    TopicPartitionOffsetError? matchedPartition = null;
-                    foreach (var candidate in committedGroup.Partitions)
-                    {
-                        if (candidate.Topic == topicName
-                            && candidate.Partition == partition.Partition)
-                        {
-                            matchedPartition = candidate;
-                            break;
-                        }
-                    }
-
-                    if (matchedPartition is not TopicPartitionOffsetError matched
-                        || matched.Offset == Offset.Unset)
-                    {
-                        totalLag += highWatermark;
-                        continue;
-                    }
-
-                    totalLag += Math.Max(0L, highWatermark - matched.Offset.Value);
-                }
-
-                var ratio = lagRetentionRatioOverride ?? 0d;
-                KafkaMessagingTelemetry.UpdateConsumerLag(
-                    "kafka",
-                    consumerGroupId,
-                    totalLag,
-                    ratio);
-                return new KafkaConsumerLagSnapshot(totalLag, ratio);
+                // 缺失或错误的高水位不是零积压；未知提交位置则从起点保守计算。
+                if (!ends.TryGetValue(partition, out var end) || end < 0) return null;
+                var offset = committed.TryGetValue(partition, out var value) && value >= 0 ? value : 0;
+                totalLag = checked(totalLag + Math.Max(0, end - offset));
             }
-            catch (Exception)
-            {
-                // lag 探针失败不得阻断回退/排空控制面；调用方按未排空处理。
-                return null;
-            }
-        }, cancellationToken);
+            var ratio = lagRetentionRatioOverride ?? 0d;
+            KafkaMessagingTelemetry.UpdateConsumerLag("kafka", consumerGroupId, totalLag, ratio);
+            return new KafkaConsumerLagSnapshot(totalLag, ratio);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // 探针失败按未排空处理，不能放行回退切流。
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
 }
 
 /// <summary>单次 Consumer lag 采样结果。</summary>
 /// <param name="TotalLagMessages">各分区滞后消息数之和。</param>
-/// <param name="LagRetentionRatio">相对保留窗口的近似占比，供近保留告警使用。</param>
-internal sealed record KafkaConsumerLagSnapshot(
-    long TotalLagMessages,
-    double LagRetentionRatio);
+/// <param name="LagRetentionRatio">相对保留窗口的近似占比。</param>
+internal sealed record KafkaConsumerLagSnapshot(long TotalLagMessages, double LagRetentionRatio);
