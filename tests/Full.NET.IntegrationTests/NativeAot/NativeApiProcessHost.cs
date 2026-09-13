@@ -164,7 +164,8 @@ internal sealed class NativeApiProcessHost : IAsyncDisposable
         var client = new HttpClient
         {
             BaseAddress = BaseAddress,
-            Timeout = TimeSpan.FromSeconds(60),
+            // Native AOT 外部进程在 CI 上首次命中复杂写路径（流水号/工作流）可能超过 60s。
+            Timeout = TimeSpan.FromSeconds(120),
         };
         client.DefaultRequestHeaders.TryAddWithoutValidation("Host", hostHeader);
         return client;
