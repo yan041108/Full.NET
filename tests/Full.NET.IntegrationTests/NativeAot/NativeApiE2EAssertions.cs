@@ -120,6 +120,9 @@ internal static class NativeApiE2EAssertions
                 host.LogFilePath,
                 cancellationToken)
             .ConfigureAwait(false);
+        // 进入租户会轮换 Host 会话绑定；AI Host 闭包检查需要重新登录后的 Host token。
+        token = await LoginAsync(client, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
         await VerifyAiModuleNativeClosureAsync(client, token, cancellationToken).ConfigureAwait(false);
         await VerifyReadinessAsync(client, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
