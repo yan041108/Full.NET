@@ -109,7 +109,7 @@ async function approveTool(tool: AiMcpRemoteDiscoveredToolItem) {
     await approveAiMcpRemoteTool(activeConnection.value.id, {
       remoteToolName: tool.remoteToolName,
       sideEffectKey: 'read',
-      permissionCode: 'ai.mcp.remote.invoke'
+      permissionCode: 'ai.mcp_remote.invoke'
     });
     ElMessage.success(t('aiMcpRemoteConnections.approveSuccess'));
     discovered.value = await discoverAiMcpRemoteTools(activeConnection.value.id);
@@ -130,7 +130,7 @@ onMounted(() => {
     <ElCard shadow="never">
       <ArtTableHeader>
         <template #left>
-          <PermissionGate code="ai.mcp.remote.manage">
+          <PermissionGate code="ai.mcp_remote.manage">
             <ElButton type="primary" :icon="Plus" data-testid="ai-mcp-remote-create" @click="openCreate">
               {{ t('aiMcpRemoteConnections.addConnection') }}
             </ElButton>
@@ -149,7 +149,7 @@ onMounted(() => {
         </ElTableColumn>
         <ElTableColumn :label="t('aiMcpRemoteConnections.actions')" width="180" fixed="right">
           <template #default="{ row }">
-            <PermissionGate code="ai.mcp.remote.manage">
+            <PermissionGate code="ai.mcp_remote.manage">
               <ElButton link type="primary" @click="openDiscover(row)">
                 {{ t('aiMcpRemoteConnections.discoverTools') }}
               </ElButton>

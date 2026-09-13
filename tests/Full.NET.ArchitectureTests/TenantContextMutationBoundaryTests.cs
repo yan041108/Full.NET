@@ -19,6 +19,7 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Hosts/Full.NET.Host.Worker/OutboxRetentionProcessor.cs",
         "src/Hosts/Full.NET.Host.Worker/Program.cs",
         // 工具审计仅复制可信请求作用域，不从工具参数获取租户，不派发业务操作。
+        "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiBackgroundToolAuditPort.cs",
         "src/Modules/Full.NET.Modules.Ai/Features/ManageAgentTools/AiToolAuditPort.cs",
         // 领取运行后按持久化记录恢复可信租户作用域，用于会话重验与预算结算。
         "src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs",

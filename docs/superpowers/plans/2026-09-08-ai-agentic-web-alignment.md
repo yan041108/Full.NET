@@ -732,4 +732,5 @@ git branch --show-current
 - 2026-09-14（续 22）：S3 Native E2E 因 Docker Hub `minio/minio` pull access denied 失败；测试容器改用 `ghcr.io/coollabsio/minio:RELEASE.2025-10-15T17-29-55Z`，并支持 `FULLNET_MINIO_TEST_IMAGE` 覆盖。
 - 2026-09-14（续 23）：CI `34776703267`（`bfb08dde`）Worker Native AOT dual-database E2E **failed: 0**（含 `VerifyVersionRetirementAsync` 退役扫描）。CI `34776703255`（`bfb08dde`）API Native AOT external-process E2E **failed: 0**；S3 Provider E2E **2/2**（SqlServer/MySQL）；Kafka Replay **failed: 0**。
 - 2026-09-14（续 24）：主 `ci` `34778722667`/`34776703288` 在 `build-test` 单元门禁失败：`IdentityModuleRegistrationTests` 需登记 `OrganizationUnitChangedIntegrationEventHandler` 直接 Scoped 注册；`MySqlPublishedUuidCompatibilityTests` 计数随 `199_OcrFoundation` 直接使用 `BINARY(16)` 调整为 15。Native AOT 专用 workflow 仍绿。
-- 未执行/未关闭：主 `ci` integration-shard（如 `api-mysql`）复验、Vue 集中 a11y/移动端人工验收。T15 Linux Native API/Worker E2E 主路径已绿，整体未关闭。
+- 2026-09-14（续 25）：主 `ci` `891d9919` 的 `build-test` 仍失败：架构测试需登记 AI MCP 委托/远端连接粗粒度权限、`ai.mcp_remote.*` 权限码重命名、`AiBackgroundToolAuditPort` 租户写入白名单，以及 MCP 服务令牌解密路径 allowlist。本地 `pnpm test:dotnet:architecture` **225/225**。
+- 未执行/未关闭：主 `ci` 全矩阵复验（含 integration-shard）、Vue 集中 a11y/移动端人工验收。T15 Linux Native API/Worker E2E 主路径已绿，整体未关闭。

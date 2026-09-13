@@ -59,5 +59,15 @@ internal static class LegacyCoarseActionPermissionRegistry
     internal static HashSet<string> AllowedBindings { get; } = new(StringComparer.Ordinal)
     {
         "PUT /api/v1/data-approvals/scenarios/{scenarioKey}|data_approvals.scenarios.manage",
+        "GET /api/v1/ai/agent/delegations/|ai.agent_delegations.manage",
+        "POST /api/v1/ai/agent/delegations/|ai.agent_delegations.manage",
+        "POST /api/v1/ai/agent/delegations/{delegationId:guid}/revoke|ai.agent_delegations.manage",
+        "GET /api/v1/ai/mcp/remote-connections/|ai.mcp_remote.manage",
+        "GET /api/v1/ai/mcp/remote-connections/{connectionId:guid}|ai.mcp_remote.manage",
+        "GET /api/v1/ai/mcp/remote-connections/{connectionId:guid}/approvals|ai.mcp_remote.manage",
+        "POST /api/v1/ai/mcp/remote-connections/|ai.mcp_remote.manage",
+        "POST /api/v1/ai/mcp/remote-connections/{connectionId:guid}/approve-tool|ai.mcp_remote.manage",
+        "POST /api/v1/ai/mcp/remote-connections/{connectionId:guid}/discover-tools|ai.mcp_remote.manage",
+        "PUT /api/v1/ai/mcp/remote-connections/{connectionId:guid}|ai.mcp_remote.manage",
     };
 }

@@ -6,6 +6,12 @@ namespace Full.NET.ArchitectureTests;
 [TestClass]
 public sealed class AiDependencyBoundaryTests
 {
+    private static readonly HashSet<string> McpServiceTokenDecryptionAllowlist = new(StringComparer.Ordinal)
+    {
+        "src/Modules/Full.NET.Modules.Ai/Mcp/AiMcpRemoteTokenProtector.cs",
+        "src/Modules/Full.NET.Modules.Ai/Mcp/AiMcpRemoteToolCatalog.cs",
+        "src/Modules/Full.NET.Modules.Ai/Features/ManageMcpRemoteConnections/AiMcpRemoteConnectionManagementService.cs",
+    };
     [TestMethod]
     public void Agent_framework_sdk_stays_inside_the_replaceable_adapter()
     {
@@ -38,8 +44,12 @@ public sealed class AiDependencyBoundaryTests
             .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin"));
         foreach (var source in sources)
         {
+            var relativePath = Path.GetRelativePath(Root(), source).Replace('\\', '/');
             var text = File.ReadAllText(source);
-            Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(text, @"\.Unprotect\s*\("), source);
+            if (!McpServiceTokenDecryptionAllowlist.Contains(relativePath))
+            {
+                Assert.IsFalse(System.Text.RegularExpressions.Regex.IsMatch(text, @"\.Unprotect\s*\("), source);
+            }
             Assert.DoesNotContain("/api/tags", text, StringComparison.Ordinal, source);
             Assert.DoesNotContain("/chat/completions", text, StringComparison.Ordinal, source);
         }
