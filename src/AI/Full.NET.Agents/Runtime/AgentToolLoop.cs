@@ -9,6 +9,9 @@ namespace Full.NET.Agents.Runtime;
 /// <summary>受控工具循环：模型请求经统一执行器派发，未注册工具不会执行 Handler。</summary>
 public sealed class AgentToolLoop
 {
+    private static readonly JsonElement EmptyObjectSchema = JsonDocument.Parse(
+        """{"type":"object","additionalProperties":false}""").RootElement.Clone();
+
     public async Task<AgentToolLoopResult> RunAsync(AgentToolLoopRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -59,7 +62,9 @@ public sealed class AgentToolLoop
                     messages.Add(new ChatMessage(ChatRole.Tool,
                     [
                         new FunctionResultContent(call.CallId,
-                            JsonSerializer.Serialize(new { statusKey = "denied", errorCode = "ai.tool.unavailable" }))
+                            JsonSerializer.Serialize(
+                                new ToolLoopDeniedPayload("denied", "ai.tool.unavailable"),
+                                AgentToolLoopJsonSerializerContext.Default.ToolLoopDeniedPayload))
                     ]));
                     continue;
                 }
@@ -70,7 +75,9 @@ public sealed class AgentToolLoop
                     messages.Add(new ChatMessage(ChatRole.Tool,
                     [
                         new FunctionResultContent(call.CallId,
-                            JsonSerializer.Serialize(new { statusKey = "denied", errorCode = "ai.tool.unavailable" }))
+                            JsonSerializer.Serialize(
+                                new ToolLoopDeniedPayload("denied", "ai.tool.unavailable"),
+                                AgentToolLoopJsonSerializerContext.Default.ToolLoopDeniedPayload))
                     ]));
                     continue;
                 }
@@ -89,13 +96,13 @@ public sealed class AgentToolLoop
                     reconciliationRequired = true;
                 }
 
-                var payload = JsonSerializer.Serialize(new
-                {
-                    statusKey = result.StatusKey,
-                    errorCode = result.ErrorCode,
-                    value = result.Value,
-                    isUntrusted = result.IsUntrusted,
-                });
+                var payload = JsonSerializer.Serialize(
+                    new ToolLoopExecutionPayload(
+                        result.StatusKey,
+                        result.ErrorCode,
+                        result.Value,
+                        result.IsUntrusted),
+                    AgentToolLoopJsonSerializerContext.Default.ToolLoopExecutionPayload);
                 messages.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, payload)]));
             }
         }
@@ -105,7 +112,7 @@ public sealed class AgentToolLoop
 
     private static IReadOnlyList<AITool> BuildToolDescriptions(AgentToolRegistry registry, HashSet<string> allowed)
     {
-        var schema = JsonSerializer.SerializeToElement(new { type = "object", additionalProperties = false });
+        var schema = EmptyObjectSchema;
         var tools = new List<AITool>();
         foreach (var name in allowed)
         {
@@ -126,14 +133,13 @@ public sealed class AgentToolLoop
 
     private static JsonElement SerializeSession(IReadOnlyList<ChatMessage> messages, string finalText)
     {
-        var payload = new List<object>();
-        foreach (var message in messages)
-        {
-            payload.Add(new { role = message.Role.Value, text = message.Text, contents = message.Contents.Count });
-        }
-
-        payload.Add(new { role = "assistant", text = finalText, contents = 0 });
-        return JsonSerializer.SerializeToElement(payload);
+        var entries = messages
+            .Select(message => new AgentSessionMessageEntry(message.Role.Value, message.Text, message.Contents.Count))
+            .ToList();
+        entries.Add(new AgentSessionMessageEntry("assistant", finalText, 0));
+        return JsonSerializer.SerializeToElement(
+            new AgentSessionSnapshot(entries),
+            AgentToolLoopJsonSerializerContext.Default.AgentSessionSnapshot);
     }
 
     private static JsonDocument ToJsonElement(IDictionary<string, object?>? arguments)
@@ -143,8 +149,28 @@ public sealed class AgentToolLoop
             return JsonDocument.Parse("{}");
         }
 
-        return JsonDocument.Parse(JsonSerializer.Serialize(arguments));
+        var converted = new Dictionary<string, JsonElement>(arguments.Count, StringComparer.Ordinal);
+        foreach (var (key, value) in arguments)
+        {
+            converted[key] = ToJsonElementValue(value);
+        }
+
+        return JsonDocument.Parse(JsonSerializer.Serialize(
+            converted,
+            AgentToolLoopJsonSerializerContext.Default.DictionaryStringJsonElement));
     }
+
+    private static JsonElement ToJsonElementValue(object? value) => value switch
+    {
+        null => default,
+        JsonElement element => element,
+        bool boolean => JsonSerializer.SerializeToElement(boolean, AgentToolLoopJsonSerializerContext.Default.Boolean),
+        string text => JsonSerializer.SerializeToElement(text, AgentToolLoopJsonSerializerContext.Default.String),
+        int number => JsonSerializer.SerializeToElement(number, AgentToolLoopJsonSerializerContext.Default.Int32),
+        long number => JsonSerializer.SerializeToElement(number, AgentToolLoopJsonSerializerContext.Default.Int64),
+        double number => JsonSerializer.SerializeToElement(number, AgentToolLoopJsonSerializerContext.Default.Double),
+        _ => JsonSerializer.SerializeToElement(value.ToString(), AgentToolLoopJsonSerializerContext.Default.String),
+    };
 
     private static long? AddUsage(long? current, long? delta) => current is null && delta is null ? null : (current ?? 0) + (delta ?? 0);
 }

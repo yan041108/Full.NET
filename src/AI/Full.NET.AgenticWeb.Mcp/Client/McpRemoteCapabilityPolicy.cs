@@ -22,7 +22,9 @@ public static class McpRemoteCapabilityPolicy
     public static string ComputeSchemaHash(string inputSchemaJson)
     {
         using var document = JsonDocument.Parse(inputSchemaJson);
-        var normalized = JsonSerializer.Serialize(document.RootElement);
+        var normalized = JsonSerializer.Serialize(
+            document.RootElement,
+            McpJsonSerializerContext.Default.JsonElement);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
     }
 

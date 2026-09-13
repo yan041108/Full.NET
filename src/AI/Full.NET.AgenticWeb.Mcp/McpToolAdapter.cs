@@ -89,7 +89,9 @@ internal sealed class McpToolAdapter(IAgentToolExecutor executor)
     private static JsonDocument SerializeArguments(IDictionary<string, JsonElement>? arguments) =>
         arguments is null || arguments.Count == 0
             ? JsonDocument.Parse("{}")
-            : JsonDocument.Parse(JsonSerializer.Serialize(arguments));
+            : JsonDocument.Parse(JsonSerializer.Serialize(
+                arguments,
+                McpJsonSerializerContext.Default.DictionaryStringJsonElement));
 
     private static T ResolveRequired<T>(IServiceProvider? services) where T : notnull
     {

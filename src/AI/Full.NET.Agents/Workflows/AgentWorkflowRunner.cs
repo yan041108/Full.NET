@@ -136,11 +136,9 @@ public sealed class AgentWorkflowRunner
                 title = title[..256];
             }
 
-            return JsonDocument.Parse(JsonSerializer.Serialize(new
-            {
-                sessionId = state.SessionId,
-                title,
-            }));
+            return JsonDocument.Parse(JsonSerializer.Serialize(
+                new WorkflowRenameSessionArguments(state.SessionId, title),
+                AgentWorkflowJsonContext.Default.WorkflowRenameSessionArguments));
         }
 
         return JsonDocument.Parse("{}");

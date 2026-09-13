@@ -16,12 +16,12 @@ internal static class McpProtectedResourceMetadataEndpoint
         {
             var configured = options.Value;
             var authority = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{configured.AuthorizationServerPath}";
-            return Results.Json(new
-            {
-                resource = configured.ResourceIdentifier,
-                authorization_servers = new[] { authority },
-                bearer_methods_supported = new[] { "header" },
-            });
+            return Results.Json(
+                new McpProtectedResourceMetadataResponse(
+                    configured.ResourceIdentifier,
+                    [authority],
+                    ["header"]),
+                McpJsonSerializerContext.Default.McpProtectedResourceMetadataResponse);
         })
         .WithName("aiMcpProtectedResourceMetadata")
         .AllowAnonymous();

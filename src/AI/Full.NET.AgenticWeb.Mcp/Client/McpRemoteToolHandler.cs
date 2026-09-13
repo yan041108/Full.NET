@@ -43,8 +43,7 @@ internal sealed class McpRemoteToolHandler(
             throw new InvalidOperationException(rejection ?? "ai.mcp.remote_not_approved");
         }
 
-        var arguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(invocation.Arguments.GetRawText())
-            ?? new Dictionary<string, object?>();
+        var arguments = ToCallArguments(invocation.Arguments);
         var result = await client.CallToolAsync(tool.RemoteToolName, arguments, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (result.IsError ?? false)
@@ -56,4 +55,31 @@ internal sealed class McpRemoteToolHandler(
         using var document = JsonDocument.Parse(text);
         return document.RootElement.Clone();
     }
+
+    private static Dictionary<string, object?> ToCallArguments(JsonElement arguments)
+    {
+        if (arguments.ValueKind != JsonValueKind.Object)
+        {
+            return new Dictionary<string, object?>(StringComparer.Ordinal);
+        }
+
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var property in arguments.EnumerateObject())
+        {
+            result[property.Name] = ToArgumentValue(property.Value);
+        }
+
+        return result;
+    }
+
+    private static object? ToArgumentValue(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString(),
+        JsonValueKind.Number => value.TryGetInt64(out var integer) ? integer : value.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        JsonValueKind.Array or JsonValueKind.Object => value.Clone(),
+        _ => null,
+    };
 }

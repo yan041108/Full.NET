@@ -45,6 +45,8 @@ namespace Full.NET.Modules.Ai.Serialization;
 [JsonSerializable(typeof(CreateAiAgentRunResponse))]
 [JsonSerializable(typeof(AiAgentRunResponse))]
 [JsonSerializable(typeof(AgentRunBudgetSnapshot))]
+[JsonSerializable(typeof(AiWorkflowSessionSnapshot))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(CreateAiAgentApprovalRequest))]
 [JsonSerializable(typeof(CreateAiAgentApprovalResponse))]
 [JsonSerializable(typeof(DecideAiAgentApprovalRequest))]

@@ -32,5 +32,11 @@ public sealed class AgentWorkflowState
     public static AgentWorkflowState Create(Guid sessionId) => new() { SessionId = sessionId };
 }
 
+/// <summary>工作流内重命名会话工具参数；字段名与 <c>ai.chat.sessions.rename</c> 契约一致。</summary>
+internal sealed record WorkflowRenameSessionArguments(
+    [property: JsonPropertyName("sessionId")] Guid SessionId,
+    [property: JsonPropertyName("title")] string Title);
+
 [JsonSerializable(typeof(AgentWorkflowState))]
+[JsonSerializable(typeof(WorkflowRenameSessionArguments))]
 internal sealed partial class AgentWorkflowJsonContext : JsonSerializerContext;

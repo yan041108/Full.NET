@@ -195,12 +195,12 @@ internal sealed class AiAgentRunCoordinator(
                     return true;
                 }
 
-                var workflowSession = JsonSerializer.SerializeToElement(new
-                {
-                    workflow = record.DefinitionKey,
-                    outputs = workflowResult.State.Outputs,
-                    finalText = workflowResult.FinalText,
-                });
+                var workflowSession = JsonSerializer.SerializeToElement(
+                    new AiWorkflowSessionSnapshot(
+                        record.DefinitionKey,
+                        workflowResult.State.Outputs,
+                        workflowResult.FinalText),
+                    AiJsonSerializerContext.Default.AiWorkflowSessionSnapshot);
                 result = new(workflowResult.FinalText ?? string.Empty, workflowSession, workflowResult.State.InputTokens, workflowResult.State.OutputTokens);
                 var workflowStepId = ids.NewId();
                 var workflowCommitted = await CommitWorkflowProgressAsync(
