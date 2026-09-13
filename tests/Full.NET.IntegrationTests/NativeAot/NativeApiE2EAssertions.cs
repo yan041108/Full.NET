@@ -29,6 +29,35 @@ internal static class NativeApiE2EAssertions
 {
     public const string AdminPassword = "FullNet!2026Integration";
 
+    /// <summary>仅验证 AI 工具目录与 MCP 受保护资源元数据在 Native 进程上可达。</summary>
+    public static async Task VerifyAiModuleNativeClosureFlowAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        _ = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiDatabaseBootstrap.BootstrapAsync(
+                provider,
+                connectionString,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await using var host = await NativeApiProcessHost.StartAsync(
+            NativeApiArtifactLocator.RequireArtifact(),
+            provider,
+            connectionString,
+            new Dictionary<string, string?>(),
+            TimeSpan.FromMinutes(2),
+            cancellationToken).ConfigureAwait(false);
+
+        using var client = host.CreateClient();
+        var token = await LoginAsync(client, host.LogFilePath, cancellationToken)
+            .ConfigureAwait(false);
+        await VerifyAiModuleNativeClosureAsync(client, token, cancellationToken).ConfigureAwait(false);
+        await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        host.AssertNoFatalMarkersInLogs();
+    }
+
     public static async Task VerifyCriticalHttpFlowAsync(
         DatabaseProvider provider,
         string connectionString,
