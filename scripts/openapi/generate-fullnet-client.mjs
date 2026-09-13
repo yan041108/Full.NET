@@ -353,7 +353,11 @@ function collectOperations(document) {
       if (!httpMethods.has(method)) {
         continue;
       }
-      const response = describeResponse(operation.responses);
+      const response = describeResponse(operation.responses, {
+        path: endpointPath,
+        operationId: operation.operationId,
+        security: operation.security
+      });
       // SSE 仍由手写流式客户端消费；生成器只产出 JSON/Blob/204 Operation。
       if (response.kind === 'sse') {
         continue;
@@ -398,7 +402,7 @@ function describeRequest(requestBody) {
   throw new Error('客户端生成器遇到不支持的 requestBody media type。');
 }
 
-function describeResponse(responses) {
+function describeResponse(responses, context = {}) {
   const [status, response] = Object.entries(responses)
     .filter(([candidate]) => /^2\d\d$/u.test(candidate))
     .sort(([left], [right]) => left.localeCompare(right, 'en'))[0] ?? [];
@@ -412,21 +416,49 @@ function describeResponse(responses) {
   if (isBlobSuccessContent(content)) {
     return { kind: 'blob' };
   }
-  if (content['text/event-stream']) {
+  if (content['text/event-stream'] || isInferredStreamResponse(context, content)) {
     return { kind: 'sse' };
+  }
+  if (isInferredEmptySuccessResponse(context, content)) {
+    return { kind: 'void' };
   }
   const json = Object.entries(content).find(([mediaType]) =>
     mediaType === 'application/json' || mediaType.endsWith('+json'))?.[1];
+  if (json?.schema && isStreamSchemaReference(json.schema)) {
+    return { kind: 'blob' };
+  }
   if (!json?.schema) {
     throw new Error(`客户端生成器不支持成功响应 ${status} 的 media type。`);
   }
   return { kind: 'json', schema: json.schema };
 }
 
+function isStreamSchemaReference(schema) {
+  return isReference(schema) && referenceName(schema) === 'Stream';
+}
+
+function isInferredStreamResponse(context, content) {
+  if (Object.keys(content).length > 0) {
+    return false;
+  }
+  const path = context.path ?? '';
+  const operationId = context.operationId ?? '';
+  return path.includes('/stream')
+    || /Stream/u.test(operationId);
+}
+
+function isInferredEmptySuccessResponse(context, content) {
+  if (Object.keys(content).length > 0) {
+    return false;
+  }
+  return Array.isArray(context.security) && context.security.length === 0;
+}
+
 function isBlobSuccessContent(content) {
-  // 工作簿下载与 octet-stream 都走认证 Blob 客户端，避免生成器把非 JSON 成功响应当成失败。
+  // 工作簿下载、预览 PDF 与 octet-stream 都走认证 Blob 客户端，避免生成器把非 JSON 成功响应当成失败。
   return Object.keys(content).some(mediaType =>
     mediaType === 'application/octet-stream'
+    || mediaType === 'application/pdf'
     || mediaType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
 
