@@ -240,7 +240,9 @@ internal sealed class ReportingExportTaskRunner(
         CancellationToken cancellationToken)
     {
         var affected = await commandExecutor.ExecuteAsync(
-                ReportingExportTaskSql.CompleteSucceeded,
+                databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                    ? ReportingExportTaskSql.CompleteSucceededSqlServer
+                    : ReportingExportTaskSql.CompleteSucceeded,
                 ReportingSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),
@@ -280,7 +282,9 @@ internal sealed class ReportingExportTaskRunner(
         CancellationToken cancellationToken)
     {
         await commandExecutor.ExecuteAsync(
-                ReportingExportTaskSql.CompleteFailed,
+                databaseOptions.Value.Provider == DatabaseProvider.SqlServer
+                    ? ReportingExportTaskSql.CompleteFailedSqlServer
+                    : ReportingExportTaskSql.CompleteFailed,
                 ReportingSqlParameters.Create(
                     ("Id", task.Id),
                     ("LeaseId", task.LeaseId),

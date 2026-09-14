@@ -245,12 +245,14 @@ public sealed class DevelopmentSeedTests
             [
                 "identity.host_administrator",
                 "identity.host_navigation_catalog",
+                "regions.administrative_baseline",
                 "settings.host_user_profile_dictionaries",
                 "testing.profile_contract_marker",
             ],
             [
                 "identity.host_administrator",
                 "identity.host_navigation_catalog",
+                "regions.administrative_baseline",
                 "settings.host_user_profile_dictionaries",
                 "testing.profile_contract_marker",
             ]);

@@ -112,6 +112,7 @@ internal static class OrganizationCdcKafkaIdentityProjectionE2ESupport
         services.AddFullNetDapper(configuration, "Testing");
         services.AddFullNetMemoryPack();
         services.AddScoped<OrganizationUnitProjectionWriter>();
+        services.AddScoped<OrganizationUnitChangedIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, OrganizationUnitChangedIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventSubscription, OrganizationUnitChangedKafkaSubscription>();
         return services.BuildServiceProvider(new ServiceProviderOptions

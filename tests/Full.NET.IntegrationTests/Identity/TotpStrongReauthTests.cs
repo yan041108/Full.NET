@@ -12,8 +12,10 @@ using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
 using Full.NET.Modules.Identity.Features.ManageSuperAdministrators;
@@ -163,6 +165,7 @@ public sealed class TotpStrongReauthTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddRouting();
+        services.AddHttpContextAccessor();
         services.AddSingleton<IHostEnvironment>(new ProductionHostEnvironment());
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
@@ -177,6 +180,22 @@ public sealed class TotpStrongReauthTests
         services.AddFullNetMemoryPack();
         services.AddFullNetCaching(configuration, "Production");
         services.AddFullNetSeeding(configuration);
+        services.AddSingleton<
+            ITenantOrganizationUnitDirectory,
+            EmptyTenantOrganizationUnitDirectory>();
+        services.AddSingleton<
+            IIdentityOrganizationUnitDirectory,
+            EmptyIdentityOrganizationUnitDirectory>();
+        services.AddSingleton<
+            IIdentityOrganizationUnitProjectionSource,
+            EmptyIdentityOrganizationUnitProjectionSource>();
+        services.AddSingleton<
+            IIdentityOrganizationPositionDirectory,
+            EmptyIdentityOrganizationPositionDirectory>();
+        services.AddSingleton<IHostFileUploadWriter, NoOpHostFileUploadWriter>();
+        services.AddSingleton<IHostFileReferenceClaimService, NoOpHostFileReferenceClaimService>();
+        services.AddSingleton<IHostFileDescriptorReader, NoOpHostFileDescriptorReader>();
+        services.AddSingleton<IHostFileContentReader, NoOpHostFileContentReader>();
         services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
         services.AddFullNetModule<OrganizationModule>(configuration);
@@ -212,5 +231,111 @@ public sealed class TotpStrongReauthTests
 
         public IResult MapException(Exception exception, HttpContext httpContext) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class EmptyTenantOrganizationUnitDirectory : ITenantOrganizationUnitDirectory
+    {
+        public Task<TenantOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
+            Guid tenantId,
+            Guid unitId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<TenantOrganizationUnitDirectoryEntry?>(null);
+    }
+
+    private sealed class EmptyIdentityOrganizationUnitDirectory : IIdentityOrganizationUnitDirectory
+    {
+        public Task<IdentityOrganizationUnitDirectoryEntry?> FindActiveUnitAsync(
+            Guid tenantId,
+            Guid unitId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IdentityOrganizationUnitDirectoryEntry?>(null);
+    }
+
+    private sealed class EmptyIdentityOrganizationUnitProjectionSource
+        : IIdentityOrganizationUnitProjectionSource
+    {
+        public Task<Result<IdentityOrganizationUnitProjectionPage>> ListAsync(
+            Guid tenantId,
+            Guid? afterUnitId,
+            int pageSize,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<IdentityOrganizationUnitProjectionPage>.Success(
+                new IdentityOrganizationUnitProjectionPage([], null, false)));
+    }
+
+    private sealed class EmptyIdentityOrganizationPositionDirectory
+        : IIdentityOrganizationPositionDirectory
+    {
+        public Task<IdentityOrganizationPositionDirectoryEntry?> FindActivePositionAsync(
+            Guid tenantId,
+            Guid positionId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IdentityOrganizationPositionDirectoryEntry?>(null);
+    }
+
+    private sealed class NoOpHostFileUploadWriter : IHostFileUploadWriter
+    {
+        public Task<Result<HostFileUploadResult>> UploadAsync(
+            Guid createdByUserId,
+            string originalFileName,
+            string contentType,
+            Stream content,
+            long contentLength,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileUploadResult>.Failure(new Error(
+                "files.upload_not_available",
+                "The TOTP fixture does not upload files.",
+                ErrorType.Unexpected)));
+    }
+
+    private sealed class NoOpHostFileReferenceClaimService : IHostFileReferenceClaimService
+    {
+        public Task<Result<HostFileReferenceClaimResult>> ClaimAsync(
+            HostFileReferenceClaimRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileReferenceClaimResult>.Failure(new Error(
+                "files.claim_not_available",
+                "The TOTP fixture does not claim file references.",
+                ErrorType.Unexpected)));
+
+        public Task<Result<HostFileReferenceClaimResult>> ConfirmAsync(
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileReferenceClaimResult>.Failure(new Error(
+                "files.claim_not_available",
+                "The TOTP fixture does not claim file references.",
+                ErrorType.Unexpected)));
+
+        public Task<Result<bool>> ReleaseAsync(
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<bool>.Failure(new Error(
+                "files.claim_not_available",
+                "The TOTP fixture does not claim file references.",
+                ErrorType.Unexpected)));
+
+        public Task<bool> HasOpenClaimsAsync(
+            Guid fileId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+    }
+
+    private sealed class NoOpHostFileDescriptorReader : IHostFileDescriptorReader
+    {
+        public Task<HostFileDescriptor?> GetReadyDescriptorAsync(
+            Guid fileId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<HostFileDescriptor?>(null);
+    }
+
+    private sealed class NoOpHostFileContentReader : IHostFileContentReader
+    {
+        public Task<Result<HostFileContent>> OpenReadyContentAsync(
+            Guid fileId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileContent>.Failure(new Error(
+                "files.content_not_available",
+                "The TOTP fixture does not open file content.",
+                ErrorType.Unexpected)));
     }
 }

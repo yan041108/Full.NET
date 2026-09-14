@@ -12,8 +12,15 @@ internal static class ReportingExportTaskSql
         ActorPermissionCodesJson, Version
         """;
 
-    private const string InsertedColumns = """
-        inserted.Id, inserted.TenantId, inserted.DefinitionId, inserted.VersionNumber, inserted.DefinitionKey, inserted.DefinitionName, inserted.FormatKey, inserted.ParametersJson, inserted.StatusKey, inserted.OutputFileId, inserted.OutputFileName, inserted.RowCount, inserted.ErrorCode, inserted.ErrorMessage, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.CompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.ActorPermissionCodesJson, inserted.Version
+    private const string SelectColumnsSqlServer = """
+        Id, TenantId, DefinitionId, VersionNumber, DefinitionKey, DefinitionName, FormatKey,
+        ParametersJson, StatusKey, OutputFileId, OutputFileName, [RowCount], ErrorCode, ErrorMessage,
+        RequestedByUserId, CreatedAtUtc, CompletedAtUtc, LeaseId, LeaseExpiresAtUtc,
+        ActorPermissionCodesJson, Version
+        """;
+
+    private const string InsertedColumnsSqlServer = """
+        inserted.Id, inserted.TenantId, inserted.DefinitionId, inserted.VersionNumber, inserted.DefinitionKey, inserted.DefinitionName, inserted.FormatKey, inserted.ParametersJson, inserted.StatusKey, inserted.OutputFileId, inserted.OutputFileName, inserted.[RowCount], inserted.ErrorCode, inserted.ErrorMessage, inserted.RequestedByUserId, inserted.CreatedAtUtc, inserted.CompletedAtUtc, inserted.LeaseId, inserted.LeaseExpiresAtUtc, inserted.ActorPermissionCodesJson, inserted.Version
         """;
 
     /// <summary>可领取条件：排队中，或处理中但租约已到期/缺失。</summary>
@@ -75,7 +82,7 @@ internal static class ReportingExportTaskSql
         FROM fn_reporting_export_task
         WHERE TenantId = @TenantId AND (@DefinitionId IS NULL OR DefinitionId = @DefinitionId);
 
-        SELECT {SelectColumns}
+        SELECT {SelectColumnsSqlServer}
         FROM fn_reporting_export_task
         WHERE TenantId = @TenantId AND (@DefinitionId IS NULL OR DefinitionId = @DefinitionId)
         ORDER BY CreatedAtUtc DESC, Id DESC
@@ -112,7 +119,7 @@ internal static class ReportingExportTaskSql
             LeaseId = @LeaseId,
             LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             Version = task.Version + 1
-        OUTPUT {InsertedColumns}
+        OUTPUT {InsertedColumnsSqlServer}
         FROM fn_reporting_export_task AS task
         INNER JOIN candidates ON candidates.Id = task.Id
         WHERE task.TenantId = @TenantId;
@@ -127,7 +134,7 @@ internal static class ReportingExportTaskSql
             LeaseId = @LeaseId,
             LeaseExpiresAtUtc = @LeaseExpiresAtUtc,
             Version = Version + 1
-        OUTPUT {InsertedColumns}
+        OUTPUT {InsertedColumnsSqlServer}
         WHERE TenantId = @TenantId AND Id = @Id
           AND {ClaimablePredicate};
         """,
@@ -199,12 +206,50 @@ internal static class ReportingExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement CompleteSucceededSqlServer = new(
+        "reporting.export_task.complete_succeeded.sqlserver",
+        """
+        UPDATE fn_reporting_export_task
+        SET StatusKey = @StatusKey,
+            OutputFileId = @OutputFileId,
+            OutputFileName = @OutputFileName,
+            [RowCount] = @RowCount,
+            ErrorCode = NULL,
+            ErrorMessage = NULL,
+            CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
+            Version = Version + 1
+        WHERE TenantId = @TenantId AND Id = @Id
+          AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement CompleteFailed = new(
         "reporting.export_task.complete_failed",
         """
         UPDATE fn_reporting_export_task
         SET StatusKey = @StatusKey,
             RowCount = @RowCount,
+            ErrorCode = @ErrorCode,
+            ErrorMessage = @ErrorMessage,
+            CompletedAtUtc = @CompletedAtUtc,
+            LeaseId = NULL,
+            LeaseExpiresAtUtc = NULL,
+            Version = Version + 1
+        WHERE TenantId = @TenantId AND Id = @Id
+          AND StatusKey = 'processing'
+          AND LeaseId = @LeaseId
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement CompleteFailedSqlServer = new(
+        "reporting.export_task.complete_failed.sqlserver",
+        """
+        UPDATE fn_reporting_export_task
+        SET StatusKey = @StatusKey,
+            [RowCount] = @RowCount,
             ErrorCode = @ErrorCode,
             ErrorMessage = @ErrorMessage,
             CompletedAtUtc = @CompletedAtUtc,
