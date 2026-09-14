@@ -136,7 +136,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 252,
+      "line": 297,
       "actual": "DROP COLUMN",
       "reason": "SQL Server Naming Contract 退役 Outbox Type 列。",
       "risk": "丢弃 legacy 镜像列。",
@@ -147,7 +147,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 254,
+      "line": 299,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox OccurredAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -158,7 +158,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 256,
+      "line": 301,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox ProcessedAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -169,7 +169,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 258,
+      "line": 303,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox NextAttemptAt 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -180,7 +180,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 260,
+      "line": 305,
       "actual": "DROP COLUMN",
       "reason": "退役 Outbox LockedUntil 列。",
       "risk": "丢弃 legacy 时间列。",
@@ -191,7 +191,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/011_NamingContract.sql",
-      "line": 263,
+      "line": 308,
       "actual": "DROP TABLE",
       "reason": "退役 legacy fn_tenant_tenant；与 MySQL 011 对称。",
       "risk": "删除 legacy 表。",
@@ -224,7 +224,7 @@
     {
       "ruleId": "FNSAFETY003",
       "file": "src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/093_DocumentAdminNetParity.sql",
-      "line": 722,
+      "line": 1397,
       "actual": "DROP COLUMN",
       "reason": "093 将旧 Password 值回填到 PasswordHash 后退役明文兼容列；Migration093DocumentAdminNetParityRecoveryTests 覆盖 SQL Server 漂移恢复与值保留。",
       "risk": "旧列删除不可逆；仅在 PasswordHash 已存在并完成空值回填的分支执行，恢复测试验证迁移后值未丢失。",
