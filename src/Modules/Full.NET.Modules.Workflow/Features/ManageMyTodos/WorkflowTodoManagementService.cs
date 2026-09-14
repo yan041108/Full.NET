@@ -929,7 +929,14 @@ internal sealed class WorkflowTodoManagementService(
             token).ConfigureAwait(false);
         if (target is null)
         {
-            return Failure(WorkflowErrorCodes.TodoReturnTargetInvalid, ErrorType.BusinessRule);
+            // 并发退回时，另一请求可能已先完成并失效目标；同幂等键应回放收据而非返回无效目标。
+            var concurrentReceipt = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowActionReceiptRecord>(
+                WorkflowSql.FindActionReceipt,
+                WorkflowSqlParameters.Create(("InstanceId", instance.Id),
+                    ("IdempotencyKey", idempotencyKey)), token).ConfigureAwait(false);
+            return concurrentReceipt is null
+                ? Failure(WorkflowErrorCodes.TodoReturnTargetInvalid, ErrorType.BusinessRule)
+                : ReplayReturn(instance, formVersionId, actorUserId, requestHash, concurrentReceipt);
         }
 
         var asset = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowRuntimeAssetRecord>(
