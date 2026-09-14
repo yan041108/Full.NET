@@ -3741,7 +3741,9 @@ async function mockAuthenticatedSession(page, options = {}) {
         requestPath: '/api/v1/me',
         succeeded: true,
         occurredAtUtc: '2026-07-26T00:00:00Z'
-      }]
+      }],
+      accessTrafficTrend: null,
+      businessEntries: []
     })
   }));
   await mockSnapshotEndpoints(page, {
@@ -3930,7 +3932,8 @@ function currentUserResponse(activeTenantId = null) {
     ],
     sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     preferredLocale: 'zh-CN',
-    profileVersion: 1
+    profileVersion: 1,
+    passwordChangeRequired: false
   };
 }
 

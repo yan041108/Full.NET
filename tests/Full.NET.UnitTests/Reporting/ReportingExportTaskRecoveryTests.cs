@@ -246,7 +246,8 @@ public sealed class ReportingExportTaskRecoveryTests
         {
             SqlScopeGuard.Validate(statement, tenant);
             var values = Params(parameters);
-            if (statement.Name == ReportingExportTaskSql.FindById.Name
+            if ((statement.Name == ReportingExportTaskSql.FindById.Name
+                    || statement.Name == ReportingExportTaskSql.FindByIdSqlServer.Name)
                 && Tasks.TryGetValue((Guid)values["Id"]!, out var task))
             {
                 return Task.FromResult((T?)(object)task);

@@ -57,7 +57,7 @@ internal sealed class ReportingExportTaskQueryService(
     {
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
-                ReportingExportTaskSql.FindById,
+                ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);

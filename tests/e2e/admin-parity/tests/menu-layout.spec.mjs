@@ -256,7 +256,8 @@ async function mockAuthenticatedSession(page) {
       ],
       sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
       preferredLocale: 'zh-CN',
-      profileVersion: 1
+      profileVersion: 1,
+      passwordChangeRequired: false
     })
   }));
   await page.route('**/api/v1/navigation', route => route.fulfill({

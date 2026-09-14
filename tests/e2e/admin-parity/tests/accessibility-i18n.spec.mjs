@@ -450,7 +450,9 @@ async function mockAuthenticatedSession(page, options = {}) {
       onlineSessionCount: 0,
       todayRequestCount: 0,
       todayErrorRate: 0,
-      recentActivities: []
+      recentActivities: [],
+      accessTrafficTrend: null,
+      businessEntries: []
     })
   }));
   await page.route('**/api/v1/tenancy/tenants**', route => route.fulfill({
@@ -568,7 +570,8 @@ function currentUserResponse(
     ],
     sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
     preferredLocale,
-    profileVersion
+    profileVersion,
+    passwordChangeRequired: false
   };
 }
 

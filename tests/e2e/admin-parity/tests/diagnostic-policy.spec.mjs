@@ -87,7 +87,8 @@ async function mockAuthenticatedSession(page) {
       ],
       sessionId: '019bc2b1-2a40-7cc3-8992-a80de51bf296',
       preferredLocale: 'zh-CN',
-      profileVersion: 1
+      profileVersion: 1,
+      passwordChangeRequired: false
     })
   }));
   await page.route('**/api/v1/navigation', route => route.fulfill({
@@ -120,7 +121,9 @@ async function mockAuthenticatedSession(page) {
       onlineSessionCount: 1,
       todayRequestCount: 1,
       todayErrorRate: 0,
-      recentActivities: []
+      recentActivities: [],
+      accessTrafficTrend: null,
+      businessEntries: []
     })
   }));
   await page.route('**/api/v1/notifications/my-inbox-messages/unread-count', route => route.fulfill({

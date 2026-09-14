@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Reporting.Contracts;
 using Full.NET.Modules.Reporting.Features.ManageDefinitions;
 using Full.NET.Modules.Reporting.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Reporting.Features.ManageExportTasks;
 
@@ -29,7 +30,8 @@ internal sealed class ReportingExportTaskManagementService(
     ReportingExportTaskRunner runner,
     ICurrentTenant currentTenant,
     IClock clock,
-    IIdGenerator idGenerator)
+    IIdGenerator idGenerator,
+    IOptions<DatabaseOptions> databaseOptions)
 {
     private const string WorkbookContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -109,7 +111,7 @@ internal sealed class ReportingExportTaskManagementService(
         };
 
         await commandExecutor.ExecuteAsync(
-                ReportingExportTaskSql.Insert,
+                ReportingExportTaskSql.InsertFor(databaseOptions.Value.Provider),
                 record,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -128,7 +130,7 @@ internal sealed class ReportingExportTaskManagementService(
         EnsureTenantContext();
         var record = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
-                ReportingExportTaskSql.FindById,
+                ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -170,7 +172,7 @@ internal sealed class ReportingExportTaskManagementService(
     {
         var detail = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
-                ReportingExportTaskSql.FindById,
+                ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
                 ReportingSqlParameters.Create(("Id", taskId)),
                 cancellationToken)
             .ConfigureAwait(false);

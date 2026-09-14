@@ -91,14 +91,19 @@ internal static class ReportingExportTaskClaimPersistenceAssertions
         var taskA = Guid.CreateVersion7();
         var taskB = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
-        await InsertQueuedAsync(first, taskA, tenantA, now).ConfigureAwait(false);
-        await InsertQueuedAsync(first, taskB, tenantB, now.AddMilliseconds(1)).ConfigureAwait(false);
+        await InsertQueuedAsync(provider, first, taskA, tenantA, now).ConfigureAwait(false);
+        await InsertQueuedAsync(provider, first, taskB, tenantB, now.AddMilliseconds(1)).ConfigureAwait(false);
         return (first, second, tenantA, tenantB, taskA, taskB);
     }
 
     /// <summary>按生产 Insert 语句写入一条可领取的导出任务。</summary>
-    private static Task<int> InsertQueuedAsync(DbConnection connection, Guid id, Guid tenantId, DateTime createdAtUtc) =>
-        connection.ExecuteAsync(Sql("Insert"), new
+    private static Task<int> InsertQueuedAsync(
+        DatabaseProvider provider,
+        DbConnection connection,
+        Guid id,
+        Guid tenantId,
+        DateTime createdAtUtc) =>
+        connection.ExecuteAsync(Sql(provider == DatabaseProvider.SqlServer ? "InsertSqlServer" : "Insert"), new
         {
             Id = id,
             TenantId = tenantId,

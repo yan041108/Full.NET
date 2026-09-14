@@ -260,7 +260,7 @@ internal sealed class ReportingExportTaskRunner(
 
         var current = await queryExecutor
             .QuerySingleOrDefaultAsync<ReportingExportTaskRecord>(
-                ReportingExportTaskSql.FindById,
+                ReportingExportTaskSql.FindByIdFor(databaseOptions.Value.Provider),
                 ReportingSqlParameters.Create(("Id", task.Id)),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -361,7 +361,7 @@ internal sealed class ReportingExportTaskRunner(
                             token)
                         .ConfigureAwait(false);
                     var rows = await queryExecutor.QueryAsync<ReportingExportTaskRecord>(
-                            ReportingExportTaskSql.SelectByIds,
+                            ReportingExportTaskSql.SelectByIdsFor(databaseOptions.Value.Provider),
                             ReportingSqlParameters.Create(("Ids", ids.ToArray())),
                             token)
                         .ConfigureAwait(false);

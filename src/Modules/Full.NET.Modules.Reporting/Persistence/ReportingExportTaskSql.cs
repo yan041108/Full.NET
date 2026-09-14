@@ -66,10 +66,32 @@ internal static class ReportingExportTaskSql
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
 
+    public static readonly SqlStatement InsertSqlServer = new(
+        "reporting.export_task.insert.sqlserver",
+        $"""
+        INSERT INTO fn_reporting_export_task
+            ({SelectColumnsSqlServer})
+        VALUES
+            (@Id, @TenantId, @DefinitionId, @VersionNumber, @DefinitionKey, @DefinitionName, @FormatKey,
+             @ParametersJson, @StatusKey, @OutputFileId, @OutputFileName, @RowCount, @ErrorCode, @ErrorMessage,
+             @RequestedByUserId, @CreatedAtUtc, @CompletedAtUtc, @LeaseId, @LeaseExpiresAtUtc,
+             @ActorPermissionCodesJson, @Version)
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
     public static readonly SqlStatement FindById = new(
         "reporting.export_task.find_by_id",
         $"""
         SELECT {SelectColumns}
+        FROM fn_reporting_export_task
+        WHERE TenantId = @TenantId AND Id = @Id
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement FindByIdSqlServer = new(
+        "reporting.export_task.find_by_id.sqlserver",
+        $"""
+        SELECT {SelectColumnsSqlServer}
         FROM fn_reporting_export_task
         WHERE TenantId = @TenantId AND Id = @Id
         """,
@@ -185,6 +207,28 @@ internal static class ReportingExportTaskSql
         ORDER BY CreatedAtUtc, Id
         """,
         SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    public static readonly SqlStatement SelectByIdsSqlServer = new(
+        "reporting.export_task.select_by_ids.sqlserver",
+        $"""
+        SELECT {SelectColumnsSqlServer}
+        FROM fn_reporting_export_task
+        WHERE TenantId = @TenantId AND Id IN @Ids
+        ORDER BY CreatedAtUtc, Id
+        """,
+        SqlDataScope.TenantRequired, SqlTenantBinding.CurrentTenantId);
+
+    /// <summary>按数据库提供程序返回 Insert 语句，SQL Server 需转义保留列名 RowCount。</summary>
+    public static SqlStatement InsertFor(DatabaseProvider provider) =>
+        provider == DatabaseProvider.SqlServer ? InsertSqlServer : Insert;
+
+    /// <summary>按数据库提供程序返回按 Id 查询语句。</summary>
+    public static SqlStatement FindByIdFor(DatabaseProvider provider) =>
+        provider == DatabaseProvider.SqlServer ? FindByIdSqlServer : FindById;
+
+    /// <summary>按数据库提供程序返回批量 Id 查询语句。</summary>
+    public static SqlStatement SelectByIdsFor(DatabaseProvider provider) =>
+        provider == DatabaseProvider.SqlServer ? SelectByIdsSqlServer : SelectByIds;
 
     public static readonly SqlStatement CompleteSucceeded = new(
         "reporting.export_task.complete_succeeded",
