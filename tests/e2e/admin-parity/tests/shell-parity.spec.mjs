@@ -1758,27 +1758,29 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   const fileId = '01912345-6789-7abc-8def-0123456789b0';
   const state = { hasFile: false };
 
+  const hostFileBody = () => hostFileFixture({
+    id: fileId,
+    originalFileName: 'parity.txt'
+  });
+
   const listBody = () => {
     if (!state.hasFile) {
       return JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 });
     }
 
     return JSON.stringify({
-      items: [{
-        id: fileId,
-        originalFileName: 'parity.txt',
-        contentType: 'text/plain',
-        sizeBytes: 12,
-        contentHash: 'a'.repeat(64),
-        createdAtUtc: '2026-07-26T00:00:00Z',
-        createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
-      }],
+      items: [hostFileBody()],
       page: 1,
       pageSize: 20,
       total: 1
     });
   };
 
+  await page.route('**/api/v1/files/host-folders/tree', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([])
+  }));
   await page.route('**/api/v1/files/host-files**', async route => {
     if (route.request().method() === 'GET'
       && route.request().url().includes('page=1')) {
@@ -1797,15 +1799,7 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify({
-          id: fileId,
-          originalFileName: 'parity.txt',
-          contentType: 'text/plain',
-          sizeBytes: 12,
-          contentHash: 'a'.repeat(64),
-          createdAtUtc: '2026-07-26T00:00:00Z',
-          createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
-        })
+        body: JSON.stringify(hostFileBody())
       });
       return;
     }
@@ -1817,15 +1811,7 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          id: fileId,
-          originalFileName: 'parity.txt',
-          contentType: 'text/plain',
-          sizeBytes: 12,
-          contentHash: 'a'.repeat(64),
-          createdAtUtc: '2026-07-26T00:00:00Z',
-          createdByUserId: '01912345-6789-7abc-8def-0123456789ac'
-        })
+        body: JSON.stringify(hostFileBody())
       });
       return;
     }
@@ -1848,7 +1834,8 @@ test('Host 文件列表与上传删除在两端保持一致', async ({ page }, t
   await expect.poll(() => operations.some(operation => operation.type === 'upload')).toBe(true);
   await expect(hostFilesView.getByText('parity.txt', { exact: true })).toBeVisible();
 
-  const deleteButton = hostFilesView.getByRole('button', { name: '删除' });
+  await hostFilesView.getByTestId('art-table-action-more').click();
+  const deleteButton = page.getByTestId('host-files-delete');
   await expect(deleteButton).toBeEnabled();
   await deleteButton.click();
   if (clientKind === 'vue') {
@@ -3632,6 +3619,8 @@ test('工作流表单编辑器加载草稿后显示 VForm3 字段', async ({ pag
     draft,
     draftRevision: 2,
     latestPublishedVersionId: null,
+    statusKey: 'active',
+    version: 1,
     createdAtUtc: '2026-09-04T00:00:00Z',
     updatedAtUtc: null
   };
@@ -3727,6 +3716,11 @@ async function mockAuthenticatedSession(page, options = {}) {
       body: JSON.stringify(currentUserResponse(state.tenantId))
     });
   });
+  await page.route('**/api/v1/identity/session-policy', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ loginPolicy: 'AllowMultiple' })
+  }));
   await page.route('**/api/v1/platform/host-dashboard-summary', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -3780,6 +3774,23 @@ async function mockSnapshotEndpoints(page, options = {}) {
     contentType: 'application/json',
     body: JSON.stringify(availableTenants())
   }));
+}
+
+function hostFileFixture(overrides = {}) {
+  return {
+    id: '01912345-6789-7abc-8def-0123456789b0',
+    originalFileName: 'parity.txt',
+    contentType: 'text/plain',
+    sizeBytes: 12,
+    contentHash: 'a'.repeat(64),
+    createdAtUtc: '2026-07-26T00:00:00Z',
+    createdByUserId: '01912345-6789-7abc-8def-0123456789ac',
+    folderId: null,
+    revision: 1,
+    updatedAtUtc: null,
+    updatedByUserId: null,
+    ...overrides
+  };
 }
 
 function tokenResponse(accessToken = 'e2e-access-token') {
