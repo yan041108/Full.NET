@@ -9,15 +9,7 @@ import {
 } from './h5-application-session';
 // #endif
 
-// #ifdef MP-WEIXIN
-import {
-  mpWeixinHttpClient,
-  mpWeixinIdentitySession,
-  restoreMpWeixinIdentitySession
-} from './mp-weixin-application-session';
-// #endif
-
-// #ifdef MP-ALIPAY
+// #ifdef MP-WEIXIN || MP-ALIPAY
 import {
   mpWeixinHttpClient,
   mpWeixinIdentitySession,
@@ -40,10 +32,7 @@ export const httpClient: ConfigurableHttpClient =
   // #ifdef H5
   h5HttpClient
   // #endif
-  // #ifdef MP-WEIXIN
-  mpWeixinHttpClient
-  // #endif
-  // #ifdef MP-ALIPAY
+  // #ifdef MP-WEIXIN || MP-ALIPAY
   mpWeixinHttpClient
   // #endif
   ;
@@ -52,10 +41,7 @@ export const identitySession: IdentitySessionController =
   // #ifdef H5
   h5IdentitySession
   // #endif
-  // #ifdef MP-WEIXIN
-  mpWeixinIdentitySession
-  // #endif
-  // #ifdef MP-ALIPAY
+  // #ifdef MP-WEIXIN || MP-ALIPAY
   mpWeixinIdentitySession
   // #endif
   ;
@@ -64,10 +50,7 @@ export async function restoreIdentitySession(): Promise<boolean> {
   // #ifdef H5
   return await restoreH5IdentitySession();
   // #endif
-  // #ifdef MP-WEIXIN
-  return await restoreMpWeixinIdentitySession();
-  // #endif
-  // #ifdef MP-ALIPAY
+  // #ifdef MP-WEIXIN || MP-ALIPAY
   return await restoreMpWeixinIdentitySession();
   // #endif
   return false;

@@ -297,7 +297,8 @@ public sealed class ReportingExportTaskRecoveryTests
                 return Task.FromResult(0);
             }
 
-            if (statement.Name == ReportingExportTaskSql.CompleteSucceeded.Name)
+            if (statement.Name == ReportingExportTaskSql.CompleteSucceeded.Name
+                || statement.Name == ReportingExportTaskSql.CompleteSucceededSqlServer.Name)
             {
                 current.StatusKey = ReportingExportTaskStatusKeys.Succeeded;
                 current.OutputFileId = (Guid)values["OutputFileId"]!;
@@ -310,7 +311,8 @@ public sealed class ReportingExportTaskRecoveryTests
                 return Task.FromResult(1);
             }
 
-            if (statement.Name == ReportingExportTaskSql.CompleteFailed.Name)
+            if (statement.Name == ReportingExportTaskSql.CompleteFailed.Name
+                || statement.Name == ReportingExportTaskSql.CompleteFailedSqlServer.Name)
             {
                 current.StatusKey = ReportingExportTaskStatusKeys.Failed;
                 current.ErrorCode = values["ErrorCode"] as string;
