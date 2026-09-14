@@ -59,3 +59,12 @@ export async function approveAiMcpRemoteTool(
     signal
   );
 }
+
+/** 导出 MCP 远端连接列表、发现工具与创建请求模型，供管理页与审批流程共享同一契约。 */
+export type {
+  AiMcpRemoteConnectionListItem,
+  AiMcpRemoteConnectionResponse,
+  AiMcpRemoteDiscoveredToolItem,
+  ApproveAiMcpRemoteToolRequest,
+  CreateAiMcpRemoteConnectionRequest
+};

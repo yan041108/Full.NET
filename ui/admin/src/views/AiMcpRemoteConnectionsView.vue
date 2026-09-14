@@ -150,7 +150,7 @@ onMounted(() => {
         <ElTableColumn :label="t('aiMcpRemoteConnections.actions')" width="180" fixed="right">
           <template #default="{ row }">
             <PermissionGate code="ai.mcp_remote.manage">
-              <ElButton link type="primary" @click="openDiscover(row)">
+              <ElButton link type="primary" @click="openDiscover(row as AiMcpRemoteConnectionListItem)">
                 {{ t('aiMcpRemoteConnections.discoverTools') }}
               </ElButton>
             </PermissionGate>
@@ -176,7 +176,7 @@ onMounted(() => {
       </ElForm>
       <template #footer>
         <ElButton @click="editorOpen = false">{{ t('common.cancel') }}</ElButton>
-        <ElButton type="primary" @click="submitCreate">{{ t('common.save') }}</ElButton>
+        <ElButton type="primary" @click="submitCreate">{{ t('aiMcpRemoteConnections.submitCreate') }}</ElButton>
       </template>
     </ElDialog>
 
@@ -192,7 +192,7 @@ onMounted(() => {
         </ElTableColumn>
         <ElTableColumn :label="t('aiMcpRemoteConnections.actions')" width="120">
           <template #default="{ row }">
-            <ElButton v-if="!row.isApproved" link type="primary" @click="approveTool(row)">
+            <ElButton v-if="!row.isApproved" link type="primary" @click="approveTool(row as AiMcpRemoteDiscoveredToolItem)">
               {{ t('aiMcpRemoteConnections.approve') }}
             </ElButton>
           </template>
