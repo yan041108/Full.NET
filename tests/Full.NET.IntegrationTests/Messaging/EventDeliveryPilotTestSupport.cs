@@ -71,7 +71,10 @@ internal static class EventDeliveryPilotTestSupport
         services.TryAddScoped<IEventStreamOwnershipStore>(
             provider => provider.GetRequiredService<EventStreamOwnershipStore>());
         services.RemoveAll<IEffectiveEventDeliveryOwnerResolver>();
-        services.AddScoped<IEffectiveEventDeliveryOwnerResolver, EffectiveEventDeliveryOwnerResolver>();
+        services.AddScoped<IEffectiveEventDeliveryOwnerResolver>(provider =>
+            new EffectiveEventDeliveryOwnerResolver(
+                () => provider.GetRequiredService<IntegrationEventSubscriptionCatalog>(),
+                provider.GetRequiredService<IEventStreamOwnershipStore>()));
         services.TryAddScoped<DeliveryCutoverService>();
         services.TryAddScoped<DeliveryRollbackService>();
         services.TryAddScoped<

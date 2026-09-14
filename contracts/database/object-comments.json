@@ -2188,6 +2188,7 @@
         "OutputFileName": "输出文件名",
         "ParametersJson": "Parameters(JSON)",
         "RequestedByUserId": "请求人用户标识",
+        "RowCount": "行数",
         "StatusKey": "状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Version": "乐观并发版本号",

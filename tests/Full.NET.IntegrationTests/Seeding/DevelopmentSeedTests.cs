@@ -43,6 +43,7 @@ public sealed class DevelopmentSeedTests
     [
         "identity.host_administrator",
         "identity.host_navigation_catalog",
+        "regions.administrative_baseline",
         "settings.host_user_profile_dictionaries",
         "tenancy.local_tenant",
     ];

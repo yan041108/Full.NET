@@ -31,11 +31,16 @@ export async function expandMainNavigation(page) {
 
 /** 登录 Host 管理员并等待动态导航就绪。 */
 export async function loginAsHostAdmin(page, baseUrl = '/') {
-  await ensureAccountPasswordCleared(page.request, 'vue-admin', username, password);
+  const effectivePassword = await ensureAccountPasswordCleared(
+    page.request,
+    'vue-admin',
+    username,
+    password
+  );
   await page.goto(baseUrl);
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
   await page.getByLabel('账号', { exact: true }).fill(username);
-  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
   await page.getByRole('button', { name: '进入控制台' }).click();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
@@ -45,7 +50,12 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
 
 /** 登录 Development 受限查看者并等待动态导航就绪。 */
 export async function loginAsHostViewer(page, baseUrl = '/') {
-  await ensureAccountPasswordCleared(page.request, 'vue-admin', viewerUsername, viewerPassword);
+  const effectivePassword = await ensureAccountPasswordCleared(
+    page.request,
+    'vue-admin',
+    viewerUsername,
+    viewerPassword
+  );
   await page.context().clearCookies();
   await page.addInitScript(() => {
     localStorage.clear();
@@ -56,7 +66,7 @@ export async function loginAsHostViewer(page, baseUrl = '/') {
     timeout: 15_000
   });
   await page.getByLabel('账号', { exact: true }).fill(viewerUsername);
-  await page.getByLabel('密码', { exact: true }).fill(viewerPassword);
+  await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
   await page.getByRole('button', { name: '进入控制台' }).click();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
@@ -278,7 +288,12 @@ export async function provisionLimitedHostUserViaApi(request, clientKind, option
 
 /** 使用指定凭据登录 Host 管理端并等待动态导航就绪。 */
 export async function loginAsHostUser(page, username, password, baseUrl = '/') {
-  await ensureAccountPasswordCleared(page.request, 'vue-admin', username, password);
+  const effectivePassword = await ensureAccountPasswordCleared(
+    page.request,
+    'vue-admin',
+    username,
+    password
+  );
   await page.context().clearCookies();
   await page.addInitScript(() => {
     localStorage.clear();
@@ -289,7 +304,7 @@ export async function loginAsHostUser(page, username, password, baseUrl = '/') {
     timeout: 15_000
   });
   await page.getByLabel('账号', { exact: true }).fill(username);
-  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.getByLabel('密码', { exact: true }).fill(effectivePassword);
   await page.getByRole('button', { name: '进入控制台' }).click();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
     timeout: 15_000
@@ -684,7 +699,7 @@ async function ensureAccountPasswordCleared(
     });
   }
   if (!loginResponse.ok()) {
-    return;
+    return loginPassword;
   }
 
   const loginBody = await loginResponse.json();
@@ -695,12 +710,12 @@ async function ensureAccountPasswordCleared(
     }
   });
   if (!meResponse.ok()) {
-    return;
+    return currentPassword;
   }
 
   const profile = await meResponse.json();
   if (profile.passwordChangeRequired !== true) {
-    return;
+    return currentPassword;
   }
 
   const csrfToken = await readCsrfToken(request);
@@ -718,6 +733,7 @@ async function ensureAccountPasswordCleared(
     }
   });
   expect(changeResponse.ok()).toBeTruthy();
+  return clearedPassword;
 }
 
 async function readCsrfToken(request) {
