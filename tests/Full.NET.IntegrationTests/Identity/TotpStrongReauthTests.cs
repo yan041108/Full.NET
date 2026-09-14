@@ -24,6 +24,7 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Organization;
 using Full.NET.Modules.Tenancy;
+using Full.NET.Realtime;
 using Full.NET.Seeding.Abstractions;
 using Full.NET.Seeding.Dapper;
 using Full.NET.Serialization.MemoryPack;
@@ -196,6 +197,8 @@ public sealed class TotpStrongReauthTests
         services.AddSingleton<IHostFileReferenceClaimService, NoOpHostFileReferenceClaimService>();
         services.AddSingleton<IHostFileDescriptorReader, NoOpHostFileDescriptorReader>();
         services.AddSingleton<IHostFileContentReader, NoOpHostFileContentReader>();
+        services.AddSingleton<IRealtimePublisher, NoOpRealtimePublisher>();
+        services.AddSingleton<IFullNetModuleSelectionPreview, EmptyModuleSelectionPreview>();
         services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
         services.AddFullNetModule<OrganizationModule>(configuration);
@@ -337,5 +340,47 @@ public sealed class TotpStrongReauthTests
                 "files.content_not_available",
                 "The TOTP fixture does not open file content.",
                 ErrorType.Unexpected)));
+    }
+
+    private sealed class NoOpRealtimePublisher : IRealtimePublisher
+    {
+        public Task PublishToUserAsync(
+            Guid userId,
+            RealtimeMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task PublishToTenantAsync(
+            Guid tenantId,
+            RealtimeMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task PublishToHostBroadcastAsync(
+            RealtimeMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class EmptyModuleSelectionPreview : IFullNetModuleSelectionPreview
+    {
+        public ModuleSelectionAnalysis AnalyzeRuntime(IConfiguration configuration) =>
+            CreateEmptyAnalysis();
+
+        public ModuleSelectionAnalysis AnalyzeCandidate(
+            string? preset,
+            IReadOnlyList<string>? enabled) =>
+            CreateEmptyAnalysis();
+
+        private static ModuleSelectionAnalysis CreateEmptyAnalysis() => new()
+        {
+            IsValid = true,
+            SourceKind = ModuleSelectionSourceKinds.Explicit,
+            EnabledModuleKeys = [],
+            OfficialModuleKeys = [],
+            Issues = [],
+            ModuleStates = [],
+            DeploymentNotice = "TOTP fixture does not analyze module selection.",
+        };
     }
 }

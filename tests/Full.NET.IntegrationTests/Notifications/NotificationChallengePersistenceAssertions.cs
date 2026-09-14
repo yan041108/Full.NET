@@ -82,17 +82,35 @@ internal static class NotificationChallengePersistenceAssertions
         var second = Connection(provider, connectionString);
         await first.OpenAsync().ConfigureAwait(false);
         await second.OpenAsync().ConfigureAwait(false);
-        await DisableChallengeForeignKeyAsync(provider, first).ConfigureAwait(false);
+        await DisableChallengeSeedForeignKeysAsync(provider, first).ConfigureAwait(false);
+        var recipientEndpointId = Guid.CreateVersion7();
         var challengeId = Guid.CreateVersion7();
-        var tenantScope = $"tenant:{Guid.CreateVersion7():N}";
+        var tenantId = Guid.CreateVersion7();
+        var tenantScope = $"tenant:{tenantId:N}";
         var userId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
+        await first.ExecuteAsync(
+            NotificationRecipientEndpointSql.Insert.Text,
+            new
+            {
+                Id = recipientEndpointId,
+                InboxTenantId = tenantId,
+                ScopeKey = "tenant",
+                TenantScopeKey = tenantScope,
+                UserId = userId,
+                ProviderProfileVersionId = Guid.CreateVersion7(),
+                EndpointKindKey = "email",
+                ProtectedValue = "protected",
+                MaskedValue = "m***@test.com",
+                VerificationStatusKey = "pending",
+                CreatedAtUtc = now,
+            }).ConfigureAwait(false);
         await first.ExecuteAsync(
             NotificationRecipientEndpointChallengeSql.Insert.Text,
             new
             {
                 Id = challengeId,
-                RecipientEndpointId = Guid.CreateVersion7(),
+                RecipientEndpointId = recipientEndpointId,
                 TenantScopeKey = tenantScope,
                 UserId = userId,
                 CodeHash = new string('b', 64),
@@ -103,12 +121,15 @@ internal static class NotificationChallengePersistenceAssertions
         return (first, second, challengeId, tenantScope, userId);
     }
 
-    /// <summary>隔离库上关闭挑战外键，只验证计数与消费 SQL。</summary>
-    private static Task DisableChallengeForeignKeyAsync(DatabaseProvider provider, DbConnection connection) =>
+    /// <summary>隔离库上关闭挑战种子外键，避免为计数/消费 SQL 装配完整渠道图。</summary>
+    private static Task DisableChallengeSeedForeignKeysAsync(DatabaseProvider provider, DbConnection connection) =>
         provider == DatabaseProvider.MySql
-            ? connection.ExecuteAsync("SET FOREIGN_KEY_CHECKS = 0")
+            ? connection.ExecuteAsync("SET SESSION FOREIGN_KEY_CHECKS = 0")
             : connection.ExecuteAsync(
-                "ALTER TABLE dbo.fn_notifications_recipient_endpoint_challenge NOCHECK CONSTRAINT FK_fn_notifications_endpoint_challenge_Endpoint");
+                """
+                ALTER TABLE dbo.fn_notifications_recipient_endpoint NOCHECK CONSTRAINT FK_fn_notifications_endpoint_ProfileVersion;
+                ALTER TABLE dbo.fn_notifications_recipient_endpoint_challenge NOCHECK CONSTRAINT FK_fn_notifications_endpoint_challenge_Endpoint;
+                """);
 
     /// <summary>创建标准 UUID 字节序的独立测试连接。</summary>
     private static DbConnection Connection(DatabaseProvider provider, string connectionString) => provider == DatabaseProvider.SqlServer
