@@ -6,6 +6,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.IntegrationTests.Files;
 using Full.NET.Modules.Document.Contracts;
 using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Files.Features.ManageHostFiles;
@@ -333,18 +334,17 @@ internal static class DocumentFilesReferenceClaimAssertions
             1,
             await command.ExecuteAsync(
                 HostFileSql.Insert,
-                new
-                {
-                    Id = fileId,
-                    OriginalFileName = "race.bin",
-                    ContentType = "application/octet-stream",
-                    SizeBytes = 4L,
+                HostFileSqlTestParameters.Insert(
+                    fileId,
+                    null,
+                    "race.bin",
+                    "application/octet-stream",
+                    4L,
                     storage.ProviderKey,
-                    StorageKey = storageKey,
-                    ContentHash = (string?)null,
-                    CreatedAtUtc = createdAtUtc,
-                    CreatedByUserId = Guid.CreateVersion7(),
-                },
+                    storageKey,
+                    null,
+                    createdAtUtc,
+                    Guid.CreateVersion7()),
                 cancellationToken));
         Assert.AreEqual(
             1,

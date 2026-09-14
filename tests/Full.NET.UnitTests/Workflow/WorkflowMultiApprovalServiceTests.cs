@@ -148,7 +148,7 @@ public sealed class WorkflowMultiApprovalServiceTests
                 WorkflowSql.FindTodoById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowTodoRuntimeRecord(
                 todoId, instanceId, stepId, actorId, "active", now, null, null, 3,
-                "review", 5, "nOfM", 2, 3));
+                "review", 5, "nOfM", 2, 3, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
@@ -171,7 +171,7 @@ public sealed class WorkflowMultiApprovalServiceTests
                 WorkflowSql.FindApprovalSlotByTodo, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowApprovalSlotRecord(slotId, 1));
         query.QuerySingleOrDefaultAsync<WorkflowApprovalTallyRecord>(
-                WorkflowSql.FindApprovalTallyByStep, Arg.Any<object?>(), Arg.Any<CancellationToken>())
+                WorkflowSql.FindApprovalTallyByStepSqlServer, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(tally);
 
         var command = Substitute.For<ICommandExecutor>();
@@ -189,7 +189,6 @@ public sealed class WorkflowMultiApprovalServiceTests
         var service = new WorkflowTodoManagementService(
             query, command, new TrackingTransaction(), tenant, clock, ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
             WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,

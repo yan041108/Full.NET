@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Regions.Contracts;
@@ -169,11 +170,12 @@ internal static class RegionsAdministrativeRegionAssertions
 
         await VerifySeedIdempotencyAsync(factory, cancellationToken);
 
+        var deleteTarget = await GetRegionAsync(client, adminToken, created.Id, cancellationToken);
         using var deleteRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             $"/api/v1/regions/administrative-regions/{created.Id:D}/delete",
             adminToken,
-            new DeleteAdministrativeRegionRequest(updated.Version));
+            new DeleteAdministrativeRegionRequest(deleteTarget.Version));
         using var deleteResponse = await client.SendAsync(deleteRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
@@ -183,12 +185,21 @@ internal static class RegionsAdministrativeRegionAssertions
         CancellationToken cancellationToken)
     {
         await using var scope = factory.Services.CreateAsyncScope();
-        var orchestrator = scope.ServiceProvider.GetRequiredService<ISeedOrchestrator>();
-        var first = await orchestrator.RunAsync(SeedProfile.Baseline, cancellationToken);
-        var second = await orchestrator.RunAsync(SeedProfile.Baseline, cancellationToken);
-        Assert.IsTrue(first.IsSuccess);
-        Assert.IsTrue(second.IsSuccess);
-        Assert.IsTrue(second.Value!.SkippedCount >= first.Value!.SkippedCount);
+        var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>();
+        currentTenant.SetHost();
+        try
+        {
+            var orchestrator = scope.ServiceProvider.GetRequiredService<ISeedOrchestrator>();
+            var first = await orchestrator.RunAsync(SeedProfile.Baseline, cancellationToken);
+            var second = await orchestrator.RunAsync(SeedProfile.Baseline, cancellationToken);
+            Assert.IsTrue(first.IsSuccess);
+            Assert.IsTrue(second.IsSuccess);
+            Assert.IsTrue(second.Value!.SkippedCount >= first.Value!.SkippedCount);
+        }
+        finally
+        {
+            currentTenant.Clear();
+        }
     }
 
     private static async Task<long> CountRegionsAsync(

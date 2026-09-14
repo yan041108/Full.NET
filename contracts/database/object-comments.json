@@ -1,6 +1,31 @@
 {
   "schemaVersion": 1,
   "tables": {
+    "fn_ai_agent_approval": {
+      "comment": "人工智能agent approval表",
+      "columns": {
+        "ApproverId": "Approver标识",
+        "ArgumentsHash": "Arguments Hash",
+        "ArgumentsProtected": "Arguments Protected",
+        "ConsumedAtUtc": "消费时间(UTC)",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DecisionKey": "决策键",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "Id": "逻辑主键",
+        "OperationId": "Operation标识",
+        "PolicyVersion": "Policy Version",
+        "PresentationJson": "Presentation(JSON)",
+        "RequestedBy": "Requested By",
+        "RunId": "运行标识",
+        "ScopeKey": "作用域键",
+        "SessionId": "会话标识",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "ToolName": "工具名称",
+        "ToolVersion": "Tool Version",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_ai_agent_checkpoint": {
       "comment": "人工智能agent checkpoint表",
       "columns": {
@@ -13,6 +38,23 @@
         "PayloadProtected": "Payload Protected",
         "RunId": "运行标识",
         "Sequence": "Sequence"
+      }
+    },
+    "fn_ai_agent_delegation": {
+      "comment": "人工智能agent delegation表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "GranteeUserId": "Grantee User标识",
+        "GrantorUserId": "Grantor User标识",
+        "Id": "逻辑主键",
+        "PermissionCode": "权限码",
+        "RevokedAtUtc": "撤销时间(UTC)",
+        "ScopeKey": "作用域键",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "ToolName": "工具名称",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
       }
     },
     "fn_ai_agent_event": {
@@ -81,6 +123,8 @@
       "comment": "人工智能智能体工具调用表",
       "columns": {
         "ActorUserId": "操作者用户标识",
+        "ApprovalId": "Approval标识",
+        "ArgumentsHash": "Arguments Hash",
         "CreatedAtUtc": "创建时间(UTC)",
         "DurationMs": "耗时(毫秒)",
         "ErrorCode": "错误码",
@@ -88,7 +132,10 @@
         "InputSummary": "输入摘要",
         "OutputSummary": "输出摘要",
         "PermissionCode": "权限码",
+        "ReceiptId": "Receipt标识",
+        "RunId": "运行标识",
         "StatusKey": "状态键",
+        "StepId": "步骤标识",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "ToolName": "工具名称",
         "TraceId": "追踪标识"
@@ -141,6 +188,41 @@
         "OwnerUserId": "所有者用户标识",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Title": "标题",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_mcp_remote_connection": {
+      "comment": "人工智能mcp remote connection表",
+      "columns": {
+        "ConnectionKey": "Connection Key",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayName": "显示名称",
+        "EndpointUrl": "Endpoint Url",
+        "Id": "逻辑主键",
+        "IsEnabled": "是否启用",
+        "OAuthScopesJson": "O Auth Scopes(JSON)",
+        "ScopeKey": "作用域键",
+        "ServiceTokenProtected": "Service Token Protected",
+        "TenantId": "租户标识；NULL 表示 Host 级",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_ai_mcp_remote_tool_approval": {
+      "comment": "人工智能mcp remote tool approval表",
+      "columns": {
+        "ApprovalStatusKey": "Approval Status Key",
+        "ConnectionId": "Connection标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Id": "逻辑主键",
+        "InputSchemaHash": "Input Schema Hash",
+        "InputSchemaJson": "Input Schema(JSON)",
+        "LocalToolName": "Local Tool Name",
+        "PermissionCode": "权限码",
+        "RemoteToolName": "Remote Tool Name",
+        "SideEffectKey": "Side Effect Key",
+        "ToolVersion": "Tool Version",
         "UpdatedAtUtc": "更新时间(UTC)",
         "Version": "乐观并发版本号"
       }
@@ -1274,6 +1356,7 @@
         "PayloadSizeBytes": "载荷大小(字节)",
         "PublishedAtUtc": "发布时间(UTC)",
         "Qos": "服务质量等级",
+        "ScopeTenantKey": "作用域租户键",
         "Status": "状态",
         "SummaryMessage": "摘要消息",
         "TenantId": "租户标识；NULL 表示 Host 级",
@@ -2105,7 +2188,6 @@
         "OutputFileName": "输出文件名",
         "ParametersJson": "Parameters(JSON)",
         "RequestedByUserId": "请求人用户标识",
-        "RowCount": "行数",
         "StatusKey": "状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Version": "乐观并发版本号",

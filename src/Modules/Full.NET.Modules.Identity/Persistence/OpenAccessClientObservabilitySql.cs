@@ -30,7 +30,8 @@ internal static class OpenAccessClientObservabilitySql
         INNER JOIN fn_identity_api_key AS apiKey ON apiKey.Id = client.ApiKeyId
         WHERE client.ApiKeyId = @ApiKeyId
         """,
-        SqlDataScope.HostOnly);
+        // API Key 认证发生在 Tenancy 建立 Host 上下文之前，须与 FindForAuthentication 一样使用 Global。
+        SqlDataScope.Global);
 
     public static readonly SqlStatement CountAccessLogsSqlServer = new(
         "identity.count_open_access_client_access_logs.sql_server",
@@ -112,7 +113,8 @@ internal static class OpenAccessClientObservabilitySql
           AND audit.OccurredAtUtc >= @WindowStartUtc
           AND audit.OccurredAtUtc < @WindowEndUtc
         """,
-        SqlDataScope.HostOnly);
+        // API Key 配额统计在 Host 上下文建立前执行，须与 FindQuotaByApiKeyId 一样使用 Global。
+        SqlDataScope.Global);
 
     public static readonly SqlStatement CountTodayUsageMySql = new(
         "identity.count_open_access_client_today_usage.mysql",
@@ -126,7 +128,7 @@ internal static class OpenAccessClientObservabilitySql
           AND audit.OccurredAtUtc >= @WindowStartUtc
           AND audit.OccurredAtUtc < @WindowEndUtc
         """,
-        SqlDataScope.HostOnly);
+        SqlDataScope.Global);
 }
 
 /// <summary>接入方应用访问审计行。</summary>

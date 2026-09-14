@@ -266,7 +266,7 @@ internal static class Endpoint
             return MapPreviewResult(result, mapper, httpContext);
         })
         .WithName("filesPreviewHostFileContent")
-        .Produces<Stream>(StatusCodes.Status200OK)
+        .Produces<Stream>(StatusCodes.Status200OK, "application/octet-stream")
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostFilePermissions.Read));

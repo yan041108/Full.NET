@@ -16,6 +16,7 @@ internal static class ApiSchemaTemplate
 {
     private const string SqlServerTemplateDatabase = "fullnet_it_schema_sql";
     private const string MySqlTemplateDatabase = "fullnet_it_schema_mysql";
+    private const string MySqlTemplateBootstrapLockName = "fullnet_it_schema_mysql_bootstrap";
     private const string SqlServerBackupPath =
         "/var/opt/mssql/data/fullnet_it_schema_sql.bak";
     private const int CommandTimeoutSeconds = 180;
@@ -152,30 +153,47 @@ internal static class ApiSchemaTemplate
             await using var admin = new MySqlConnection(root);
             await admin.OpenAsync(cancellationToken).ConfigureAwait(false);
             var templateCs = BuildMySqlConnectionString(root, MySqlTemplateDatabase);
-            if (await MySqlDatabaseExistsAsync(admin, MySqlTemplateDatabase, cancellationToken)
-                    .ConfigureAwait(false)
-                && !await IsReusableSchemaTemplateAsync(
+            // 多个 dotnet test 进程共享同一 Testcontainers MySQL；进程内 Semaphore 不足以保护模板库创建。
+            await AcquireMySqlTemplateBootstrapLockAsync(admin, cancellationToken)
+                .ConfigureAwait(false);
+
+            try
+            {
+                var exists = await MySqlDatabaseExistsAsync(
+                        admin,
+                        MySqlTemplateDatabase,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                var reusable = exists && await IsReusableSchemaTemplateAsync(
                         DatabaseProvider.MySql,
                         templateCs,
                         cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                await admin.ExecuteAsync(
-                        TimeoutCommand(cancellationToken,
-                            $"DROP DATABASE {SharedDatabaseFixture.QuoteMySqlIdent(MySqlTemplateDatabase)};"))
                     .ConfigureAwait(false);
-            }
+                if (!reusable)
+                {
+                    if (exists)
+                    {
+                        await admin.ExecuteAsync(
+                                TimeoutCommand(
+                                    cancellationToken,
+                                    $"DROP DATABASE {SharedDatabaseFixture.QuoteMySqlIdent(MySqlTemplateDatabase)};"))
+                            .ConfigureAwait(false);
+                    }
 
-            if (!await MySqlDatabaseExistsAsync(admin, MySqlTemplateDatabase, cancellationToken)
-                .ConfigureAwait(false))
+                    await admin.ExecuteAsync(
+                            TimeoutCommand(
+                                cancellationToken,
+                                $"CREATE DATABASE {SharedDatabaseFixture.QuoteMySqlIdent(MySqlTemplateDatabase)};"))
+                        .ConfigureAwait(false);
+                    await GrantMySqlTemplateAsync(admin, MySqlTemplateDatabase, cancellationToken)
+                        .ConfigureAwait(false);
+                    await materializeTemplate(templateCs, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            finally
             {
-                await admin.ExecuteAsync(
-                        TimeoutCommand(cancellationToken,
-                            $"CREATE DATABASE {SharedDatabaseFixture.QuoteMySqlIdent(MySqlTemplateDatabase)};"))
+                await ReleaseMySqlTemplateBootstrapLockAsync(admin, cancellationToken)
                     .ConfigureAwait(false);
-                await GrantMySqlTemplateAsync(admin, MySqlTemplateDatabase, cancellationToken)
-                    .ConfigureAwait(false);
-                await materializeTemplate(templateCs, cancellationToken).ConfigureAwait(false);
             }
 
             _mySqlTemplateReady = true;
@@ -240,6 +258,31 @@ internal static class ApiSchemaTemplate
             .ConfigureAwait(false);
         await using var admin = new MySqlConnection(root);
         await admin.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await AcquireMySqlTemplateBootstrapLockAsync(admin, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await CloneMySqlTemplateCoreAsync(
+                    admin,
+                    targetName,
+                    quotedTarget,
+                    quotedTemplate,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await ReleaseMySqlTemplateBootstrapLockAsync(admin, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task CloneMySqlTemplateCoreAsync(
+        MySqlConnection admin,
+        string targetName,
+        string quotedTarget,
+        string quotedTemplate,
+        CancellationToken cancellationToken)
+    {
         await admin.ExecuteAsync(
                 TimeoutCommand(cancellationToken, $"DROP DATABASE {quotedTarget}; CREATE DATABASE {quotedTarget};"))
             .ConfigureAwait(false);
@@ -626,6 +669,32 @@ internal static class ApiSchemaTemplate
 
         public int FileId { get; init; }
     }
+
+    private static async Task AcquireMySqlTemplateBootstrapLockAsync(
+        MySqlConnection admin,
+        CancellationToken cancellationToken)
+    {
+        var lockAcquired = await admin.ExecuteScalarAsync<int?>(
+                TimeoutCommand(
+                    cancellationToken,
+                    "SELECT GET_LOCK(@Name, @TimeoutSeconds);",
+                    new { Name = MySqlTemplateBootstrapLockName, TimeoutSeconds = 300 }))
+            .ConfigureAwait(false);
+        if (lockAcquired != 1)
+        {
+            throw new InvalidOperationException(
+                "无法在 300 秒内获取 MySQL schema 模板引导锁。");
+        }
+    }
+
+    private static Task ReleaseMySqlTemplateBootstrapLockAsync(
+        MySqlConnection admin,
+        CancellationToken cancellationToken) =>
+        admin.ExecuteScalarAsync<int?>(
+            TimeoutCommand(
+                cancellationToken,
+                "SELECT RELEASE_LOCK(@Name);",
+                new { Name = MySqlTemplateBootstrapLockName }));
 
     private static CommandDefinition TimeoutCommand(
         CancellationToken cancellationToken,

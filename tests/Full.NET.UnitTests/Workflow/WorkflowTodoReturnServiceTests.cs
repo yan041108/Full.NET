@@ -197,7 +197,7 @@ public sealed class WorkflowTodoReturnServiceTests
                 WorkflowSql.FindTodoById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowTodoRuntimeRecord(
                 todoId, instanceId, stepId, resolvedActorId, "active", now, null, null, 3, "finance", 1,
-                null, null, null));
+                null, null, null, null, null, null));
         query.QuerySingleOrDefaultAsync<WorkflowInstanceRecord>(
                 WorkflowSql.FindInstanceById, Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns(new WorkflowInstanceRecord(
@@ -243,7 +243,6 @@ public sealed class WorkflowTodoReturnServiceTests
         var service = new WorkflowTodoManagementService(
             query, command, new TrackingTransaction(), tenant, clock, ids,
             Options.Create(new DatabaseOptions { Provider = DatabaseProvider.SqlServer }),
-            new WorkflowAutomaticTransitionWriter(command, ids, ccWriter),
             new WorkflowApprovalActivationWriter(command, ids, notificationPublisher),
             WorkflowTodoManagementTestDependencies.CreateAssigneeCoordinator(),
             notificationPublisher,

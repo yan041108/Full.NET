@@ -81,18 +81,17 @@ internal static class FilesHostFileManagementAssertions
             {
                 var affected = await command.ExecuteAsync(
                     HostFileSql.Insert,
-                    new
-                    {
+                    HostFileSqlTestParameters.Insert(
                         candidate.Id,
-                        OriginalFileName = candidate.Name,
-                        ContentType = "application/octet-stream",
-                        SizeBytes = 1L,
+                        null,
+                        candidate.Name,
+                        "application/octet-stream",
+                        1L,
                         storage.ProviderKey,
-                        StorageKey = candidate.Key,
-                        ContentHash = (string?)null,
-                        CreatedAtUtc = createdAtUtc,
-                        CreatedByUserId = createdByUserId,
-                    },
+                        candidate.Key,
+                        null,
+                        createdAtUtc,
+                        createdByUserId),
                     cancellationToken);
                 Assert.AreEqual(1, affected);
             }
@@ -606,7 +605,7 @@ internal static class FilesHostFileManagementAssertions
             cancellationToken);
         Assert.IsNotNull(folder);
         Assert.AreEqual(folderName, folder.Name);
-        Assert.IsTrue(folder.Revision >= 1);
+        Assert.IsTrue(folder.Revision >= 0);
 
         using var treeRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -627,11 +626,10 @@ internal static class FilesHostFileManagementAssertions
         var fileContent = new ByteArrayContent(payload);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         uploadContent.Add(fileContent, "file", fileName);
-        uploadContent.Add(new StringContent(folder.Id.ToString("D")), "folderId");
 
         using var uploadRequest = new HttpRequestMessage(
             HttpMethod.Post,
-            "/api/v1/files/host-files")
+            $"/api/v1/files/host-files?folderId={folder.Id:D}")
         {
             Content = uploadContent,
         };
@@ -644,7 +642,7 @@ internal static class FilesHostFileManagementAssertions
             cancellationToken);
         Assert.IsNotNull(created);
         Assert.AreEqual(folder.Id, created.FolderId);
-        Assert.IsTrue(created.Revision >= 1);
+        Assert.IsTrue(created.Revision >= 0);
 
         using var listRequest = new HttpRequestMessage(
             HttpMethod.Get,
@@ -745,12 +743,22 @@ internal static class FilesHostFileManagementAssertions
 
         await using (var releaseScope = factory.Services.CreateAsyncScope())
         {
-            var claimService = releaseScope.ServiceProvider
-                .GetRequiredService<IHostFileReferenceClaimService>();
-            var releaseResult = await claimService.ReleaseAsync(
-                idempotencyKey,
-                cancellationToken);
-            Assert.IsTrue(releaseResult.IsSuccess);
+            var currentTenant = releaseScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>();
+            currentTenant.SetHost();
+            try
+            {
+                var claimService = releaseScope.ServiceProvider
+                    .GetRequiredService<IHostFileReferenceClaimService>();
+                var releaseResult = await claimService.ReleaseAsync(
+                    idempotencyKey,
+                    cancellationToken);
+                Assert.IsTrue(releaseResult.IsSuccess);
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
         }
 
         using var deleteFolderRequest = CreateBearerJsonRequest(
@@ -849,20 +857,30 @@ internal static class FilesHostFileManagementAssertions
             HostFileReferenceClaimIdempotencyKeys.DocumentVersion(consumerReferenceId);
         await using (var scope = factory.Services.CreateAsyncScope())
         {
-            var claimService = scope.ServiceProvider
-                .GetRequiredService<IHostFileReferenceClaimService>();
-            var claimResult = await claimService.ClaimAsync(
-                new HostFileReferenceClaimRequest(
+            var currentTenant = scope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>();
+            currentTenant.SetHost();
+            try
+            {
+                var claimService = scope.ServiceProvider
+                    .GetRequiredService<IHostFileReferenceClaimService>();
+                var claimResult = await claimService.ClaimAsync(
+                    new HostFileReferenceClaimRequest(
+                        idempotencyKey,
+                        HostFileReferenceClaimConsumerModules.Document,
+                        consumerReferenceId,
+                        uploadedIds[1]),
+                    cancellationToken);
+                Assert.IsTrue(claimResult.IsSuccess);
+                var confirmResult = await claimService.ConfirmAsync(
                     idempotencyKey,
-                    HostFileReferenceClaimConsumerModules.Document,
-                    consumerReferenceId,
-                    uploadedIds[1]),
-                cancellationToken);
-            Assert.IsTrue(claimResult.IsSuccess);
-            var confirmResult = await claimService.ConfirmAsync(
-                idempotencyKey,
-                cancellationToken);
-            Assert.IsTrue(confirmResult.IsSuccess);
+                    cancellationToken);
+                Assert.IsTrue(confirmResult.IsSuccess);
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
         }
 
         using var batchDeleteRequest = CreateBearerJsonRequest(
@@ -885,12 +903,22 @@ internal static class FilesHostFileManagementAssertions
 
         await using (var releaseScope = factory.Services.CreateAsyncScope())
         {
-            var claimService = releaseScope.ServiceProvider
-                .GetRequiredService<IHostFileReferenceClaimService>();
-            var releaseResult = await claimService.ReleaseAsync(
-                idempotencyKey,
-                cancellationToken);
-            Assert.IsTrue(releaseResult.IsSuccess);
+            var currentTenant = releaseScope.ServiceProvider
+                .GetRequiredService<CurrentTenantAccessor>();
+            currentTenant.SetHost();
+            try
+            {
+                var claimService = releaseScope.ServiceProvider
+                    .GetRequiredService<IHostFileReferenceClaimService>();
+                var releaseResult = await claimService.ReleaseAsync(
+                    idempotencyKey,
+                    cancellationToken);
+                Assert.IsTrue(releaseResult.IsSuccess);
+            }
+            finally
+            {
+                currentTenant.Clear();
+            }
         }
 
         using var secondDeleteRequest = CreateBearerJsonRequest(

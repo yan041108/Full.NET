@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS fn_ai_mcp_remote_connection (
     Version bigint NOT NULL DEFAULT 1 COMMENT '乐观版本',
     CreatedAtUtc datetime(6) NOT NULL COMMENT '创建 UTC',
     UpdatedAtUtc datetime(6) NOT NULL COMMENT '更新 UTC',
-    PRIMARY KEY (Id),
+    CONSTRAINT PK_fn_ai_mcp_remote_connection PRIMARY KEY (Id),
     UNIQUE KEY UX_fn_ai_mcp_remote_connection_Key (ScopeKey, ConnectionKey)
 ) COMMENT='人工智能 MCP 远端连接表';
 
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS fn_ai_mcp_remote_tool_approval (
     Version bigint NOT NULL DEFAULT 1 COMMENT '乐观版本',
     CreatedAtUtc datetime(6) NOT NULL COMMENT '创建 UTC',
     UpdatedAtUtc datetime(6) NOT NULL COMMENT '更新 UTC',
-    PRIMARY KEY (Id),
+    CONSTRAINT PK_fn_ai_mcp_remote_tool_approval PRIMARY KEY (Id),
     UNIQUE KEY UX_fn_ai_mcp_remote_tool_approval_Local (ConnectionId, LocalToolName),
     CONSTRAINT CK_fn_ai_mcp_remote_tool_approval_SideEffectKey CHECK (SideEffectKey IN ('none', 'read')),
     CONSTRAINT CK_fn_ai_mcp_remote_tool_approval_ApprovalStatusKey CHECK (ApprovalStatusKey IN ('approved', 'disabled_drift', 'pending'))

@@ -85,17 +85,19 @@ internal static class HostFolderSql
           AND Revision = @ExpectedRevision
           AND NOT EXISTS (
               SELECT 1
-              FROM fn_files_folder AS child
-              WHERE child.ParentId = @FolderId
-                AND child.TenantId IS NULL
-                AND child.DeletedAtUtc IS NULL)
+              FROM (
+                  SELECT child.Id
+                  FROM fn_files_folder AS child
+                  WHERE child.ParentId = @FolderId
+                    AND child.TenantId IS NULL
+                    AND child.DeletedAtUtc IS NULL) AS blocked_children)
           AND NOT EXISTS (
               SELECT 1
-              FROM fn_files_file AS file
-              WHERE file.FolderId = @FolderId
-                AND file.TenantId IS NULL
-                AND file.DeletedAtUtc IS NULL
-                AND file.StorageState = 'ready')
+              FROM fn_files_file AS active_file
+              WHERE active_file.FolderId = @FolderId
+                AND active_file.TenantId IS NULL
+                AND active_file.DeletedAtUtc IS NULL
+                AND active_file.StorageState = 'ready')
         """,
         SqlDataScope.HostOnly);
 

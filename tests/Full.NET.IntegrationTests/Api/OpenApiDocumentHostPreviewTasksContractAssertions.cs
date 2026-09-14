@@ -93,7 +93,7 @@ internal static class OpenApiDocumentHostPreviewTasksContractAssertions
             "documentHostDownloadDocumentPreviewTaskContent",
             tag,
             200,
-            "application/octet-stream");
+            "application/pdf");
     }
 
     private static void AssertOperation(

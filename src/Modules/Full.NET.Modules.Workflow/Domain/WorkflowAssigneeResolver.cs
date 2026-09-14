@@ -69,14 +69,35 @@ internal sealed class WorkflowAssigneeResolver(
             return Failure();
         }
 
-        var validUsers = await FindActiveUsersAsync(resolved, scope, cancellationToken).ConfigureAwait(false);
-        if (validUsers.Count != resolved.Count)
+        // 默认发起人策略在发布期不校验租户目录；运行时以当前已认证发起人为准，避免 Host 管理员切租户后无法自办。
+        if (!UsesAuthenticatedInitiatorOnly(
+                assigneePolicy,
+                explicitApproverUserIds,
+                initiatorUserId,
+                resolved))
         {
-            return Failure();
+            var validUsers = await FindActiveUsersAsync(resolved, scope, cancellationToken)
+                .ConfigureAwait(false);
+            if (validUsers.Count != resolved.Count)
+            {
+                return Failure();
+            }
         }
 
         return Result<IReadOnlyList<Guid>>.Success(resolved);
     }
+
+    /// <summary>判断解析结果是否仅依赖当前已认证发起人，从而跳过目录复核。</summary>
+    private static bool UsesAuthenticatedInitiatorOnly(
+        WorkflowAssigneePolicy assigneePolicy,
+        IReadOnlyList<Guid> explicitApproverUserIds,
+        Guid initiatorUserId,
+        IReadOnlyList<Guid> resolved) =>
+        explicitApproverUserIds.Count == 0 &&
+        assigneePolicy.Sources.Count == 1 &&
+        assigneePolicy.Sources[0].ResolverKindKey == WorkflowAssigneePolicy.Initiator &&
+        resolved.Count == 1 &&
+        resolved[0] == initiatorUserId;
 
     /// <summary>解析单条办理人来源。</summary>
     /// <param name="source">固化来源配置。</param>

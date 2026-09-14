@@ -257,6 +257,30 @@ internal static class DocumentItemSql
         SqlDataScope.HostOnly);
 
     /// <summary>
+    /// 物理删除回收站文档项的全部依赖行；必须在删除文档项前执行以解除 FK 约束。
+    /// permission/share 等表已声明 ON DELETE CASCADE，此处仅覆盖无级联的子表。
+    /// </summary>
+    public static readonly SqlStatement PurgeDependents = new(
+        "document.host_recycle_bin.purge_dependents",
+        """
+        DELETE FROM fn_document_preview_task
+        WHERE DocumentItemId = @DocumentItemId;
+
+        DELETE FROM fn_document_access_log
+        WHERE DocumentItemId = @DocumentItemId;
+
+        DELETE FROM fn_document_tag_assignment
+        WHERE DocumentItemId = @DocumentItemId;
+
+        DELETE FROM fn_document_version_deletion_audit
+        WHERE DocumentItemId = @DocumentItemId;
+
+        DELETE FROM fn_document_version
+        WHERE DocumentItemId = @DocumentItemId;
+        """,
+        SqlDataScope.HostOnly);
+
+    /// <summary>
     /// 物理删除回收站文档项：仅对 IsDeleted = 1 的行执行，不可逆；
     /// 上层调用方必须先解除文件引用 Claim，否则会留下孤儿文件引用。
     /// </summary>

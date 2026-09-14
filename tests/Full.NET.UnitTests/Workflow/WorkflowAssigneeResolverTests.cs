@@ -66,6 +66,36 @@ public sealed class WorkflowAssigneeResolverTests
         CollectionAssert.AreEqual(new[] { leaderId }, result.Value!.ToArray());
     }
 
+    /// <summary>租户默认发起人策略应信任当前已认证发起人，不要求其出现在租户用户目录。</summary>
+    [TestMethod]
+    public async Task ResolveAsync_accepts_authenticated_initiator_without_tenant_directory_membership()
+    {
+        var initiatorId = Guid.CreateVersion7();
+        var tenantId = Guid.CreateVersion7();
+        var tenantUsers = Substitute.For<ITenantUserSelectionDirectory>();
+        tenantUsers.FindActiveTenantUsersAsync(
+                Arg.Any<IReadOnlyCollection<Guid>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, TenantUserDirectoryEntry>());
+
+        var resolver = new WorkflowAssigneeResolver(
+            Substitute.For<IHostUserBatchSelectionDirectory>(),
+            tenantUsers,
+            Substitute.For<IWorkflowRoleMemberDirectory>(),
+            Substitute.For<IWorkflowUnitLeaderDirectory>());
+
+        var result = await resolver.ResolveAsync(
+            WorkflowAssigneePolicy.CreateDefault(),
+            [],
+            new WorkflowManagementScope(tenantId, "tenant", $"tenant:{tenantId:N}"),
+            initiatorId);
+
+        Assert.IsTrue(result.IsSuccess);
+        CollectionAssert.AreEqual(new[] { initiatorId }, result.Value!.ToArray());
+        await tenantUsers.DidNotReceive()
+            .FindActiveTenantUsersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+    }
+
     /// <summary>上级部门负责人无法解析时必须失败关闭。</summary>
     [TestMethod]
     public async Task ResolveAsync_rejects_unresolved_initiator_ancestor_unit_leader()

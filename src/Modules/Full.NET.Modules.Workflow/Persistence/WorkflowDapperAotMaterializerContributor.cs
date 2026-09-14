@@ -181,7 +181,7 @@ internal sealed class WorkflowDapperAotMaterializerContributor
     /// <param name="reader">定位到当前行的数据读取器。</param>
     /// <returns>当前步骤的赞成、反对与未决票数。</returns>
     private static WorkflowApprovalTallyRecord ReadApprovalTally(DbDataReader reader) =>
-        new(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2));
+        new(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2));
 
     /// <summary>按显式 SQL 投影顺序物化实例活动多人审批进度。</summary>
     /// <param name="reader">定位到当前行的数据读取器。</param>

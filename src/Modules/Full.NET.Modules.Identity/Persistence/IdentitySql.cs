@@ -34,7 +34,7 @@ internal static class IdentitySql
     public static readonly SqlStatement ListHostUsersByIds = new(
         "identity.list_host_users_by_ids",
         """
-        SELECT Id, Username, DisplayName
+        SELECT Id, Username, DisplayName, PreferredLocale
         FROM fn_identity_user
         WHERE Id IN @UserIds
           AND ScopeKey = 'host'
@@ -1847,7 +1847,8 @@ internal static class IdentitySql
              @ResultCode, @Succeeded, @IpAddress, @UserAgent, @ContextTenantId,
              @OccurredAtUtc)
         """,
-        SqlDataScope.HostOnly);
+        // ApiKey/Signature 认证在 Host 上下文建立前写入审计，须允许 Global。
+        SqlDataScope.Global);
 
     public static readonly SqlStatement CountAuthenticationAudits = new(
         "identity.count_authentication_audits",

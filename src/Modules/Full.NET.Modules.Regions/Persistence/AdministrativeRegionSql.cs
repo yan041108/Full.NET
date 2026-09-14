@@ -205,14 +205,16 @@ internal static class AdministrativeRegionSql
             FROM fn_regions_administrative_region AS child
             INNER JOIN descendants AS parent ON child.ParentId = parent.Id
         )
-        DELETE region
-        FROM fn_regions_administrative_region AS region
-        INNER JOIN descendants ON descendants.Id = region.Id
-        WHERE EXISTS (
+        DELETE FROM fn_regions_administrative_region
+        WHERE Id IN (SELECT Id FROM descendants)
+          AND EXISTS (
             SELECT 1
-            FROM fn_regions_administrative_region AS root
-            WHERE root.Id = @Id AND root.Version = @Version
-        )
+            FROM (
+                SELECT Id
+                FROM fn_regions_administrative_region
+                WHERE Id = @Id AND Version = @Version
+            ) AS root
+          )
         """,
         SqlDataScope.HostOnly);
 

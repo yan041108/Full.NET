@@ -1,5 +1,6 @@
-using Full.NET.Data.Abstractions;
 using Full.NET.Abstractions.Tenancy;
+using Full.NET.Data.Abstractions;
+using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.HostUsers;
 using Full.NET.Modules.Identity.Persistence;
@@ -21,8 +22,8 @@ public sealed class HostUserDirectoryTests
         {
             var executor = new TenantSelectionQueryExecutor(
             [
-                new HostUserDirectoryRecord(firstUserId, "tenant-user", "租户用户"),
-                new HostUserDirectoryRecord(secondUserId, "host-member", "Host 成员"),
+                new HostUserDirectoryRecord(firstUserId, "tenant-user", "租户用户", LocaleCatalog.DefaultLocale),
+                new HostUserDirectoryRecord(secondUserId, "host-member", "Host 成员", LocaleCatalog.DefaultLocale),
             ]);
             var currentTenant = Substitute.For<ICurrentTenant>();
             currentTenant.IsAvailable.Returns(true);
@@ -65,8 +66,8 @@ public sealed class HostUserDirectoryTests
         var secondUserId = Guid.Parse("019bc2b1-2a40-7cc3-8992-a80de51bf295");
         var queryExecutor = new RecordingQueryExecutor(
             [
-                new HostUserDirectoryRecord(firstUserId, "admin", "系统管理员"),
-                new HostUserDirectoryRecord(secondUserId, "auditor", "审计员"),
+                new HostUserDirectoryRecord(firstUserId, "admin", "系统管理员", LocaleCatalog.DefaultLocale),
+                new HostUserDirectoryRecord(secondUserId, "auditor", "审计员", LocaleCatalog.DefaultLocale),
             ]);
         var directory = new HostUserDirectory(queryExecutor);
 
@@ -88,8 +89,8 @@ public sealed class HostUserDirectoryTests
         {
             var selectionExecutor = new SelectionQueryExecutor(
                 [
-                    new HostUserDirectoryRecord(firstUserId, "admin", "系统管理员"),
-                    new HostUserDirectoryRecord(secondUserId, "auditor", "审计员"),
+                    new HostUserDirectoryRecord(firstUserId, "admin", "系统管理员", LocaleCatalog.DefaultLocale),
+                    new HostUserDirectoryRecord(secondUserId, "auditor", "审计员", LocaleCatalog.DefaultLocale),
                 ]);
             var selectionDirectory = new HostUserSelectionDirectory(
                 selectionExecutor,

@@ -56,6 +56,9 @@ internal static class Endpoint
             return mapper.Map(result, httpContext);
         })
         .Produces<HostAnnouncementResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.Read));
 
         group.MapPost("/", async (
@@ -192,6 +195,9 @@ internal static class Endpoint
         })
         .WithName("notificationsGetHostAnnouncementReadStats")
         .Produces<HostAnnouncementReadStatsResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReadStats));
 
         group.MapGet("/{announcementId:guid}/read-receipts", async (
@@ -213,6 +219,9 @@ internal static class Endpoint
         })
         .WithName("notificationsListHostAnnouncementReadReceipts")
         .Produces<PagedResult<HostAnnouncementReadReceiptResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReadStats));
     }
 

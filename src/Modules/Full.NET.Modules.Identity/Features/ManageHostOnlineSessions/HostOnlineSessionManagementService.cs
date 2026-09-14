@@ -121,10 +121,9 @@ internal sealed class HostOnlineSessionManagementService(
         }
 
         var sessionIds = (await queryExecutor.QueryAsync<Guid>(
-                    OnlineSessionSql.ListActiveHostSessionIdsByUserExcept,
+                    OnlineSessionSql.ListActiveHostSessionIdsByUser,
                     IdentitySqlParameters.Create(
                         ("UserId", userId),
-                        ("ExceptSessionId", Guid.Empty),
                         ("NowUtc", clock.UtcNow)),
                     cancellationToken)
                 .ConfigureAwait(false))

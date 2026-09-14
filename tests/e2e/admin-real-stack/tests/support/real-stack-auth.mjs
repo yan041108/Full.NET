@@ -4,6 +4,8 @@ const username = process.env.FULLNET_E2E_USERNAME ?? 'admin';
 const password = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
 const viewerUsername = process.env.FULLNET_E2E_VIEWER_USERNAME ?? 'e2e-viewer';
 const viewerPassword = process.env.FULLNET_E2E_VIEWER_PASSWORD ?? password;
+const clearedPassword = 'FullNet!2026Cleared';
+const csrfCookieName = 'fullnet-csrf';
 
 /** Vue Art 表格行；Layui 仍使用 article 卡片布局。 */
 export function crudTableRow(view, clientKind, text) {
@@ -29,6 +31,7 @@ export async function expandMainNavigation(page) {
 
 /** 登录 Host 管理员并等待动态导航就绪。 */
 export async function loginAsHostAdmin(page, baseUrl = '/') {
+  await ensureAccountPasswordCleared(page.request, 'vue-admin', username, password);
   await page.goto(baseUrl);
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
   await page.getByLabel('账号', { exact: true }).fill(username);
@@ -42,6 +45,7 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
 
 /** 登录 Development 受限查看者并等待动态导航就绪。 */
 export async function loginAsHostViewer(page, baseUrl = '/') {
+  await ensureAccountPasswordCleared(page.request, 'vue-admin', viewerUsername, viewerPassword);
   await page.context().clearCookies();
   await page.addInitScript(() => {
     localStorage.clear();
@@ -274,6 +278,7 @@ export async function provisionLimitedHostUserViaApi(request, clientKind, option
 
 /** 使用指定凭据登录 Host 管理端并等待动态导航就绪。 */
 export async function loginAsHostUser(page, username, password, baseUrl = '/') {
+  await ensureAccountPasswordCleared(page.request, 'vue-admin', username, password);
   await page.context().clearCookies();
   await page.addInitScript(() => {
     localStorage.clear();
@@ -622,22 +627,103 @@ export async function findSeedTenantViaApi(request, clientKind, identifier = 'lo
 }
 
 async function loginWithPassword(request, clientKind, loginUsername, loginPassword) {
+  await ensureAccountPasswordCleared(request, clientKind, loginUsername, loginPassword);
   const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   const origin = adminOrigin(clientKind);
   const response = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: {
       username: loginUsername,
-      password: loginPassword
+      password: clearedPassword
     },
     headers: {
       Origin: origin,
       'Content-Type': 'application/json'
     }
   });
+  if (!response.ok() && loginPassword !== clearedPassword) {
+    const fallback = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+      data: {
+        username: loginUsername,
+        password: loginPassword
+      },
+      headers: {
+        Origin: origin,
+        'Content-Type': 'application/json'
+      }
+    });
+    expect(fallback.ok()).toBeTruthy();
+    const fallbackBody = await fallback.json();
+    expect(typeof fallbackBody.accessToken).toBe('string');
+    return fallbackBody.accessToken;
+  }
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(typeof body.accessToken).toBe('string');
   return body.accessToken;
+}
+
+/** 清除 MustChangePassword，避免真实栈 E2E 与 API 探针被改密门禁阻断。 */
+async function ensureAccountPasswordCleared(
+  request,
+  clientKind,
+  loginUsername,
+  loginPassword
+) {
+  const apiBaseUrl = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
+  const origin = adminOrigin(clientKind);
+  let currentPassword = loginPassword;
+  let loginResponse = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+    data: { username: loginUsername, password: currentPassword },
+    headers: { Origin: origin, 'Content-Type': 'application/json' }
+  });
+  if (!loginResponse.ok() && currentPassword !== clearedPassword) {
+    currentPassword = clearedPassword;
+    loginResponse = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+      data: { username: loginUsername, password: currentPassword },
+      headers: { Origin: origin, 'Content-Type': 'application/json' }
+    });
+  }
+  if (!loginResponse.ok()) {
+    return;
+  }
+
+  const loginBody = await loginResponse.json();
+  const meResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
+    headers: {
+      Authorization: `Bearer ${loginBody.accessToken}`,
+      Origin: origin
+    }
+  });
+  if (!meResponse.ok()) {
+    return;
+  }
+
+  const profile = await meResponse.json();
+  if (profile.passwordChangeRequired !== true) {
+    return;
+  }
+
+  const csrfToken = await readCsrfToken(request);
+  expect(csrfToken).toBeTruthy();
+  const changeResponse = await request.post(`${apiBaseUrl}/api/v1/me/password`, {
+    data: {
+      currentPassword,
+      newPassword: clearedPassword
+    },
+    headers: {
+      Authorization: `Bearer ${loginBody.accessToken}`,
+      Origin: origin,
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken
+    }
+  });
+  expect(changeResponse.ok()).toBeTruthy();
+}
+
+async function readCsrfToken(request) {
+  const storage = await request.storageState();
+  const cookie = storage.cookies.find(entry => entry.name === csrfCookieName);
+  return cookie?.value ?? '';
 }
 
 /** 将 Host 访问令牌切换为 Development 本地租户上下文。 */

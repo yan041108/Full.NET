@@ -13,11 +13,13 @@ using Full.NET.IntegrationTests.Migrations;
 using Full.NET.Migrations.DbUp;
 using Full.NET.Modularity.Messaging;
 using Full.NET.Modularity.Modules;
+using Full.NET.Modules.Files.Contracts;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Organization.Contracts;
 using Full.NET.Modules.Tenancy;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Realtime;
 using Full.NET.Serialization.MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
@@ -142,6 +144,7 @@ public sealed class TenantProvisioningTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddRouting();
+        services.AddHttpContextAccessor();
         services.AddSingleton<IHostEnvironment, TestHostEnvironment>();
         services.AddScoped<CurrentTenantAccessor>();
         services.AddScoped<ICurrentTenant>(provider =>
@@ -165,6 +168,15 @@ public sealed class TenantProvisioningTests
         services.AddSingleton<
             IIdentityOrganizationUnitProjectionSource,
             EmptyIdentityOrganizationUnitProjectionSource>();
+        services.AddSingleton<
+            IIdentityOrganizationPositionDirectory,
+            EmptyIdentityOrganizationPositionDirectory>();
+        services.AddSingleton<IHostFileUploadWriter, NoOpHostFileUploadWriter>();
+        services.AddSingleton<IHostFileReferenceClaimService, NoOpHostFileReferenceClaimService>();
+        services.AddSingleton<IHostFileDescriptorReader, NoOpHostFileDescriptorReader>();
+        services.AddSingleton<IHostFileContentReader, NoOpHostFileContentReader>();
+        services.AddSingleton<IRealtimePublisher, NoOpRealtimePublisher>();
+        services.AddSingleton<IFullNetModuleSelectionPreview, EmptyModuleSelectionPreview>();
         services.AddFullNetModule<IdentityModule>(configuration);
         services.AddFullNetModule<TenancyModule>(configuration);
 
@@ -205,6 +217,121 @@ public sealed class TenantProvisioningTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Result<IdentityOrganizationUnitProjectionPage>.Success(
                 new IdentityOrganizationUnitProjectionPage([], null, false)));
+    }
+
+    private sealed class EmptyIdentityOrganizationPositionDirectory
+        : IIdentityOrganizationPositionDirectory
+    {
+        public Task<IdentityOrganizationPositionDirectoryEntry?> FindActivePositionAsync(
+            Guid tenantId,
+            Guid positionId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IdentityOrganizationPositionDirectoryEntry?>(null);
+    }
+
+    private sealed class NoOpHostFileUploadWriter : IHostFileUploadWriter
+    {
+        public Task<Result<HostFileUploadResult>> UploadAsync(
+            Guid createdByUserId,
+            string originalFileName,
+            string contentType,
+            Stream content,
+            long contentLength,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileUploadResult>.Failure(new Error(
+                "files.upload_not_available",
+                "The provisioning fixture does not upload files.",
+                ErrorType.Unexpected)));
+    }
+
+    private sealed class NoOpHostFileDescriptorReader : IHostFileDescriptorReader
+    {
+        public Task<HostFileDescriptor?> GetReadyDescriptorAsync(
+            Guid fileId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<HostFileDescriptor?>(null);
+    }
+
+    private sealed class NoOpHostFileContentReader : IHostFileContentReader
+    {
+        public Task<Result<HostFileContent>> OpenReadyContentAsync(
+            Guid fileId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileContent>.Failure(new Error(
+                "files.content_not_available",
+                "The provisioning fixture does not open file content.",
+                ErrorType.Unexpected)));
+    }
+
+    private sealed class NoOpHostFileReferenceClaimService : IHostFileReferenceClaimService
+    {
+        public Task<Result<HostFileReferenceClaimResult>> ClaimAsync(
+            HostFileReferenceClaimRequest request,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileReferenceClaimResult>.Failure(new Error(
+                "files.claim_not_available",
+                "The provisioning fixture does not claim file references.",
+                ErrorType.Unexpected)));
+
+        public Task<Result<HostFileReferenceClaimResult>> ConfirmAsync(
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<HostFileReferenceClaimResult>.Failure(new Error(
+                "files.claim_not_available",
+                "The provisioning fixture does not claim file references.",
+                ErrorType.Unexpected)));
+
+        public Task<Result<bool>> ReleaseAsync(
+            string idempotencyKey,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result<bool>.Success(false));
+
+        public Task<bool> HasOpenClaimsAsync(
+            Guid fileId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+    }
+
+    private sealed class NoOpRealtimePublisher : IRealtimePublisher
+    {
+        public Task PublishToUserAsync(
+            Guid userId,
+            RealtimeMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task PublishToTenantAsync(
+            Guid tenantId,
+            RealtimeMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task PublishToHostBroadcastAsync(
+            RealtimeMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class EmptyModuleSelectionPreview : IFullNetModuleSelectionPreview
+    {
+        public ModuleSelectionAnalysis AnalyzeRuntime(IConfiguration configuration) =>
+            CreateEmptyAnalysis();
+
+        public ModuleSelectionAnalysis AnalyzeCandidate(
+            string? preset,
+            IReadOnlyList<string>? enabled) =>
+            CreateEmptyAnalysis();
+
+        private static ModuleSelectionAnalysis CreateEmptyAnalysis() => new()
+        {
+            IsValid = true,
+            SourceKind = ModuleSelectionSourceKinds.Explicit,
+            EnabledModuleKeys = [],
+            OfficialModuleKeys = [],
+            Issues = [],
+            ModuleStates = [],
+            DeploymentNotice = "Provisioning fixture does not analyze module selection.",
+        };
     }
 
     private static async Task<long> CountAsync(

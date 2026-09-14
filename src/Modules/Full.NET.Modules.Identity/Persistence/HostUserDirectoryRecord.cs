@@ -7,4 +7,4 @@ internal sealed record HostUserDirectoryRecord(
     Guid Id,
     string Username,
     string DisplayName,
-    string PreferredLocale = LocaleCatalog.DefaultLocale);
+    string PreferredLocale);

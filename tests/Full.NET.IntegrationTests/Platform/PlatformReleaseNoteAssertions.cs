@@ -84,7 +84,7 @@ internal static class PlatformReleaseNoteAssertions
             client,
             adminToken,
             publishedOlder.Id,
-            publishedOlder.Version + 1,
+            publishedOlder.Version,
             cancellationToken);
         Assert.AreEqual(ReleaseNoteStatuses.Retracted, retracted.Status);
 
@@ -98,13 +98,25 @@ internal static class PlatformReleaseNoteAssertions
             "待删除草稿",
             "仅用于删除测试",
             cancellationToken);
+        using var getDeleteTargetRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/platform/host-release-notes/{deleteTarget.Id:D}");
+        getDeleteTargetRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var getDeleteTargetResponse = await client.SendAsync(getDeleteTargetRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, getDeleteTargetResponse.StatusCode);
+        var deleteTargetLatest = await getDeleteTargetResponse.Content
+            .ReadFromJsonAsync<HostReleaseNoteResponse>(cancellationToken);
+        Assert.IsNotNull(deleteTargetLatest);
         using var deleteRequest = CreateBearerJsonRequest(
             HttpMethod.Post,
             $"/api/v1/platform/host-release-notes/{deleteTarget.Id:D}/delete",
             adminToken,
-            new DeleteHostReleaseNoteRequest(deleteTarget.Version));
+            new DeleteHostReleaseNoteRequest(deleteTargetLatest.Version));
         using var deleteResponse = await client.SendAsync(deleteRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.AreEqual(
+            HttpStatusCode.NoContent,
+            deleteResponse.StatusCode,
+            await deleteResponse.Content.ReadAsStringAsync(cancellationToken));
 
         using var missingRequest = new HttpRequestMessage(
             HttpMethod.Get,

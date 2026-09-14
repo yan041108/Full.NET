@@ -324,6 +324,15 @@ internal static class DocumentAdminNetParityAssertions
         HostDocumentItemResponse document,
         CancellationToken cancellationToken)
     {
+        using (var reloadResponse = await client.SendAsync(
+                   Authorized(HttpMethod.Get, $"{ItemsPath}/{document.Id:D}", token),
+                   cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.OK, reloadResponse.StatusCode);
+            document = (await reloadResponse.Content
+                .ReadFromJsonAsync<HostDocumentItemResponse>(cancellationToken))!;
+        }
+
         using (var deleteResponse = await client.SendAsync(
                    AuthorizedJson(
                        HttpMethod.Post,

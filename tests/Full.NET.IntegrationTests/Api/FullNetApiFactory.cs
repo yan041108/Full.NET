@@ -9,6 +9,8 @@ using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Tenancy.Contracts;
+using Full.NET.Seeding.Abstractions;
+using Full.NET.Seeding.Dapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -61,7 +63,7 @@ internal sealed class FullNetApiFactory(
             "Full.NET.Host.Api"));
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(settings));
-        builder.ConfigureServices(services =>
+        builder.ConfigureServices((hostContext, services) =>
         {
             if (connectionRemoteIpAddress is not null)
             {
@@ -70,6 +72,7 @@ internal sealed class FullNetApiFactory(
                         connectionRemoteIpAddress));
             }
 
+            services.AddFullNetSeeding(hostContext.Configuration);
             services.PostConfigure<FusionCacheOptions>(options =>
             {
                 // 集成测试会在同一进程里启动多个 API 工厂；若共享同一个 InstanceId，
@@ -90,10 +93,14 @@ internal sealed class FullNetApiFactory(
             [$"{DatabaseOptions.SectionName}:MySqlGuidStorageMode"] = "Binary16",
             ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
             ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
+            ["Identity:Bootstrap:Username"] = "admin",
+            ["Identity:Bootstrap:Password"] = TestPassword,
+            ["Identity:Bootstrap:DisplayName"] = "系统管理员",
             // 一般 API 契约场景会多次登录不同用户；登录限流语义由专用测试显式覆盖。
             ["Identity:LoginRateLimitPermitLimitPerMinute"] = "1000",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
             ["Tenancy:HostDomains:0"] = "localhost",
+            [$"{SeedOptions.SectionName}:DefaultLocale"] = "zh-CN",
             ["Files:Local:RootPath"] = Path.Combine(
                 Path.GetTempPath(),
                 "fullnet-files-integration",
@@ -218,6 +225,17 @@ internal sealed class FullNetApiFactory(
             {
                 throw new InvalidOperationException(
                     $"Test identity bootstrap failed: {bootstrap.Error?.Code}");
+            }
+
+            var baselineSeed = await scope.ServiceProvider
+                .GetRequiredService<ISeedOrchestrator>()
+                .RunAsync(SeedProfile.Baseline, cancellationToken)
+                .ConfigureAwait(false);
+            if (!baselineSeed.IsSuccess)
+            {
+                throw new InvalidOperationException(
+                    $"Test baseline seed failed: {baselineSeed.Error?.Code} - "
+                    + baselineSeed.Error?.Message);
             }
 
             await scope.ServiceProvider

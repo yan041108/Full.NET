@@ -198,7 +198,8 @@ internal static class NotificationDeliveryWorkerAssertions
             "sms.aliyun",
             aliyunReceiptBody,
             aliyunSignature,
-            cancellationToken);
+            cancellationToken,
+            AliyunSmsReceiptVerifier.SignatureHeaderName);
         Assert.AreEqual(HttpStatusCode.OK, aliyunReceipt.StatusCode);
         Environment.SetEnvironmentVariable("FULLNET_TEST_ALIYUN_SMS_RECEIPT_SECRET", null);
 
@@ -588,7 +589,8 @@ internal static class NotificationDeliveryWorkerAssertions
         string providerTypeKey,
         byte[] body,
         string signature,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? signatureHeaderName = null)
     {
         var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -597,7 +599,9 @@ internal static class NotificationDeliveryWorkerAssertions
             Content = new ByteArrayContent(body),
         };
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        request.Headers.Add(TestNotificationReceiptVerifier.SignatureHeaderName, signature);
+        request.Headers.Add(
+            signatureHeaderName ?? TestNotificationReceiptVerifier.SignatureHeaderName,
+            signature);
         return await client.SendAsync(request, cancellationToken);
     }
 

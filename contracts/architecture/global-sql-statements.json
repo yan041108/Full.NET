@@ -116,6 +116,56 @@
       ]
     },
     {
+      "statementName": "identity.find_open_access_client_quota_by_api_key_id",
+      "declaration": "Full.NET.Modules.Identity.Persistence.OpenAccessClientObservabilitySql.FindQuotaByApiKeyId",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/OpenAccessClientObservabilitySql.cs",
+      "category": "host_catalog",
+      "reason": "OpenAccess API Key 配额读取发生在 Tenancy 建立 Host 上下文之前，须与认证查询一样使用 Global 作用域。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_open_access_client AS client",
+        "INNER JOIN fn_identity_api_key AS apiKey ON apiKey.Id = client.ApiKeyId",
+        "client.ApiKeyId = @ApiKeyId"
+      ]
+    },
+    {
+      "statementName": "identity.count_open_access_client_today_usage.sql_server",
+      "declaration": "Full.NET.Modules.Identity.Persistence.OpenAccessClientObservabilitySql.CountTodayUsageSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/OpenAccessClientObservabilitySql.cs",
+      "category": "host_catalog",
+      "reason": "OpenAccess API Key 当日配额统计在 Host 上下文建立前执行，须与认证查询一样使用 Global 作用域。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_auth_audit AS audit",
+        "audit.UsernameFingerprint = @AccessKeyFingerprint",
+        "audit.OccurredAtUtc >= @WindowStartUtc",
+        "audit.OccurredAtUtc < @WindowEndUtc"
+      ]
+    },
+    {
+      "statementName": "identity.count_open_access_client_today_usage.mysql",
+      "declaration": "Full.NET.Modules.Identity.Persistence.OpenAccessClientObservabilitySql.CountTodayUsageMySql",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/OpenAccessClientObservabilitySql.cs",
+      "category": "host_catalog",
+      "reason": "OpenAccess API Key 当日配额统计在 Host 上下文建立前执行，须与认证查询一样使用 Global 作用域。",
+      "requiredSqlFragments": [
+        "FROM fn_identity_auth_audit AS audit",
+        "audit.UsernameFingerprint = @AccessKeyFingerprint",
+        "audit.OccurredAtUtc >= @WindowStartUtc",
+        "audit.OccurredAtUtc < @WindowEndUtc"
+      ]
+    },
+    {
+      "statementName": "identity.insert_auth_audit",
+      "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.InsertAuthAudit",
+      "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
+      "category": "host_catalog",
+      "reason": "ApiKey/Signature 认证在 Host 上下文建立前写入审计，须允许 Global 作用域。",
+      "requiredSqlFragments": [
+        "INSERT INTO fn_identity_auth_audit",
+        "@UsernameFingerprint",
+        "@OccurredAtUtc"
+      ]
+    },
+    {
       "statementName": "identity.find_host_user_by_id",
       "declaration": "Full.NET.Modules.Identity.Persistence.IdentitySql.FindHostUserById",
       "file": "src/Modules/Full.NET.Modules.Identity/Persistence/IdentitySql.cs",
@@ -3477,8 +3527,19 @@
       ]
     },
     {
-      "statementName": "workflow.approval_slot.find_tally_by_step",
-      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalTallyByStep",
+      "statementName": "workflow.approval_slot.find_tally_by_step.sqlserver",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalTallyByStepSqlServer",
+      "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
+      "category": "explicit_tenant_anchor",
+      "reason": "票数聚合仅允许在同一事务已经锁定并验证所属实例后按步骤读取，避免跨租户暴露聚合结果。",
+      "requiredSqlFragments": [
+        "fn_workflow_approval_slot",
+        "StepId = @StepId"
+      ]
+    },
+    {
+      "statementName": "workflow.approval_slot.find_tally_by_step.mysql",
+      "declaration": "Full.NET.Modules.Workflow.Persistence.WorkflowSql.FindApprovalTallyByStepMySql",
       "file": "src/Modules/Full.NET.Modules.Workflow/Persistence/WorkflowSql.cs",
       "category": "explicit_tenant_anchor",
       "reason": "票数聚合仅允许在同一事务已经锁定并验证所属实例后按步骤读取，避免跨租户暴露聚合结果。",

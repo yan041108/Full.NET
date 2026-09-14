@@ -35,15 +35,21 @@ internal static class NotificationTemplateIntentAssertions
         using var forbiddenResponse = await hostClient.SendAsync(forbidden, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
 
-        using var emailTemplate = CreateBearerJsonRequest(
+        using var unsupportedChannelTemplate = CreateBearerJsonRequest(
             HttpMethod.Post,
             "/api/v1/notifications/templates",
             hostAdminToken,
-            CreateTemplateBody($"email-{Guid.NewGuid():N}"[..20], "主题", "正文", channelKey: "email"));
-        using var emailResponse = await hostClient.SendAsync(emailTemplate, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.BadRequest, emailResponse.StatusCode);
+            CreateTemplateBody(
+                $"unsupported-{Guid.NewGuid():N}"[..20],
+                "主题",
+                "正文",
+                channelKey: "unsupported-channel"));
+        using var unsupportedChannelResponse = await hostClient.SendAsync(
+            unsupportedChannelTemplate,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.BadRequest, unsupportedChannelResponse.StatusCode);
         AssertProblem(
-            await emailResponse.Content.ReadAsStringAsync(cancellationToken),
+            await unsupportedChannelResponse.Content.ReadAsStringAsync(cancellationToken),
             NotificationsErrorCodes.IntentChannelUnsupported);
 
         var templateKey = $"order-paid-{Guid.NewGuid():N}"[..28];
@@ -256,16 +262,11 @@ internal static class NotificationTemplateIntentAssertions
         var hostMessage = hostInbox.Items.Single(item => item.Title == $"订单 {orderNo}");
         Assert.AreEqual($"已支付 {orderNo}", hostMessage.Content);
 
-        using var secondLogin = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
-        {
-            Content = JsonContent.Create(new LoginRequest(secondUser.Username, FullNetApiFactory.TestPassword)),
-        };
-        secondLogin.Headers.Add("Origin", "http://localhost");
-        using var secondLoginResponse = await hostClient.SendAsync(secondLogin, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, secondLoginResponse.StatusCode);
-        var secondToken = await secondLoginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
-        Assert.IsNotNull(secondToken);
-        var secondInbox = await ListInboxAsync(hostClient, secondToken.AccessToken, cancellationToken);
+        var secondToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            hostClient,
+            secondUser.Username,
+            cancellationToken: cancellationToken);
+        var secondInbox = await ListInboxAsync(hostClient, secondToken, cancellationToken);
         Assert.AreEqual(1, secondInbox.Items.Count(item => item.Title == $"订单 {orderNo}"));
 
         using var updateForV2 = CreateBearerJsonRequest(

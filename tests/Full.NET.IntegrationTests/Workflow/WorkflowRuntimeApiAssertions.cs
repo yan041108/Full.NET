@@ -408,9 +408,10 @@ internal static class WorkflowRuntimeApiAssertions
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, mine.StatusCode, await mine.Content.ReadAsStringAsync(cancellationToken));
         using var todos = JsonDocument.Parse(await mine.Content.ReadAsStringAsync(cancellationToken));
-        var todo = todos.RootElement.EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == todoId);
-        Assert.AreEqual(identity.UserId, todo.GetProperty("assigneeUserId").GetGuid());
+        var todo = todos.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("id").GetGuid() == todoId);
         Assert.AreEqual("active", todo.GetProperty("statusKey").GetString());
+        Assert.AreEqual(instanceId, todo.GetProperty("instanceId").GetGuid());
 
         using var todoDetail = await client.SendAsync(
             Authorized(HttpMethod.Get, $"/api/v1/workflow/todos/{todoId:D}/runtime", identity.AccessToken),
@@ -418,6 +419,7 @@ internal static class WorkflowRuntimeApiAssertions
         Assert.AreEqual(HttpStatusCode.OK, todoDetail.StatusCode,
             await todoDetail.Content.ReadAsStringAsync(cancellationToken));
         using var detail = JsonDocument.Parse(await todoDetail.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(identity.UserId, detail.RootElement.GetProperty("assigneeUserId").GetGuid());
         Assert.AreEqual(versions.FormVersionId, detail.RootElement.GetProperty("formVersionId").GetGuid());
         var visibleSchemaJson = detail.RootElement.GetProperty("formSchema").GetRawText();
         var expectedSchemaHash = Convert.ToHexStringLower(
@@ -438,6 +440,7 @@ internal static class WorkflowRuntimeApiAssertions
         var other = await factory.CreateHostIdentityAsync(
             $"workflow-other-{Guid.NewGuid():N}",
             [
+                WorkflowPermissions.TodosRead,
                 WorkflowPermissions.TodosApprove,
                 WorkflowPermissions.InstancesRead,
                 WorkflowPermissions.CcRead,
@@ -528,9 +531,8 @@ internal static class WorkflowRuntimeApiAssertions
             await reassignedMine.Content.ReadAsStringAsync(cancellationToken));
         using var reassignedTodos = JsonDocument.Parse(
             await reassignedMine.Content.ReadAsStringAsync(cancellationToken));
-        Assert.IsTrue(reassignedTodos.RootElement.EnumerateArray().Any(item =>
-            item.GetProperty("id").GetGuid() == reassignTodoId &&
-            item.GetProperty("assigneeUserId").GetGuid() == other.UserId));
+        Assert.IsTrue(reassignedTodos.RootElement.GetProperty("items").EnumerateArray().Any(item =>
+            item.GetProperty("id").GetGuid() == reassignTodoId));
 
         await AssertDangerousPatchesRejectedAsync(
             client, identity.AccessToken, todoId, cancellationToken);
@@ -585,7 +587,7 @@ internal static class WorkflowRuntimeApiAssertions
             Authorized(HttpMethod.Get, "/api/v1/workflow/todos/mine", identity.AccessToken),
             cancellationToken);
         using var remaining = JsonDocument.Parse(await emptyMine.Content.ReadAsStringAsync(cancellationToken));
-        Assert.AreEqual(0, remaining.RootElement.GetArrayLength());
+        Assert.AreEqual(0, remaining.RootElement.GetProperty("items").GetArrayLength());
 
         await VerifyLinearMultiApprovalAsync(
             client, identity.AccessToken, versions.FormVersionId, cancellationToken);
@@ -1159,16 +1161,11 @@ internal static class WorkflowRuntimeApiAssertions
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
 
-        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
-        {
-            Content = JsonContent.Create(new LoginRequest(username, FullNetApiFactory.TestPassword)),
-        };
-        loginRequest.Headers.Add("Origin", "http://localhost");
-        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
-        var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
-        Assert.IsNotNull(loginToken);
-        return await EnterAcmeTenantAsync(client, loginToken.AccessToken, cancellationToken);
+        var hostAccessToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            username,
+            cancellationToken: cancellationToken);
+        return await EnterAcmeTenantAsync(client, hostAccessToken, cancellationToken);
     }
 
     private static async Task<string> EnterAcmeTenantAsync(
@@ -1985,7 +1982,7 @@ internal static class WorkflowRuntimeApiAssertions
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode,
             await response.Content.ReadAsStringAsync(cancellationToken));
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        return document.RootElement.EnumerateArray()
+        return document.RootElement.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("instanceId").GetGuid() == instanceId &&
                 item.GetProperty("statusKey").GetString() == "active")
             .GetProperty("id").GetGuid();

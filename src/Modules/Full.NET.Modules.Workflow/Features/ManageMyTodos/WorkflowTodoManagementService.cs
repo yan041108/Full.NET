@@ -26,7 +26,6 @@ namespace Full.NET.Modules.Workflow.Features.ManageMyTodos;
 /// <param name="clock">统一 UTC 时钟。</param>
 /// <param name="idGenerator">UUID v7 标识生成器。</param>
 /// <param name="databaseOptions">数据库提供程序配置。</param>
-/// <param name="automaticTransitionWriter">自动节点迁移写入器。</param>
 /// <param name="approvalActivationWriter">人工审批等待点激活写入器。</param>
 /// <param name="approvalAssigneeCoordinator">办理人解析协调器。</param>
 /// <param name="notificationPublisher">工作流提醒事务 Outbox 发布器。</param>
@@ -40,7 +39,6 @@ internal sealed class WorkflowTodoManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<DatabaseOptions> databaseOptions,
-    WorkflowAutomaticTransitionWriter automaticTransitionWriter,
     WorkflowApprovalActivationWriter approvalActivationWriter,
     WorkflowApprovalAssigneeCoordinator approvalAssigneeCoordinator,
     WorkflowNotificationOutboxPublisher notificationPublisher,
@@ -119,7 +117,7 @@ internal sealed class WorkflowTodoManagementService(
         var tally = todo.ApprovalModeKey is null
             ? null
             : await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalTallyRecord>(
-                WorkflowSql.FindApprovalTallyByStep,
+                ApprovalTallyStatement,
                 WorkflowSqlParameters.Create(("StepId", todo.StepId)), cancellationToken)
                 .ConfigureAwait(false);
         return Result<WorkflowTodoDetailResponse>.Success(new(
@@ -130,9 +128,9 @@ internal sealed class WorkflowTodoManagementService(
         {
             ApprovalModeKey = todo.ApprovalModeKey ?? "single",
             RequiredApprovalCount = todo.RequiredApprovalCount ?? 1,
-            ApprovedCount = tally?.ApprovedCount ?? 0,
-            RejectedCount = tally?.RejectedCount ?? 0,
-            PendingCount = tally?.PendingCount ?? 1,
+            ApprovedCount = (int)(tally?.ApprovedCount ?? 0),
+            RejectedCount = (int)(tally?.RejectedCount ?? 0),
+            PendingCount = (int)(tally?.PendingCount ?? 1),
         });
     }
 
@@ -707,7 +705,7 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         var tally = await queryExecutor.QuerySingleOrDefaultAsync<WorkflowApprovalTallyRecord>(
-            WorkflowSql.FindApprovalTallyByStep,
+            ApprovalTallyStatement,
             WorkflowSqlParameters.Create(("StepId", todo.StepId)), token).ConfigureAwait(false);
         if (tally is null || tally.ApprovedCount + tally.RejectedCount + tally.PendingCount != approvalSlotCount)
         {
@@ -715,7 +713,7 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         var outcome = WorkflowApprovalDecision.Resolve(
-            requiredApprovalCount, tally.ApprovedCount, tally.PendingCount);
+            requiredApprovalCount, (int)tally.ApprovedCount, (int)tally.PendingCount);
         var instanceStatus = outcome == WorkflowApprovalOutcome.Rejected ? "rejected" : "active";
         WorkflowApprovalTransition transition = default;
         if (outcome == WorkflowApprovalOutcome.Approved)
@@ -772,27 +770,32 @@ internal sealed class WorkflowTodoManagementService(
         }
 
         Guid? nextTodoId = null;
-        if (outcome == WorkflowApprovalOutcome.Approved && !transition.CompletesInstance)
+        if (outcome == WorkflowApprovalOutcome.Approved)
         {
+            var patchedValues = JsonSerializer.Deserialize(
+                patchedSubmission,
+                WorkflowJsonSerializerContext.Default.DictionaryStringJsonElement) ?? [];
             var nextExecutionSequence = await queryExecutor.QuerySingleOrDefaultAsync<long>(
                 WorkflowSql.FindNextStepExecutionSequence,
                 WorkflowSqlParameters.Create(("InstanceId", instance.Id)), token).ConfigureAwait(false);
-            var approvalExecutionSequence = await automaticTransitionWriter.WriteAsync(
-                instance.Id, scope.TenantScopeKey, transition.AutomaticNodes,
-                nextExecutionSequence, now, token).ConfigureAwait(false);
-            var activationResult = await ActivateNextApprovalAsync(
+            var execution = await transitionExecutor.ExecuteAsync(
                 instance,
                 scope,
+                runtimePlan,
                 transition,
-                approvalExecutionSequence,
+                patchedValues,
+                nextExecutionSequence,
                 now,
+                instance.StartedById,
+                todo.ParallelJoinId,
+                todo.ParallelBranchKey,
                 token).ConfigureAwait(false);
-            if (!activationResult.IsSuccess)
+            if (!execution.IsSuccess)
             {
-                return Failure(activationResult.Error!.Code, activationResult.Error.Type);
+                return Failure(execution.Error!.Code, execution.Error.Type);
             }
 
-            nextTodoId = activationResult.Value;
+            nextTodoId = execution.Value!.FirstTodoId;
         }
 
         await commandExecutor.ExecuteAsync(
@@ -822,9 +825,9 @@ internal sealed class WorkflowTodoManagementService(
                     new WorkflowApprovalAuditDetail(
                         approvalModeKey,
                         requiredApprovalCount,
-                        tally.ApprovedCount,
-                        tally.RejectedCount,
-                        tally.PendingCount),
+                        (int)tally.ApprovedCount,
+                        (int)tally.RejectedCount,
+                        (int)tally.PendingCount),
                     WorkflowJsonSerializerContext.Default.WorkflowApprovalAuditDetail)),
                 ("CreatedAtUtc", now)), token).ConfigureAwait(false);
 
@@ -1292,6 +1295,15 @@ internal sealed class WorkflowTodoManagementService(
             token).ConfigureAwait(false);
         return Result<Guid>.Success(activation.FirstTodoId);
     }
+
+    private SqlStatement ApprovalTallyStatement =>
+        databaseOptions.Value.Provider switch
+        {
+            DatabaseProvider.SqlServer => WorkflowSql.FindApprovalTallyByStepSqlServer,
+            DatabaseProvider.MySql => WorkflowSql.FindApprovalTallyByStepMySql,
+            _ => throw new InvalidOperationException(
+                $"Unsupported database provider '{databaseOptions.Value.Provider}'."),
+        };
 
     private static WorkflowInstanceResponse Map(
         WorkflowInstanceRecord instance,

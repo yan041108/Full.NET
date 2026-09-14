@@ -2,6 +2,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const viewerRoleCode = 'e2e-host-viewer';
+const clearedPassword = 'FullNet!2026Cleared';
+const csrfCookieName = 'fullnet-csrf';
 const viewerRoleName = 'E2E 受限查看者';
 const viewerDisplayName = 'E2E 受限查看者';
 const viewerPermissions = [
@@ -22,11 +24,16 @@ export async function provisionViewer(environment = process.env) {
   const adminPassword = environment.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
   const viewerUsername = environment.FULLNET_E2E_VIEWER_USERNAME ?? 'e2e-viewer';
   const viewerPassword = environment.FULLNET_E2E_VIEWER_PASSWORD ?? adminPassword;
-  const accessToken = await login(
+  const adminLoginPassword = await ensurePasswordCleared(
     apiUrl,
     origin,
     adminUsername,
     adminPassword);
+  const accessToken = await login(
+    apiUrl,
+    origin,
+    adminUsername,
+    adminLoginPassword);
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     Origin: origin
@@ -39,6 +46,7 @@ export async function provisionViewer(environment = process.env) {
     viewerUsername,
     viewerPassword);
   await ensureUserRole(apiUrl, headers, user.id, role.id);
+  await ensurePasswordCleared(apiUrl, origin, viewerUsername, viewerPassword);
 
   return {
     roleId: role.id,
@@ -168,6 +176,83 @@ function sameSet(actual, expected) {
   const normalizedActual = [...actual].sort();
   const normalizedExpected = [...expected].sort();
   return normalizedActual.every((value, index) => value === normalizedExpected[index]);
+}
+
+async function ensurePasswordCleared(apiUrl, origin, username, password) {
+  let currentPassword = password;
+  let login = await loginWithCookies(apiUrl, origin, username, currentPassword);
+  if (!login.ok && currentPassword !== clearedPassword) {
+    currentPassword = clearedPassword;
+    login = await loginWithCookies(apiUrl, origin, username, currentPassword);
+  }
+  if (!login.ok) {
+    throw new Error(`无法登录 ${username} 以清除改密门禁。`);
+  }
+
+  const me = await requestJson(`${apiUrl}/api/v1/me`, {
+    headers: {
+      Authorization: `Bearer ${login.body.accessToken}`,
+      Origin: origin,
+      Cookie: login.cookieHeader
+    }
+  });
+  if (me.passwordChangeRequired !== true) {
+    return currentPassword;
+  }
+
+  const csrfToken = parseCookieValue(login.cookieHeader, csrfCookieName);
+  if (!csrfToken) {
+    throw new Error(`登录 ${username} 后缺少 CSRF Cookie。`);
+  }
+
+  await requestJson(`${apiUrl}/api/v1/me/password`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${login.body.accessToken}`,
+      Origin: origin,
+      Cookie: login.cookieHeader,
+      'X-CSRF-Token': csrfToken
+    },
+    body: {
+      currentPassword,
+      newPassword: clearedPassword
+    }
+  });
+  return clearedPassword;
+}
+
+async function loginWithCookies(apiUrl, origin, username, password) {
+  const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: {
+      Origin: origin,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  });
+  const text = await response.text();
+  const body = text.length === 0 ? undefined : JSON.parse(text);
+  const setCookieHeaders = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : [];
+  const cookieHeader = mergeSetCookieHeaders(setCookieHeaders);
+  return { ok: response.ok, body, cookieHeader };
+}
+
+function mergeSetCookieHeaders(setCookieHeaders) {
+  return setCookieHeaders
+    .map(header => header.split(';', 1)[0])
+    .filter(Boolean)
+    .join('; ');
+}
+
+function parseCookieValue(cookieHeader, name) {
+  const prefix = `${name}=`;
+  const segment = cookieHeader
+    .split(';')
+    .map(part => part.trim())
+    .find(part => part.startsWith(prefix));
+  return segment ? segment.slice(prefix.length) : '';
 }
 
 async function requestJson(url, options = {}) {

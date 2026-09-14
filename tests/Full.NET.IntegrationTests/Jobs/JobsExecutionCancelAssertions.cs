@@ -98,7 +98,7 @@ internal static class JobsExecutionCancelAssertions
 
         Assert.AreEqual(1, await workerTask.WaitAsync(testToken));
         var final = await WaitForStateAsync(
-            factory.Services,
+            workerScope.ServiceProvider,
             executionId,
             state => state.Status == JobExecutionStatuses.Cancelled,
             testToken);

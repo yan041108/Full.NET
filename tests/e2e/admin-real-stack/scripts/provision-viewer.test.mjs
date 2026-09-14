@@ -85,6 +85,14 @@ function installApiStub({ rolePages, userPages, roleTotal, userTotal }) {
       return jsonResponse({ accessToken: 'test-access-token' });
     }
 
+    if (method === 'GET' && url.pathname === '/api/v1/me') {
+      return jsonResponse({ passwordChangeRequired: false });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/v1/me/password') {
+      return jsonResponse({ accessToken: 'cleared-access-token' });
+    }
+
     if (method === 'GET' && url.pathname === '/api/v1/identity/roles') {
       listRequests.push(requestPath);
       return jsonResponse(pageResponse(rolePages, url, roleTotal));
@@ -184,9 +192,15 @@ function findById(pages, id) {
 }
 
 function jsonResponse(body, status = 200) {
+  const headers = {
+    getSetCookie() {
+      return ['fullnet-csrf=test-csrf; Path=/'];
+    }
+  };
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers,
     async text() {
       return JSON.stringify(body);
     }

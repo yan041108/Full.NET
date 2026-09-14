@@ -95,6 +95,12 @@ internal sealed class HostRecycleBinManagementService(
             return Result<bool>.Failure(NotFoundError());
         }
 
+        await commandExecutor.ExecuteAsync(
+                DocumentItemSql.PurgeDependents,
+                DocumentSqlParameters.Create(("DocumentItemId", itemId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var affected = await commandExecutor.ExecuteAsync(
                 DocumentItemSql.Purge,
                 DocumentSqlParameters.Create(("Id", itemId)),

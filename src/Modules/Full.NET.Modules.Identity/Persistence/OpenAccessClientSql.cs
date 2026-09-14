@@ -13,7 +13,7 @@ internal static class OpenAccessClientSql
                client.Remark,
                apiKey.UserId,
                identityUser.Username,
-               apiKey.KeyPrefix,
+               apiKey.KeyPrefix AS AccessKeyId,
                apiKey.PermissionsJson,
                apiKey.ExpiresAtUtc,
                apiKey.IsActive,

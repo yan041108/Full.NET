@@ -323,26 +323,16 @@ internal static class IdentityRoleManagementAssertions
         Assert.AreEqual(HttpStatusCode.OK, assignResponse.StatusCode);
     }
 
-    private static async Task<string> LoginAsUserAsync(
+    private static Task<string> LoginAsUserAsync(
         HttpClient client,
         string username,
         string password,
-        CancellationToken cancellationToken)
-    {
-        using var loginRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            "/api/v1/auth/login")
-        {
-            Content = JsonContent.Create(new LoginRequest(username, password)),
-        };
-        loginRequest.Headers.Add("Origin", "http://localhost");
-        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
-        var token = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(
+        CancellationToken cancellationToken) =>
+        IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            username,
+            password,
             cancellationToken);
-        Assert.IsNotNull(token);
-        return token.AccessToken;
-    }
 
     private static async Task VerifyListRequiresReadPermissionAsync(
         Api.FullNetApiFactory factory,

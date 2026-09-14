@@ -472,21 +472,12 @@ internal static class OrganizationUserUnitManagementAssertions
         using var assignRoleResponse = await client.SendAsync(assignRoleRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, assignRoleResponse.StatusCode);
 
-        using var loginRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            "/api/v1/auth/login")
-        {
-            Content = JsonContent.Create(
-                new LoginRequest(username, FullNetApiFactory.TestPassword)),
-        };
-        loginRequest.Headers.Add("Origin", "http://localhost");
-        using var loginResponse = await client.SendAsync(loginRequest, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, loginResponse.StatusCode);
-        var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>(
-            cancellationToken);
-        Assert.IsNotNull(loginToken);
+        var hostAccessToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            username,
+            cancellationToken: cancellationToken);
 
-        return await EnterAcmeTenantAsync(client, loginToken.AccessToken, cancellationToken);
+        return await EnterAcmeTenantAsync(client, hostAccessToken, cancellationToken);
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

@@ -41,6 +41,8 @@ internal static class Endpoint
         })
         .WithName("notificationsListMyHostAnnouncements")
         .Produces<PagedResult<ReceivedHostAnnouncementListItemResponse>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReceivedRead));
 
         group.MapGet("/unread-count", async (
@@ -60,6 +62,8 @@ internal static class Endpoint
         })
         .WithName("notificationsGetMyHostAnnouncementUnreadCount")
         .Produces<HostAnnouncementUnreadCountResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReceivedRead));
 
         group.MapGet("/{announcementId:guid}", async (
@@ -80,6 +84,9 @@ internal static class Endpoint
         })
         .WithName("notificationsGetMyHostAnnouncement")
         .Produces<ReceivedHostAnnouncementDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReceivedRead));
 
         group.MapPost("/{announcementId:guid}/read", async (
@@ -100,6 +107,9 @@ internal static class Endpoint
         })
         .WithName("notificationsMarkMyHostAnnouncementRead")
         .Produces<ReceivedHostAnnouncementDetailResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReceivedMarkRead));
 
         group.MapPost("/read-all", async (
@@ -119,6 +129,8 @@ internal static class Endpoint
         })
         .WithName("notificationsMarkAllMyHostAnnouncementsRead")
         .Produces<HostAnnouncementUnreadCountResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAuthorization(FullNetPermissionPolicies.For(HostAnnouncementPermissions.ReceivedMarkAllRead));
     }
 

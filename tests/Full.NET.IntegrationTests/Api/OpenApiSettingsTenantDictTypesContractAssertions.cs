@@ -246,6 +246,18 @@ internal static class OpenApiSettingsTenantDictTypesContractAssertions
 
         if (schemaName is "DictTypeResponsePage" or "DictItemResponsePage")
         {
+            var pagedSchemaName = schemaName switch
+            {
+                "DictTypeResponsePage" => "PagedResultOfDictTypeResponse",
+                "DictItemResponsePage" => "PagedResultOfDictItemResponse",
+                _ => null,
+            };
+            if (pagedSchemaName is not null
+                && openApiSchemas.TryGetProperty(pagedSchemaName, out schema))
+            {
+                return true;
+            }
+
             foreach (var candidate in openApiSchemas.EnumerateObject())
             {
                 if (!candidate.Name.Contains("Dict", StringComparison.Ordinal))

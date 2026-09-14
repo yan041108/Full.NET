@@ -141,7 +141,7 @@ internal static class OpenApiImportExportContractAssertions
             "importExportDownloadImportTaskErrorReceipt",
             taskTag,
             200,
-            "application/octet-stream");
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 
     private static void AssertOperation(

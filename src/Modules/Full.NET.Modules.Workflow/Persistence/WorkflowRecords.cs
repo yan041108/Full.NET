@@ -241,9 +241,9 @@ internal sealed record WorkflowTodoRuntimeRecord(
     string? ApprovalModeKey,
     int? RequiredApprovalCount,
     int? ApprovalSlotCount,
-    Guid? ParallelJoinId = null,
-    string? ParallelBranchKey = null,
-    string? ParallelJoinNodeKey = null);
+    Guid? ParallelJoinId,
+    string? ParallelBranchKey,
+    string? ParallelJoinNodeKey);
 
 /// <summary>当前待办对应的一人一票审批席位。</summary>
 /// <param name="Id">审批席位标识。</param>
@@ -270,9 +270,9 @@ internal sealed record WorkflowInstanceApprovalProgressRecord(
 /// <param name="RejectedCount">已反对票数。</param>
 /// <param name="PendingCount">仍未决定的票数。</param>
 internal sealed record WorkflowApprovalTallyRecord(
-    int ApprovedCount,
-    int RejectedCount,
-    int PendingCount);
+    long ApprovedCount,
+    long RejectedCount,
+    long PendingCount);
 
 /// <summary>审批退回使用的当前有效执行链历史目标。</summary>
 /// <param name="StepId">历史步骤标识。</param>

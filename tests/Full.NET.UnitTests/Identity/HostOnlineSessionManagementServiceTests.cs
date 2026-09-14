@@ -55,7 +55,7 @@ public sealed class HostOnlineSessionManagementServiceTests
         fixture.ReturnTargetUser();
         fixture.QueryExecutor
             .QueryAsync<Guid>(
-                OnlineSessionSql.ListActiveHostSessionIdsByUserExcept,
+                OnlineSessionSql.ListActiveHostSessionIdsByUser,
                 Arg.Any<object?>(),
                 Arg.Any<CancellationToken>())
             .Returns([SessionId]);

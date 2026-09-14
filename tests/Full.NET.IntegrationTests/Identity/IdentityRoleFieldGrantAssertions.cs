@@ -189,23 +189,16 @@ internal static class IdentityRoleFieldGrantAssertions
             cancellationToken);
     }
 
-    private static async Task<string> LoginAsync(
+    private static Task<string> LoginAsync(
         HttpClient client,
         string username,
         string password,
-        CancellationToken cancellationToken)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
-        {
-            Content = JsonContent.Create(new LoginRequest(username, password)),
-        };
-        request.Headers.Add("Origin", "http://localhost");
-        using var response = await client.SendAsync(request, cancellationToken);
-        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-        var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken);
-        Assert.IsNotNull(token);
-        return token.AccessToken;
-    }
+        CancellationToken cancellationToken) =>
+        IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            username,
+            password,
+            cancellationToken);
 
     private static async Task<TResponse> SendAsync<TResponse>(
         HttpClient client,

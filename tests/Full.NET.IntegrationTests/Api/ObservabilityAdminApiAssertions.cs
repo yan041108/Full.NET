@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Full.NET.Caching.Fusion;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageCachePolicies;
 using Full.NET.Modules.ObservabilityAdmin.Features.ManageLogFiles;
@@ -10,6 +11,8 @@ namespace Full.NET.IntegrationTests.Api;
 
 internal static class ObservabilityAdminApiAssertions
 {
+    private static readonly JsonSerializerOptions WebJson = new(JsonSerializerDefaults.Web);
+
     public static async Task VerifyAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken = default)
@@ -90,9 +93,10 @@ internal static class ObservabilityAdminApiAssertions
         using var instancesResponse = await client.SendAsync(instancesRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, instancesResponse.StatusCode);
         var instances = await instancesResponse.Content.ReadFromJsonAsync<ServerInstanceCatalogEntry[]>(
+            WebJson,
             cancellationToken);
         Assert.IsNotNull(instances);
-        Assert.IsGreaterThan(instances.Length, 0);
+        Assert.IsGreaterThan(0, instances!.Length);
         var current = instances.Single(entry => entry.IsCurrent);
         Assert.AreEqual(ServerInstanceRuntimeQueryability.Local, current.RuntimeQueryability);
 
@@ -139,7 +143,7 @@ internal static class ObservabilityAdminApiAssertions
         var policies = await policiesResponse.Content.ReadFromJsonAsync<CachePolicySummary[]>(
             cancellationToken);
         Assert.IsNotNull(policies);
-        Assert.IsGreaterThan(policies.Length, 0);
+        Assert.IsGreaterThan(0, policies.Length);
         var tenantPolicy = policies.Single(policy => policy.EntryName == CacheEntryNames.TenantResolution);
         Assert.IsTrue(tenantPolicy.CanInvalidate);
         var policyPayload = await policiesResponse.Content.ReadAsStringAsync(cancellationToken);

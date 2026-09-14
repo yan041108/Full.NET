@@ -851,7 +851,7 @@ internal static class WorkflowSql
                todo.StatusKey, todo.ArrivedAtUtc, todo.CompletedAtUtc,
                todo.ResultActionKey, todo.Revision, step.NodeKey, step.Revision AS StepRevision,
                step.ApprovalModeKey, step.RequiredApprovalCount, step.ApprovalSlotCount,
-               step.ParallelJoinId, step.ParallelBranchKey, parallelJoin.JoinNodeKey
+               step.ParallelJoinId, step.ParallelBranchKey, parallelJoin.JoinNodeKey AS ParallelJoinNodeKey
         FROM fn_workflow_todo AS todo
         INNER JOIN fn_workflow_instance AS instance
             ON instance.Id = todo.InstanceId
@@ -906,13 +906,26 @@ internal static class WorkflowSql
         SqlDataScope.Global);
 
     /// <summary>按步骤聚合已持久化票数，作为收敛判断的唯一权威。</summary>
-    public static readonly SqlStatement FindApprovalTallyByStep = new(
-        "workflow.approval_slot.find_tally_by_step",
+    public static readonly SqlStatement FindApprovalTallyByStepSqlServer = new(
+        "workflow.approval_slot.find_tally_by_step.sqlserver",
         """
         SELECT
-            SUM(CASE WHEN DecisionKey = 'approve' THEN 1 ELSE 0 END) AS ApprovedCount,
-            SUM(CASE WHEN DecisionKey = 'reject' THEN 1 ELSE 0 END) AS RejectedCount,
-            SUM(CASE WHEN DecisionKey IS NULL THEN 1 ELSE 0 END) AS PendingCount
+            CAST(SUM(CASE WHEN DecisionKey = 'approve' THEN 1 ELSE 0 END) AS BIGINT) AS ApprovedCount,
+            CAST(SUM(CASE WHEN DecisionKey = 'reject' THEN 1 ELSE 0 END) AS BIGINT) AS RejectedCount,
+            CAST(SUM(CASE WHEN DecisionKey IS NULL THEN 1 ELSE 0 END) AS BIGINT) AS PendingCount
+        FROM fn_workflow_approval_slot
+        WHERE StepId = @StepId
+        """,
+        SqlDataScope.Global);
+
+    /// <summary>MySQL SUM 默认返回 DECIMAL；显式 CAST 为 SIGNED 以匹配 Dapper int 投影。</summary>
+    public static readonly SqlStatement FindApprovalTallyByStepMySql = new(
+        "workflow.approval_slot.find_tally_by_step.mysql",
+        """
+        SELECT
+            CAST(SUM(CASE WHEN DecisionKey = 'approve' THEN 1 ELSE 0 END) AS SIGNED) AS ApprovedCount,
+            CAST(SUM(CASE WHEN DecisionKey = 'reject' THEN 1 ELSE 0 END) AS SIGNED) AS RejectedCount,
+            CAST(SUM(CASE WHEN DecisionKey IS NULL THEN 1 ELSE 0 END) AS SIGNED) AS PendingCount
         FROM fn_workflow_approval_slot
         WHERE StepId = @StepId
         """,
@@ -932,7 +945,7 @@ internal static class WorkflowSql
     public static readonly SqlStatement ListTodoReturnTargetsSqlServer = new(
         "workflow.todo_return_target.list.sqlserver",
         """
-        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId AS AssigneeUserId,
                step.ExecutionSequence,
                step.StartedAtUtc, step.CompletedAtUtc
         FROM fn_workflow_step AS step
@@ -954,7 +967,7 @@ internal static class WorkflowSql
     public static readonly SqlStatement ListTodoReturnTargetsMySql = new(
         "workflow.todo_return_target.list.mysql",
         """
-        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId AS AssigneeUserId,
                step.ExecutionSequence,
                step.StartedAtUtc, step.CompletedAtUtc
         FROM fn_workflow_step AS step
@@ -976,7 +989,7 @@ internal static class WorkflowSql
     public static readonly SqlStatement FindTodoReturnTarget = new(
         "workflow.todo_return_target.find",
         """
-        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId,
+        SELECT step.Id AS StepId, step.NodeKey, step.AssignedUserId AS AssigneeUserId,
                step.ExecutionSequence,
                step.StartedAtUtc, step.CompletedAtUtc
         FROM fn_workflow_step AS step

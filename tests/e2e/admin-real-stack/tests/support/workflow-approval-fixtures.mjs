@@ -162,7 +162,7 @@ export async function getMyTodo(request, clientKind, accessToken, instanceId) {
     headers: apiHeaders(clientKind, accessToken)
   });
   expect(response.status(), await response.text()).toBe(200);
-  const todo = (await response.json()).find(item => item.instanceId === instanceId);
+  const todo = (await response.json()).items.find(item => item.instanceId === instanceId);
   expect(todo, `实例 ${instanceId} 应产生当前用户待办`).toBeDefined();
   return todo;
 }

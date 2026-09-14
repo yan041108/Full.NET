@@ -167,6 +167,12 @@ internal static class OpenApiFilesHostFoldersContractAssertions
             return true;
         }
 
+        if (schemaName is "HostFolderTreeNodeArray"
+            && openApiSchemas.TryGetProperty("HostFolderTreeNode", out schema))
+        {
+            return true;
+        }
+
         foreach (var candidate in openApiSchemas.EnumerateObject())
         {
             if (candidate.Name.EndsWith(schemaName, StringComparison.Ordinal))

@@ -4,7 +4,10 @@ using System.Net.Http.Json;
 using System.Net.Sockets;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Jobs.Contracts;
+using Full.NET.Modules.Jobs.Execution;
 using Full.NET.Modules.Settings.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.IntegrationTests.Jobs;
 
@@ -104,6 +107,34 @@ internal static class JobsHttpHandlerAssertions
         Assert.AreEqual(JobExecutionStatuses.Succeeded, execution.Status);
         Assert.IsTrue(listener.ReceivedAuthorization);
 
+        using var configurationScope = factory.Services.CreateScope();
+        var allowPrivateNetwork = configurationScope.ServiceProvider
+            .GetRequiredService<IOptions<JobsHttpOptions>>()
+            .Value.AllowPrivateNetwork;
+        if (!allowPrivateNetwork)
+        {
+            await VerifyPrivateNetworkUrlIsBlockedOnTriggerAsync(
+                client,
+                adminToken,
+                created,
+                cancellationToken);
+        }
+        else
+        {
+            await VerifyBlockedHostSuffixFailsOnTriggerAsync(
+                client,
+                adminToken,
+                created,
+                cancellationToken);
+        }
+    }
+
+    private static async Task VerifyPrivateNetworkUrlIsBlockedOnTriggerAsync(
+        HttpClient client,
+        string adminToken,
+        HostJobDefinitionResponse created,
+        CancellationToken cancellationToken)
+    {
         using var privateRequest = JobsHostDefinitionAssertions.CreateBearerJsonRequest(
             HttpMethod.Put,
             $"/api/v1/jobs/host-definitions/{created.Id:D}",
@@ -118,9 +149,6 @@ internal static class JobsHttpHandlerAssertions
                 created.Version));
         using var privateUpdateResponse = await client.SendAsync(privateRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, privateUpdateResponse.StatusCode);
-        var updated = await privateUpdateResponse.Content.ReadFromJsonAsync<HostJobDefinitionResponse>(
-            cancellationToken);
-        Assert.IsNotNull(updated);
 
         using var privateTriggerRequest = JobsHostDefinitionAssertions.CreateBearerJsonRequest(
             HttpMethod.Post,
@@ -135,6 +163,42 @@ internal static class JobsHttpHandlerAssertions
             .ReadFromJsonAsync<HostJobExecutionResponse>(cancellationToken);
         Assert.IsNotNull(privateExecution);
         Assert.AreEqual(JobExecutionStatuses.Failed, privateExecution.Status);
+    }
+
+    private static async Task VerifyBlockedHostSuffixFailsOnTriggerAsync(
+        HttpClient client,
+        string adminToken,
+        HostJobDefinitionResponse created,
+        CancellationToken cancellationToken)
+    {
+        using var blockedRequest = JobsHostDefinitionAssertions.CreateBearerJsonRequest(
+            HttpMethod.Put,
+            $"/api/v1/jobs/host-definitions/{created.Id:D}",
+            adminToken,
+            new UpdateHostJobDefinitionRequest(
+                created.DisplayName,
+                null,
+                null,
+                JobHandlerKinds.Http,
+                new HttpJobArgs("http://ssrf-blocked.internal/", "GET"),
+                false,
+                created.Version));
+        using var blockedUpdateResponse = await client.SendAsync(blockedRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, blockedUpdateResponse.StatusCode);
+
+        using var blockedTriggerRequest = JobsHostDefinitionAssertions.CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/jobs/host-definitions/{created.Id:D}/trigger",
+            adminToken,
+            new { });
+        using var blockedTriggerResponse = await client.SendAsync(
+            blockedTriggerRequest,
+            cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, blockedTriggerResponse.StatusCode);
+        var blockedExecution = await blockedTriggerResponse.Content
+            .ReadFromJsonAsync<HostJobExecutionResponse>(cancellationToken);
+        Assert.IsNotNull(blockedExecution);
+        Assert.AreEqual(JobExecutionStatuses.Failed, blockedExecution.Status);
     }
 
     private sealed class LoopbackProbe : IAsyncDisposable
