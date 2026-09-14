@@ -64,9 +64,13 @@ export function isAiMcpRemoteConnectionListItem(value: unknown): value is AiMcpR
 }
 
 export function isAiMcpRemoteConnectionResponse(value: unknown): value is AiMcpRemoteConnectionResponse {
-  return isAiMcpRemoteConnectionListItem(value)
-    && typeof value.endpointUrl === 'string'
-    && isNullableString(value.oauthScopesJson);
+  if (!isAiMcpRemoteConnectionListItem(value)) {
+    return false;
+  }
+
+  const record = value as unknown as Record<string, unknown>;
+  return typeof record.endpointUrl === 'string'
+    && isNullableString(record.oauthScopesJson);
 }
 
 export function isAiMcpRemoteConnectionList(value: unknown): value is AiMcpRemoteConnectionListItem[] {
