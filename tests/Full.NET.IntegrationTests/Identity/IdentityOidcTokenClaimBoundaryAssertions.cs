@@ -14,6 +14,8 @@ internal static class IdentityOidcTokenClaimBoundaryAssertions
     private const string ExternalRedirectUri = "https://localhost:5013/signin-oidc-claim-boundary";
     private const int MaxExternalAccessTokenLength = 8192;
     private const int MaxExternalAccessTokenClaimCount = 24;
+    private const int MaxFirstPartyAccessTokenLength = 16384;
+    private const int MaxFirstPartyAccessTokenClaimCount = 48;
 
     private static readonly string[] ForbiddenExternalClaims =
     [
@@ -63,6 +65,11 @@ internal static class IdentityOidcTokenClaimBoundaryAssertions
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
         AssertFirstPartyAccessTokenIncludesSecurityStamp(firstPartyFlow.AccessToken);
+        AssertFirstPartyTokenProfile(firstPartyFlow.AccessToken, "access token");
+        if (!string.IsNullOrWhiteSpace(firstPartyFlow.IdToken))
+        {
+            AssertFirstPartyTokenProfile(firstPartyFlow.IdToken, "id token");
+        }
     }
 
     private static async Task CreateExternalClientAsync(
@@ -124,6 +131,19 @@ internal static class IdentityOidcTokenClaimBoundaryAssertions
             "First-party access tokens must retain the security stamp for session authority.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(
             payload[FullNetIdentityClaimTypes.SecurityStamp]));
+    }
+
+    private static void AssertFirstPartyTokenProfile(string jwt, string tokenKind)
+    {
+        Assert.IsLessThanOrEqualTo(
+            MaxFirstPartyAccessTokenLength,
+            jwt.Length,
+            $"First-party client {tokenKind} must stay within the token size profile.");
+        var payload = ReadJwtPayload(jwt);
+        Assert.IsLessThanOrEqualTo(
+            MaxFirstPartyAccessTokenClaimCount,
+            payload.Count,
+            $"First-party client {tokenKind} must not carry excessive claims.");
     }
 
     private static Dictionary<string, string?> ReadJwtPayload(string jwt)
