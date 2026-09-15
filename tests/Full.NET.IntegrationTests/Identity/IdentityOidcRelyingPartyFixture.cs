@@ -219,6 +219,21 @@ internal static class IdentityOidcRelyingPartyFixture
             : null;
     }
 
+    public static string? ReadJwtHeaderValue(string jwt, string propertyName)
+    {
+        var parts = jwt.Split('.');
+        if (parts.Length < 1)
+        {
+            return null;
+        }
+
+        var json = Encoding.UTF8.GetString(Base64UrlDecode(parts[0]));
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.TryGetProperty(propertyName, out var property)
+            ? property.GetString()
+            : null;
+    }
+
     private static string? ExtractQuery(Uri uri, string key)
     {
         var query = uri.Query.TrimStart('?');

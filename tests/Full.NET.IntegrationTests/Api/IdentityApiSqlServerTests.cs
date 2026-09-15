@@ -267,4 +267,12 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityOidcLogoutPropagationAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_signing_key_rotation_preserves_validation_window_with_sql_server()
+    {
+        await IdentityOidcSigningKeyRotationAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }
