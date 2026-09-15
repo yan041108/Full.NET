@@ -140,6 +140,7 @@ test('Native E2E 将 TRX 与原生进程日志写入可上传的 artifacts 目�
     ['scripts/testing/run-native-aot-settings-jobs-e2e.mjs', 'native-aot-settings-jobs'],
     ['scripts/testing/run-native-aot-s3-e2e.mjs', 'native-aot-s3'],
     ['scripts/testing/run-native-aot-kafka-replay-e2e.mjs', 'native-aot-kafka-replay'],
+    ['scripts/testing/run-native-aot-oidc-e2e.mjs', 'native-aot-oidc'],
   ];
   const processHost = await read(
     'tests/Full.NET.IntegrationTests/NativeAot/NativeApiProcessHost.cs'
@@ -256,5 +257,52 @@ test('Settings/Jobs Native AOT 门禁登记矩阵、脚本、工作流与专用 
   assert.match(
     matrix.nativeAotIntegration.filter,
     /FullyQualifiedName!~NativeApiJobs/
+  );
+});
+
+test('OIDC Native AOT 门禁登记矩阵、脚本、工作流与专用 TRX', async () => {
+  const matrix = JSON.parse(await read('eng/testing/test-matrix.json'));
+  const packageJson = JSON.parse(await read('package.json'));
+  const workflow = await read('.github/workflows/api-native-aot-linux.yml');
+  const runner = await read('scripts/testing/run-native-aot-oidc-e2e.mjs');
+
+  const oidcGate = matrix.nativeAotOidcIntegration;
+  assert.ok(
+    oidcGate,
+    'eng/testing/test-matrix.json 必须包含 nativeAotOidcIntegration 节'
+  );
+  assert.equal(
+    oidcGate.project,
+    'tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj'
+  );
+  assert.equal(oidcGate.filter, 'FullyQualifiedName~NativeApiOidc');
+  assert.equal(oidcGate.minimum, 6);
+  assert.equal(oidcGate.timeout, '45m');
+
+  assert.equal(
+    packageJson.scripts['test:aot:native:oidc:e2e'],
+    'node scripts/testing/run-native-aot-oidc-e2e.mjs'
+  );
+
+  const settingsJobsE2EIndex = workflow.indexOf('Run Native AOT Settings Jobs E2E');
+  const oidcE2EIndex = workflow.indexOf('Run Native AOT OIDC E2E');
+  const s3E2EIndex = workflow.indexOf('Run Native AOT S3 Provider E2E');
+  assert.ok(settingsJobsE2EIndex >= 0);
+  assert.ok(oidcE2EIndex > settingsJobsE2EIndex);
+  assert.ok(s3E2EIndex > oidcE2EIndex);
+  assert.match(workflow, /pnpm test:aot:native:oidc:e2e/);
+
+  assert.match(runner, /nativeAotOidcIntegration/);
+  assert.match(runner, /matrix\.integration\.assembly/);
+  assert.match(
+    runner,
+    /Full\.NET\.IntegrationTests-native-aot-oidc\.trx/
+  );
+  assert.match(runner, /artifacts\/native-aot\/linux-x64\/test-results/);
+  assert.match(runner, /--minimum-expected-tests/);
+
+  assert.match(
+    matrix.nativeAotIntegration.filter,
+    /FullyQualifiedName!~NativeApiOidc/
   );
 });

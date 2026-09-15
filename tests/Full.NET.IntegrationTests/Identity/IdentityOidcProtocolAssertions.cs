@@ -38,6 +38,13 @@ internal static class IdentityOidcProtocolAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        await VerifyAsync(client, cancellationToken);
+    }
+
+    public static async Task VerifyAsync(
+        HttpClient client,
+        CancellationToken cancellationToken = default)
+    {
         await VerifyDiscoveryAsync(client, cancellationToken);
         await VerifySuccessfulPublicClientFlowAsync(client, cancellationToken);
         await VerifyWrongVerifierRejectedAsync(client, cancellationToken);

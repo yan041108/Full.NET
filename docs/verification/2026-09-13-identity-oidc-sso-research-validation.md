@@ -317,6 +317,21 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **T03 结论：** 双客户端 PKCE 授权码闭环、UserInfo、协议/业务错误边界在双库 HTTP 入口成立；§6 消费方入口与 AOT 运行时证据仍待 T04 与专项回归。
 
+### T04（2026-09-15）：Linux Native AOT 与双实例可行性
+
+| 项 | 证据 |
+| --- | --- |
+| 原生夹具 | `NativeApiOidcE2EAssertions`、`NativeApiOidcSqlServerE2ETests`、`NativeApiOidcMySqlE2ETests`；复用 `IdentityOidcProtocolAssertions` HttpClient 重载 |
+| CI 入口 | `pnpm test:aot:native:oidc:e2e` → `scripts/testing/run-native-aot-oidc-e2e.mjs`；`eng/testing/test-matrix.json` `nativeAotOidcIntegration`（6 项，45m）；`.github/workflows/api-native-aot-linux.yml` |
+| V01/V02/V08/V10/V18 | 原生进程复跑 `IdentityOidcProtocolAssertions`（双库各 1 项） |
+| V13/V21 | §6 最小路径：OIDC 在线会话强制下线后 `/api/v1/me` 拒绝；OIDC 令牌拒绝租户切换（`identity.oidc_context_switch_not_supported`）；旧 Host 令牌切租户仍可用 |
+| V12/V21 | 工具入口：`/api/v1/ai/agent-tools` 接受 OIDC Access Token |
+| V16/V17 | 双实例共享持久化签名环：实例 A 授权、实例 B 换码成功；JWKS 返回至少 1 个公钥 |
+| Windows 本地 | `pnpm test:aot:native:oidc:e2e` 发现门禁 6/6 Inconclusive；不冒充 Linux 原生执行 |
+| 未验证 | Linux 原生产物实测、V03 原生并发换码、V17 密钥轮换窗口、中心重启探针、§6 全量新旧混合场景、P0 Go/No-go 最终结论 |
+
+**T04 结论：** 原生门禁与 §6 最小消费方路径已挂接并可由 Linux CI 执行；P0 Go 仍依赖 fresh Linux 双库 TRX 与计划复核，Windows 发现不能单独作依据。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs

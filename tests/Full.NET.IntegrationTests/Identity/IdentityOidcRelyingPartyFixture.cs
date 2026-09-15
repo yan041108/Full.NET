@@ -15,6 +15,13 @@ internal sealed record IdentityOidcAuthorizationResult(
     string? RefreshToken,
     string RawTokenResponse);
 
+internal sealed record IdentityOidcAuthorizationCodePending(
+    string Code,
+    string Verifier,
+    string ClientId,
+    string RedirectUri,
+    string Nonce);
+
 internal static class IdentityOidcRelyingPartyFixture
 {
     public const string PublicClientId = "fixture-oidc-a-public";
@@ -34,9 +41,38 @@ internal static class IdentityOidcRelyingPartyFixture
         string? wrongCodeVerifier = null,
         CancellationToken cancellationToken = default)
     {
+        var pending = await BeginAuthorizationCodeFlowAsync(
+            client,
+            clientId,
+            redirectUri,
+            username,
+            password,
+            requestOfflineAccess,
+            cancellationToken).ConfigureAwait(false);
+        return await ExchangeAuthorizationCodeAsync(
+            client,
+            pending.Code,
+            pending.Verifier,
+            clientId,
+            redirectUri,
+            clientSecret,
+            wrongCodeVerifier,
+            pending.Nonce,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task<IdentityOidcAuthorizationCodePending> BeginAuthorizationCodeFlowAsync(
+        HttpClient client,
+        string clientId,
+        string redirectUri,
+        string username,
+        string password,
+        bool requestOfflineAccess,
+        CancellationToken cancellationToken = default)
+    {
         var state = Guid.NewGuid().ToString("N");
         var nonce = Guid.NewGuid().ToString("N");
-        var (verifier, challenge) = IdentityOidcRelyingPartyFixture.CreatePkcePair();
+        var (verifier, challenge) = CreatePkcePair();
         var scopes = requestOfflineAccess ? "openid profile offline_access" : "openid profile";
         var authorizeUrl = "/connect/authorize"
             + $"?client_id={Uri.EscapeDataString(clientId)}"
@@ -54,7 +90,7 @@ internal static class IdentityOidcRelyingPartyFixture
                 or HttpStatusCode.Found or HttpStatusCode.SeeOther,
             $"Authorize GET returned {authorizeGet.StatusCode}.");
 
-        string? code = null;
+        string? code;
         if (authorizeGet.Headers.Location is not null)
         {
             code = ExtractQuery(authorizeGet.Headers.Location, "code");
@@ -87,10 +123,29 @@ internal static class IdentityOidcRelyingPartyFixture
         }
 
         Assert.IsFalse(string.IsNullOrWhiteSpace(code));
+        return new IdentityOidcAuthorizationCodePending(
+            code!,
+            verifier,
+            clientId,
+            redirectUri,
+            nonce);
+    }
+
+    public static async Task<IdentityOidcAuthorizationResult> ExchangeAuthorizationCodeAsync(
+        HttpClient client,
+        string code,
+        string verifier,
+        string clientId,
+        string redirectUri,
+        string? clientSecret,
+        string? wrongCodeVerifier = null,
+        string? expectedNonce = null,
+        CancellationToken cancellationToken = default)
+    {
         var tokenRequest = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",
-            ["code"] = code!,
+            ["code"] = code,
             ["redirect_uri"] = redirectUri,
             ["client_id"] = clientId,
             ["code_verifier"] = wrongCodeVerifier ?? verifier,
@@ -110,8 +165,8 @@ internal static class IdentityOidcRelyingPartyFixture
         if (!tokenResponse.IsSuccessStatusCode)
         {
             return new IdentityOidcAuthorizationResult(
-                code!,
-                state,
+                code,
+                string.Empty,
                 null,
                 string.Empty,
                 null,
@@ -127,17 +182,17 @@ internal static class IdentityOidcRelyingPartyFixture
         var refreshToken = root.TryGetProperty("refresh_token", out var refreshElement)
             ? refreshElement.GetString()
             : null;
-        if (!string.IsNullOrWhiteSpace(idToken))
+        if (!string.IsNullOrWhiteSpace(idToken) && !string.IsNullOrWhiteSpace(expectedNonce))
         {
             var payloadNonce = ReadJwtPayloadValue(idToken, "nonce");
             Assert.IsTrue(
-                IdentityOidcRelyingPartyFixture.ValidateNonce(nonce, payloadNonce),
+                ValidateNonce(expectedNonce, payloadNonce),
                 "ID token nonce must match the authorize request.");
         }
 
         return new IdentityOidcAuthorizationResult(
-            code!,
-            state,
+            code,
+            string.Empty,
             idToken,
             accessToken,
             refreshToken,

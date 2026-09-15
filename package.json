@@ -30,6 +30,7 @@
     "test:aot:native:settings-jobs:e2e": "node scripts/testing/run-native-aot-settings-jobs-e2e.mjs",
     "test:aot:native:s3:e2e": "node scripts/testing/run-native-aot-s3-e2e.mjs",
     "test:aot:native:kafka-replay:e2e": "node scripts/testing/run-native-aot-kafka-replay-e2e.mjs",
+    "test:aot:native:oidc:e2e": "node scripts/testing/run-native-aot-oidc-e2e.mjs",
     "test:aot:native:providers:e2e": "node scripts/testing/run-native-aot-providers-e2e.mjs",
     "test:integration:smoke": "node scripts/testing/run-integration-shard.mjs smoke",
     "test:integration:api:sqlserver": "node scripts/testing/run-integration-shard.mjs api-sqlserver",
