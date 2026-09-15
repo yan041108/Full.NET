@@ -210,4 +210,15 @@ public sealed class IdentityApiMySqlTests
 
         await IdentityOidcProtocolAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_client_management_admin_api_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcClientManagementAssertions.VerifyAsync(factory);
+    }
 }

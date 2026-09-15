@@ -34,11 +34,21 @@ internal static class Endpoint
     private static async Task<IResult> HandleAuthorizeAsync(
         HttpContext httpContext,
         IdentityOidcAuthorizationService authorizationService,
+        IdentityOidcClientConfigResolver clientConfigResolver,
         IOptions<IdentityOidcOptions> oidcOptions,
         CancellationToken cancellationToken)
     {
         var request = httpContext.GetOpenIddictServerRequest()
             ?? throw new InvalidOperationException("The OpenIddict request cannot be resolved.");
+        if (!string.IsNullOrWhiteSpace(request.ClientId)
+            && await clientConfigResolver.IsDisabledAsync(request.ClientId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return Results.Redirect(BuildProtocolErrorRedirect(
+                request,
+                "unauthorized_client",
+                "The OIDC client is disabled."));
+        }
         var forceCenterLogin = ContainsPromptValue(request.Prompt, "login");
         if (forceCenterLogin)
         {

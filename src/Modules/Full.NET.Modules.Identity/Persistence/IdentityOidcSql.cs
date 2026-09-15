@@ -97,6 +97,46 @@ internal static class IdentityOidcSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement CountApplicationsFilteredSqlServer = new(
+        "identity.count_oidc_applications_filtered.sql_server",
+        """
+        SELECT COUNT(1) AS Count
+        FROM fn_identity_oidc_application AS app
+        WHERE (@ClientIdContains IS NULL OR app.ClientId LIKE '%' + @ClientIdContains + '%')
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountApplicationsFilteredMySql = new(
+        "identity.count_oidc_applications_filtered.mysql",
+        """
+        SELECT COUNT(1) AS Count
+        FROM fn_identity_oidc_application AS app
+        WHERE (@ClientIdContains IS NULL OR app.ClientId LIKE CONCAT('%', @ClientIdContains, '%'))
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListApplicationsFilteredSqlServer = new(
+        "identity.list_oidc_applications_filtered.sql_server",
+        $"""
+        SELECT {ApplicationColumns}
+        FROM fn_identity_oidc_application AS app
+        WHERE (@ClientIdContains IS NULL OR app.ClientId LIKE '%' + @ClientIdContains + '%')
+        ORDER BY app.CreatedAtUtc DESC, app.Id DESC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListApplicationsFilteredMySql = new(
+        "identity.list_oidc_applications_filtered.mysql",
+        $"""
+        SELECT {ApplicationColumns}
+        FROM fn_identity_oidc_application AS app
+        WHERE (@ClientIdContains IS NULL OR app.ClientId LIKE CONCAT('%', @ClientIdContains, '%'))
+        ORDER BY app.CreatedAtUtc DESC, app.Id DESC
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindApplicationsByRedirectUriSqlServer = new(
         "identity.find_oidc_applications_by_redirect_uri.sql_server",
         $"""

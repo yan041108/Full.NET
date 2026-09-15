@@ -1,0 +1,33 @@
+{
+  "id": "identity-oidc-clients-v1",
+  "version": 1,
+  "description": "OIDC 客户端管理 HTTP 契约冻结夹具。",
+  "paths": [
+    {
+      "path": "/api/v1/identity/oidc-clients",
+      "operations": [
+        { "method": "GET", "permission": "identity.oidc_clients.read", "successStatus": 200, "responseSchema": "OidcClientResponsePage" },
+        { "method": "POST", "permission": "identity.oidc_clients.create", "successStatus": 201, "requestSchema": "CreateOidcClientRequest", "responseSchema": "CreateOidcClientResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-clients/{clientId}",
+      "operations": [
+        { "method": "GET", "permission": "identity.oidc_clients.read", "successStatus": 200, "responseSchema": "OidcClientResponse" },
+        { "method": "PUT", "permission": "identity.oidc_clients.update", "successStatus": 200, "requestSchema": "UpdateOidcClientRequest", "responseSchema": "OidcClientResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-clients/{clientId}/disable",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_clients.disable", "successStatus": 200, "responseSchema": "OidcClientResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-clients/{clientId}/rotate",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_clients.rotate", "successStatus": 200, "responseSchema": "RotateOidcClientSecretResponse" }
+      ]
+    }
+  ]
+}

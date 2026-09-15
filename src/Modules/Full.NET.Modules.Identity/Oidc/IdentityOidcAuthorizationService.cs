@@ -20,6 +20,7 @@ internal sealed class IdentityOidcAuthorizationService(
     IdentityOidcSessionService sessionService,
     IPermissionSnapshotReader permissionSnapshotReader,
     IOpenIddictApplicationManager applicationManager,
+    IdentityOidcClientConfigResolver clientConfigResolver,
     IClock clock,
     IOptions<IdentityOptions> identityOptions,
     IOptions<IdentityOidcOptions> oidcOptions)
@@ -109,11 +110,18 @@ internal sealed class IdentityOidcAuthorizationService(
         var applicationId = Guid.Parse(
             await applicationManager.GetIdAsync(application, cancellationToken)
                 .ConfigureAwait(false) ?? throw new InvalidOperationException("OIDC application id missing."));
-        var clientConfig = _oidcOptions.Clients.FirstOrDefault(
-            client => string.Equals(client.ClientId, request.ClientId, StringComparison.Ordinal));
-        var audience = string.IsNullOrWhiteSpace(clientConfig?.ResourceAudience)
+        var resolvedClient = await clientConfigResolver.ResolveAsync(
+                request.ClientId ?? string.Empty,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (resolvedClient?.IsDisabled == true)
+        {
+            return null;
+        }
+
+        var audience = string.IsNullOrWhiteSpace(resolvedClient?.ResourceAudience)
             ? _identityOptions.Audience
-            : clientConfig.ResourceAudience;
+            : resolvedClient!.ResourceAudience!;
         var authorization = await permissionSnapshotReader.ReadAsync(
                 userId,
                 HostScope,
@@ -157,7 +165,7 @@ internal sealed class IdentityOidcAuthorizationService(
         identity.SetClaim(IdentityClaimTypes.ActorScope, HostScope);
         identity.SetClaim(IdentityClaimTypes.Scope, HostScope);
         identity.SetClaim(JwtRegisteredClaimNames.Aud, audience);
-        identity.SetClaim("fullnet_is_first_party", clientConfig?.IsFirstParty ?? true);
+        identity.SetClaim("fullnet_is_first_party", resolvedClient?.IsFirstParty ?? true);
         identity.SetClaim("fullnet_security_stamp", securityStamp);
         identity.SetClaim("fullnet_is_super_admin", authorization.IsSuperAdministrator);
         identity.SetClaim(

@@ -70,12 +70,8 @@ internal sealed class IdentityOidcSignInHandler(
             return false;
         }
 
+        audience = identity.GetClaim(JwtRegisteredClaimNames.Aud) ?? identityOptions.Value.Audience;
         var clientId = identity.GetClaim(FullNetIdentityClaimTypes.OidcClientId) ?? string.Empty;
-        var clientConfig = oidcOptions.Value.Clients.FirstOrDefault(
-            client => string.Equals(client.ClientId, clientId, StringComparison.Ordinal));
-        audience = string.IsNullOrWhiteSpace(clientConfig?.ResourceAudience)
-            ? identity.GetClaim(JwtRegisteredClaimNames.Aud) ?? identityOptions.Value.Audience
-            : clientConfig.ResourceAudience;
         var oauthScopes = (identity.GetClaim("fullnet_oauth_scopes") ?? string.Empty)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var permissions = (identity.GetClaim("fullnet_permissions") ?? string.Empty)

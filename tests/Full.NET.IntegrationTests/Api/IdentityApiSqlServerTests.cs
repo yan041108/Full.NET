@@ -210,4 +210,15 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityOidcProtocolAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_client_management_admin_api_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcClientManagementAssertions.VerifyAsync(factory);
+    }
 }

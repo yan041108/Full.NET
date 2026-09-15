@@ -70,49 +70,7 @@ internal sealed class IdentityOidcClientRegistrar(
                 client.ClientId,
                 cancellationToken)
             .ConfigureAwait(false);
-        var descriptor = new OpenIddictApplicationDescriptor
-        {
-            ClientId = client.ClientId,
-            DisplayName = client.ClientId,
-            ClientType = string.IsNullOrWhiteSpace(client.ClientSecret)
-                ? ClientTypes.Public
-                : ClientTypes.Confidential,
-        };
-        if (!string.IsNullOrWhiteSpace(client.ClientSecret))
-        {
-            descriptor.ClientSecret = client.ClientSecret;
-        }
-
-        foreach (var redirectUri in client.RedirectUris)
-        {
-            descriptor.RedirectUris.Add(new Uri(redirectUri, UriKind.Absolute));
-        }
-
-        foreach (var postLogoutRedirectUri in client.PostLogoutRedirectUris)
-        {
-            descriptor.PostLogoutRedirectUris.Add(
-                new Uri(postLogoutRedirectUri, UriKind.Absolute));
-        }
-
-        descriptor.Requirements.Add(Requirements.Features.ProofKeyForCodeExchange);
-        descriptor.Permissions.Add(Permissions.Endpoints.Authorization);
-        descriptor.Permissions.Add(Permissions.Endpoints.Token);
-        descriptor.Permissions.Add(Permissions.Endpoints.EndSession);
-        descriptor.Permissions.Add(Permissions.GrantTypes.AuthorizationCode);
-        descriptor.Permissions.Add(Permissions.ResponseTypes.Code);
-        var allowedScopes = new HashSet<string>(
-            client.Scopes.Length > 0 ? client.Scopes : ["openid", "profile"],
-            StringComparer.OrdinalIgnoreCase);
-        allowedScopes.Add(Scopes.OpenId);
-        allowedScopes.Add(Scopes.Profile);
-        // 服务端已注册 offline_access；同步授予 scope 与 refresh_token 权限，是否签发仍由授权请求 scope 决定。
-        allowedScopes.Add(Scopes.OfflineAccess);
-        foreach (var scope in allowedScopes)
-        {
-            descriptor.Permissions.Add(Permissions.Prefixes.Scope + scope);
-        }
-
-        descriptor.Permissions.Add(Permissions.GrantTypes.RefreshToken);
+        var descriptor = IdentityOidcClientDescriptorFactory.BuildFromOptions(client);
 
         if (existing is null)
         {

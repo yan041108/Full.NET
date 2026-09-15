@@ -28,6 +28,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityHostMenusTag = "IdentityHostMenus";
     private const string IdentityHostApiKeysTag = "IdentityHostApiKeys";
     private const string IdentityOpenAccessClientsTag = "IdentityOpenAccessClients";
+    private const string IdentityOidcClientsTag = "IdentityOidcClients";
     private const string IdentityRegistrationPolicyTag = "IdentityRegistrationPolicy";
     private const string IdentityRegistrationWaysTag = "IdentityRegistrationWays";
     private const string IdentityLdapConnectionsTag = "IdentityLdapConnections";
@@ -176,8 +177,10 @@ public sealed partial class OpenApiOperationIdentityRulesTests
 
     private static WebApplication BuildApiApplication()
     {
-        var builder = WebApplication.CreateBuilder();
-        builder.Environment.EnvironmentName = "Testing";
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Testing",
+        });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             [$"{DatabaseOptions.SectionName}:Provider"] = DatabaseProvider.SqlServer.ToString(),
@@ -189,6 +192,11 @@ public sealed partial class OpenApiOperationIdentityRulesTests
             ["Identity:AllowDevelopmentEphemeralSigningKey"] = "true",
             ["Identity:EnableRemoteSuperAdministratorManagement"] = "true",
             ["Identity:AllowedOrigins:0"] = "http://localhost",
+            ["Identity:Oidc:Enable"] = "true",
+            ["Identity:Oidc:Issuer"] = "https://localhost/identity",
+            ["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "true",
+            ["Identity:Oidc:Clients:0:ClientId"] = "architecture-oidc-client",
+            ["Identity:Oidc:Clients:0:RedirectUris:0"] = "https://localhost/signin-oidc",
             ["Tenancy:HostDomains:0"] = "localhost",
         });
         builder.AddFullNetServiceDefaults();
@@ -282,6 +290,12 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/identity/open-access-clients/{clientId}/access-logs", "identityListOpenAccessClientAccessLogs", IdentityOpenAccessClientsTag),
         new("GET", "/api/v1/identity/open-access-clients/{clientId}/usage", "identityGetOpenAccessClientUsage", IdentityOpenAccessClientsTag),
         new("POST", "/api/v1/identity/open-access-clients/{clientId}/signature-debug", "identityDebugOpenAccessClientSignature", IdentityOpenAccessClientsTag),
+        new("GET", "/api/v1/identity/oidc-clients", "identityListOidcClients", IdentityOidcClientsTag),
+        new("GET", "/api/v1/identity/oidc-clients/{clientId}", "identityGetOidcClient", IdentityOidcClientsTag),
+        new("POST", "/api/v1/identity/oidc-clients", "identityCreateOidcClient", IdentityOidcClientsTag),
+        new("PUT", "/api/v1/identity/oidc-clients/{clientId}", "identityUpdateOidcClient", IdentityOidcClientsTag),
+        new("POST", "/api/v1/identity/oidc-clients/{clientId}/disable", "identityDisableOidcClient", IdentityOidcClientsTag),
+        new("POST", "/api/v1/identity/oidc-clients/{clientId}/rotate", "identityRotateOidcClientSecret", IdentityOidcClientsTag),
         new("GET", "/api/v1/identity/registration-policy", "identityGetRegistrationPolicy", IdentityRegistrationPolicyTag),
         new("PUT", "/api/v1/identity/registration-policy", "identityUpdateRegistrationPolicy", IdentityRegistrationPolicyTag),
         new("GET", "/api/v1/identity/registration-ways", "identityListRegistrationWays", IdentityRegistrationWaysTag),

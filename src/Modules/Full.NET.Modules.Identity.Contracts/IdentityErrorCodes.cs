@@ -172,6 +172,15 @@ public static class IdentityErrorCodes
     /// <summary>目标 API Key 不存在或已禁用。</summary>
     public const string ApiKeyNotFound = "identity.api_keys.not_found";
 
+    /// <summary>目标 OIDC 客户端不存在。</summary>
+    public const string OidcClientNotFound = "identity.oidc_clients.not_found";
+
+    /// <summary>OIDC client_id 在作用域内已存在。</summary>
+    public const string OidcClientIdConflict = "identity.oidc_clients.client_id_conflict";
+
+    /// <summary>OIDC 客户端已停用。</summary>
+    public const string OidcClientDisabled = "identity.oidc_clients.disabled";
+
     /// <summary>目标 OpenAccess 接入方应用不存在或已停用。</summary>
     public const string OpenAccessClientNotFound = "identity.open_access_clients.not_found";
 
@@ -455,6 +464,9 @@ public static class IdentityErrorCodes
         MenuNotFound,
         MenuSystemLocked,
         ApiKeyNotFound,
+        OidcClientNotFound,
+        OidcClientIdConflict,
+        OidcClientDisabled,
         OpenAccessClientNotFound,
         OpenAccessClientVersionConflict,
         OpenAccessClientQuotaExceeded,

@@ -179,6 +179,26 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 Host API Key",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOidcClientPermissions.Read,
+            "查看 OIDC 客户端",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOidcClientPermissions.Create,
+            "创建 OIDC 客户端",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOidcClientPermissions.Update,
+            "更新 OIDC 客户端",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOidcClientPermissions.Disable,
+            "停用 OIDC 客户端",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOidcClientPermissions.Rotate,
+            "轮换 OIDC 客户端密钥",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityOpenAccessClientPermissions.Read,
             "查看 OpenAccess 接入方应用",
             AuthorizationScope.Host),
@@ -338,6 +358,17 @@ internal sealed class IdentityAuthorizationContributor
             "connection",
             37,
             IdentityOpenAccessClientPermissions.Read),
+        new NavigationDefinition(
+            "oidc-clients",
+            null,
+            "oidc-clients",
+            "/identity/oidc-clients",
+            "oidc-clients",
+            "OIDC 客户端",
+            "OIDC Clients",
+            "key",
+            38,
+            IdentityOidcClientPermissions.Read),
         new NavigationDefinition(
             "registration-ways",
             null,
@@ -633,6 +664,34 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 API Key",
             "rotate",
             30),
+        new AuthorizationActionDefinition(
+            "identity.oidc_clients.create",
+            "oidc-clients",
+            IdentityOidcClientPermissions.Create,
+            "创建 OIDC 客户端",
+            "create",
+            10),
+        new AuthorizationActionDefinition(
+            "identity.oidc_clients.update",
+            "oidc-clients",
+            IdentityOidcClientPermissions.Update,
+            "编辑 OIDC 客户端",
+            "update",
+            20),
+        new AuthorizationActionDefinition(
+            "identity.oidc_clients.disable",
+            "oidc-clients",
+            IdentityOidcClientPermissions.Disable,
+            "停用 OIDC 客户端",
+            "disable",
+            30),
+        new AuthorizationActionDefinition(
+            "identity.oidc_clients.rotate",
+            "oidc-clients",
+            IdentityOidcClientPermissions.Rotate,
+            "轮换 OIDC 密钥",
+            "rotate",
+            40),
         new AuthorizationActionDefinition(
             "identity.open_access_clients.create",
             "open-access-clients",

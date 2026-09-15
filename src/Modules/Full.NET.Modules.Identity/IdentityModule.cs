@@ -119,13 +119,17 @@ public sealed class IdentityModule : IFullNetModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        var oidcOptions = endpoints.ServiceProvider
-            .GetRequiredService<IOptions<IdentityOidcOptions>>()
-            .Value;
-        Features.OidcAuthorization.Endpoint.Map(endpoints, oidcOptions);
-        Features.OidcToken.Endpoint.Map(endpoints, oidcOptions);
-        Features.OidcUserInfo.Endpoint.Map(endpoints, oidcOptions);
-        Features.OidcSession.Endpoint.Map(endpoints, oidcOptions);
+        var configuration = endpoints.ServiceProvider.GetRequiredService<IConfiguration>();
+        var oidcOptions = configuration.GetSection(IdentityOidcOptions.SectionName)
+            .Get<IdentityOidcOptions>() ?? new IdentityOidcOptions();
+        if (oidcOptions.Enable)
+        {
+            Features.OidcAuthorization.Endpoint.Map(endpoints, oidcOptions);
+            Features.OidcToken.Endpoint.Map(endpoints, oidcOptions);
+            Features.OidcUserInfo.Endpoint.Map(endpoints, oidcOptions);
+            Features.OidcSession.Endpoint.Map(endpoints, oidcOptions);
+            Features.ManageOidcClients.Endpoint.Map(endpoints);
+        }
 
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("IdentityAuthSession");
         Features.Login.Endpoint.Map(group);
