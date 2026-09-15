@@ -341,6 +341,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_multi_instance_signing_key_retirement_rejects_legacy_tokens_with_mysql()
+    {
+        await IdentityOidcMultiInstanceSigningKeyRetirementAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_account_authority_invalidates_tokens_with_mysql()
     {
         await IdentityOidcAccountAuthorityAssertions.VerifyAsync(
