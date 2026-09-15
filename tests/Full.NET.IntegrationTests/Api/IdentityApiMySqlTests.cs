@@ -258,6 +258,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_userinfo_respects_profile_scope_with_mysql()
+    {
+        await IdentityOidcUserInfoScopeAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_retention_prunes_stale_grants_with_mysql()
     {
         using var factory = new FullNetApiFactory(

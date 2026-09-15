@@ -191,7 +191,7 @@ internal static class IdentityOidcProtocolAssertions
             "admin",
             FullNetApiFactory.TestPassword,
             requestOfflineAccess: false,
-            cancellationToken);
+            cancellationToken: cancellationToken);
         var result = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
             client,
             pending.Code,

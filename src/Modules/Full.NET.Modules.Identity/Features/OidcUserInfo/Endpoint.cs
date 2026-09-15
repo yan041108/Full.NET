@@ -38,11 +38,16 @@ internal static class Endpoint
         }
 
         var principal = authenticateResult.Principal;
-        return Results.Json(new
+        var response = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            sub = principal.GetClaim(Claims.Subject),
-            name = principal.GetClaim(Claims.Name),
-            preferred_username = principal.GetClaim(Claims.PreferredUsername),
-        });
+            [Claims.Subject] = principal.GetClaim(Claims.Subject),
+        };
+        if (principal.HasScope(Scopes.Profile))
+        {
+            response[Claims.Name] = principal.GetClaim(Claims.Name);
+            response[Claims.PreferredUsername] = principal.GetClaim(Claims.PreferredUsername);
+        }
+
+        return Results.Json(response);
     }
 }

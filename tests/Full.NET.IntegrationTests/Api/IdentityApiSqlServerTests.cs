@@ -258,6 +258,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_userinfo_respects_profile_scope_with_sql_server()
+    {
+        await IdentityOidcUserInfoScopeAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_retention_prunes_stale_grants_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

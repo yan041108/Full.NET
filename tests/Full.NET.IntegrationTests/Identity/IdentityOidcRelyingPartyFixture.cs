@@ -45,6 +45,7 @@ internal static class IdentityOidcRelyingPartyFixture
         bool requestOfflineAccess,
         string? wrongCodeVerifier = null,
         string? wrongRedirectUri = null,
+        string? scopes = null,
         CancellationToken cancellationToken = default)
     {
         var pending = await BeginAuthorizationCodeFlowAsync(
@@ -54,6 +55,7 @@ internal static class IdentityOidcRelyingPartyFixture
             username,
             password,
             requestOfflineAccess,
+            scopes,
             cancellationToken).ConfigureAwait(false);
         return await ExchangeAuthorizationCodeAsync(
             client,
@@ -75,12 +77,13 @@ internal static class IdentityOidcRelyingPartyFixture
         string username,
         string password,
         bool requestOfflineAccess,
+        string? scopes = null,
         CancellationToken cancellationToken = default)
     {
         var state = Guid.NewGuid().ToString("N");
         var nonce = Guid.NewGuid().ToString("N");
         var (verifier, challenge) = CreatePkcePair();
-        var scopes = requestOfflineAccess ? "openid profile offline_access" : "openid profile";
+        scopes ??= requestOfflineAccess ? "openid profile offline_access" : "openid profile";
         var authorizeUrl = "/connect/authorize"
             + $"?client_id={Uri.EscapeDataString(clientId)}"
             + $"&redirect_uri={Uri.EscapeDataString(redirectUri)}"
