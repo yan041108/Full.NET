@@ -347,4 +347,20 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_multi_instance_staggered_exchange_preserves_tokens_with_mysql()
+    {
+        await IdentityOidcMultiInstanceRestartAssertions.VerifyStaggeredExchangeAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task Oidc_multi_instance_peer_validates_access_token_with_mysql()
+    {
+        await IdentityOidcMultiInstanceRestartAssertions.VerifyPeerInstanceValidatesIssuedAccessTokenAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }

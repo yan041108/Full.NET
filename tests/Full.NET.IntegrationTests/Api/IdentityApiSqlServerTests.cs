@@ -347,4 +347,20 @@ public sealed class IdentityApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_multi_instance_staggered_exchange_preserves_tokens_with_sql_server()
+    {
+        await IdentityOidcMultiInstanceRestartAssertions.VerifyStaggeredExchangeAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task Oidc_multi_instance_peer_validates_access_token_with_sql_server()
+    {
+        await IdentityOidcMultiInstanceRestartAssertions.VerifyPeerInstanceValidatesIssuedAccessTokenAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }
