@@ -292,6 +292,40 @@ describe('Vue Notifications 实时状态', () => {
     await state.dispose();
   });
 
+  it('相同 sessionId 的重复撤销通知会多次触发回调', async () => {
+    const session = createSession();
+    const onSessionRevoked = vi.fn();
+    let onMessage: ((message: RealtimeMessage) => void) | undefined;
+    const state = createVueNotificationsRealtime({
+      session,
+      onSessionRevoked,
+      realtimeFactory: options => {
+        onMessage = options.onMessage;
+        return {
+          whenSettled: async () => undefined,
+          dispose: async () => undefined
+        };
+      }
+    });
+
+    session.publish(authenticatedSnapshot('session-a'));
+    await state.whenSettled();
+
+    onMessage?.({
+      code: NOTIFICATIONS_REALTIME_CODES.sessionRevoked,
+      data: { sessionId: 'session-a' }
+    });
+    onMessage?.({
+      code: NOTIFICATIONS_REALTIME_CODES.sessionRevoked,
+      data: { sessionId: 'session-a' }
+    });
+
+    expect(onSessionRevoked).toHaveBeenCalledTimes(2);
+    expect(onSessionRevoked).toHaveBeenNthCalledWith(1, 'session-a');
+    expect(onSessionRevoked).toHaveBeenNthCalledWith(2, 'session-a');
+    await state.dispose();
+  });
+
   it('SignalR 重连后的补拉失败保持现有状态且不传播异常', async () => {
     const session = createSession();
     const loadUnreadCount = vi.fn()

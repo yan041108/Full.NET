@@ -6,6 +6,11 @@ describe('session revoke policy', () => {
     expect(shouldLogoutOnSessionRevoke('session-a', 'session-a')).toBe(true);
   });
 
+  it('allows repeated revoke notifications for the same session', () => {
+    expect(shouldLogoutOnSessionRevoke('session-a', 'session-a')).toBe(true);
+    expect(shouldLogoutOnSessionRevoke('session-a', 'session-a')).toBe(true);
+  });
+
   it('ignores forged revoke notifications for another session', () => {
     expect(shouldLogoutOnSessionRevoke('session-a', 'session-b')).toBe(false);
   });
