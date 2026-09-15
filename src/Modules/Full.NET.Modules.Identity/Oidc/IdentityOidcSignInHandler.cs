@@ -41,6 +41,8 @@ internal sealed class IdentityOidcSignInHandler(
             identity.SetClaim(key, value?.ToString());
         }
 
+        StripOidcStagingClaims(identity, principalRequest.IsExternalClient);
+
         identity.SetClaim(JwtRegisteredClaimNames.Iss, oidcOptions.Value.Issuer);
         identity.SetClaim(JwtRegisteredClaimNames.Aud, audience);
         identity.SetDestinations(static claim => claim.Type switch
@@ -80,10 +82,7 @@ internal sealed class IdentityOidcSignInHandler(
             identity.GetClaim("fullnet_is_super_admin"),
             bool.TrueString,
             StringComparison.OrdinalIgnoreCase);
-        var isExternalClient = !string.Equals(
-            identity.GetClaim("fullnet_is_first_party"),
-            bool.TrueString,
-            StringComparison.OrdinalIgnoreCase);
+        var isExternalClient = IsExternalClient(identity);
         principalRequest = new IdentityOidcPrincipalRequest(
             IdentityOidcPrincipalPurpose.ResourceApi,
             userId,
@@ -101,5 +100,38 @@ internal sealed class IdentityOidcSignInHandler(
             identity.GetClaim("fullnet_security_stamp") ?? string.Empty,
             isExternalClient);
         return true;
+    }
+
+    private static bool IsExternalClient(ClaimsIdentity identity)
+    {
+        var claim = identity.GetClaim("fullnet_is_first_party");
+        if (string.IsNullOrWhiteSpace(claim))
+        {
+            return false;
+        }
+
+        return !bool.TryParse(claim, out var isFirstParty) || !isFirstParty;
+    }
+
+    private static void StripOidcStagingClaims(ClaimsIdentity identity, bool isExternalClient)
+    {
+        RemoveClaims(identity, "fullnet_is_first_party");
+        RemoveClaims(identity, "fullnet_permissions");
+        RemoveClaims(identity, "fullnet_oauth_scopes");
+        RemoveClaims(identity, "fullnet_is_super_admin");
+        if (isExternalClient)
+        {
+            RemoveClaims(identity, FullNetIdentityClaimTypes.SecurityStamp);
+            RemoveClaims(identity, FullNetIdentityClaimTypes.Permission);
+            RemoveClaims(identity, FullNetIdentityClaimTypes.SuperAdministrator);
+        }
+    }
+
+    private static void RemoveClaims(ClaimsIdentity identity, string claimType)
+    {
+        foreach (var claim in identity.FindAll(claimType).ToArray())
+        {
+            identity.RemoveClaim(claim);
+        }
     }
 }

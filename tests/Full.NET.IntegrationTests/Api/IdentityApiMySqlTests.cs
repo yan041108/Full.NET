@@ -301,6 +301,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_external_client_tokens_omit_internal_claims_with_mysql()
+    {
+        await IdentityOidcTokenClaimBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_mysql()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(

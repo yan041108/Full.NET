@@ -301,6 +301,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_external_client_tokens_omit_internal_claims_with_sql_server()
+    {
+        await IdentityOidcTokenClaimBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_sql_server()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(
