@@ -66,6 +66,18 @@ internal static class IdentityOidcTokenBoundaryAssertions
                 validAudience),
             "unknown issuer",
             cancellationToken);
+        await VerifyMeRejectsTokenAsync(
+            client,
+            ResignAccessToken(
+                flow.AccessToken,
+                signingKey,
+                BoundaryKeyId,
+                validIssuer,
+                validAudience,
+                expiresUtc: DateTime.UtcNow.AddHours(-1),
+                notBeforeUtc: DateTime.UtcNow.AddHours(-2)),
+            "expired lifetime",
+            cancellationToken);
 
         using var validMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         validMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
@@ -96,7 +108,9 @@ internal static class IdentityOidcTokenBoundaryAssertions
         RSA privateKey,
         string keyId,
         string issuer,
-        string audience)
+        string audience,
+        DateTime? expiresUtc = null,
+        DateTime? notBeforeUtc = null)
     {
         var token = new JsonWebToken(accessToken);
         var claims = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -117,8 +131,8 @@ internal static class IdentityOidcTokenBoundaryAssertions
             Audience = audience,
             Claims = claims,
             SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.RsaSha256),
-            Expires = token.ValidTo,
-            NotBefore = token.ValidFrom,
+            Expires = expiresUtc ?? token.ValidTo,
+            NotBefore = notBeforeUtc ?? token.ValidFrom,
         };
         return new JsonWebTokenHandler().CreateToken(descriptor);
     }

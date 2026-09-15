@@ -285,7 +285,7 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
-    public async Task Oidc_token_boundary_rejects_wrong_audience_and_issuer_with_mysql()
+    public async Task Oidc_token_boundary_rejects_invalid_access_tokens_with_mysql()
     {
         await IdentityOidcTokenBoundaryAssertions.VerifyAsync(
             DatabaseProvider.MySql,
