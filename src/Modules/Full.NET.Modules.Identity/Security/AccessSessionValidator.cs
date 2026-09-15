@@ -50,11 +50,24 @@ internal sealed class AccessSessionValidator(
             {
                 ["SessionId"] = sessionId,
             };
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
-                IdentitySql.FindRefreshSessionById,
-                parameters,
-                cancellationToken)
-            .ConfigureAwait(false);
+        RefreshSessionRecord? record;
+        try
+        {
+            record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+                    IdentitySql.FindRefreshSessionById,
+                    parameters,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
         if (!IsActive(record, userId, securityStamp))
         {
             return false;

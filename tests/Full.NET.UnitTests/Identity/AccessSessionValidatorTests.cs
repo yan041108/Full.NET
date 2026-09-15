@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
@@ -98,6 +99,70 @@ public sealed class AccessSessionValidatorTests
 
         var accepted = await fixture.Validator.IsValidAsync(
             CreatePrincipal(actorScope: $"tenant:{TenantId:N}"));
+
+        Assert.IsFalse(accepted);
+    }
+
+    [TestMethod]
+    public async Task Database_outage_fails_closed_for_legacy_session()
+    {
+        var fixture = new Fixture(CreateRecord());
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+                IdentitySql.FindRefreshSessionById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns<RefreshSessionRecord?>(_ =>
+                throw new InvalidOperationException("Simulated session state outage."));
+
+        var accepted = await fixture.Validator.IsValidAsync(CreatePrincipal());
+
+        Assert.IsFalse(accepted);
+    }
+
+    [TestMethod]
+    public async Task Database_outage_fails_closed_for_oidc_access_token()
+    {
+        var queryExecutor = Substitute.For<IQueryExecutor>();
+        queryExecutor
+            .QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns<IdentityOidcApplicationSessionValidationRecord?>(_ =>
+                throw new InvalidOperationException("Simulated session state outage."));
+        var oidcValidator = new IdentityOidcAccessSessionValidator(
+            queryExecutor,
+            new FixedClock(),
+            new Full.NET.Abstractions.Tenancy.CurrentTenantAccessor(),
+            Options.Create(new IdentityOidcOptions
+            {
+                Enable = true,
+                Issuer = "https://localhost/identity",
+            }),
+            Options.Create(new IdentityOptions { Audience = "Full.NET.Api" }));
+        var validator = new AccessSessionValidator(
+            queryExecutor,
+            new FixedClock(),
+            oidcValidator,
+            Options.Create(new IdentityOidcOptions
+            {
+                Enable = true,
+                Issuer = "https://localhost/identity",
+            }));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(JwtRegisteredClaimNames.Sub, UserId.ToString("D")),
+            new Claim(JwtRegisteredClaimNames.Iss, "https://localhost/identity"),
+            new Claim(JwtRegisteredClaimNames.Aud, "Full.NET.Api"),
+            new Claim(FullNetIdentityClaimTypes.ApplicationSessionId, SessionId.ToString("D")),
+            new Claim(FullNetIdentityClaimTypes.TokenUse, IdentityOidcPrincipalFactory.TokenUseAccess),
+            new Claim(IdentityClaimTypes.ActorScope, "host"),
+            new Claim(IdentityClaimTypes.Scope, "host"),
+        ],
+        "unit-test"));
+
+        var accepted = await validator.IsValidAsync(principal);
 
         Assert.IsFalse(accepted);
     }

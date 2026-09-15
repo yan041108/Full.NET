@@ -31,11 +31,24 @@ internal sealed class BackgroundSessionBindingValidator(IQueryExecutor queryExec
             return false;
         }
 
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
-                IdentitySql.FindRefreshSessionById,
-                new Dictionary<string, object?> { ["SessionId"] = binding.SessionId },
-                cancellationToken)
-            .ConfigureAwait(false);
+        RefreshSessionRecord? record;
+        try
+        {
+            record = await queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
+                    IdentitySql.FindRefreshSessionById,
+                    new Dictionary<string, object?> { ["SessionId"] = binding.SessionId },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
         return ValidateRefreshBinding(record, binding);
     }
 
@@ -43,11 +56,24 @@ internal sealed class BackgroundSessionBindingValidator(IQueryExecutor queryExec
         SessionBindingSnapshot binding,
         CancellationToken cancellationToken)
     {
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
-                IdentityOidcSessionSql.FindApplicationSessionValidationById,
-                IdentitySqlParameters.Create(("ApplicationSessionId", binding.SessionId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        IdentityOidcApplicationSessionValidationRecord? record;
+        try
+        {
+            record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                    IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                    IdentitySqlParameters.Create(("ApplicationSessionId", binding.SessionId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
         if (record is null
             || record.UserId != binding.UserId
             || !record.IsActive

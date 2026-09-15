@@ -52,11 +52,24 @@ internal sealed class IdentityOidcAccessSessionValidator(
 
         // OIDC 会话权威表为 HostOnly；校验前显式切换 Host，避免租户解析中间件残留上下文。
         tenantContextWriter.SetHost();
-        var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
-                IdentityOidcSessionSql.FindApplicationSessionValidationById,
-                IdentitySqlParameters.Create(("ApplicationSessionId", applicationSessionId)),
-                cancellationToken)
-            .ConfigureAwait(false);
+        IdentityOidcApplicationSessionValidationRecord? record;
+        try
+        {
+            record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                    IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                    IdentitySqlParameters.Create(("ApplicationSessionId", applicationSessionId)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+
         if (!IsActive(record, userId, clock.UtcNow))
         {
             return false;

@@ -153,6 +153,30 @@ public sealed class IdentityOidcSessionTests
     }
 
     [TestMethod]
+    public async Task Database_outage_fails_closed_for_oidc_access_validator()
+    {
+        var fixture = new ValidatorFixture(null);
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns<IdentityOidcApplicationSessionValidationRecord?>(_ =>
+                throw new InvalidOperationException("Simulated session state outage."));
+        var principal = ValidatorFixture.CreateOidcPrincipal(
+            ApplicationSessionId,
+            UserId,
+            "host",
+            "host",
+            issuer: "https://localhost/identity",
+            audience: "Full.NET.Api");
+
+        var accepted = await fixture.Validator.IsValidAsync(principal, default);
+
+        Assert.IsFalse(accepted);
+    }
+
+    [TestMethod]
     public async Task Missing_application_session_returns_false_fail_closed()
     {
         var fixture = new ValidatorFixture(null);
