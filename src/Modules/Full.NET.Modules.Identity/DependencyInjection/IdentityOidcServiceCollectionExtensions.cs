@@ -1,6 +1,7 @@
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Features.ManageOidcClients;
 using Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
+using Full.NET.Modules.Identity.Retention;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Oidc.Stores;
@@ -41,6 +42,7 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<
             IValidateOptions<IdentityOidcOptions>,
             IdentityOidcOptionsValidator>());
+        services.AddIdentityOidcRetention(configuration);
 
         var oidcOptions = configuration
             .GetSection(IdentityOidcOptions.SectionName)

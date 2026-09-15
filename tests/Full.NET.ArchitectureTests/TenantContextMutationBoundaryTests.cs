@@ -29,6 +29,7 @@ public sealed class TenantContextMutationBoundaryTests
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatCleanupScope.cs",
         "src/Modules/Full.NET.Modules.Ai/Streaming/AiChatGenerationLeaseMonitor.cs",
         "src/Modules/Full.NET.Modules.Auditing/Retention/AuditingRetentionHostedProcessor.cs",
+        "src/Modules/Full.NET.Modules.Identity/Retention/IdentityOidcRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.CodeGeneration/Retention/CodeGenerationCheckpointRetentionHostedProcessor.cs",
         "src/Modules/Full.NET.Modules.DataApproval/Execution/DataApprovalRequestApplicationRecoveryBatchProcessor.cs",
         "src/Modules/Full.NET.Modules.DataApproval/Execution/DataApprovalRequestRecoveryBatchProcessor.cs",

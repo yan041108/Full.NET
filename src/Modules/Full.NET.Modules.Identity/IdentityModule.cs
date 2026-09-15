@@ -14,6 +14,7 @@ using Full.NET.Modules.Identity.Features.Bootstrap;
 using Full.NET.Modules.Identity.Features.ManageHostMenus;
 using Full.NET.Modules.Identity.Features.OrganizationUnitProjection;
 using Full.NET.Modules.Identity.Middleware;
+using Full.NET.Modules.Identity.Retention;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Seeding;
 using Full.NET.Seeding.Abstractions;
@@ -212,6 +213,7 @@ public sealed class IdentityModule : IFullNetModule
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddScoped<Contracts.IBackgroundSessionBindingValidator, BackgroundSessionBindingValidator>();
         services.TryAddScoped<Contracts.IBackgroundSessionAuthorization, BackgroundSessionAuthorization>();
+        services.AddIdentityOidcRetentionBackgroundService(configuration);
     }
 
     private static void AddOrganizationUnitProjection(IServiceCollection services)

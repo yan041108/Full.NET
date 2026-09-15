@@ -245,4 +245,15 @@ public sealed class IdentityApiMySqlTests
         using var client = factory.CreateClientForHost("localhost");
         await IdentityOidcGovernanceAssertions.VerifyAsync(client);
     }
+
+    [TestMethod]
+    public async Task Oidc_retention_prunes_stale_grants_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcRetentionAssertions.Settings);
+
+        await IdentityOidcRetentionAssertions.VerifyAsync(factory);
+    }
 }

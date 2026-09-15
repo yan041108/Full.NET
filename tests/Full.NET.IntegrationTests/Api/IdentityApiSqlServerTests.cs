@@ -245,4 +245,15 @@ public sealed class IdentityApiSqlServerTests
         using var client = factory.CreateClientForHost("localhost");
         await IdentityOidcGovernanceAssertions.VerifyAsync(client);
     }
+
+    [TestMethod]
+    public async Task Oidc_retention_prunes_stale_grants_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcRetentionAssertions.Settings);
+
+        await IdentityOidcRetentionAssertions.VerifyAsync(factory);
+    }
 }
