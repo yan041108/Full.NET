@@ -93,6 +93,26 @@ internal static class IdentityOidcMultiInstanceGovernanceAssertions
         StringAssert.Contains(
             authorizeResponse.Headers.Location!.ToString(),
             "error=unauthorized_client");
+
+        var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            secondaryClient,
+            flow.RefreshToken!,
+            clientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(refreshResult.IsSuccessStatusCode);
+        Assert.IsTrue(
+            refreshResult.RawBody.Contains("unauthorized_client", StringComparison.OrdinalIgnoreCase)
+                || refreshResult.RawBody.Contains("invalid_grant", StringComparison.OrdinalIgnoreCase),
+            $"Expected disabled client refresh to fail on peer instance, got: {refreshResult.RawBody}");
+
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
+        using var meResponse = await secondaryClient.SendAsync(meRequest, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            meResponse.StatusCode,
+            "Disabled clients must fail closed on peer instance resource APIs.");
     }
 
     private static string BuildAuthorizeUrl(string clientId)
