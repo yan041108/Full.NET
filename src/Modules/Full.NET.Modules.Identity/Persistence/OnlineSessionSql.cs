@@ -80,6 +80,25 @@ internal static class OnlineSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindHostRefreshSessionById = new(
+        "identity.find_host_online_session_by_id",
+        """
+        SELECT session.Id AS SessionId,
+               session.UserId,
+               identityUser.Username,
+               identityUser.DisplayName,
+               session.ClientId,
+               session.ActiveTenantId,
+               session.CreatedAtUtc,
+               session.ExpiresAtUtc
+        FROM fn_identity_refresh_session AS session
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = session.UserId
+        WHERE session.Id = @SessionId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindActiveHostSessionById = new(
         "identity.find_active_host_online_session_by_id",
         $"""

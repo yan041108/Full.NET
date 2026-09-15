@@ -339,4 +339,12 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_revoke_is_idempotent_with_mysql()
+    {
+        await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }

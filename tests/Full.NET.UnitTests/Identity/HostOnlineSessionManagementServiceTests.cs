@@ -51,6 +51,72 @@ public sealed class HostOnlineSessionManagementServiceTests
     }
 
     [TestMethod]
+    public async Task Revoke_returns_success_for_already_revoked_oidc_session_without_republishing()
+    {
+        var fixture = new Fixture();
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<OnlineSessionRevokeRow>(
+                OnlineSessionSql.FindActiveHostSessionById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((OnlineSessionRevokeRow?)null);
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<OnlineSessionListRow>(
+                IdentityOidcSessionSql.FindActiveHostApplicationSessionById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((OnlineSessionListRow?)null);
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<OnlineSessionListRow>(
+                OnlineSessionSql.FindHostRefreshSessionById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns((OnlineSessionListRow?)null);
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<OnlineSessionListRow>(
+                IdentityOidcSessionSql.FindHostOidcApplicationSessionById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new OnlineSessionListRow
+            {
+                SessionId = SessionId,
+                UserId = TargetUserId,
+                Username = "victim",
+                DisplayName = "Victim User",
+                ClientId = "fixture-oidc-a-public",
+                CreatedAtUtc = Now,
+                ExpiresAtUtc = Now.AddHours(1),
+            });
+        fixture.Transaction
+            .ExecuteAsync(
+                Arg.Any<Func<CancellationToken, Task<Result<HostOnlineSessionResponse>>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var callback = callInfo.ArgAt<Func<CancellationToken, Task<Result<HostOnlineSessionResponse>>>>(0);
+                return callback(CancellationToken.None);
+            });
+
+        var result = await fixture.Service.RevokeAsync(
+            ActorUserId,
+            SessionId,
+            "127.0.0.1",
+            "unit-test",
+            default);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual(SessionId, result.Value!.Id);
+        await fixture.RealtimePublisher.DidNotReceive().PublishToUserAsync(
+            Arg.Any<Guid>(),
+            Arg.Any<RealtimeMessage>(),
+            Arg.Any<CancellationToken>());
+        await fixture.CommandExecutor.DidNotReceive().ExecuteAsync(
+            IdentitySql.InsertAuthAudit,
+            Arg.Any<object?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
     public async Task Revoke_all_revokes_only_target_user_sessions()
     {
         var fixture = new Fixture();

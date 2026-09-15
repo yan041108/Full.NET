@@ -162,6 +162,26 @@ internal static class IdentityOidcSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement FindHostOidcApplicationSessionById = new(
+        "identity.find_host_oidc_application_session_by_id",
+        """
+        SELECT app.Id AS SessionId,
+               app.UserId,
+               identityUser.Username,
+               identityUser.DisplayName,
+               app.ClientId,
+               app.ActiveTenantId,
+               app.CreatedAtUtc,
+               app.ExpiresAtUtc
+        FROM fn_identity_oidc_application_session AS app
+        INNER JOIN fn_identity_oidc_center_session AS center ON center.Id = app.CenterSessionId
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = app.UserId
+        WHERE app.Id = @SessionId
+          AND identityUser.ScopeKey = 'host'
+          AND identityUser.TenantId IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindActiveHostApplicationSessionById = new(
         "identity.find_active_host_oidc_application_session_by_id",
         $"""

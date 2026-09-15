@@ -339,4 +339,12 @@ public sealed class IdentityApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_revoke_is_idempotent_with_sql_server()
+    {
+        await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }

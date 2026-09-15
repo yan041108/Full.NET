@@ -82,7 +82,8 @@ internal sealed class HostOnlineSessionManagementService(
                 .ConfigureAwait(false);
             if (affectedRows < 1)
             {
-                return NotFound();
+                return await TryIdempotentRevokeAsync(sessionId, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             await oidcSessionService.RevokeAllApplicationSessionsByUserAsync(
@@ -124,14 +125,16 @@ internal sealed class HostOnlineSessionManagementService(
             .ConfigureAwait(false);
         if (oidcRecord is null)
         {
-            return NotFound();
+            return await TryIdempotentRevokeAsync(sessionId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var revoked = await oidcSessionService.RevokeApplicationSessionAsync(sessionId, cancellationToken)
             .ConfigureAwait(false);
         if (!revoked)
         {
-            return NotFound();
+            return await TryIdempotentRevokeAsync(sessionId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var oidcSnapshot = Map(oidcRecord);
@@ -249,6 +252,33 @@ internal sealed class HostOnlineSessionManagementService(
                 user.Username,
                 user.DisplayName,
                 sessionIds.Length));
+    }
+
+    private async Task<Result<HostOnlineSessionResponse>> TryIdempotentRevokeAsync(
+        Guid sessionId,
+        CancellationToken cancellationToken)
+    {
+        var refreshSnapshot = await queryExecutor.QuerySingleOrDefaultAsync<OnlineSessionListRow>(
+                OnlineSessionSql.FindHostRefreshSessionById,
+                IdentitySqlParameters.Create(("SessionId", sessionId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (refreshSnapshot is not null)
+        {
+            return Result<HostOnlineSessionResponse>.Success(Map(refreshSnapshot));
+        }
+
+        var oidcSnapshot = await queryExecutor.QuerySingleOrDefaultAsync<OnlineSessionListRow>(
+                IdentityOidcSessionSql.FindHostOidcApplicationSessionById,
+                IdentitySqlParameters.Create(("SessionId", sessionId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (oidcSnapshot is not null)
+        {
+            return Result<HostOnlineSessionResponse>.Success(Map(oidcSnapshot));
+        }
+
+        return NotFound();
     }
 
     private async Task WriteAuditAsync(
