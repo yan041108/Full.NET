@@ -37,6 +37,12 @@ export async function loginAsHostAdmin(page, baseUrl = '/') {
     username,
     password
   );
+  // API 预登录会写入共享 Cookie；UI 登录前必须清空，否则会表现为 client.login_failed。
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+  });
   await page.goto(baseUrl);
   await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
   await page.getByLabel('账号', { exact: true }).fill(username);
