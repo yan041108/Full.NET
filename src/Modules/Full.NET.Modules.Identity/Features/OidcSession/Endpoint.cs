@@ -53,9 +53,16 @@ internal static class Endpoint
     private static async Task<IResult> HandleLoginAsync(
         IdentityOidcCenterLoginRequest request,
         IdentityOidcAuthorizationService authorizationService,
+        AllowedOriginValidator originValidator,
+        IApiResultMapper mapper,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
+        if (!IsOriginAllowed(httpContext, originValidator))
+        {
+            return OriginForbidden(mapper, httpContext);
+        }
+
         var signInResult = await authorizationService.SignInCenterAsync(
                 request.Username,
                 request.Password,

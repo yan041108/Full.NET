@@ -38,6 +38,7 @@ internal static class IdentityOidcSessionSecurityAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        await VerifyCenterLoginOriginBoundaryAsync(client, cancellationToken);
         await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
             IdentityOidcRelyingPartyFixture.PublicClientId,
@@ -87,5 +88,59 @@ internal static class IdentityOidcSessionSecurityAssertions
             "/api/v1/identity/oidc/logout");
         using var validLogoutResponse = await client.SendAsync(validLogoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, validLogoutResponse.StatusCode);
+    }
+
+    private static async Task VerifyCenterLoginOriginBoundaryAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        using (var evilLoginRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/login",
+            new
+            {
+                username = "admin",
+                password = FullNetApiFactory.TestPassword,
+                returnUrl = "/connect/authorize",
+            },
+            origin: "https://evil.example"))
+        using (var evilLoginResponse = await client.SendAsync(evilLoginRequest, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, evilLoginResponse.StatusCode);
+            var body = await evilLoginResponse.Content.ReadAsStringAsync(cancellationToken);
+            using var problem = JsonDocument.Parse(body);
+            Assert.AreEqual(
+                "identity.origin_not_allowed",
+                problem.RootElement.GetProperty("code").GetString());
+            IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+                body,
+                "OIDC center login origin rejection");
+        }
+
+        using (var invalidLoginRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/login",
+            new
+            {
+                username = "admin",
+                password = "wrong-password",
+                returnUrl = "/connect/authorize",
+            }))
+        using (var invalidLoginResponse = await client.SendAsync(invalidLoginRequest, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Unauthorized, invalidLoginResponse.StatusCode);
+        }
+
+        using var validLoginRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/login",
+            new
+            {
+                username = "admin",
+                password = FullNetApiFactory.TestPassword,
+                returnUrl = "/connect/authorize",
+            });
+        using var validLoginResponse = await client.SendAsync(validLoginRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, validLoginResponse.StatusCode);
     }
 }
