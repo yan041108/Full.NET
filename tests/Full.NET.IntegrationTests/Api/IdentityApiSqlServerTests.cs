@@ -277,6 +277,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_signing_key_retirement_rejects_legacy_tokens_with_sql_server()
+    {
+        await IdentityOidcSigningKeyRetirementAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_sql_server()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(
