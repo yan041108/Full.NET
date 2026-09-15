@@ -81,6 +81,25 @@ internal static class IdentityOidcMultiInstanceTestSupport
         return settings;
     }
 
+
+    internal static IReadOnlyDictionary<string, string?> BuildDualPrivateKeyFactorySettings(
+        RSA keyA,
+        RSA keyB,
+        string activeKeyId,
+        string keyRingPath,
+        string certificatePath)
+    {
+        var settings = new Dictionary<string, string?>(
+            IdentityOidcSigningKeyRotationAssertions.BuildDualPrivateKeySettings(keyA, keyB, activeKeyId))
+        {
+            ["DataProtection:ApplicationName"] = "Full.NET.MultiInstance",
+            ["DataProtection:KeyRingPath"] = keyRingPath,
+            ["DataProtection:CertificatePath"] = certificatePath,
+            ["DataProtection:CertificatePassword"] = DataProtectionPassword,
+        };
+        return settings;
+    }
+
     private static void CreateSelfSignedPfx(string path, string password, string subject)
     {
         using var rsa = RSA.Create(2048);
