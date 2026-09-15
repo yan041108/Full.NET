@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
@@ -60,6 +62,35 @@ internal static class IdentityOidcTenantBoundaryAssertions
         validMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
         using var validMeResponse = await client.SendAsync(validMeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, validMeResponse.StatusCode);
+
+        var applicationSessionId = Guid.Parse(
+            IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+                flow.AccessToken,
+                FullNetIdentityClaimTypes.ApplicationSessionId)
+            ?? throw new InvalidOperationException("OIDC access token is missing application session id."));
+        var sessionTenantId = Guid.CreateVersion7();
+        await SetApplicationSessionActiveTenantAsync(
+            factory,
+            applicationSessionId,
+            sessionTenantId,
+            cancellationToken);
+
+        await VerifyMeRejectsTokenAsync(
+            client,
+            flow.AccessToken,
+            "tenant claim missing while session is tenant-scoped",
+            cancellationToken);
+        await VerifyMeRejectsTokenAsync(
+            client,
+            ResignAccessToken(
+                flow.AccessToken,
+                signingKey,
+                BoundaryKeyId,
+                issuer,
+                audience,
+                Guid.CreateVersion7()),
+            "tenant claim mismatching tenant-scoped session",
+            cancellationToken);
     }
 
     private static async Task VerifyMeRejectsTokenAsync(
@@ -83,13 +114,41 @@ internal static class IdentityOidcTenantBoundaryAssertions
             $"Resource API rejection for {scenario}");
     }
 
+    private static async Task SetApplicationSessionActiveTenantAsync(
+        FullNetApiFactory factory,
+        Guid applicationSessionId,
+        Guid activeTenantId,
+        CancellationToken cancellationToken)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ICurrentTenantContextWriter>().SetHost();
+        var executor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
+        var affectedRows = await executor.ExecuteAsync(
+            new SqlStatement(
+                "integration.identity.oidc.set_application_session_active_tenant",
+                """
+                UPDATE fn_identity_oidc_application_session
+                SET ActiveTenantId = @ActiveTenantId, UpdatedAtUtc = @UpdatedAtUtc
+                WHERE Id = @ApplicationSessionId
+                """,
+                SqlDataScope.HostOnly),
+            new
+            {
+                ApplicationSessionId = applicationSessionId,
+                ActiveTenantId = activeTenantId,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            },
+            cancellationToken);
+        Assert.AreEqual(1, affectedRows);
+    }
+
     private static string ResignAccessToken(
         string accessToken,
         RSA privateKey,
         string keyId,
         string issuer,
         string audience,
-        Guid forgedTenantId)
+        Guid tenantId)
     {
         var token = new JsonWebToken(accessToken);
         var claims = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -100,10 +159,15 @@ internal static class IdentityOidcTenantBoundaryAssertions
                 continue;
             }
 
+            if (claim.Type == FullNetIdentityClaimTypes.TenantId)
+            {
+                continue;
+            }
+
             claims[claim.Type] = claim.Value;
         }
 
-        claims[FullNetIdentityClaimTypes.TenantId] = forgedTenantId.ToString("D");
+        claims[FullNetIdentityClaimTypes.TenantId] = tenantId.ToString("D");
 
         var signingKey = new RsaSecurityKey(privateKey) { KeyId = keyId };
         var descriptor = new SecurityTokenDescriptor
