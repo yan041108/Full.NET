@@ -381,6 +381,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_client_disable_emits_session_revoked_notifications_with_mysql()
+    {
+        await IdentityOidcClientDisableNotificationsAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_concurrent_refresh_reuse_detected_with_mysql()
     {
         await IdentityOidcRefreshRaceAssertions.VerifyAsync(

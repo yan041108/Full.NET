@@ -223,6 +223,21 @@ internal sealed class IdentityOidcSessionService(
             .ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<IdentityOidcActiveApplicationSessionOwnershipRow>> ListActiveHostApplicationSessionOwnershipByClientIdAsync(
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var rows = await queryExecutor.QueryAsync<IdentityOidcActiveApplicationSessionOwnershipRow>(
+                IdentityOidcSessionSql.ListActiveHostOidcApplicationSessionOwnershipByClientId,
+                IdentitySqlParameters.Create(
+                    ("ClientId", clientId),
+                    ("NowUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return rows.ToArray();
+    }
+
     public async Task<int> RevokeAllActiveApplicationSessionsByClientIdAsync(
         string clientId,
         CancellationToken cancellationToken = default)

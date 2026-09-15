@@ -1,6 +1,7 @@
 using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Security;
 using OpenIddict.Abstractions;
@@ -15,7 +16,8 @@ internal sealed class OidcClientManagementService(
     OidcClientQueryService queries,
     IRandomTokenGenerator tokenGenerator,
     IdentityOidcGrantRevocationService grantRevocationService,
-    IdentityOidcSessionService sessionService)
+    IdentityOidcSessionService sessionService,
+    IdentitySessionRealtimeDelivery sessionRealtimeDelivery)
 {
     internal const int MaxClientIdLength = 128;
     internal const int MaxDisplayNameLength = 128;
@@ -189,12 +191,25 @@ internal sealed class OidcClientManagementService(
             .ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(oauthClientId))
         {
+            var activeSessions = await sessionService
+                .ListActiveHostApplicationSessionOwnershipByClientIdAsync(
+                    oauthClientId,
+                    cancellationToken)
+                .ConfigureAwait(false);
             await grantRevocationService.RevokeByApplicationIdAsync(clientId, cancellationToken)
                 .ConfigureAwait(false);
             await sessionService.RevokeAllActiveApplicationSessionsByClientIdAsync(
                     oauthClientId,
                     cancellationToken)
                 .ConfigureAwait(false);
+            foreach (var sessionsByUser in activeSessions.GroupBy(session => session.UserId))
+            {
+                await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                        sessionsByUser.Key,
+                        sessionsByUser.Select(session => session.SessionId).ToArray(),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
 
         return await queries.GetByIdAsync(clientId, cancellationToken).ConfigureAwait(false);

@@ -381,6 +381,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_client_disable_emits_session_revoked_notifications_with_sql_server()
+    {
+        await IdentityOidcClientDisableNotificationsAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_concurrent_refresh_reuse_detected_with_sql_server()
     {
         await IdentityOidcRefreshRaceAssertions.VerifyAsync(

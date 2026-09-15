@@ -75,6 +75,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityOidcApplicationSessionRow>(ReadIdentityOidcApplicationSessionRow);
         registrar.Register<IdentityOidcApplicationSessionValidationRecord>(
             ReadIdentityOidcApplicationSessionValidationRecord);
+        registrar.Register<IdentityOidcActiveApplicationSessionOwnershipRow>(
+            ReadIdentityOidcActiveApplicationSessionOwnershipRow);
 
         DapperAotParameterRegistry.Register<LoginFailureUpdate>(BindLoginFailureUpdate);
         DapperAotParameterRegistry.Register<LoginSuccessUpdate>(BindLoginSuccessUpdate);
@@ -852,6 +854,14 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             IsActive = ReadBooleanByName(reader, "IsActive"),
             LockoutEndUtc = ReadNullableDateTimeOffsetByName(reader, "LockoutEndUtc"),
             UserSecurityStamp = ReadOptionalStringByName(reader, "UserSecurityStamp") ?? string.Empty,
+        };
+
+    private static IdentityOidcActiveApplicationSessionOwnershipRow ReadIdentityOidcActiveApplicationSessionOwnershipRow(
+        DbDataReader reader) =>
+        new()
+        {
+            SessionId = ReadGuidByName(reader, "SessionId"),
+            UserId = ReadGuidByName(reader, "UserId"),
         };
 
     private static DynamicParameters BindIdentityOidcCenterSession(IdentityOidcCenterSession session)

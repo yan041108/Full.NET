@@ -54,6 +54,13 @@ internal sealed record IdentityOidcApplicationSessionRow(
     long Version,
     DateTimeOffset UpdatedAtUtc);
 
+internal sealed class IdentityOidcActiveApplicationSessionOwnershipRow
+{
+    public Guid SessionId { get; set; }
+
+    public Guid UserId { get; set; }
+}
+
 internal sealed class IdentityOidcApplicationSessionValidationRecord
 {
     public Guid ApplicationSessionId { get; set; }
