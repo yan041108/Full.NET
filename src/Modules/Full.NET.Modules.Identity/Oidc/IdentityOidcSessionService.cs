@@ -223,6 +223,22 @@ internal sealed class IdentityOidcSessionService(
             .ConfigureAwait(false);
     }
 
+    public async Task<int> RevokeAllActiveApplicationSessionsByClientIdAsync(
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var now = clock.UtcNow;
+        return await commandExecutor.ExecuteAsync(
+                IdentityOidcSessionSql.RevokeAllActiveApplicationSessionsByClientId,
+                IdentitySqlParameters.Create(
+                    ("ClientId", clientId),
+                    ("RevokedAtUtc", now),
+                    ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<int> RevokeAllCenterSessionsByUserAsync(
         Guid userId,
         CancellationToken cancellationToken = default)

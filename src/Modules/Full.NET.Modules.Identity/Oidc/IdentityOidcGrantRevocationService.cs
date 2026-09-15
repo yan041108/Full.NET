@@ -40,6 +40,31 @@ internal sealed class IdentityOidcGrantRevocationService(
         return new IdentityOidcGrantRevocationResult(tokensRevoked, authorizationsRevoked);
     }
 
+    /// <summary>撤销某 OIDC 客户端下全部授权与令牌，用于客户端禁用治理。</summary>
+    public async Task<IdentityOidcGrantRevocationResult> RevokeByApplicationIdAsync(
+        Guid applicationId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = clock.UtcNow;
+        var tokensRevoked = await commandExecutor.ExecuteAsync(
+                IdentityOidcSql.RevokeTokensByApplicationId,
+                IdentitySqlParameters.Create(
+                    ("ApplicationId", applicationId),
+                    ("RevokedStatus", Statuses.Revoked),
+                    ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var authorizationsRevoked = await commandExecutor.ExecuteAsync(
+                IdentityOidcSql.RevokeAuthorizationsByApplicationId,
+                IdentitySqlParameters.Create(
+                    ("ApplicationId", applicationId),
+                    ("RevokedStatus", Statuses.Revoked),
+                    ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new IdentityOidcGrantRevocationResult(tokensRevoked, authorizationsRevoked);
+    }
+
     /// <summary>仅撤销指定用户在某 OIDC 客户端下的授权与令牌，用于单应用下线。</summary>
     public async Task<IdentityOidcGrantRevocationResult> RevokeByUserAndClientAsync(
         Guid userId,

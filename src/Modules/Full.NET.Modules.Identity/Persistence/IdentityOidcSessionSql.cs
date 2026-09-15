@@ -121,6 +121,15 @@ internal static class IdentityOidcSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement RevokeAllActiveApplicationSessionsByClientId = new(
+        "identity.revoke_all_active_oidc_application_sessions_by_client_id",
+        """
+        UPDATE fn_identity_oidc_application_session
+        SET RevokedAtUtc = @RevokedAtUtc, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE ClientId = @ClientId AND RevokedAtUtc IS NULL
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement FindApplicationSessionById = new(
         "identity.find_oidc_application_session_by_id",
         $"SELECT {ApplicationSessionColumns} FROM fn_identity_oidc_application_session AS app WHERE app.Id = @Id",

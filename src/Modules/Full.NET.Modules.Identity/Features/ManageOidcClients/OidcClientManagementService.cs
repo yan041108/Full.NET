@@ -13,7 +13,9 @@ namespace Full.NET.Modules.Identity.Features.ManageOidcClients;
 internal sealed class OidcClientManagementService(
     IOpenIddictApplicationManager applicationManager,
     OidcClientQueryService queries,
-    IRandomTokenGenerator tokenGenerator)
+    IRandomTokenGenerator tokenGenerator,
+    IdentityOidcGrantRevocationService grantRevocationService,
+    IdentityOidcSessionService sessionService)
 {
     internal const int MaxClientIdLength = 128;
     internal const int MaxDisplayNameLength = 128;
@@ -179,6 +181,20 @@ internal sealed class OidcClientManagementService(
         catch (ConcurrencyException)
         {
             return VersionConflict();
+        }
+
+        var oauthClientId = await applicationManager.GetClientIdAsync(
+                application.Value!.Entity,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(oauthClientId))
+        {
+            await grantRevocationService.RevokeByApplicationIdAsync(clientId, cancellationToken)
+                .ConfigureAwait(false);
+            await sessionService.RevokeAllActiveApplicationSessionsByClientIdAsync(
+                    oauthClientId,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return await queries.GetByIdAsync(clientId, cancellationToken).ConfigureAwait(false);
