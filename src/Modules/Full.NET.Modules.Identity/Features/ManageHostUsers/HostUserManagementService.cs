@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -20,7 +21,8 @@ internal sealed class HostUserManagementService(
     Microsoft.AspNetCore.Identity.IPasswordHasher<IdentityUser> passwordHasher,
     IClock clock,
     IIdGenerator idGenerator,
-    IPermissionSnapshotReader permissionSnapshots)
+    IPermissionSnapshotReader permissionSnapshots,
+    IIdentityOidcUserAuthorityRevoker oidcUserAuthorityRevoker)
 {
     private const string HostScope = "host";
     private const int MaxDeadlockRetryAttempts = 3;
@@ -394,6 +396,8 @@ internal sealed class HostUserManagementService(
                 IdentitySqlParameters.Create(("UserId", userId), ("RevokedAtUtc", now)),
                 cancellationToken)
             .ConfigureAwait(false);
+        await oidcUserAuthorityRevoker.RevokeUserAuthorityAsync(userId, cancellationToken)
+            .ConfigureAwait(false);
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
                 IdentitySql.FindHostUserById,
@@ -609,6 +613,8 @@ internal sealed class HostUserManagementService(
                 IdentitySql.RevokeAllUserSessions,
                 IdentitySqlParameters.Create(("UserId", userId), ("RevokedAtUtc", now)),
                 cancellationToken)
+            .ConfigureAwait(false);
+        await oidcUserAuthorityRevoker.RevokeUserAuthorityAsync(userId, cancellationToken)
             .ConfigureAwait(false);
 
         var updated = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(

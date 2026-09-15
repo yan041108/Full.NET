@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Messaging;
 using Full.NET.Hosting.Api;
 using Full.NET.Localization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Features.GetNavigation;
 using Full.NET.Modules.Identity.Features.Login;
@@ -53,6 +54,7 @@ internal static class IdentityDomainServiceCollectionExtensions
         services.TryAddScoped<SuperAdministratorQueryService>();
         services.TryAddScoped<HostUserQueryService>();
         services.TryAddScoped<HostUserManagementService>();
+        services.TryAddScoped<IIdentityOidcUserAuthorityRevoker, NullIdentityOidcUserAuthorityRevoker>();
         services.TryAddScoped<HostUserSensitiveFieldRevealService>();
         services.TryAddScoped<HostUserLoginLockoutUnlockService>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<

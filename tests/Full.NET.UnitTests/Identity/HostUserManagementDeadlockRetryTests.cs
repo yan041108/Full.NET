@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Features.ManageHostUsers;
+using Full.NET.Modules.Identity.Oidc;
 using Microsoft.AspNetCore.Identity;
 using NSubstitute;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -66,7 +67,8 @@ public sealed class HostUserManagementDeadlockRetryTests
             new StubPasswordHasher(),
             Substitute.For<IClock>(),
             Substitute.For<IIdGenerator>(),
-            Substitute.For<IPermissionSnapshotReader>());
+            Substitute.For<IPermissionSnapshotReader>(),
+            Substitute.For<IIdentityOidcUserAuthorityRevoker>());
 
     /// <summary>
     /// 提供当前测试不会进入的密码哈希依赖，避免为内部领域类型生成动态代理。
