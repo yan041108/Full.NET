@@ -285,6 +285,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_token_boundary_rejects_wrong_audience_and_issuer_with_mysql()
+    {
+        await IdentityOidcTokenBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_mysql()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(

@@ -30,6 +30,8 @@ internal static class IdentityOidcSessionAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         await VerifyTenantMismatchRejectedAsync(factory, cancellationToken);
+        await VerifyWrongAudienceRejectedAsync(factory, cancellationToken);
+        await VerifyUnknownIssuerRejectedAsync(factory, cancellationToken);
         await VerifyLegacyPrincipalRejectedByOidcValidatorAsync(factory, cancellationToken);
         await VerifySessionLifecycleAsync(factory, cancellationToken);
     }
@@ -53,6 +55,50 @@ internal static class IdentityOidcSessionAssertions
             "host",
             identityOptions.Audience,
             tenantId);
+
+        Assert.IsFalse(await validator.IsValidAsync(principal, cancellationToken));
+    }
+
+    private static async Task VerifyWrongAudienceRejectedAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var (applicationSessionId, userId) = await SeedApplicationSessionAsync(
+            factory,
+            cancellationToken);
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var validator = scope.ServiceProvider.GetRequiredService<IdentityOidcAccessSessionValidator>();
+        var principal = CreateOidcPrincipal(
+            applicationSessionId,
+            userId,
+            "host",
+            "host",
+            "https://evil.example/resources",
+            null);
+
+        Assert.IsFalse(await validator.IsValidAsync(principal, cancellationToken));
+    }
+
+    private static async Task VerifyUnknownIssuerRejectedAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var (applicationSessionId, userId) = await SeedApplicationSessionAsync(
+            factory,
+            cancellationToken);
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var validator = scope.ServiceProvider.GetRequiredService<IdentityOidcAccessSessionValidator>();
+        var identityOptions = scope.ServiceProvider.GetRequiredService<IOptions<IdentityOptions>>().Value;
+        var principal = CreateOidcPrincipal(
+            applicationSessionId,
+            userId,
+            "host",
+            "host",
+            identityOptions.Audience,
+            null,
+            issuer: "https://evil.example/identity");
 
         Assert.IsFalse(await validator.IsValidAsync(principal, cancellationToken));
     }
@@ -165,12 +211,13 @@ internal static class IdentityOidcSessionAssertions
         string actorScope,
         string effectiveScope,
         string audience,
-        Guid? tenantId)
+        Guid? tenantId,
+        string issuer = "https://localhost/identity")
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString("D")),
-            new(JwtRegisteredClaimNames.Iss, "https://localhost/identity"),
+            new(JwtRegisteredClaimNames.Iss, issuer),
             new(JwtRegisteredClaimNames.Aud, audience),
             new(FullNetIdentityClaimTypes.TokenUse, IdentityOidcPrincipalFactory.TokenUseAccess),
             new(FullNetIdentityClaimTypes.ApplicationSessionId, applicationSessionId.ToString("D")),

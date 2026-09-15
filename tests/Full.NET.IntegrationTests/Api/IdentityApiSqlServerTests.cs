@@ -285,6 +285,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_token_boundary_rejects_wrong_audience_and_issuer_with_sql_server()
+    {
+        await IdentityOidcTokenBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_sql_server()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(
