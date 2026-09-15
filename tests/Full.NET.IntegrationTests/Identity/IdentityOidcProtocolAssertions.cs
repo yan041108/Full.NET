@@ -50,6 +50,7 @@ internal static class IdentityOidcProtocolAssertions
         await VerifyWithoutOfflineAccessAsync(client, cancellationToken);
         await VerifyIdTokenRejectedByResourceApiAsync(client, cancellationToken);
         await VerifyInvalidRedirectUriRejectedAsync(client, cancellationToken);
+        await VerifyWrongRedirectUriRejectedAtTokenEndpointAsync(client, cancellationToken);
         await VerifyBusinessApiStillReturnsProblemDetailsAsync(client, cancellationToken);
         await VerifyConfidentialClientFlowAsync(client, cancellationToken);
     }
@@ -179,6 +180,35 @@ internal static class IdentityOidcProtocolAssertions
         }
     }
 
+    private static async Task VerifyWrongRedirectUriRejectedAtTokenEndpointAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var pending = await IdentityOidcRelyingPartyFixture.BeginAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: false,
+            cancellationToken);
+        var result = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
+            client,
+            pending.Code,
+            pending.Verifier,
+            pending.ClientId,
+            pending.RedirectUri,
+            null,
+            expectedNonce: pending.Nonce,
+            wrongRedirectUri: "https://evil.example/callback",
+            cancellationToken: cancellationToken);
+        Assert.IsTrue(result.RawTokenResponse.Contains("error", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(string.IsNullOrWhiteSpace(result.AccessToken));
+        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+            result.RawTokenResponse,
+            "Token endpoint redirect_uri mismatch");
+    }
+
     private static async Task VerifyBusinessApiStillReturnsProblemDetailsAsync(
         HttpClient client,
         CancellationToken cancellationToken)
@@ -188,6 +218,9 @@ internal static class IdentityOidcProtocolAssertions
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         Assert.IsTrue(body.Contains("type", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(body.Contains("\"error\":\"invalid_token\"", StringComparison.Ordinal));
+        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+            body,
+            "Unauthenticated /api/v1/me");
     }
 
     private static async Task VerifyConfidentialClientFlowAsync(

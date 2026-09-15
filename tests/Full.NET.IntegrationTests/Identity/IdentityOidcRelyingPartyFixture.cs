@@ -44,6 +44,7 @@ internal static class IdentityOidcRelyingPartyFixture
         string password,
         bool requestOfflineAccess,
         string? wrongCodeVerifier = null,
+        string? wrongRedirectUri = null,
         CancellationToken cancellationToken = default)
     {
         var pending = await BeginAuthorizationCodeFlowAsync(
@@ -63,6 +64,7 @@ internal static class IdentityOidcRelyingPartyFixture
             clientSecret,
             wrongCodeVerifier,
             pending.Nonce,
+            wrongRedirectUri,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -145,13 +147,14 @@ internal static class IdentityOidcRelyingPartyFixture
         string? clientSecret,
         string? wrongCodeVerifier = null,
         string? expectedNonce = null,
+        string? wrongRedirectUri = null,
         CancellationToken cancellationToken = default)
     {
         var tokenRequest = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",
             ["code"] = code,
-            ["redirect_uri"] = redirectUri,
+            ["redirect_uri"] = wrongRedirectUri ?? redirectUri,
             ["client_id"] = clientId,
             ["code_verifier"] = wrongCodeVerifier ?? verifier,
         };

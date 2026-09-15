@@ -78,6 +78,11 @@ internal static class IdentityOidcTokenBoundaryAssertions
                 notBeforeUtc: DateTime.UtcNow.AddHours(-2)),
             "expired lifetime",
             cancellationToken);
+        await VerifyMeRejectsTokenAsync(
+            client,
+            "not-a-jwt",
+            "malformed bearer token",
+            cancellationToken);
 
         using var validMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         validMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
@@ -101,6 +106,9 @@ internal static class IdentityOidcTokenBoundaryAssertions
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         Assert.IsTrue(body.Contains("type", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(body.Contains("\"error\":\"invalid_token\"", StringComparison.Ordinal));
+        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+            body,
+            $"Resource API rejection for {scenario}");
     }
 
     private static string ResignAccessToken(
