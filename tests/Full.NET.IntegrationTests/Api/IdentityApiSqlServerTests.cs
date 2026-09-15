@@ -293,6 +293,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_jwks_does_not_expose_private_key_material_with_sql_server()
+    {
+        await IdentityOidcJwksBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_sql_server()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(

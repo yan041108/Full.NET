@@ -293,6 +293,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_jwks_does_not_expose_private_key_material_with_mysql()
+    {
+        await IdentityOidcJwksBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_mysql()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(
