@@ -13,7 +13,8 @@ internal static class IdentityOidcSessionTestSupport
         HttpMethod method,
         string path,
         object? jsonBody = null,
-        string? origin = AllowedOrigin)
+        string? origin = AllowedOrigin,
+        string? referer = null)
     {
         var request = new HttpRequestMessage(method, path);
         if (jsonBody is not null)
@@ -24,6 +25,11 @@ internal static class IdentityOidcSessionTestSupport
         if (!string.IsNullOrWhiteSpace(origin))
         {
             request.Headers.Add("Origin", origin);
+        }
+
+        if (!string.IsNullOrWhiteSpace(referer))
+        {
+            request.Headers.Add("Referer", referer);
         }
 
         return request;
@@ -49,39 +55,41 @@ internal static class IdentityOidcSessionSecurityAssertions
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
 
-        using (var centerLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
-            HttpMethod.Post,
-            "/api/v1/identity/oidc/logout",
-            origin: "https://evil.example"))
-        using (var centerLogoutResponse = await client.SendAsync(centerLogoutRequest, cancellationToken))
-        {
-            Assert.AreEqual(HttpStatusCode.Forbidden, centerLogoutResponse.StatusCode);
-            var body = await centerLogoutResponse.Content.ReadAsStringAsync(cancellationToken);
-            using var problem = JsonDocument.Parse(body);
-            Assert.AreEqual(
-                "identity.origin_not_allowed",
-                problem.RootElement.GetProperty("code").GetString());
-            IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
-                body,
-                "OIDC center logout origin rejection");
-        }
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/logout",
+                origin: null),
+            "OIDC center logout without origin",
+            cancellationToken);
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/logout",
+                origin: "https://evil.example"),
+            "OIDC center logout origin rejection",
+            cancellationToken);
 
-        using (var applicationLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
-            HttpMethod.Post,
-            "/api/v1/identity/oidc/logout/application",
-            new { clientId = IdentityOidcRelyingPartyFixture.PublicClientId },
-            origin: "https://evil.example"))
-        using (var applicationLogoutResponse = await client.SendAsync(
-            applicationLogoutRequest,
-            cancellationToken))
-        {
-            Assert.AreEqual(HttpStatusCode.Forbidden, applicationLogoutResponse.StatusCode);
-            using var problem = JsonDocument.Parse(
-                await applicationLogoutResponse.Content.ReadAsStringAsync(cancellationToken));
-            Assert.AreEqual(
-                "identity.origin_not_allowed",
-                problem.RootElement.GetProperty("code").GetString());
-        }
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/logout/application",
+                new { clientId = IdentityOidcRelyingPartyFixture.PublicClientId },
+                origin: null),
+            "OIDC application logout without origin",
+            cancellationToken);
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/logout/application",
+                new { clientId = IdentityOidcRelyingPartyFixture.PublicClientId },
+                origin: "https://evil.example"),
+            "OIDC application logout origin rejection",
+            cancellationToken);
 
         using var validLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
             HttpMethod.Post,
@@ -94,28 +102,40 @@ internal static class IdentityOidcSessionSecurityAssertions
         HttpClient client,
         CancellationToken cancellationToken)
     {
-        using (var evilLoginRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
-            HttpMethod.Post,
-            "/api/v1/identity/oidc/login",
-            new
-            {
-                username = "admin",
-                password = FullNetApiFactory.TestPassword,
-                returnUrl = "/connect/authorize",
-            },
-            origin: "https://evil.example"))
-        using (var evilLoginResponse = await client.SendAsync(evilLoginRequest, cancellationToken))
+        var loginBody = new
         {
-            Assert.AreEqual(HttpStatusCode.Forbidden, evilLoginResponse.StatusCode);
-            var body = await evilLoginResponse.Content.ReadAsStringAsync(cancellationToken);
-            using var problem = JsonDocument.Parse(body);
-            Assert.AreEqual(
-                "identity.origin_not_allowed",
-                problem.RootElement.GetProperty("code").GetString());
-            IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
-                body,
-                "OIDC center login origin rejection");
-        }
+            username = "admin",
+            password = FullNetApiFactory.TestPassword,
+            returnUrl = "/connect/authorize",
+        };
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/login",
+                loginBody,
+                origin: null),
+            "OIDC center login without origin",
+            cancellationToken);
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/login",
+                loginBody,
+                origin: null,
+                referer: "https://evil.example/login"),
+            "OIDC center login untrusted referer",
+            cancellationToken);
+        await AssertOriginNotAllowedAsync(
+            client,
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/login",
+                loginBody,
+                origin: "https://evil.example"),
+            "OIDC center login origin rejection",
+            cancellationToken);
 
         using (var invalidLoginRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
             HttpMethod.Post,
@@ -142,5 +162,24 @@ internal static class IdentityOidcSessionSecurityAssertions
             });
         using var validLoginResponse = await client.SendAsync(validLoginRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, validLoginResponse.StatusCode);
+    }
+
+    private static async Task AssertOriginNotAllowedAsync(
+        HttpClient client,
+        HttpRequestMessage request,
+        string scenario,
+        CancellationToken cancellationToken)
+    {
+        using (request)
+        using (var response = await client.SendAsync(request, cancellationToken))
+        {
+            Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var problem = JsonDocument.Parse(body);
+            Assert.AreEqual(
+                "identity.origin_not_allowed",
+                problem.RootElement.GetProperty("code").GetString());
+            IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(body, scenario);
+        }
     }
 }
