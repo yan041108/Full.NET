@@ -913,6 +913,81 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_identity_oidc_application": {
+      "comment": "身份认证oidc application表",
+      "columns": {
+        "ApplicationType": "Application Type",
+        "ClientId": "客户端标识",
+        "ClientSecret": "Client Secret",
+        "ClientType": "Client Type",
+        "ConsentType": "Consent Type",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "DisplayName": "显示名称",
+        "DisplayNamesJson": "Display Names(JSON)",
+        "Id": "逻辑主键",
+        "JsonWebKeySetJson": "Json Web Key Set(JSON)",
+        "PermissionsJson": "权限集合(JSON)",
+        "PostLogoutRedirectUrisJson": "Post Logout Redirect Uris(JSON)",
+        "PropertiesJson": "Properties(JSON)",
+        "RedirectUrisJson": "Redirect Uris(JSON)",
+        "RequirementsJson": "Requirements(JSON)",
+        "SettingsJson": "Settings(JSON)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_oidc_authorization": {
+      "comment": "身份认证oidc authorization表",
+      "columns": {
+        "ApplicationId": "Application标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreationDateUtc": "Creation Date(UTC)",
+        "Id": "逻辑主键",
+        "PropertiesJson": "Properties(JSON)",
+        "ScopesJson": "Scopes(JSON)",
+        "Status": "状态",
+        "Subject": "主题",
+        "Type": "类型",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_oidc_scope": {
+      "comment": "身份认证oidc scope表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "Description": "描述",
+        "DescriptionsJson": "Descriptions(JSON)",
+        "DisplayName": "显示名称",
+        "DisplayNamesJson": "Display Names(JSON)",
+        "Id": "逻辑主键",
+        "Name": "名称",
+        "PropertiesJson": "Properties(JSON)",
+        "ResourcesJson": "Resources(JSON)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_oidc_token": {
+      "comment": "身份认证oidc token表",
+      "columns": {
+        "ApplicationId": "Application标识",
+        "AuthorizationId": "Authorization标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "CreationDateUtc": "Creation Date(UTC)",
+        "ExpirationDateUtc": "Expiration Date(UTC)",
+        "Id": "逻辑主键",
+        "Payload": "消息正文",
+        "PropertiesJson": "Properties(JSON)",
+        "RedemptionDateUtc": "Redemption Date(UTC)",
+        "ReferenceId": "Reference标识",
+        "Status": "状态",
+        "Subject": "主题",
+        "Type": "类型",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_identity_open_access_client": {
       "comment": "身份认证开放访问客户端表",
       "columns": {
@@ -2188,7 +2263,6 @@
         "OutputFileName": "输出文件名",
         "ParametersJson": "Parameters(JSON)",
         "RequestedByUserId": "请求人用户标识",
-        "RowCount": "行数",
         "StatusKey": "状态键",
         "TenantId": "租户标识；NULL 表示 Host 级",
         "Version": "乐观并发版本号",

@@ -512,6 +512,9 @@
       },
       "215": {
         "filter": "FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.MySql_|FullyQualifiedName~Migration215AiMcpRemoteConnectionTests.SqlServer_"
+      },
+      "216": {
+        "filter": "FullyQualifiedName~Migration216IdentityOidcRecoveryTests.MySql_|FullyQualifiedName~Migration216IdentityOidcRecoveryTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -529,12 +532,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 81,
+        "minimum": 82,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 81,
+        "minimum": 82,
         "timeout": "60m"
       },
       "migrations": {

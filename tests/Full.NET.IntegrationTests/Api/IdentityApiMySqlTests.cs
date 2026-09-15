@@ -170,4 +170,22 @@ public sealed class IdentityApiMySqlTests
 
         await IdentityModuleCatalogAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_stores_enforce_redemption_and_revocation_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Identity:Oidc:Enable"] = "true",
+                ["Identity:Oidc:Issuer"] = "https://localhost/identity",
+                ["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "true",
+                ["Identity:Oidc:Clients:0:ClientId"] = "integration-oidc-client",
+                ["Identity:Oidc:Clients:0:RedirectUris:0"] = "https://localhost/signin-oidc",
+            });
+
+        await IdentityOidcStoreAssertions.VerifyAsync(factory);
+    }
 }

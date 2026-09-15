@@ -65,6 +65,11 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityRoleFieldGrantRow>(ReadIdentityRoleFieldGrantRow);
         registrar.Register<SuperAdministratorResponse>(ReadSuperAdministratorResponse);
         registrar.Register<SuperAdministratorAuditResponse>(ReadSuperAdministratorAuditResponse);
+        registrar.Register<IdentityOidcApplicationRow>(ReadIdentityOidcApplicationRow);
+        registrar.Register<IdentityOidcAuthorizationRow>(ReadIdentityOidcAuthorizationRow);
+        registrar.Register<IdentityOidcScopeRow>(ReadIdentityOidcScopeRow);
+        registrar.Register<IdentityOidcTokenRow>(ReadIdentityOidcTokenRow);
+        registrar.Register<IdentityOidcCountRow>(ReadIdentityOidcCountRow);
 
         DapperAotParameterRegistry.Register<LoginFailureUpdate>(BindLoginFailureUpdate);
         DapperAotParameterRegistry.Register<LoginSuccessUpdate>(BindLoginSuccessUpdate);
@@ -708,6 +713,76 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             CreatedAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 7),
             ExpiresAtUtc = AotDataReaderExtensions.ReadDateTimeOffset(reader, 8),
         };
+
+    private static IdentityOidcApplicationRow ReadIdentityOidcApplicationRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadOptionalStringByName(reader, "ClientId"),
+            ReadOptionalStringByName(reader, "ClientSecret"),
+            ReadOptionalStringByName(reader, "ConsentType"),
+            ReadOptionalStringByName(reader, "DisplayName"),
+            ReadOptionalStringByName(reader, "DisplayNamesJson"),
+            ReadOptionalStringByName(reader, "PermissionsJson"),
+            ReadOptionalStringByName(reader, "PostLogoutRedirectUrisJson"),
+            ReadOptionalStringByName(reader, "PropertiesJson"),
+            ReadOptionalStringByName(reader, "RedirectUrisJson"),
+            ReadOptionalStringByName(reader, "RequirementsJson"),
+            ReadOptionalStringByName(reader, "ApplicationType"),
+            ReadOptionalStringByName(reader, "JsonWebKeySetJson"),
+            ReadOptionalStringByName(reader, "SettingsJson"),
+            ReadOptionalStringByName(reader, "ClientType"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcAuthorizationRow ReadIdentityOidcAuthorizationRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadOptionalGuidByName(reader, "ApplicationId"),
+            ReadNullableDateTimeOffsetByName(reader, "CreationDateUtc"),
+            ReadOptionalStringByName(reader, "PropertiesJson"),
+            ReadOptionalStringByName(reader, "ScopesJson"),
+            ReadOptionalStringByName(reader, "Status"),
+            ReadOptionalStringByName(reader, "Subject"),
+            ReadOptionalStringByName(reader, "Type"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcScopeRow ReadIdentityOidcScopeRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadOptionalStringByName(reader, "Name"),
+            ReadOptionalStringByName(reader, "Description"),
+            ReadOptionalStringByName(reader, "DescriptionsJson"),
+            ReadOptionalStringByName(reader, "DisplayName"),
+            ReadOptionalStringByName(reader, "DisplayNamesJson"),
+            ReadOptionalStringByName(reader, "PropertiesJson"),
+            ReadOptionalStringByName(reader, "ResourcesJson"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcTokenRow ReadIdentityOidcTokenRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadOptionalGuidByName(reader, "ApplicationId"),
+            ReadOptionalGuidByName(reader, "AuthorizationId"),
+            ReadNullableDateTimeOffsetByName(reader, "CreationDateUtc"),
+            ReadNullableDateTimeOffsetByName(reader, "ExpirationDateUtc"),
+            ReadOptionalStringByName(reader, "Payload"),
+            ReadOptionalStringByName(reader, "PropertiesJson"),
+            ReadNullableDateTimeOffsetByName(reader, "RedemptionDateUtc"),
+            ReadOptionalStringByName(reader, "ReferenceId"),
+            ReadOptionalStringByName(reader, "Status"),
+            ReadOptionalStringByName(reader, "Subject"),
+            ReadOptionalStringByName(reader, "Type"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcCountRow ReadIdentityOidcCountRow(DbDataReader reader) =>
+        new(AotDataReaderExtensions.ReadInt64(reader, 0));
 
     /// <summary>显式绑定 OAuthAuthorizationStateRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
     /// <param name="value">需要写入的持久化投影。</param>

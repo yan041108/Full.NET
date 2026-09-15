@@ -273,6 +273,21 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **T00 结论：** 静态闭包与负向配置门禁通过；仅证明依赖可编译装配与配置边界，不证明协议可运行或 P0 Go。
 
+### T01（2026-09-15）：协议持久化与一次性状态
+
+| 项 | 证据 |
+| --- | --- |
+| 迁移 | **216** `IdentityOidcProtocolState`：四表 `fn_identity_oidc_application` / `_authorization` / `_scope` / `_token`；双库 expand-only；`object-comments.json` 已登记 |
+| Store | OpenIddict 7.7.0 四类 Dapper Store（`IQueryExecutor` / `ICommandExecutor`）；`Replace*Store` 静态注册；LINQ 重载显式 `NotSupportedException` |
+| V03 | `IdentityOidcStoreAssertions`：8 路并发授权码兑换仅 1 次成功（CAS `RedeemAuthorizationCode`） |
+| V15 | 撤销授权后换新 Store 实例仍无法兑换；`RedemptionDateUtc` 保持为空 |
+| V19 | `Migration216IdentityOidcRecoveryTests`：全量与 token 表中断恢复（SQL Server + MySQL，4/4） |
+| 双库入口 | `IdentityApiSqlServerTests` / `IdentityApiMySqlTests` 挂接 `IdentityOidcStoreAssertions` |
+| 聚焦验证 | `pnpm test:dotnet:unit -- --selection identity-oidc` 6/6；`pnpm test:dotnet:architecture -- --selection identity-oidc` 5/5；集成 `Oidc_stores_enforce_redemption\|recovers_oidc_protocol\|recovers_partial_token_schema` 6/6（Windows 本地，2026-09-15） |
+| 未验证 | 协议 HTTP 端点（T03/T04）、中心会话衔接（T02）、Linux Native AOT 运行时、V01—V24 其余场景 |
+
+**T01 结论：** Store 层 V03/V15/V19 在双库成立；不证明 OIDC 协议端点可运行或 P0 Go。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs

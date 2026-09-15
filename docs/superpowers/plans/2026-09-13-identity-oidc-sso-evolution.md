@@ -11,6 +11,7 @@
 ## 1. 批准、状态与范围
 
 - 日期：2026-09-13。
+- 计划修订：2026-09-15，按审查补齐既有会话消费者、切租户签发和强制下线入口的适配与验收；本次不依据其他工作区改动调整实施状态。
 - 批准依据：用户已确认研究建议并要求更新项目文档及执行计划。
 - 设计依据：[ADR-0011](../../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md)、[Identity 规格 §14](../specs/2026-07-17-identity-session-foundation-design.md#14-oidc-认证中心与-sso-演进2026-09-13-已确认)。
 - 证据与稳定场景编号：[eShop 对照研究 V01—V24](../../verification/2026-09-13-identity-oidc-sso-research-validation.md)。
@@ -44,6 +45,10 @@
 | 新增 | `src/Modules/Full.NET.Modules.Identity/Persistence/IdentityOidcSql.cs`、`IdentityOidcRecords.cs`（同目录） | T01 双库 SQL 与本地持久化记录 |
 | 新增 | `src/Modules/Full.NET.Modules.Identity/Oidc/IdentityOidcSessionService.cs`、`IdentityOidcPrincipalFactory.cs`、`IdentityOidcAccessSessionValidator.cs`（同目录） | T02 中心／客户端会话、最小 Claim 投影、资源端权威验证 |
 | 修改 | `src/Modules/Full.NET.Modules.Identity/DependencyInjection/IdentityAuthenticationServiceCollectionExtensions.cs`、`src/Modules/Full.NET.Modules.Identity/IdentityModule.cs` | T02/T03 新旧 Scheme 路由与装配，不改变旧登录默认行为 |
+| 修改 | `src/Modules/Full.NET.Modules.Identity/Features/ManageHostOnlineSessions/HostOnlineSessionManagementService.cs`、`src/Modules/Full.NET.Modules.Identity/Persistence/OnlineSessionSql.cs`、`IdentitySql.cs`（后两者同目录） | T02 既有在线会话查询、单会话／全部会话撤销接入 OIDC 会话权威源；T07 扩展跨应用通知 |
+| 修改 | `src/Modules/Full.NET.Modules.Identity/Features/ChangeSessionContext/IdentitySessionContextService.cs` | T02 按可信会话来源选择上下文更新和令牌签发路径，保留客户端授权边界 |
+| 修改 | `src/Modules/Full.NET.Modules.Identity/Security/CurrentSessionAuthorization.cs`、`BackgroundSessionBindingValidator.cs`、`BackgroundSessionAuthorization.cs`（同目录） | T02 交互工具、审批与后台任务接入新旧权威会话适配，保持逐次授权 |
+| 核对并按适配需要修改 | `src/Modules/Full.NET.Modules.Identity.Contracts/SessionBindingSnapshot.cs`、`ICurrentSessionAuthorization.cs`、`IBackgroundSessionBindingValidator.cs`、`IBackgroundSessionAuthorization.cs`（同目录）；`src/Modules/Full.NET.Modules.Ai/Features/ManageAgentRuns/AgentRunHttpBinding.cs`、`src/Modules/Full.NET.Modules.Ai/Runtime/AiAgentRunCoordinator.cs` | T02 冻结绑定的可信会话来源与稳定标识，兼容既有持久化任务；仅通过稳定 Contract Port 访问 Identity |
 | 新增 | `src/Modules/Full.NET.Modules.Identity/Features/OidcAuthorization/Endpoint.cs`、`src/Modules/Full.NET.Modules.Identity/Features/OidcSession/Endpoint.cs` | T03 协议交互和中心登录／退出衔接；协议处理交给组件 |
 | 修改 | `src/Modules/Full.NET.Modules.Identity/Serialization/IdentityJsonSerializerContext.cs` | T01—T03 新增自有 DTO 的静态 JSON 闭包；先核对真实类型名 |
 | 修改 | `src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/SqlServer/`、`src/BuildingBlocks/Full.NET.Migrations.DbUp/Migrations/MySql/` | T01 同编号新增协议状态／会话结构，编号按实施时库存分配 |
@@ -83,12 +88,12 @@
 
 **提供：** 四类 Store 的静态注册、客户端／授权／Scope／Token 数据查询和状态改变；记录类型与 SQL 只在 Identity 内可见。
 
-- [ ] 在 `IdentityOidcStoreAssertions` 建立 V03/V15/V19 的 RED：跨实例并发消费同一授权码最多一个成功；撤销后不能复活；中断迁移可恢复。
-- [ ] 依据当前数据库库存确定同一迁移编号，为双库创建协议记录、约束和索引，登记命名、对象注释与认证前 Global SQL 精确边界。
-- [ ] 通过自有执行器实现 Store；列出每个组件查询接口的受支持语义，不以空结果、客户端全表过滤或运行时动态 SQL 假装支持。
-- [ ] 实现原子条件更新、并发版本、撤销与过期清理；同一事务失败时不得遗留有效授权或部分成功状态。
-- [ ] 登记 Dapper AOT 参数／物化器及自有 JSON 元数据；明确协议序列化由组件提供，不把普通业务 camelCase 应用于协议字段。
-- [ ] 挂接 SQL Server/MySQL 测试入口；执行实际受影响双库 CI，记录同一场景结果、失败与跳过。
+- [x] 在 `IdentityOidcStoreAssertions` 建立 V03/V15/V19 的 RED：跨实例并发消费同一授权码最多一个成功；撤销后不能复活；中断迁移可恢复。
+- [x] 依据当前数据库库存确定同一迁移编号（**216**），为双库创建协议记录、约束和索引，登记命名、对象注释与认证前 Global SQL 精确边界。
+- [x] 通过自有执行器实现 Store；列出每个组件查询接口的受支持语义，不以空结果、客户端全表过滤或运行时动态 SQL 假装支持。
+- [x] 实现原子条件更新、并发版本、撤销与过期清理；同一事务失败时不得遗留有效授权或部分成功状态。
+- [x] 登记 Dapper AOT 参数／物化器及自有 JSON 元数据；明确协议序列化由组件提供，不把普通业务 camelCase 应用于协议字段。
+- [x] 挂接 SQL Server/MySQL 测试入口；执行实际受影响双库 CI，记录同一场景结果、失败与跳过。
 
 **通过条件：** V03/V15/V19 的 Store 层条件在双库成立，原生运行仍待 T04；不把内存 Store 通过作为此任务通过。
 
@@ -98,14 +103,20 @@
 
 **提供：** `IdentityOidcSessionService` 建立和撤销中心／应用会话；`IdentityOidcPrincipalFactory` 按身份或资源用途投影最小 Claim；`IdentityOidcAccessSessionValidator` 在资源请求中核验关联会话与账号权威状态。精确内部方法签名在开始编码前根据 T00/T01 实际类型登记到本任务。
 
+**消费方适配交付：** 覆盖文件地图中的现有管理入口、上下文切换、交互工具及后台任务，不能以新增 JwtBearer 验证器替代这些消费者的适配。会话来源由已验证的认证 Scheme／Issuer 和服务端映射确定；后台绑定保留可权威解析的来源、稳定会话标识与客户端关联，不接受调用方自报。需要演进 Contracts 或持久化绑定时，先登记最小契约及旧记录读取策略，不引入第三方协议 DTO 或跨模块 SQL。
+
 - [ ] 在 Unit 与 `IdentityOidcSessionAssertions` 首先建立 V10/V12/V13/V21/V23 的 RED：错误令牌类型、伪造租户、停用账号、旧刷新记录轮换和状态库故障不得放行。
 - [ ] 为稳定中心会话、客户端会话和令牌族建立显式关联；不改变旧 `sid` 的解析规则，不让新旧 Scheme 互相兜底。
 - [ ] 复用账号密码、锁定、强制改密与安全戳判断；新中心登录成功后仍需按同一安全策略创建会话，禁止中心 Cookie 绕过停用／强制下线。
 - [ ] 按 client_id、aud 与用途控制 Claim；标准 scope 与 `fullnet_scope` 分开，不向一般外部应用发安全戳和超管快照。
 - [ ] 固定主体到业务上下文的适配规则：受信 Issuer、已登记客户端、有效应用会话和本地账号映射全部成立后才构造租户／权限上下文。
+- [ ] 在接通现有强制下线入口前，冻结单会话与全部会话操作对应的中心／应用会话、令牌族及再授权阻断集合，保留原操作权限和 Host／租户边界。在线会话查询与撤销必须使用一致的目标集合；用户没有旧刷新记录但仍有 OIDC 会话时，不得提前返回“撤销零条”的成功结果。通过 Identity 自有事务边界完成权威撤销与审计，失败不能留下部分有效状态或报告成功；跨应用 Cookie 通知与传播窗口在 T07 扩展。
+- [ ] 改造 `IdentitySessionContextService`：按可信会话来源更新对应应用的上下文并选择原认证体系的签发路径。OIDC 切租户不得通过旧 `IAccessTokenIssuer` 换成旧令牌；组件签发的新令牌仍受原 Issuer、client_id、aud 和已批准 scope 约束，不扩大授权。定义切换后的旧令牌／后台绑定如何按上下文版本失效，并覆盖并发切换与撤销竞争；B 应用的上下文不随 A 改变。
+- [ ] 接通 `CurrentSessionAuthorization`、`BackgroundSessionBindingValidator` 与后台授权 Port；新旧会话均重新检查账号、会话、租户和当前权限。内部安全戳从权威映射获得，不通过向一般外部应用发安全戳来修补消费者。既有后台绑定仅按明确的旧格式解析，未知来源或无法映射的绑定拒绝，不在两套会话之间试探兜底。
+- [ ] 将 §6 的三组入口验收拆为可执行断言：T02 验证服务／Port 及双库状态转换；T03 使用真实签发的 OIDC 令牌经 HTTP 入口和工具调用链重跑。保留旧体系对应的成功与拒绝场景，不以仅调用新增 OIDC 服务代替现有入口验收。
 - [ ] 对旧登录、刷新、退出、改密、上下文切换与最后一名保护执行回归；双库测试验证状态改变后的后续请求拒绝。
 
-**通过条件：** 中心不能凭旧认证重建已撤销权限；现有管理 API 权威会话检查不退化。既有请求处理中不宣称回溯撤销。
+**通过条件：** 三组消费方适配及双库服务／Port 断言成立，中心不能凭旧认证重建已撤销权限；旧体系回归与新会话正常业务路径同时通过。完整协议入口证据由 T03 补齐，未完成时不能关闭 P0。既有请求处理中不宣称回溯撤销，后台任务在下一次执行／副作用授权检查时拒绝。
 
 ### T03（P0）：最小标准授权闭环与两个客户端夹具
 
@@ -120,8 +131,9 @@
 - [ ] 验证未请求 offline_access 时不误报已获得 Refresh Token；保存票据与刷新执行分别实现和验证。
 - [ ] 证明业务 API 仍返回 ProblemDetails，协议端点返回标准错误且不受通用包络改写；边界测试拒绝未登记协议例外。
 - [ ] 执行 JWT 格式适配实验，确定签名 JWT／JWE／其他受控验证模式；资源 API 不能通过持有中心私钥获得兼容。
+- [ ] 使用 A／B 实际签发的令牌执行 §6 三组入口验收，覆盖仅 OIDC 会话与新旧混合会话；真实调用现有强制下线、切租户以及工具／审批／后台任务入口，证明认证中间件与消费方适配一起生效。
 
-**通过条件：** 两个客户端各自完成真实 HTTP 授权与令牌验证，授权码绑定和负向用例双库通过；跨浏览器完整体验留给 T05。
+**通过条件：** 两个客户端各自完成真实 HTTP 授权与令牌验证，授权码绑定、三组入口验收和负向用例双库通过；跨浏览器完整体验留给 T05。
 
 ### T04（P0）：Linux Native AOT 与双实例可行性结论
 
@@ -131,6 +143,7 @@
 
 - [ ] 将 V01/V03/V10/V13/V20 挂接到现有 Native API 外部进程夹具和双库入口，不只在 JIT 测试里调用内部类。
 - [ ] 实测原生产物启动、依赖解析、授权／换码、数据库并发消费、验签和会话撤销。
+- [ ] 将 §6 三组入口验收的最小成功／拒绝路径挂入原生产物双库测试，覆盖切租户后的令牌验证、现有管理入口强制下线及工具／后台授权适配的 DI 与序列化闭包，补齐 V12/V21，不能只验证新 OIDC 服务可解析。
 - [ ] 执行 V16/V17 最小探针：双实例交错换码、中心重启、共享必要 key ring、公钥轮换；无进程级临时密钥或状态独占依赖。
 - [ ] 记录组件／数据库／RID／提交、工作流链接、通过与失败步骤、未验证项；将研究报告 V01—V24 中确实执行的具体层次分别标记，不能整表勾选。
 - [ ] 审查新旧认证与数据边界、依赖许可和风险。P0 失败时保持原登录，不继续生产接入；通过后按已批准方向推进。
@@ -165,7 +178,7 @@
 
 **目标文件：** T02 会话服务、T06 授权管理、Identity Worker 最小清理／投递入口及相应双库／多实例测试。只有确认需要可靠跨应用投递时新增 Identity 所有的退出通知状态，按既有 Outbox 边界注册。
 
-- [ ] 在实施前依据业务保护要求，将当前应用退出、全局退出和强制下线的目标会话集合、外部 API 令牌窗口、通知重试与可接受传播时限写入规格并冻结；随后按固定时限实测，不根据测试结果反向放宽门槛，也不预先宣称即时完成。
+- [ ] 以 T02 已冻结的强制下线权威撤销集合和 T03 现有入口验收为前置，在实施前补齐当前应用退出、全局退出的目标集合、外部 API 令牌窗口、通知重试与可接受传播时限并写入规格；随后按固定时限实测，不根据测试结果反向放宽门槛。不得把 Full.NET 本地权威撤销延迟到通知成功后，也不预先宣称跨应用即时完成。
 - [ ] 建立 V13/V14/V15/V16/V17/V23 的 RED：客户端离线、重复／伪造通知、状态库故障、应用重启和 key ring 轮换。
 - [ ] 根据选定组件实测支持选择标准退出通知；接收方验证 Issuer／Audience／会话关联与重放保护，不能只信任 sid 或回调来源 IP。
 - [ ] 实现幂等撤销、必要的可靠通知和有界重试；区分清 Cookie、撤销刷新与拒绝既有 Access Token。
@@ -180,6 +193,7 @@
 - [ ] 基于 P0/P1 结果冻结 Vue 服务端回调或 BFF、票据存储和更新策略，以及旧令牌的受信窗口；不自动引入新的生产宿主。
 - [ ] 先为 V09/V12/V14/V18/V21/V22/V24 建立失败回归：并发刷新、切租户、退出、CSRF、旧入口和未知令牌拒绝。
 - [ ] 迁移登录／回调／退出与错误展示，保留共享权限与租户运行时；浏览器不自行解析未验证 JWT 建立可信授权。
+- [ ] 复用 T02/T03 已验证的上下文签发和会话消费者适配，Vue 验收同时覆盖切租户后的业务请求、工具／审批、后台任务和现有强制下线操作；不得到 P3 才补接服务端会话消费者。
 - [ ] 执行旧登录并行和回退演练：切回入口时同时验证 Issuer／Scheme／会话信任，不能仅切页面；已轮换、过期或已撤销的 Refresh Token、已撤销会话和未知 Issuer 继续拒绝；受信窗口内仍有效的旧体系令牌按兼容策略处理。
 - [ ] 执行全部适用 V01—V24 与 Vue 可访问性／多语言／双库真实栈回归，保留发布、监控和回退记录。
 - [ ] 仅在实际通过相应门禁后更新能力状态；旧入口退役另记录版本、存活窗口与恢复方式，生产发布遵循授权和现有发布流程。
@@ -225,15 +239,23 @@ pnpm test:dotnet:architecture -- --selection api-native-aot
 | V08、V09 | T03、T06、T08 |
 | V10 | T02、T03、T04、T05 |
 | V11 | T05、T06 |
-| V12、V21 | T02、T08 |
-| V13 | T02、T04、T07 |
+| V12、V21 | T02、T03、T04、T08 |
+| V13 | T02、T03、T04、T07 |
 | V14 | T07、T08 |
 | V15、V19 | T01、T06、T07 |
 | V16、V17 | T04、T06、T07 |
 | V18 | T03、T05、T08 |
 | V20 | T04 |
 | V22 | T05、T08 |
-| V23 | T02、T07 |
+| V23 | T02、T03、T07 |
 | V24 | T05、T06、T08 |
+
+以下三组为既有 V 编号的必验子场景，不另设竞争编号或仅凭文档勾选通过。T02 交付服务／Port 断言，T03 接真实协议和现有入口，T04 验证最小原生闭环，T08 验收 Vue 消费；涉及持久化的场景均需 SQL Server/MySQL 同场景证据。
+
+| 入口与验证编号 | 必验成功／拒绝场景 | 结果要求 |
+| --- | --- | --- |
+| 现有在线会话管理 API；V13/V21/V23 | 仅旧会话、仅 OIDC 会话、新旧混合；按已冻结集合分别执行单会话／全部强制下线；重复撤销、无权限、跨租户及状态写入故障 | 查询／撤销集合一致；仅 OIDC 用户不误报零撤销；目标会话后续管理请求、刷新和旧中心 Cookie 再授权拒绝，非目标会话不误伤；失败不报告成功，审计与权威撤销一致 |
+| 现有上下文切换入口；V12/V21 | A／B 独立应用会话，A 切租户后访问真实业务 API；旧体系对应回归；并发切换、与撤销竞争、缺权限及伪造租户 | 返回令牌保持原认证体系、客户端、受众和授权范围约束；A 的旧令牌／后台绑定按冻结版本策略处理，B 不变；新会话不回落到旧签发器，未授权租户拒绝 |
+| 工具、审批、后台任务入口及执行 Port；V13/V21/V23 | 新旧登录均完成一次有权限操作；任务排队后撤销会话、停用账号、撤权或切换上下文，再恢复执行；旧持久化绑定、未知来源绑定和状态库故障 | 正常新会话不会因查询旧刷新表而被拒绝；后续执行／副作用前权威授权拒绝失效绑定；旧记录兼容不依赖外发安全戳，不跨模块直查 Identity 表，不在失败时退回旧验证器 |
 
 通过 P0 后在本计划记录 Go／No-go 和证据，不另建平行计划；任务完成复核输入、文件、断言与未验证项后才勾选。失败／跳过不得借文档批准、历史 JWT 验证或组件官方 AOT 声明转为通过。

@@ -1,4 +1,6 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Oidc.Stores;
+using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -34,10 +36,24 @@ internal static class IdentityOidcServiceCollectionExtensions
             return services;
         }
 
+        services.TryAddScoped<IdentityOidcStoreSqlResolver>();
+        services.TryAddScoped<IdentityOidcApplicationStore>();
+        services.TryAddScoped<IdentityOidcAuthorizationStore>();
+        services.TryAddScoped<IdentityOidcScopeStore>();
+        services.TryAddScoped<IdentityOidcTokenStore>();
+
         services.AddOpenIddict()
             .AddCore(options =>
             {
-                // T01 在此注册 Dapper Store；T00 仅验证静态闭包可编译装配。
+                options.SetDefaultApplicationEntity<IdentityOidcApplication>();
+                options.SetDefaultAuthorizationEntity<IdentityOidcAuthorization>();
+                options.SetDefaultScopeEntity<IdentityOidcScope>();
+                options.SetDefaultTokenEntity<IdentityOidcToken>();
+
+                options.ReplaceApplicationStore<IdentityOidcApplication, IdentityOidcApplicationStore>();
+                options.ReplaceAuthorizationStore<IdentityOidcAuthorization, IdentityOidcAuthorizationStore>();
+                options.ReplaceScopeStore<IdentityOidcScope, IdentityOidcScopeStore>();
+                options.ReplaceTokenStore<IdentityOidcToken, IdentityOidcTokenStore>();
             })
             .AddServer(options =>
             {

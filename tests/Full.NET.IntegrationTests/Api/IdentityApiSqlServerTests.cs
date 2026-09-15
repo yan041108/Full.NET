@@ -170,4 +170,22 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityModuleCatalogAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_stores_enforce_redemption_and_revocation_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            new Dictionary<string, string?>
+            {
+                ["Identity:Oidc:Enable"] = "true",
+                ["Identity:Oidc:Issuer"] = "https://localhost/identity",
+                ["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "true",
+                ["Identity:Oidc:Clients:0:ClientId"] = "integration-oidc-client",
+                ["Identity:Oidc:Clients:0:RedirectUris:0"] = "https://localhost/signin-oidc",
+            });
+
+        await IdentityOidcStoreAssertions.VerifyAsync(factory);
+    }
 }
