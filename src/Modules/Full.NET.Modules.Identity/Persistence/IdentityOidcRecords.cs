@@ -86,6 +86,11 @@ internal sealed record IdentityOidcAuthorizationRow(
     string? ScopesJson, string? Status, string? Subject, string? Type, long Version,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc);
 
+internal sealed record IdentityOidcAuthorizationDetailRow(
+    Guid Id, Guid? ApplicationId, DateTimeOffset? CreationDateUtc, string? PropertiesJson,
+    string? ScopesJson, string? Status, string? Subject, string? Type, long Version,
+    DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, string? ClientId);
+
 internal sealed record IdentityOidcScopeRow(
     Guid Id, string? Name, string? Description, string? DescriptionsJson, string? DisplayName,
     string? DisplayNamesJson, string? PropertiesJson, string? ResourcesJson, long Version,

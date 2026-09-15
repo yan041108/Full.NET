@@ -7,6 +7,11 @@ using System.Security.Cryptography;
 
 namespace Full.NET.IntegrationTests.Identity;
 
+
+internal sealed record IdentityOidcTokenExchangeResult(
+    HttpStatusCode StatusCode,
+    bool IsSuccessStatusCode,
+    string RawBody);
 internal sealed record IdentityOidcAuthorizationResult(
     string Code,
     string State,
@@ -263,5 +268,36 @@ internal static class IdentityOidcRelyingPartyFixture
         }
 
         return Convert.FromBase64String(padded);
+    }
+
+    public static async Task<IdentityOidcTokenExchangeResult> ExchangeRefreshTokenAsync(
+        HttpClient client,
+        string refreshToken,
+        string clientId,
+        string? clientSecret,
+        CancellationToken cancellationToken = default)
+    {
+        var tokenRequest = new Dictionary<string, string>
+        {
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = refreshToken,
+            ["client_id"] = clientId,
+        };
+        if (!string.IsNullOrWhiteSpace(clientSecret))
+        {
+            tokenRequest["client_secret"] = clientSecret!;
+        }
+
+        using var tokenResponse = await client.PostAsync(
+                "/connect/token",
+                new FormUrlEncodedContent(tokenRequest),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var raw = await tokenResponse.Content.ReadAsStringAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return new IdentityOidcTokenExchangeResult(
+            tokenResponse.StatusCode,
+            tokenResponse.IsSuccessStatusCode,
+            raw);
     }
 }

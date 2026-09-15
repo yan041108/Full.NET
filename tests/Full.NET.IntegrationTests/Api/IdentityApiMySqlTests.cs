@@ -221,4 +221,28 @@ public sealed class IdentityApiMySqlTests
 
         await IdentityOidcClientManagementAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_authorization_management_admin_api_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcAuthorizationManagementAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Oidc_governance_scenarios_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await factory.InitializeAsync();
+        using var client = factory.CreateClientForHost("localhost");
+        await IdentityOidcGovernanceAssertions.VerifyAsync(client);
+    }
 }

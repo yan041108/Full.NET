@@ -181,6 +181,9 @@ public static class IdentityErrorCodes
     /// <summary>OIDC 客户端已停用。</summary>
     public const string OidcClientDisabled = "identity.oidc_clients.disabled";
 
+    /// <summary>目标 OIDC 授权授予不存在。</summary>
+    public const string OidcAuthorizationNotFound = "identity.oidc_authorizations.not_found";
+
     /// <summary>目标 OpenAccess 接入方应用不存在或已停用。</summary>
     public const string OpenAccessClientNotFound = "identity.open_access_clients.not_found";
 
@@ -467,6 +470,7 @@ public static class IdentityErrorCodes
         OidcClientNotFound,
         OidcClientIdConflict,
         OidcClientDisabled,
+        OidcAuthorizationNotFound,
         OpenAccessClientNotFound,
         OpenAccessClientVersionConflict,
         OpenAccessClientQuotaExceeded,

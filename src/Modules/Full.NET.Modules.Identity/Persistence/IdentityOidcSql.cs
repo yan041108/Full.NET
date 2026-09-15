@@ -16,6 +16,12 @@ internal static class IdentityOidcSql
         auth.Status, auth.Subject, auth.Type, auth.Version, auth.CreatedAtUtc, auth.UpdatedAtUtc
         """;
 
+    private const string AuthorizationDetailColumns = """
+        auth.Id, auth.ApplicationId, auth.CreationDateUtc, auth.PropertiesJson, auth.ScopesJson,
+        auth.Status, auth.Subject, auth.Type, auth.Version, auth.CreatedAtUtc, auth.UpdatedAtUtc,
+        app.ClientId
+        """;
+
     private const string ScopeColumns = """
         scope.Id, scope.Name, scope.Description, scope.DescriptionsJson, scope.DisplayName,
         scope.DisplayNamesJson, scope.PropertiesJson, scope.ResourcesJson, scope.Version,
@@ -208,6 +214,81 @@ internal static class IdentityOidcSql
     public static readonly SqlStatement FindAuthorizationById = new(
         "identity.find_oidc_authorization_by_id",
         $"SELECT {AuthorizationColumns} FROM fn_identity_oidc_authorization AS auth WHERE auth.Id = @Id",
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement FindAuthorizationDetailById = new(
+        "identity.find_oidc_authorization_detail_by_id",
+        $"""
+        SELECT {AuthorizationDetailColumns}
+        FROM fn_identity_oidc_authorization AS auth
+        LEFT JOIN fn_identity_oidc_application AS app ON app.Id = auth.ApplicationId
+        WHERE auth.Id = @Id
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountAuthorizationsFilteredSqlServer = new(
+        "identity.count_oidc_authorizations_filtered.sql_server",
+        """
+        SELECT COUNT(1) AS Count
+        FROM fn_identity_oidc_authorization AS auth
+        LEFT JOIN fn_identity_oidc_application AS app ON app.Id = auth.ApplicationId
+        WHERE (@ApplicationId IS NULL OR auth.ApplicationId = @ApplicationId)
+          AND (@Subject IS NULL OR auth.Subject = @Subject)
+          AND (@Status IS NULL OR auth.Status = @Status)
+          AND (@ClientIdContains IS NULL OR app.ClientId LIKE '%' + @ClientIdContains + '%')
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement CountAuthorizationsFilteredMySql = new(
+        "identity.count_oidc_authorizations_filtered.mysql",
+        """
+        SELECT COUNT(1) AS Count
+        FROM fn_identity_oidc_authorization AS auth
+        LEFT JOIN fn_identity_oidc_application AS app ON app.Id = auth.ApplicationId
+        WHERE (@ApplicationId IS NULL OR auth.ApplicationId = @ApplicationId)
+          AND (@Subject IS NULL OR auth.Subject = @Subject)
+          AND (@Status IS NULL OR auth.Status = @Status)
+          AND (@ClientIdContains IS NULL OR app.ClientId LIKE CONCAT('%', @ClientIdContains, '%'))
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListAuthorizationsFilteredSqlServer = new(
+        "identity.list_oidc_authorizations_filtered.sql_server",
+        $"""
+        SELECT {AuthorizationDetailColumns}
+        FROM fn_identity_oidc_authorization AS auth
+        LEFT JOIN fn_identity_oidc_application AS app ON app.Id = auth.ApplicationId
+        WHERE (@ApplicationId IS NULL OR auth.ApplicationId = @ApplicationId)
+          AND (@Subject IS NULL OR auth.Subject = @Subject)
+          AND (@Status IS NULL OR auth.Status = @Status)
+          AND (@ClientIdContains IS NULL OR app.ClientId LIKE '%' + @ClientIdContains + '%')
+        ORDER BY auth.CreatedAtUtc DESC, auth.Id DESC
+        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement ListAuthorizationsFilteredMySql = new(
+        "identity.list_oidc_authorizations_filtered.mysql",
+        $"""
+        SELECT {AuthorizationDetailColumns}
+        FROM fn_identity_oidc_authorization AS auth
+        LEFT JOIN fn_identity_oidc_application AS app ON app.Id = auth.ApplicationId
+        WHERE (@ApplicationId IS NULL OR auth.ApplicationId = @ApplicationId)
+          AND (@Subject IS NULL OR auth.Subject = @Subject)
+          AND (@Status IS NULL OR auth.Status = @Status)
+          AND (@ClientIdContains IS NULL OR app.ClientId LIKE CONCAT('%', @ClientIdContains, '%'))
+        ORDER BY auth.CreatedAtUtc DESC, auth.Id DESC
+        LIMIT @PageSize OFFSET @Offset
+        """,
+        SqlDataScope.HostOnly);
+
+    public static readonly SqlStatement RevokeAuthorizationById = new(
+        "identity.revoke_oidc_authorization_by_id",
+        """
+        UPDATE fn_identity_oidc_authorization
+        SET Status = @RevokedStatus, UpdatedAtUtc = @UpdatedAtUtc, Version = Version + 1
+        WHERE Id = @Id AND Status <> @RevokedStatus
+        """,
         SqlDataScope.HostOnly);
 
     public static readonly SqlStatement CountAuthorizations = new(

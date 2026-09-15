@@ -67,6 +67,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<SuperAdministratorAuditResponse>(ReadSuperAdministratorAuditResponse);
         registrar.Register<IdentityOidcApplicationRow>(ReadIdentityOidcApplicationRow);
         registrar.Register<IdentityOidcAuthorizationRow>(ReadIdentityOidcAuthorizationRow);
+        registrar.Register<IdentityOidcAuthorizationDetailRow>(ReadIdentityOidcAuthorizationDetailRow);
         registrar.Register<IdentityOidcScopeRow>(ReadIdentityOidcScopeRow);
         registrar.Register<IdentityOidcTokenRow>(ReadIdentityOidcTokenRow);
         registrar.Register<IdentityOidcCountRow>(ReadIdentityOidcCountRow);
@@ -754,6 +755,21 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
             ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
             ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcAuthorizationDetailRow ReadIdentityOidcAuthorizationDetailRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadOptionalGuidByName(reader, "ApplicationId"),
+            ReadNullableDateTimeOffsetByName(reader, "CreationDateUtc"),
+            ReadOptionalStringByName(reader, "PropertiesJson"),
+            ReadOptionalStringByName(reader, "ScopesJson"),
+            ReadOptionalStringByName(reader, "Status"),
+            ReadOptionalStringByName(reader, "Subject"),
+            ReadOptionalStringByName(reader, "Type"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"),
+            ReadOptionalStringByName(reader, "ClientId"));
 
     private static IdentityOidcScopeRow ReadIdentityOidcScopeRow(DbDataReader reader) =>
         new(

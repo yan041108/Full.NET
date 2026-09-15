@@ -1,11 +1,12 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Oidc;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
-using OpenIddict.Server.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using OpenIddict.Abstractions;
+using OpenIddict.Server.AspNetCore;
 
 namespace Full.NET.Modules.Identity.Features.OidcToken;
 
@@ -23,10 +24,26 @@ internal static class Endpoint
             .WithTags("IdentityOidcProtocol");
     }
 
-    private static async Task<IResult> HandleTokenAsync(HttpContext httpContext, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTokenAsync(
+        HttpContext httpContext,
+        IdentityOidcClientConfigResolver clientConfigResolver,
+        CancellationToken cancellationToken)
     {
         var request = httpContext.GetOpenIddictServerRequest()
             ?? throw new InvalidOperationException("The OpenIddict request cannot be resolved.");
+        if (!string.IsNullOrWhiteSpace(request.ClientId)
+            && await clientConfigResolver.IsDisabledAsync(request.ClientId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return Results.Json(
+                new
+                {
+                    error = "unauthorized_client",
+                    error_description = "The OIDC client is disabled.",
+                },
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         if (request.IsAuthorizationCodeGrantType() || request.IsRefreshTokenGrantType())
         {
             var authenticateResult = await httpContext.AuthenticateAsync(

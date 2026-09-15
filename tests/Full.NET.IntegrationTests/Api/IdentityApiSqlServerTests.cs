@@ -221,4 +221,28 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityOidcClientManagementAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_authorization_management_admin_api_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcAuthorizationManagementAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Oidc_governance_scenarios_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await factory.InitializeAsync();
+        using var client = factory.CreateClientForHost("localhost");
+        await IdentityOidcGovernanceAssertions.VerifyAsync(client);
+    }
 }

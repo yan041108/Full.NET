@@ -1,17 +1,25 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Identity.Contracts;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Full.NET.IntegrationTests.Identity;
 
 internal static class IdentityOidcGovernanceAssertions
 {
+    private const string ExternalRedirectUri = "https://localhost:5012/signin-oidc-governance-external";
+
     public static async Task VerifyAsync(
         HttpClient client,
         CancellationToken cancellationToken = default)
     {
         await VerifyV08WithoutOfflineAccessAsync(client, cancellationToken);
-        AssertInconclusiveV09ConcurrentRefresh();
-        AssertInconclusiveV11ScopePermissionBoundary();
-        AssertInconclusiveV15CrossInstanceCache();
+        await VerifyV09RefreshTokenReuseAsync(client, cancellationToken);
+        await VerifyV11ScopePermissionBoundaryAsync(client, cancellationToken);
+        await VerifyV15DisabledClientRejectedAtTokenEndpointAsync(client, cancellationToken);
         AssertInconclusiveV19MigrationRecovery();
     }
 
@@ -32,14 +40,141 @@ internal static class IdentityOidcGovernanceAssertions
         Assert.IsNull(result.RefreshToken);
     }
 
-    private static void AssertInconclusiveV09ConcurrentRefresh() =>
-        Assert.Inconclusive("V09 concurrent refresh family reuse requires dedicated multi-flow harness.");
+    private static async Task VerifyV09RefreshTokenReuseAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
 
-    private static void AssertInconclusiveV11ScopePermissionBoundary() =>
-        Assert.Inconclusive("V11 scope and business permission boundary requires T05 resource API slice.");
+        var firstRefresh = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            flow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken);
+        Assert.IsTrue(firstRefresh.IsSuccessStatusCode);
 
-    private static void AssertInconclusiveV15CrossInstanceCache() =>
-        Assert.Inconclusive("V15 cross-instance client cache invalidation requires multi-instance harness.");
+        var secondRefresh = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            flow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(secondRefresh.IsSuccessStatusCode);
+        StringAssert.Contains(secondRefresh.RawBody, "error");
+    }
+
+    private static async Task VerifyV11ScopePermissionBoundaryAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var externalClientId = $"gov-ext-{Guid.NewGuid():N}"[..24];
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/oidc-clients")
+        {
+            Content = JsonContent.Create(new CreateOidcClientRequest(
+                externalClientId,
+                "Governance external client",
+                [ExternalRedirectUri],
+                [],
+                ["openid", "profile"],
+                false,
+                false,
+                null)),
+        };
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            externalClientId,
+            ExternalRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.AccessToken));
+
+        using var usersRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/users?page=1&pageSize=1");
+        usersRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
+        using var usersResponse = await client.SendAsync(usersRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Forbidden, usersResponse.StatusCode);
+        using var problem = JsonDocument.Parse(await usersResponse.Content.ReadAsStringAsync(cancellationToken));
+        Assert.AreEqual(
+            "authorization.permission_denied",
+            problem.RootElement.GetProperty("code").GetString());
+    }
+
+    private static async Task VerifyV15DisabledClientRejectedAtTokenEndpointAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var clientId = $"gov-disable-{Guid.NewGuid():N}"[..24];
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/oidc-clients")
+        {
+            Content = JsonContent.Create(new CreateOidcClientRequest(
+                clientId,
+                "Governance disable client",
+                [ExternalRedirectUri],
+                [],
+                ["openid", "profile", "offline_access"],
+                false,
+                true,
+                null)),
+        };
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<CreateOidcClientResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            clientId,
+            ExternalRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
+
+        using var disableRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/oidc-clients/{created!.Client.Id:D}/disable");
+        disableRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var disableResponse = await client.SendAsync(disableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, disableResponse.StatusCode);
+
+        var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            flow.RefreshToken!,
+            clientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(refreshResult.IsSuccessStatusCode);
+        StringAssert.Contains(refreshResult.RawBody, "unauthorized_client");
+    }
 
     private static void AssertInconclusiveV19MigrationRecovery() =>
         Assert.Inconclusive("V19 migration recovery is covered by Migration216IdentityOidcRecoveryTests.");

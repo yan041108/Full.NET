@@ -29,6 +29,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
     private const string IdentityHostApiKeysTag = "IdentityHostApiKeys";
     private const string IdentityOpenAccessClientsTag = "IdentityOpenAccessClients";
     private const string IdentityOidcClientsTag = "IdentityOidcClients";
+    private const string IdentityOidcAuthorizationsTag = "IdentityOidcAuthorizations";
     private const string IdentityRegistrationPolicyTag = "IdentityRegistrationPolicy";
     private const string IdentityRegistrationWaysTag = "IdentityRegistrationWays";
     private const string IdentityLdapConnectionsTag = "IdentityLdapConnections";
@@ -296,6 +297,9 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("PUT", "/api/v1/identity/oidc-clients/{clientId}", "identityUpdateOidcClient", IdentityOidcClientsTag),
         new("POST", "/api/v1/identity/oidc-clients/{clientId}/disable", "identityDisableOidcClient", IdentityOidcClientsTag),
         new("POST", "/api/v1/identity/oidc-clients/{clientId}/rotate", "identityRotateOidcClientSecret", IdentityOidcClientsTag),
+        new("GET", "/api/v1/identity/oidc-authorizations", "identityListOidcAuthorizations", IdentityOidcAuthorizationsTag),
+        new("GET", "/api/v1/identity/oidc-authorizations/{id}", "identityGetOidcAuthorization", IdentityOidcAuthorizationsTag),
+        new("POST", "/api/v1/identity/oidc-authorizations/{id}/revoke", "identityRevokeOidcAuthorization", IdentityOidcAuthorizationsTag),
         new("GET", "/api/v1/identity/registration-policy", "identityGetRegistrationPolicy", IdentityRegistrationPolicyTag),
         new("PUT", "/api/v1/identity/registration-policy", "identityUpdateRegistrationPolicy", IdentityRegistrationPolicyTag),
         new("GET", "/api/v1/identity/registration-ways", "identityListRegistrationWays", IdentityRegistrationWaysTag),

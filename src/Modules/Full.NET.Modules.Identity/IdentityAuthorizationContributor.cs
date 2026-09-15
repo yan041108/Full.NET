@@ -199,6 +199,14 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 OIDC 客户端密钥",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOidcAuthorizationPermissions.Read,
+            "查看 OIDC 授权授予",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
+            IdentityOidcAuthorizationPermissions.Revoke,
+            "撤销 OIDC 授权授予",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityOpenAccessClientPermissions.Read,
             "查看 OpenAccess 接入方应用",
             AuthorizationScope.Host),
@@ -369,6 +377,17 @@ internal sealed class IdentityAuthorizationContributor
             "key",
             38,
             IdentityOidcClientPermissions.Read),
+        new NavigationDefinition(
+            "oidc-authorizations",
+            null,
+            "oidc-authorizations",
+            "/identity/oidc-authorizations",
+            "oidc-authorizations",
+            "OIDC 授权授予",
+            "OIDC Authorizations",
+            "document",
+            39,
+            IdentityOidcAuthorizationPermissions.Read),
         new NavigationDefinition(
             "registration-ways",
             null,
@@ -692,6 +711,13 @@ internal sealed class IdentityAuthorizationContributor
             "轮换 OIDC 密钥",
             "rotate",
             40),
+        new AuthorizationActionDefinition(
+            "identity.oidc_authorizations.revoke",
+            "oidc-authorizations",
+            IdentityOidcAuthorizationPermissions.Revoke,
+            "撤销 OIDC 授权",
+            "revoke",
+            10),
         new AuthorizationActionDefinition(
             "identity.open_access_clients.create",
             "open-access-clients",

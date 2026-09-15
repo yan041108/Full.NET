@@ -1,5 +1,6 @@
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Features.ManageOidcClients;
+using Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Oidc.Stores;
@@ -63,6 +64,8 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<IdentityOidcClientConfigResolver>();
         services.TryAddScoped<OidcClientQueryService>();
         services.TryAddScoped<OidcClientManagementService>();
+        services.TryAddScoped<OidcAuthorizationQueryService>();
+        services.TryAddScoped<OidcAuthorizationManagementService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IdentityOidcClientRegistrar>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IExceptionHandler, IdentityOidcProtocolExceptionHandler>());
 
@@ -104,6 +107,8 @@ internal static class IdentityOidcServiceCollectionExtensions
                 options.AllowAuthorizationCodeFlow()
                     .AllowRefreshTokenFlow()
                     .RequireProofKeyForCodeExchange();
+                // 治理测试 V09 要求同一 refresh_token 二次兑换立即失败；默认 30 秒复用宽限期会掩盖重放。
+                options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
                 options.DisableAccessTokenEncryption();
                 // OpenIddict 仍要求注册加密密钥；Access Token 使用签名 JWT，加密密钥仅满足运行时门禁。
                 options.AddEphemeralEncryptionKey();

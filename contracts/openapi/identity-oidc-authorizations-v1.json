@@ -1,0 +1,25 @@
+{
+  "id": "identity-oidc-authorizations-v1",
+  "version": 1,
+  "description": "OIDC authorization grant admin HTTP contract fixture.",
+  "paths": [
+    {
+      "path": "/api/v1/identity/oidc-authorizations",
+      "operations": [
+        { "method": "GET", "permission": "identity.oidc_authorizations.read", "successStatus": 200, "responseSchema": "OidcAuthorizationResponsePage" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-authorizations/{id}",
+      "operations": [
+        { "method": "GET", "permission": "identity.oidc_authorizations.read", "successStatus": 200, "responseSchema": "OidcAuthorizationResponse" }
+      ]
+    },
+    {
+      "path": "/api/v1/identity/oidc-authorizations/{id}/revoke",
+      "operations": [
+        { "method": "POST", "permission": "identity.oidc_authorizations.revoke", "successStatus": 200, "responseSchema": "OidcAuthorizationResponse" }
+      ]
+    }
+  ]
+}
