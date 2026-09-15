@@ -77,6 +77,16 @@ export function createAppRouter(
         component: () => import('../views/OpenAccessClientsView.vue')
       },
       {
+        name: 'oidc-clients',
+        path: '/identity/oidc-clients',
+        component: () => import('../views/OidcClientsView.vue')
+      },
+      {
+        name: 'oidc-authorizations',
+        path: '/identity/oidc-authorizations',
+        component: () => import('../views/OidcAuthorizationsView.vue')
+      },
+      {
         name: 'registration-ways',
         path: '/identity/registration-ways',
         component: () => import('../views/RegistrationWaysView.vue')

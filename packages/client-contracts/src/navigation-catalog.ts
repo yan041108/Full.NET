@@ -50,6 +50,16 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/open-access-clients'
   },
   {
+    componentKey: 'oidc-clients',
+    routeName: 'oidc-clients',
+    path: '/identity/oidc-clients'
+  },
+  {
+    componentKey: 'oidc-authorizations',
+    routeName: 'oidc-authorizations',
+    path: '/identity/oidc-authorizations'
+  },
+  {
     componentKey: 'registration-ways',
     routeName: 'registration-ways',
     path: '/identity/registration-ways'

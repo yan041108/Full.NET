@@ -96,6 +96,16 @@ describe('headless 管理端导航目录', () => {
       routeName: 'notification-templates',
       path: '/notifications/templates'
     });
+    expect(catalog.localNavigationFor('oidc-clients')).toEqual({
+      componentKey: 'oidc-clients',
+      routeName: 'oidc-clients',
+      path: '/identity/oidc-clients'
+    });
+    expect(catalog.localNavigationFor('oidc-authorizations')).toEqual({
+      componentKey: 'oidc-authorizations',
+      routeName: 'oidc-authorizations',
+      path: '/identity/oidc-authorizations'
+    });
   });
 
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {

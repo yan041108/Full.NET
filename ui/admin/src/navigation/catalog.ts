@@ -48,6 +48,14 @@ const messageKeys = new Map<string, Pick<LocalNavigationDefinition, 'titleKey' |
     titleKey: 'navigation.openAccessClients.title',
     captionKey: 'navigation.openAccessClients.caption'
   }],
+  ['oidc-clients', {
+    titleKey: 'navigation.oidcClients.title',
+    captionKey: 'navigation.oidcClients.caption'
+  }],
+  ['oidc-authorizations', {
+    titleKey: 'navigation.oidcAuthorizations.title',
+    captionKey: 'navigation.oidcAuthorizations.caption'
+  }],
   ['registration-ways', {
     titleKey: 'navigation.registrationWays.title',
     captionKey: 'navigation.registrationWays.caption'

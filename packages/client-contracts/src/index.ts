@@ -274,6 +274,34 @@ export type {
 } from './open-access-clients.js';
 
 export {
+  isCreateOidcClientResult,
+  isOidcClient,
+  isOidcClientPage,
+  isRotateOidcClientSecretResult
+} from './oidc-clients.js';
+
+export type {
+  CreateOidcClientRequest,
+  CreateOidcClientResult,
+  OidcClient,
+  OidcClientListQuery,
+  OidcClientPage,
+  RotateOidcClientSecretResult,
+  UpdateOidcClientRequest
+} from './oidc-clients.js';
+
+export {
+  isOidcAuthorization,
+  isOidcAuthorizationPage
+} from './oidc-authorizations.js';
+
+export type {
+  OidcAuthorization,
+  OidcAuthorizationListQuery,
+  OidcAuthorizationPage
+} from './oidc-authorizations.js';
+
+export {
   isRegistrationPolicy,
   isRegistrationWay,
   isRegistrationWayPage
