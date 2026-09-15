@@ -37,6 +37,7 @@ import './framework/art-design/theme/art-menu-layouts.css';
 import './framework/art-design/theme/art-settings-panel.css';
 import './framework/art-design/auth/art-login.css';
 import { scheduleComboboxLabeling } from './framework/art-design/accessibility/labelComboboxes';
+import { shouldLogoutOnSessionRevoke } from './auth/sessionRevokePolicy';
 
 const route = useRoute();
 const router = useRouter();
@@ -46,11 +47,12 @@ const notificationsRealtime = createVueNotificationsRealtime({
   enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false',
   hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications'),
   onSessionRevoked(sessionId) {
-    const currentSessionId = session.currentUser?.sessionId;
-    if (currentSessionId === undefined || currentSessionId === sessionId) {
-      session.invalidateLocalSession();
-      void router.replace('/login');
+    if (!shouldLogoutOnSessionRevoke(session.currentUser?.sessionId, sessionId)) {
+      return;
     }
+
+    session.invalidateLocalSession();
+    void router.replace('/login');
   }
 });
 provide(notificationsRealtimeKey, notificationsRealtime);

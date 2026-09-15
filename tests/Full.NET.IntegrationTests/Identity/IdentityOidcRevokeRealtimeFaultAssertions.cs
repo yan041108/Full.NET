@@ -68,6 +68,11 @@ internal static class IdentityOidcRevokeRealtimeFaultAssertions
             publisher.PublishAttempts >= 3,
             "Expected bounded realtime retry attempts after authoritative revoke.");
 
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
+        using var meResponse = await client.SendAsync(meRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, meResponse.StatusCode);
+
         var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
             client,
             flow.RefreshToken!,
