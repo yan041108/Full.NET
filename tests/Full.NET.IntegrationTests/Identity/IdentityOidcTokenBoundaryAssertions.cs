@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Oidc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
@@ -112,6 +113,28 @@ internal static class IdentityOidcTokenBoundaryAssertions
                 }),
             "forged subject",
             cancellationToken);
+        await VerifyMeRejectsTokenAsync(
+            client,
+            ResignAccessToken(
+                flow.AccessToken,
+                signingKey,
+                BoundaryKeyId,
+                validIssuer,
+                validAudience,
+                claimReplacements: new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    [FullNetIdentityClaimTypes.TokenUse] = IdentityOidcPrincipalFactory.TokenUseId,
+                }),
+            "id token use",
+            cancellationToken);
+        if (!string.IsNullOrWhiteSpace(flow.IdToken))
+        {
+            await VerifyMeRejectsTokenAsync(
+                client,
+                flow.IdToken,
+                "issued id token",
+                cancellationToken);
+        }
 
         using var validMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         validMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
