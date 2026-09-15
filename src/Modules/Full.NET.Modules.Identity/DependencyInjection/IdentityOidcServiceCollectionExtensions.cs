@@ -31,7 +31,7 @@ internal static class IdentityOidcServiceCollectionExtensions
 
         services.TryAddSingleton<IdentityOidcRegistrationMarker>();
         services.TryAddScoped<IdentityOidcSessionService>();
-        services.TryAddScoped<IdentityOidcPrincipalFactory>();
+        services.TryAddSingleton<IdentityOidcPrincipalFactory>();
         services.TryAddScoped<IdentityOidcAccessSessionValidator>();
         services.AddOptions<IdentityOidcOptions>()
             .Bind(configuration.GetSection(IdentityOidcOptions.SectionName))

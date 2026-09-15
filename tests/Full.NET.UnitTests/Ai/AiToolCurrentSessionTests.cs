@@ -51,6 +51,7 @@ public sealed class AiToolCurrentSessionTests
         var oidcValidator = new IdentityOidcAccessSessionValidator(
             queries,
             clock,
+            tenant,
             Options.Create(new IdentityOidcOptions()),
             Options.Create(new IdentityOptions()));
         var authorization = new CurrentSessionAuthorization(

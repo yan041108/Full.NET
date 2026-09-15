@@ -1,0 +1,1 @@
+window.OIDC_RP_CONFIG = { clientId: 'e2e-oidc-rp-b', redirectUri: 'http://localhost:5174/', clientSecret: 'e2e-oidc-rp-b-secret' };

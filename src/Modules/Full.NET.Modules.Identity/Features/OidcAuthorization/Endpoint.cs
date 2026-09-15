@@ -39,6 +39,13 @@ internal static class Endpoint
     {
         var request = httpContext.GetOpenIddictServerRequest()
             ?? throw new InvalidOperationException("The OpenIddict request cannot be resolved.");
+        var forceCenterLogin = ContainsPromptValue(request.Prompt, "login");
+        if (forceCenterLogin)
+        {
+            await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+                .ConfigureAwait(false);
+        }
+
         ClaimsPrincipal? centerPrincipal = null;
         if (httpContext.Request.Method == HttpMethods.Post
             && !string.IsNullOrWhiteSpace(httpContext.Request.Form["username"])
@@ -66,12 +73,24 @@ internal static class Endpoint
                 .ConfigureAwait(false);
         }
 
-        centerPrincipal ??= (await httpContext.AuthenticateAsync(
-                    IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
-                .ConfigureAwait(false))
-            .Principal;
+        if (!forceCenterLogin)
+        {
+            centerPrincipal ??= (await httpContext.AuthenticateAsync(
+                        IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+                    .ConfigureAwait(false))
+                .Principal;
+        }
+
         if (centerPrincipal is null)
         {
+            if (ContainsPromptValue(request.Prompt, "none"))
+            {
+                return Results.Redirect(BuildProtocolErrorRedirect(
+                    request,
+                    "login_required",
+                    "The authorization server requires end-user authentication."));
+            }
+
             return Results.Content(
                 BuildLoginPage(request, null),
                 "text/html; charset=utf-8",
@@ -92,6 +111,47 @@ internal static class Endpoint
         return Results.SignIn(
             principal,
             authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private static bool ContainsPromptValue(string? prompt, string value)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return false;
+        }
+
+        foreach (var segment in prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (string.Equals(segment, value, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string BuildProtocolErrorRedirect(
+        OpenIddictRequest request,
+        string error,
+        string errorDescription)
+    {
+        var redirectUri = request.RedirectUri;
+        if (string.IsNullOrWhiteSpace(redirectUri))
+        {
+            return "/connect/authorize";
+        }
+
+        var builder = new StringBuilder(redirectUri);
+        builder.Append(redirectUri.Contains('?', StringComparison.Ordinal) ? '&' : '?');
+        builder.Append("error=").Append(Uri.EscapeDataString(error));
+        builder.Append("&error_description=").Append(Uri.EscapeDataString(errorDescription));
+        if (!string.IsNullOrWhiteSpace(request.State))
+        {
+            builder.Append("&state=").Append(Uri.EscapeDataString(request.State));
+        }
+
+        return builder.ToString();
     }
 
     private static string BuildLoginPage(OpenIddictRequest request, string? errorMessage)
@@ -131,6 +191,20 @@ internal static class Endpoint
         builder.Append("<input type=\"hidden\" name=\"code_challenge_method\" value=\"")
             .Append(WebUtility.HtmlEncode(request.CodeChallengeMethod))
             .Append("\"/>");
+        if (!string.IsNullOrWhiteSpace(request.Prompt))
+        {
+            builder.Append("<input type=\"hidden\" name=\"prompt\" value=\"")
+                .Append(WebUtility.HtmlEncode(request.Prompt))
+                .Append("\"/>");
+        }
+
+        if (request.MaxAge is not null)
+        {
+            builder.Append("<input type=\"hidden\" name=\"max_age\" value=\"")
+                .Append(WebUtility.HtmlEncode(request.MaxAge.Value.ToString()))
+                .Append("\"/>");
+        }
+
         builder.Append("<label>Username <input name=\"username\" autocomplete=\"username\" required/></label><br/>");
         builder.Append("<label>Password <input name=\"password\" type=\"password\" autocomplete=\"current-password\" required/></label><br/>");
         builder.Append("<button type=\"submit\">Sign in</button></form></body></html>");

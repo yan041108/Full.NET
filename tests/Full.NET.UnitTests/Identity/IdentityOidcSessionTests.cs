@@ -173,6 +173,7 @@ public sealed class IdentityOidcSessionTests
             Validator = new IdentityOidcAccessSessionValidator(
                 QueryExecutor,
                 new FixedClock(),
+                new Full.NET.Abstractions.Tenancy.CurrentTenantAccessor(),
                 Microsoft.Extensions.Options.Options.Create(new Modules.Identity.Configuration.IdentityOidcOptions
                 {
                     Enable = true,

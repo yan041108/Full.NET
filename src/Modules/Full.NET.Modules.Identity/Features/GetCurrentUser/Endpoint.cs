@@ -29,14 +29,16 @@ internal static class Endpoint
             IApiResultMapper mapper,
             IClock clock,
             IOptions<IdentityOptions> options,
+            IOptions<IdentityOidcOptions> oidcOptions,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
             if (!Guid.TryParse(
                     principal.FindFirstValue(JwtRegisteredClaimNames.Sub),
                     out var userId)
-                || !Guid.TryParse(
-                    principal.FindFirstValue(IdentityClaimTypes.SessionId),
+                || !IdentityAccessSessionIdReader.TryRead(
+                    principal,
+                    oidcOptions.Value,
                     out var sessionId))
             {
                 return mapper.Map(Unauthorized(), httpContext);

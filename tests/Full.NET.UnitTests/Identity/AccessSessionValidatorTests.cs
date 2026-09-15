@@ -184,6 +184,7 @@ public sealed class AccessSessionValidatorTests
             var oidcValidator = new IdentityOidcAccessSessionValidator(
                 QueryExecutor,
                 new FixedClock(),
+                new Full.NET.Abstractions.Tenancy.CurrentTenantAccessor(),
                 Options.Create(new IdentityOidcOptions()),
                 Options.Create(new IdentityOptions()));
             Validator = new AccessSessionValidator(

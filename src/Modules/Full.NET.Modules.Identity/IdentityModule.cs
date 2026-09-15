@@ -60,8 +60,8 @@ public sealed class IdentityModule : IFullNetModule
         IConfiguration configuration)
     {
         AddMigrationServices(services, configuration);
-        services.AddIdentityOidc(configuration);
         services.AddIdentityAuthentication(configuration);
+        services.AddIdentityOidc(configuration);
         services.AddIdentityAuthorization(configuration);
         services.AddIdentityDomainServices(configuration);
         services.AddIdentityHttpPolicies(configuration);

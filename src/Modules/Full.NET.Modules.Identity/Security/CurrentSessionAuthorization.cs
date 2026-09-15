@@ -33,7 +33,7 @@ internal sealed class CurrentSessionAuthorization(
             || expires <= clock.UtcNow.ToUnixTimeSeconds()
             || !await sessions.IsValidAsync(principal, cancellationToken).ConfigureAwait(false)) return null;
         if (!Guid.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.Subject), out var userId)
-            || !TryReadSessionId(principal, out var sessionId)) return null;
+            || !IdentityAccessSessionIdReader.TryRead(principal, _oidcOptions, out var sessionId)) return null;
         var tenantClaim = principal.FindFirstValue(FullNetIdentityClaimTypes.TenantId);
         Guid? tenantId = Guid.TryParse(tenantClaim, out var parsed) ? parsed : null;
         if (tenantId != tenant.Id || (tenantId is null && !tenant.IsHost)) return null;
@@ -44,19 +44,4 @@ internal sealed class CurrentSessionAuthorization(
             ? new(userId, tenantId, sessionId) : null;
     }
 
-    private bool TryReadSessionId(ClaimsPrincipal principal, out Guid sessionId)
-    {
-        sessionId = Guid.Empty;
-        var issuer = principal.FindFirstValue(JwtRegisteredClaimNames.Iss);
-        if (_oidcOptions.Enable
-            && !string.IsNullOrWhiteSpace(_oidcOptions.Issuer)
-            && string.Equals(issuer, _oidcOptions.Issuer, StringComparison.Ordinal))
-        {
-            return Guid.TryParse(
-                principal.FindFirstValue(FullNetIdentityClaimTypes.ApplicationSessionId),
-                out sessionId);
-        }
-
-        return Guid.TryParse(principal.FindFirstValue(FullNetIdentityClaimTypes.SessionId), out sessionId);
-    }
 }

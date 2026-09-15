@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Configuration;
@@ -13,6 +14,7 @@ namespace Full.NET.Modules.Identity.Oidc;
 internal sealed class IdentityOidcAccessSessionValidator(
     IQueryExecutor queryExecutor,
     IClock clock,
+    ICurrentTenantContextWriter tenantContextWriter,
     IOptions<IdentityOidcOptions> oidcOptions,
     IOptions<IdentityOptions> identityOptions)
 {
@@ -48,6 +50,8 @@ internal sealed class IdentityOidcAccessSessionValidator(
             return false;
         }
 
+        // OIDC 会话权威表为 HostOnly；校验前显式切换 Host，避免租户解析中间件残留上下文。
+        tenantContextWriter.SetHost();
         var record = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
                 IdentityOidcSessionSql.FindApplicationSessionValidationById,
                 IdentitySqlParameters.Create(("ApplicationSessionId", applicationSessionId)),

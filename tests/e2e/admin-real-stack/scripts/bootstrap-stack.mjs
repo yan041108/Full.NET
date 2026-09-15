@@ -40,6 +40,26 @@ function resolveStackProfile() {
   return process.env.FULLNET_E2E_STACK_PROFILE ?? 'development';
 }
 
+function createOidcStackEnv(apiBaseUrl) {
+  const issuer = `${apiBaseUrl.replace(/\/$/, '')}/identity`;
+  return {
+    Identity__Oidc__Enable: 'true',
+    Identity__Oidc__Issuer: issuer,
+    Identity__Oidc__AllowDevelopmentEphemeralSigningKey: 'true',
+    Identity__Oidc__Clients__0__ClientId: 'e2e-oidc-rp-a',
+    Identity__Oidc__Clients__0__RedirectUris__0: 'http://localhost:5173/',
+    Identity__Oidc__Clients__0__Scopes__0: 'openid',
+    Identity__Oidc__Clients__0__Scopes__1: 'profile',
+    Identity__Oidc__Clients__0__IsFirstParty: 'true',
+    Identity__Oidc__Clients__1__ClientId: 'e2e-oidc-rp-b',
+    Identity__Oidc__Clients__1__ClientSecret: 'e2e-oidc-rp-b-secret',
+    Identity__Oidc__Clients__1__RedirectUris__0: 'http://localhost:5174/',
+    Identity__Oidc__Clients__1__Scopes__0: 'openid',
+    Identity__Oidc__Clients__1__Scopes__1: 'profile',
+    Identity__Oidc__Clients__1__IsFirstParty: 'true'
+  };
+}
+
 function createProductionSigningKeyEnv(keyId = 'e2eprodsigning') {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -175,6 +195,7 @@ export async function bootstrapStack() {
     FullNet__ObservabilityAdmin__LogRootPath: observabilityLogRoot,
     DOTNET_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
     ASPNETCORE_ENVIRONMENT: isProductionTotp ? 'Production' : 'Development',
+    ...createOidcStackEnv(apiUrl),
     ...(isProductionTotp
       ? {
           ...createProductionSigningKeyEnv(),

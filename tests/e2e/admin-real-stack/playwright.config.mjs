@@ -15,17 +15,33 @@ export default defineConfig({
     channel: process.env.GITHUB_ACTIONS ? undefined : 'msedge',
     trace: 'retain-on-failure'
   },
-  webServer: {
-    command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25173 --logLevel error',
-    url: 'http://localhost:25173',
-    reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
-    stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
-    stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
-    env: {
-      VITE_API_BASE_URL: apiBaseUrl,
-      VITE_STRICT_CSP: '1'
+  webServer: [
+    {
+      command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25173 --logLevel error',
+      url: 'http://localhost:25173',
+      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
+      stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
+      env: {
+        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_STRICT_CSP: '1'
+      }
+    },
+    {
+      command: 'node scripts/serve-oidc-fixture.mjs 5173 fixtures/oidc-rp-a',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      stdout: 'ignore',
+      stderr: 'pipe'
+    },
+    {
+      command: 'node scripts/serve-oidc-fixture.mjs 5174 fixtures/oidc-rp-b',
+      url: 'http://localhost:5174',
+      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      stdout: 'ignore',
+      stderr: 'pipe'
     }
-  },
+  ],
   projects: [
     {
       name: 'vue-admin',

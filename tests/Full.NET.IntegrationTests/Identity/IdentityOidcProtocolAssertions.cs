@@ -5,7 +5,6 @@ using System.Text.Json;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Oidc;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -79,6 +78,24 @@ internal static class IdentityOidcProtocolAssertions
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(result.AccessToken));
         Assert.IsFalse(string.IsNullOrWhiteSpace(result.IdToken));
+        Assert.AreEqual(
+            IdentityOidcPrincipalFactory.TokenUseAccess,
+            IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+                result.AccessToken,
+                FullNetIdentityClaimTypes.TokenUse));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(
+            IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+                result.AccessToken,
+                FullNetIdentityClaimTypes.ApplicationSessionId)));
+        Assert.AreEqual(
+            "host",
+            IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+                result.AccessToken,
+                FullNetIdentityClaimTypes.ActorScope));
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", result.AccessToken);
+        using var meResponse = await client.SendAsync(meRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, meResponse.StatusCode);
         using var userInfoRequest = new HttpRequestMessage(HttpMethod.Get, "/connect/userinfo");
         userInfoRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", result.AccessToken);
         using var userInfoResponse = await client.SendAsync(userInfoRequest, cancellationToken);
