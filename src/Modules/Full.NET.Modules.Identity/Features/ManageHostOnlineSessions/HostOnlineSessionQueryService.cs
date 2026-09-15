@@ -32,11 +32,11 @@ internal sealed class HostOnlineSessionQueryService(
         var (countStatement, listStatement) = databaseOptions.Value.Provider switch
         {
             DatabaseProvider.SqlServer => (
-                OnlineSessionSql.CountActiveHostSessionsSqlServer,
-                OnlineSessionSql.ListActiveHostSessionsSqlServer),
+                IdentityOidcSessionSql.CountActiveHostSessionsCombinedSqlServer,
+                IdentityOidcSessionSql.ListActiveHostSessionsCombinedSqlServer),
             DatabaseProvider.MySql => (
-                OnlineSessionSql.CountActiveHostSessionsMySql,
-                OnlineSessionSql.ListActiveHostSessionsMySql),
+                IdentityOidcSessionSql.CountActiveHostSessionsCombinedMySql,
+                IdentityOidcSessionSql.ListActiveHostSessionsCombinedMySql),
             _ => throw new InvalidOperationException(
                 "The configured database provider is not supported."),
         };

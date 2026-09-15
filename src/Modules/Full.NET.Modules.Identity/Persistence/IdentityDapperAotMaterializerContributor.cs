@@ -70,6 +70,10 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         registrar.Register<IdentityOidcScopeRow>(ReadIdentityOidcScopeRow);
         registrar.Register<IdentityOidcTokenRow>(ReadIdentityOidcTokenRow);
         registrar.Register<IdentityOidcCountRow>(ReadIdentityOidcCountRow);
+        registrar.Register<IdentityOidcCenterSessionRow>(ReadIdentityOidcCenterSessionRow);
+        registrar.Register<IdentityOidcApplicationSessionRow>(ReadIdentityOidcApplicationSessionRow);
+        registrar.Register<IdentityOidcApplicationSessionValidationRecord>(
+            ReadIdentityOidcApplicationSessionValidationRecord);
 
         DapperAotParameterRegistry.Register<LoginFailureUpdate>(BindLoginFailureUpdate);
         DapperAotParameterRegistry.Register<LoginSuccessUpdate>(BindLoginSuccessUpdate);
@@ -85,6 +89,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<OAuthProviderRecord>(BindOAuthProviderRecord);
         DapperAotParameterRegistry.Register<OAuthUserLinkRecord>(BindOAuthUserLinkRecord);
         DapperAotParameterRegistry.Register<OAuthAuthorizationStateRecord>(BindOAuthAuthorizationStateRecord);
+        DapperAotParameterRegistry.Register<IdentityOidcCenterSession>(BindIdentityOidcCenterSession);
+        DapperAotParameterRegistry.Register<IdentityOidcApplicationSession>(BindIdentityOidcApplicationSession);
     }
 
     private static IdentityUserRecord ReadIdentityUserRecord(DbDataReader reader) =>
@@ -783,6 +789,87 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
 
     private static IdentityOidcCountRow ReadIdentityOidcCountRow(DbDataReader reader) =>
         new(AotDataReaderExtensions.ReadInt64(reader, 0));
+
+    private static IdentityOidcCenterSessionRow ReadIdentityOidcCenterSessionRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadGuidByName(reader, "UserId"),
+            ReadOptionalStringByName(reader, "SecurityStamp") ?? string.Empty,
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "ExpiresAtUtc"),
+            ReadNullableDateTimeOffsetByName(reader, "RevokedAtUtc"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcApplicationSessionRow ReadIdentityOidcApplicationSessionRow(DbDataReader reader) =>
+        new(
+            ReadGuidByName(reader, "Id"),
+            ReadGuidByName(reader, "CenterSessionId"),
+            ReadGuidByName(reader, "OidcApplicationId"),
+            ReadOptionalStringByName(reader, "ClientId") ?? string.Empty,
+            ReadGuidByName(reader, "UserId"),
+            ReadOptionalStringByName(reader, "ActorScope") ?? string.Empty,
+            ReadOptionalStringByName(reader, "EffectiveScope") ?? string.Empty,
+            ReadOptionalGuidByName(reader, "ActiveTenantId"),
+            ReadDateTimeOffsetByName(reader, "CreatedAtUtc"),
+            ReadDateTimeOffsetByName(reader, "ExpiresAtUtc"),
+            ReadNullableDateTimeOffsetByName(reader, "RevokedAtUtc"),
+            AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
+            ReadDateTimeOffsetByName(reader, "UpdatedAtUtc"));
+
+    private static IdentityOidcApplicationSessionValidationRecord ReadIdentityOidcApplicationSessionValidationRecord(
+        DbDataReader reader) =>
+        new()
+        {
+            ApplicationSessionId = ReadGuidByName(reader, "ApplicationSessionId"),
+            CenterSessionId = ReadGuidByName(reader, "CenterSessionId"),
+            UserId = ReadGuidByName(reader, "UserId"),
+            ClientId = ReadOptionalStringByName(reader, "ClientId") ?? string.Empty,
+            ActorScope = ReadOptionalStringByName(reader, "ActorScope") ?? string.Empty,
+            EffectiveScope = ReadOptionalStringByName(reader, "EffectiveScope") ?? string.Empty,
+            ActiveTenantId = ReadOptionalGuidByName(reader, "ActiveTenantId"),
+            ApplicationExpiresAtUtc = ReadDateTimeOffsetByName(reader, "ApplicationExpiresAtUtc"),
+            ApplicationRevokedAtUtc = ReadNullableDateTimeOffsetByName(reader, "ApplicationRevokedAtUtc"),
+            CenterSecurityStamp = ReadOptionalStringByName(reader, "CenterSecurityStamp") ?? string.Empty,
+            CenterExpiresAtUtc = ReadDateTimeOffsetByName(reader, "CenterExpiresAtUtc"),
+            CenterRevokedAtUtc = ReadNullableDateTimeOffsetByName(reader, "CenterRevokedAtUtc"),
+            IsActive = ReadBooleanByName(reader, "IsActive"),
+            LockoutEndUtc = ReadNullableDateTimeOffsetByName(reader, "LockoutEndUtc"),
+            UserSecurityStamp = ReadOptionalStringByName(reader, "UserSecurityStamp") ?? string.Empty,
+        };
+
+    private static DynamicParameters BindIdentityOidcCenterSession(IdentityOidcCenterSession session)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", session.Id);
+        parameters.Add("UserId", session.UserId);
+        parameters.Add("SecurityStamp", session.SecurityStamp);
+        parameters.Add("CreatedAtUtc", session.CreatedAtUtc);
+        parameters.Add("ExpiresAtUtc", session.ExpiresAtUtc);
+        parameters.Add("RevokedAtUtc", session.RevokedAtUtc);
+        parameters.Add("Version", session.Version);
+        parameters.Add("UpdatedAtUtc", session.UpdatedAtUtc);
+        return parameters;
+    }
+
+    private static DynamicParameters BindIdentityOidcApplicationSession(IdentityOidcApplicationSession session)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("Id", session.Id);
+        parameters.Add("CenterSessionId", session.CenterSessionId);
+        parameters.Add("OidcApplicationId", session.OidcApplicationId);
+        parameters.Add("ClientId", session.ClientId);
+        parameters.Add("UserId", session.UserId);
+        parameters.Add("ActorScope", session.ActorScope);
+        parameters.Add("EffectiveScope", session.EffectiveScope);
+        parameters.Add("ActiveTenantId", session.ActiveTenantId);
+        parameters.Add("CreatedAtUtc", session.CreatedAtUtc);
+        parameters.Add("ExpiresAtUtc", session.ExpiresAtUtc);
+        parameters.Add("RevokedAtUtc", session.RevokedAtUtc);
+        parameters.Add("Version", session.Version);
+        parameters.Add("UpdatedAtUtc", session.UpdatedAtUtc);
+        return parameters;
+    }
 
     /// <summary>显式绑定 OAuthAuthorizationStateRecord，通过自有参数注册表保持 AOT 静态闭包。</summary>
     /// <param name="value">需要写入的持久化投影。</param>

@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Full.NET.Modules.Identity.Security;
@@ -11,13 +14,26 @@ namespace Full.NET.Modules.Identity.Security;
 /// </summary>
 internal sealed class AccessSessionValidator(
     IQueryExecutor queryExecutor,
-    IClock clock)
+    IClock clock,
+    IdentityOidcAccessSessionValidator oidcSessionValidator,
+    IOptions<IdentityOidcOptions> oidcOptions)
 {
+    private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
+
     public async Task<bool> IsValidAsync(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(principal);
+        var issuer = principal.FindFirstValue(JwtRegisteredClaimNames.Iss);
+        if (_oidcOptions.Enable
+            && !string.IsNullOrWhiteSpace(_oidcOptions.Issuer)
+            && string.Equals(issuer, _oidcOptions.Issuer, StringComparison.Ordinal))
+        {
+            return await oidcSessionValidator.IsValidAsync(principal, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (!TryReadRequiredClaims(
                 principal,
                 out var userId,

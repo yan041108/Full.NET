@@ -936,6 +936,24 @@
         "Version": "乐观并发版本号"
       }
     },
+    "fn_identity_oidc_application_session": {
+      "comment": "身份认证oidc application session表",
+      "columns": {
+        "ActiveTenantId": "当前活动租户标识",
+        "ActorScope": "Actor Scope",
+        "CenterSessionId": "Center Session标识",
+        "ClientId": "客户端标识",
+        "CreatedAtUtc": "创建时间(UTC)",
+        "EffectiveScope": "Effective Scope",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "Id": "逻辑主键",
+        "OidcApplicationId": "Oidc Application标识",
+        "RevokedAtUtc": "撤销时间(UTC)",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
+        "Version": "乐观并发版本号"
+      }
+    },
     "fn_identity_oidc_authorization": {
       "comment": "身份认证oidc authorization表",
       "columns": {
@@ -949,6 +967,19 @@
         "Subject": "主题",
         "Type": "类型",
         "UpdatedAtUtc": "更新时间(UTC)",
+        "Version": "乐观并发版本号"
+      }
+    },
+    "fn_identity_oidc_center_session": {
+      "comment": "身份认证oidc center session表",
+      "columns": {
+        "CreatedAtUtc": "创建时间(UTC)",
+        "ExpiresAtUtc": "过期时间(UTC)",
+        "Id": "逻辑主键",
+        "RevokedAtUtc": "撤销时间(UTC)",
+        "SecurityStamp": "安全戳",
+        "UpdatedAtUtc": "更新时间(UTC)",
+        "UserId": "用户标识",
         "Version": "乐观并发版本号"
       }
     },

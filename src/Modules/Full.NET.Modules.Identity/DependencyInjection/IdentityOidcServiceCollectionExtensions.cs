@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Oidc.Stores;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,9 @@ internal static class IdentityOidcServiceCollectionExtensions
         }
 
         services.TryAddSingleton<IdentityOidcRegistrationMarker>();
+        services.TryAddScoped<IdentityOidcSessionService>();
+        services.TryAddScoped<IdentityOidcPrincipalFactory>();
+        services.TryAddScoped<IdentityOidcAccessSessionValidator>();
         services.AddOptions<IdentityOidcOptions>()
             .Bind(configuration.GetSection(IdentityOidcOptions.SectionName))
             .ValidateOnStart();

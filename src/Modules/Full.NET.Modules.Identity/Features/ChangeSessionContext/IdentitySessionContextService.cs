@@ -4,10 +4,12 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
 
@@ -20,10 +22,12 @@ internal sealed class IdentitySessionContextService(
     PermissionClaimEvaluator permissionClaimEvaluator,
     IAccessTokenIssuer accessTokenIssuer,
     IClock clock,
-    IIdGenerator idGenerator) : IIdentitySessionContextService
+    IIdGenerator idGenerator,
+    IOptions<IdentityOidcOptions> oidcOptions) : IIdentitySessionContextService
 {
     private const string HostScope = "host";
     private const string SwitchPermission = "tenancy.tenants.switch";
+    private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
 
     /// <summary>
     /// 使用当前 Access Token 所代表的会话上下文执行一次乐观并发切换并签发新令牌。
@@ -38,6 +42,17 @@ internal sealed class IdentitySessionContextService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(principal);
+        var issuer = principal.FindFirstValue(JwtRegisteredClaimNames.Iss);
+        if (_oidcOptions.Enable
+            && !string.IsNullOrWhiteSpace(_oidcOptions.Issuer)
+            && string.Equals(issuer, _oidcOptions.Issuer, StringComparison.Ordinal))
+        {
+            return Failure(
+                IdentityErrorCodes.OidcContextSwitchNotSupported,
+                "OIDC application sessions cannot switch tenant context through the legacy token issuer.",
+                ErrorType.Forbidden);
+        }
+
         if (!TryReadIdentity(
                 principal,
                 out var userId,

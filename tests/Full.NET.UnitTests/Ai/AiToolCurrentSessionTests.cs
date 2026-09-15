@@ -3,10 +3,13 @@ using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Ai;
@@ -45,8 +48,23 @@ public sealed class AiToolCurrentSessionTests
         if (scenario == "tenant") tenant.SetTenant(new TenantContext(Guid.NewGuid(), "other", "其他租户")); else tenant.SetHost();
         var permissions = Substitute.For<IPermissionSnapshotReader>();
         permissions.ReadAsync(user, "host", null, Arg.Any<CancellationToken>()).Returns(new PermissionSnapshot(scenario == "permission" ? [] : ["permission"], false));
-        var authorization = new CurrentSessionAuthorization(http, new AccessSessionValidator(queries, clock), permissions,
-            tenant, Substitute.For<IActiveTenantContextResolver>(), clock);
+        var oidcValidator = new IdentityOidcAccessSessionValidator(
+            queries,
+            clock,
+            Options.Create(new IdentityOidcOptions()),
+            Options.Create(new IdentityOptions()));
+        var authorization = new CurrentSessionAuthorization(
+            http,
+            new AccessSessionValidator(
+                queries,
+                clock,
+                oidcValidator,
+                Options.Create(new IdentityOidcOptions())),
+            permissions,
+            tenant,
+            Substitute.For<IActiveTenantContextResolver>(),
+            clock,
+            Options.Create(new IdentityOidcOptions()));
         try
         {
             Assert.AreEqual(allowed, await authorization.AuthorizeAsync("permission") is not null);

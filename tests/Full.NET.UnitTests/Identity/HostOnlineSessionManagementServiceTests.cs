@@ -6,6 +6,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Domain;
 using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Realtime;
 using NSubstitute;
@@ -110,13 +111,18 @@ public sealed class HostOnlineSessionManagementServiceTests
                     return callback(CancellationToken.None);
                 });
             RealtimePublisher = Substitute.For<IRealtimePublisher>();
+            var oidcSessionService = new IdentityOidcSessionService(
+                QueryExecutor,
+                CommandExecutor,
+                new FixedClock());
             Service = new HostOnlineSessionManagementService(
                 QueryExecutor,
                 CommandExecutor,
                 Transaction,
                 new FixedClock(),
                 new QueueIdGenerator(Guid.Parse("01981a75-f500-7000-8000-000000000099")),
-                new IdentitySessionRealtimeDelivery(RealtimePublisher));
+                new IdentitySessionRealtimeDelivery(RealtimePublisher),
+                oidcSessionService);
         }
 
         public IQueryExecutor QueryExecutor { get; }

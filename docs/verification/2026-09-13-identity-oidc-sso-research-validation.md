@@ -288,6 +288,21 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **T01 结论：** Store 层 V03/V15/V19 在双库成立；不证明 OIDC 协议端点可运行或 P0 Go。
 
+### T02（2026-09-15）：中心会话、应用会话与旧会话衔接
+
+| 项 | 证据 |
+| --- | --- |
+| 迁移 | **217** `IdentityOidcSession`：`fn_identity_oidc_center_session` / `fn_identity_oidc_application_session`；双库 expand-only；`object-comments.json` 已登记 |
+| 服务 | `IdentityOidcSessionService`、`IdentityOidcPrincipalFactory`、`IdentityOidcAccessSessionValidator`；`AccessSessionValidator` 按 Issuer 路由 |
+| 消费方 | `CurrentSessionAuthorization`、`BackgroundSessionBindingValidator`、`IdentitySessionContextService`、`HostOnlineSessionManagementService` / `HostOnlineSessionQueryService` |
+| V10/V12/V13/V21/V23 | `IdentityOidcPrincipalTests`、`IdentityOidcSessionTests`、`IdentityOidcSessionAssertions` |
+| 迁移恢复 | `Migration217IdentityOidcSessionTests`（SQL Server + MySQL，4/4） |
+| 聚焦验证 | 单元 `IdentityOidcSession\|IdentityOidcPrincipal` 7/7；集成 `Oidc_session\|Migration217IdentityOidc` 6/6（Windows 本地，2026-09-15） |
+| 双库入口 | `IdentityApiSqlServerTests` / `IdentityApiMySqlTests` 挂接 `IdentityOidcSessionAssertions` |
+| 未验证 | 旧登录全量回归、协议 HTTP 端点（T03）、Linux Native AOT 运行时 |
+
+**T02 结论：** 中心／应用会话权威与消费方适配在单元与双库服务层成立；完整协议入口与旧体系回归由 T03 与专项回归补齐。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs

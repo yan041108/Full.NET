@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using NSubstitute;
 
@@ -178,9 +181,16 @@ public sealed class AccessSessionValidatorTests
                     Arg.Any<object?>(),
                     Arg.Any<CancellationToken>())
                 .Returns(record);
+            var oidcValidator = new IdentityOidcAccessSessionValidator(
+                QueryExecutor,
+                new FixedClock(),
+                Options.Create(new IdentityOidcOptions()),
+                Options.Create(new IdentityOptions()));
             Validator = new AccessSessionValidator(
                 QueryExecutor,
-                new FixedClock());
+                new FixedClock(),
+                oidcValidator,
+                Options.Create(new IdentityOidcOptions()));
         }
 
         public IQueryExecutor QueryExecutor { get; }

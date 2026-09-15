@@ -22,6 +22,9 @@ public static class IdentityErrorCodes
     /// <summary>当前身份的参与者范围不允许切换上下文。</summary>
     public const string InvalidActorScope = "identity.invalid_actor_scope";
 
+    /// <summary>OIDC 应用会话不支持旧体系的租户上下文切换。</summary>
+    public const string OidcContextSwitchNotSupported = "identity.oidc_context_switch_not_supported";
+
     /// <summary>登录凭据无效。</summary>
     public const string InvalidCredentials = "identity.invalid_credentials";
 

@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2533,
+      "minimum": 2540,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -32,8 +32,8 @@
           "minimum": 371
         },
         "identity-oidc": {
-          "filter": "FullyQualifiedName~IdentityOidcOptionsTests",
-          "minimum": 6
+          "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests",
+          "minimum": 13
         }
       }
     },
@@ -515,6 +515,9 @@
       },
       "216": {
         "filter": "FullyQualifiedName~Migration216IdentityOidcRecoveryTests.MySql_|FullyQualifiedName~Migration216IdentityOidcRecoveryTests.SqlServer_"
+      },
+      "217": {
+        "filter": "FullyQualifiedName~Migration217IdentityOidcSessionTests.MySql_|FullyQualifiedName~Migration217IdentityOidcSessionTests.SqlServer_"
       }
     },
     "mainPartitions": [
@@ -532,12 +535,12 @@
       },
       "api-sqlserver": {
         "filter": "FullyQualifiedName~ApiSqlServerTests",
-        "minimum": 82,
+        "minimum": 84,
         "timeout": "60m"
       },
       "api-mysql": {
         "filter": "FullyQualifiedName~ApiMySqlTests",
-        "minimum": 82,
+        "minimum": 84,
         "timeout": "60m"
       },
       "migrations": {

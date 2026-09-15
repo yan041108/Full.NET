@@ -4,7 +4,9 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.Options;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
@@ -221,7 +223,8 @@ public sealed class IdentitySessionContextServiceTests
                     ])),
                 TokenIssuer,
                 new FixedClock(),
-                new FixedIdGenerator());
+                new FixedIdGenerator(),
+                Options.Create(new IdentityOidcOptions()));
         }
 
         public IQueryExecutor QueryExecutor { get; }

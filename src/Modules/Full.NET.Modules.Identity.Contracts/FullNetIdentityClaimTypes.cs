@@ -56,4 +56,16 @@ public static class FullNetIdentityClaimTypes
 
     /// <summary>获取账号必须先完成改密后才能访问普通业务 API 的标记 Claim 名称。</summary>
     public const string PasswordChangeRequired = "fullnet_password_change_required";
+
+    /// <summary>获取 OIDC 令牌用途 Claim 名称（如 access、id）。</summary>
+    public const string TokenUse = "fn:token_use";
+
+    /// <summary>获取 OIDC 中心会话标识 Claim 名称。</summary>
+    public const string CenterSessionId = "fn:center_session_id";
+
+    /// <summary>获取 OIDC 应用会话标识 Claim 名称。</summary>
+    public const string ApplicationSessionId = "fn:application_session_id";
+
+    /// <summary>获取 OAuth/OIDC 客户端标识 Claim 名称（标准 <c>client_id</c>）。</summary>
+    public const string OidcClientId = "client_id";
 }

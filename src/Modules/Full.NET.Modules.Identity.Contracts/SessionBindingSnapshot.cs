@@ -7,4 +7,5 @@ public sealed record SessionBindingSnapshot(
     Guid SessionId,
     string SecurityStamp,
     string ActorScope,
-    string EffectiveScope);
+    string EffectiveScope,
+    string SessionKind = SessionBindingKinds.Refresh);

@@ -188,4 +188,15 @@ public sealed class IdentityApiMySqlTests
 
         await IdentityOidcStoreAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_session_validates_authority_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcSessionAssertions.Settings);
+
+        await IdentityOidcSessionAssertions.VerifyAsync(factory);
+    }
 }
