@@ -20,6 +20,7 @@ internal static class IdentityOidcClientOfflineAssertions
     {
         await VerifySingleSessionRevokeWhileOfflineAsync(provider, connectionString, cancellationToken);
         await VerifyRevokeAllWhileOfflineAsync(provider, connectionString, cancellationToken);
+        await VerifyApplicationLogoutWhileOfflineAsync(provider, connectionString, cancellationToken);
     }
 
     private static async Task VerifySingleSessionRevokeWhileOfflineAsync(
@@ -120,6 +121,65 @@ internal static class IdentityOidcClientOfflineAssertions
             "Server should still emit session-revoked notifications for offline clients.");
 
         await AssertAuthoritativeRevokeWhileOfflineAsync(client, flow, cancellationToken);
+    }
+
+    private static async Task VerifyApplicationLogoutWhileOfflineAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken)
+    {
+        var publisher = new RecordingRealtimePublisher();
+        using var factory = CreateFactory(provider, connectionString, publisher);
+        await factory.InitializeAsync(cancellationToken);
+        using var client = factory.CreateClientForHost("localhost");
+
+        var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        var confidentialFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
+
+        using var logoutRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/logout/application")
+        {
+            Content = JsonContent.Create(new
+            {
+                clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
+            }),
+        };
+        using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+        Assert.IsTrue(
+            publisher.SessionRevokedPublishCount >= 1,
+            "Server should still emit session-revoked notifications for offline clients.");
+
+        await AssertAuthoritativeRevokeWhileOfflineAsync(client, publicFlow, cancellationToken);
+
+        var confidentialRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            confidentialFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            cancellationToken);
+        Assert.IsTrue(
+            confidentialRefreshResult.IsSuccessStatusCode,
+            "Scoped application logout must not revoke other application sessions while offline.");
     }
 
     private static FullNetApiFactory CreateFactory(
