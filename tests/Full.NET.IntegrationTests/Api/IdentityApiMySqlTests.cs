@@ -256,4 +256,15 @@ public sealed class IdentityApiMySqlTests
 
         await IdentityOidcRetentionAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_logout_propagation_revokes_grants_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcLogoutPropagationAssertions.VerifyAsync(factory);
+    }
 }

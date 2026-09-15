@@ -111,18 +111,23 @@ public sealed class HostOnlineSessionManagementServiceTests
                     return callback(CancellationToken.None);
                 });
             RealtimePublisher = Substitute.For<IRealtimePublisher>();
+            var clock = new FixedClock();
             var oidcSessionService = new IdentityOidcSessionService(
                 QueryExecutor,
                 CommandExecutor,
-                new FixedClock());
+                clock);
+            var oidcGrantRevocationService = new IdentityOidcGrantRevocationService(
+                CommandExecutor,
+                clock);
             Service = new HostOnlineSessionManagementService(
                 QueryExecutor,
                 CommandExecutor,
                 Transaction,
-                new FixedClock(),
+                clock,
                 new QueueIdGenerator(Guid.Parse("01981a75-f500-7000-8000-000000000099")),
                 new IdentitySessionRealtimeDelivery(RealtimePublisher),
-                oidcSessionService);
+                oidcSessionService,
+                oidcGrantRevocationService);
         }
 
         public IQueryExecutor QueryExecutor { get; }

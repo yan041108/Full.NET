@@ -6,6 +6,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -18,6 +19,7 @@ namespace Full.NET.Modules.Identity.Oidc;
 internal sealed class IdentityOidcAuthorizationService(
     IdentityOidcCenterLoginService centerLoginService,
     IdentityOidcSessionService sessionService,
+    IdentityOidcGrantRevocationService grantRevocationService,
     IPermissionSnapshotReader permissionSnapshotReader,
     IOpenIddictApplicationManager applicationManager,
     IdentityOidcClientConfigResolver clientConfigResolver,
@@ -185,6 +187,25 @@ internal sealed class IdentityOidcAuthorizationService(
         return new ClaimsPrincipal(identity);
     }
 
+    public async Task SignOutCenterAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        var principal = httpContext.User;
+        if (principal.Identity?.IsAuthenticated == true
+            && TryReadCenterLogoutClaims(principal, out var centerSessionId, out var userId))
+        {
+            await sessionService.RevokeCenterSessionAsync(centerSessionId, cancellationToken)
+                .ConfigureAwait(false);
+            await grantRevocationService.RevokeByUserIdAsync(userId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+            .ConfigureAwait(false);
+    }
+
     private static bool TryReadCenterClaims(
         ClaimsPrincipal principal,
         out Guid centerSessionId,
@@ -203,5 +224,20 @@ internal sealed class IdentityOidcAuthorizationService(
         return Guid.TryParse(centerSessionClaim, out centerSessionId)
             && Guid.TryParse(userIdClaim, out userId)
             && !string.IsNullOrWhiteSpace(securityStamp);
+    }
+
+    private static bool TryReadCenterLogoutClaims(
+        ClaimsPrincipal principal,
+        out Guid centerSessionId,
+        out Guid userId)
+    {
+        centerSessionId = default;
+        userId = default;
+        var centerSessionClaim = principal.FindFirst(
+            IdentityOidcCenterAuthenticationDefaults.CenterSessionIdClaim)?.Value;
+        var userIdClaim = principal.FindFirst(
+            IdentityOidcCenterAuthenticationDefaults.UserIdClaim)?.Value;
+        return Guid.TryParse(centerSessionClaim, out centerSessionId)
+            && Guid.TryParse(userIdClaim, out userId);
     }
 }

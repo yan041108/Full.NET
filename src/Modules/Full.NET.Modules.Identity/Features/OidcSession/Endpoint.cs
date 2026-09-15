@@ -59,9 +59,12 @@ internal static class Endpoint
         return Results.Ok(new { returnUrl = request.ReturnUrl });
     }
 
-    private static async Task<IResult> HandleLogoutAsync(HttpContext httpContext, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleLogoutAsync(
+        HttpContext httpContext,
+        IdentityOidcAuthorizationService authorizationService,
+        CancellationToken cancellationToken)
     {
-        await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+        await authorizationService.SignOutCenterAsync(httpContext, cancellationToken)
             .ConfigureAwait(false);
         return Results.NoContent();
     }

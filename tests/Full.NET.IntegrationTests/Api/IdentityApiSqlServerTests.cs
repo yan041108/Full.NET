@@ -256,4 +256,15 @@ public sealed class IdentityApiSqlServerTests
 
         await IdentityOidcRetentionAssertions.VerifyAsync(factory);
     }
+
+    [TestMethod]
+    public async Task Oidc_logout_propagation_revokes_grants_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcLogoutPropagationAssertions.VerifyAsync(factory);
+    }
 }

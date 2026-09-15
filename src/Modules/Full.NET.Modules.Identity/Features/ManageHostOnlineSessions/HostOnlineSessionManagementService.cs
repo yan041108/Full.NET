@@ -18,7 +18,8 @@ internal sealed class HostOnlineSessionManagementService(
     IClock clock,
     IIdGenerator idGenerator,
     IdentitySessionRealtimeDelivery realtimeDelivery,
-    IdentityOidcSessionService oidcSessionService)
+    IdentityOidcSessionService oidcSessionService,
+    IdentityOidcGrantRevocationService oidcGrantRevocationService)
 {
     private const string RevokeAuditEventType = "host_online_session.revoked";
     private const string RevokeAllAuditEventType = "host_online_session.revoked_all";
@@ -92,6 +93,10 @@ internal sealed class HostOnlineSessionManagementService(
                     refreshRecord.UserId,
                     cancellationToken)
                 .ConfigureAwait(false);
+            await oidcGrantRevocationService.RevokeByUserIdAsync(
+                    refreshRecord.UserId,
+                    cancellationToken)
+                .ConfigureAwait(false);
             await WriteAuditAsync(
                     actorUserId,
                     refreshRecord.UserId,
@@ -130,6 +135,10 @@ internal sealed class HostOnlineSessionManagementService(
         }
 
         var oidcSnapshot = Map(oidcRecord);
+        await oidcGrantRevocationService.RevokeByUserIdAsync(
+                oidcRecord.UserId,
+                cancellationToken)
+            .ConfigureAwait(false);
         await WriteAuditAsync(
                 actorUserId,
                 oidcRecord.UserId,
@@ -215,6 +224,8 @@ internal sealed class HostOnlineSessionManagementService(
         await oidcSessionService.RevokeAllApplicationSessionsByUserAsync(userId, cancellationToken)
             .ConfigureAwait(false);
         await oidcSessionService.RevokeAllCenterSessionsByUserAsync(userId, cancellationToken)
+            .ConfigureAwait(false);
+        await oidcGrantRevocationService.RevokeByUserIdAsync(userId, cancellationToken)
             .ConfigureAwait(false);
         await WriteAuditAsync(
                 actorUserId,

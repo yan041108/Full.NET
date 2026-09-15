@@ -63,6 +63,7 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<IdentityOidcTokenStore>();
         services.TryAddScoped<IdentityOidcCenterLoginService>();
         services.TryAddScoped<IdentityOidcAuthorizationService>();
+        services.TryAddScoped<IdentityOidcGrantRevocationService>();
         services.TryAddScoped<IdentityOidcClientConfigResolver>();
         services.TryAddScoped<OidcClientQueryService>();
         services.TryAddScoped<OidcClientManagementService>();
