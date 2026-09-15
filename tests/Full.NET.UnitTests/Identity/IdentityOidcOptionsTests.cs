@@ -97,6 +97,32 @@ public sealed class IdentityOidcOptionsTests
     }
 
     [TestMethod]
+    public void Enabled_oidc_rejects_invalid_encryption_key_base64()
+    {
+        var validator = CreateValidator(Environments.Development);
+        var result = validator.Validate(null, new IdentityOidcOptions
+        {
+            Enable = true,
+            Issuer = "https://identity.example.com",
+            AllowDevelopmentEphemeralSigningKey = true,
+            EncryptionKeyBase64 = "not-a-valid-key",
+            Clients =
+            [
+                new()
+                {
+                    ClientId = "fixture-a",
+                    RedirectUris = ["https://a.example.com/signin-oidc"],
+                },
+            ],
+        });
+
+        Assert.IsTrue(result.Failed);
+        StringAssert.Contains(
+            string.Join(";", result.Failures),
+            "EncryptionKeyBase64");
+    }
+
+    [TestMethod]
     public void Registered_redirect_uri_policy_rejects_arbitrary_callback_origin()
     {
         var registered = new[]

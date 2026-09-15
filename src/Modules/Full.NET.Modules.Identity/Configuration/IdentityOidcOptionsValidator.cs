@@ -46,6 +46,13 @@ internal sealed class IdentityOidcOptionsValidator(IHostEnvironment environment)
                 "Identity:Oidc requires a production signing key and matching ActiveSigningKeyId when enabled.");
         }
 
+        if (!string.IsNullOrWhiteSpace(options.EncryptionKeyBase64)
+            && !TryDecodeEncryptionKey(options.EncryptionKeyBase64, out _))
+        {
+            failures.Add(
+                "Identity:Oidc EncryptionKeyBase64 must be a valid Base64-encoded 256-bit key.");
+        }
+
         if (options.Clients is null || options.Clients.Length == 0)
         {
             failures.Add("Identity:Oidc requires at least one registered client when enabled.");
@@ -139,4 +146,19 @@ internal sealed class IdentityOidcOptionsValidator(IHostEnvironment environment)
         && key is not null
         && !string.IsNullOrWhiteSpace(key.PublicKeyPem)
         && !string.IsNullOrWhiteSpace(key.PrivateKeyPem);
+
+    private static bool TryDecodeEncryptionKey(string value, out byte[] keyBytes)
+    {
+        keyBytes = [];
+        try
+        {
+            keyBytes = Convert.FromBase64String(value);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return keyBytes.Length == 32;
+    }
 }

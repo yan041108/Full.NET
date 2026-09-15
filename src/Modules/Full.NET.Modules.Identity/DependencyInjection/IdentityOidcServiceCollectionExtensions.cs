@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Server;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -115,8 +116,15 @@ internal static class IdentityOidcServiceCollectionExtensions
                 // 治理测试 V09 要求同一 refresh_token 二次兑换立即失败；默认 30 秒复用宽限期会掩盖重放。
                 options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
                 options.DisableAccessTokenEncryption();
-                // OpenIddict 仍要求注册加密密钥；Access Token 使用签名 JWT，加密密钥仅满足运行时门禁。
-                options.AddEphemeralEncryptionKey();
+                // OpenIddict 仍要求注册加密密钥；多实例必须配置共享 EncryptionKeyBase64，否则 refresh 无法跨节点解密。
+                if (TryCreateEncryptionKey(oidcOptions.EncryptionKeyBase64, out var encryptionKey))
+                {
+                    options.AddEncryptionKey(encryptionKey);
+                }
+                else
+                {
+                    options.AddEphemeralEncryptionKey();
+                }
                 options.AddEventHandler(IdentityOidcSignInHandler.Descriptor);
                 options.UseAspNetCore(aspNetCore =>
                 {
@@ -157,6 +165,35 @@ internal static class IdentityOidcServiceCollectionExtensions
                 });
 
         return services;
+    }
+
+    private static bool TryCreateEncryptionKey(
+        string? encryptionKeyBase64,
+        out SymmetricSecurityKey encryptionKey)
+    {
+        encryptionKey = null!;
+        if (string.IsNullOrWhiteSpace(encryptionKeyBase64))
+        {
+            return false;
+        }
+
+        byte[] keyBytes;
+        try
+        {
+            keyBytes = Convert.FromBase64String(encryptionKeyBase64);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        if (keyBytes.Length != 32)
+        {
+            return false;
+        }
+
+        encryptionKey = new SymmetricSecurityKey(keyBytes);
+        return true;
     }
 }
 

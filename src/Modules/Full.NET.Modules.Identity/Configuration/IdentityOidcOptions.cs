@@ -26,6 +26,12 @@ internal sealed class IdentityOidcOptions
     public Dictionary<string, IdentityOidcSigningKeyOptions> SigningKeys { get; set; } =
         new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Base64 编码的 256 位对称密钥，用于 OpenIddict 刷新令牌等不透明令牌加密。
+    /// 多实例部署必须共享同一密钥，否则跨节点 refresh 会返回 invalid_grant。
+    /// </summary>
+    public string EncryptionKeyBase64 { get; set; } = string.Empty;
+
     /// <summary>固定注册的交互式客户端；回调地址必须精确匹配，不允许通配来源。</summary>
     public IdentityOidcClientOptions[] Clients { get; set; } = [];
 }
