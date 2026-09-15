@@ -371,4 +371,12 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_client_offline_authoritative_revoke_with_mysql()
+    {
+        await IdentityOidcClientOfflineAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }

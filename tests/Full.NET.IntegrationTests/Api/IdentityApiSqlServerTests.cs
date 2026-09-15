@@ -371,4 +371,12 @@ public sealed class IdentityApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_client_offline_authoritative_revoke_with_sql_server()
+    {
+        await IdentityOidcClientOfflineAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }
