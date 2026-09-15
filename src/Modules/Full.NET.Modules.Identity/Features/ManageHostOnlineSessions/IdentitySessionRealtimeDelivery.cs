@@ -1,3 +1,4 @@
+using Full.NET.Modules.Identity.Observability;
 using Full.NET.Realtime;
 using Microsoft.Extensions.Logging;
 
@@ -57,10 +58,12 @@ internal sealed class IdentitySessionRealtimeDelivery(
                             }),
                         cancellationToken)
                     .ConfigureAwait(false);
+                IdentitySessionRevokeRealtimeTelemetry.RecordAttempt("success");
                 return;
             }
             catch (Exception ex) when (attempt < MaxPublishAttempts)
             {
+                IdentitySessionRevokeRealtimeTelemetry.RecordAttempt("retry");
                 logger.LogWarning(
                     ex,
                     "OIDC session revoke realtime publish attempt {Attempt}/{MaxAttempts} failed for user {UserId} session {SessionId}.",
@@ -72,6 +75,7 @@ internal sealed class IdentitySessionRealtimeDelivery(
             }
             catch (Exception ex)
             {
+                IdentitySessionRevokeRealtimeTelemetry.RecordAttempt("exhausted");
                 logger.LogError(
                     ex,
                     "OIDC session revoke realtime publish exhausted {MaxAttempts} attempts for user {UserId} session {SessionId}; authoritative revoke already committed.",
