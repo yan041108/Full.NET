@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Full.NET.Modules.Identity.Authorization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using IdentityUser = Full.NET.Modules.Identity.Domain.IdentityUser;
@@ -173,7 +174,9 @@ public sealed class LoginHandlerTests
                 ["platform.dashboard.read", "tenancy.tenants.read"]);
             AccessTokenIssuer = new StubAccessTokenIssuer();
             RealtimePublisher = Substitute.For<Full.NET.Realtime.IRealtimePublisher>();
-            SessionRealtimeDelivery = new IdentitySessionRealtimeDelivery(RealtimePublisher);
+            SessionRealtimeDelivery = new IdentitySessionRealtimeDelivery(
+                RealtimePublisher,
+                NullLogger<IdentitySessionRealtimeDelivery>.Instance);
             Handler = new Handler(
                 QueryExecutor,
                 CommandExecutor,

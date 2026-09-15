@@ -9,6 +9,7 @@ using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Realtime;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -126,7 +127,9 @@ public sealed class HostOnlineSessionManagementServiceTests
                 Transaction,
                 clock,
                 new QueueIdGenerator(Guid.Parse("01981a75-f500-7000-8000-000000000099")),
-                new IdentitySessionRealtimeDelivery(RealtimePublisher),
+                new IdentitySessionRealtimeDelivery(
+                    RealtimePublisher,
+                    NullLogger<IdentitySessionRealtimeDelivery>.Instance),
                 oidcSessionService,
                 oidcGrantRevocationService);
         }
