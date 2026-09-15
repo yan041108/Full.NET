@@ -19,10 +19,9 @@ public sealed class Migration205AiChatGenerationLeaseRecoveryTests
         var runner = ReviewFixMigrationRecoverySupport.CreateRunner(DatabaseProvider.SqlServer, connectionString);
         await runner.MigrateAsync().ConfigureAwait(false);
         await using var connection = new SqlConnection(connectionString);
-        await connection.ExecuteAsync(
+        var defaultConstraints = (await connection.QueryAsync<string>(
             """
-            DECLARE @dropDefaults nvarchar(max) = N'';
-            SELECT @dropDefaults += N'ALTER TABLE dbo.fn_ai_chat_session DROP CONSTRAINT ' + QUOTENAME(defaults.name) + N';'
+            SELECT defaults.name
             FROM sys.default_constraints AS defaults
             INNER JOIN sys.columns AS columnObject
                 ON defaults.parent_object_id = columnObject.object_id
@@ -31,8 +30,17 @@ public sealed class Migration205AiChatGenerationLeaseRecoveryTests
               AND columnObject.name IN (
                   N'GenerationId',
                   N'GenerationExpiresAtUtc',
-                  N'GenerationCancellationRequested');
-            IF @dropDefaults <> N'' EXEC sp_executesql @dropDefaults;
+                  N'GenerationCancellationRequested')
+            """).ConfigureAwait(false)).AsList();
+        foreach (var constraintName in defaultConstraints)
+        {
+            await connection.ExecuteAsync(
+                $"ALTER TABLE dbo.fn_ai_chat_session DROP CONSTRAINT [{constraintName.Replace("]", "]]", StringComparison.Ordinal)}];")
+                .ConfigureAwait(false);
+        }
+
+        await connection.ExecuteAsync(
+            """
             ALTER TABLE dbo.fn_ai_chat_session
                 DROP COLUMN GenerationId, GenerationExpiresAtUtc, GenerationCancellationRequested;
             """).ConfigureAwait(false);
