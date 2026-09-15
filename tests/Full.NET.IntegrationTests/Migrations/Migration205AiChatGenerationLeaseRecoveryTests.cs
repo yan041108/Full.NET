@@ -21,7 +21,20 @@ public sealed class Migration205AiChatGenerationLeaseRecoveryTests
         await using var connection = new SqlConnection(connectionString);
         await connection.ExecuteAsync(
             """
-            ALTER TABLE dbo.fn_ai_chat_session DROP COLUMN GenerationId, GenerationExpiresAtUtc, GenerationCancellationRequested;
+            DECLARE @dropDefaults nvarchar(max) = N'';
+            SELECT @dropDefaults += N'ALTER TABLE dbo.fn_ai_chat_session DROP CONSTRAINT ' + QUOTENAME(defaults.name) + N';'
+            FROM sys.default_constraints AS defaults
+            INNER JOIN sys.columns AS columnObject
+                ON defaults.parent_object_id = columnObject.object_id
+               AND defaults.parent_column_id = columnObject.column_id
+            WHERE defaults.parent_object_id = OBJECT_ID(N'dbo.fn_ai_chat_session')
+              AND columnObject.name IN (
+                  N'GenerationId',
+                  N'GenerationExpiresAtUtc',
+                  N'GenerationCancellationRequested');
+            IF @dropDefaults <> N'' EXEC sp_executesql @dropDefaults;
+            ALTER TABLE dbo.fn_ai_chat_session
+                DROP COLUMN GenerationId, GenerationExpiresAtUtc, GenerationCancellationRequested;
             """).ConfigureAwait(false);
         await ReviewFixMigrationRecoverySupport.DeleteScriptAsync(connection, ScriptToken, sqlServer: true)
             .ConfigureAwait(false);

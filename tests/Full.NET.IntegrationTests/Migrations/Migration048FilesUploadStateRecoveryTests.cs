@@ -82,6 +82,12 @@ public sealed class Migration048FilesUploadStateRecoveryTests
         var fileId = Guid.CreateVersion7();
         await connection.ExecuteAsync(
             """
+            IF EXISTS (
+                SELECT 1
+                FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.fn_files_file')
+                  AND name = N'IX_fn_files_file_FolderId')
+                DROP INDEX IX_fn_files_file_FolderId ON dbo.fn_files_file;
             ALTER TABLE dbo.fn_files_file
                 DROP CONSTRAINT CK_fn_files_file_StorageState;
             ALTER TABLE dbo.fn_files_file

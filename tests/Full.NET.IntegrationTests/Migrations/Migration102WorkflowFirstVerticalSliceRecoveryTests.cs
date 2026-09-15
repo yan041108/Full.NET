@@ -13,7 +13,8 @@ namespace Full.NET.IntegrationTests.Migrations;
 [TestClass]
 public sealed class Migration102WorkflowFirstVerticalSliceRecoveryTests
 {
-    private const int WorkflowTableCount = 13;
+    // 102 之后工作流模块持续演进；恢复测试在完整迁移头上校验 fn_workflow_% 表总数。
+    private const int WorkflowTableCount = 20;
 
     [TestMethod]
     public async Task SqlServer_recovers_partial_schema_and_enforces_workflow_invariants()

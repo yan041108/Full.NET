@@ -130,11 +130,13 @@ public sealed class Migration134PlatformReleaseNoteRecoveryTests
                     AND name = @IndexName
                   """
                 : """
-                  SELECT COUNT(*)
-                  FROM information_schema.statistics
-                  WHERE table_schema = DATABASE()
-                    AND table_name = 'fn_platform_release_note'
-                    AND index_name = @IndexName
+                  SELECT CASE WHEN EXISTS (
+                      SELECT 1
+                      FROM information_schema.statistics
+                      WHERE table_schema = DATABASE()
+                        AND table_name = 'fn_platform_release_note'
+                        AND index_name = @IndexName
+                      LIMIT 1) THEN 1 ELSE 0 END
                   """,
             new { IndexName = VersionSortKeyIndex });
 

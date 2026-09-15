@@ -126,11 +126,13 @@ public sealed class Migration132CalendarPersonalScheduleRecoveryTests
                     AND name = @IndexName
                   """
                 : """
-                  SELECT COUNT(*)
-                  FROM information_schema.statistics
-                  WHERE table_schema = DATABASE()
-                    AND table_name = 'fn_calendar_personal_schedule'
-                    AND index_name = @IndexName
+                  SELECT CASE WHEN EXISTS (
+                      SELECT 1
+                      FROM information_schema.statistics
+                      WHERE table_schema = DATABASE()
+                        AND table_name = 'fn_calendar_personal_schedule'
+                        AND index_name = @IndexName
+                      LIMIT 1) THEN 1 ELSE 0 END
                   """,
             new { IndexName = OwnerStartIndex });
 

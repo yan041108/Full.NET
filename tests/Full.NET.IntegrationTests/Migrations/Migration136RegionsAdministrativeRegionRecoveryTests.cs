@@ -89,6 +89,8 @@ public sealed class Migration136RegionsAdministrativeRegionRecoveryTests
                 allowUserVariables: false));
         await connection.ExecuteAsync(
             $"""
+             ALTER TABLE fn_regions_administrative_region
+                 DROP FOREIGN KEY FK_fn_regions_administrative_region_Parent;
              DROP INDEX {ParentIdIndex} ON fn_regions_administrative_region;
              DELETE FROM schemaversions
              WHERE ScriptName LIKE '%136_RegionsAdministrativeRegion.sql';
@@ -130,11 +132,13 @@ public sealed class Migration136RegionsAdministrativeRegionRecoveryTests
                     AND name = @IndexName
                   """
                 : """
-                  SELECT COUNT(*)
-                  FROM information_schema.statistics
-                  WHERE table_schema = DATABASE()
-                    AND table_name = 'fn_regions_administrative_region'
-                    AND index_name = @IndexName
+                  SELECT CASE WHEN EXISTS (
+                      SELECT 1
+                      FROM information_schema.statistics
+                      WHERE table_schema = DATABASE()
+                        AND table_name = 'fn_regions_administrative_region'
+                        AND index_name = @IndexName
+                      LIMIT 1) THEN 1 ELSE 0 END
                   """,
             new { IndexName = ParentIdIndex });
 
