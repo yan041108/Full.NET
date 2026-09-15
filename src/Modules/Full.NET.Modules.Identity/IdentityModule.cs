@@ -119,6 +119,14 @@ public sealed class IdentityModule : IFullNetModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        var oidcOptions = endpoints.ServiceProvider
+            .GetRequiredService<IOptions<IdentityOidcOptions>>()
+            .Value;
+        Features.OidcAuthorization.Endpoint.Map(endpoints, oidcOptions);
+        Features.OidcToken.Endpoint.Map(endpoints, oidcOptions);
+        Features.OidcUserInfo.Endpoint.Map(endpoints, oidcOptions);
+        Features.OidcSession.Endpoint.Map(endpoints, oidcOptions);
+
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("IdentityAuthSession");
         Features.Login.Endpoint.Map(group);
         Features.RefreshSession.Endpoint.Map(group);
@@ -156,6 +164,11 @@ public sealed class IdentityModule : IFullNetModule
     /// <inheritdoc />
     public void UseModuleMiddleware(IApplicationBuilder app, ModulePipelineStage stage)
     {
+        if (stage == ModulePipelineStage.BeforeAuthentication)
+        {
+            app.UseMiddleware<Middleware.IdentityOidcHostContextMiddleware>();
+        }
+
         if (stage == ModulePipelineStage.BeforeAuthorization)
         {
             app.UseMiddleware<PasswordChangeRequiredMiddleware>();

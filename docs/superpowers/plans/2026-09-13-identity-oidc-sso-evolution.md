@@ -124,13 +124,13 @@
 
 **提供：** 实际 Discovery/JWKS、Authorize/Token/UserInfo、中心登录交互和两个固定客户端夹具；P0 客户端 UI 保持最小，不构建完整管理后台。
 
-- [ ] 在 `IdentityOidcProtocolAssertions` 表达 V01/V02/V04/V08/V10/V18：先证明当前缺少协议能力导致失败，再实现协议接入，不能以编译失败或环境缺失代替 RED。
-- [ ] 明确 URI 与端点启用集合，委托组件处理协议；由 Full.NET 处理账号交互和权威授权，不手写另一套授权码／JWT 协议引擎。
-- [ ] 配置 A、B 独立 client_id／Origin／回调、PKCE S256 与机密客户端认证；夹具秘密从临时测试环境提供。
-- [ ] 建立 state／correlation／nonce 验证与 UserInfo sub 一致性；以去敏后的字段存在性和断言记录流程，不保存令牌正文。
-- [ ] 验证未请求 offline_access 时不误报已获得 Refresh Token；保存票据与刷新执行分别实现和验证。
-- [ ] 证明业务 API 仍返回 ProblemDetails，协议端点返回标准错误且不受通用包络改写；边界测试拒绝未登记协议例外。
-- [ ] 执行 JWT 格式适配实验，确定签名 JWT／JWE／其他受控验证模式；资源 API 不能通过持有中心私钥获得兼容。
+- [x] 在 `IdentityOidcProtocolAssertions` 表达 V01/V02/V04/V08/V10/V18：先证明当前缺少协议能力导致失败，再实现协议接入，不能以编译失败或环境缺失代替 RED。
+- [x] 明确 URI 与端点启用集合，委托组件处理协议；由 Full.NET 处理账号交互和权威授权，不手写另一套授权码／JWT 协议引擎。
+- [x] 配置 A、B 独立 client_id／Origin／回调、PKCE S256 与机密客户端认证；夹具秘密从临时测试环境提供。
+- [x] 建立 state／correlation／nonce 验证与 UserInfo sub 一致性；以去敏后的字段存在性和断言记录流程，不保存令牌正文。
+- [x] 验证未请求 offline_access 时不误报已获得 Refresh Token；保存票据与刷新执行分别实现和验证。
+- [x] 证明业务 API 仍返回 ProblemDetails，协议端点返回标准错误且不受通用包络改写；边界测试拒绝未登记协议例外。
+- [x] 执行 JWT 格式适配实验，确定签名 JWT／JWE／其他受控验证模式；资源 API 不能通过持有中心私钥获得兼容。（P0 选定签名 JWT + `token_use=access`，禁用 Access Token 加密）
 - [ ] 使用 A／B 实际签发的令牌执行 §6 三组入口验收，覆盖仅 OIDC 会话与新旧混合会话；真实调用现有强制下线、切租户以及工具／审批／后台任务入口，证明认证中间件与消费方适配一起生效。
 
 **通过条件：** 两个客户端各自完成真实 HTTP 授权与令牌验证，授权码绑定、三组入口验收和负向用例双库通过；跨浏览器完整体验留给 T05。

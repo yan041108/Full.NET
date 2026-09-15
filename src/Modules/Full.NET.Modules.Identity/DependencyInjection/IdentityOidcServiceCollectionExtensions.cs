@@ -1,11 +1,19 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Oidc.Stores;
 using Full.NET.Modules.Identity.Persistence;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using OpenIddict.Server;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Full.NET.Modules.Identity.DependencyInjection;
 
@@ -40,11 +48,32 @@ internal static class IdentityOidcServiceCollectionExtensions
             return services;
         }
 
+        services.TryAddSingleton<IdentityOidcSigningKeyRing>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<
+            IConfigureOptions<OpenIddictServerOptions>,
+            IdentityOidcServerOptionsConfigurer>());
         services.TryAddScoped<IdentityOidcStoreSqlResolver>();
         services.TryAddScoped<IdentityOidcApplicationStore>();
         services.TryAddScoped<IdentityOidcAuthorizationStore>();
         services.TryAddScoped<IdentityOidcScopeStore>();
         services.TryAddScoped<IdentityOidcTokenStore>();
+        services.TryAddScoped<IdentityOidcCenterLoginService>();
+        services.TryAddScoped<IdentityOidcAuthorizationService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IdentityOidcClientRegistrar>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IExceptionHandler, IdentityOidcProtocolExceptionHandler>());
+
+        services.AddAuthentication()
+            .AddCookie(
+                IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme,
+                options =>
+                {
+                    options.Cookie.Name = IdentityOidcCenterAuthenticationDefaults.CookieName;
+                    options.Cookie.HttpOnly = true;
+                    options.Cookie.SameSite = SameSiteMode.Lax;
+                    options.LoginPath = "/connect/authorize";
+                    options.SlidingExpiration = true;
+                    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                });
 
         services.AddOpenIddict()
             .AddCore(options =>
@@ -62,10 +91,56 @@ internal static class IdentityOidcServiceCollectionExtensions
             .AddServer(options =>
             {
                 options.SetIssuer(new Uri(oidcOptions.Issuer, UriKind.Absolute));
+                options.SetAuthorizationEndpointUris("/connect/authorize")
+                    .SetTokenEndpointUris("/connect/token")
+                    .SetUserInfoEndpointUris("/connect/userinfo")
+                    .SetConfigurationEndpointUris("/.well-known/openid-configuration")
+                    .SetJsonWebKeySetEndpointUris("/.well-known/jwks");
+                options.RegisterScopes(Scopes.OpenId, Scopes.Profile, Scopes.OfflineAccess);
                 options.AllowAuthorizationCodeFlow()
+                    .AllowRefreshTokenFlow()
                     .RequireProofKeyForCodeExchange();
-                options.UseAspNetCore();
+                options.DisableAccessTokenEncryption();
+                // OpenIddict 仍要求注册加密密钥；Access Token 使用签名 JWT，加密密钥仅满足运行时门禁。
+                options.AddEphemeralEncryptionKey();
+                options.AddEventHandler(IdentityOidcSignInHandler.Descriptor);
+                options.UseAspNetCore(aspNetCore =>
+                {
+                    aspNetCore.EnableAuthorizationEndpointPassthrough();
+                    aspNetCore.EnableTokenEndpointPassthrough();
+                    aspNetCore.EnableUserInfoEndpointPassthrough();
+                    aspNetCore.EnableStatusCodePagesIntegration();
+                    aspNetCore.DisableTransportSecurityRequirement();
+                });
             });
+
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IdentityOidcSigningKeyRing, IOptions<IdentityOidcOptions>, Security.RsaSigningKeyRing, IOptions<IdentityOptions>>(
+                (jwt, oidcKeyRing, oidcOptionsAccessor, identityKeyRing, identityOptionsAccessor) =>
+                {
+                    if (!oidcOptionsAccessor.Value.Enable)
+                    {
+                        return;
+                    }
+
+                    var identitySettings = identityOptionsAccessor.Value;
+                    var validationKeys = identityKeyRing.ValidationKeys.ToList();
+                    foreach (var key in oidcKeyRing.ValidationKeys)
+                    {
+                        if (!validationKeys.Any(existing =>
+                                string.Equals(existing.KeyId, key.KeyId, StringComparison.Ordinal)))
+                        {
+                            validationKeys.Add(key);
+                        }
+                    }
+
+                    jwt.TokenValidationParameters.IssuerSigningKeys = validationKeys;
+                    jwt.TokenValidationParameters.ValidIssuers =
+                    [
+                        identitySettings.Issuer,
+                        oidcOptionsAccessor.Value.Issuer,
+                    ];
+                });
 
         return services;
     }

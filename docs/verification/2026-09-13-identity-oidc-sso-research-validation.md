@@ -303,6 +303,20 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **T02 结论：** 中心／应用会话权威与消费方适配在单元与双库服务层成立；完整协议入口与旧体系回归由 T03 与专项回归补齐。
 
+### T03（2026-09-15）：最小标准授权闭环与两个客户端夹具
+
+| 项 | 证据 |
+| --- | --- |
+| 协议端点 | `/.well-known/openid-configuration`、`/.well-known/jwks`、`/connect/authorize`、`/connect/token`、`/connect/userinfo`；OpenIddict 7.7.0 passthrough + 中心登录 HTML |
+| 签名 | `IdentityOidcSigningKeyRing`；`DisableAccessTokenEncryption()`；Access Token 为签名 JWT（`token_use=access`） |
+| 宿主上下文 | `IdentityOidcHostContextMiddleware`（`InvokeAsync` 注入 Scoped 租户写入器，认证前建立 Host 上下文） |
+| 客户端 | `IdentityOidcClientRegistrar` 同步 A/B 夹具；`AllowRefreshTokenFlow()` + `offline_access` scope |
+| V01/V02/V08/V10/V18 | `IdentityOidcProtocolAssertions` + `IdentityOidcRelyingPartyFixture`（PKCE S256、双库） |
+| 聚焦验证 | 单元 `IdentityOidc` 15/15；集成 `Oidc_protocol_authorization_flow` SQL Server + MySQL 2/2（Windows 本地，2026-09-15） |
+| 未验证 | §6 三组入口全量验收、V04 nonce 客户端校验专项、V09 票据保存、Linux Native AOT（T04）、旧登录全量回归、`pnpm test:aot:analyzers` 对 `IdentityOidcStoreSupport` 既有 IL 告警 |
+
+**T03 结论：** 双客户端 PKCE 授权码闭环、UserInfo、协议/业务错误边界在双库 HTTP 入口成立；§6 消费方入口与 AOT 运行时证据仍待 T04 与专项回归。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs

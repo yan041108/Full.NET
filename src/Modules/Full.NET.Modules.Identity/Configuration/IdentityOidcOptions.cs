@@ -46,9 +46,21 @@ internal sealed class IdentityOidcClientOptions
     /// <summary>OAuth/OIDC client_id；全局唯一且稳定。</summary>
     public string ClientId { get; set; } = string.Empty;
 
+    /// <summary>机密客户端密钥；公开客户端留空。</summary>
+    public string? ClientSecret { get; set; }
+
     /// <summary>授权码回调地址白名单；必须完整绝对 URI，禁止通配符。</summary>
     public string[] RedirectUris { get; set; } = [];
 
     /// <summary>退出后回跳地址白名单；同样要求精确匹配。</summary>
     public string[] PostLogoutRedirectUris { get; set; } = [];
+
+    /// <summary>默认请求 scope；未配置时使用 openid 与 profile。</summary>
+    public string[] Scopes { get; set; } = ["openid", "profile"];
+
+    /// <summary>内部 Full.NET 客户端可在令牌中包含安全戳；外部客户端必须为 false。</summary>
+    public bool IsFirstParty { get; set; } = true;
+
+    /// <summary>资源 API aud 覆盖；默认使用 <see cref="IdentityOptions.Audience"/>。</summary>
+    public string ResourceAudience { get; set; } = string.Empty;
 }
