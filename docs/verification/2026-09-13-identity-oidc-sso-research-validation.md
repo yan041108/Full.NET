@@ -256,6 +256,23 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | `git diff --no-index --check -- /dev/null docs/verification/2026-09-13-identity-oidc-sso-research-validation.md` | 无空白错误诊断；退出码 1 表示新增文件与空文件有差异。初次检查脚本把该退出码误判为失败，随后修正为检查诊断内容并独立检查行尾空白。Git 的 LF／CRLF 提示不是空白错误 |
 | 本文件范围的 `git diff --check`、`git status --short` 与 `git branch --show-current` | 无空白错误；新文件未跟踪；分支仍为 `main`，未提交或推送 |
 
+## 11. P0 执行记录
+
+### T00（2026-09-15）：冻结最小实验输入，验证依赖和静态注册
+
+| 项 | 证据 |
+| --- | --- |
+| 基线 | 分支 `main`；任务快照 `identity-oidc-sso-p0`（复用已有快照）；代码工作 HEAD 以实施时工作区为准 |
+| 组件版本 | OpenIddict **7.7.0**（`OpenIddict.Abstractions` / `OpenIddict.Core` / `OpenIddict.Server` / `OpenIddict.Server.AspNetCore`）；许可证 Apache-2.0；未引入 EF/Mongo 持久化包 |
+| 传递依赖调整 | 中央包将 `Microsoft.Extensions.Options`、`Microsoft.Extensions.DependencyInjection` 升至 **10.0.11** 以满足 OpenIddict 7.7.0 下限 |
+| 静态注册 | `AddIdentityOidc` 默认 `Identity:Oidc:Enable=false`；启用时静态注册 `AddOpenIddict().AddCore().AddServer()` 与 PKCE S256；未映射协议端点 |
+| 负向配置 | `IdentityOidcOptionsTests`：默认未启用；Production 启用缺 Issuer/持久化密钥失败；通配/任意回调拒绝（6 发现，0 失败） |
+| 架构边界 | `IdentityOidcBoundaryTests`：无 EF/持久化包、无跨模块实现引用、无通配协议授权例外（5 发现，0 失败） |
+| AOT analyzer | `pnpm test:aot:analyzers` 退出码 0（Windows 本地，2026-09-15） |
+| 未验证 | V01—V24 运行场景、双库 Store、Linux 原生发布、SSO 浏览器、T02 消费方适配（§6 三组入口） |
+
+**T00 结论：** 静态闭包与负向配置门禁通过；仅证明依赖可编译装配与配置边界，不证明协议可运行或 P0 Go。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs

@@ -40,6 +40,8 @@ the complete license texts.
   https://github.com/mysql-net/MySqlConnector
 - Testcontainers for .NET — MIT
   https://github.com/testcontainers/testcontainers-dotnet
+- OpenIddict 7.7.0 (OpenIddict.Abstractions / OpenIddict.Core / OpenIddict.Server / OpenIddict.Server.AspNetCore) — Apache-2.0
+  https://github.com/openiddict/openiddict-core
 - NetArchTest — MIT
   https://github.com/BenMorris/NetArchTest
 - Scalar — MIT
