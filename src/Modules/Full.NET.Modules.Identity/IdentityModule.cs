@@ -131,6 +131,7 @@ public sealed class IdentityModule : IFullNetModule
             Features.OidcSession.Endpoint.Map(endpoints, oidcOptions);
             Features.ManageOidcClients.Endpoint.Map(endpoints);
             Features.ManageOidcAuthorizations.Endpoint.Map(endpoints);
+            Features.ManageOidcSigningKeys.Endpoint.Map(endpoints);
         }
 
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("IdentityAuthSession");

@@ -207,6 +207,10 @@ internal sealed class IdentityAuthorizationContributor
             "撤销 OIDC 授权授予",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOidcSigningKeyPermissions.Read,
+            "查看 OIDC 签名密钥",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityOpenAccessClientPermissions.Read,
             "查看 OpenAccess 接入方应用",
             AuthorizationScope.Host),
@@ -388,6 +392,17 @@ internal sealed class IdentityAuthorizationContributor
             "document",
             39,
             IdentityOidcAuthorizationPermissions.Read),
+        new NavigationDefinition(
+            "oidc-signing-keys",
+            null,
+            "oidc-signing-keys",
+            "/identity/oidc-signing-keys",
+            "oidc-signing-keys",
+            "OIDC 签名密钥",
+            "OIDC Signing Keys",
+            "key",
+            40,
+            IdentityOidcSigningKeyPermissions.Read),
         new NavigationDefinition(
             "registration-ways",
             null,

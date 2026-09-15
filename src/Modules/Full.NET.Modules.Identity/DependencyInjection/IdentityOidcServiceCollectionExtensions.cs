@@ -1,6 +1,7 @@
 using Full.NET.Modules.Identity.Configuration;
-using Full.NET.Modules.Identity.Features.ManageOidcClients;
 using Full.NET.Modules.Identity.Features.ManageOidcAuthorizations;
+using Full.NET.Modules.Identity.Features.ManageOidcClients;
+using Full.NET.Modules.Identity.Features.ManageOidcSigningKeys;
 using Full.NET.Modules.Identity.Retention;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.Oidc;
@@ -69,6 +70,7 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<OidcClientManagementService>();
         services.TryAddScoped<OidcAuthorizationQueryService>();
         services.TryAddScoped<OidcAuthorizationManagementService>();
+        services.TryAddScoped<OidcSigningKeyQueryService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IdentityOidcClientRegistrar>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IExceptionHandler, IdentityOidcProtocolExceptionHandler>());
 
