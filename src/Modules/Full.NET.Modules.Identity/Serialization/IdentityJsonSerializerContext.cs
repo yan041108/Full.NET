@@ -141,4 +141,5 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(ReconcileOrganizationUnitProjectionRequest))]
 [JsonSerializable(typeof(ReconcileOrganizationUnitProjectionResponse))]
 [JsonSerializable(typeof(Features.OidcSession.IdentityOidcCenterLoginRequest))]
+[JsonSerializable(typeof(Features.OidcSession.IdentityOidcApplicationLogoutRequest))]
 internal partial class IdentityJsonSerializerContext : JsonSerializerContext;

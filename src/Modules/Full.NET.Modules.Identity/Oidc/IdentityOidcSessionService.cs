@@ -150,6 +150,64 @@ internal sealed class IdentityOidcSessionService(
         return affectedRows > 0;
     }
 
+    public async Task<IReadOnlyList<Guid>> ListActiveHostApplicationSessionIdsByUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var sessionIds = await queryExecutor.QueryAsync<Guid>(
+                IdentityOidcSessionSql.ListActiveHostOidcApplicationSessionIdsByUser,
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("NowUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return sessionIds.ToArray();
+    }
+
+    public async Task<IReadOnlyList<Guid>> ListActiveHostApplicationSessionIdsByUserAndClientAsync(
+        Guid userId,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var sessionIds = await queryExecutor.QueryAsync<Guid>(
+                IdentityOidcSessionSql.ListActiveHostOidcApplicationSessionIdsByUserAndClient,
+                IdentitySqlParameters.Create(
+                    ("UserId", userId),
+                    ("ClientId", clientId),
+                    ("NowUtc", clock.UtcNow)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return sessionIds.ToArray();
+    }
+
+    public async Task<IReadOnlyList<Guid>> RevokeActiveApplicationSessionsByUserAndClientAsync(
+        Guid userId,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        var sessionIds = await ListActiveHostApplicationSessionIdsByUserAndClientAsync(
+                userId,
+                clientId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (sessionIds.Count == 0)
+        {
+            return sessionIds;
+        }
+
+        var revokedSessionIds = new List<Guid>(sessionIds.Count);
+        foreach (var sessionId in sessionIds)
+        {
+            if (await RevokeApplicationSessionAsync(sessionId, cancellationToken).ConfigureAwait(false))
+            {
+                revokedSessionIds.Add(sessionId);
+            }
+        }
+
+        return revokedSessionIds;
+    }
+
     public async Task<int> RevokeAllApplicationSessionsByUserAsync(
         Guid userId,
         CancellationToken cancellationToken = default)

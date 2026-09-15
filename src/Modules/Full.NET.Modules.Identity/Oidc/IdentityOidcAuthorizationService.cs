@@ -3,6 +3,7 @@ using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageHostOnlineSessions;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.AspNetCore.Authentication;
@@ -20,6 +21,7 @@ internal sealed class IdentityOidcAuthorizationService(
     IdentityOidcCenterLoginService centerLoginService,
     IdentityOidcSessionService sessionService,
     IdentityOidcGrantRevocationService grantRevocationService,
+    IdentitySessionRealtimeDelivery sessionRealtimeDelivery,
     IPermissionSnapshotReader permissionSnapshotReader,
     IOpenIddictApplicationManager applicationManager,
     IdentityOidcClientConfigResolver clientConfigResolver,
@@ -187,19 +189,67 @@ internal sealed class IdentityOidcAuthorizationService(
         return new ClaimsPrincipal(identity);
     }
 
+    public async Task<bool> SignOutApplicationAsync(
+        HttpContext httpContext,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var userId = await TryReadAuthenticatedCenterUserAsync(httpContext, cancellationToken)
+            .ConfigureAwait(false);
+        if (userId is null)
+        {
+            return false;
+        }
+
+        var revokedSessionIds = await sessionService.RevokeActiveApplicationSessionsByUserAndClientAsync(
+                userId.Value,
+                clientId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (revokedSessionIds.Count > 0)
+        {
+            await grantRevocationService.RevokeByUserAndClientAsync(
+                    userId.Value,
+                    clientId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                    userId.Value,
+                    revokedSessionIds,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return true;
+    }
+
     public async Task SignOutCenterAsync(
         HttpContext httpContext,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
-        var principal = httpContext.User;
-        if (principal.Identity?.IsAuthenticated == true
-            && TryReadCenterLogoutClaims(principal, out var centerSessionId, out var userId))
+        var centerUserId = await TryReadAuthenticatedCenterUserAsync(httpContext, cancellationToken)
+            .ConfigureAwait(false);
+        if (centerUserId is Guid userId)
         {
-            await sessionService.RevokeCenterSessionAsync(centerSessionId, cancellationToken)
+            var applicationSessionIds = await sessionService.ListActiveHostApplicationSessionIdsByUserAsync(
+                    userId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await sessionService.RevokeAllCenterSessionsByUserAsync(userId, cancellationToken)
                 .ConfigureAwait(false);
             await grantRevocationService.RevokeByUserIdAsync(userId, cancellationToken)
                 .ConfigureAwait(false);
+            if (applicationSessionIds.Count > 0)
+            {
+                await sessionRealtimeDelivery.PublishSessionsRevokedAsync(
+                        userId,
+                        applicationSessionIds,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
 
         await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
@@ -239,5 +289,23 @@ internal sealed class IdentityOidcAuthorizationService(
             IdentityOidcCenterAuthenticationDefaults.UserIdClaim)?.Value;
         return Guid.TryParse(centerSessionClaim, out centerSessionId)
             && Guid.TryParse(userIdClaim, out userId);
+    }
+
+    private static async Task<Guid?> TryReadAuthenticatedCenterUserAsync(
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        var centerAuth = await httpContext.AuthenticateAsync(
+                IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
+            .ConfigureAwait(false);
+        var principal = centerAuth.Principal;
+        if (principal?.Identity?.IsAuthenticated != true
+            || !TryReadCenterLogoutClaims(principal, out _, out var userId))
+        {
+            return null;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return userId;
     }
 }

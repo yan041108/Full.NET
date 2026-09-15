@@ -16,6 +16,11 @@ internal sealed class IdentityOidcCenterLoginRequest
     public string ReturnUrl { get; set; } = string.Empty;
 }
 
+internal sealed class IdentityOidcApplicationLogoutRequest
+{
+    public string ClientId { get; set; } = string.Empty;
+}
+
 internal static class Endpoint
 {
     public static void Map(IEndpointRouteBuilder endpoints, IdentityOidcOptions options)
@@ -31,6 +36,10 @@ internal static class Endpoint
             .AllowAnonymous();
         endpoints.MapPost("/api/v1/identity/oidc/logout", HandleLogoutAsync)
             .WithName("identityOidcCenterLogout")
+            .WithTags("IdentityOidcSession")
+            .AllowAnonymous();
+        endpoints.MapPost("/api/v1/identity/oidc/logout/application", HandleApplicationLogoutAsync)
+            .WithName("identityOidcApplicationLogout")
             .WithTags("IdentityOidcSession")
             .AllowAnonymous();
     }
@@ -67,5 +76,24 @@ internal static class Endpoint
         await authorizationService.SignOutCenterAsync(httpContext, cancellationToken)
             .ConfigureAwait(false);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> HandleApplicationLogoutAsync(
+        IdentityOidcApplicationLogoutRequest request,
+        HttpContext httpContext,
+        IdentityOidcAuthorizationService authorizationService,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.ClientId))
+        {
+            return Results.BadRequest();
+        }
+
+        var signedOut = await authorizationService.SignOutApplicationAsync(
+                httpContext,
+                request.ClientId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return signedOut ? Results.NoContent() : Results.Unauthorized();
     }
 }

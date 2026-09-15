@@ -57,6 +57,49 @@ public sealed class IdentityOidcSessionTests
     }
 
     [TestMethod]
+    public async Task Revoke_active_application_sessions_by_user_and_client_revokes_each_match()
+    {
+        var fixture = new Fixture();
+        fixture.QueryExecutor
+            .QueryAsync<Guid>(
+                IdentityOidcSessionSql.ListActiveHostOidcApplicationSessionIdsByUserAndClient,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns([ApplicationSessionId]);
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionRow>(
+                IdentityOidcSessionSql.FindApplicationSessionById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new IdentityOidcApplicationSessionRow(
+                ApplicationSessionId,
+                CenterSessionId,
+                ApplicationId,
+                "integration-client",
+                UserId,
+                "host",
+                "host",
+                null,
+                Now,
+                Now.AddHours(1),
+                null,
+                1,
+                Now));
+        fixture.CommandExecutor.ExecuteAsync(
+                IdentityOidcSessionSql.RevokeApplicationSession,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+
+        var revokedSessionIds = await fixture.Service.RevokeActiveApplicationSessionsByUserAndClientAsync(
+            UserId,
+            "integration-client",
+            default);
+
+        CollectionAssert.AreEqual(new[] { ApplicationSessionId }, revokedSessionIds.ToArray());
+    }
+
+    [TestMethod]
     public async Task Concurrent_center_revoke_is_idempotent()
     {
         var fixture = new Fixture();

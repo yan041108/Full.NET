@@ -193,6 +193,19 @@ internal static class IdentityOidcSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    public static readonly SqlStatement ListActiveHostOidcApplicationSessionIdsByUserAndClient = new(
+        "identity.list_active_host_oidc_application_session_ids_by_user_and_client",
+        $"""
+        SELECT app.Id
+        FROM fn_identity_oidc_application_session AS app
+        INNER JOIN fn_identity_oidc_center_session AS center ON center.Id = app.CenterSessionId
+        INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = app.UserId
+        WHERE app.UserId = @UserId
+          AND app.ClientId = @ClientId
+          AND {ActiveHostApplicationSessionPredicate}
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement CountActiveHostSessionsCombinedSqlServer = new(
         "identity.count_active_host_online_sessions_combined.sql_server",
         $"""

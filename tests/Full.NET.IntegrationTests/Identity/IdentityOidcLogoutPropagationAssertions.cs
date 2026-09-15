@@ -15,8 +15,65 @@ internal static class IdentityOidcLogoutPropagationAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        await VerifyApplicationLogoutScopesToClientAsync(client, cancellationToken);
         await VerifySingleSessionRevokeScopesToClientAsync(client, cancellationToken);
         await VerifyRevokeAllRevokesRefreshTokenAsync(client, cancellationToken);
+    }
+
+    private static async Task VerifyApplicationLogoutScopesToClientAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        var confidentialFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
+
+        using var logoutRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/logout/application")
+        {
+            Content = JsonContent.Create(new
+            {
+                clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
+            }),
+        };
+        using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+
+        var publicRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            publicFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(publicRefreshResult.IsSuccessStatusCode);
+
+        var confidentialRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            confidentialFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            cancellationToken);
+        Assert.IsTrue(
+            confidentialRefreshResult.IsSuccessStatusCode,
+            $"Expected confidential client refresh to remain valid after application logout, got {(int)confidentialRefreshResult.StatusCode}: {confidentialRefreshResult.RawBody}");
     }
 
     private static async Task VerifyRevokeAllRevokesRefreshTokenAsync(
