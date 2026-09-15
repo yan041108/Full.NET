@@ -68,15 +68,13 @@ internal static class IdentityOidcMultiInstanceLogoutPropagationAssertions
         Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
         Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
 
-        using var logoutRequest = new HttpRequestMessage(
+        using var logoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
             HttpMethod.Post,
-            "/api/v1/identity/oidc/logout/application")
-        {
-            Content = JsonContent.Create(new
+            "/api/v1/identity/oidc/logout/application",
+            new
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
-            }),
-        };
+            });
         using var logoutResponse = await primaryClient.SendAsync(logoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 

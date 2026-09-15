@@ -247,6 +247,17 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_session_write_rejects_malicious_origin_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcSessionSecurityAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Oidc_retention_prunes_stale_grants_with_sql_server()
     {
         using var factory = new FullNetApiFactory(

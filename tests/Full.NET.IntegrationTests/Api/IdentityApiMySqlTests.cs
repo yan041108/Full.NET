@@ -247,6 +247,17 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_session_write_rejects_malicious_origin_with_mysql()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcSessionSecurityAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Oidc_retention_prunes_stale_grants_with_mysql()
     {
         using var factory = new FullNetApiFactory(

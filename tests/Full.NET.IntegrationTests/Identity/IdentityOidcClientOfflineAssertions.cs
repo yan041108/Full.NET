@@ -155,15 +155,13 @@ internal static class IdentityOidcClientOfflineAssertions
         Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
         Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
 
-        using var logoutRequest = new HttpRequestMessage(
+        using var logoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
             HttpMethod.Post,
-            "/api/v1/identity/oidc/logout/application")
-        {
-            Content = JsonContent.Create(new
+            "/api/v1/identity/oidc/logout/application",
+            new
             {
                 clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
-            }),
-        };
+            });
         using var logoutResponse = await client.SendAsync(logoutRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
         Assert.IsTrue(
@@ -214,9 +212,10 @@ internal static class IdentityOidcClientOfflineAssertions
         Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
         Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
 
-        using var logoutResponse = await client.PostAsync(
-            "/api/v1/identity/oidc/logout",
-            null,
+        using var logoutResponse = await client.SendAsync(
+            IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+                HttpMethod.Post,
+                "/api/v1/identity/oidc/logout"),
             cancellationToken);
         Assert.AreEqual(HttpStatusCode.NoContent, logoutResponse.StatusCode);
         Assert.IsTrue(
