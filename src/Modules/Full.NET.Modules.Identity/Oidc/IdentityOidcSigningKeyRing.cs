@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
+using Full.NET.Abstractions.Results;
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -13,7 +15,10 @@ namespace Full.NET.Modules.Identity.Oidc;
 /// </summary>
 internal sealed class IdentityOidcSigningKeyRing : IDisposable
 {
+    private readonly object _sync = new();
     private readonly List<RSA> _ownedKeys = [];
+    private readonly Dictionary<string, OidcSigningKeyEntry> _entries = new(StringComparer.Ordinal);
+    private string _activeKeyId;
 
     public IdentityOidcSigningKeyRing(
         IOptions<IdentityOidcOptions> options,
@@ -26,7 +31,9 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
                 "IdentityOidcSigningKeyRing requires Identity:Oidc:Enable=true.");
         }
 
-        if (settings.SigningKeys.Count == 0)
+        UsesEphemeralDevelopmentKey =
+            settings.SigningKeys.Count == 0 && settings.AllowDevelopmentEphemeralSigningKey;
+        if (UsesEphemeralDevelopmentKey)
         {
             if (!settings.AllowDevelopmentEphemeralSigningKey)
             {
@@ -40,34 +47,30 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
             {
                 KeyId = $"oidc-dev-{Guid.NewGuid():N}",
             };
-            SigningCredentials = new SigningCredentials(
-                securityKey,
-                SecurityAlgorithms.RsaSha256);
-            ValidationKeys = [securityKey];
+            _activeKeyId = securityKey.KeyId!;
+            _entries[_activeKeyId] = new OidcSigningKeyEntry(securityKey, HasPrivateKey: true);
             logger.LogWarning(
                 "OIDC is using an ephemeral development signing key with KeyId {KeyId}",
                 securityKey.KeyId);
             return;
         }
 
-        var validationKeys = new List<SecurityKey>();
-        SigningCredentials? signingCredentials = null;
         try
         {
             foreach (var pair in settings.SigningKeys)
             {
                 var rsa = RSA.Create();
                 _ownedKeys.Add(rsa);
-                if (string.Equals(
-                    pair.Key,
-                    settings.ActiveSigningKeyId,
-                    StringComparison.Ordinal))
+                var configuredKey = pair.Value
+                    ?? throw new InvalidOperationException(
+                        $"OIDC signing key '{pair.Key}' configuration is missing.");
+                if (!string.IsNullOrWhiteSpace(configuredKey.PrivateKeyPem))
                 {
-                    rsa.ImportFromPem(NormalizePem(pair.Value.PrivateKeyPem));
+                    rsa.ImportFromPem(NormalizePem(configuredKey.PrivateKeyPem));
                 }
                 else
                 {
-                    rsa.ImportFromPem(NormalizePem(pair.Value.PublicKeyPem));
+                    rsa.ImportFromPem(NormalizePem(configuredKey.PublicKeyPem));
                 }
 
                 if (rsa.KeySize < 2048)
@@ -77,16 +80,9 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
                 }
 
                 var securityKey = new RsaSecurityKey(rsa) { KeyId = pair.Key };
-                validationKeys.Add(securityKey);
-                if (string.Equals(
-                    pair.Key,
-                    settings.ActiveSigningKeyId,
-                    StringComparison.Ordinal))
-                {
-                    signingCredentials = new SigningCredentials(
-                        securityKey,
-                        SecurityAlgorithms.RsaSha256);
-                }
+                _entries[pair.Key] = new OidcSigningKeyEntry(
+                    securityKey,
+                    HasPrivateKey: !string.IsNullOrWhiteSpace(configuredKey.PrivateKeyPem));
             }
         }
         catch
@@ -95,14 +91,93 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
             throw;
         }
 
-        SigningCredentials = signingCredentials ?? throw new InvalidOperationException(
-            "OIDC ActiveSigningKeyId does not identify a configured private signing key.");
-        ValidationKeys = validationKeys;
+        _activeKeyId = settings.ActiveSigningKeyId;
+        if (!_entries.TryGetValue(_activeKeyId, out var activeEntry)
+            || !activeEntry.HasPrivateKey)
+        {
+            throw new InvalidOperationException(
+                "OIDC ActiveSigningKeyId does not identify a configured private signing key.");
+        }
     }
 
-    public SigningCredentials SigningCredentials { get; }
+    public bool UsesEphemeralDevelopmentKey { get; }
 
-    public IReadOnlyCollection<SecurityKey> ValidationKeys { get; }
+    public string ActiveSigningKeyId
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _activeKeyId;
+            }
+        }
+    }
+
+    public SigningCredentials SigningCredentials
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return CreateSigningCredentials(_entries[_activeKeyId].SecurityKey);
+            }
+        }
+    }
+
+    public IReadOnlyCollection<SecurityKey> ValidationKeys
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _entries.Values
+                    .Select(entry => entry.SecurityKey)
+                    .ToArray();
+            }
+        }
+    }
+
+    public IReadOnlyDictionary<string, OidcSigningKeyEntry> Entries
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return new Dictionary<string, OidcSigningKeyEntry>(_entries, StringComparer.Ordinal);
+            }
+        }
+    }
+
+    public Result<string> TryActivate(string keyId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
+        if (UsesEphemeralDevelopmentKey)
+        {
+            return Result<string>.Failure(new Error(
+                ValidationErrorCodes.Failed,
+                "Ephemeral development signing keys cannot be activated through the management API.",
+                ErrorType.Validation));
+        }
+
+        lock (_sync)
+        {
+            if (string.Equals(_activeKeyId, keyId, StringComparison.Ordinal))
+            {
+                return Result<string>.Success(_activeKeyId);
+            }
+
+            if (!_entries.TryGetValue(keyId, out var entry) || !entry.HasPrivateKey)
+            {
+                return Result<string>.Failure(new Error(
+                    IdentityErrorCodes.OidcSigningKeyNotActivatable,
+                    "The OIDC signing key is missing, unknown, or does not include private key material.",
+                    ErrorType.Validation));
+            }
+
+            _activeKeyId = keyId;
+            return Result<string>.Success(_activeKeyId);
+        }
+    }
 
     public void Dispose()
     {
@@ -112,8 +187,14 @@ internal sealed class IdentityOidcSigningKeyRing : IDisposable
         }
 
         _ownedKeys.Clear();
+        _entries.Clear();
     }
+
+    private static SigningCredentials CreateSigningCredentials(SecurityKey securityKey) =>
+        new(securityKey, SecurityAlgorithms.RsaSha256);
 
     private static ReadOnlySpan<char> NormalizePem(string pem) =>
         pem.Replace("\\n", "\n", StringComparison.Ordinal).AsSpan();
 }
+
+internal sealed record OidcSigningKeyEntry(SecurityKey SecurityKey, bool HasPrivateKey);

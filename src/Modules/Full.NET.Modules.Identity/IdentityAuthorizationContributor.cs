@@ -211,6 +211,10 @@ internal sealed class IdentityAuthorizationContributor
             "查看 OIDC 签名密钥",
             AuthorizationScope.Host),
         new PermissionDefinition(
+            IdentityOidcSigningKeyPermissions.Activate,
+            "激活 OIDC 签名密钥",
+            AuthorizationScope.Host),
+        new PermissionDefinition(
             IdentityOpenAccessClientPermissions.Read,
             "查看 OpenAccess 接入方应用",
             AuthorizationScope.Host),

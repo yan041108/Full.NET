@@ -184,6 +184,9 @@ public static class IdentityErrorCodes
     /// <summary>目标 OIDC 授权授予不存在。</summary>
     public const string OidcAuthorizationNotFound = "identity.oidc_authorizations.not_found";
 
+    /// <summary>OIDC 签名密钥无法激活（缺失、未知或无私钥材料）。</summary>
+    public const string OidcSigningKeyNotActivatable = "identity.oidc_signing_keys.not_activatable";
+
     /// <summary>目标 OpenAccess 接入方应用不存在或已停用。</summary>
     public const string OpenAccessClientNotFound = "identity.open_access_clients.not_found";
 
@@ -471,6 +474,7 @@ public static class IdentityErrorCodes
         OidcClientIdConflict,
         OidcClientDisabled,
         OidcAuthorizationNotFound,
+        OidcSigningKeyNotActivatable,
         OpenAccessClientNotFound,
         OpenAccessClientVersionConflict,
         OpenAccessClientQuotaExceeded,

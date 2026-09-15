@@ -302,6 +302,7 @@ public sealed partial class OpenApiOperationIdentityRulesTests
         new("GET", "/api/v1/identity/oidc-authorizations/{id}", "identityGetOidcAuthorization", IdentityOidcAuthorizationsTag),
         new("POST", "/api/v1/identity/oidc-authorizations/{id}/revoke", "identityRevokeOidcAuthorization", IdentityOidcAuthorizationsTag),
         new("GET", "/api/v1/identity/oidc-signing-keys", "identityListOidcSigningKeys", IdentityOidcSigningKeysTag),
+        new("POST", "/api/v1/identity/oidc-signing-keys/{keyId}/activate", "identityActivateOidcSigningKey", IdentityOidcSigningKeysTag),
         new("GET", "/api/v1/identity/registration-policy", "identityGetRegistrationPolicy", IdentityRegistrationPolicyTag),
         new("PUT", "/api/v1/identity/registration-policy", "identityUpdateRegistrationPolicy", IdentityRegistrationPolicyTag),
         new("GET", "/api/v1/identity/registration-ways", "identityListRegistrationWays", IdentityRegistrationWaysTag),

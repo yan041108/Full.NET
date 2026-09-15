@@ -72,6 +72,11 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<OidcAuthorizationQueryService>();
         services.TryAddScoped<OidcAuthorizationManagementService>();
         services.TryAddScoped<OidcSigningKeyQueryService>();
+        services.TryAddScoped<OidcSigningKeyManagementService>();
+        services.TryAddSingleton<IdentityOidcOpenIddictServerOptionsReloadTokenSource>();
+        services.TryAddSingleton<IOptionsChangeTokenSource<OpenIddictServerOptions>>(provider =>
+            provider.GetRequiredService<IdentityOidcOpenIddictServerOptionsReloadTokenSource>());
+        services.TryAddSingleton<IdentityOidcOpenIddictSigningCredentialSynchronizer>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IdentityOidcClientRegistrar>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IExceptionHandler, IdentityOidcProtocolExceptionHandler>());
 

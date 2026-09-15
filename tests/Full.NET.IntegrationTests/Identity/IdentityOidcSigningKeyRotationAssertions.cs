@@ -94,6 +94,25 @@ internal static class IdentityOidcSigningKeyRotationAssertions
         return settings;
     }
 
+    internal static IReadOnlyDictionary<string, string?> BuildDualPrivateKeySettings(
+        RSA keyA,
+        RSA keyB,
+        string activeKeyId)
+    {
+        var settings = new Dictionary<string, string?>(IdentityOidcProtocolAssertions.Settings)
+        {
+            ["Identity:Oidc:AllowDevelopmentEphemeralSigningKey"] = "false",
+            ["Identity:Oidc:ActiveSigningKeyId"] = activeKeyId,
+            ["Identity:Oidc:EncryptionKeyBase64"] =
+                IdentityOidcMultiInstanceTestSupport.SharedEncryptionKeyBase64,
+            [$"Identity:Oidc:SigningKeys:{KeyAId}:PublicKeyPem"] = keyA.ExportRSAPublicKeyPem(),
+            [$"Identity:Oidc:SigningKeys:{KeyAId}:PrivateKeyPem"] = keyA.ExportRSAPrivateKeyPem(),
+            [$"Identity:Oidc:SigningKeys:{KeyBId}:PublicKeyPem"] = keyB.ExportRSAPublicKeyPem(),
+            [$"Identity:Oidc:SigningKeys:{KeyBId}:PrivateKeyPem"] = keyB.ExportRSAPrivateKeyPem(),
+        };
+        return settings;
+    }
+
     private static async Task<HashSet<string>> ReadJwksKeyIdsAsync(
         HttpClient client,
         CancellationToken cancellationToken)

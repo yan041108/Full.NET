@@ -4,6 +4,8 @@ namespace Full.NET.Modules.Identity.Contracts;
 public static class IdentityOidcSigningKeyPermissions
 {
     public const string Read = "identity.oidc_signing_keys.read";
+
+    public const string Activate = "identity.oidc_signing_keys.activate";
 }
 
 public sealed record OidcSigningKeyResponse(

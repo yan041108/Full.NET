@@ -28,5 +28,21 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityOidcSigningKeyPermissions.Read);
+
+        group.MapPost("/{keyId}/activate", (
+            string keyId,
+            OidcSigningKeyManagementService service,
+            IApiResultMapper mapper,
+            HttpContext httpContext) =>
+        {
+            var result = service.Activate(keyId);
+            return mapper.Map(result, httpContext);
+        })
+        .WithName("identityActivateOidcSigningKey")
+        .Produces<OidcSigningKeyListResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .RequireFullNetPermission(IdentityOidcSigningKeyPermissions.Activate);
     }
 }
