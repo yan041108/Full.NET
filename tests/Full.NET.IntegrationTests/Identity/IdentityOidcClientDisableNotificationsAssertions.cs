@@ -32,6 +32,7 @@ internal static class IdentityOidcClientDisableNotificationsAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
         await VerifyDisableEmitsSessionRevokedNotificationAsync(client, publisher, cancellationToken);
+        await VerifyDuplicateDisableDoesNotReemitNotificationsAsync(client, publisher, cancellationToken);
     }
 
     private static async Task VerifyDisableEmitsSessionRevokedNotificationAsync(
@@ -90,9 +91,71 @@ internal static class IdentityOidcClientDisableNotificationsAssertions
         Assert.AreEqual(HttpStatusCode.Unauthorized, meResponse.StatusCode);
     }
 
+    private static async Task VerifyDuplicateDisableDoesNotReemitNotificationsAsync(
+        HttpClient client,
+        RecordingRealtimePublisher publisher,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var clientId = $"disable-dup-{Guid.NewGuid():N}"[..24];
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/oidc-clients")
+        {
+            Content = JsonContent.Create(new CreateOidcClientRequest(
+                clientId,
+                "Duplicate disable notification client",
+                [ExternalRedirectUri],
+                [],
+                ["openid", "profile", "offline_access"],
+                false,
+                true,
+                null)),
+        };
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<CreateOidcClientResponse>(cancellationToken);
+        Assert.IsNotNull(created);
+
+        await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            clientId,
+            ExternalRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+
+        publisher.Reset();
+        using var firstDisableRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/oidc-clients/{created!.Client.Id:D}/disable");
+        firstDisableRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var firstDisableResponse = await client.SendAsync(firstDisableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstDisableResponse.StatusCode);
+        Assert.AreEqual(1, publisher.SessionRevokedPublishCount);
+
+        using var secondDisableRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/oidc-clients/{created!.Client.Id:D}/disable");
+        secondDisableRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var secondDisableResponse = await client.SendAsync(secondDisableRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Conflict, secondDisableResponse.StatusCode);
+        Assert.AreEqual(
+            1,
+            publisher.SessionRevokedPublishCount,
+            "Duplicate disable must not re-emit realtime session notifications.");
+    }
+
     private sealed class RecordingRealtimePublisher : IRealtimePublisher
     {
         public int SessionRevokedPublishCount { get; private set; }
+
+        public void Reset() => SessionRevokedPublishCount = 0;
 
         public Task PublishToUserAsync(
             Guid userId,
