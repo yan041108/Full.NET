@@ -302,9 +302,9 @@ internal sealed class IdentityOidcTokenStore(
         token.UpdatedAtUtc = clock.UtcNow;
         token.PropertiesJson = IdentityOidcStoreSupport.WriteSessionId(token.PropertiesJson, token.SessionId);
 
-        if (IdentityOidcStoreSupport.IsAuthorizationCodeRedemption(token))
+        if (IdentityOidcStoreSupport.ShouldUseAtomicTokenRedemption(token))
         {
-            // 授权码兑换必须原子成功，否则视为并发冲突（V03/V15）。
+            // 授权码与 refresh token 兑换必须原子成功，否则视为并发冲突（V03/V09/V15）。
             var affected = await commandExecutor.ExecuteAsync(
                 sqlResolver.RedeemAuthorizationCodeToken(),
                 IdentitySqlParameters.Create(

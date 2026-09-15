@@ -25,6 +25,7 @@ internal static class IdentityOidcStoreAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         await VerifyParallelAuthorizationCodeRedeemAsync(factory, cancellationToken);
+        await VerifyParallelRefreshTokenRedeemAsync(factory, cancellationToken);
         await VerifyRevokedAuthorizationBlocksRedeemAsync(factory, cancellationToken);
     }
 
@@ -35,6 +36,18 @@ internal static class IdentityOidcStoreAssertions
         var (tokenId, _) = await SeedAuthorizationCodeTokenAsync(factory, cancellationToken);
         var attempts = Enumerable.Range(0, 8)
             .Select(_ => TryRedeemAuthorizationCodeAsync(factory, tokenId, cancellationToken))
+            .ToArray();
+        var results = await Task.WhenAll(attempts);
+        Assert.AreEqual(1, results.Count(result => result));
+    }
+
+    private static async Task VerifyParallelRefreshTokenRedeemAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var (tokenId, _) = await SeedRefreshTokenAsync(factory, cancellationToken);
+        var attempts = Enumerable.Range(0, 8)
+            .Select(_ => TryRedeemRefreshTokenAsync(factory, tokenId, cancellationToken))
             .ToArray();
         var results = await Task.WhenAll(attempts);
         Assert.AreEqual(1, results.Count(result => result));
@@ -107,7 +120,39 @@ internal static class IdentityOidcStoreAssertions
         return (tokenId, applicationId!);
     }
 
-    private static async Task<bool> TryRedeemAuthorizationCodeAsync(
+    private static async Task<(string TokenId, string ApplicationId)> SeedRefreshTokenAsync(
+        FullNetApiFactory factory,
+        CancellationToken cancellationToken)
+    {
+        var (tokenId, applicationId) = await SeedAuthorizationCodeTokenAsync(factory, cancellationToken);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+        var tokenStore = scope.ServiceProvider
+            .GetRequiredService<IOpenIddictTokenStore<IdentityOidcToken>>();
+        var token = await tokenStore.FindByIdAsync(tokenId, cancellationToken);
+        Assert.IsNotNull(token);
+        await tokenStore.SetTypeAsync(
+            token,
+            OpenIddictConstants.TokenTypeIdentifiers.RefreshToken,
+            cancellationToken);
+        await tokenStore.UpdateAsync(token, cancellationToken);
+        return (tokenId, applicationId);
+    }
+
+    private static Task<bool> TryRedeemRefreshTokenAsync(
+        FullNetApiFactory factory,
+        string tokenId,
+        CancellationToken cancellationToken) =>
+        TryRedeemTokenAsync(factory, tokenId, cancellationToken);
+
+    private static Task<bool> TryRedeemAuthorizationCodeAsync(
+        FullNetApiFactory factory,
+        string tokenId,
+        CancellationToken cancellationToken) =>
+        TryRedeemTokenAsync(factory, tokenId, cancellationToken);
+
+    private static async Task<bool> TryRedeemTokenAsync(
         FullNetApiFactory factory,
         string tokenId,
         CancellationToken cancellationToken)

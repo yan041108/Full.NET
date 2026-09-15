@@ -134,6 +134,7 @@ internal static class IdentityOidcServiceCollectionExtensions
                     options.AddEphemeralEncryptionKey();
                 }
                 options.AddEventHandler(IdentityOidcSignInHandler.Descriptor);
+                options.AddEventHandler(IdentityOidcRefreshTokenReuseHandler.Descriptor);
                 options.UseAspNetCore(aspNetCore =>
                 {
                     aspNetCore.EnableAuthorizationEndpointPassthrough();

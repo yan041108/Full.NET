@@ -150,8 +150,18 @@ internal static class IdentityOidcStoreSupport
     }
 
     internal static bool IsAuthorizationCodeRedemption(IdentityOidcToken token) =>
+        ShouldUseAtomicTokenRedemption(token)
+        && string.Equals(
+            token.Type,
+            OpenIddictConstants.TokenTypeIdentifiers.Private.AuthorizationCode,
+            StringComparison.Ordinal);
+
+    internal static bool ShouldUseAtomicTokenRedemption(IdentityOidcToken token) =>
         string.Equals(token.Type, OpenIddictConstants.TokenTypeIdentifiers.Private.AuthorizationCode, StringComparison.Ordinal)
-        && token.RedemptionDateUtc is not null;
+            && token.RedemptionDateUtc is not null
+        || string.Equals(token.Type, OpenIddictConstants.TokenTypeIdentifiers.RefreshToken, StringComparison.Ordinal)
+            && (token.RedemptionDateUtc is not null
+                || string.Equals(token.Status, OpenIddictConstants.Statuses.Redeemed, StringComparison.Ordinal));
 
     internal static void EnsureConcurrency(int affected)
     {
