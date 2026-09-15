@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Full.NET.Abstractions.Results;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
@@ -88,6 +89,7 @@ internal static class IdentityOidcLogoutPropagationAssertions
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
+        await AssertMeAcceptsTokenAsync(client, flow.AccessToken, cancellationToken);
 
         var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
             client,
@@ -105,6 +107,7 @@ internal static class IdentityOidcLogoutPropagationAssertions
         revokeAllRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
         using var revokeAllResponse = await client.SendAsync(revokeAllRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, revokeAllResponse.StatusCode);
+        await AssertMeRejectsRevokedSessionAsync(client, flow.AccessToken, cancellationToken);
 
         var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
             client,
@@ -156,6 +159,7 @@ internal static class IdentityOidcLogoutPropagationAssertions
             adminUserId,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             cancellationToken);
+        await AssertMeAcceptsTokenAsync(client, publicFlow.AccessToken, cancellationToken);
 
         using var revokeRequest = new HttpRequestMessage(
             HttpMethod.Post,
@@ -166,6 +170,7 @@ internal static class IdentityOidcLogoutPropagationAssertions
         revokeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
         using var revokeResponse = await client.SendAsync(revokeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
+        await AssertMeRejectsRevokedSessionAsync(client, publicFlow.AccessToken, cancellationToken);
 
         var publicRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
             client,
@@ -220,5 +225,35 @@ internal static class IdentityOidcLogoutPropagationAssertions
             .ReadFromJsonAsync<PagedResult<HostUserResponse>>(cancellationToken);
         Assert.IsNotNull(page);
         return page.Items.Single(item => item.Username == "admin").Id;
+    }
+
+    private static async Task AssertMeAcceptsTokenAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task AssertMeRejectsRevokedSessionAsync(
+        HttpClient client,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var problem = JsonDocument.Parse(body);
+        Assert.AreEqual(
+            IdentityErrorCodes.SessionNotActive,
+            problem.RootElement.GetProperty("code").GetString());
+        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+            body,
+            "Resource API rejection after authoritative session revoke");
     }
 }
