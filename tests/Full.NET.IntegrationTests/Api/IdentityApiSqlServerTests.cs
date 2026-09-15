@@ -336,6 +336,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_tenant_boundary_rejects_forged_tenant_claim_with_sql_server()
+    {
+        await IdentityOidcTenantBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_sql_server()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(

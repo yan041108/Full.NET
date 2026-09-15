@@ -336,6 +336,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_tenant_boundary_rejects_forged_tenant_claim_with_mysql()
+    {
+        await IdentityOidcTenantBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_governance_rejects_disabled_client_with_mysql()
     {
         await IdentityOidcMultiInstanceGovernanceAssertions.VerifyAsync(
