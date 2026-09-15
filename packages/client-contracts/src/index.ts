@@ -302,6 +302,16 @@ export type {
 } from './oidc-authorizations.js';
 
 export {
+  isOidcSigningKey,
+  isOidcSigningKeyList
+} from './oidc-signing-keys.js';
+
+export type {
+  OidcSigningKey,
+  OidcSigningKeyList
+} from './oidc-signing-keys.js';
+
+export {
   isRegistrationPolicy,
   isRegistrationWay,
   isRegistrationWayPage

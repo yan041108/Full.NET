@@ -87,6 +87,11 @@ export function createAppRouter(
         component: () => import('../views/OidcAuthorizationsView.vue')
       },
       {
+        name: 'oidc-signing-keys',
+        path: '/identity/oidc-signing-keys',
+        component: () => import('../views/OidcSigningKeysView.vue')
+      },
+      {
         name: 'registration-ways',
         path: '/identity/registration-ways',
         component: () => import('../views/RegistrationWaysView.vue')

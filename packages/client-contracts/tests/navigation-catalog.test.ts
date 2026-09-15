@@ -106,6 +106,11 @@ describe('headless 管理端导航目录', () => {
       routeName: 'oidc-authorizations',
       path: '/identity/oidc-authorizations'
     });
+    expect(catalog.localNavigationFor('oidc-signing-keys')).toEqual({
+      componentKey: 'oidc-signing-keys',
+      routeName: 'oidc-signing-keys',
+      path: '/identity/oidc-signing-keys'
+    });
   });
 
   it('只接受已发布的 componentKey、routeName 与 path 组合', () => {

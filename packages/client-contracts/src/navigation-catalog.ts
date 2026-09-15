@@ -60,6 +60,11 @@ export const ADMIN_NAVIGATION_CATALOG: readonly AdminNavigationCatalogEntry[] = 
     path: '/identity/oidc-authorizations'
   },
   {
+    componentKey: 'oidc-signing-keys',
+    routeName: 'oidc-signing-keys',
+    path: '/identity/oidc-signing-keys'
+  },
+  {
     componentKey: 'registration-ways',
     routeName: 'registration-ways',
     path: '/identity/registration-ways'
