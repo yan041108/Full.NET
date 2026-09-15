@@ -135,8 +135,9 @@ internal sealed class HostOnlineSessionManagementService(
         }
 
         var oidcSnapshot = Map(oidcRecord);
-        await oidcGrantRevocationService.RevokeByUserIdAsync(
+        await oidcGrantRevocationService.RevokeByUserAndClientAsync(
                 oidcRecord.UserId,
+                oidcRecord.ClientId,
                 cancellationToken)
             .ConfigureAwait(false);
         await WriteAuditAsync(

@@ -15,6 +15,7 @@ internal static class IdentityOidcLogoutPropagationAssertions
     {
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
+        await VerifySingleSessionRevokeScopesToClientAsync(client, cancellationToken);
         await VerifyRevokeAllRevokesRefreshTokenAsync(client, cancellationToken);
     }
 
@@ -61,6 +62,92 @@ internal static class IdentityOidcLogoutPropagationAssertions
             refreshResult.StatusCode == HttpStatusCode.BadRequest
                 || refreshResult.RawBody.Contains("invalid_grant", StringComparison.OrdinalIgnoreCase),
             $"Expected refresh token exchange to fail after revoke-all, got {(int)refreshResult.StatusCode}: {refreshResult.RawBody}");
+    }
+
+    private static async Task VerifySingleSessionRevokeScopesToClientAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        var confidentialFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
+
+        var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
+        var publicSessionId = await ResolveOidcSessionIdAsync(
+            client,
+            adminToken,
+            adminUserId,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            cancellationToken);
+
+        using var revokeRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/online-sessions/{publicSessionId:D}/revoke")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        revokeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var revokeResponse = await client.SendAsync(revokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
+
+        var publicRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            publicFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(publicRefreshResult.IsSuccessStatusCode);
+
+        var confidentialRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            confidentialFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            cancellationToken);
+        Assert.IsTrue(
+            confidentialRefreshResult.IsSuccessStatusCode,
+            $"Expected confidential client refresh to remain valid after single-session revoke, got {(int)confidentialRefreshResult.StatusCode}: {confidentialRefreshResult.RawBody}");
+    }
+
+    private static async Task<Guid> ResolveOidcSessionIdAsync(
+        HttpClient client,
+        string adminToken,
+        Guid userId,
+        string clientId,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/online-sessions?page=1&pageSize=50&userId={userId:D}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content
+            .ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
+        Assert.IsNotNull(page);
+        return page.Items.Single(item => item.ClientId == clientId).Id;
     }
 
     private static async Task<Guid> ResolveAdminUserIdAsync(

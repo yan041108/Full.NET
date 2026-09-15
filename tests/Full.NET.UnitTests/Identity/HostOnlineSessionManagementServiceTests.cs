@@ -117,6 +117,7 @@ public sealed class HostOnlineSessionManagementServiceTests
                 CommandExecutor,
                 clock);
             var oidcGrantRevocationService = new IdentityOidcGrantRevocationService(
+                QueryExecutor,
                 CommandExecutor,
                 clock);
             Service = new HostOnlineSessionManagementService(

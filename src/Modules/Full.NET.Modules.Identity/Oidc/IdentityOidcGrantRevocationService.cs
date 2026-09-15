@@ -11,6 +11,7 @@ internal sealed record IdentityOidcGrantRevocationResult(
     int AuthorizationsRevoked);
 
 internal sealed class IdentityOidcGrantRevocationService(
+    IQueryExecutor queryExecutor,
     ICommandExecutor commandExecutor,
     IClock clock)
 {
@@ -34,6 +35,59 @@ internal sealed class IdentityOidcGrantRevocationService(
                     ("Subject", subject),
                     ("RevokedStatus", Statuses.Revoked),
                     ("UpdatedAtUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new IdentityOidcGrantRevocationResult(tokensRevoked, authorizationsRevoked);
+    }
+
+    /// <summary>仅撤销指定用户在某 OIDC 客户端下的授权与令牌，用于单应用下线。</summary>
+    public async Task<IdentityOidcGrantRevocationResult> RevokeByUserAndClientAsync(
+        Guid userId,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplication>(
+                IdentityOidcSql.FindApplicationByClientId,
+                IdentitySqlParameters.Create(("ClientId", clientId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (application is null)
+        {
+            return new IdentityOidcGrantRevocationResult(0, 0);
+        }
+
+        return await RevokeByUserAndApplicationAsync(userId, application.Id, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<IdentityOidcGrantRevocationResult> RevokeByUserAndApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var subject = userId.ToString("D");
+        var now = clock.UtcNow;
+        var tokensRevoked = await commandExecutor.ExecuteAsync(
+                IdentityOidcSql.RevokeTokensByFilter,
+                IdentitySqlParameters.Create(
+                    ("Subject", subject),
+                    ("ApplicationId", applicationId),
+                    ("RevokedStatus", Statuses.Revoked),
+                    ("UpdatedAtUtc", now),
+                    ("StatusFilter", null),
+                    ("Type", null)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var authorizationsRevoked = await commandExecutor.ExecuteAsync(
+                IdentityOidcSql.RevokeAuthorizationsByFilter,
+                IdentitySqlParameters.Create(
+                    ("Subject", subject),
+                    ("ApplicationId", applicationId),
+                    ("RevokedStatus", Statuses.Revoked),
+                    ("UpdatedAtUtc", now),
+                    ("StatusFilter", null),
+                    ("Type", null)),
                 cancellationToken)
             .ConfigureAwait(false);
         return new IdentityOidcGrantRevocationResult(tokensRevoked, authorizationsRevoked);
