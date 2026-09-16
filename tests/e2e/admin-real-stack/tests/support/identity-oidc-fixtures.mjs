@@ -175,6 +175,15 @@ export async function expectMeEndpointRejectsToken(request, accessToken) {
   expect(response.status()).toBe(401);
 }
 
+export async function expectProtectedEndpointRejectsToken(request, accessToken, path) {
+  const response = await request.get(`${resolveApiBase()}${path}`, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  expect(response.status()).toBe(403);
+  const body = await response.json();
+  expect(body.code).toBe('authorization.permission_denied');
+}
+
 export async function listAvailableTenants(request, accessToken) {
   const response = await request.get(`${resolveApiBase()}/api/v1/tenancy/available`, {
     headers: { authorization: `Bearer ${accessToken}` }

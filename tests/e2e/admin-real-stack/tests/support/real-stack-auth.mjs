@@ -742,6 +742,22 @@ async function ensureAccountPasswordCleared(
   return clearedPassword;
 }
 
+/** OIDC 中心登录前准备可用密码，复用改密清理逻辑。 */
+export async function prepareHostUserCredentialsForOidc(
+  request,
+  clientKind,
+  loginUsername,
+  loginPassword
+) {
+  const effectivePassword = await ensureAccountPasswordCleared(
+    request,
+    clientKind,
+    loginUsername,
+    loginPassword
+  );
+  return { username: loginUsername, password: effectivePassword };
+}
+
 async function readCsrfToken(request) {
   const storage = await request.storageState();
   const cookie = storage.cookies.find(entry => entry.name === csrfCookieName);

@@ -8,6 +8,7 @@ import {
   createPkcePair,
   expectMeEndpointAcceptsToken,
   expectMeEndpointRejectsToken,
+  expectProtectedEndpointRejectsToken,
   expectTokenEndpointRejectsInvalidCode,
   listAvailableTenants,
   readAccessTokenFingerprint,
@@ -15,6 +16,10 @@ import {
   resolveRpUrl,
   switchTenantContext
 } from './support/identity-oidc-fixtures.mjs';
+import {
+  prepareHostUserCredentialsForOidc,
+  provisionLimitedHostUserViaApi
+} from './support/real-stack-auth.mjs';
 
 const username = process.env.FULLNET_E2E_USERNAME ?? 'admin';
 const password = process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure';
@@ -155,6 +160,37 @@ test.describe('Identity OIDC browser SSO', () => {
       apiBase,
       client: OIDC_CLIENT_A
     });
+  });
+
+  test('无权 first-party OIDC 用户可访问 profile 但不能访问用户目录', async ({
+    page,
+    request
+  }) => {
+    const limited = await provisionLimitedHostUserViaApi(request, 'vue', {
+      permissionCodes: ['platform.dashboard.read']
+    });
+    const credentials = await prepareHostUserCredentialsForOidc(
+      request,
+      'vue',
+      limited.username,
+      limited.password
+    );
+    const clientA = await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username: credentials.username,
+      password: credentials.password,
+      expectLoginForm: true
+    });
+    await expectMeEndpointAcceptsToken(page.request, clientA.token.access_token);
+    await expectProtectedEndpointRejectsToken(
+      page.request,
+      clientA.token.access_token,
+      '/api/v1/identity/users?page=1&pageSize=1'
+    );
+    await expectProtectedEndpointRejectsToken(
+      page.request,
+      clientA.token.access_token,
+      '/api/v1/identity/oidc-clients?page=1&pageSize=1'
+    );
   });
 
   test('OIDC 访问令牌可切换租户上下文并轮换旧令牌', async ({ page }) => {
