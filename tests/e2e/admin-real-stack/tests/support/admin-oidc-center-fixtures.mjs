@@ -111,13 +111,13 @@ export async function createE2eAiAgentModelConfig(request, { displayName }) {
 export async function createOidcCenterQueuedAgentRun(
   request,
   accessToken,
-  { modelConfigId, prompt }
+  { modelConfigId, prompt, clientRequestId = randomUUID() }
 ) {
   const apiBase = resolveApiBase();
   const createResponse = await request.post(`${apiBase}/api/v1/ai/agent/runs`, {
     headers: buildOidcCenterJsonHeaders(accessToken),
     data: {
-      clientRequestId: randomUUID(),
+      clientRequestId,
       definitionKey: E2E_AGENT_RUN_DEFINITION_KEY,
       modelConfigId,
       prompt,

@@ -383,6 +383,31 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectOidcCenterAgentRunCancelRejected(request, accessToken, run.runId);
   });
 
+  test('OIDC 中心 Host 上下文重复 clientRequestId 创建 Agent Run 幂等返回同一 runId', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Agent Run Idempotent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center idempotent agent run create ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    const second = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    expect(second.runId).toBe(first.runId);
+  });
+
   test('OIDC 中心退出后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
@@ -1614,6 +1639,122 @@ test.describe('Vue admin oidc-center auth', () => {
     const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
       modelConfigId: model.id,
       prompt: `oidc-center agent runs post-load revoke ${stamp}`
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await page.getByTestId('ai-agent-runs-id').fill(run.runId);
+    await page.getByTestId('ai-agent-runs-load').click();
+    await expect(page.getByText('运行摘要')).toBeVisible({ timeout: 30_000 });
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+    await expectProtectedRouteRedirectsToOidcLogin(page, '/#/ai/agent-runs', {
+      headingName: 'Agent 运行'
+    });
+  });
+
+  test('OIDC 中心切租户后在 Agent 运行页加载运行后退出无法直达 Agent 运行页', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Agent Runs Logout Route ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center tenant agent runs post-load logout ${stamp}`
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await page.getByTestId('ai-agent-runs-id').fill(run.runId);
+    await page.getByTestId('ai-agent-runs-load').click();
+    await expect(page.getByText('运行摘要')).toBeVisible({ timeout: 30_000 });
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expectProtectedRouteRedirectsToOidcLogin(page, '/#/ai/agent-runs', {
+      headingName: 'Agent 运行'
+    });
+  });
+
+  test('OIDC 中心切租户后在 Agent 运行页加载运行后强制下线无法直达 Agent 运行页', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Agent Runs Revoke Route ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center tenant agent runs post-load revoke ${stamp}`
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await page.getByTestId('ai-agent-runs-id').fill(run.runId);
+    await page.getByTestId('ai-agent-runs-load').click();
+    await expect(page.getByText('运行摘要')).toBeVisible({ timeout: 30_000 });
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+    await expectProtectedRouteRedirectsToOidcLogin(page, '/#/ai/agent-runs', {
+      headingName: 'Agent 运行'
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后在 Agent 运行页加载运行后退出无法直达 Agent 运行页', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Agent Runs Logout Route ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center host return agent runs post-load logout ${stamp}`
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await page.getByTestId('ai-agent-runs-id').fill(run.runId);
+    await page.getByTestId('ai-agent-runs-load').click();
+    await expect(page.getByText('运行摘要')).toBeVisible({ timeout: 30_000 });
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expectProtectedRouteRedirectsToOidcLogin(page, '/#/ai/agent-runs', {
+      headingName: 'Agent 运行'
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后在 Agent 运行页加载运行后强制下线无法直达 Agent 运行页', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Agent Runs Revoke Route ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center host return agent runs post-load revoke ${stamp}`
     });
 
     await clickMainNavLink(page, /Agent 运行/);
