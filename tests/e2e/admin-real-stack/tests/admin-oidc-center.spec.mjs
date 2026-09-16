@@ -2,8 +2,11 @@ import { expect, test } from '@playwright/test';
 import {
   ADMIN_OIDC_CENTER_CLIENT_ID,
   ensureAdminOidcCenterClient,
+  findActiveOidcCenterSession,
   loginAdminViaOidcCenter,
-  logoutAdminShell
+  logoutAdminShell,
+  revokeOnlineSessionById,
+  waitForNotificationsRealtimeConnection
 } from './support/admin-oidc-center-fixtures.mjs';
 import {
   CENTER_COOKIE_NAME,
@@ -77,5 +80,21 @@ test.describe('Vue admin oidc-center auth', () => {
       clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
       refreshToken: refreshCredential.refreshToken
     });
+  });
+
+  test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await waitForNotificationsRealtimeConnection(page);
+    const session = await findActiveOidcCenterSession(request, {
+      adminOrigin,
+      username: credentials.username,
+      clientId: ADMIN_OIDC_CENTER_CLIENT_ID
+    });
+    await revokeOnlineSessionById(request, {
+      adminOrigin,
+      sessionId: session.id
+    });
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
+    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
   });
 });
