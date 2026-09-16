@@ -109,6 +109,16 @@ $env:VITE_IDENTITY_OIDC_CLIENT_ID = "admin-spa"
 pnpm --filter @fullnet/admin dev
 ```
 
+切回 `legacy` 并行入口（本地排障或回退演练）时，移除上述变量或删除 `ui/admin/.env.local` 中对应项后重启 Vite：
+
+```powershell
+Remove-Item Env:VITE_IDENTITY_AUTH_MODE -ErrorAction SilentlyContinue
+Remove-Item Env:VITE_IDENTITY_OIDC_CLIENT_ID -ErrorAction SilentlyContinue
+pnpm --filter @fullnet/admin dev
+```
+
+验证：登录页展示账号/密码表单且无「前往身份中心登录」；浏览器 `sessionStorage` 不含 `fullnet.admin.oidc.refresh`；已登录会话应通过 legacy 刷新 Cookie 或重新登录恢复。
+
 涉及 Refresh Cookie 时，浏览器与 API 应使用同一个 `localhost` 站点语义，不要混用 `localhost` 和 `127.0.0.1`，否则 `SameSite=Strict` Cookie 可能被浏览器按跨站请求拒绝。
 
 Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullnet/client-contracts` 消费共享契约。Access Token 与权限快照只保存在内存。`legacy` 模式通过 HttpOnly Refresh Cookie 恢复会话；`oidc-center` 模式仅在 `sessionStorage` 持久化 OIDC refresh token（不存 access token）。禁止将 access token 或权限快照写入 `localStorage`。

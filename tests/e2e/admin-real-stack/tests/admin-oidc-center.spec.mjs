@@ -77,6 +77,13 @@ test.describe('Vue admin oidc-center auth', () => {
     });
   });
 
+  test('OIDC 中心 Host 上下文可打开工作流待办页', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await clickMainNavLink(page, /我的待办/, '工作流');
+    await expect(page.getByRole('heading', { name: '我的工作流待办', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+  });
+
   test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);

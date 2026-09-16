@@ -372,9 +372,10 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |
 | 路由守卫 | `selfServicePaths` 含 `/identity/oidc/callback`；已认证用户无需导航下发即可进入回调页 |
 | 切租户 | `session-oidc-center-switch-tenant.test.ts`：OIDC 会话成功切换后替换内存 token 并重载授权快照；API 返回 `identity.oidc_context_switch_not_supported` 时保留 Host 上下文与 refresh 凭据 |
-| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、切租户并返回 Host、租户内受保护页面、退出、强制下线）；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
-| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **34/34**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11**；E2E 聚焦入口 `pnpm test:e2e:real:oidc-center`（8 用例，待 CI／本机真实栈执行） |
-| 未验证 | 真实栈 E2E 未在本机执行（API `5149` 未就绪）；§6 三组入口全量验收、旧入口并行回退演练、切租户后真实业务 API／审批／后台任务矩阵、能力状态 `Verified` 升级 |
+| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、工作流待办页、切租户并返回 Host、租户内受保护页面、退出、强制下线）；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
+| 并行回退 | [getting-started §3.1](../development/getting-started.md#31-vue-管理端) 记录移除 `VITE_IDENTITY_AUTH_MODE` 后回到 legacy 表单的本地验证步骤 |
+| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **34/34**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11**；E2E 聚焦入口 `pnpm test:e2e:real:oidc-center`（9 用例，待 CI／本机真实栈执行） |
+| 未验证 | 真实栈 E2E 未在本机执行（API `5149` 未就绪）；§6 三组入口全量验收、审批操作级回归、后台任务矩阵、能力状态 `Verified` 升级 |
 
 **T08 结论：** Vue 可选 `oidc-center` 消费路径与 legacy 并行入口在单元层成立；生产启用与 P3 退出条件仍依赖真实栈 E2E、§6 回归与能力状态独立门禁，不得由单元测试单独升级为 `Verified`。
 
