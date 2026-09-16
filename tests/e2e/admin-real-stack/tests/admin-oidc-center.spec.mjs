@@ -1117,6 +1117,94 @@ test.describe('Vue admin oidc-center auth', () => {
     }).toBe(true);
   });
 
+  test('OIDC 中心切租户并返回 Host 后退出后已失效 access token 无法触发后台任务', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.hrout.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Host Return Logout Job ${stamp}`,
+      description: 'oidc-center host return post-logout job trigger rejection'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户并返回 Host 后退出后已失效 access token 无法访问后台任务执行历史 API', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.hrexec.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Host Return Logout Exec ${stamp}`,
+      description: 'oidc-center host return post-logout executions list rejection'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const triggerResponse = await expectOidcApiPostStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+    const execution = await triggerResponse.json();
+
+    const beforeLogout = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      200
+    );
+    expect((await beforeLogout.json()).items?.some(item => item.id === execution.id)).toBe(true);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      401
+    );
+  });
+
   test('OIDC 中心切租户并返回 Host 后 access token 仍可创建并读取排队 Agent Run', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
@@ -1737,6 +1825,119 @@ test.describe('Vue admin oidc-center auth', () => {
       const body = await listResponse.json();
       return (body.items ?? []).some(item => item.id === execution.id);
     }).toBe(true);
+  });
+
+  test('OIDC 中心切租户后退出后已失效 access token 无法触发后台任务', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.tout.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Tenant Logout Job ${stamp}`,
+      description: 'oidc-center tenant post-logout job trigger rejection'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户后退出后已失效 access token 无法访问后台任务执行历史 API', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.texec.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Tenant Logout Exec ${stamp}`,
+      description: 'oidc-center tenant post-logout executions list rejection'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    const triggerResponse = await expectOidcApiPostStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+    const execution = await triggerResponse.json();
+
+    const beforeLogout = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      200
+    );
+    expect((await beforeLogout.json()).items?.some(item => item.id === execution.id)).toBe(true);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户后强制下线后已失效 access token 无法触发后台任务', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.trev.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Tenant Revoke Job ${stamp}`,
+      description: 'oidc-center tenant post-revoke job trigger rejection'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      401
+    );
   });
 
   test('OIDC 中心切租户后 access token 仍可创建并读取排队 Agent Run', async ({ page, request }) => {
