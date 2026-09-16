@@ -432,6 +432,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_center_session_revoke_invalidates_protocol_grants_with_mysql()
+    {
+        await IdentityOidcCenterSessionRevokeAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_revoke_is_idempotent_with_mysql()
     {
         await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(

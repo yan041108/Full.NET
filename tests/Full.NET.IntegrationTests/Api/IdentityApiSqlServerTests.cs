@@ -432,6 +432,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_center_session_revoke_invalidates_protocol_grants_with_sql_server()
+    {
+        await IdentityOidcCenterSessionRevokeAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_revoke_is_idempotent_with_sql_server()
     {
         await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(
