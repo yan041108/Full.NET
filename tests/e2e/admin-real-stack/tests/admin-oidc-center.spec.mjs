@@ -147,6 +147,68 @@ test.describe('Vue admin oidc-center auth', () => {
       .toBeVisible({ timeout: 15_000 });
   });
 
+  test('OIDC 中心 Host 上下文可触发后台任务', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const setupOrigin = 'http://localhost:25173';
+    const accessToken = await loginHostAdminAccessToken(request, 'vue');
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.${stamp}`.slice(0, 32);
+    const displayName = `E2E OIDC Ping ${stamp}`;
+
+    const createResponse = await request.post(`${apiBase}/api/v1/jobs/host-definitions`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+        origin: setupOrigin
+      },
+      data: {
+        jobKey,
+        handlerKind: 'ping',
+        args: null,
+        displayName,
+        description: 'oidc-center trigger probe',
+        groupName: 'e2e',
+        allowConcurrentExecutions: false
+      }
+    });
+    expect(createResponse.status()).toBe(201);
+    const definition = await createResponse.json();
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await clickMainNavLink(page, /任务定义/, '任务');
+    const jobsView = page.locator('.host-jobs-view');
+    const row = jobsView.getByRole('row').filter({ hasText: displayName });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+
+    const triggerResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/jobs/host-definitions/${definition.id}/trigger`)
+      && response.request().method() === 'POST'
+    );
+    await row.getByTestId('host-jobs-action-trigger').click();
+    const response = await triggerResponse;
+    expect(response.status()).toBe(201);
+    const execution = await response.json();
+    expect(typeof execution.id).toBe('string');
+
+    await expect.poll(async () => {
+      const listResponse = await request.get(
+        `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+        {
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            origin: setupOrigin
+          }
+        }
+      );
+      if (!listResponse.ok()) {
+        return false;
+      }
+      const body = await listResponse.json();
+      return (body.items ?? []).some(item => item.id === execution.id);
+    }).toBe(true);
+  });
+
   test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
