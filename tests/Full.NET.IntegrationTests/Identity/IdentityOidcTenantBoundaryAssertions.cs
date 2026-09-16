@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
@@ -133,9 +134,47 @@ internal static class IdentityOidcTenantBoundaryAssertions
             HttpStatusCode.OK,
             matchingMeResponse.StatusCode,
             "Matching tenant claim and effective scope must keep tenant-scoped sessions authorized.");
+
+        using var missingTenantClient = factory.CreateClientForHost("missing.localhost");
+        await VerifyTenantContextMismatchAsync(
+            missingTenantClient,
+            matchingTenantToken,
+            "/api/v1/tenancy/current",
+            "tenant-scoped token on unknown tenant host",
+            cancellationToken);
+        await VerifyTenantContextMismatchAsync(
+            missingTenantClient,
+            matchingTenantToken,
+            "/api/v1/me",
+            "tenant-scoped token profile on unknown tenant host",
+            cancellationToken);
     }
 
     private static string BuildTenantEffectiveScope(Guid tenantId) => $"tenant:{tenantId:N}";
+
+    private static async Task VerifyTenantContextMismatchAsync(
+        HttpClient client,
+        string accessToken,
+        string path,
+        string scenario,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.Forbidden,
+            response.StatusCode,
+            $"Tenant-scoped OIDC token must not authorize {scenario}.");
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var problem = JsonDocument.Parse(body);
+        Assert.AreEqual(
+            "tenancy.context_mismatch",
+            problem.RootElement.GetProperty("code").GetString());
+        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+            body,
+            $"Tenant context mismatch for {scenario}");
+    }
 
     private static async Task VerifyMeRejectsTokenAsync(
         HttpClient client,
