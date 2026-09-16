@@ -5,6 +5,7 @@ import {
   createOidcPkcePair,
   exchangeOidcAuthorizationCode,
   mapOidcTokenEndpointToTokenResponse,
+  refreshOidcAccessToken,
   validateOidcCallbackState
 } from '../src/oidc-interactive-auth';
 
@@ -75,14 +76,33 @@ describe('OIDC token endpoint mapping', () => {
       status: 200,
       headers: { 'content-type': 'application/json' }
     })));
-    const token = await exchangeOidcAuthorizationCode({
+    const exchange = await exchangeOidcAuthorizationCode({
       apiBase: 'http://localhost:5149',
       clientId: 'admin-spa',
       redirectUri: 'http://localhost:5173/#/identity/oidc/callback',
       code: 'auth-code',
       verifier: 'verifier-value'
     });
-    expect(token.accessToken).toBe('oidc-access-token');
+    expect(exchange.token.accessToken).toBe('oidc-access-token');
+  });
+
+  it('exchanges refresh token through token endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'rotated-access-token',
+      token_type: 'Bearer',
+      expires_in: 120,
+      refresh_token: 'rotated-refresh-token'
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })));
+    const exchange = await refreshOidcAccessToken({
+      apiBase: 'http://localhost:5149',
+      clientId: 'admin-spa',
+      refreshToken: 'existing-refresh-token'
+    });
+    expect(exchange.token.accessToken).toBe('rotated-access-token');
+    expect(exchange.refreshToken).toBe('rotated-refresh-token');
   });
 });
 

@@ -18,12 +18,24 @@ export interface OidcTokenEndpointResponse {
   id_token?: string;
 }
 
+export interface OidcTokenExchangeResult {
+  token: TokenResponse;
+  refreshToken?: string;
+}
+
 export interface ExchangeOidcAuthorizationCodeOptions {
   apiBase: string;
   clientId: string;
   redirectUri: string;
   code: string;
   verifier: string;
+  clientSecret?: string | null;
+}
+
+export interface RefreshOidcAccessTokenOptions {
+  apiBase: string;
+  clientId: string;
+  refreshToken: string;
   clientSecret?: string | null;
 }
 
@@ -124,10 +136,44 @@ export function mapOidcTokenEndpointToTokenResponse(
   };
 }
 
+async function requestOidcTokenEndpoint(
+  apiBase: string,
+  body: URLSearchParams
+): Promise<OidcTokenEndpointResponse> {
+  const response = await fetch(`${apiBase}/connect/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  const payload: unknown = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new TypeError('OIDC token endpoint request failed.');
+  }
+
+  if (!isOidcTokenEndpointResponse(payload)) {
+    throw new TypeError('OIDC token endpoint response is invalid.');
+  }
+
+  return payload;
+}
+
+function mapOidcTokenExchangeResult(
+  payload: OidcTokenEndpointResponse
+): OidcTokenExchangeResult {
+  const refreshToken = typeof payload.refresh_token === 'string'
+    && payload.refresh_token.length > 0
+    ? payload.refresh_token
+    : undefined;
+  return {
+    token: mapOidcTokenEndpointToTokenResponse(payload),
+    refreshToken
+  };
+}
+
 /** 使用授权码与 PKCE verifier 兑换访问令牌。 */
 export async function exchangeOidcAuthorizationCode(
   options: ExchangeOidcAuthorizationCodeOptions
-): Promise<TokenResponse> {
+): Promise<OidcTokenExchangeResult> {
   const apiBase = options.apiBase.replace(/\/$/u, '');
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -140,21 +186,26 @@ export async function exchangeOidcAuthorizationCode(
     body.set('client_secret', options.clientSecret);
   }
 
-  const response = await fetch(`${apiBase}/connect/token`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: body.toString()
+  const payload = await requestOidcTokenEndpoint(apiBase, body);
+  return mapOidcTokenExchangeResult(payload);
+}
+
+/** 使用 refresh token 续签访问令牌。 */
+export async function refreshOidcAccessToken(
+  options: RefreshOidcAccessTokenOptions
+): Promise<OidcTokenExchangeResult> {
+  const apiBase = options.apiBase.replace(/\/$/u, '');
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: options.refreshToken,
+    client_id: options.clientId
   });
-  const payload: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) {
-    throw new TypeError('OIDC authorization code exchange failed.');
+  if (options.clientSecret) {
+    body.set('client_secret', options.clientSecret);
   }
 
-  if (!isOidcTokenEndpointResponse(payload)) {
-    throw new TypeError('OIDC token endpoint response is invalid.');
-  }
-
-  return mapOidcTokenEndpointToTokenResponse(payload);
+  const payload = await requestOidcTokenEndpoint(apiBase, body);
+  return mapOidcTokenExchangeResult(payload);
 }
 
 /** 校验回调 state，防止 CSRF 与授权响应替换。 */

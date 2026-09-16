@@ -4,10 +4,13 @@ vi.mock('../api/http', () => ({ apiBaseUrl: 'http://localhost:5149' }));
 import {
   ADMIN_OIDC_PKCE_STORAGE_KEY,
   clearAdminOidcPkcePending,
+  clearAdminOidcSessionCredentials,
   completeAdminOidcCallback,
   readAdminOidcPkcePending,
+  refreshAdminOidcAccessToken,
   resolveAdminOidcRedirectUri
 } from './oidc-center-login';
+import { readOidcRefreshCredential } from './oidc-session-credentials';
 
 describe('oidc center login helpers', () => {
   beforeEach(() => {
@@ -45,7 +48,8 @@ describe('oidc center login helpers', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       access_token: 'oidc-access-token',
       token_type: 'Bearer',
-      expires_in: 120
+      expires_in: 120,
+      refresh_token: 'oidc-refresh-token'
     }), {
       status: 200,
       headers: { 'content-type': 'application/json' }
@@ -55,7 +59,34 @@ describe('oidc center login helpers', () => {
       state: 'expected'
     });
     expect(token.accessToken).toBe('oidc-access-token');
+    expect(readOidcRefreshCredential()).toEqual({
+      refreshToken: 'oidc-refresh-token',
+      clientId: 'admin-spa'
+    });
     expect(readAdminOidcPkcePending()).toBeUndefined();
     clearAdminOidcPkcePending();
+  });
+
+  it('refreshes access token from persisted refresh credential', async () => {
+    sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
+      refreshToken: 'stored-refresh-token',
+      clientId: 'admin-spa'
+    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'refreshed-access-token',
+      token_type: 'Bearer',
+      expires_in: 120,
+      refresh_token: 'rotated-refresh-token'
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })));
+    const token = await refreshAdminOidcAccessToken();
+    expect(token?.accessToken).toBe('refreshed-access-token');
+    expect(readOidcRefreshCredential()).toEqual({
+      refreshToken: 'rotated-refresh-token',
+      clientId: 'admin-spa'
+    });
+    clearAdminOidcSessionCredentials();
   });
 });

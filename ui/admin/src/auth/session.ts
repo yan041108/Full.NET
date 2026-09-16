@@ -12,8 +12,13 @@ import {
 } from '@fullnet/client-contracts';
 import type { SupportedLocale } from '@fullnet/admin-i18n';
 import { http } from '../api/http';
+import { adminIdentityAuthMode } from '../config/identity-auth';
 import { useAdminI18n } from '../i18n/adminI18n';
 import { isSupportedNavigationTree } from '../navigation/catalog';
+import {
+  clearAdminOidcSessionCredentials,
+  refreshAdminOidcAccessToken
+} from './oidc-center-login';
 import { sessionRefreshCoordinator } from './session-refresh-coordinator';
 
 export type { SessionState };
@@ -40,7 +45,10 @@ export const useSessionStore = defineStore('identity-session', () => {
           setLocale: locale => adminI18n.setLocale(locale)
         },
         isSupportedNavigationTree,
-        sessionRefreshCoordinator
+        sessionRefreshCoordinator,
+        externalRefreshAccessToken: adminIdentityAuthMode === 'oidc-center'
+          ? async () => refreshAdminOidcAccessToken()
+          : undefined
       });
       controller.subscribe(snapshot => {
         state.value = snapshot.state;
@@ -102,11 +110,19 @@ export const useSessionStore = defineStore('identity-session', () => {
 
   /** 退出当前会话，并清空受认证状态保护的本地快照。 */
   async function logout(): Promise<void> {
+    if (adminIdentityAuthMode === 'oidc-center') {
+      clearAdminOidcSessionCredentials();
+    }
+
     await getController().logout();
   }
 
   /** 在服务端已撤销当前会话时仅清理本地状态，不再调用 Logout 端点。 */
   function invalidateLocalSession(): void {
+    if (adminIdentityAuthMode === 'oidc-center') {
+      clearAdminOidcSessionCredentials();
+    }
+
     getController().invalidateLocalSession();
   }
 

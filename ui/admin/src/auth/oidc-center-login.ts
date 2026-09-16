@@ -2,12 +2,18 @@ import {
   buildOidcAuthorizeUrl,
   createOidcAuthorizationRequest,
   exchangeOidcAuthorizationCode,
+  refreshOidcAccessToken,
   resolveFullNetApiUrl,
   validateOidcCallbackState,
   type TokenResponse
 } from '@fullnet/client-contracts';
 import { apiBaseUrl } from '../api/http';
 import { resolveAdminOidcClientId } from '../config/identity-auth';
+import {
+  clearOidcRefreshCredential,
+  readOidcRefreshCredential,
+  writeOidcRefreshCredential
+} from './oidc-session-credentials';
 
 export const ADMIN_OIDC_PKCE_STORAGE_KEY = 'fullnet.admin.oidc.pkce';
 
@@ -84,16 +90,56 @@ export async function completeAdminOidcCallback(
   }
 
   try {
-    return await exchangeOidcAuthorizationCode({
+    const exchange = await exchangeOidcAuthorizationCode({
       apiBase: resolveOidcApiBase(),
       clientId: resolveAdminOidcClientId(),
       redirectUri: resolveAdminOidcRedirectUri(),
       code,
       verifier: pending.verifier
     });
+    if (exchange.refreshToken !== undefined) {
+      writeOidcRefreshCredential({
+        refreshToken: exchange.refreshToken,
+        clientId: resolveAdminOidcClientId()
+      });
+    }
+
+    return exchange.token;
   } finally {
     clearAdminOidcPkcePending();
   }
+}
+
+/** 使用已持久化的 refresh token 续签访问令牌；失败时清理本地凭据。 */
+export async function refreshAdminOidcAccessToken(): Promise<TokenResponse | undefined> {
+  const credential = readOidcRefreshCredential();
+  if (credential === undefined) {
+    return undefined;
+  }
+
+  try {
+    const exchange = await refreshOidcAccessToken({
+      apiBase: resolveOidcApiBase(),
+      clientId: credential.clientId,
+      refreshToken: credential.refreshToken
+    });
+    if (exchange.refreshToken !== undefined) {
+      writeOidcRefreshCredential({
+        refreshToken: exchange.refreshToken,
+        clientId: credential.clientId
+      });
+    }
+
+    return exchange.token;
+  } catch {
+    clearOidcRefreshCredential();
+    return undefined;
+  }
+}
+
+export function clearAdminOidcSessionCredentials(): void {
+  clearAdminOidcPkcePending();
+  clearOidcRefreshCredential();
 }
 
 function readQueryValue(

@@ -55,6 +55,36 @@ describe('headless 身份会话', () => {
     ]);
     session.dispose();
   });
+
+  it('外部刷新路径可在 restore 时重建认证会话', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(currentUser()))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = createIdentitySession({
+      http: createHttpClient(),
+      i18n: {
+        getLocale: () => 'zh-CN',
+        setLocale: () => undefined
+      },
+      isSupportedNavigationTree: createAdminNavigationCatalog().isSupportedNavigationTree,
+      externalRefreshAccessToken: async () => tokenResponse('refreshed-oidc-token')
+    });
+
+    const restored = await session.restore();
+
+    expect(restored).toBe(true);
+    expect(session.snapshot().state).toBe('authenticated');
+    expect(session.readAccessToken()).toBe('refreshed-oidc-token');
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/v1/me',
+      '/api/v1/navigation',
+      '/api/v1/tenancy/available'
+    ]);
+    session.dispose();
+  });
+
   it('权限判断精确匹配完整编码', async () => {
     vi.stubGlobal('fetch', createLoginFetch());
     const session = createTestSession();

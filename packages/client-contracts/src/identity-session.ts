@@ -65,6 +65,10 @@ export interface IdentitySessionOptions {
   };
   isSupportedNavigationTree: (navigation: readonly NavigationNode[]) => boolean;
   sessionRefreshCoordinator?: SessionRefreshCoordinator;
+  /** 替代默认 Cookie 刷新路径，供 OIDC 中心等外部令牌续签使用。 */
+  externalRefreshAccessToken?: (
+    operationGeneration: number
+  ) => Promise<TokenResponse | null | undefined>;
 }
 
 const readTenantsPermission = 'tenancy.tenants.read';
@@ -76,7 +80,13 @@ const contextConflictCode = 'identity.session_context_conflict';
 export function createIdentitySession(
   options: IdentitySessionOptions
 ): IdentitySessionController {
-  const { http, i18n, isSupportedNavigationTree, sessionRefreshCoordinator } = options;
+  const {
+    http,
+    i18n,
+    isSupportedNavigationTree,
+    sessionRefreshCoordinator,
+    externalRefreshAccessToken
+  } = options;
   let state: SessionState = 'initializing';
   let currentUser: CurrentUserResponse | undefined;
   let navigation: NavigationNode[] = [];
@@ -219,6 +229,24 @@ export function createIdentitySession(
     const execute = async (): Promise<boolean> => {
       const tokenBeforeRefresh = token;
       try {
+        if (externalRefreshAccessToken !== undefined) {
+          const value = await externalRefreshAccessToken(operationGeneration);
+          if (operationGeneration !== sessionGeneration) {
+            return false;
+          }
+
+          if (!isTokenResponse(value)) {
+            if (token === tokenBeforeRefresh) {
+              clearLocal();
+            }
+
+            return false;
+          }
+
+          token = value;
+          return true;
+        }
+
         const value = await identityRefreshSession(
           http,
           {},

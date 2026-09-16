@@ -284,6 +284,7 @@ export {
   exchangeOidcAuthorizationCode,
   isOidcTokenEndpointResponse,
   mapOidcTokenEndpointToTokenResponse,
+  refreshOidcAccessToken,
   validateOidcCallbackState
 } from './oidc-interactive-auth.js';
 
@@ -292,7 +293,9 @@ export type {
   ExchangeOidcAuthorizationCodeOptions,
   OidcAuthorizationRequest,
   OidcPkcePair,
-  OidcTokenEndpointResponse
+  OidcTokenEndpointResponse,
+  OidcTokenExchangeResult,
+  RefreshOidcAccessTokenOptions
 } from './oidc-interactive-auth.js';
 
 export {
