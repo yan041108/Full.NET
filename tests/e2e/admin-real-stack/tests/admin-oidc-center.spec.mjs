@@ -80,6 +80,16 @@ test.describe('Vue admin oidc-center auth', () => {
       .toContain(ADMIN_OIDC_CENTER_CLIENT_ID);
   });
 
+  test('OIDC 中心切租户后可加载租户范围内受保护页面', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    await clickMainNavLink(page, /机构管理/);
+
+    await expect(page.getByRole('heading', { name: '机构管理', exact: true })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '机构编码' }).first()).toBeVisible();
+  });
+
   test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
