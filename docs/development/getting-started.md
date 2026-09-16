@@ -141,7 +141,7 @@ pnpm test:e2e:real
 pnpm test:e2e:real:oidc-center
 ```
 
-套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录与回退探针；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`，**104** 项串行用例）覆盖身份中心 SPA 登录、刷新、§6 工具/审批/后台任务与 Agent Run 探针、在线会话撤销后 token 拒绝与强制下线。
+套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录与回退探针；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`，**109** 项串行用例）覆盖身份中心 SPA 登录、刷新、§6 工具/审批/后台任务与 Agent Run 探针、在线会话撤销后 token 拒绝与强制下线。
 
 已有独立栈时可以跳过自动引导：
 
