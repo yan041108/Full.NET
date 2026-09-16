@@ -103,6 +103,33 @@ internal static class IdentityOidcSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>
+    /// 以应用会话版本和令牌原租户上下文共同执行 CAS 更新，防止并发切换后旧 OIDC 访问令牌继续成功。
+    /// </summary>
+    public static readonly SqlStatement UpdateApplicationSessionContext = new(
+        "identity.update_oidc_application_session_explicit_context",
+        """
+        UPDATE fn_identity_oidc_application_session
+        SET ActiveTenantId = @ActiveTenantId,
+            EffectiveScope = @EffectiveScope,
+            Version = Version + 1,
+            UpdatedAtUtc = @UpdatedAtUtc
+        WHERE Id = @ApplicationSessionId
+          AND UserId = @UserId
+          AND Version = @Version
+          AND RevokedAtUtc IS NULL
+          AND ExpiresAtUtc > @NowUtc
+          AND EXISTS (
+              SELECT 1
+              FROM fn_identity_oidc_center_session AS center
+              WHERE center.Id = fn_identity_oidc_application_session.CenterSessionId
+                AND center.RevokedAtUtc IS NULL
+                AND center.ExpiresAtUtc > @NowUtc)
+          AND (ActiveTenantId = @ExpectedActiveTenantId
+               OR (ActiveTenantId IS NULL AND @ExpectedActiveTenantId IS NULL))
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement RevokeApplicationSessionsByCenterSession = new(
         "identity.revoke_oidc_application_sessions_by_center_session",
         """
@@ -165,7 +192,8 @@ internal static class IdentityOidcSessionSql
                identityUser.LockoutEndUtc,
                identityUser.SecurityStamp AS UserSecurityStamp,
                identityUser.MustChangePassword,
-               identityUser.PasswordChangedAtUtc
+               identityUser.PasswordChangedAtUtc,
+               app.Version
         FROM fn_identity_oidc_application_session AS app
         INNER JOIN fn_identity_oidc_center_session AS center ON center.Id = app.CenterSessionId
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = app.UserId

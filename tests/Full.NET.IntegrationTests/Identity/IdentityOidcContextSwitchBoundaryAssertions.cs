@@ -21,17 +21,18 @@ internal static class IdentityOidcContextSwitchBoundaryAssertions
             connectionString,
             IdentityOidcProtocolAssertions.Settings);
         await factory.InitializeAsync(cancellationToken);
-        await VerifyOidcContextSwitchRejectedAsync(factory, cancellationToken);
+        await VerifyOidcHostContextSwitchIssuesNewTokenAsync(factory, cancellationToken);
         await VerifyLegacyContextSwitchStillWorksAsync(factory, cancellationToken);
     }
 
-    private static async Task VerifyOidcContextSwitchRejectedAsync(
+    private static async Task VerifyOidcHostContextSwitchIssuesNewTokenAsync(
         FullNetApiFactory factory,
         CancellationToken cancellationToken)
     {
-        using var client = factory.CreateClientForHost("localhost");
+        using var hostClient = factory.CreateClientForHost("localhost");
+        using var acmeClient = factory.CreateClientForHost("acme.localhost");
         var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
-            client,
+            hostClient,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
@@ -40,7 +41,7 @@ internal static class IdentityOidcContextSwitchBoundaryAssertions
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
         var confidentialFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
-            client,
+            hostClient,
             IdentityOidcRelyingPartyFixture.ConfidentialClientId,
             IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
             IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
@@ -49,29 +50,53 @@ internal static class IdentityOidcContextSwitchBoundaryAssertions
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
 
-        var acmeTenant = await GetAcmeTenantAsync(client, publicFlow.AccessToken, cancellationToken);
-        await AssertContextSwitchRejectedAsync(
-            client,
+        var acmeTenant = await GetAcmeTenantAsync(hostClient, publicFlow.AccessToken, cancellationToken);
+        await AssertHostToTenantSwitchAsync(
+            hostClient,
+            acmeClient,
             publicFlow.AccessToken,
-            acmeTenant.Id,
+            acmeTenant,
             "public OIDC client",
             cancellationToken);
-        await AssertMeAcceptsTokenAsync(
-            client,
-            publicFlow.AccessToken,
-            "public OIDC client after rejected switch",
-            cancellationToken);
-
-        await AssertContextSwitchRejectedAsync(
-            client,
+        await AssertHostToTenantSwitchAsync(
+            hostClient,
+            acmeClient,
             confidentialFlow.AccessToken,
-            acmeTenant.Id,
+            acmeTenant,
             "confidential OIDC client",
             cancellationToken);
+    }
+
+    private static async Task AssertHostToTenantSwitchAsync(
+        HttpClient hostClient,
+        HttpClient acmeClient,
+        string hostAccessToken,
+        TenantContextSummary acmeTenant,
+        string scenario,
+        CancellationToken cancellationToken)
+    {
+        using var switchRequest = CreateContextSwitchRequest(acmeTenant.Id, hostAccessToken);
+        using var switchResponse = await hostClient.SendAsync(switchRequest, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.OK,
+            switchResponse.StatusCode,
+            $"OIDC access token must switch tenant context for {scenario}.");
+        var switched = await switchResponse.Content
+            .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
+        Assert.IsNotNull(switched);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(switched.AccessToken));
+        Assert.AreEqual(acmeTenant.Id, switched.Context.TenantId);
+        Assert.AreEqual($"tenant:{acmeTenant.Id:N}", switched.Context.Scope);
+
         await AssertMeAcceptsTokenAsync(
-            client,
-            confidentialFlow.AccessToken,
-            "confidential OIDC client after rejected switch",
+            acmeClient,
+            switched.AccessToken,
+            $"{scenario} after tenant switch on tenant host",
+            cancellationToken);
+        await AssertMeRejectsTokenAsync(
+            hostClient,
+            hostAccessToken,
+            $"{scenario} host token after tenant switch",
             cancellationToken);
     }
 
@@ -120,29 +145,6 @@ internal static class IdentityOidcContextSwitchBoundaryAssertions
         return available.Single(tenant => tenant.Identifier == "acme");
     }
 
-    private static async Task AssertContextSwitchRejectedAsync(
-        HttpClient client,
-        string accessToken,
-        Guid tenantId,
-        string scenario,
-        CancellationToken cancellationToken)
-    {
-        using var request = CreateContextSwitchRequest(tenantId, accessToken);
-        using var response = await client.SendAsync(request, cancellationToken);
-        Assert.AreEqual(
-            HttpStatusCode.Forbidden,
-            response.StatusCode,
-            $"OIDC access token must not switch tenant context for {scenario}.");
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var problem = JsonDocument.Parse(body);
-        Assert.AreEqual(
-            IdentityErrorCodes.OidcContextSwitchNotSupported,
-            problem.RootElement.GetProperty("code").GetString());
-        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
-            body,
-            $"OIDC context switch rejection for {scenario}");
-    }
-
     private static async Task AssertMeAcceptsTokenAsync(
         HttpClient client,
         string accessToken,
@@ -155,7 +157,22 @@ internal static class IdentityOidcContextSwitchBoundaryAssertions
         Assert.AreEqual(
             HttpStatusCode.OK,
             response.StatusCode,
-            $"OIDC access token must remain valid for {scenario}.");
+            $"Access token must remain valid for {scenario}.");
+    }
+
+    private static async Task AssertMeRejectsTokenAsync(
+        HttpClient client,
+        string accessToken,
+        string scenario,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await client.SendAsync(request, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode,
+            $"Stale OIDC access token must be rejected for {scenario}.");
     }
 
     private static HttpRequestMessage CreateContextSwitchRequest(

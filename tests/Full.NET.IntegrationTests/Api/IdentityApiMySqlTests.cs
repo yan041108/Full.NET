@@ -552,7 +552,7 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
-    public async Task Oidc_context_switch_rejected_while_legacy_switch_works_with_mysql()
+    public async Task Oidc_context_switch_issues_new_token_while_legacy_switch_works_with_mysql()
     {
         await IdentityOidcContextSwitchBoundaryAssertions.VerifyAsync(
             DatabaseProvider.MySql,

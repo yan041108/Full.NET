@@ -80,6 +80,7 @@ internal sealed class IdentityOidcApplicationSessionValidationRecord
     public string UserSecurityStamp { get; set; } = string.Empty;
     public bool MustChangePassword { get; set; }
     public DateTimeOffset? PasswordChangedAtUtc { get; set; }
+    public long Version { get; set; }
 }
 
 internal static class IdentityOidcSessionRecordMapper

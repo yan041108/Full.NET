@@ -42,7 +42,7 @@ internal static class NativeApiOidcE2EAssertions
         using var client = host.CreateClient();
         var adminToken = await NativeApiE2EAssertions.LoginAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await VerifyOidcOnlineSessionRevokeAsync(client, adminToken, host.LogFilePath, cancellationToken).ConfigureAwait(false);
-        await VerifyOidcContextSwitchRejectedAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
+        await VerifyOidcContextSwitchIssuesNewTokenAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await VerifyLegacyContextSwitchStillWorksAsync(client, adminToken, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await VerifyOidcProtectedToolAccessAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
@@ -109,7 +109,7 @@ internal static class NativeApiOidcE2EAssertions
         Assert.AreEqual(IdentityErrorCodes.SessionNotActive, problem.RootElement.GetProperty("code").GetString());
     }
 
-    private static async Task VerifyOidcContextSwitchRejectedAsync(HttpClient client, string logFilePath, CancellationToken cancellationToken)
+    private static async Task VerifyOidcContextSwitchIssuesNewTokenAsync(HttpClient client, string logFilePath, CancellationToken cancellationToken)
     {
         var oidcResult = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client, IdentityOidcRelyingPartyFixture.ConfidentialClientId,
@@ -126,9 +126,14 @@ internal static class NativeApiOidcE2EAssertions
         Assert.IsNotNull(developmentTenant);
         using var switchResponse = await client.SendAsync(
             AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", oidcResult.AccessToken, new ChangeTenantContextRequest(developmentTenant.Id)), cancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(HttpStatusCode.Forbidden, switchResponse.StatusCode);
-        using var problem = JsonDocument.Parse(await switchResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
-        Assert.AreEqual(IdentityErrorCodes.OidcContextSwitchNotSupported, problem.RootElement.GetProperty("code").GetString());
+        await AssertStatusAsync(switchResponse, HttpStatusCode.OK, "OIDC tenant context switch", logFilePath, cancellationToken).ConfigureAwait(false);
+        var switched = await switchResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(switched);
+        Assert.AreEqual(developmentTenant.Id, switched.Context.TenantId);
+        using var meAfterResponse = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/me", switched.AccessToken), cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(meAfterResponse, HttpStatusCode.OK, "OIDC tenant token after switch", logFilePath, cancellationToken).ConfigureAwait(false);
+        using var meBeforeResponse = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/me", oidcResult.AccessToken), cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, meBeforeResponse.StatusCode);
     }
 
     private static async Task VerifyLegacyContextSwitchStillWorksAsync(

@@ -84,6 +84,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         DapperAotParameterRegistry.Register<RefreshSession>(BindRefreshSession);
         DapperAotParameterRegistry.Register<Features.ChangeSessionContext.RefreshSessionContextUpdate>(
             BindRefreshSessionContextUpdate);
+        DapperAotParameterRegistry.Register<Features.ChangeSessionContext.OidcApplicationSessionContextUpdate>(
+            BindOidcApplicationSessionContextUpdate);
         DapperAotParameterRegistry.Register<IdentityUserRecord>(BindIdentityUserRecord);
         DapperAotParameterRegistry.Register<InsertIdentityRole>(BindInsertIdentityRole);
         DapperAotParameterRegistry.Register<InsertIdentityNavigation>(BindInsertIdentityNavigation);
@@ -856,6 +858,7 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             UserSecurityStamp = ReadOptionalStringByName(reader, "UserSecurityStamp") ?? string.Empty,
             MustChangePassword = ReadBooleanByName(reader, "MustChangePassword"),
             PasswordChangedAtUtc = ReadNullableDateTimeOffsetByName(reader, "PasswordChangedAtUtc"),
+            Version = AotDataReaderExtensions.ReadInt64(reader, RequiredOrdinal(reader, "Version")),
         };
 
     private static IdentityOidcActiveApplicationSessionOwnershipRow ReadIdentityOidcActiveApplicationSessionOwnershipRow(
@@ -1040,6 +1043,21 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
         parameters.Add("ActiveTenantId", update.ActiveTenantId);
         parameters.Add("ExpectedActiveTenantId", update.ExpectedActiveTenantId);
         parameters.Add("Version", update.Version);
+        return parameters;
+    }
+
+    private static DynamicParameters BindOidcApplicationSessionContextUpdate(
+        Features.ChangeSessionContext.OidcApplicationSessionContextUpdate update)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("ApplicationSessionId", update.ApplicationSessionId);
+        parameters.Add("UserId", update.UserId);
+        parameters.Add("ActiveTenantId", update.ActiveTenantId);
+        parameters.Add("EffectiveScope", update.EffectiveScope);
+        parameters.Add("ExpectedActiveTenantId", update.ExpectedActiveTenantId);
+        parameters.Add("Version", update.Version);
+        parameters.Add("NowUtc", update.NowUtc);
+        parameters.Add("UpdatedAtUtc", update.UpdatedAtUtc);
         return parameters;
     }
 
