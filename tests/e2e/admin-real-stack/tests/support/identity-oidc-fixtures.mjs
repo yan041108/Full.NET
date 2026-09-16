@@ -16,6 +16,8 @@ export const OIDC_CLIENT_B = {
 
 export const CENTER_COOKIE_NAME = 'fullnet-oidc-center';
 
+export const EXTERNAL_OIDC_REDIRECT_URI = 'http://localhost:5175/signin-oidc-external';
+
 export function resolveApiBase() {
   const apiBase = process.env.FULLNET_E2E_API_URL ?? 'http://localhost:5149';
   return apiBase.replace(/\/$/, '');
@@ -61,6 +63,106 @@ function base64UrlEncode(buffer) {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/u, '');
+}
+
+function decodeHtmlAttribute(value) {
+  return value
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#x27;', "'")
+    .replaceAll('&amp;', '&');
+}
+
+export async function createExternalOidcClientViaApi(request, adminAccessToken, {
+  clientId,
+  redirectUri = EXTERNAL_OIDC_REDIRECT_URI
+}) {
+  const response = await request.post(`${resolveApiBase()}/api/v1/identity/oidc-clients`, {
+    headers: {
+      authorization: `Bearer ${adminAccessToken}`,
+      'content-type': 'application/json'
+    },
+    data: {
+      clientId,
+      displayName: 'E2E external OIDC client',
+      redirectUris: [redirectUri],
+      postLogoutRedirectUris: [],
+      scopes: ['openid', 'profile'],
+      isConfidential: false,
+      isFirstParty: false,
+      resourceAudience: null
+    }
+  });
+  expect(response.status()).toBe(201);
+  return { clientId, redirectUri };
+}
+
+export async function runAuthorizationCodeFlowViaRequest(request, {
+  apiBase,
+  clientId,
+  redirectUri,
+  clientSecret = null,
+  username,
+  password,
+  scope = 'openid profile'
+}) {
+  const state = randomBytes(16).toString('hex');
+  const nonce = randomBytes(16).toString('hex');
+  const { verifier, challenge } = createPkcePair();
+  const authorizeGet = await request.get(
+    buildAuthorizeUrl({
+      apiBase,
+      clientId,
+      redirectUri,
+      challenge,
+      scope,
+      extraParams: { state, nonce }
+    }),
+    { maxRedirects: 0 }
+  );
+  expect([200, 302, 303].includes(authorizeGet.status())).toBeTruthy();
+
+  let code;
+  if (authorizeGet.status() === 302 || authorizeGet.status() === 303) {
+    const location = authorizeGet.headers().location;
+    code = new URL(location, apiBase).searchParams.get('code');
+  } else {
+    const loginPage = await authorizeGet.text();
+    const match = loginPage.match(/name="__RequestVerificationToken" value="([^"]+)"/u);
+    expect(match).toBeTruthy();
+    const form = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope,
+      state,
+      nonce,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      username,
+      password,
+      __RequestVerificationToken: decodeHtmlAttribute(match[1])
+    });
+    const authorizePost = await request.post(`${apiBase}/connect/authorize`, {
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      data: form.toString(),
+      maxRedirects: 0
+    });
+    expect(authorizePost.status()).toBe(302);
+    const location = authorizePost.headers().location;
+    code = new URL(location, apiBase).searchParams.get('code');
+    expect(new URL(location, apiBase).searchParams.get('state')).toBe(state);
+  }
+
+  expect(code).toBeTruthy();
+  const token = await exchangeAuthorizationCode(request, {
+    apiBase,
+    clientId,
+    redirectUri,
+    code,
+    verifier,
+    clientSecret
+  });
+  return { code, verifier, token, state, nonce };
 }
 
 export async function exchangeAuthorizationCode(request, {

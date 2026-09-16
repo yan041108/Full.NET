@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 import {
   CENTER_COOKIE_NAME,
+  EXTERNAL_OIDC_REDIRECT_URI,
   OIDC_CLIENT_A,
   OIDC_CLIENT_B,
   buildAuthorizeUrl,
   completeClientAuthorization,
+  createExternalOidcClientViaApi,
   createPkcePair,
   expectMeEndpointAcceptsToken,
   expectMeEndpointRejectsToken,
@@ -14,9 +16,11 @@ import {
   readAccessTokenFingerprint,
   resolveApiBase,
   resolveRpUrl,
+  runAuthorizationCodeFlowViaRequest,
   switchTenantContext
 } from './support/identity-oidc-fixtures.mjs';
 import {
+  loginHostAdminAccessToken,
   prepareHostUserCredentialsForOidc,
   provisionLimitedHostUserViaApi
 } from './support/real-stack-auth.mjs';
@@ -160,6 +164,39 @@ test.describe('Identity OIDC browser SSO', () => {
       apiBase,
       client: OIDC_CLIENT_A
     });
+  });
+
+  test('外部 OIDC client 令牌不能访问身份管理 API', async ({ request }) => {
+    const adminToken = await loginHostAdminAccessToken(request, 'vue');
+    const clientId = `e2e-ext-${Date.now().toString(36)}`;
+    await createExternalOidcClientViaApi(request, adminToken, {
+      clientId,
+      redirectUri: EXTERNAL_OIDC_REDIRECT_URI
+    });
+    const credentials = await prepareHostUserCredentialsForOidc(
+      request,
+      'vue',
+      username,
+      password
+    );
+    const { token } = await runAuthorizationCodeFlowViaRequest(request, {
+      apiBase,
+      clientId,
+      redirectUri: EXTERNAL_OIDC_REDIRECT_URI,
+      username: credentials.username,
+      password: credentials.password
+    });
+    await expectMeEndpointAcceptsToken(request, token.access_token);
+    await expectProtectedEndpointRejectsToken(
+      request,
+      token.access_token,
+      '/api/v1/identity/users?page=1&pageSize=1'
+    );
+    await expectProtectedEndpointRejectsToken(
+      request,
+      token.access_token,
+      '/api/v1/identity/online-sessions?page=1&pageSize=1'
+    );
   });
 
   test('无权 first-party OIDC 用户可访问 profile 但不能访问用户目录', async ({
