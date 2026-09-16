@@ -20,6 +20,15 @@ export function buildOidcCenterJsonHeaders(accessToken, adminOrigin = ADMIN_OIDC
   };
 }
 
+/** 断言 oidc-center access token 对指定 GET API 的 HTTP 状态并返回响应。 */
+export async function expectOidcApiGetStatus(request, accessToken, url, expectedStatus) {
+  const response = await request.get(url, {
+    headers: buildOidcCenterApiHeaders(accessToken)
+  });
+  expect(response.status()).toBe(expectedStatus);
+  return response;
+}
+
 /** 通过 legacy Host 令牌创建 ping 后台任务定义，供 oidc-center 探针复用。 */
 export async function createE2eHostPingJobDefinition(
   request,
