@@ -237,3 +237,40 @@ test('工作流真实栈必须覆盖 Host/Tenant 权限、并发与危险 Patch'
   assert.match(tenantSpec, /enterDevelopmentTenant/u);
   assert.match(tenantSpec, /loginTenantAdminAccessToken/u);
 });
+
+test('oidc-center 真实栈必须登记独立 Playwright 项目与根脚本入口', async () => {
+  const playwrightConfig = await readFile(
+    path.resolve(import.meta.dirname, '../playwright.config.mjs'),
+    'utf8'
+  );
+  const rootPackage = await readFile(
+    path.resolve(import.meta.dirname, '../../../../package.json'),
+    'utf8'
+  );
+  const workspacePackage = await readFile(
+    path.resolve(import.meta.dirname, '../package.json'),
+    'utf8'
+  );
+
+  assert.match(playwrightConfig, /name:\s*'vue-admin-oidc-center'/u);
+  assert.match(playwrightConfig, /VITE_IDENTITY_AUTH_MODE:\s*'oidc-center'/u);
+  assert.match(playwrightConfig, /testMatch:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/u);
+  assert.match(rootPackage, /"test:e2e:real:oidc-center"/u);
+  assert.match(workspacePackage, /"test:oidc-center"/u);
+});
+
+test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
+  const source = await readFile(
+    path.resolve(import.meta.dirname, '../tests/admin-oidc-center.spec.mjs'),
+    'utf8'
+  );
+
+  assert.match(source, /loginAdminViaOidcCenter/u);
+  assert.match(source, /openTodoAndAct/u);
+  assert.match(source, /Agent 工具/u);
+  assert.match(source, /host-jobs-action-trigger/u);
+  assert.match(source, /expectMeEndpointRejectsToken/u);
+  assert.match(source, /expectRefreshTokenRejects/u);
+  assert.match(source, /revokeOnlineSessionById/u);
+  assert.match(source, /无法触发后台任务/u);
+});

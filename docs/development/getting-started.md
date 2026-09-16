@@ -117,7 +117,7 @@ Remove-Item Env:VITE_IDENTITY_OIDC_CLIENT_ID -ErrorAction SilentlyContinue
 pnpm --filter @fullnet/admin dev
 ```
 
-验证：登录页展示账号/密码表单且无「前往身份中心登录」；浏览器 `sessionStorage` 不含 `fullnet.admin.oidc.refresh`；已登录会话应通过 legacy 刷新 Cookie 或重新登录恢复。
+验证：登录页展示账号/密码表单且无「前往身份中心登录」；浏览器 `sessionStorage` 不含 `fullnet.admin.oidc.refresh`；已登录会话应通过 legacy 刷新 Cookie 或重新登录恢复。自动化探针见 `vue-admin` 项目 `auth-smoke.spec.mjs`（遗留 OIDC 凭据不阻断登录、刷新后 Cookie 恢复）。
 
 涉及 Refresh Cookie 时，浏览器与 API 应使用同一个 `localhost` 站点语义，不要混用 `localhost` 和 `127.0.0.1`，否则 `SameSite=Strict` Cookie 可能被浏览器按跨站请求拒绝。
 
@@ -141,7 +141,7 @@ pnpm test:e2e:real
 pnpm test:e2e:real:oidc-center
 ```
 
-套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`）覆盖身份中心 SPA 登录、刷新、§6 工具/审批/后台任务探针、退出与强制下线。
+套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录与回退探针；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`，**17** 项串行用例）覆盖身份中心 SPA 登录、刷新、§6 工具/审批/后台任务探针、在线会话撤销后 token 拒绝与强制下线。
 
 已有独立栈时可以跳过自动引导：
 
