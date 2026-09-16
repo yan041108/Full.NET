@@ -13,7 +13,12 @@ import {
   expectRefreshTokenRejects,
   resolveApiBase
 } from './support/identity-oidc-fixtures.mjs';
-import { prepareHostUserCredentialsForOidc } from './support/real-stack-auth.mjs';
+import {
+  clickMainNavLink,
+  enterDevelopmentTenant,
+  expectVisibleCurrentContext,
+  prepareHostUserCredentialsForOidc
+} from './support/real-stack-auth.mjs';
 
 const adminOrigin = 'http://localhost:25175';
 let credentials = {
@@ -60,6 +65,19 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
       timeout: 30_000
     });
+  });
+
+  test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh')))
+      .toContain(ADMIN_OIDC_CENTER_CLIENT_ID);
+
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh')))
+      .toContain(ADMIN_OIDC_CENTER_CLIENT_ID);
   });
 
   test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
