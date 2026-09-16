@@ -66,12 +66,25 @@ internal static class IdentityOidcTenantBoundaryAssertions
         using var validMeResponse = await client.SendAsync(validMeRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, validMeResponse.StatusCode);
 
+        using var acmeClient = factory.CreateClientForHost("acme.localhost");
+        await VerifyTenantContextMismatchAsync(
+            acmeClient,
+            flow.AccessToken,
+            "/api/v1/tenancy/current",
+            "host-scoped token on tenant host",
+            cancellationToken);
+        await VerifyTenantContextMismatchAsync(
+            acmeClient,
+            flow.AccessToken,
+            "/api/v1/me",
+            "host-scoped token profile on tenant host",
+            cancellationToken);
+
         var applicationSessionId = Guid.Parse(
             IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
                 flow.AccessToken,
                 FullNetIdentityClaimTypes.ApplicationSessionId)
             ?? throw new InvalidOperationException("OIDC access token is missing application session id."));
-        using var acmeClient = factory.CreateClientForHost("acme.localhost");
         var acmeTenant = await acmeClient.GetFromJsonAsync<TenantSummary>(
             "/api/v1/tenancy/current",
             cancellationToken);
