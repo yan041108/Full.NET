@@ -266,6 +266,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_endpoint_errors_do_not_leak_internals_with_sql_server()
+    {
+        await IdentityOidcEndpointErrorBoundaryAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_retention_prunes_stale_grants_with_sql_server()
     {
         using var factory = new FullNetApiFactory(
