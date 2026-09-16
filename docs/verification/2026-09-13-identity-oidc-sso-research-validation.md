@@ -366,7 +366,7 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 | 项 | 证据 |
 | --- | --- |
-| 基线 | 分支 `main`；记录 HEAD `41435f32`（切片 146 前）；默认 `legacy` 用户名密码登录不变 |
+| 基线 | 分支 `main`；记录 HEAD `6844ba37`（切片 147 前）；默认 `legacy` 用户名密码登录不变 |
 | 启用方式 | `VITE_IDENTITY_AUTH_MODE=oidc-center`；`VITE_IDENTITY_OIDC_CLIENT_ID` 默认 `admin-spa`；样例见 [`ui/admin/.env.example`](../../ui/admin/.env.example) 与 [getting-started §3.1](../development/getting-started.md#31-vue-管理端) |
 | 登录／回调 | `oidc-center-login`（PKCE、`#/identity/oidc/callback`）；`OidcCallbackView`；`App.vue` 匿名回调路由走 `router-view` 而非 `LoginView` |
 | 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |
@@ -385,6 +385,19 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | 在线会话管理 | 应用退出／强制下线后 access／refresh 拒绝、三类受保护路由回登录（`OIDC_CENTER_PROTECTED_ROUTE_PROBES`）、本地凭据与中心 Cookie 清理对称探针、已撤销 refresh 无法恢复；强撤独立 API 负探针与 `revokeCurrentOidcCenterSession` 辅助 |
 | 上下文切换 | 切租户后工作流／Agent 工具／后台任务 API；切租户并返回 Host 后三类 API 往返 |
 | 工具／审批／后台任务 | UI 页面与操作（同意／驳回、任务触发）；工作流／Agent 工具／后台任务定义与执行历史 API 正／负探针；退出／强撤后触发、列举定义与执行历史绑定失效 |
+
+**§6 退出／强撤对称性（E2E 探针编写状态）：**
+
+| 探针 | 应用退出 | 强制下线 |
+| --- | --- | --- |
+| Agent 工具 API | 独立负探针 | 独立负探针 |
+| 工作流待办 API | 独立负探针 | 独立负探针 |
+| 后台任务定义 API | 独立负探针 | 独立负探针 |
+| 后台任务执行历史 API | 独立负探针 | 独立负探针 |
+| 后台任务触发 API | 独立负探针 | 独立负探针 |
+| 受保护路由（3 类） | `expectProtectedRoutesRedirectToOidcLogin` | 同左 |
+| 本地凭据／Cookie 清理 + token 拒绝 | `expectOidcCenterLocalCredentialsCleared` + `expectOidcCenterTokensRejected` | 同左 |
+| 已撤销 refresh 写回后仍无法恢复 | — | 实时通知综合探针 |
 
 **T08 结论：** Vue 可选 `oidc-center` 消费路径与 legacy 并行入口在单元层成立；生产启用与 P3 退出条件仍依赖真实栈 E2E、§6 回归与能力状态独立门禁，不得由单元测试单独升级为 `Verified`。
 

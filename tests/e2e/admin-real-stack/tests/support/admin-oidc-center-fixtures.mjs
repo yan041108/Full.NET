@@ -1,6 +1,11 @@
 import { expect } from '@playwright/test';
 import { adminOrigin, expandMainNavigation, loginHostAdminAccessToken } from './real-stack-auth.mjs';
-import { resolveApiBase } from './identity-oidc-fixtures.mjs';
+import {
+  CENTER_COOKIE_NAME,
+  expectMeEndpointRejectsToken,
+  expectRefreshTokenRejects,
+  resolveApiBase
+} from './identity-oidc-fixtures.mjs';
 
 export const ADMIN_OIDC_CENTER_CLIENT_ID = 'e2e-admin-oidc-spa';
 export const ADMIN_OIDC_CENTER_ORIGIN = 'http://localhost:25175';
@@ -175,6 +180,24 @@ export async function expectProtectedRoutesRedirectToOidcLogin(
       headingName: probe.headingName
     });
   }
+}
+
+/** 断言 oidc-center 本地 refresh 凭据与中心 Cookie 已清除。 */
+export async function expectOidcCenterLocalCredentialsCleared(page, context) {
+  expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
+  const centerCookie = (await context.cookies(resolveApiBase()))
+    .find(cookie => cookie.name === CENTER_COOKIE_NAME);
+  expect(centerCookie).toBeUndefined();
+}
+
+/** 断言已失效 access/refresh token 无法再刷新或访问 /me。 */
+export async function expectOidcCenterTokensRejected(request, { accessToken, refreshToken }) {
+  await expectRefreshTokenRejects(request, {
+    apiBase: resolveApiBase(),
+    clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
+    refreshToken
+  });
+  await expectMeEndpointRejectsToken(request, accessToken);
 }
 
 /** 通过工作台探针捕获当前 OIDC access token，供真实栈 API 断言复用。 */

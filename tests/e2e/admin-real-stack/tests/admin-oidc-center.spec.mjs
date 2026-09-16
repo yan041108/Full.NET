@@ -7,17 +7,14 @@ import {
   ensureAdminOidcCenterClient,
   expectOidcApiGetStatus,
   expectOidcApiPostStatus,
+  expectOidcCenterLocalCredentialsCleared,
+  expectOidcCenterTokensRejected,
   expectProtectedRoutesRedirectToOidcLogin,
   loginAdminViaOidcCenter,
   logoutAdminShell,
   revokeCurrentOidcCenterSession
 } from './support/admin-oidc-center-fixtures.mjs';
-import {
-  CENTER_COOKIE_NAME,
-  expectMeEndpointRejectsToken,
-  expectRefreshTokenRejects,
-  resolveApiBase
-} from './support/identity-oidc-fixtures.mjs';
+import { resolveApiBase } from './support/identity-oidc-fixtures.mjs';
 import {
   clickMainNavLink,
   enterDevelopmentTenant,
@@ -660,17 +657,11 @@ test.describe('Vue admin oidc-center auth', () => {
 
     await logoutAdminShell(page);
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
-    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
-    const centerCookie = (await context.cookies(resolveApiBase()))
-      .find(cookie => cookie.name === CENTER_COOKIE_NAME);
-    expect(centerCookie).toBeUndefined();
-
-    await expectRefreshTokenRejects(request, {
-      apiBase: resolveApiBase(),
-      clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
       refreshToken: refreshCredential.refreshToken
     });
-    await expectMeEndpointRejectsToken(request, accessToken);
   });
 
   test('OIDC 中心强制下线后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({
@@ -686,17 +677,11 @@ test.describe('Vue admin oidc-center auth', () => {
     const refreshCredential = JSON.parse(refreshCredentialRaw);
 
     await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
-    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
-    const centerCookie = (await context.cookies(resolveApiBase()))
-      .find(cookie => cookie.name === CENTER_COOKIE_NAME);
-    expect(centerCookie).toBeUndefined();
-
-    await expectRefreshTokenRejects(request, {
-      apiBase: resolveApiBase(),
-      clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
       refreshToken: refreshCredential.refreshToken
     });
-    await expectMeEndpointRejectsToken(request, accessToken);
   });
 
   test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
@@ -717,11 +702,9 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
 
-    await expectRefreshTokenRejects(request, {
-      apiBase: resolveApiBase(),
-      clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
       refreshToken: refreshCredential.refreshToken
     });
-    await expectMeEndpointRejectsToken(request, accessToken);
   });
 });
