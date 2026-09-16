@@ -8,9 +8,12 @@ import {
   completeClientAuthorization,
   createExternalOidcClientViaApi,
   createPkcePair,
+  disableOidcClientViaApi,
+  expectAuthorizeRejectsDisabledClient,
   expectMeEndpointAcceptsToken,
   expectMeEndpointRejectsToken,
   expectProtectedEndpointRejectsToken,
+  expectRefreshTokenRejects,
   expectTokenEndpointRejectsInvalidCode,
   listAvailableTenants,
   readAccessTokenFingerprint,
@@ -253,5 +256,54 @@ test.describe('Identity OIDC browser SSO', () => {
     expect(restored.context?.scope).toBe('host');
     await expectMeEndpointAcceptsToken(page.request, restored.accessToken);
     await expectMeEndpointRejectsToken(page.request, switched.accessToken);
+  });
+
+  test('禁用外部 OIDC 客户端后上下文切换令牌被拒绝', async ({ request }) => {
+    const adminToken = await loginHostAdminAccessToken(request, 'vue');
+    const clientId = `e2e-ctx-gov-${Date.now().toString(36)}`;
+    const created = await createExternalOidcClientViaApi(request, adminToken, {
+      clientId,
+      redirectUri: EXTERNAL_OIDC_REDIRECT_URI,
+      scopes: ['openid', 'profile', 'offline_access']
+    });
+    const credentials = await prepareHostUserCredentialsForOidc(
+      request,
+      'vue',
+      username,
+      password
+    );
+    const { token } = await runAuthorizationCodeFlowViaRequest(request, {
+      apiBase,
+      clientId: created.clientId,
+      redirectUri: created.redirectUri,
+      username: credentials.username,
+      password: credentials.password,
+      scope: 'openid profile offline_access'
+    });
+    const hostToken = token.access_token;
+    expect(token.refresh_token).toBeTruthy();
+    await expectMeEndpointAcceptsToken(request, hostToken);
+
+    const tenants = await listAvailableTenants(request, hostToken);
+    const localTenant = tenants.find(entry => entry.identifier === 'local') ?? tenants[0];
+    expect(localTenant?.id).toBeTruthy();
+
+    const switched = await switchTenantContext(request, hostToken, localTenant.id);
+    await expectMeEndpointAcceptsToken(request, switched.accessToken);
+
+    await disableOidcClientViaApi(request, adminToken, created.resourceId);
+
+    await expectAuthorizeRejectsDisabledClient(request, {
+      apiBase,
+      clientId: created.clientId,
+      redirectUri: created.redirectUri
+    });
+    await expectRefreshTokenRejects(request, {
+      apiBase,
+      clientId: created.clientId,
+      refreshToken: token.refresh_token
+    });
+    await expectMeEndpointRejectsToken(request, hostToken);
+    await expectMeEndpointRejectsToken(request, switched.accessToken);
   });
 });

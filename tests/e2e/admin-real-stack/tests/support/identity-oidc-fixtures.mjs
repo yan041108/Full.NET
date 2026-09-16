@@ -74,7 +74,8 @@ function decodeHtmlAttribute(value) {
 
 export async function createExternalOidcClientViaApi(request, adminAccessToken, {
   clientId,
-  redirectUri = EXTERNAL_OIDC_REDIRECT_URI
+  redirectUri = EXTERNAL_OIDC_REDIRECT_URI,
+  scopes = ['openid', 'profile']
 }) {
   const response = await request.post(`${resolveApiBase()}/api/v1/identity/oidc-clients`, {
     headers: {
@@ -86,14 +87,75 @@ export async function createExternalOidcClientViaApi(request, adminAccessToken, 
       displayName: 'E2E external OIDC client',
       redirectUris: [redirectUri],
       postLogoutRedirectUris: [],
-      scopes: ['openid', 'profile'],
+      scopes,
       isConfidential: false,
       isFirstParty: false,
       resourceAudience: null
     }
   });
   expect(response.status()).toBe(201);
-  return { clientId, redirectUri };
+  const body = await response.json();
+  return {
+    clientId,
+    redirectUri,
+    resourceId: body.client.id
+  };
+}
+
+export async function disableOidcClientViaApi(request, adminAccessToken, resourceId) {
+  const response = await request.post(
+    `${resolveApiBase()}/api/v1/identity/oidc-clients/${resourceId}/disable`,
+    {
+      headers: { authorization: `Bearer ${adminAccessToken}` }
+    }
+  );
+  expect(response.status()).toBe(200);
+}
+
+export async function expectAuthorizeRejectsDisabledClient(request, {
+  apiBase = resolveApiBase(),
+  clientId,
+  redirectUri,
+  scope = 'openid profile offline_access'
+}) {
+  const { challenge } = createPkcePair();
+  const response = await request.get(
+    buildAuthorizeUrl({
+      apiBase,
+      clientId,
+      redirectUri,
+      challenge,
+      scope
+    }),
+    { maxRedirects: 0 }
+  );
+  expect([302, 303].includes(response.status())).toBeTruthy();
+  const location = response.headers().location ?? '';
+  expect(location).toContain('error=unauthorized_client');
+}
+
+export async function expectRefreshTokenRejects(request, {
+  apiBase = resolveApiBase(),
+  clientId,
+  refreshToken,
+  clientSecret = null
+}) {
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: clientId
+  });
+  if (clientSecret) {
+    body.set('client_secret', clientSecret);
+  }
+
+  const response = await request.post(`${apiBase}/connect/token`, {
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    data: body.toString()
+  });
+  expect(response.ok()).toBeFalsy();
+  const payload = await response.text();
+  expect(payload).toMatch(/unauthorized_client|invalid_grant/u);
 }
 
 export async function runAuthorizationCodeFlowViaRequest(request, {
