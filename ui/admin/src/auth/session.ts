@@ -21,6 +21,7 @@ import {
   revokeAdminOidcApplicationSession
 } from './oidc-center-login';
 import { sessionRefreshCoordinator } from './session-refresh-coordinator';
+import { shouldLogoutOnSessionRevoke } from './sessionRevokePolicy';
 
 export type { SessionState };
 
@@ -135,6 +136,19 @@ export const useSessionStore = defineStore('identity-session', () => {
     getController().invalidateLocalSession();
   }
 
+  /**
+   * 处理实时会话撤销通知；匹配当前会话时清理本地状态（含 OIDC refresh token）。
+   * @returns 是否已因本次通知清理本地会话。
+   */
+  function handleRemoteSessionRevoke(revokedSessionId: string | undefined): boolean {
+    if (!shouldLogoutOnSessionRevoke(currentUser.value?.sessionId, revokedSessionId)) {
+      return false;
+    }
+
+    invalidateLocalSession();
+    return true;
+  }
+
   /** 返回当前会话快照，供外部订阅者一次性读取一致视图。 */
   function snapshot(): IdentitySessionSnapshot {
     return {
@@ -192,6 +206,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     changePassword,
     logout,
     invalidateLocalSession,
+    handleRemoteSessionRevoke,
     snapshot,
     subscribe,
     readAccessToken

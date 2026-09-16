@@ -23,4 +23,9 @@ describe('session revoke policy', () => {
   it('falls back to logout when current session is unknown', () => {
     expect(shouldLogoutOnSessionRevoke(undefined, 'session-a')).toBe(true);
   });
+
+  it('matches session ids case-insensitively', () => {
+    const sessionId = '01936c8a-7b3e-7c5d-9f2a-1b2c3d4e5f61';
+    expect(shouldLogoutOnSessionRevoke(sessionId, sessionId.toUpperCase())).toBe(true);
+  });
 });

@@ -11,5 +11,9 @@ export function shouldLogoutOnSessionRevoke(
     return true;
   }
 
-  return currentSessionId === revokedSessionId;
+  return normalizeSessionId(currentSessionId) === normalizeSessionId(revokedSessionId);
+}
+
+function normalizeSessionId(sessionId: string): string {
+  return sessionId.trim().toLowerCase();
 }

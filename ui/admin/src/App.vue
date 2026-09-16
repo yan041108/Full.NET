@@ -37,7 +37,6 @@ import './framework/art-design/theme/art-menu-layouts.css';
 import './framework/art-design/theme/art-settings-panel.css';
 import './framework/art-design/auth/art-login.css';
 import { scheduleComboboxLabeling } from './framework/art-design/accessibility/labelComboboxes';
-import { shouldLogoutOnSessionRevoke } from './auth/sessionRevokePolicy';
 
 const route = useRoute();
 const router = useRouter();
@@ -47,11 +46,10 @@ const notificationsRealtime = createVueNotificationsRealtime({
   enabled: import.meta.env.VITE_REALTIME_ENABLED !== 'false',
   hubPath: resolveFullNetApiUrl(apiBaseUrl, '/hubs/notifications'),
   onSessionRevoked(sessionId) {
-    if (!shouldLogoutOnSessionRevoke(session.currentUser?.sessionId, sessionId)) {
+    if (!session.handleRemoteSessionRevoke(sessionId)) {
       return;
     }
 
-    session.invalidateLocalSession();
     void router.replace('/login');
   }
 });
