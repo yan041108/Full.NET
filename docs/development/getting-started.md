@@ -94,16 +94,24 @@ pnpm test:e2e:uniapp
 
 `ui/admin` 是后台产品的唯一持续交付线。`ui/admin-layui` 已冻结，不再新增页面、按钮、适配器或功能对等实现；只有明确授权的安全修复、迁移或退役任务可以修改。
 
-直接连接本地 API 时：
+本地变量见 [`ui/admin/.env.example`](../../ui/admin/.env.example)（复制为 `ui/admin/.env.local`）。直接连接本地 API 时：
 
 ```powershell
 $env:VITE_API_BASE_URL = "http://localhost:5149"
 pnpm --filter @fullnet/admin dev
 ```
 
+启用身份中心 OIDC 登录（T08，可选；默认 `legacy` 用户名密码）时，需先在 Identity 注册对应公开客户端与回调 URI，再设置：
+
+```powershell
+$env:VITE_IDENTITY_AUTH_MODE = "oidc-center"
+$env:VITE_IDENTITY_OIDC_CLIENT_ID = "admin-spa"
+pnpm --filter @fullnet/admin dev
+```
+
 涉及 Refresh Cookie 时，浏览器与 API 应使用同一个 `localhost` 站点语义，不要混用 `localhost` 和 `127.0.0.1`，否则 `SameSite=Strict` Cookie 可能被浏览器按跨站请求拒绝。
 
-Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullnet/client-contracts` 消费共享契约。Access Token、租户和权限快照只保存在内存，页面刷新通过 Refresh Cookie 恢复，禁止写入 `localStorage` 或 `sessionStorage`。
+Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullnet/client-contracts` 消费共享契约。Access Token 与权限快照只保存在内存。`legacy` 模式通过 HttpOnly Refresh Cookie 恢复会话；`oidc-center` 模式仅在 `sessionStorage` 持久化 OIDC refresh token（不存 access token）。禁止将 access token 或权限快照写入 `localStorage`。
 
 无权限时 Vue 不创建对应页面或操作按钮，但前端隐藏只改善体验。所有受保护 Endpoint 仍必须使用同一稳定权限码重新授权，绕过前端直接调用必须返回 403。
 
@@ -117,7 +125,7 @@ Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullne
 pnpm test:e2e:real
 ```
 
-套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。
+套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`）覆盖身份中心 SPA 登录、刷新与强制下线。
 
 已有独立栈时可以跳过自动引导：
 
