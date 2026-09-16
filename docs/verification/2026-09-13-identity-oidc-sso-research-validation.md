@@ -366,7 +366,7 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 | 项 | 证据 |
 | --- | --- |
-| 基线 | 分支 `main`；记录 HEAD `19ace9ff`（切片 144 前）；默认 `legacy` 用户名密码登录不变 |
+| 基线 | 分支 `main`；记录 HEAD `3ce183ec`（切片 145 前）；默认 `legacy` 用户名密码登录不变 |
 | 启用方式 | `VITE_IDENTITY_AUTH_MODE=oidc-center`；`VITE_IDENTITY_OIDC_CLIENT_ID` 默认 `admin-spa`；样例见 [`ui/admin/.env.example`](../../ui/admin/.env.example) 与 [getting-started §3.1](../development/getting-started.md#31-vue-管理端) |
 | 登录／回调 | `oidc-center-login`（PKCE、`#/identity/oidc/callback`）；`OidcCallbackView`；`App.vue` 匿名回调路由走 `router-view` 而非 `LoginView` |
 | 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |

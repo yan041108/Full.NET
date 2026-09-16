@@ -29,6 +29,22 @@ export async function expectOidcApiGetStatus(request, accessToken, url, expected
   return response;
 }
 
+/** 断言 oidc-center access token 对指定 JSON POST API 的 HTTP 状态并返回响应。 */
+export async function expectOidcApiPostStatus(
+  request,
+  accessToken,
+  url,
+  expectedStatus,
+  data = {}
+) {
+  const response = await request.post(url, {
+    headers: buildOidcCenterJsonHeaders(accessToken),
+    data
+  });
+  expect(response.status()).toBe(expectedStatus);
+  return response;
+}
+
 /** 通过 legacy Host 令牌创建 ping 后台任务定义，供 oidc-center 探针复用。 */
 export async function createE2eHostPingJobDefinition(
   request,

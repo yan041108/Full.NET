@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test';
 import {
   ADMIN_OIDC_CENTER_CLIENT_ID,
   ADMIN_OIDC_CENTER_ORIGIN,
-  buildOidcCenterJsonHeaders,
   captureOidcAccessTokenFromOverviewProbe,
   createE2eHostPingJobDefinition,
   ensureAdminOidcCenterClient,
   expectOidcApiGetStatus,
+  expectOidcApiPostStatus,
   expectProtectedRouteRedirectsToOidcLogin,
   loginAdminViaOidcCenter,
   logoutAdminShell,
@@ -210,14 +210,12 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const triggerResponse = await request.post(
+    const triggerResponse = await expectOidcApiPostStatus(
+      request,
+      accessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      {
-        headers: buildOidcCenterJsonHeaders(accessToken),
-        data: {}
-      }
+      201
     );
-    expect(triggerResponse.status()).toBe(201);
     const execution = await triggerResponse.json();
 
     const beforeLogout = await expectOidcApiGetStatus(
@@ -349,26 +347,22 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const triggerBeforeLogout = await request.post(
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      {
-        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
-        data: {}
-      }
+      201
     );
-    expect(triggerBeforeLogout.status()).toBe(201);
 
     await logoutAdminShell(page);
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
 
-    const triggerAfterLogout = await request.post(
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      {
-        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
-        data: {}
-      }
+      401
     );
-    expect(triggerAfterLogout.status()).toBe(401);
   });
 
   test('OIDC 中心强制下线后已失效 access token 无法触发后台任务', async ({ page, request }) => {
@@ -385,25 +379,21 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const triggerBeforeRevoke = await request.post(
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      {
-        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
-        data: {}
-      }
+      201
     );
-    expect(triggerBeforeRevoke.status()).toBe(201);
 
     await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
 
-    const triggerAfterRevoke = await request.post(
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      {
-        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
-        data: {}
-      }
+      401
     );
-    expect(triggerAfterRevoke.status()).toBe(401);
   });
 
   test('OIDC 中心强制下线后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
@@ -483,14 +473,12 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const triggerResponse = await request.post(
+    const triggerResponse = await expectOidcApiPostStatus(
+      request,
+      accessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
-      {
-        headers: buildOidcCenterJsonHeaders(accessToken),
-        data: {}
-      }
+      201
     );
-    expect(triggerResponse.status()).toBe(201);
     const execution = await triggerResponse.json();
 
     const beforeRevoke = await expectOidcApiGetStatus(
@@ -655,6 +643,9 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectProtectedRouteRedirectsToOidcLogin(page, '/#/ai/agent-tools', {
       headingName: 'Agent 工具'
     });
+    await expectProtectedRouteRedirectsToOidcLogin(page, '/#/workflow/todos', {
+      headingName: '我的工作流待办'
+    });
   });
 
   test('OIDC 中心强制下线后无法直接访问受保护路由', async ({ page, request }) => {
@@ -663,6 +654,9 @@ test.describe('Vue admin oidc-center auth', () => {
 
     await expectProtectedRouteRedirectsToOidcLogin(page, '/#/ai/agent-tools', {
       headingName: 'Agent 工具'
+    });
+    await expectProtectedRouteRedirectsToOidcLogin(page, '/#/workflow/todos', {
+      headingName: '我的工作流待办'
     });
   });
 

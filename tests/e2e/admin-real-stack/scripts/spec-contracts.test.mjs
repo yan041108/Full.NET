@@ -268,6 +268,8 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /loginAdminViaOidcCenter/u);
   assert.match(source, /captureOidcAccessTokenFromOverviewProbe/u);
   assert.match(source, /expectOidcApiGetStatus/u);
+  assert.match(source, /expectOidcApiPostStatus/u);
+  assert.match(source, /\/#\/workflow\/todos/u);
   assert.match(source, /createE2eHostPingJobDefinition/u);
   assert.match(source, /expectProtectedRouteRedirectsToOidcLogin/u);
   assert.match(source, /强制下线后无法直接访问受保护路由/u);
