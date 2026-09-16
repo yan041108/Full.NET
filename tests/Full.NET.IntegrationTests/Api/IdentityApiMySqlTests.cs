@@ -630,4 +630,12 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_disabled_client_fails_closed_across_instances_with_mysql()
+    {
+        await IdentityOidcContextSwitchGovernanceMultiInstanceAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }
