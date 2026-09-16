@@ -135,6 +135,31 @@ internal static class IdentityOidcTokenBoundaryAssertions
                 "issued id token",
                 cancellationToken);
         }
+        await VerifyMeRejectsTokenAsync(
+            client,
+            ResignAccessToken(
+                flow.AccessToken,
+                signingKey,
+                BoundaryKeyId,
+                validIssuer,
+                validAudience,
+                claimRemovals: [FullNetIdentityClaimTypes.TokenUse]),
+            "missing token use claim",
+            cancellationToken);
+        await VerifyMeRejectsTokenAsync(
+            client,
+            ResignAccessToken(
+                flow.AccessToken,
+                signingKey,
+                BoundaryKeyId,
+                validIssuer,
+                validAudience,
+                claimReplacements: new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    [FullNetIdentityClaimTypes.TokenUse] = string.Empty,
+                }),
+            "empty token use claim",
+            cancellationToken);
 
         using var validMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         validMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
@@ -171,7 +196,8 @@ internal static class IdentityOidcTokenBoundaryAssertions
         string audience,
         DateTime? expiresUtc = null,
         DateTime? notBeforeUtc = null,
-        IReadOnlyDictionary<string, object>? claimReplacements = null)
+        IReadOnlyDictionary<string, object>? claimReplacements = null,
+        IReadOnlyCollection<string>? claimRemovals = null)
     {
         var token = new JsonWebToken(accessToken);
         var claims = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -190,6 +216,14 @@ internal static class IdentityOidcTokenBoundaryAssertions
             foreach (var (claimType, claimValue) in claimReplacements)
             {
                 claims[claimType] = claimValue;
+            }
+        }
+
+        if (claimRemovals is not null)
+        {
+            foreach (var claimType in claimRemovals)
+            {
+                claims.Remove(claimType);
             }
         }
 
