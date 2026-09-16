@@ -774,6 +774,17 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByRole('columnheader', { name: '机构编码' }).first()).toBeVisible();
   });
 
+  test('OIDC 中心切租户后可打开 Agent 运行页', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('ai-agent-runs-load')).toBeVisible();
+    await expect(page.getByTestId('ai-agent-runs-create')).toBeVisible();
+  });
+
   test('OIDC 中心切租户后工作台探针可连接真实 /api/v1/me', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
