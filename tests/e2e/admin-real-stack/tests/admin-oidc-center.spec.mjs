@@ -284,6 +284,14 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(request =>
+      request.url().includes('/api/v1/me') && request.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(accessToken).toBeTruthy();
+
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
     expect(refreshCredentialRaw).toBeTruthy();
     const refreshCredential = JSON.parse(refreshCredentialRaw);
@@ -313,5 +321,6 @@ test.describe('Vue admin oidc-center auth', () => {
       clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
       refreshToken: refreshCredential.refreshToken
     });
+    await expectMeEndpointRejectsToken(request, accessToken);
   });
 });
