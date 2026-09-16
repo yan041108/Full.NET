@@ -92,6 +92,27 @@ test.describe('Vue admin oidc-center auth', () => {
       .toBeVisible({ timeout: 15_000 });
   });
 
+  test('OIDC 中心 Host 上下文 access token 可访问工作流待办 API', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(req =>
+      req.url().includes('/api/v1/me') && req.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(accessToken).toBeTruthy();
+
+    const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        origin: adminOrigin
+      }
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(Array.isArray(body.items)).toBe(true);
+  });
+
   test('OIDC 中心 Host 上下文可打开 Agent 工具页', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await clickMainNavLink(page, /Agent 工具/);
