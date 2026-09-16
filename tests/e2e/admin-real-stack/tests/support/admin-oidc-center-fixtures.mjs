@@ -3,6 +3,15 @@ import { expandMainNavigation, loginHostAdminAccessToken } from './real-stack-au
 import { resolveApiBase } from './identity-oidc-fixtures.mjs';
 
 export const ADMIN_OIDC_CENTER_CLIENT_ID = 'e2e-admin-oidc-spa';
+export const ADMIN_OIDC_CENTER_ORIGIN = 'http://localhost:25175';
+
+/** 构造 oidc-center 真实栈 API 请求的授权与 Origin 头。 */
+export function buildOidcCenterApiHeaders(accessToken, adminOrigin = ADMIN_OIDC_CENTER_ORIGIN) {
+  return {
+    authorization: `Bearer ${accessToken}`,
+    origin: adminOrigin
+  };
+}
 
 export function resolveAdminOidcCenterRedirectUri(adminOrigin) {
   return `${adminOrigin}/#/identity/oidc/callback`;

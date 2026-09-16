@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import {
   ADMIN_OIDC_CENTER_CLIENT_ID,
+  ADMIN_OIDC_CENTER_ORIGIN,
+  buildOidcCenterApiHeaders,
   captureOidcAccessTokenFromOverviewProbe,
   ensureAdminOidcCenterClient,
   findActiveOidcCenterSession,
@@ -29,7 +31,6 @@ import {
   startInstance
 } from './support/workflow-approval-fixtures.mjs';
 
-const adminOrigin = 'http://localhost:25175';
 let credentials = {
   username: process.env.FULLNET_E2E_USERNAME ?? 'admin',
   password: process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure'
@@ -53,7 +54,7 @@ test.beforeAll(async ({ request }) => {
     credentials.username,
     credentials.password
   );
-  await ensureAdminOidcCenterClient(request, adminOrigin);
+  await ensureAdminOidcCenterClient(request, ADMIN_OIDC_CENTER_ORIGIN);
 });
 
 test.describe('Vue admin oidc-center auth', () => {
@@ -98,10 +99,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -121,10 +119,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(200);
     expect(Array.isArray(await response.json())).toBe(true);
@@ -138,10 +133,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(401);
   });
@@ -151,10 +143,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const beforeLogout = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(beforeLogout.status()).toBe(200);
 
@@ -162,11 +151,32 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
 
     const afterLogout = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
+    expect(afterLogout.status()).toBe(401);
+  });
+
+  test('OIDC 中心退出后 access token 无法访问后台任务定义 API', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    const beforeLogout = await request.get(
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      {
+        headers: buildOidcCenterApiHeaders(accessToken)
+      }
+    );
+    expect(beforeLogout.status()).toBe(200);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    const afterLogout = await request.get(
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      {
+        headers: buildOidcCenterApiHeaders(accessToken)
+      }
+    );
     expect(afterLogout.status()).toBe(401);
   });
 
@@ -314,9 +324,8 @@ test.describe('Vue admin oidc-center auth', () => {
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
         headers: {
-          authorization: `Bearer ${oidcAccessToken}`,
-          'content-type': 'application/json',
-          origin: adminOrigin
+          ...buildOidcCenterApiHeaders(oidcAccessToken),
+          'content-type': 'application/json'
         },
         data: {}
       }
@@ -330,9 +339,8 @@ test.describe('Vue admin oidc-center auth', () => {
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
         headers: {
-          authorization: `Bearer ${oidcAccessToken}`,
-          'content-type': 'application/json',
-          origin: adminOrigin
+          ...buildOidcCenterApiHeaders(oidcAccessToken),
+          'content-type': 'application/json'
         },
         data: {}
       }
@@ -374,9 +382,8 @@ test.describe('Vue admin oidc-center auth', () => {
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
         headers: {
-          authorization: `Bearer ${oidcAccessToken}`,
-          'content-type': 'application/json',
-          origin: adminOrigin
+          ...buildOidcCenterApiHeaders(oidcAccessToken),
+          'content-type': 'application/json'
         },
         data: {}
       }
@@ -385,12 +392,12 @@ test.describe('Vue admin oidc-center auth', () => {
 
     await waitForNotificationsRealtimeConnection(page);
     const session = await findActiveOidcCenterSession(request, {
-      adminOrigin,
+      adminOrigin: ADMIN_OIDC_CENTER_ORIGIN,
       username: credentials.username,
       clientId: ADMIN_OIDC_CENTER_CLIENT_ID
     });
     await revokeOnlineSessionById(request, {
-      adminOrigin,
+      adminOrigin: ADMIN_OIDC_CENTER_ORIGIN,
       sessionId: session.id
     });
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
@@ -399,9 +406,8 @@ test.describe('Vue admin oidc-center auth', () => {
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
         headers: {
-          authorization: `Bearer ${oidcAccessToken}`,
-          'content-type': 'application/json',
-          origin: adminOrigin
+          ...buildOidcCenterApiHeaders(oidcAccessToken),
+          'content-type': 'application/json'
         },
         data: {}
       }
@@ -432,10 +438,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -452,10 +455,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(200);
     expect(Array.isArray(await response.json())).toBe(true);
@@ -473,10 +473,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const response = await request.get(
       `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
       {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-          origin: adminOrigin
-        }
+        headers: buildOidcCenterApiHeaders(accessToken)
       }
     );
     expect(response.status()).toBe(200);
@@ -511,10 +508,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -528,10 +522,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(response.status()).toBe(200);
     expect(Array.isArray(await response.json())).toBe(true);
@@ -546,10 +537,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const response = await request.get(
       `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
       {
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-          origin: adminOrigin
-        }
+        headers: buildOidcCenterApiHeaders(accessToken)
       }
     );
     expect(response.status()).toBe(200);
@@ -600,12 +588,12 @@ test.describe('Vue admin oidc-center auth', () => {
 
     await waitForNotificationsRealtimeConnection(page);
     const session = await findActiveOidcCenterSession(request, {
-      adminOrigin,
+      adminOrigin: ADMIN_OIDC_CENTER_ORIGIN,
       username: credentials.username,
       clientId: ADMIN_OIDC_CENTER_CLIENT_ID
     });
     await revokeOnlineSessionById(request, {
-      adminOrigin,
+      adminOrigin: ADMIN_OIDC_CENTER_ORIGIN,
       sessionId: session.id
     });
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
@@ -626,19 +614,21 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectMeEndpointRejectsToken(request, accessToken);
 
     const toolsResponse = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(toolsResponse.status()).toBe(401);
 
     const todosResponse = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        origin: adminOrigin
-      }
+      headers: buildOidcCenterApiHeaders(accessToken)
     });
     expect(todosResponse.status()).toBe(401);
+
+    const jobsResponse = await request.get(
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      {
+        headers: buildOidcCenterApiHeaders(accessToken)
+      }
+    );
+    expect(jobsResponse.status()).toBe(401);
   });
 });
