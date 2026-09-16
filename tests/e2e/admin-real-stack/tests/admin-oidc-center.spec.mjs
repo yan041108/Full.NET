@@ -1291,6 +1291,93 @@ test.describe('Vue admin oidc-center auth', () => {
     );
   });
 
+  test('OIDC 中心切租户并返回 Host 后强制下线后已失效 access token 无法访问工作流待办 API', async ({
+    page,
+    request
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/workflow/todos/mine`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/workflow/todos/mine`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户并返回 Host 后强制下线后已失效 access token 无法访问 /api/v1/ai/agent-tools', async ({
+    page,
+    request
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/ai/agent-tools`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/ai/agent-tools`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户并返回 Host 后强制下线后已失效 access token 无法访问后台任务定义 API', async ({
+    page,
+    request
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      401
+    );
+  });
+
   test('OIDC 中心切租户并返回 Host 后退出后已失效 access token 无法访问工作流待办 API', async ({
     page,
     request
@@ -1347,6 +1434,36 @@ test.describe('Vue admin oidc-center auth', () => {
       request,
       accessToken,
       `${resolveApiBase()}/api/v1/ai/agent-tools`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户并返回 Host 后退出后已失效 access token 无法访问后台任务定义 API', async ({
+    page,
+    request
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      200
+    );
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
       401
     );
   });
@@ -2251,6 +2368,29 @@ test.describe('Vue admin oidc-center auth', () => {
       request,
       accessToken,
       `${resolveApiBase()}/api/v1/ai/agent-tools`,
+      401
+    );
+  });
+
+  test('OIDC 中心切租户后强制下线后已失效 access token 无法访问后台任务定义 API', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
       401
     );
   });
