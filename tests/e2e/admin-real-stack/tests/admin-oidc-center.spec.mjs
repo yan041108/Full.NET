@@ -847,6 +847,42 @@ test.describe('Vue admin oidc-center auth', () => {
       .toBeVisible({ timeout: 30_000 });
   });
 
+  test('OIDC 中心切租户并返回 Host 后可通过 Agent 运行页 UI 加载排队运行', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return UI Load Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center host return agent runs ui load ${stamp}`
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId('ai-agent-runs-id').fill(run.runId);
+    const loadResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${run.runId}`)
+      && response.request().method() === 'GET'
+    );
+    await page.getByTestId('ai-agent-runs-load').click();
+    const response = await loadResponse;
+    expect(response.status()).toBe(200);
+
+    await expect(page.getByText('运行摘要')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.ai-agent-runs-view').getByText('queued', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+  });
+
   test('OIDC 中心切租户后可加载租户范围内受保护页面', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
