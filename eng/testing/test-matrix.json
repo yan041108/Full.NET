@@ -125,7 +125,7 @@
   "nativeAotOidcIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~NativeApiOidc",
-    "minimum": 8,
+    "minimum": 10,
     "timeout": "45m"
   },
   "integration": {

@@ -13,6 +13,9 @@ namespace Full.NET.IntegrationTests.NativeAot;
 
 internal static class NativeApiOidcE2EAssertions
 {
+    private const string ContextSwitchGovernanceRedirectUri =
+        "https://localhost:5013/signin-oidc-native-context-switch-governance";
+
     public static async Task VerifyOidcProtocolFlowAsync(
         DatabaseProvider provider,
         string connectionString,
@@ -157,6 +160,124 @@ internal static class NativeApiOidcE2EAssertions
             "peer native instance with stale OIDC tenant token after host round-trip",
             peerHost.LogFilePath,
             cancellationToken).ConfigureAwait(false);
+        await primaryHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        await peerHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        primaryHost.AssertNoFatalMarkersInLogs();
+        peerHost.AssertNoFatalMarkersInLogs();
+    }
+
+    public static async Task VerifyDualInstanceContextSwitchGovernanceAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        var artifact = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        using var sharedKey = RSA.Create(3072);
+        var settings = BuildOidcSettings(sharedKey, "native-aot-context-gov");
+        await using var primaryHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        await using var peerHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        using var primaryClient = primaryHost.CreateClient();
+        using var peerClient = peerHost.CreateClient();
+        var adminToken = await NativeApiE2EAssertions.LoginAsync(
+            primaryClient,
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        var clientId = $"na-gov-{Guid.NewGuid():N}"[..24];
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/oidc-clients")
+        {
+            Content = JsonContent.Create(new CreateOidcClientRequest(
+                clientId,
+                "Native context switch governance client",
+                [ContextSwitchGovernanceRedirectUri],
+                [],
+                ["openid", "profile", "offline_access"],
+                false,
+                true,
+                null)),
+        };
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var createResponse = await primaryClient.SendAsync(createRequest, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            createResponse,
+            HttpStatusCode.Created,
+            "Create OIDC client for native context switch governance",
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        var created = await createResponse.Content.ReadFromJsonAsync<CreateOidcClientResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(created);
+
+        var authorizeUrl = BuildGovernanceAuthorizeUrl(clientId);
+        using var warmAuthorizeResponse = await peerClient.GetAsync(authorizeUrl, cancellationToken).ConfigureAwait(false);
+        Assert.IsTrue(
+            warmAuthorizeResponse.StatusCode is HttpStatusCode.OK
+                or HttpStatusCode.Redirect
+                or HttpStatusCode.Found
+                or HttpStatusCode.SeeOther,
+            $"Peer authorize warm-up returned {warmAuthorizeResponse.StatusCode}.");
+
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            primaryClient,
+            clientId,
+            ContextSwitchGovernanceRedirectUri,
+            null,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
+
+        var acmeTenant = await GetAcmeTenantAsync(
+            primaryClient,
+            flow.AccessToken,
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        using var switchToTenantResponse = await primaryClient.SendAsync(
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", flow.AccessToken, new ChangeTenantContextRequest(acmeTenant.Id)),
+            cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            switchToTenantResponse,
+            HttpStatusCode.OK,
+            "OIDC tenant context switch before native governance disable",
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        var tenantToken = await switchToTenantResponse.Content
+            .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(tenantToken);
+
+        using var disableRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/identity/oidc-clients/{created!.Client.Id:D}/disable");
+        disableRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var disableResponse = await primaryClient.SendAsync(disableRequest, cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            disableResponse,
+            HttpStatusCode.OK,
+            "Disable OIDC client after native context switch",
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+
+        await AssertDisabledClientRejectsTokensOnNativeInstanceAsync(
+            peerClient,
+            authorizeUrl,
+            flow,
+            tenantToken.AccessToken,
+            clientId,
+            "peer",
+            peerHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        await AssertDisabledClientRejectsTokensOnNativeInstanceAsync(
+            primaryClient,
+            authorizeUrl,
+            flow,
+            tenantToken.AccessToken,
+            clientId,
+            "primary",
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+
         await primaryHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         await peerHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         primaryHost.AssertNoFatalMarkersInLogs();
@@ -353,6 +474,60 @@ internal static class NativeApiOidcE2EAssertions
             HttpStatusCode.Unauthorized,
             response.StatusCode,
             "Stale OIDC access token must be rejected on peer native instance for " + scenario + ".");
+    }
+
+    private static async Task AssertDisabledClientRejectsTokensOnNativeInstanceAsync(
+        HttpClient client,
+        string authorizeUrl,
+        IdentityOidcAuthorizationResult flow,
+        string tenantAccessToken,
+        string clientId,
+        string instanceLabel,
+        string logFilePath,
+        CancellationToken cancellationToken)
+    {
+        using var authorizeResponse = await client.GetAsync(authorizeUrl, cancellationToken).ConfigureAwait(false);
+        Assert.IsTrue(authorizeResponse.Headers.Location is not null);
+        StringAssert.Contains(
+            authorizeResponse.Headers.Location!.ToString(),
+            "error=unauthorized_client");
+
+        var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            flow.RefreshToken!,
+            clientId,
+            null,
+            cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(refreshResult.IsSuccessStatusCode);
+        Assert.IsTrue(
+            refreshResult.RawBody.Contains("unauthorized_client", StringComparison.OrdinalIgnoreCase)
+                || refreshResult.RawBody.Contains("invalid_grant", StringComparison.OrdinalIgnoreCase),
+            $"Expected disabled client refresh to fail on {instanceLabel} native instance, got: {refreshResult.RawBody}");
+
+        await AssertMeRejectsTokenAsync(
+            client,
+            flow.AccessToken,
+            $"stale OIDC host token after disable on {instanceLabel} native instance",
+            logFilePath,
+            cancellationToken).ConfigureAwait(false);
+        await AssertMeRejectsTokenAsync(
+            client,
+            tenantAccessToken,
+            $"OIDC tenant token after disable on {instanceLabel} native instance",
+            logFilePath,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string BuildGovernanceAuthorizeUrl(string clientId)
+    {
+        var (_, challenge) = IdentityOidcRelyingPartyFixture.CreatePkcePair();
+        return "/connect/authorize"
+            + $"?client_id={Uri.EscapeDataString(clientId)}"
+            + $"&redirect_uri={Uri.EscapeDataString(ContextSwitchGovernanceRedirectUri)}"
+            + "&response_type=code&scope=openid%20profile%20offline_access"
+            + "&state=state&nonce=nonce"
+            + $"&code_challenge={Uri.EscapeDataString(challenge)}"
+            + "&code_challenge_method=S256";
     }
 
     private static HttpRequestMessage Authorized(HttpMethod method, string url, string token)
