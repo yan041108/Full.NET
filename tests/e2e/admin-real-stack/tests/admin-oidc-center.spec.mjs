@@ -242,6 +242,16 @@ test.describe('Vue admin oidc-center auth', () => {
     });
   });
 
+  test('OIDC 中心退出后无法直接访问受保护路由', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await page.goto('/#/ai/agent-tools');
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Agent 工具', exact: true })).toHaveCount(0);
+  });
+
   test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
