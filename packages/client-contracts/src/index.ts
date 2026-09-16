@@ -273,6 +273,23 @@ export type {
   UpdateOpenAccessClientRequest
 } from './open-access-clients.js';
 
+export { resolveAdminIdentityAuthMode } from './identity-auth-config.js';
+
+export type { AdminIdentityAuthMode } from './identity-auth-config.js';
+
+export {
+  buildOidcAuthorizeUrl,
+  createOidcAuthorizationRequest,
+  createOidcPkcePair,
+  validateOidcCallbackState
+} from './oidc-interactive-auth.js';
+
+export type {
+  BuildOidcAuthorizeUrlOptions,
+  OidcAuthorizationRequest,
+  OidcPkcePair
+} from './oidc-interactive-auth.js';
+
 export {
   isCreateOidcClientResult,
   isOidcClient,
