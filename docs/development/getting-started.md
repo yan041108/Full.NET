@@ -125,6 +125,12 @@ Vue 使用 `/api/v1`、标准 HTTP 状态码和 ProblemDetails，并从 `@fullne
 pnpm test:e2e:real
 ```
 
+仅验证 Vue `oidc-center` 真实栈场景时：
+
+```powershell
+pnpm test:e2e:real:oidc-center
+```
+
 套件会启动数据库、Migrator、真实 API 和 Vue，并验证 Cookie、CSRF、CORS、登录、刷新、租户切换、精确页面/操作权限、直接 API 403、退出和 ProblemDetails。真实栈测试禁止用 `page.route` Mock 替代后端行为。默认 `vue-admin` 项目（端口 25173）覆盖 legacy 登录；`vue-admin-oidc-center`（端口 25175，`admin-oidc-center.spec.mjs`）覆盖身份中心 SPA 登录、刷新与强制下线。
 
 已有独立栈时可以跳过自动引导：

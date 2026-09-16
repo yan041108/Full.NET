@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "test:oidc-center": "playwright test --project vue-admin-oidc-center",
     "test:provisioner": "node --test scripts/provision-viewer.test.mjs scripts/spec-contracts.test.mjs scripts/organization-owned-codegen-schema.test.mjs scripts/totp-utils.test.mjs",
     "test:production-totp": "node --test scripts/production-totp-grant.test.mjs",
     "test:mysql": "node scripts/run-mysql-test.mjs",
