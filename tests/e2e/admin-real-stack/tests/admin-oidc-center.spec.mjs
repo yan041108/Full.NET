@@ -728,6 +728,19 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('queued');
   });
 
+  test('OIDC 中心切租户并返回 Host 后可打开 Agent 运行页', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('ai-agent-runs-load')).toBeVisible();
+    await expect(page.getByTestId('ai-agent-runs-create')).toBeVisible();
+  });
+
   test('OIDC 中心切租户并返回 Host 后可通过 Agent 运行页 UI 创建排队运行', async ({ page, request }) => {
     test.setTimeout(90_000);
     const stamp = Date.now().toString(36);
