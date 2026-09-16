@@ -119,6 +119,14 @@ test.describe('Vue admin oidc-center auth', () => {
     ).toBe('completed');
   });
 
+  test('OIDC 中心 Host 上下文可打开后台任务定义页', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await clickMainNavLink(page, /任务定义/, '任务');
+    const jobsView = page.locator('.host-jobs-view');
+    await expect(jobsView.getByRole('heading', { name: /任务定义/, level: 1 }))
+      .toBeVisible({ timeout: 15_000 });
+  });
+
   test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
