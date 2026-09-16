@@ -120,6 +120,19 @@ export async function logoutAdminShell(page) {
   await page.getByRole('button', { name: '退出登录' }).click();
 }
 
+/** 未认证时直接访问受保护路由应回到 oidc-center 登录且目标页标题不渲染。 */
+export async function expectProtectedRouteRedirectsToOidcLogin(
+  page,
+  hashRoute,
+  { headingName, headingExact = true } = {}
+) {
+  await page.goto(hashRoute);
+  await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+  if (headingName !== undefined) {
+    await expect(page.getByRole('heading', { name: headingName, exact: headingExact })).toHaveCount(0);
+  }
+}
+
 /** 通过工作台探针捕获当前 OIDC access token，供真实栈 API 断言复用。 */
 export async function captureOidcAccessTokenFromOverviewProbe(page) {
   await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
