@@ -145,6 +145,13 @@ export async function logoutAdminShell(page) {
   await page.getByRole('button', { name: '退出登录' }).click();
 }
 
+/** §6 最小矩阵：退出／强撤后应拒绝直达的业务路由探针。 */
+export const OIDC_CENTER_PROTECTED_ROUTE_PROBES = [
+  { hashRoute: '/#/ai/agent-tools', headingName: 'Agent 工具' },
+  { hashRoute: '/#/workflow/todos', headingName: '我的工作流待办' },
+  { hashRoute: '/#/jobs/host-definitions', headingName: '任务定义' }
+];
+
 /** 未认证时直接访问受保护路由应回到 oidc-center 登录且目标页标题不渲染。 */
 export async function expectProtectedRouteRedirectsToOidcLogin(
   page,
@@ -155,6 +162,18 @@ export async function expectProtectedRouteRedirectsToOidcLogin(
   await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
   if (headingName !== undefined) {
     await expect(page.getByRole('heading', { name: headingName, exact: headingExact })).toHaveCount(0);
+  }
+}
+
+/** 批量断言 §6 受保护业务路由在会话结束后不可达。 */
+export async function expectProtectedRoutesRedirectToOidcLogin(
+  page,
+  probes = OIDC_CENTER_PROTECTED_ROUTE_PROBES
+) {
+  for (const probe of probes) {
+    await expectProtectedRouteRedirectsToOidcLogin(page, probe.hashRoute, {
+      headingName: probe.headingName
+    });
   }
 }
 

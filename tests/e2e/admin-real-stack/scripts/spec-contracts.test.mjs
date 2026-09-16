@@ -264,15 +264,22 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
     path.resolve(import.meta.dirname, '../tests/admin-oidc-center.spec.mjs'),
     'utf8'
   );
+  const fixturesSource = await readFile(
+    path.resolve(import.meta.dirname, '../tests/support/admin-oidc-center-fixtures.mjs'),
+    'utf8'
+  );
 
   assert.match(source, /loginAdminViaOidcCenter/u);
   assert.match(source, /captureOidcAccessTokenFromOverviewProbe/u);
   assert.match(source, /expectOidcApiGetStatus/u);
   assert.match(source, /expectOidcApiPostStatus/u);
-  assert.match(source, /\/#\/workflow\/todos/u);
   assert.match(source, /createE2eHostPingJobDefinition/u);
-  assert.match(source, /expectProtectedRouteRedirectsToOidcLogin/u);
+  assert.match(source, /expectProtectedRoutesRedirectToOidcLogin/u);
+  assert.match(fixturesSource, /OIDC_CENTER_PROTECTED_ROUTE_PROBES/u);
+  assert.match(fixturesSource, /\/#\/workflow\/todos/u);
+  assert.match(fixturesSource, /\/#\/jobs\/host-definitions/u);
   assert.match(source, /强制下线后无法直接访问受保护路由/u);
+  assert.match(source, /强制下线后清理本地凭据、中心 Cookie 并拒绝 refresh token/u);
   assert.doesNotMatch(source, /waitForRequest\([^)]*\/api\/v1\/me/u);
   assert.match(source, /无法访问后台任务定义 API/u);
   assert.match(source, /无法访问后台任务执行历史 API/u);
@@ -305,5 +312,5 @@ test('admin-oidc-center 真实栈用例数量与 T08 文档登记一致', async 
     'utf8'
   );
   const count = (source.match(/^\s*test\(/gm) ?? []).length;
-  assert.equal(count, 34);
+  assert.equal(count, 35);
 });
