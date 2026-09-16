@@ -246,6 +246,7 @@ export async function logoutAdminShell(page) {
 /** §6 最小矩阵：退出／强撤后应拒绝直达的业务路由探针。 */
 export const OIDC_CENTER_PROTECTED_ROUTE_PROBES = [
   { hashRoute: '/#/ai/agent-tools', headingName: 'Agent 工具' },
+  { hashRoute: '/#/ai/agent-runs', headingName: 'Agent 运行' },
   { hashRoute: '/#/workflow/todos', headingName: '我的工作流待办' },
   { hashRoute: '/#/jobs/host-definitions', headingName: '任务定义' }
 ];
