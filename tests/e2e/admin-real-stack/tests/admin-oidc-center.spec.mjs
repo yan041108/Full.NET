@@ -658,6 +658,35 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(Array.isArray(body.items)).toBe(true);
   });
 
+  test('OIDC 中心切租户并返回 Host 后 access token 仍可创建并读取排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center host return agent run probe'
+    });
+
+    const response = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+    expect((await response.json()).statusKey).toBe('queued');
+  });
+
   test('OIDC 中心切租户后可加载租户范围内受保护页面', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
