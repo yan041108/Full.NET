@@ -134,6 +134,36 @@ internal static class NativeApiOidcE2EAssertions
         await AssertStatusAsync(meAfterResponse, HttpStatusCode.OK, "OIDC tenant token after switch", logFilePath, cancellationToken).ConfigureAwait(false);
         using var meBeforeResponse = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/me", oidcResult.AccessToken), cancellationToken).ConfigureAwait(false);
         Assert.AreEqual(HttpStatusCode.Unauthorized, meBeforeResponse.StatusCode);
+        using var toolsBeforeSwitchResponse = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/ai/agent-tools", oidcResult.AccessToken), cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            toolsBeforeSwitchResponse.StatusCode,
+            "Stale OIDC host token must not reach AI tool catalog after context switch.");
+        using var switchToHostResponse = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", switched.AccessToken, new ChangeTenantContextRequest(null)), cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            switchToHostResponse,
+            HttpStatusCode.OK,
+            "OIDC host context switch round-trip",
+            logFilePath,
+            cancellationToken).ConfigureAwait(false);
+        var restored = await switchToHostResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(restored);
+        using var toolsRestoredResponse = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/ai/agent-tools", restored.AccessToken), cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            toolsRestoredResponse,
+            HttpStatusCode.OK,
+            "OIDC host token reaches AI tool catalog after round-trip",
+            logFilePath,
+            cancellationToken).ConfigureAwait(false);
+        using var toolsStaleTenantResponse = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/ai/agent-tools", switched.AccessToken), cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            toolsStaleTenantResponse.StatusCode,
+            "Stale OIDC tenant token must not reach AI tool catalog after host round-trip.");
     }
 
     private static async Task VerifyLegacyContextSwitchStillWorksAsync(
