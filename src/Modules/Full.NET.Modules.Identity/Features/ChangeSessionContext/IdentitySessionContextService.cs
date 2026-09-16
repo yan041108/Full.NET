@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Ids;
 using Full.NET.Abstractions.Results;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
@@ -24,6 +25,7 @@ internal sealed class IdentitySessionContextService(
     IAccessTokenIssuer accessTokenIssuer,
     IdentityOidcContextAccessTokenIssuer oidcContextAccessTokenIssuer,
     IdentityOidcClientConfigResolver clientConfigResolver,
+    ICurrentTenantContextWriter tenantContextWriter,
     IClock clock,
     IIdGenerator idGenerator,
     IOptions<IdentityOidcOptions> oidcOptions,
@@ -192,112 +194,147 @@ internal sealed class IdentitySessionContextService(
                 ErrorType.Forbidden);
         }
 
-        var validation = await FindOidcApplicationSessionAsync(applicationSessionId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!IsOwnedActiveHostOidcSession(validation, userId, principal))
-        {
-            return SessionNotActive();
-        }
-
-        var effectiveScope = tenant is null ? HostScope : $"tenant:{tenant.Id:N}";
-        var now = clock.UtcNow;
-        var affectedRows = await commandExecutor.ExecuteAsync(
-                IdentityOidcSessionSql.UpdateApplicationSessionContext,
-                new OidcApplicationSessionContextUpdate(
-                    applicationSessionId,
-                    userId,
-                    tenant?.Id,
-                    effectiveScope,
-                    expectedActiveTenantId,
-                    validation!.Version,
-                    now,
-                    now),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (affectedRows != 1)
-        {
-            var current = await FindOidcApplicationSessionAsync(applicationSessionId, cancellationToken)
-                .ConfigureAwait(false);
-            if (!IsOwnedActiveHostOidcSession(current, userId, principal))
+        return await RunInHostScopeAsync(
+            async ct =>
             {
-                return SessionNotActive();
-            }
+                var validation = await FindOidcApplicationSessionAsync(applicationSessionId, ct)
+                    .ConfigureAwait(false);
+                if (!IsOwnedActiveHostOidcSession(validation, userId, principal))
+                {
+                    return SessionNotActive();
+                }
 
-            return Failure(
-                IdentityErrorCodes.SessionContextConflict,
-                "The session context changed concurrently.",
-                ErrorType.Conflict);
-        }
+                var effectiveScope = tenant is null ? HostScope : $"tenant:{tenant.Id:N}";
+                var now = clock.UtcNow;
+                var affectedRows = await commandExecutor.ExecuteAsync(
+                        IdentityOidcSessionSql.UpdateApplicationSessionContext,
+                        new OidcApplicationSessionContextUpdate(
+                            applicationSessionId,
+                            userId,
+                            tenant?.Id,
+                            effectiveScope,
+                            expectedActiveTenantId,
+                            validation!.Version,
+                            now,
+                            now),
+                        ct)
+                    .ConfigureAwait(false);
+                if (affectedRows != 1)
+                {
+                    var current = await FindOidcApplicationSessionAsync(applicationSessionId, ct)
+                        .ConfigureAwait(false);
+                    if (!IsOwnedActiveHostOidcSession(current, userId, principal))
+                    {
+                        return SessionNotActive();
+                    }
 
-        var authorization = await permissionSnapshotReader.ReadAsync(
-                userId,
-                HostScope,
-                tenant?.Id,
-                cancellationToken)
-            .ConfigureAwait(false);
-        var username = principal.FindFirstValue(JwtRegisteredClaimNames.Name)
-            ?? principal.FindFirstValue("preferred_username")
-            ?? userId.ToString("D");
-        var audit = new AuthAuditEvent(
-            idGenerator.NewId(),
-            userId,
-            applicationSessionId,
-            TokenHash.Compute(username),
-            "context-switch",
-            "identity.session-context-changed",
-            true,
-            null,
-            null,
-            tenant?.Id,
-            now);
-        var auditRows = await commandExecutor.ExecuteAsync(
-                IdentitySql.InsertContextAudit,
-                audit,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (auditRows != 1)
+                    return Failure(
+                        IdentityErrorCodes.SessionContextConflict,
+                        "The session context changed concurrently.",
+                        ErrorType.Conflict);
+                }
+
+                var authorization = await permissionSnapshotReader.ReadAsync(
+                        userId,
+                        HostScope,
+                        tenant?.Id,
+                        ct)
+                    .ConfigureAwait(false);
+                var username = principal.FindFirstValue(JwtRegisteredClaimNames.Name)
+                    ?? principal.FindFirstValue("preferred_username")
+                    ?? userId.ToString("D");
+                var audit = new AuthAuditEvent(
+                    idGenerator.NewId(),
+                    userId,
+                    applicationSessionId,
+                    TokenHash.Compute(username),
+                    "context-switch",
+                    "identity.session-context-changed",
+                    true,
+                    null,
+                    null,
+                    tenant?.Id,
+                    now);
+                var auditRows = await commandExecutor.ExecuteAsync(
+                        IdentitySql.InsertContextAudit,
+                        audit,
+                        ct)
+                    .ConfigureAwait(false);
+                if (auditRows != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Identity context audit insert affected {auditRows} rows instead of one.");
+                }
+
+                var resolvedClient = await clientConfigResolver.ResolveAsync(clientId, ct)
+                    .ConfigureAwait(false);
+                var audience = string.IsNullOrWhiteSpace(resolvedClient?.ResourceAudience)
+                    ? _identityOptions.Audience
+                    : resolvedClient!.ResourceAudience!;
+                var isExternalClient = string.IsNullOrWhiteSpace(
+                    principal.FindFirstValue(IdentityClaimTypes.SecurityStamp));
+                var issued = oidcContextAccessTokenIssuer.Issue(
+                    new IdentityOidcContextAccessTokenIssueRequest(
+                        userId,
+                        principal.FindFirstValue(JwtRegisteredClaimNames.Name) ?? username,
+                        principal.FindFirstValue("preferred_username") ?? username,
+                        centerSessionId,
+                        applicationSessionId,
+                        clientId,
+                        HostScope,
+                        effectiveScope,
+                        tenant?.Id,
+                        ReadOAuthScopes(principal),
+                        authorization.Permissions,
+                        authorization.IsSuperAdministrator,
+                        validation!.UserSecurityStamp,
+                        isExternalClient,
+                        audience));
+                var context = tenant is null
+                    ? new TenantContextDescriptor(null, "host", "Host", HostScope)
+                    : new TenantContextDescriptor(
+                        tenant.Id,
+                        tenant.Identifier,
+                        tenant.Name,
+                        effectiveScope);
+                return Result<TenantContextTokenResponse>.Success(
+                    new TenantContextTokenResponse(
+                        issued.AccessToken,
+                        "Bearer",
+                        issued.ExpiresAtUtc,
+                        context));
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T> RunInHostScopeAsync<T>(
+        Func<CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken)
+    {
+        var wasHost = tenantContextWriter.IsHost;
+        var previousTenant = tenantContextWriter.Id is Guid tenantId
+            ? new TenantContext(tenantId, tenantContextWriter.Identifier!, tenantContextWriter.Name!)
+            : null;
+        tenantContextWriter.SetHost();
+        try
         {
-            throw new InvalidOperationException(
-                $"Identity context audit insert affected {auditRows} rows instead of one.");
+            return await action(cancellationToken).ConfigureAwait(false);
         }
-
-        var resolvedClient = await clientConfigResolver.ResolveAsync(clientId, cancellationToken)
-            .ConfigureAwait(false);
-        var audience = string.IsNullOrWhiteSpace(resolvedClient?.ResourceAudience)
-            ? _identityOptions.Audience
-            : resolvedClient!.ResourceAudience!;
-        var isExternalClient = string.IsNullOrWhiteSpace(
-            principal.FindFirstValue(IdentityClaimTypes.SecurityStamp));
-        var issued = oidcContextAccessTokenIssuer.Issue(
-            new IdentityOidcContextAccessTokenIssueRequest(
-                userId,
-                principal.FindFirstValue(JwtRegisteredClaimNames.Name) ?? username,
-                principal.FindFirstValue("preferred_username") ?? username,
-                centerSessionId,
-                applicationSessionId,
-                clientId,
-                HostScope,
-                effectiveScope,
-                tenant?.Id,
-                ReadOAuthScopes(principal),
-                authorization.Permissions,
-                authorization.IsSuperAdministrator,
-                validation!.UserSecurityStamp,
-                isExternalClient,
-                audience));
-        var context = tenant is null
-            ? new TenantContextDescriptor(null, "host", "Host", HostScope)
-            : new TenantContextDescriptor(
-                tenant.Id,
-                tenant.Identifier,
-                tenant.Name,
-                effectiveScope);
-        return Result<TenantContextTokenResponse>.Success(
-            new TenantContextTokenResponse(
-                issued.AccessToken,
-                "Bearer",
-                issued.ExpiresAtUtc,
-                context));
+        finally
+        {
+            if (previousTenant is not null)
+            {
+                tenantContextWriter.SetTenant(previousTenant);
+            }
+            else if (wasHost)
+            {
+                tenantContextWriter.SetHost();
+            }
+            else
+            {
+                tenantContextWriter.Clear();
+            }
+        }
     }
 
     /// <summary>按会话标识读取刷新会话，用于上下文切换前后的并发校验。</summary>

@@ -1,13 +1,17 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Ids;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenIddict.Abstractions;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -212,6 +216,7 @@ public sealed class IdentitySessionContextServiceTests
                     Arg.Any<CancellationToken>())
                 .Returns(1);
             TokenIssuer = new StubTokenIssuer();
+            var (oidcIssuer, clientResolver) = CreateOidcDependencies();
             Service = new IdentitySessionContextService(
                 QueryExecutor,
                 CommandExecutor,
@@ -222,9 +227,44 @@ public sealed class IdentitySessionContextServiceTests
                         new Full.NET.Modules.Tenancy.TenancyAuthorizationContributor(),
                     ])),
                 TokenIssuer,
+                oidcIssuer,
+                clientResolver,
+                new CurrentTenantAccessor(),
                 new FixedClock(),
                 new FixedIdGenerator(),
-                Options.Create(new IdentityOidcOptions()));
+                Options.Create(new IdentityOidcOptions
+                {
+                    Enable = true,
+                    Issuer = "https://localhost/identity",
+                    AllowDevelopmentEphemeralSigningKey = true,
+                }),
+                Options.Create(new IdentityOptions()));
+        }
+
+        private static (IdentityOidcContextAccessTokenIssuer Issuer, IdentityOidcClientConfigResolver ClientResolver)
+            CreateOidcDependencies()
+        {
+            var oidcOptions = Options.Create(new IdentityOidcOptions
+            {
+                Enable = true,
+                Issuer = "https://localhost/identity",
+                AllowDevelopmentEphemeralSigningKey = true,
+            });
+            var identityOptions = Options.Create(new IdentityOptions { Audience = "Full.NET.Api" });
+            var keyRing = new IdentityOidcSigningKeyRing(
+                oidcOptions,
+                Substitute.For<ILogger<IdentityOidcSigningKeyRing>>());
+            var issuer = new IdentityOidcContextAccessTokenIssuer(
+                new IdentityOidcPrincipalFactory(),
+                keyRing,
+                oidcOptions,
+                identityOptions,
+                new FixedClock(),
+                new FixedIdGenerator());
+            var clientResolver = new IdentityOidcClientConfigResolver(
+                oidcOptions,
+                Substitute.For<IOpenIddictApplicationManager>());
+            return (issuer, clientResolver);
         }
 
         public IQueryExecutor QueryExecutor { get; }
