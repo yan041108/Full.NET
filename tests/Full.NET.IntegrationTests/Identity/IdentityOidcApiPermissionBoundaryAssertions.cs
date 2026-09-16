@@ -47,12 +47,89 @@ internal static class IdentityOidcApiPermissionBoundaryAssertions
             flow.AccessToken,
             "/api/v1/identity/roles?page=1&pageSize=1",
             cancellationToken);
+        await VerifyProtectedApiRejectsExternalTokenAsync(
+            client,
+            flow.AccessToken,
+            "/api/v1/identity/online-sessions?page=1&pageSize=1",
+            cancellationToken);
+
+        await VerifyFirstPartyNonPrivilegedUserBoundaryAsync(factory, client, cancellationToken);
     }
 
-    private static async Task VerifyProtectedApiRejectsExternalTokenAsync(
+    private static async Task VerifyFirstPartyNonPrivilegedUserBoundaryAsync(
+        FullNetApiFactory factory,
+        HttpClient adminClient,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            adminClient,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var username = $"oidc-api-boundary-{Guid.NewGuid():N}";
+        var password = FullNetApiFactory.TestPassword;
+        using var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/users")
+        {
+            Content = JsonContent.Create(new CreateHostUserRequest(
+                username,
+                "OIDC API permission boundary user",
+                password)),
+        };
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var createResponse = await adminClient.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var userClient = factory.CreateClientForHost("localhost");
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            userClient,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            username,
+            password,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.AccessToken));
+
+        await VerifyProtectedApiRejectsTokenAsync(
+            userClient,
+            flow.AccessToken,
+            "/api/v1/identity/oidc-authorizations?page=1&pageSize=1",
+            "First-party non-privileged user",
+            cancellationToken);
+        await VerifyProtectedApiRejectsTokenAsync(
+            userClient,
+            flow.AccessToken,
+            "/api/v1/identity/oidc-clients?page=1&pageSize=1",
+            "First-party non-privileged user",
+            cancellationToken);
+
+        using var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
+        using var meResponse = await userClient.SendAsync(meRequest, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.OK,
+            meResponse.StatusCode,
+            "First-party users without admin permissions must still access their own profile.");
+    }
+
+    private static Task VerifyProtectedApiRejectsExternalTokenAsync(
         HttpClient client,
         string accessToken,
         string path,
+        CancellationToken cancellationToken) =>
+        VerifyProtectedApiRejectsTokenAsync(
+            client,
+            accessToken,
+            path,
+            "External client",
+            cancellationToken);
+
+    private static async Task VerifyProtectedApiRejectsTokenAsync(
+        HttpClient client,
+        string accessToken,
+        string path,
+        string scenario,
         CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
@@ -67,7 +144,7 @@ internal static class IdentityOidcApiPermissionBoundaryAssertions
             problem.RootElement.GetProperty("code").GetString());
         IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
             body,
-            $"External client request to {path}");
+            $"{scenario} request to {path}");
     }
 
     private static async Task CreateExternalClientAsync(
