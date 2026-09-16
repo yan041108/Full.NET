@@ -3180,6 +3180,108 @@ test.describe('Vue admin oidc-center auth', () => {
     });
   });
 
+  test('OIDC 中心切租户后应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心切租户后强制下线后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心切租户后强制下线后写回 refresh 凭据仍无法恢复会话', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredentialRaw, refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+
+    await expectStaleOidcRefreshCannotRestoreSession(page, request, refreshCredentialRaw, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后强制下线后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
   test('OIDC 中心退出后无法直接访问受保护路由', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await logoutAdminShell(page);
