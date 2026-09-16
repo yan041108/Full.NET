@@ -66,6 +66,54 @@ describe('oidc-center session restore', () => {
     expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toContain('rotated-refresh-token');
   });
 
+  it('serializes concurrent restore refresh so token exchange never overlaps', async () => {
+    sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
+      refreshToken: 'stored-refresh-token',
+      clientId: 'admin-spa'
+    }));
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const href = String(url);
+      if (href.includes('/connect/token')) {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        inFlight -= 1;
+        return tokenEndpointResponse({
+          access_token: 'restored-access-token',
+          token_type: 'Bearer',
+          expires_in: 120,
+          refresh_token: 'rotated-refresh-token'
+        });
+      }
+
+      if (href.includes('/api/v1/me')) {
+        return jsonResponse(currentUser());
+      }
+
+      if (href.includes('/api/v1/navigation')) {
+        return jsonResponse(navigation());
+      }
+
+      if (href.includes('/api/v1/tenancy/available')) {
+        return jsonResponse([]);
+      }
+
+      throw new Error(`unexpected fetch ${href}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const session = useSessionStore();
+
+    await Promise.all([session.restore(), session.restore()]);
+
+    expect(session.state).toBe('authenticated');
+    expect(maxInFlight).toBe(1);
+    expect(
+      fetchMock.mock.calls.filter(call => String(call[0]).includes('/connect/token')).length
+    ).toBeGreaterThanOrEqual(1);
+  });
+
   it('stays anonymous and clears credentials when refresh fails', async () => {
     sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
       refreshToken: 'expired-refresh-token',
