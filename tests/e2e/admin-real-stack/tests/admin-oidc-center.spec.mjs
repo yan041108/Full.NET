@@ -210,6 +210,72 @@ test.describe('Vue admin oidc-center auth', () => {
     }).toBe(true);
   });
 
+  test('OIDC 中心退出后已失效 access token 无法触发后台任务', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const setupOrigin = 'http://localhost:25173';
+    const setupToken = await loginHostAdminAccessToken(request, 'vue');
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.out.${stamp}`.slice(0, 32);
+
+    const createResponse = await request.post(`${apiBase}/api/v1/jobs/host-definitions`, {
+      headers: {
+        authorization: `Bearer ${setupToken}`,
+        'content-type': 'application/json',
+        origin: setupOrigin
+      },
+      data: {
+        jobKey,
+        handlerKind: 'ping',
+        args: null,
+        displayName: `E2E OIDC Logout Job ${stamp}`,
+        description: 'oidc-center post-logout job trigger rejection',
+        groupName: 'e2e',
+        allowConcurrentExecutions: false
+      }
+    });
+    expect(createResponse.status()).toBe(201);
+    const definition = await createResponse.json();
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(req =>
+      req.url().includes('/api/v1/me') && req.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const oidcAccessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(oidcAccessToken).toBeTruthy();
+
+    const triggerBeforeLogout = await request.post(
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      {
+        headers: {
+          authorization: `Bearer ${oidcAccessToken}`,
+          'content-type': 'application/json',
+          origin: adminOrigin
+        },
+        data: {}
+      }
+    );
+    expect(triggerBeforeLogout.status()).toBe(201);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    const triggerAfterLogout = await request.post(
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      {
+        headers: {
+          authorization: `Bearer ${oidcAccessToken}`,
+          'content-type': 'application/json',
+          origin: adminOrigin
+        },
+        data: {}
+      }
+    );
+    expect(triggerAfterLogout.status()).toBe(401);
+  });
+
   test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
