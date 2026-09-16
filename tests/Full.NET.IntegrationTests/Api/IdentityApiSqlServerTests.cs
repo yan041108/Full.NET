@@ -432,6 +432,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_revoke_notifications_carry_authoritative_session_id_with_sql_server()
+    {
+        await IdentityOidcRevokeNotificationAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_staggered_exchange_preserves_tokens_with_sql_server()
     {
         await IdentityOidcMultiInstanceRestartAssertions.VerifyStaggeredExchangeAsync(

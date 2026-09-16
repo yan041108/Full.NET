@@ -432,6 +432,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_revoke_notifications_carry_authoritative_session_id_with_mysql()
+    {
+        await IdentityOidcRevokeNotificationAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_staggered_exchange_preserves_tokens_with_mysql()
     {
         await IdentityOidcMultiInstanceRestartAssertions.VerifyStaggeredExchangeAsync(
