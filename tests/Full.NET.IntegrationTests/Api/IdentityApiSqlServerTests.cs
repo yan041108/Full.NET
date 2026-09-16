@@ -582,4 +582,12 @@ public sealed class IdentityApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_revoke_races_remain_authoritative_with_sql_server()
+    {
+        await IdentityOidcContextSwitchRevokeRaceAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }

@@ -582,4 +582,12 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_revoke_races_remain_authoritative_with_mysql()
+    {
+        await IdentityOidcContextSwitchRevokeRaceAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }
