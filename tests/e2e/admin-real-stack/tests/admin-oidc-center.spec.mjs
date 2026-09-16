@@ -406,6 +406,14 @@ test.describe('Vue admin oidc-center auth', () => {
     });
 
     expect(second.runId).toBe(first.runId);
+
+    const response = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${resolveApiBase()}/api/v1/ai/agent/runs/${first.runId}`,
+      200
+    );
+    expect((await response.json()).statusKey).toBe('queued');
   });
 
   test('OIDC 中心退出后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
@@ -1014,6 +1022,39 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectOidcCenterAgentRunResumeRejected(request, accessToken, run.runId);
   });
 
+  test('OIDC 中心切租户并返回 Host 后重复 clientRequestId 创建 Agent Run 幂等返回同一 runId', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Agent Run Idempotent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center host return idempotent agent run create ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    const second = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    expect(second.runId).toBe(first.runId);
+  });
+
   test('OIDC 中心切租户并返回 Host 后加载排队运行不展示恢复按钮', async ({ page, request }) => {
     test.setTimeout(90_000);
     const stamp = Date.now().toString(36);
@@ -1372,6 +1413,33 @@ test.describe('Vue admin oidc-center auth', () => {
     await expectOidcCenterAgentRunResumeRejected(request, accessToken, run.runId);
   });
 
+  test('OIDC 中心切租户后重复 clientRequestId 创建 Agent Run 幂等返回同一 runId', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Agent Run Idempotent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center tenant idempotent agent run create ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    const second = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    expect(second.runId).toBe(first.runId);
+  });
+
   test('OIDC 中心切租户后加载排队运行不展示恢复按钮', async ({ page, request }) => {
     test.setTimeout(90_000);
     const stamp = Date.now().toString(36);
@@ -1583,6 +1651,85 @@ test.describe('Vue admin oidc-center auth', () => {
     const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
       modelConfigId: model.id,
       prompt: 'oidc-center tenant post-revoke agent run rejection'
+    });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectRevokedOidcCenterAgentRunAccessRejected(request, oidcAccessToken, {
+      apiBase,
+      runId: run.runId,
+      modelConfigId: model.id
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后创建的排队 Agent Run 在应用退出后绑定失效', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Logout Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center host return post-logout agent run rejection'
+    });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectRevokedOidcCenterAgentRunAccessRejected(request, oidcAccessToken, {
+      apiBase,
+      runId: run.runId,
+      modelConfigId: model.id
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后创建的排队 Agent Run 在强制下线后绑定失效', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Revoke Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center host return post-revoke agent run rejection'
     });
 
     await expectOidcApiGetStatus(
