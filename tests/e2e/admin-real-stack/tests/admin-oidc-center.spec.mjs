@@ -67,6 +67,16 @@ test.describe('Vue admin oidc-center auth', () => {
     });
   });
 
+  test('OIDC 中心 Host 上下文工作台探针可连接真实 /api/v1/me', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('load-current-user').click();
+    await expect(page.getByText('已连接：系统管理员', { exact: true })).toBeVisible({
+      timeout: 15_000
+    });
+  });
+
   test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
