@@ -274,6 +274,10 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
+    const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
+    expect(refreshCredentialRaw).toBeTruthy();
+    const refreshCredential = JSON.parse(refreshCredentialRaw);
+
     await waitForNotificationsRealtimeConnection(page);
     const session = await findActiveOidcCenterSession(request, {
       adminOrigin,
@@ -286,5 +290,18 @@ test.describe('Vue admin oidc-center auth', () => {
     });
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
     expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
+
+    await page.evaluate(credential => {
+      sessionStorage.setItem('fullnet.admin.oidc.refresh', credential);
+    }, refreshCredentialRaw);
+    await page.reload();
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
+
+    await expectRefreshTokenRejects(request, {
+      apiBase: resolveApiBase(),
+      clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
+      refreshToken: refreshCredential.refreshToken
+    });
   });
 });
