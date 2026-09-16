@@ -36,6 +36,7 @@ describe('oidc-center session logout', () => {
       .mockResolvedValueOnce(jsonResponse(currentUser()))
       .mockResolvedValueOnce(jsonResponse(navigation()))
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
     sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
@@ -54,12 +55,16 @@ describe('oidc-center session logout', () => {
       '/api/v1/me',
       '/api/v1/navigation',
       '/api/v1/tenancy/available',
-      'http://localhost:5149/api/v1/identity/oidc/logout/application'
+      'http://localhost:5149/api/v1/identity/oidc/logout/application',
+      'http://localhost:5149/api/v1/identity/oidc/logout'
     ]);
-    const [, revokeInit] = fetchMock.mock.calls[3] as [string, RequestInit];
-    expect(revokeInit.credentials).toBe('include');
-    expect(revokeInit.method).toBe('POST');
-    expect(revokeInit.body).toBe(JSON.stringify({ clientId: 'admin-spa' }));
+    const [, applicationLogoutInit] = fetchMock.mock.calls[3] as [string, RequestInit];
+    expect(applicationLogoutInit.credentials).toBe('include');
+    expect(applicationLogoutInit.method).toBe('POST');
+    expect(applicationLogoutInit.body).toBe(JSON.stringify({ clientId: 'admin-spa' }));
+    const [, centerLogoutInit] = fetchMock.mock.calls[4] as [string, RequestInit];
+    expect(centerLogoutInit.credentials).toBe('include');
+    expect(centerLogoutInit.method).toBe('POST');
   });
 });
 

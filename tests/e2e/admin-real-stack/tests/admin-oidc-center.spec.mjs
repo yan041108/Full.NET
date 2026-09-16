@@ -5,7 +5,11 @@ import {
   loginAdminViaOidcCenter,
   logoutAdminShell
 } from './support/admin-oidc-center-fixtures.mjs';
-import { expectRefreshTokenRejects, resolveApiBase } from './support/identity-oidc-fixtures.mjs';
+import {
+  CENTER_COOKIE_NAME,
+  expectRefreshTokenRejects,
+  resolveApiBase
+} from './support/identity-oidc-fixtures.mjs';
 import { prepareHostUserCredentialsForOidc } from './support/real-stack-auth.mjs';
 
 const adminOrigin = 'http://localhost:25175';
@@ -55,7 +59,7 @@ test.describe('Vue admin oidc-center auth', () => {
     });
   });
 
-  test('应用退出后清理本地凭据并拒绝 refresh token', async ({ page, request }) => {
+  test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
     expect(refreshCredentialRaw).toBeTruthy();
@@ -64,6 +68,9 @@ test.describe('Vue admin oidc-center auth', () => {
     await logoutAdminShell(page);
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
+    const centerCookie = (await context.cookies(resolveApiBase()))
+      .find(cookie => cookie.name === CENTER_COOKIE_NAME);
+    expect(centerCookie).toBeUndefined();
 
     await expectRefreshTokenRejects(request, {
       apiBase: resolveApiBase(),

@@ -44,6 +44,10 @@ export interface RevokeOidcApplicationSessionOptions {
   clientId: string;
 }
 
+export interface RevokeOidcCenterSessionOptions {
+  apiBase: string;
+}
+
 export interface BuildOidcAuthorizeUrlOptions {
   apiBase: string;
   clientId: string;
@@ -226,6 +230,19 @@ export async function revokeOidcApplicationSession(
       'content-type': 'application/json'
     },
     body: JSON.stringify({ clientId: options.clientId })
+  });
+  return response.status === 204;
+}
+
+/** 撤销中心登录 Cookie 及用户全部 OIDC grant；需携带中心登录 Cookie。 */
+export async function revokeOidcCenterSession(
+  options: RevokeOidcCenterSessionOptions
+): Promise<boolean> {
+  const apiBase = options.apiBase.replace(/\/$/u, '');
+  const response = await fetch(`${apiBase}/api/v1/identity/oidc/logout`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { accept: 'application/json' }
   });
   return response.status === 204;
 }

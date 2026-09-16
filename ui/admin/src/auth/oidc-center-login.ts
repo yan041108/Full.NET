@@ -4,6 +4,7 @@ import {
   exchangeOidcAuthorizationCode,
   refreshOidcAccessToken,
   revokeOidcApplicationSession,
+  revokeOidcCenterSession,
   resolveFullNetApiUrl,
   validateOidcCallbackState,
   type TokenResponse
@@ -143,6 +144,13 @@ export async function revokeAdminOidcApplicationSession(): Promise<boolean> {
   return revokeOidcApplicationSession({
     apiBase: resolveOidcApiBase(),
     clientId: resolveAdminOidcClientId()
+  });
+}
+
+/** 撤销中心登录会话及全部 OIDC grant；失败时仍由调用方清理本地状态。 */
+export async function revokeAdminOidcCenterSession(): Promise<boolean> {
+  return revokeOidcCenterSession({
+    apiBase: resolveOidcApiBase()
   });
 }
 

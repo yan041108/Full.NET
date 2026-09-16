@@ -18,7 +18,8 @@ import { isSupportedNavigationTree } from '../navigation/catalog';
 import {
   clearAdminOidcSessionCredentials,
   refreshAdminOidcAccessToken,
-  revokeAdminOidcApplicationSession
+  revokeAdminOidcApplicationSession,
+  revokeAdminOidcCenterSession
 } from './oidc-center-login';
 import { sessionRefreshCoordinator } from './session-refresh-coordinator';
 import { shouldLogoutOnSessionRevoke } from './sessionRevokePolicy';
@@ -115,6 +116,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     if (adminIdentityAuthMode === 'oidc-center') {
       try {
         await revokeAdminOidcApplicationSession();
+        await revokeAdminOidcCenterSession();
       } catch {
         // 本地清理不依赖网络成功，服务端仍由 grant 撤销与会话过期兜底。
       }

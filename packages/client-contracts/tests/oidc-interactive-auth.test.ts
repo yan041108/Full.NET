@@ -7,6 +7,7 @@ import {
   mapOidcTokenEndpointToTokenResponse,
   refreshOidcAccessToken,
   revokeOidcApplicationSession,
+  revokeOidcCenterSession,
   validateOidcCallbackState
 } from '../src/oidc-interactive-auth';
 
@@ -120,6 +121,22 @@ describe('OIDC token endpoint mapping', () => {
         method: 'POST',
         credentials: 'include',
         body: JSON.stringify({ clientId: 'admin-spa' })
+      })
+    );
+  });
+
+  it('revokes center session through logout endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const revoked = await revokeOidcCenterSession({
+      apiBase: 'http://localhost:5149'
+    });
+    expect(revoked).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:5149/api/v1/identity/oidc/logout',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include'
       })
     );
   });

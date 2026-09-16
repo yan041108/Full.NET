@@ -9,7 +9,8 @@ import {
   readAdminOidcPkcePending,
   refreshAdminOidcAccessToken,
   resolveAdminOidcRedirectUri,
-  revokeAdminOidcApplicationSession
+  revokeAdminOidcApplicationSession,
+  revokeAdminOidcCenterSession
 } from './oidc-center-login';
 import { readOidcRefreshCredential } from './oidc-session-credentials';
 
@@ -94,6 +95,12 @@ describe('oidc center login helpers', () => {
   it('revokes application session for admin client', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     const revoked = await revokeAdminOidcApplicationSession();
+    expect(revoked).toBe(true);
+  });
+
+  it('revokes center session for admin', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    const revoked = await revokeAdminOidcCenterSession();
     expect(revoked).toBe(true);
   });
 });
