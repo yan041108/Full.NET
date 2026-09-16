@@ -1056,6 +1056,34 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('queued');
   });
 
+  test('OIDC 中心切租户后 access token 可取消排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Agent Run Cancel ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center tenant agent run api cancel ${stamp}`
+    });
+
+    await cancelOidcCenterQueuedAgentRun(request, accessToken, run.runId);
+
+    const response = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+    expect((await response.json()).statusKey).toBe('cancelled');
+  });
+
   test('OIDC 中心切租户后可通过 Agent 运行页 UI 创建排队运行', async ({ page, request }) => {
     test.setTimeout(90_000);
     const stamp = Date.now().toString(36);
