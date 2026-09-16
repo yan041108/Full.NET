@@ -522,6 +522,32 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(Array.isArray(await response.json())).toBe(true);
   });
 
+  test('OIDC 中心切租户后 access token 仍可访问后台任务定义 API', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(req =>
+      req.url().includes('/api/v1/me') && req.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(accessToken).toBeTruthy();
+
+    const response = await request.get(
+      `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          origin: adminOrigin
+        }
+      }
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(Array.isArray(body.items)).toBe(true);
+  });
+
   test('OIDC 中心退出后无法直接访问受保护路由', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await logoutAdminShell(page);
