@@ -119,6 +119,15 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByRole('tab', { name: '静态目录' })).toBeVisible();
   });
 
+  test('OIDC 中心 Host 上下文可打开 Agent 运行页', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('ai-agent-runs-load')).toBeVisible();
+    await expect(page.getByTestId('ai-agent-runs-create')).toBeVisible();
+  });
+
   test('OIDC 中心 Host 上下文 access token 可访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
