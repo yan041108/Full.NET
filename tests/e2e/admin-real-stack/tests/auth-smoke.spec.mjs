@@ -43,6 +43,24 @@ test.describe('匿名登录流', () => {
     expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
   });
 
+  test('legacy 回退后刷新页面仍通过 Refresh Cookie 恢复会话', async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
+        refreshToken: 'stale-oidc-refresh',
+        clientId: 'e2e-admin-oidc-spa'
+      }));
+    });
+    await page.goto('/');
+    await loginAsHostAdmin(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    await page.reload();
+    await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
+      timeout: 30_000
+    });
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+  });
+
   test('真实 API 登录后展示动态导航与 Host 上下文', async ({ page }, testInfo) => {
     const clientKind = testInfo.project.metadata.clientKind;
 
