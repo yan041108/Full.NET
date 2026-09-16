@@ -10,6 +10,8 @@ import {
   expectOidcCenterLocalCredentialsCleared,
   expectOidcCenterTokensRejected,
   expectProtectedRoutesRedirectToOidcLogin,
+  expectStaleOidcRefreshCannotRestoreSession,
+  readOidcRefreshCredentialFromPage,
   loginAdminViaOidcCenter,
   logoutAdminShell,
   revokeCurrentOidcCenterSession
@@ -651,14 +653,27 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
-    expect(refreshCredentialRaw).toBeTruthy();
-    const refreshCredential = JSON.parse(refreshCredentialRaw);
+    const { refreshCredential } = await readOidcRefreshCredentialFromPage(page);
 
     await logoutAdminShell(page);
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
     await expectOidcCenterLocalCredentialsCleared(page, context);
     await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心应用退出后写回 refresh 凭据仍无法恢复会话', async ({ page, request, context }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredentialRaw, refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+
+    await expectStaleOidcRefreshCannotRestoreSession(page, request, refreshCredentialRaw, {
       accessToken,
       refreshToken: refreshCredential.refreshToken
     });
@@ -672,9 +687,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
-    const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
-    expect(refreshCredentialRaw).toBeTruthy();
-    const refreshCredential = JSON.parse(refreshCredentialRaw);
+    const { refreshCredential } = await readOidcRefreshCredentialFromPage(page);
 
     await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
     await expectOidcCenterLocalCredentialsCleared(page, context);
@@ -684,25 +697,15 @@ test.describe('Vue admin oidc-center auth', () => {
     });
   });
 
-  test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
+  test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
-
-    const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
-    expect(refreshCredentialRaw).toBeTruthy();
-    const refreshCredential = JSON.parse(refreshCredentialRaw);
+    const { refreshCredentialRaw, refreshCredential } = await readOidcRefreshCredentialFromPage(page);
 
     await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
-    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
+    await expectOidcCenterLocalCredentialsCleared(page, context);
 
-    await page.evaluate(credential => {
-      sessionStorage.setItem('fullnet.admin.oidc.refresh', credential);
-    }, refreshCredentialRaw);
-    await page.reload();
-    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
-
-    await expectOidcCenterTokensRejected(request, {
+    await expectStaleOidcRefreshCannotRestoreSession(page, request, refreshCredentialRaw, {
       accessToken,
       refreshToken: refreshCredential.refreshToken
     });

@@ -200,6 +200,32 @@ export async function expectOidcCenterTokensRejected(request, { accessToken, ref
   await expectMeEndpointRejectsToken(request, accessToken);
 }
 
+/** 读取当前页面持久化的 oidc-center refresh 凭据。 */
+export async function readOidcRefreshCredentialFromPage(page) {
+  const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
+  expect(refreshCredentialRaw).toBeTruthy();
+  return {
+    refreshCredentialRaw,
+    refreshCredential: JSON.parse(refreshCredentialRaw)
+  };
+}
+
+/** 写回已撤销 refresh 后刷新仍应回到登录页且 token 拒绝。 */
+export async function expectStaleOidcRefreshCannotRestoreSession(
+  page,
+  request,
+  refreshCredentialRaw,
+  { accessToken, refreshToken }
+) {
+  await page.evaluate(credential => {
+    sessionStorage.setItem('fullnet.admin.oidc.refresh', credential);
+  }, refreshCredentialRaw);
+  await page.reload();
+  await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
+  await expectOidcCenterTokensRejected(request, { accessToken, refreshToken });
+}
+
 /** 通过工作台探针捕获当前 OIDC access token，供真实栈 API 断言复用。 */
 export async function captureOidcAccessTokenFromOverviewProbe(page) {
   await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
