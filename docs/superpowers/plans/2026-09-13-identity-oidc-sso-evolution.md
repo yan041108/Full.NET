@@ -213,7 +213,7 @@
 
 **通过条件：** Vue 真实业务与安全语义不退化，生产启用和回退条件完整；Layui 无新增实现要求。
 
-**T08 执行记录（2026-09-16，进行中）：** 已交付可选 `oidc-center` 消费路径（PKCE 登录、回调、refresh、双端 logout、实时强撤、切租户与业务页探针）并保持 `legacy` 默认并行；单元与 E2E 用例见[验证记录 §13](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#13-t08-vue-消费与并行入口2026-09-16)。`admin-oidc-center.spec.mjs` 共 **26** 项串行探针，覆盖 §6 工具／审批／后台任务最小 UI 与操作路径、在线会话撤销后 access/refresh 拒绝，以及退出／强制下线后后台任务触发绑定失效；单元层补充并行 `restore` 不重叠 token 交换（V09/V18）；`auth-smoke` 与 `spec-contracts` 治理测试登记 legacy 回退与 oidc-center 项目入口。聚焦真实栈入口：`pnpm test:e2e:real:oidc-center`。上述清单项整体仍未勾选通过——缺 CI `real-stack-e2e` fresh TRX 证据（门禁已登记：`pnpm test:e2e:real` 含 `vue-admin-oidc-center`）、旧入口回退演练完整执行（`auth-smoke` 已覆盖遗留 OIDC 凭据不阻断 legacy 登录的自动化探针）、§6 三组入口全量矩阵与能力状态门禁。
+**T08 执行记录（2026-09-16，进行中）：** 已交付可选 `oidc-center` 消费路径（PKCE 登录、回调、refresh、双端 logout、实时强撤、切租户与业务页探针）并保持 `legacy` 默认并行；单元与 E2E 用例见[验证记录 §13](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#13-t08-vue-消费与并行入口2026-09-16)。`admin-oidc-center.spec.mjs` 共 **27** 项串行探针，覆盖 §6 工具／审批／后台任务最小 UI 与操作路径、在线会话撤销后 access/refresh 拒绝，以及退出／强制下线后后台任务触发绑定失效；单元层补充并行 `restore` 不重叠 token 交换（V09/V18）；`auth-smoke` 与 `spec-contracts` 治理测试登记 legacy 回退与 oidc-center 项目入口。聚焦真实栈入口：`pnpm test:e2e:real:oidc-center`。上述清单项整体仍未勾选通过——缺 CI `real-stack-e2e` fresh TRX 证据（门禁已登记：`pnpm test:e2e:real` 含 `vue-admin-oidc-center`）、旧入口回退演练完整执行（`auth-smoke` 已覆盖遗留 OIDC 凭据不阻断 legacy 登录的自动化探针）、§6 三组入口全量矩阵与能力状态门禁。
 
 ## 5. 验证入口与运行位置
 
