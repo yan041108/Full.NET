@@ -288,6 +288,7 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /expectMeEndpointRejectsToken/u);
   assert.match(source, /expectRefreshTokenRejects/u);
   assert.match(source, /revokeCurrentOidcCenterSession/u);
+  assert.match(source, /强制下线后 access token 无法访问 \/api\/v1\/ai\/agent-tools/u);
   assert.match(source, /强制下线后 access token 无法访问工作流待办 API/u);
   assert.match(source, /强制下线后 access token 无法访问后台任务定义 API/u);
   assert.match(source, /强制下线后 access token 无法访问后台任务执行历史 API/u);
@@ -300,5 +301,5 @@ test('admin-oidc-center 真实栈用例数量与 T08 文档登记一致', async 
     'utf8'
   );
   const count = (source.match(/^\s*test\(/gm) ?? []).length;
-  assert.equal(count, 32);
+  assert.equal(count, 33);
 });

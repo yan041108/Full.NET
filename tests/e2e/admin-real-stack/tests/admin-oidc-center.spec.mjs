@@ -393,6 +393,23 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(triggerAfterRevoke.status()).toBe(401);
   });
 
+  test('OIDC 中心强制下线后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    const beforeRevoke = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
+      headers: buildOidcCenterApiHeaders(accessToken)
+    });
+    expect(beforeRevoke.status()).toBe(200);
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    const afterRevoke = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
+      headers: buildOidcCenterApiHeaders(accessToken)
+    });
+    expect(afterRevoke.status()).toBe(401);
+  });
+
   test('OIDC 中心强制下线后 access token 无法访问工作流待办 API', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
@@ -656,10 +673,5 @@ test.describe('Vue admin oidc-center auth', () => {
       refreshToken: refreshCredential.refreshToken
     });
     await expectMeEndpointRejectsToken(request, accessToken);
-
-    const toolsResponse = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
-      headers: buildOidcCenterApiHeaders(accessToken)
-    });
-    expect(toolsResponse.status()).toBe(401);
   });
 });
