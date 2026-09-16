@@ -213,6 +213,8 @@
 
 **通过条件：** Vue 真实业务与安全语义不退化，生产启用和回退条件完整；Layui 无新增实现要求。
 
+**T08 执行记录（2026-09-16，进行中）：** 已交付可选 `oidc-center` 消费路径（PKCE 登录、回调、refresh、双端 logout、实时强撤、切租户与业务页探针）并保持 `legacy` 默认并行；单元与 E2E 用例见[验证记录 §13](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#13-t08-vue-消费与并行入口2026-09-16)。聚焦真实栈入口：`pnpm test:e2e:real:oidc-center`。上述清单项整体仍未勾选通过——缺 CI 双库 E2E 证据、旧入口回退演练、§6 全量消费方矩阵与能力状态门禁。
+
 ## 5. 验证入口与运行位置
 
 本节是执行时的命令索引，不替代[开发质量 §11](../../../rules/development-quality.md#11-测试与验证)。本次文档任务未运行下面的代码命令。
