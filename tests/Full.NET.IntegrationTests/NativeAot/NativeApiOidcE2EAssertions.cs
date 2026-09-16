@@ -140,6 +140,16 @@ internal static class NativeApiOidcE2EAssertions
             HttpStatusCode.Unauthorized,
             toolsBeforeSwitchResponse.StatusCode,
             "Stale OIDC host token must not reach AI tool catalog after context switch.");
+        using var approvalBeforeSwitchResponse = await client.SendAsync(
+            Authorized(
+                HttpMethod.Get,
+                "/api/v1/ai/agent/approvals/01981f2a-1200-7000-8000-000000000099",
+                oidcResult.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            approvalBeforeSwitchResponse.StatusCode,
+            "Stale OIDC host token must not reach approval consumer path after context switch.");
         using var switchToHostResponse = await client.SendAsync(
             AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", switched.AccessToken, new ChangeTenantContextRequest(null)), cancellationToken).ConfigureAwait(false);
         await AssertStatusAsync(
@@ -158,12 +168,34 @@ internal static class NativeApiOidcE2EAssertions
             "OIDC host token reaches AI tool catalog after round-trip",
             logFilePath,
             cancellationToken).ConfigureAwait(false);
+        using var approvalRestoredResponse = await client.SendAsync(
+            Authorized(
+                HttpMethod.Get,
+                "/api/v1/ai/agent/approvals/01981f2a-1200-7000-8000-000000000099",
+                restored.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            approvalRestoredResponse,
+            HttpStatusCode.NotFound,
+            "OIDC host token reaches approval consumer path after round-trip",
+            logFilePath,
+            cancellationToken).ConfigureAwait(false);
         using var toolsStaleTenantResponse = await client.SendAsync(
             Authorized(HttpMethod.Get, "/api/v1/ai/agent-tools", switched.AccessToken), cancellationToken).ConfigureAwait(false);
         Assert.AreEqual(
             HttpStatusCode.Unauthorized,
             toolsStaleTenantResponse.StatusCode,
             "Stale OIDC tenant token must not reach AI tool catalog after host round-trip.");
+        using var approvalStaleTenantResponse = await client.SendAsync(
+            Authorized(
+                HttpMethod.Get,
+                "/api/v1/ai/agent/approvals/01981f2a-1200-7000-8000-000000000099",
+                switched.AccessToken),
+            cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            approvalStaleTenantResponse.StatusCode,
+            "Stale OIDC tenant token must not reach approval consumer path after host round-trip.");
     }
 
     private static async Task VerifyLegacyContextSwitchStillWorksAsync(
