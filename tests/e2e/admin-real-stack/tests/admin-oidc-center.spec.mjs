@@ -284,6 +284,57 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByTestId('ai-agent-runs-resume')).toHaveCount(0);
   });
 
+  test('OIDC 中心 Host 上下文 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC UI Idempotent Cancel Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center agent runs ui idempotent cancel ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId('ai-agent-runs-id').fill(first.runId);
+    const loadResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${first.runId}`)
+      && response.request().method() === 'GET'
+    );
+    await page.getByTestId('ai-agent-runs-load').click();
+    expect((await loadResponse).status()).toBe(200);
+    await expect(page.getByTestId('ai-agent-runs-cancel')).toBeVisible({ timeout: 15_000 });
+
+    const cancelResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${first.runId}/cancel`)
+      && response.request().method() === 'POST'
+    );
+    await page.getByTestId('ai-agent-runs-cancel').click();
+    expect((await cancelResponse).status()).toBe(200);
+
+    await expect(page.locator('.ai-agent-runs-view').getByText('cancelled', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('ai-agent-runs-cancel')).toHaveCount(0);
+    await expect(page.getByTestId('ai-agent-runs-resume')).toHaveCount(0);
+  });
+
   test('OIDC 中心 Host 上下文 access token 可访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
@@ -447,6 +498,32 @@ test.describe('Vue admin oidc-center auth', () => {
       200
     );
     expect((await response.json()).statusKey).toBe('cancelled');
+  });
+
+  test('OIDC 中心 Host 上下文幂等创建并取消后无法重复取消 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Agent Run Idempotent Cancel Reject ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center idempotent agent run cancel reject ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    await cancelOidcCenterQueuedAgentRun(request, accessToken, first.runId);
+    await expectOidcCenterAgentRunCancelRejected(request, accessToken, first.runId);
   });
 
   test('OIDC 中心退出后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
@@ -1134,6 +1211,40 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('cancelled');
   });
 
+  test('OIDC 中心切租户并返回 Host 后幂等创建并取消后无法重复取消 Agent Run', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Idempotent Cancel Reject ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center host return idempotent agent run cancel reject ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    await cancelOidcCenterQueuedAgentRun(request, accessToken, first.runId);
+    await expectOidcCenterAgentRunCancelRejected(request, accessToken, first.runId);
+  });
+
   test('OIDC 中心切租户并返回 Host 后加载排队运行不展示恢复按钮', async ({ page, request }) => {
     test.setTimeout(90_000);
     const stamp = Date.now().toString(36);
@@ -1562,6 +1673,34 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('cancelled');
   });
 
+  test('OIDC 中心切租户后幂等创建并取消后无法重复取消 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Idempotent Cancel Reject ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center tenant idempotent agent run cancel reject ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    await cancelOidcCenterQueuedAgentRun(request, accessToken, first.runId);
+    await expectOidcCenterAgentRunCancelRejected(request, accessToken, first.runId);
+  });
+
   test('OIDC 中心切租户后加载排队运行不展示恢复按钮', async ({ page, request }) => {
     test.setTimeout(90_000);
     const stamp = Date.now().toString(36);
@@ -1693,6 +1832,59 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.locator('.ai-agent-runs-view').getByText('cancelled', { exact: true }))
       .toBeVisible({ timeout: 30_000 });
     // UI 取消后不再展示取消或恢复按钮。
+    await expect(page.getByTestId('ai-agent-runs-cancel')).toHaveCount(0);
+    await expect(page.getByTestId('ai-agent-runs-resume')).toHaveCount(0);
+  });
+
+  test('OIDC 中心切租户后 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant UI Idempotent Cancel Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center tenant agent runs ui idempotent cancel ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId('ai-agent-runs-id').fill(first.runId);
+    const loadResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${first.runId}`)
+      && response.request().method() === 'GET'
+    );
+    await page.getByTestId('ai-agent-runs-load').click();
+    expect((await loadResponse).status()).toBe(200);
+    await expect(page.getByTestId('ai-agent-runs-cancel')).toBeVisible({ timeout: 15_000 });
+
+    const cancelResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${first.runId}/cancel`)
+      && response.request().method() === 'POST'
+    );
+    await page.getByTestId('ai-agent-runs-cancel').click();
+    expect((await cancelResponse).status()).toBe(200);
+
+    await expect(page.locator('.ai-agent-runs-view').getByText('cancelled', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('ai-agent-runs-cancel')).toHaveCount(0);
     await expect(page.getByTestId('ai-agent-runs-resume')).toHaveCount(0);
   });
