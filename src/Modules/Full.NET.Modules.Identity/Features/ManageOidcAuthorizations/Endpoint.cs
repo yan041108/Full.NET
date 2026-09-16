@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageOidcClients;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -69,7 +70,12 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.RevokeAsync(id, cancellationToken)
+            if (!OidcManagementEndpointSupport.TryResolveActor(httpContext, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.RevokeAsync(id, actor, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

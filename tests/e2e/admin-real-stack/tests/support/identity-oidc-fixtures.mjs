@@ -325,6 +325,15 @@ export async function readAccessTokenFingerprint(tokenResponse) {
   return hash.slice(0, 16);
 }
 
+export function decodeJwtClaim(jwt, claimName) {
+  const parts = jwt.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+  const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  return payload[claimName] ?? null;
+}
+
 export async function expectMeEndpointAcceptsToken(request, accessToken) {
   const response = await request.get(`${resolveApiBase()}/api/v1/me`, {
     headers: { authorization: `Bearer ${accessToken}` }
@@ -369,6 +378,33 @@ export async function switchTenantContext(request, accessToken, tenantId) {
   expect(typeof body.accessToken).toBe('string');
   expect(body.accessToken.length).toBeGreaterThan(0);
   return body;
+}
+
+export async function expectTokenEndpointRejectsWrongVerifier(request, {
+  apiBase,
+  client,
+  code,
+  verifier
+}) {
+  const wrongVerifier = createPkcePair().verifier;
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: client.redirectUri,
+    client_id: client.clientId,
+    code_verifier: wrongVerifier
+  });
+  if (client.clientSecret) {
+    body.set('client_secret', client.clientSecret);
+  }
+
+  const response = await request.post(`${apiBase}/connect/token`, {
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    data: body.toString()
+  });
+  expect(response.ok()).toBeFalsy();
+  const payload = await response.text();
+  expect(payload).toContain('error');
 }
 
 export async function expectTokenEndpointRejectsInvalidCode(request, {

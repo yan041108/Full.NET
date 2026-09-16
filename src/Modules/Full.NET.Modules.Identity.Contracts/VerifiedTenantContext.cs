@@ -33,8 +33,10 @@ public sealed record TenantContextDescriptor(
 /// <param name="TokenType">固定为 Bearer。</param>
 /// <param name="ExpiresAtUtc">Access Token 的 UTC 过期时间。</param>
 /// <param name="Context">服务端确认的有效上下文。</param>
+/// <param name="RefreshToken">OIDC 切租户后可选的新 refresh token；仅 offline_access 会话返回。</param>
 public sealed record TenantContextTokenResponse(
     string AccessToken,
     string TokenType,
     DateTimeOffset ExpiresAtUtc,
-    TenantContextDescriptor Context);
+    TenantContextDescriptor Context,
+    string? RefreshToken = null);

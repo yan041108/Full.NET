@@ -42,6 +42,7 @@ internal static class IdentityOidcRevokeNotificationAssertions
         await factory.InitializeAsync(cancellationToken);
         using var client = factory.CreateClientForHost("localhost");
         await VerifySingleRevokeNotificationAsync(client, publisher, cancellationToken);
+        await VerifyIdempotentRevokeNotificationAsync(client, publisher, cancellationToken);
         await VerifyRevokeAllNotificationsAsync(factory, publisher, cancellationToken);
     }
 
@@ -82,6 +83,51 @@ internal static class IdentityOidcRevokeNotificationAssertions
         var notification = publisher.SessionRevokedNotifications.Single();
         Assert.AreEqual(adminUserId, notification.UserId);
         AssertSessionRevokedNotification(notification.Message, sessionId, "Single session revoke");
+    }
+
+    private static async Task VerifyIdempotentRevokeNotificationAsync(
+        HttpClient client,
+        RecordingRealtimePublisher publisher,
+        CancellationToken cancellationToken)
+    {
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
+
+        var adminToken = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
+            client,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            cancellationToken);
+        var adminUserId = await ResolveAdminUserIdAsync(client, adminToken, cancellationToken);
+        var sessionId = await ResolveOidcSessionIdAsync(
+            client,
+            adminToken,
+            adminUserId,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            cancellationToken);
+
+        publisher.Reset();
+        using var firstRevokeRequest = CreateRevokeRequest(sessionId, adminToken);
+        using var firstRevokeResponse = await client.SendAsync(firstRevokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, firstRevokeResponse.StatusCode);
+        Assert.AreEqual(1, publisher.SessionRevokedNotifications.Count);
+
+        publisher.Reset();
+        using var secondRevokeRequest = CreateRevokeRequest(sessionId, adminToken);
+        using var secondRevokeResponse = await client.SendAsync(secondRevokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, secondRevokeResponse.StatusCode);
+        Assert.AreEqual(
+            0,
+            publisher.SessionRevokedNotifications.Count,
+            "Idempotent revoke must not republish session notifications.");
     }
 
     private static async Task VerifyRevokeAllNotificationsAsync(

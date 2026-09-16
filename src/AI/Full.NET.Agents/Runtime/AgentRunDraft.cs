@@ -16,4 +16,5 @@ public sealed record AgentRunDraft(
     int DefinitionVersion,
     string BudgetJson,
     DateTimeOffset DeadlineAtUtc,
-    Guid? PredeterminedRunId = null);
+    Guid? PredeterminedRunId = null,
+    string SessionKind = "refresh");

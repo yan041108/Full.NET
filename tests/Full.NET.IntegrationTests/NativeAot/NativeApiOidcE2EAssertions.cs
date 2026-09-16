@@ -48,8 +48,144 @@ internal static class NativeApiOidcE2EAssertions
         await VerifyOidcContextSwitchIssuesNewTokenAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await VerifyLegacyContextSwitchStillWorksAsync(client, adminToken, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await VerifyOidcProtectedToolAccessAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
+        await VerifyOidcContextSwitchRefreshRotationAsync(client, host.LogFilePath, cancellationToken).ConfigureAwait(false);
         await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
         host.AssertNoFatalMarkersInLogs();
+    }
+
+    public static async Task VerifyRefreshReuseRejectedAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        var artifact = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        await using var host = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, BuildOidcSettings(),
+            NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        using var client = host.CreateClient();
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
+
+        var firstTask = IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client, flow.RefreshToken!, IdentityOidcRelyingPartyFixture.PublicClientId, null, cancellationToken);
+        var secondTask = IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client, flow.RefreshToken!, IdentityOidcRelyingPartyFixture.PublicClientId, null, cancellationToken);
+        await Task.WhenAll(firstTask, secondTask);
+        var firstResult = await firstTask;
+        var secondResult = await secondTask;
+        Assert.AreEqual(1, new[] { firstResult, secondResult }.Count(r => r.IsSuccessStatusCode));
+        var thirdResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client, flow.RefreshToken!, IdentityOidcRelyingPartyFixture.PublicClientId, null, cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(thirdResult.IsSuccessStatusCode);
+        StringAssert.Contains(thirdResult.RawBody, "invalid_grant");
+        await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        host.AssertNoFatalMarkersInLogs();
+    }
+
+    public static async Task VerifyDualInstanceSigningKeyRotationOverlapAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        var artifact = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        using var keyA = RSA.Create(3072);
+        using var keyB = RSA.Create(3072);
+        var settingsA = BuildDualKeySettings(keyA, keyB, IdentityOidcSigningKeyRotationAssertions.KeyAId);
+        var settingsB = BuildDualKeySettings(keyA, keyB, IdentityOidcSigningKeyRotationAssertions.KeyBId);
+        await using var primaryHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settingsA, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        await using var secondaryHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settingsB, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        using var primaryClient = primaryHost.CreateClient();
+        using var secondaryClient = secondaryHost.CreateClient();
+        var legacyFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            primaryClient,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            IdentityOidcSigningKeyRotationAssertions.KeyAId,
+            IdentityOidcRelyingPartyFixture.ReadJwtHeaderValue(legacyFlow.AccessToken, "kid"));
+        using var legacyMe = await secondaryClient.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/me", legacyFlow.AccessToken), cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(legacyMe, HttpStatusCode.OK, "Legacy token on rotated native peer", secondaryHost.LogFilePath, cancellationToken).ConfigureAwait(false);
+        var rotatedFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            secondaryClient,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            IdentityOidcSigningKeyRotationAssertions.KeyBId,
+            IdentityOidcRelyingPartyFixture.ReadJwtHeaderValue(rotatedFlow.AccessToken, "kid"));
+        await primaryHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        await secondaryHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        primaryHost.AssertNoFatalMarkersInLogs();
+        secondaryHost.AssertNoFatalMarkersInLogs();
+    }
+
+    public static async Task VerifyCenterRestartPreservesAuthorizationExchangeAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        var artifact = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        var settings = BuildOidcSettings();
+        await using var host = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        using var client = host.CreateClient();
+        var pending = await IdentityOidcRelyingPartyFixture.BeginAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        await host.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        host.AssertNoFatalMarkersInLogs();
+
+        await using var restartedHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        using var restartClient = restartedHost.CreateClient();
+        var exchanged = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
+            restartClient,
+            pending.Code,
+            pending.Verifier,
+            pending.ClientId,
+            pending.RedirectUri,
+            null,
+            expectedNonce: pending.Nonce,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(exchanged.AccessToken));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(exchanged.RefreshToken));
+        var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            restartClient,
+            exchanged.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken).ConfigureAwait(false);
+        Assert.IsTrue(refreshResult.IsSuccessStatusCode, refreshResult.RawBody);
+        await restartedHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        restartedHost.AssertNoFatalMarkersInLogs();
     }
 
     public static async Task VerifyDualInstanceAuthorizationCodeExchangeAsync(
@@ -418,6 +554,41 @@ internal static class NativeApiOidcE2EAssertions
         await AssertStatusAsync(toolsResponse, HttpStatusCode.OK, "OIDC access token reaches AI tool catalog", logFilePath, cancellationToken).ConfigureAwait(false);
     }
 
+    private static async Task VerifyOidcContextSwitchRefreshRotationAsync(
+        HttpClient client,
+        string logFilePath,
+        CancellationToken cancellationToken)
+    {
+        var oidcResult = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        var available = await (await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/tenancy/available", oidcResult.AccessToken),
+            cancellationToken).ConfigureAwait(false)).Content.ReadFromJsonAsync<TenantContextSummary[]>(cancellationToken).ConfigureAwait(false);
+        var tenant = available!.Single(t => t.Identifier == "local");
+        using var switchResponse = await client.SendAsync(
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", oidcResult.AccessToken, new ChangeTenantContextRequest(tenant.Id)),
+            cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(switchResponse, HttpStatusCode.OK, "OIDC context switch with refresh rotation", logFilePath, cancellationToken).ConfigureAwait(false);
+        var switched = await switchResponse.Content.ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(switched);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(switched!.RefreshToken));
+        var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            oidcResult.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(refreshResult.IsSuccessStatusCode);
+        StringAssert.Contains(refreshResult.RawBody, "invalid_grant");
+    }
+
     private static Dictionary<string, string?> BuildOidcSettings(RSA? sharedSigningKey = null, string? sharedSigningKeyId = null)
     {
         var settings = new Dictionary<string, string?>(IdentityOidcProtocolAssertions.Settings);
@@ -430,6 +601,9 @@ internal static class NativeApiOidcE2EAssertions
         }
         return settings;
     }
+
+    private static IReadOnlyDictionary<string, string?> BuildDualKeySettings(RSA keyA, RSA keyB, string activeKeyId) =>
+        IdentityOidcSigningKeyRotationAssertions.BuildDualKeySettings(keyA, keyB, activeKeyId);
 
     private static async Task<TenantContextSummary> GetAcmeTenantAsync(
         HttpClient client,

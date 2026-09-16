@@ -63,7 +63,12 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.CreateAsync(request, cancellationToken)
+            if (!OidcManagementEndpointSupport.TryResolveActor(httpContext, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.CreateAsync(request, actor, cancellationToken)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
@@ -89,7 +94,12 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.UpdateAsync(clientId, request, cancellationToken)
+            if (!OidcManagementEndpointSupport.TryResolveActor(httpContext, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.UpdateAsync(clientId, request, actor, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -108,7 +118,12 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.DisableAsync(clientId, cancellationToken)
+            if (!OidcManagementEndpointSupport.TryResolveActor(httpContext, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.DisableAsync(clientId, actor, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
@@ -126,7 +141,12 @@ internal static class Endpoint
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.RotateAsync(clientId, cancellationToken)
+            if (!OidcManagementEndpointSupport.TryResolveActor(httpContext, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.RotateAsync(clientId, actor, cancellationToken)
                 .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })

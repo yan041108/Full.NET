@@ -3472,4 +3472,25 @@ test.describe('Vue admin oidc-center auth', () => {
       refreshToken: refreshCredential.refreshToken
     });
   });
+
+  test('撤销后 legacy 构建不能复活已撤销 OIDC 会话', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredentialRaw, refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await page.goto('http://localhost:25173/');
+    await page.evaluate(credential => {
+      sessionStorage.setItem('fullnet.admin.oidc.refresh', credential);
+    }, refreshCredentialRaw);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible({
+      timeout: 30_000
+    });
+    await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
+    await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
 });

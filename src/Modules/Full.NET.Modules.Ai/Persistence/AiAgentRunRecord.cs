@@ -7,6 +7,7 @@ internal sealed class AiAgentRunRecord
     public Guid? TenantId { get; set; }
     public Guid ActorUserId { get; set; }
     public Guid SessionId { get; set; }
+    public string SessionKind { get; set; } = "refresh";
     public string DefinitionKey { get; set; } = string.Empty;
     public int DefinitionVersion { get; set; }
     public Guid AuthorizationBindingId { get; set; }

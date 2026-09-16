@@ -100,6 +100,13 @@ internal static class IdentityOidcAuthorizationManagementAssertions
         Assert.IsNotNull(revoked);
         Assert.AreEqual(Statuses.Revoked, revoked!.Status);
 
+        using var meAfterRevokeRequest = CreateBearerRequest(
+            HttpMethod.Get,
+            "/api/v1/me",
+            flow.AccessToken);
+        using var meAfterRevokeResponse = await client.SendAsync(meAfterRevokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, meAfterRevokeResponse.StatusCode);
+
         var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
             client,
             flow.RefreshToken!,

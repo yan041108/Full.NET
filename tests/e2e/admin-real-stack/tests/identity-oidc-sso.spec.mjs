@@ -15,7 +15,9 @@ import {
   expectProtectedEndpointRejectsToken,
   expectRefreshTokenRejects,
   expectTokenEndpointRejectsInvalidCode,
+  expectTokenEndpointRejectsWrongVerifier,
   listAvailableTenants,
+  decodeJwtClaim,
   readAccessTokenFingerprint,
   resolveApiBase,
   resolveRpUrl,
@@ -305,5 +307,188 @@ test.describe('Identity OIDC browser SSO', () => {
     });
     await expectMeEndpointRejectsToken(request, hostToken);
     await expectMeEndpointRejectsToken(request, switched.accessToken);
+  });
+
+  test('prompt=none 在中心会话存在时静默授权', async ({ page }) => {
+    await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    await page.goto(resolveRpUrl(OIDC_CLIENT_B));
+    await page.locator('#sign-in-prompt-none').click();
+    await expect(page.getByTestId('oidc-authorized')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Identity Center' })).toHaveCount(0);
+  });
+
+  test('max_age=0 在已有中心会话时强制重新认证', async ({ page }) => {
+    await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    await page.goto(resolveRpUrl(OIDC_CLIENT_B));
+    await page.locator('#sign-in-prompt-login').click();
+    await expect(page.getByRole('heading', { name: 'Identity Center' })).toBeVisible();
+  });
+
+  test('无效防伪令牌不能建立中心会话', async ({ request }) => {
+    const { challenge } = createPkcePair();
+    const authorizeGet = await request.get(
+      buildAuthorizeUrl({
+        apiBase,
+        clientId: OIDC_CLIENT_A.clientId,
+        redirectUri: OIDC_CLIENT_A.redirectUri,
+        challenge
+      }),
+      { maxRedirects: 0 }
+    );
+    expect(authorizeGet.status()).toBe(200);
+    const form = new URLSearchParams({
+      client_id: OIDC_CLIENT_A.clientId,
+      redirect_uri: OIDC_CLIENT_A.redirectUri,
+      response_type: 'code',
+      scope: 'openid profile',
+      state: 'csrf-state',
+      nonce: 'csrf-nonce',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      username,
+      password,
+      __RequestVerificationToken: 'invalid-token'
+    });
+    const authorizePost = await request.post(`${apiBase}/connect/authorize`, {
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      data: form.toString(),
+      maxRedirects: 0
+    });
+    expect(authorizePost.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('state 篡改在 RP 回调页展示错误', async ({ page }) => {
+    await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    await page.goto(`${resolveRpUrl(OIDC_CLIENT_A)}&state=tampered`);
+    await expect(page.getByTestId('oidc-state-mismatch')).toBeVisible();
+  });
+
+  test('清除中心 Cookie 后 prompt=none 返回 login_required', async ({ page, context }) => {
+    await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    await context.clearCookies();
+    await page.goto(resolveRpUrl(OIDC_CLIENT_B));
+    await page.locator('#sign-in-prompt-none').click();
+    await expect(page.getByTestId('oidc-error')).toHaveText('login_required');
+  });
+
+  test('A/B 客户端共享 sub 且 application_session_id 独立', async ({ page }) => {
+    const clientA = await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    const clientB = await completeClientAuthorization(page, OIDC_CLIENT_B, {
+      username,
+      password,
+      expectLoginForm: false
+    });
+    const subA = decodeJwtClaim(clientA.token.access_token, 'sub');
+    const subB = decodeJwtClaim(clientB.token.access_token, 'sub');
+    expect(subA).toBeTruthy();
+    expect(subA).toBe(subB);
+    const sessionA = decodeJwtClaim(clientA.token.access_token, 'application_session_id');
+    const sessionB = decodeJwtClaim(clientB.token.access_token, 'application_session_id');
+    expect(sessionA).toBeTruthy();
+    expect(sessionB).toBeTruthy();
+    expect(sessionA).not.toBe(sessionB);
+  });
+
+  test('错误的 code_verifier 无法兑换授权码', async ({ request }) => {
+    const pending = await runAuthorizationCodeFlowViaRequest(request, {
+      apiBase,
+      clientId: OIDC_CLIENT_A.clientId,
+      redirectUri: OIDC_CLIENT_A.redirectUri,
+      username,
+      password,
+      scope: 'openid profile'
+    });
+    await expectTokenEndpointRejectsWrongVerifier(request, {
+      apiBase,
+      client: OIDC_CLIENT_A,
+      code: pending.code,
+      verifier: pending.verifier
+    });
+  });
+
+  test('ID Token nonce 与授权请求一致', async ({ request }) => {
+    const flow = await runAuthorizationCodeFlowViaRequest(request, {
+      apiBase,
+      clientId: OIDC_CLIENT_A.clientId,
+      redirectUri: OIDC_CLIENT_A.redirectUri,
+      username,
+      password,
+      scope: 'openid profile'
+    });
+    const idTokenNonce = decodeJwtClaim(flow.token.id_token, 'nonce');
+    expect(idTokenNonce).toBeTruthy();
+    expect(idTokenNonce).toBe(flow.nonce);
+  });
+
+  test('prompt=login 不会替换既有中心用户会话', async ({ page, request }) => {
+    const clientA = await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    const limited = await provisionLimitedHostUserViaApi(request, 'vue', {
+      permissionCodes: ['platform.dashboard.read']
+    });
+    const victimCredentials = await prepareHostUserCredentialsForOidc(
+      request,
+      'vue',
+      limited.username,
+      limited.password
+    );
+    const clientB = await completeClientAuthorization(page, OIDC_CLIENT_B, {
+      username: victimCredentials.username,
+      password: victimCredentials.password,
+      expectLoginForm: true,
+      buttonId: 'sign-in-prompt-login'
+    });
+    const subA = decodeJwtClaim(clientA.token.access_token, 'sub');
+    const subB = decodeJwtClaim(clientB.token.access_token, 'sub');
+    expect(subA).not.toBe(subB);
+    await expectMeEndpointAcceptsToken(page.request, clientA.token.access_token);
+    const refreshA = await request.post(`${apiBase}/connect/token`, {
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      data: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: clientA.token.refresh_token,
+        client_id: OIDC_CLIENT_A.clientId
+      }).toString()
+    });
+    expect(refreshA.ok()).toBeTruthy();
+  });
+
+  test('受限第三方 Cookie 场景在 CI 条件跳过', async ({ page, context, browserName }) => {
+    test.skip(
+      process.env.CI === 'true' && browserName === 'chromium',
+      'V22：受限第三方 Cookie 依赖浏览器策略，CI Chromium 标注条件跳过。'
+    );
+    await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    await context.clearCookies({ name: CENTER_COOKIE_NAME });
+    await page.goto(resolveRpUrl(OIDC_CLIENT_B));
+    await page.locator('#sign-in-prompt-none').click();
+    await expect(page.getByTestId('oidc-error')).toHaveText('login_required');
   });
 });

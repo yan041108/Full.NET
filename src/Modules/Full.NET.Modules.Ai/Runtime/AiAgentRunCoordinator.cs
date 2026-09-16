@@ -89,7 +89,10 @@ internal sealed class AiAgentRunCoordinator(
                 record.SessionId,
                 record.SecurityStamp,
                 record.ActorScope,
-                record.EffectiveScope);
+                record.EffectiveScope,
+                string.IsNullOrWhiteSpace(record.SessionKind)
+                    ? SessionBindingKinds.Refresh
+                    : record.SessionKind);
             if (!await bindingValidator.IsValidAsync(binding, cancellationToken).ConfigureAwait(false))
             {
                 await store.CommitProgressAsync(new(

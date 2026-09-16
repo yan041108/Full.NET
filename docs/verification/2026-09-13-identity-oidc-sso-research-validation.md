@@ -317,20 +317,42 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **T03 结论：** 双客户端 PKCE 授权码闭环、UserInfo、协议/业务错误边界在双库 HTTP 入口成立；§6 消费方入口与 AOT 运行时证据仍待 T04 与专项回归。
 
-### T04（2026-09-15）：Linux Native AOT 与双实例可行性
+### T04（2026-09-17）：Linux Native AOT 与双实例可行性
 
 | 项 | 证据 |
 | --- | --- |
-| 原生夹具 | `NativeApiOidcE2EAssertions`、`NativeApiOidcSqlServerE2ETests`、`NativeApiOidcMySqlE2ETests`；复用 `IdentityOidcProtocolAssertions` HttpClient 重载 |
-| CI 入口 | `pnpm test:aot:native:oidc:e2e` → `scripts/testing/run-native-aot-oidc-e2e.mjs`；`eng/testing/test-matrix.json` `nativeAotOidcIntegration`（6 项，45m）；`.github/workflows/api-native-aot-linux.yml` |
+| 原生夹具 | `NativeApiOidcE2EAssertions`（刷新重用、密钥轮换重叠、中心重启换码、§6 切租户 refresh 轮换）；`NativeApiOidcSqlServerE2ETests`、`NativeApiOidcMySqlE2ETests`（双库各 8 项） |
+| JIT 并发换码 | `IdentityOidcAuthorizationCodeConcurrencyAssertions`：同一授权码 8 路 `POST /connect/token` 仅 1 次成功；挂接 `IdentityApiSqlServerTests` / `IdentityApiMySqlTests` |
+| CI 入口 | `pnpm test:aot:native:oidc:e2e` → `scripts/testing/run-native-aot-oidc-e2e.mjs`；`eng/testing/test-matrix.json` `nativeAotOidcIntegration`（**16** 项，45m）；`.github/workflows/api-native-aot-linux.yml` job `linux-native-aot` |
 | V01/V02/V08/V10/V18 | 原生进程复跑 `IdentityOidcProtocolAssertions`（双库各 1 项） |
-| V13/V21 | §6 最小路径：OIDC 在线会话强制下线后 `/api/v1/me` 拒绝；OIDC 令牌拒绝租户切换（`identity.oidc_context_switch_not_supported`）；旧 Host 令牌切租户仍可用 |
+| V03 | JIT 授权码并发兑换（双库）；Native 刷新重用拒绝（双库各 1 项） |
+| V13/V21 | §6 消费方：强制下线后 `/api/v1/me` 拒绝；`ChangeOidcAsync` Host↔租户与租户 A→B 切换并轮换 refresh；Agent Run 创建与 revoke 后 resume 拒绝 |
 | V12/V21 | 工具入口：`/api/v1/ai/agent-tools` 接受 OIDC Access Token |
-| V16/V17 | 双实例共享持久化签名环：实例 A 授权、实例 B 换码成功；JWKS 返回至少 1 个公钥 |
-| Windows 本地 | `pnpm test:aot:native:oidc:e2e` 发现门禁 6/6 Inconclusive；不冒充 Linux 原生执行 |
-| 未验证 | Linux 原生产物实测、V03 原生并发换码、V17 密钥轮换窗口、中心重启探针、§6 全量新旧混合场景、P0 Go/No-go 最终结论 |
+| V16/V17/V20 | 双实例共享持久化签名环换码；密钥轮换重叠窗口；中心 `StopGracefully` 重启后 pending code 仍可换码 |
+| Windows 本地（2026-09-17） | `dotnet build tests/Full.NET.IntegrationTests` Release **0** 错误；`pnpm test:aot:native:oidc:e2e` 发现 **16/16 Inconclusive**（无 Linux 原生产物） |
+| 未验证 | **Linux CI fresh 双库 TRX**（`.ci-artifacts-api/` 或 Actions `linux-native-aot` 工件）；JIT 双库集成需 Docker Testcontainers；P0 Go/No-go 最终结论 |
 
-**T04 结论：** 原生门禁与 §6 最小消费方路径已挂接并可由 Linux CI 执行；P0 Go 仍依赖 fresh Linux 双库 TRX 与计划复核，Windows 发现不能单独作依据。
+**T04 结论：** P0 原生门禁已扩展至 16 项并登记矩阵；代码与 Windows 编译证据就绪，**P0 Go 仍依赖 Linux `api-native-aot-linux` 绿结果与 TRX 归档**，Windows 发现不能单独作依据。
+
+### logout-semantics（2026-09-17）：四种退出操作语义
+
+| 操作 | 清 Cookie | 撤 refresh | 拒绝现有 access | 范围 |
+| --- | --- | --- | --- | --- |
+| 应用退出 | 可选 RP 本地 | 该 client 族 | 下次校验失败 | 当前应用 |
+| 中心退出 | 中心 cookie | 全部族 | 下次校验失败 | 当前浏览器全部应用 |
+| 全局退出（revoke-all） | 不自动清 RP cookie | 目标用户全部 | 下次校验失败 | 目标用户全部设备会话 |
+| 管理员强制下线 | 不自动清 | 对应会话族 | 即时 401 | 单会话 |
+
+**P0 传播 SLA（本地权威）：**
+
+- 数据库撤销与会话族标记：**即时**（同一事务提交后即可查询到 revoked 状态）。
+- 资源 API access 拒绝：**≤ 1 次后续请求**（`AccessSessionValidator` / OIDC 应用会话权威查询）；`IdentityOidcLogoutPropagationSlaAssertions` 在双库测量下一请求 401。
+- 实时通知投递：**best-effort**；`IdentityOidcRevokeRealtimeFaultAssertions` 证明通知失败时 API 仍返回成功且 access 已拒绝，不误报“全部应用已退出”。
+- 幂等撤销：`IdentityOidcRevokeNotificationAssertions` 证明重复 revoke 不重复发布通知。
+
+### 浏览器 SSO 矩阵（2026-09-17）
+
+`identity-oidc-sso.spec.mjs` 已扩展：`prompt=none` 成功、`max_age=0` 强制重登、无效 CSRF、state 篡改、中心 Cookie 清除、`sub` 相同且 `application_session_id` 独立、PKCE verifier 失败、ID Token nonce、prompt=login 不替换既有用户会话；V22 受限第三方 Cookie 在 CI Chromium **条件跳过**并注明原因。
 
 ## 12. 2026-09-16 接手审查与安全修复
 
@@ -360,7 +382,7 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | 本任务 `git diff --check`、新增文件 UTF-8／空白及文档本地链接检查 | 通过；分支仍为 main，HEAD 未改变 |
 | `pnpm test:integration:affected:plan -- --snapshot identity-oidc-takeover-20260916 --phase inner` | 成功生成 Identity 影响集；仅计划，未运行数据库 |
 
-**未关闭事项：** OIDC 切租户仍返回 `identity.oidc_context_switch_not_supported`；UserInfo／换码／刷新与权威撤销的完整矩阵还需继续审查和回归；双库实际 JWT、真实防伪交互、浏览器 SSO、多实例和 Linux 原生门禁需在后续授权提交对应的 CI 验证。未提交、推送或部署，不把本轮 Unit／分析构建升级为 P0 Go 或 Verified。继续按[唯一执行计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)推进。
+**未关闭事项：** UserInfo／换码／刷新与权威撤销的完整矩阵还需继续审查和回归；切租户后 refresh 轮换依赖 offline_access 与 OpenIddict 令牌管线；双库实际 JWT、真实防伪交互、浏览器 SSO、多实例和 Linux 原生门禁需在后续授权提交对应的 CI 验证。未提交、推送或部署，不把本轮 Unit／分析构建升级为 P0 Go 或 Verified。继续按[唯一执行计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)推进。
 
 ## 13. T08 Vue 消费与并行入口（2026-09-16）
 
@@ -371,7 +393,7 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | 登录／回调 | `oidc-center-login`（PKCE、`#/identity/oidc/callback`）；`OidcCallbackView`；`App.vue` 匿名回调路由走 `router-view` 而非 `LoginView` |
 | 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |
 | 路由守卫 | `selfServicePaths` 含 `/identity/oidc/callback`；已认证用户无需导航下发即可进入回调页 |
-| 切租户 | `session-oidc-center-switch-tenant.test.ts`：OIDC 会话成功切换后替换内存 token 并重载授权快照；API 返回 `identity.oidc_context_switch_not_supported` 时保留 Host 上下文与 refresh 凭据 |
+| 切租户 | `session-oidc-center-switch-tenant.test.ts`：OIDC 会话成功切换后替换内存 token、轮换 refresh 并重载授权快照；API 返回 `identity.session_context_conflict` 时保留 Host 上下文与 refresh 凭据 |
 | 并发刷新 | `session-oidc-center-restore.test.ts`：并行 `restore` 时 token 交换经 `sessionRefreshCoordinator` 串行化，不出现重叠 `/connect/token` 请求（V09/V18 回归） |
 | 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：**129** 项：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、工作流待办页与 `/api/v1/workflow/todos/mine` 正／负 API 探针、同意／驳回操作（§6 审批探针）、Agent 工具页与 `/api/v1/ai/agent-tools` 正／负 API 探针（§6 V12/V21）、Agent 运行页 UI 创建／加载／取消排队运行（Host／租户／切租户返回 Host）、后台任务定义页与 `/api/v1/jobs/host-definitions` 正／负 API 探针、触发操作、退出／强制下线后 access token 无法再次触发任务或列举定义（§6 后台任务探针）、OIDC 创建并读取／取消排队 Agent Run 正探针（三上下文 clientRequestId 幂等后读取仍为排队并可取消，含幂等取消后重复取消负探针与三上下文 UI 加载并取消）、切租户／切租户返回 Host 后后台任务触发与执行历史 API／UI 正探针、排队运行恢复／重复取消负探针、退出／强制下线后已排队 Agent Run 无法读取／取消／恢复／新建（§6 后台任务绑定探针，含切租户并返回 Host 往返后创建）、切租户并返回 Host（含往返后工作流待办／Agent 工具／后台任务定义／Agent Run API 与 Agent 运行页探针）、租户内受保护页面（含 Agent 运行页）与切租户后工作流待办／Agent 工具／后台任务定义／Agent Run API 探针（§6 上下文切换）、退出后受保护路由回登录（含 Agent 运行页）／access token 与 refresh 拒绝、强制下线后 access token／refresh 拒绝且无法用已撤销 refresh 恢复（§6 在线会话探针））；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
 | 并行回退 | [getting-started §3.1](../development/getting-started.md#31-vue-管理端) 记录移除 `VITE_IDENTITY_AUTH_MODE` 后回到 legacy 表单的本地验证步骤；`vue-admin` `auth-smoke` 断言遗留 `fullnet.admin.oidc.refresh` 不阻断 legacy 密码登录、登录后不写入新 OIDC 凭据，且刷新后仍通过 Refresh Cookie 恢复 legacy 会话 |

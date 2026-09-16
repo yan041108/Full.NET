@@ -28,8 +28,8 @@
 | 1 | 恢复权威查询前的 Host／租户／未解析上下文；异常和取消同样恢复；仅接受精确 access 用途 | 已实现，新增可失败 Unit 回归 |
 | 2 | 中心凭据 POST 防伪校验先于 Cookie／凭据副作用；max_age 强制重新认证且保留 auth_time | 已实现，Unit 回归；真实防伪表单已接入双库／原生共享夹具，运行待 CI |
 | 3 | profile scope 控制公开 Claim；加密授权码／刷新令牌保留客户端分类；第一方权限保持多值 | 已实现，覆盖两次签发处理；JWT 实际输出待双库 CI |
-| 4 | 继续核对 UserInfo、授权码兑换及刷新后的账号／应用／中心会话权威检查，覆盖撤销、账号停用和状态库故障 | 待开发与回归；不能以资源 API 拒绝代表所有协议端点均拒绝 |
-| 5 | 完成 OIDC 原体系切租户签发、A/B 应用隔离与旧令牌／后台绑定失效 | 未完成；当前实现返回 `identity.oidc_context_switch_not_supported`，仅是防止降级的拒绝边界 |
+| 4 | 继续核对 UserInfo、授权码兑换及刷新后的账号／应用／中心会话权威检查，覆盖撤销、账号停用和状态库故障 | 已补齐 authorize fail-closed、must-change@authorize、refresh 滑动延长应用会话与协议端点 outage 矩阵 |
+| 5 | 完成 OIDC 原体系切租户签发、A/B 应用隔离与旧令牌／后台绑定失效 | 已实现 `ChangeOidcAsync` 与双库回归；切租户后旧 refresh 失效，新 access 在窗口内有效 |
 | 6 | 同一候选提交执行双库、真实浏览器、防伪攻击场景、Linux Native AOT 与多实例验证，再决定 P0 Go/No-go | 待 CI；沿用现有入口，不降低门禁；T05—T08 不据此升级 Verified |
 
 ## 2. 全局约束
@@ -212,6 +212,24 @@
 - [ ] 仅在实际通过相应门禁后更新能力状态；旧入口退役另记录版本、存活窗口与恢复方式，生产发布遵循授权和现有发布流程。
 
 **通过条件：** Vue 真实业务与安全语义不退化，生产启用和回退条件完整；Layui 无新增实现要求。
+
+### T08 冻结：oidc-center 会话策略（2026-09-17）
+
+- **回调 URL**：`#/identity/oidc/callback`（hash 路由，匿名守卫白名单）。
+- **Refresh 存储**：仅 `sessionStorage` 键 `fullnet.admin.oidc.refresh`；access token 仅内存，不落 localStorage。
+- **切租户**：`onTenantContextTokenResponse` 写回轮换后的 refresh；`identity.session_context_conflict` 时保留 Host 上下文与 refresh。
+- **并发刷新**：`sessionRefreshCoordinator` 单飞，禁止并行 `/connect/token` refresh。
+- **多标签强撤**：`handleRemoteSessionRevoke` 清本地凭据并导航登录；重复通知幂等。
+- **legacy 并行**：默认 `legacy` 密码登录；`VITE_IDENTITY_AUTH_MODE=oidc-center` 为构建时注入，Helm 未内置该变量。
+
+### T08 部署与监控（2026-09-17）
+
+| 项 | 说明 |
+| --- | --- |
+| 构建变量 | `VITE_IDENTITY_AUTH_MODE=oidc-center`、`VITE_IDENTITY_OIDC_CLIENT_ID`（默认 `admin-spa`）；见 `ui/admin/.env.example` |
+| 签名密钥 | `IdentityOidcOptions.SigningKeys` ConfigMap/Secret；多实例必须共享 `EncryptionKeyBase64`（32 字节）与 RSA 私钥；通过治理 API 激活 kid，见 `OidcSigningKeysView` |
+| 监控指标 | `authorize`/`token` 4xx/5xx 比率、`refresh_token` reuse 拒绝计数、会话 revoke 到 access 401 滞后（应 ≤1 请求）、realtime 投递失败率 |
+| 回退 | 移除 `VITE_IDENTITY_AUTH_MODE` 重建 legacy 前端；已撤销 OIDC 会话不能通过遗留 refresh 复活（`admin-oidc-center` E2E 探针） |
 
 **T08 执行记录（2026-09-16，进行中）：** 已交付可选 `oidc-center` 消费路径（PKCE 登录、回调、refresh、双端 logout、实时强撤、切租户与业务页探针）并保持 `legacy` 默认并行；单元与 E2E 用例见[验证记录 §13](../../verification/2026-09-13-identity-oidc-sso-research-validation.md#13-t08-vue-消费与并行入口2026-09-16)。`admin-oidc-center.spec.mjs` 共 **129** 项串行探针，覆盖 §6 工具／审批／后台任务最小 UI 与操作路径、三类 Host API 正／负探针、在线会话撤销后 access/refresh 拒绝，以及 OIDC 创建排队 Agent Run 正探针（三上下文 clientRequestId 幂等后读取仍为排队并可取消，含幂等取消后重复取消负探针与三上下文 UI 加载并取消）、切租户／切租户返回 Host 后后台任务触发与执行历史 API／UI 正探针及退出／强撤后绑定失效、退出／强制下线后后台任务触发与定义列举、已排队 Agent Run 读取／取消／恢复／新建绑定失效（`expectRevokedOidcCenterAgentRunAccessRejected`，含切租户并返回 Host 往返后创建）；单元层补充并行 `restore` 不重叠 token 交换（V09/V18）；`auth-smoke` 与 `spec-contracts` 治理测试登记 legacy 回退与 oidc-center 项目入口。聚焦真实栈入口：`pnpm test:e2e:real:oidc-center`。上述清单项整体仍未勾选通过——缺 CI `real-stack-e2e` fresh TRX 证据（门禁已登记：`pnpm test:e2e:real` 含 `vue-admin-oidc-center`）、旧入口回退演练完整执行（`auth-smoke` 已覆盖遗留 OIDC 凭据不阻断 legacy 登录的自动化探针）、§6 **全量**矩阵与能力状态门禁；§6 **最小**矩阵 E2E 探针已编写完毕（见验证记录 §13 对照表），`captureOidcAccessTokenFromOverviewProbe`、`buildOidcCenterApiHeaders`、`expectOidcApiGetStatus`、`expectOidcApiPostStatus`、`createE2eHostPingJobDefinition` 与 `revokeCurrentOidcCenterSession` 统一探针 token 捕获、API 请求头、GET/POST 状态断言、任务夹具与强撤流程（治理禁止 spec 内联 `/api/v1/me` 拦截）；退出与强撤 API 负探针、受保护路由（Agent 工具／Agent 运行／工作流待办／任务定义）与凭据清理对称覆盖（见验证记录 §13 对称性对照表）；`expectOidcCenterLocalCredentialsCleared` 与 `expectOidcCenterTokensRejected` 统一 token 拒绝断言。
 

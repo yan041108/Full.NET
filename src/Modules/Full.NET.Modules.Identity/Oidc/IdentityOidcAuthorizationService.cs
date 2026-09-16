@@ -90,6 +90,29 @@ internal sealed class IdentityOidcAuthorizationService(
     {
         ArgumentNullException.ThrowIfNull(centerPrincipal);
         ArgumentNullException.ThrowIfNull(request);
+        try
+        {
+            return await CreateAuthorizationPrincipalCoreAsync(
+                    centerPrincipal,
+                    request,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private async Task<ClaimsPrincipal?> CreateAuthorizationPrincipalCoreAsync(
+        ClaimsPrincipal centerPrincipal,
+        OpenIddictRequest request,
+        CancellationToken cancellationToken)
+    {
         if (!TryReadCenterClaims(centerPrincipal, out var centerSessionId, out var userId, out var securityStamp))
         {
             return null;
@@ -276,7 +299,12 @@ internal sealed class IdentityOidcAuthorizationService(
         return user is not null
             && user.IsActive
             && !(user.LockoutEndUtc > clock.UtcNow)
-            && string.Equals(user.SecurityStamp, centerSessionSecurityStamp, StringComparison.Ordinal);
+            && string.Equals(user.SecurityStamp, centerSessionSecurityStamp, StringComparison.Ordinal)
+            && !PasswordChangeRequirementEvaluator.IsRequired(
+                user.MustChangePassword,
+                user.PasswordChangedAtUtc,
+                clock.UtcNow,
+                _identityOptions.PasswordExpirationDays);
     }
 
     private static bool TryReadCenterClaims(

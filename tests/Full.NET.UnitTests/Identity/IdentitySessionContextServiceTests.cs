@@ -10,6 +10,7 @@ using Full.NET.Modules.Identity.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using Full.NET.Modules.Identity.Features.ChangeSessionContext;
 using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Persistence;
@@ -129,6 +130,36 @@ public sealed class IdentitySessionContextServiceTests
     }
 
     [TestMethod]
+    public async Task ChangeOidc_updates_application_session_and_issues_oidc_access_token()
+    {
+        var fixture = new OidcFixture();
+        fixture.CommandExecutor.ExecuteAsync(
+                IdentityOidcSessionSql.UpdateApplicationSessionContext,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1);
+
+        var result = await fixture.Service.ChangeAsync(
+            CreateOidcPrincipal(),
+            new VerifiedTenantContext(
+                TenantId,
+                "acme",
+                "Acme Corporation",
+                "acme.localhost"));
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("Bearer", result.Value!.TokenType);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(result.Value.AccessToken));
+        Assert.AreEqual(TenantId, result.Value.Context.TenantId);
+        fixture.TokenIssuer.DidNotReceive().Issue(
+            Arg.Any<IdentityUser>(),
+            Arg.Any<Guid>(),
+            Arg.Any<Guid?>(),
+            Arg.Any<IReadOnlyCollection<string>>(),
+            Arg.Any<bool>());
+    }
+
+    [TestMethod]
     public async Task Super_administrator_can_switch_context_without_permission_claims()
     {
         var fixture = new Fixture();
@@ -148,6 +179,27 @@ public sealed class IdentitySessionContextServiceTests
 
         Assert.IsTrue(result.IsSuccess);
         Assert.AreEqual(TenantId, fixture.TokenIssuer.ActiveTenantId);
+    }
+
+    private static ClaimsPrincipal CreateOidcPrincipal()
+    {
+        var applicationSessionId = Guid.Parse("01981b1a-e200-7000-8000-000000000005");
+        var centerSessionId = Guid.Parse("01981b1a-e200-7000-8000-000000000006");
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(JwtRegisteredClaimNames.Sub, UserId.ToString("D")),
+                new Claim(JwtRegisteredClaimNames.Iss, "https://localhost/identity"),
+                new Claim(FullNetIdentityClaimTypes.ApplicationSessionId, applicationSessionId.ToString("D")),
+                new Claim(FullNetIdentityClaimTypes.CenterSessionId, centerSessionId.ToString("D")),
+                new Claim(FullNetIdentityClaimTypes.OidcClientId, "fixture-oidc-a-public"),
+                new Claim(FullNetIdentityClaimTypes.TokenUse, "access"),
+                new Claim(IdentityClaimTypes.ActorScope, "host"),
+                new Claim(IdentityClaimTypes.Scope, "host"),
+                new Claim(IdentityClaimTypes.SecurityStamp, "stamp"),
+                new Claim(IdentityClaimTypes.Permission, "tenancy.tenants.switch"),
+                new Claim("scope", "openid profile"),
+            ],
+            "unit-test"));
     }
 
     private static ClaimsPrincipal CreatePrincipal(
@@ -199,6 +251,73 @@ public sealed class IdentitySessionContextServiceTests
         UserVersion = 1,
     };
 
+    private sealed class OidcFixture
+    {
+        public OidcFixture()
+        {
+            QueryExecutor = Substitute.For<IQueryExecutor>();
+            QueryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                    IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(CreateOidcValidationRecord());
+            CommandExecutor = Substitute.For<ICommandExecutor>();
+            CommandExecutor.ExecuteAsync(
+                    Arg.Any<SqlStatement>(),
+                    Arg.Any<object?>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(1);
+            TokenIssuer = Substitute.For<IAccessTokenIssuer>();
+            var (oidcIssuer, clientResolver) = Fixture.CreateOidcDependencies();
+            var (refreshIssuer, grantRevocation) = Fixture.CreateOidcContextSwitchDependencies(
+                QueryExecutor,
+                CommandExecutor);
+            Service = new IdentitySessionContextService(
+                QueryExecutor,
+                CommandExecutor,
+                new StubPermissionSnapshotReader(),
+                new PermissionClaimEvaluator(AuthorizationCatalog.Create(
+                    [
+                        new IdentityAuthorizationContributor(),
+                        new Full.NET.Modules.Tenancy.TenancyAuthorizationContributor(),
+                    ])),
+                TokenIssuer,
+                oidcIssuer,
+                refreshIssuer,
+                grantRevocation,
+                clientResolver,
+                new CurrentTenantAccessor(),
+                new FixedClock(),
+                new FixedIdGenerator(),
+                Options.Create(new IdentityOidcOptions
+                {
+                    Enable = true,
+                    Issuer = "https://localhost/identity",
+                    AllowDevelopmentEphemeralSigningKey = true,
+                }),
+                Options.Create(new IdentityOptions()));
+        }
+
+        public IQueryExecutor QueryExecutor { get; }
+        public ICommandExecutor CommandExecutor { get; }
+        public IAccessTokenIssuer TokenIssuer { get; }
+        public IdentitySessionContextService Service { get; }
+
+        private static IdentityOidcApplicationSessionValidationRecord CreateOidcValidationRecord() => new()
+        {
+            ApplicationSessionId = Guid.Parse("01981b1a-e200-7000-8000-000000000005"),
+            UserId = UserId,
+            ActorScope = "host",
+            EffectiveScope = "host",
+            IsActive = true,
+            ApplicationExpiresAtUtc = Now.AddMinutes(10),
+            CenterExpiresAtUtc = Now.AddDays(1),
+            UserSecurityStamp = "stamp",
+            CenterSecurityStamp = "stamp",
+            Version = 1,
+        };
+    }
+
     private sealed class Fixture
     {
         public Fixture()
@@ -217,6 +336,9 @@ public sealed class IdentitySessionContextServiceTests
                 .Returns(1);
             TokenIssuer = new StubTokenIssuer();
             var (oidcIssuer, clientResolver) = CreateOidcDependencies();
+            var (refreshIssuer, grantRevocation) = CreateOidcContextSwitchDependencies(
+                QueryExecutor,
+                CommandExecutor);
             Service = new IdentitySessionContextService(
                 QueryExecutor,
                 CommandExecutor,
@@ -228,6 +350,8 @@ public sealed class IdentitySessionContextServiceTests
                     ])),
                 TokenIssuer,
                 oidcIssuer,
+                refreshIssuer,
+                grantRevocation,
                 clientResolver,
                 new CurrentTenantAccessor(),
                 new FixedClock(),
@@ -241,7 +365,22 @@ public sealed class IdentitySessionContextServiceTests
                 Options.Create(new IdentityOptions()));
         }
 
-        private static (IdentityOidcContextAccessTokenIssuer Issuer, IdentityOidcClientConfigResolver ClientResolver)
+        internal static (
+            IdentityOidcContextRefreshTokenIssuer RefreshIssuer,
+            IdentityOidcGrantRevocationService GrantRevocation) CreateOidcContextSwitchDependencies(
+            IQueryExecutor queryExecutor,
+            ICommandExecutor commandExecutor)
+        {
+            var clock = new FixedClock();
+            return (
+                new IdentityOidcContextRefreshTokenIssuer(
+                    Substitute.For<IOpenIddictServerDispatcher>(),
+                    Options.Create(new OpenIddictServerOptions()),
+                    Substitute.For<ILogger<IdentityOidcContextRefreshTokenIssuer>>()),
+                new IdentityOidcGrantRevocationService(queryExecutor, commandExecutor, clock));
+        }
+
+        internal static (IdentityOidcContextAccessTokenIssuer Issuer, IdentityOidcClientConfigResolver ClientResolver)
             CreateOidcDependencies()
         {
             var oidcOptions = Options.Create(new IdentityOidcOptions

@@ -65,6 +65,38 @@ internal sealed class IdentityOidcGrantRevocationService(
         return new IdentityOidcGrantRevocationResult(tokensRevoked, authorizationsRevoked);
     }
 
+    /// <summary>仅撤销指定用户在某 OIDC 客户端下的 refresh token，用于上下文切换轮换。</summary>
+    public async Task<int> RevokeRefreshTokensByUserAndClientAsync(
+        Guid userId,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var application = await queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplication>(
+                IdentityOidcSql.FindApplicationByClientId,
+                IdentitySqlParameters.Create(("ClientId", clientId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (application is null)
+        {
+            return 0;
+        }
+
+        var subject = userId.ToString("D");
+        var now = clock.UtcNow;
+        return await commandExecutor.ExecuteAsync(
+                IdentityOidcSql.RevokeTokensByFilter,
+                IdentitySqlParameters.Create(
+                    ("Subject", subject),
+                    ("ApplicationId", application.Id),
+                    ("RevokedStatus", Statuses.Revoked),
+                    ("UpdatedAtUtc", now),
+                    ("StatusFilter", null),
+                    ("Type", TokenTypeIdentifiers.RefreshToken)),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     /// <summary>仅撤销指定用户在某 OIDC 客户端下的授权与令牌，用于单应用下线。</summary>
     public async Task<IdentityOidcGrantRevocationResult> RevokeByUserAndClientAsync(
         Guid userId,

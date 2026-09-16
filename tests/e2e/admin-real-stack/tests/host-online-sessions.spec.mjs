@@ -65,3 +65,51 @@ test('受限 Host 账号访问在线会话 API 被拒绝且导航裁剪', async 
   await expect(page.getByText('403', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '没有访问权限' })).toBeVisible();
 });
+test('Host 管理员可从 UI 强制下线其他在线会话', async ({ page, request }, testInfo) => {
+  const clientKind = testInfo.project.metadata.clientKind;
+  const origin = adminOrigin(clientKind);
+  const victimPassword = 'FullNet!2026Secure';
+  const victimUsername = `e2e-online-${Date.now()}`;
+  await createHostUserViaApi(request, clientKind, {
+    username: victimUsername,
+    displayName: 'E2E 在线会话',
+    password: victimPassword
+  });
+  const victimToken = await loginAccessTokenWithPassword(
+    request,
+    clientKind,
+    victimUsername,
+    victimPassword
+  );
+
+  await loginAsHostAdmin(page);
+  await clickMainNavLink(page, /在线用户/);
+
+  const onlineSessionsView = clientKind === 'layui'
+    ? page.locator('[data-route-view="online-sessions"]')
+    : page.locator('.online-sessions-view');
+
+  await expect(onlineSessionsView.getByText(victimUsername, { exact: true })).toBeVisible({
+    timeout: 15_000
+  });
+
+  const victimRow = onlineSessionsView
+    .getByRole('row')
+    .filter({ hasText: victimUsername })
+    .first();
+  await victimRow.getByRole('button', { name: '强制下线' }).click();
+  if (clientKind === 'vue') {
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: '强制下线', exact: true }).click();
+  } else {
+    await page.locator('.layui-layer-btn0').click();
+  }
+
+  const meResponse = await request.get(`${apiBaseUrl}/api/v1/me`, {
+    headers: {
+      Authorization: `Bearer ${victimToken}`,
+      Origin: origin
+    }
+  });
+  expect(meResponse.status()).toBe(401);
+});

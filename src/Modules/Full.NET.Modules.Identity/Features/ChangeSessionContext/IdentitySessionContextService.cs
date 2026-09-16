@@ -24,6 +24,8 @@ internal sealed class IdentitySessionContextService(
     PermissionClaimEvaluator permissionClaimEvaluator,
     IAccessTokenIssuer accessTokenIssuer,
     IdentityOidcContextAccessTokenIssuer oidcContextAccessTokenIssuer,
+    IdentityOidcContextRefreshTokenIssuer oidcContextRefreshTokenIssuer,
+    IdentityOidcGrantRevocationService oidcGrantRevocationService,
     IdentityOidcClientConfigResolver clientConfigResolver,
     ICurrentTenantContextWriter tenantContextWriter,
     IClock clock,
@@ -273,23 +275,33 @@ internal sealed class IdentitySessionContextService(
                     : resolvedClient!.ResourceAudience!;
                 var isExternalClient = string.IsNullOrWhiteSpace(
                     principal.FindFirstValue(IdentityClaimTypes.SecurityStamp));
-                var issued = oidcContextAccessTokenIssuer.Issue(
-                    new IdentityOidcContextAccessTokenIssueRequest(
+                var issueRequest = new IdentityOidcContextAccessTokenIssueRequest(
+                    userId,
+                    principal.FindFirstValue(JwtRegisteredClaimNames.Name) ?? username,
+                    principal.FindFirstValue("preferred_username") ?? username,
+                    centerSessionId,
+                    applicationSessionId,
+                    clientId,
+                    HostScope,
+                    effectiveScope,
+                    tenant?.Id,
+                    ReadOAuthScopes(principal),
+                    authorization.Permissions,
+                    authorization.IsSuperAdministrator,
+                    validation!.UserSecurityStamp,
+                    isExternalClient,
+                    audience);
+                var issued = oidcContextAccessTokenIssuer.Issue(issueRequest);
+                await oidcGrantRevocationService.RevokeRefreshTokensByUserAndClientAsync(
                         userId,
-                        principal.FindFirstValue(JwtRegisteredClaimNames.Name) ?? username,
-                        principal.FindFirstValue("preferred_username") ?? username,
-                        centerSessionId,
-                        applicationSessionId,
                         clientId,
-                        HostScope,
-                        effectiveScope,
-                        tenant?.Id,
-                        ReadOAuthScopes(principal),
-                        authorization.Permissions,
-                        authorization.IsSuperAdministrator,
-                        validation!.UserSecurityStamp,
-                        isExternalClient,
-                        audience));
+                        ct)
+                    .ConfigureAwait(false);
+                var refreshToken = await oidcContextRefreshTokenIssuer.TryIssueAsync(
+                        principal,
+                        issueRequest,
+                        ct)
+                    .ConfigureAwait(false);
                 var context = tenant is null
                     ? new TenantContextDescriptor(null, "host", "Host", HostScope)
                     : new TenantContextDescriptor(
@@ -302,7 +314,8 @@ internal sealed class IdentitySessionContextService(
                         issued.AccessToken,
                         "Bearer",
                         issued.ExpiresAtUtc,
-                        context));
+                        context,
+                        refreshToken));
             },
             cancellationToken).ConfigureAwait(false);
     }

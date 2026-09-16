@@ -17,7 +17,8 @@ internal sealed class OidcClientManagementService(
     IRandomTokenGenerator tokenGenerator,
     IdentityOidcGrantRevocationService grantRevocationService,
     IdentityOidcSessionService sessionService,
-    IdentitySessionRealtimeDelivery sessionRealtimeDelivery)
+    IdentitySessionRealtimeDelivery sessionRealtimeDelivery,
+    OidcManagementAuditWriter auditWriter)
 {
     internal const int MaxClientIdLength = 128;
     internal const int MaxDisplayNameLength = 128;
@@ -26,6 +27,7 @@ internal sealed class OidcClientManagementService(
 
     public async Task<Result<CreateOidcClientResponse>> CreateAsync(
         CreateOidcClientRequest request,
+        OidcManagementActorContext actor,
         CancellationToken cancellationToken = default)
     {
         var validation = ValidateCreateRequest(request);
@@ -82,6 +84,14 @@ internal sealed class OidcClientManagementService(
             return Result<CreateOidcClientResponse>.Failure(response.Error!);
         }
 
+        await auditWriter.WriteAsync(
+                actor.ActorUserId,
+                OidcManagementAuditWriter.ClientCreatedEventType,
+                $"client:{normalized.ClientId}",
+                actor.IpAddress,
+                actor.UserAgent,
+                cancellationToken)
+            .ConfigureAwait(false);
         return Result<CreateOidcClientResponse>.Success(
             new CreateOidcClientResponse(response.Value!, plainSecret));
     }
@@ -89,6 +99,7 @@ internal sealed class OidcClientManagementService(
     public async Task<Result<OidcClientResponse>> UpdateAsync(
         Guid clientId,
         UpdateOidcClientRequest request,
+        OidcManagementActorContext actor,
         CancellationToken cancellationToken = default)
     {
         var application = await FindActiveApplicationAsync(clientId, cancellationToken).ConfigureAwait(false);
@@ -150,11 +161,25 @@ internal sealed class OidcClientManagementService(
             return VersionConflict();
         }
 
-        return await queries.GetByIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+        var updated = await queries.GetByIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+        if (updated.IsSuccess)
+        {
+            await auditWriter.WriteAsync(
+                    actor.ActorUserId,
+                    OidcManagementAuditWriter.ClientUpdatedEventType,
+                    $"client:{updated.Value!.ClientId}",
+                    actor.IpAddress,
+                    actor.UserAgent,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return updated;
     }
 
     public async Task<Result<OidcClientResponse>> DisableAsync(
         Guid clientId,
+        OidcManagementActorContext actor,
         CancellationToken cancellationToken = default)
     {
         var application = await FindApplicationAsync(clientId, cancellationToken).ConfigureAwait(false);
@@ -212,11 +237,25 @@ internal sealed class OidcClientManagementService(
             }
         }
 
-        return await queries.GetByIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+        var disabled = await queries.GetByIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+        if (disabled.IsSuccess)
+        {
+            await auditWriter.WriteAsync(
+                    actor.ActorUserId,
+                    OidcManagementAuditWriter.ClientDisabledEventType,
+                    $"client:{disabled.Value!.ClientId}",
+                    actor.IpAddress,
+                    actor.UserAgent,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return disabled;
     }
 
     public async Task<Result<RotateOidcClientSecretResponse>> RotateAsync(
         Guid clientId,
+        OidcManagementActorContext actor,
         CancellationToken cancellationToken = default)
     {
         var application = await FindActiveApplicationAsync(clientId, cancellationToken).ConfigureAwait(false);
@@ -256,6 +295,14 @@ internal sealed class OidcClientManagementService(
             return Result<RotateOidcClientSecretResponse>.Failure(response.Error!);
         }
 
+        await auditWriter.WriteAsync(
+                actor.ActorUserId,
+                OidcManagementAuditWriter.ClientRotatedEventType,
+                $"client:{response.Value!.ClientId}",
+                actor.IpAddress,
+                actor.UserAgent,
+                cancellationToken)
+            .ConfigureAwait(false);
         return Result<RotateOidcClientSecretResponse>.Success(
             new RotateOidcClientSecretResponse(response.Value!, plainSecret));
     }

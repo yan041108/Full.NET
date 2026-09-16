@@ -21,6 +21,8 @@ import {
   revokeAdminOidcApplicationSession,
   revokeAdminOidcCenterSession
 } from './oidc-center-login';
+import { resolveAdminOidcClientId } from '../config/identity-auth';
+import { writeOidcRefreshCredential } from './oidc-session-credentials';
 import { sessionRefreshCoordinator } from './session-refresh-coordinator';
 import { shouldLogoutOnSessionRevoke } from './sessionRevokePolicy';
 
@@ -51,6 +53,16 @@ export const useSessionStore = defineStore('identity-session', () => {
         sessionRefreshCoordinator,
         externalRefreshAccessToken: adminIdentityAuthMode === 'oidc-center'
           ? async () => refreshAdminOidcAccessToken()
+          : undefined,
+        onTenantContextTokenResponse: adminIdentityAuthMode === 'oidc-center'
+          ? response => {
+              if (response.refreshToken !== undefined) {
+                writeOidcRefreshCredential({
+                  refreshToken: response.refreshToken,
+                  clientId: resolveAdminOidcClientId()
+                });
+              }
+            }
           : undefined
       });
       controller.subscribe(snapshot => {

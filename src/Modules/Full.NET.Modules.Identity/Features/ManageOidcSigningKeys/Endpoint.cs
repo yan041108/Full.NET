@@ -2,6 +2,7 @@ using Full.NET.Abstractions.Results;
 using Full.NET.Hosting.Api;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Identity.Features.ManageOidcClients;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -29,13 +30,20 @@ internal static class Endpoint
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireFullNetPermission(IdentityOidcSigningKeyPermissions.Read);
 
-        group.MapPost("/{keyId}/activate", (
+        group.MapPost("/{keyId}/activate", async (
             string keyId,
             OidcSigningKeyManagementService service,
             IApiResultMapper mapper,
-            HttpContext httpContext) =>
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
         {
-            var result = service.Activate(keyId);
+            if (!OidcManagementEndpointSupport.TryResolveActor(httpContext, out var actor))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await service.ActivateAsync(keyId, actor, cancellationToken)
+                .ConfigureAwait(false);
             return mapper.Map(result, httpContext);
         })
         .WithName("identityActivateOidcSigningKey")

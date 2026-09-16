@@ -22,7 +22,8 @@ public static class IdentityErrorCodes
     /// <summary>当前身份的参与者范围不允许切换上下文。</summary>
     public const string InvalidActorScope = "identity.invalid_actor_scope";
 
-    /// <summary>OIDC 应用会话不支持旧体系的租户上下文切换。</summary>
+    /// <summary>历史错误码；OIDC 切租户已由 <see cref="SessionContextConflict"/> / <see cref="SessionNotActive"/> 等边界表达。</summary>
+    [Obsolete("OIDC context switch is implemented; kept for backward-compatible clients only.")]
     public const string OidcContextSwitchNotSupported = "identity.oidc_context_switch_not_supported";
 
     /// <summary>登录凭据无效。</summary>

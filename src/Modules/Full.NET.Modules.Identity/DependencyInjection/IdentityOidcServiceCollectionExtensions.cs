@@ -66,11 +66,13 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddScoped<IdentityOidcCenterLoginService>();
         services.TryAddScoped<IdentityOidcAuthorizationService>();
         services.TryAddScoped<IdentityOidcContextAccessTokenIssuer>();
+        services.TryAddScoped<IdentityOidcContextRefreshTokenIssuer>();
         services.TryAddScoped<IdentityOidcGrantRevocationService>();
         services.Replace(ServiceDescriptor.Scoped<
             IIdentityOidcUserAuthorityRevoker,
             IdentityOidcUserAuthorityRevoker>());
         services.TryAddScoped<IdentityOidcClientConfigResolver>();
+        services.TryAddScoped<OidcManagementAuditWriter>();
         services.TryAddScoped<OidcClientQueryService>();
         services.TryAddScoped<OidcClientManagementService>();
         services.TryAddScoped<OidcAuthorizationQueryService>();

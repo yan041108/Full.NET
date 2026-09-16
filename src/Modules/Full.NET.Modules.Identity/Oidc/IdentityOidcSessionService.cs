@@ -298,4 +298,30 @@ internal sealed class IdentityOidcSessionService(
             .ConfigureAwait(false);
         return row is null ? null : IdentityOidcSessionRecordMapper.ToApplicationSession(row);
     }
+
+    public Task<IdentityOidcApplicationSessionValidationRecord?> FindApplicationSessionValidationAsync(
+        Guid applicationSessionId,
+        CancellationToken cancellationToken = default) =>
+        queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+            IdentityOidcSessionSql.FindApplicationSessionValidationById,
+            IdentitySqlParameters.Create(("ApplicationSessionId", applicationSessionId)),
+            cancellationToken);
+
+    public async Task<bool> ExtendApplicationSessionAsync(
+        Guid applicationSessionId,
+        DateTimeOffset expiresAtUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var now = clock.UtcNow;
+        var affectedRows = await commandExecutor.ExecuteAsync(
+                IdentityOidcSessionSql.ExtendApplicationSessionExpiry,
+                IdentitySqlParameters.Create(
+                    ("ApplicationSessionId", applicationSessionId),
+                    ("ExpiresAtUtc", expiresAtUtc),
+                    ("UpdatedAtUtc", now),
+                    ("NowUtc", now)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return affectedRows == 1;
+    }
 }

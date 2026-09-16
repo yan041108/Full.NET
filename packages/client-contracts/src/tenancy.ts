@@ -19,6 +19,8 @@ export interface TenantContextDescriptor {
 
 export interface TenantContextTokenResponse extends TokenResponse {
   context: TenantContextDescriptor;
+  /** OIDC 切租户后可选的新 refresh token。 */
+  refreshToken?: string;
 }
 
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

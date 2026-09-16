@@ -8,9 +8,13 @@ namespace Full.NET.Modules.Identity.Features.ManageOidcSigningKeys;
 internal sealed class OidcSigningKeyManagementService(
     IdentityOidcSigningKeyRing keyRing,
     IdentityOidcOpenIddictSigningCredentialSynchronizer credentialSynchronizer,
-    OidcSigningKeyQueryService queries)
+    OidcSigningKeyQueryService queries,
+    OidcManagementAuditWriter auditWriter)
 {
-    public Result<OidcSigningKeyListResponse> Activate(string keyId)
+    public async Task<Result<OidcSigningKeyListResponse>> ActivateAsync(
+        string keyId,
+        OidcManagementActorContext actor,
+        CancellationToken cancellationToken = default)
     {
         var activation = keyRing.TryActivate(keyId);
         if (!activation.IsSuccess)
@@ -19,6 +23,14 @@ internal sealed class OidcSigningKeyManagementService(
         }
 
         credentialSynchronizer.Sync();
+        await auditWriter.WriteAsync(
+                actor.ActorUserId,
+                OidcManagementAuditWriter.SigningKeyActivatedEventType,
+                $"key:{keyId}",
+                actor.IpAddress,
+                actor.UserAgent,
+                cancellationToken)
+            .ConfigureAwait(false);
         return queries.List();
     }
 }

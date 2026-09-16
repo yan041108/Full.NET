@@ -44,6 +44,7 @@ internal sealed class AiAgentRunStore(
                     ("TenantId", draft.TenantId),
                     ("ActorUserId", draft.ActorUserId),
                     ("SessionId", draft.SessionId),
+                    ("SessionKind", draft.SessionKind),
                     ("ClientRequestId", draft.ClientRequestId),
                     ("RequestHash", draft.RequestHash),
                     ("DefinitionKey", draft.DefinitionKey),

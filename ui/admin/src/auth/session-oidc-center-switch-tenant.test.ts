@@ -40,6 +40,7 @@ describe('oidc-center session tenant switch', () => {
       .mockResolvedValueOnce(jsonResponse(tenants()))
       .mockResolvedValueOnce(jsonResponse({
         ...tokenResponse('tenant-oidc-token'),
+        refreshToken: 'rotated-refresh-token',
         context: {
           tenantId,
           identifier: 'acme',
@@ -65,7 +66,7 @@ describe('oidc-center session tenant switch', () => {
     expect(session.currentUser?.tenantId).toBe(tenantId);
     expect(session.currentContextName).toBe('Acme Corporation');
     expect(session.readAccessToken()).toBe('tenant-oidc-token');
-    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toContain('refresh-token');
+    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toContain('rotated-refresh-token');
     expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
       '/api/v1/me',
       '/api/v1/navigation',
@@ -85,16 +86,16 @@ describe('oidc-center session tenant switch', () => {
     );
   });
 
-  it('preserves oidc refresh credential when tenant switch is rejected', async () => {
+  it('preserves oidc refresh credential when tenant switch conflicts', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse(currentUser()))
       .mockResolvedValueOnce(jsonResponse(navigation()))
       .mockResolvedValueOnce(jsonResponse(tenants()))
       .mockResolvedValueOnce(jsonResponse({
-        status: 403,
-        code: 'identity.oidc_context_switch_not_supported',
-        title: 'OIDC 会话不支持切换租户上下文'
-      }, 403, 'application/problem+json'));
+        status: 409,
+        code: 'identity.session_context_conflict',
+        title: '会话上下文已变化'
+      }, 409, 'application/problem+json'));
     vi.stubGlobal('fetch', fetchMock);
     sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
       refreshToken: 'refresh-token',
@@ -104,7 +105,7 @@ describe('oidc-center session tenant switch', () => {
     await session.completeOidcAuthorization(tokenResponse('oidc-host-token'));
 
     await expect(session.switchTenant(tenantId)).rejects.toMatchObject({
-      code: 'identity.oidc_context_switch_not_supported'
+      code: 'identity.session_context_conflict'
     });
 
     expect(session.state).toBe('authenticated');

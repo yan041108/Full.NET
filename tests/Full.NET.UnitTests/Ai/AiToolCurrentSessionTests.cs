@@ -77,4 +77,86 @@ public sealed class AiToolCurrentSessionTests
         }
         finally { http.HttpContext = null; }
     }
+
+    [TestMethod]
+    public async Task Oidc_application_session_is_revalidated_for_tools()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var user = Guid.NewGuid();
+        var applicationSession = Guid.NewGuid();
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(now);
+        var record = new IdentityOidcApplicationSessionValidationRecord
+        {
+            ApplicationSessionId = applicationSession,
+            UserId = user,
+            ActorScope = "host",
+            EffectiveScope = "host",
+            IsActive = true,
+            ApplicationExpiresAtUtc = now.AddMinutes(10),
+            CenterExpiresAtUtc = now.AddDays(1),
+            UserSecurityStamp = "stamp",
+            CenterSecurityStamp = "stamp",
+        };
+        var queries = Substitute.For<IQueryExecutor>();
+        queries.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                Arg.Any<object?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(record);
+        var claims = new List<Claim>
+        {
+            new("sub", user.ToString()),
+            new(FullNetIdentityClaimTypes.ApplicationSessionId, applicationSession.ToString()),
+            new(FullNetIdentityClaimTypes.TokenUse, "access"),
+            new(FullNetIdentityClaimTypes.SecurityStamp, "stamp"),
+            new(FullNetIdentityClaimTypes.ActorScope, "host"),
+            new(FullNetIdentityClaimTypes.Scope, "host"),
+            new(FullNetIdentityClaimTypes.Permission, "permission"),
+            new("iss", "https://localhost/identity"),
+            new("exp", now.AddMinutes(5).ToUnixTimeSeconds().ToString()),
+        };
+        var http = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "trusted-test")),
+            },
+        };
+        var tenant = new CurrentTenantAccessor();
+        tenant.SetHost();
+        var permissions = Substitute.For<IPermissionSnapshotReader>();
+        permissions.ReadAsync(user, "host", null, Arg.Any<CancellationToken>())
+            .Returns(new PermissionSnapshot(["permission"], false));
+        var oidcValidator = new IdentityOidcAccessSessionValidator(
+            queries,
+            clock,
+            tenant,
+            Options.Create(new IdentityOidcOptions
+            {
+                Enable = true,
+                Issuer = "https://localhost/identity",
+            }),
+            Options.Create(new IdentityOptions()));
+        var authorization = new CurrentSessionAuthorization(
+            http,
+            new AccessSessionValidator(
+                queries,
+                clock,
+                oidcValidator,
+                Options.Create(new IdentityOidcOptions { Enable = true, Issuer = "https://localhost/identity" })),
+            permissions,
+            tenant,
+            Substitute.For<IActiveTenantContextResolver>(),
+            clock,
+            Options.Create(new IdentityOidcOptions { Enable = true, Issuer = "https://localhost/identity" }));
+        try
+        {
+            Assert.IsNotNull(await authorization.AuthorizeAsync("permission"));
+        }
+        finally
+        {
+            http.HttpContext = null;
+        }
+    }
 }

@@ -392,6 +392,36 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_multi_instance_revoke_all_propagates_with_sql_server()
+    {
+        await IdentityOidcMultiInstanceRevokeAllAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task Oidc_governance_audit_writes_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcGovernanceAuditAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
+    public async Task Oidc_logout_propagation_sla_with_sql_server()
+    {
+        using var factory = new FullNetApiFactory(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync(),
+            IdentityOidcProtocolAssertions.Settings);
+
+        await IdentityOidcLogoutPropagationSlaAssertions.VerifyAsync(factory);
+    }
+
+    [TestMethod]
     public async Task Oidc_multi_instance_signing_key_rotation_overlap_with_sql_server()
     {
         await IdentityOidcMultiInstanceSigningKeyRotationAssertions.VerifyAsync(
@@ -528,6 +558,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_concurrent_authorization_code_exchange_rejected_with_sql_server()
+    {
+        await IdentityOidcAuthorizationCodeConcurrencyAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_refresh_preserves_application_session_binding_with_sql_server()
     {
         await IdentityOidcRefreshLifecycleAssertions.VerifyAsync(
@@ -635,6 +673,22 @@ public sealed class IdentityApiSqlServerTests
     public async Task Oidc_context_switch_disabled_client_fails_closed_across_instances_with_sql_server()
     {
         await IdentityOidcContextSwitchGovernanceMultiInstanceAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_supports_tenant_to_tenant_with_sql_server()
+    {
+        await IdentityOidcContextSwitchTenantToTenantAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task Oidc_session_can_create_agent_run_with_sql_server()
+    {
+        await IdentityOidcAgentRunLifecycleAssertions.VerifyAsync(
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }

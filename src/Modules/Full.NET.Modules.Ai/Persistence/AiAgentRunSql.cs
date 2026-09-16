@@ -12,11 +12,11 @@ internal static class AiAgentRunSql
 
     public static readonly SqlStatement InsertRun = new("ai.agent_run.insert", """
         INSERT INTO fn_ai_agent_run
-            (Id, ScopeKey, TenantId, ActorUserId, SessionId, ClientRequestId, RequestHash,
+            (Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, ClientRequestId, RequestHash,
              DefinitionKey, DefinitionVersion, AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope,
              StatusKey, BudgetJson, DeadlineAtUtc, Version, LeaseEpoch, CreatedAtUtc, UpdatedAtUtc)
         VALUES
-            (@Id, @ScopeKey, @TenantId, @ActorUserId, @SessionId, @ClientRequestId, @RequestHash,
+            (@Id, @ScopeKey, @TenantId, @ActorUserId, @SessionId, @SessionKind, @ClientRequestId, @RequestHash,
              @DefinitionKey, @DefinitionVersion, @AuthorizationBindingId, @SecurityStamp, @ActorScope, @EffectiveScope,
              'queued', @BudgetJson, @DeadlineAtUtc, 1, 0, @Now, @Now)
         """, SqlDataScope.Global);
@@ -117,7 +117,7 @@ internal static class AiAgentRunSql
         """, SqlDataScope.Global);
 
     public static readonly SqlStatement FindOwned = new("ai.agent_run.find_owned", """
-        SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, DefinitionKey, DefinitionVersion,
+        SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, DefinitionKey, DefinitionVersion,
                AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson,
                DeadlineAtUtc, Version, LeaseOwner, LeaseEpoch, LeaseExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc
         FROM fn_ai_agent_run
@@ -165,7 +165,7 @@ internal static class AiAgentRunSql
         """, SqlDataScope.Global);
 
     public static readonly SqlStatement FindById = new("ai.agent_run.find_by_id", """
-        SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, DefinitionKey, DefinitionVersion,
+        SELECT Id, ScopeKey, TenantId, ActorUserId, SessionId, SessionKind, DefinitionKey, DefinitionVersion,
                AuthorizationBindingId, SecurityStamp, ActorScope, EffectiveScope, StatusKey, BudgetJson,
                DeadlineAtUtc, Version, LeaseOwner, LeaseEpoch, LeaseExpiresAtUtc, CreatedAtUtc, UpdatedAtUtc
         FROM fn_ai_agent_run WHERE Id = @RunId

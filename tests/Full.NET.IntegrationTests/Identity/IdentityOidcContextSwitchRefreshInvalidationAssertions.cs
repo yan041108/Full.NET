@@ -57,6 +57,7 @@ internal static class IdentityOidcContextSwitchRefreshInvalidationAssertions
         var publicSwitched = await publicSwitchResponse.Content
             .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
         Assert.IsNotNull(publicSwitched);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(publicSwitched.RefreshToken));
 
         using var confidentialSwitchRequest = CreateContextSwitchRequest(
             acmeTenant.Id,
@@ -68,6 +69,7 @@ internal static class IdentityOidcContextSwitchRefreshInvalidationAssertions
         var confidentialSwitched = await confidentialSwitchResponse.Content
             .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken);
         Assert.IsNotNull(confidentialSwitched);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialSwitched.RefreshToken));
 
         await AssertMeAcceptsTokenAsync(
             acmeClient,

@@ -125,7 +125,7 @@
   "nativeAotOidcIntegration": {
     "project": "tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj",
     "filter": "FullyQualifiedName~NativeApiOidc",
-    "minimum": 10,
+    "minimum": 16,
     "timeout": "45m"
   },
   "integration": {
@@ -571,7 +571,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 863,
+        "minimum": 871,
         "timeout": "90m"
       }
     }

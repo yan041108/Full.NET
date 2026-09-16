@@ -94,6 +94,25 @@ internal static class IdentityOidcSessionSql
         """,
         SqlDataScope.HostOnly);
 
+    /// <summary>刷新 grant 成功前滑动延长应用会话，且不得超过中心会话过期时间。</summary>
+    public static readonly SqlStatement ExtendApplicationSessionExpiry = new(
+        "identity.extend_oidc_application_session_expiry",
+        """
+        UPDATE fn_identity_oidc_application_session
+        SET ExpiresAtUtc = @ExpiresAtUtc,
+            UpdatedAtUtc = @UpdatedAtUtc,
+            Version = Version + 1
+        WHERE Id = @ApplicationSessionId
+          AND RevokedAtUtc IS NULL
+          AND EXISTS (
+              SELECT 1
+              FROM fn_identity_oidc_center_session AS center
+              WHERE center.Id = fn_identity_oidc_application_session.CenterSessionId
+                AND center.RevokedAtUtc IS NULL
+                AND center.ExpiresAtUtc > @NowUtc)
+        """,
+        SqlDataScope.HostOnly);
+
     public static readonly SqlStatement RevokeApplicationSession = new(
         "identity.revoke_oidc_application_session",
         """

@@ -71,4 +71,43 @@ public sealed class NativeApiOidcSqlServerE2ETests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task SqlServer_native_artifact_rejects_refresh_reuse()
+    {
+        if (!NativeApiArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native AOT artifact unavailable.");
+        }
+
+        await NativeApiOidcE2EAssertions.VerifyRefreshReuseRejectedAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task SqlServer_native_artifact_validates_signing_key_rotation_overlap()
+    {
+        if (!NativeApiArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native AOT artifact unavailable.");
+        }
+
+        await NativeApiOidcE2EAssertions.VerifyDualInstanceSigningKeyRotationOverlapAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
+    public async Task SqlServer_native_artifact_survives_center_restart_for_code_exchange()
+    {
+        if (!NativeApiArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native AOT artifact unavailable.");
+        }
+
+        await NativeApiOidcE2EAssertions.VerifyCenterRestartPreservesAuthorizationExchangeAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }

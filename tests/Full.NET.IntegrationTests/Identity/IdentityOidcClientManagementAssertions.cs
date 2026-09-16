@@ -21,6 +21,7 @@ internal static class IdentityOidcClientManagementAssertions
         using var client = factory.CreateClientForHost("localhost");
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyCreateDisableRotateAsync(client, cancellationToken);
+        await VerifyRedirectScopeAndSecretBoundariesAsync(client, cancellationToken);
         await OpenApiIdentityOidcClientsContractAssertions.VerifyAsync(client, cancellationToken);
     }
 
@@ -133,6 +134,137 @@ internal static class IdentityOidcClientManagementAssertions
         using var authorizeResponse = await client.GetAsync(authorizeUrl, cancellationToken);
         Assert.IsTrue(authorizeResponse.Headers.Location is not null);
         StringAssert.Contains(authorizeResponse.Headers.Location!.ToString(), "error=unauthorized_client");
+    }
+
+    private static async Task VerifyRedirectScopeAndSecretBoundariesAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var publicClientId = $"mgmt-boundary-{Guid.NewGuid():N}"[..24];
+        using var createPublicRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc-clients",
+            adminToken,
+            new CreateOidcClientRequest(
+                publicClientId,
+                "边界公开客户端",
+                [PublicRedirectUri],
+                [],
+                ["openid", "profile"],
+                false,
+                true,
+                null));
+        using var createPublicResponse = await client.SendAsync(createPublicRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createPublicResponse.StatusCode);
+        var createdPublic = await createPublicResponse.Content
+            .ReadFromJsonAsync<CreateOidcClientResponse>(cancellationToken);
+        Assert.IsNotNull(createdPublic);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/oidc-clients?page=1&pageSize=20&clientIdContains={Uri.EscapeDataString(publicClientId)}");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        var listPayload = await listResponse.Content.ReadAsStringAsync(cancellationToken);
+        Assert.IsFalse(listPayload.Contains("clientSecret", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(listPayload.Contains("Secret", StringComparison.Ordinal));
+
+        var (_, challenge) = IdentityOidcRelyingPartyFixture.CreatePkcePair();
+        var mismatchedRedirectAuthorizeUrl = "/connect/authorize"
+            + $"?client_id={Uri.EscapeDataString(publicClientId)}"
+            + $"&redirect_uri={Uri.EscapeDataString("https://localhost:5010/other-callback")}"
+            + "&response_type=code&scope=openid%20profile"
+            + "&state=state&nonce=nonce"
+            + $"&code_challenge={Uri.EscapeDataString(challenge)}"
+            + "&code_challenge_method=S256";
+        using var mismatchedRedirectResponse = await client.GetAsync(
+            mismatchedRedirectAuthorizeUrl,
+            cancellationToken);
+        Assert.IsTrue(mismatchedRedirectResponse.Headers.Location is not null);
+        StringAssert.Contains(
+            mismatchedRedirectResponse.Headers.Location!.ToString(),
+            "error=redirect_uri");
+
+        var invalidScopeAuthorizeUrl = "/connect/authorize"
+            + $"?client_id={Uri.EscapeDataString(publicClientId)}"
+            + $"&redirect_uri={Uri.EscapeDataString(PublicRedirectUri)}"
+            + "&response_type=code&scope=openid%20profile%20admin"
+            + "&state=state&nonce=nonce"
+            + $"&code_challenge={Uri.EscapeDataString(challenge)}"
+            + "&code_challenge_method=S256";
+        using var invalidScopeResponse = await client.GetAsync(invalidScopeAuthorizeUrl, cancellationToken);
+        Assert.IsTrue(invalidScopeResponse.Headers.Location is not null);
+        StringAssert.Contains(invalidScopeResponse.Headers.Location!.ToString(), "error=invalid_scope");
+
+        var confidentialClientId = $"mgmt-boundary-conf-{Guid.NewGuid():N}"[..24];
+        using var createConfidentialRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc-clients",
+            adminToken,
+            new CreateOidcClientRequest(
+                confidentialClientId,
+                "边界机密客户端",
+                [ConfidentialRedirectUri],
+                [],
+                ["openid", "profile"],
+                true,
+                false,
+                null));
+        using var createConfidentialResponse = await client.SendAsync(createConfidentialRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createConfidentialResponse.StatusCode);
+        var createdConfidential = await createConfidentialResponse.Content
+            .ReadFromJsonAsync<CreateOidcClientResponse>(cancellationToken);
+        Assert.IsNotNull(createdConfidential);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(createdConfidential!.Secret));
+
+        var confidentialPending = await IdentityOidcRelyingPartyFixture.BeginAuthorizationCodeFlowAsync(
+            client,
+            confidentialClientId,
+            ConfidentialRedirectUri,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken);
+        var confidentialFlowWithoutSecret = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
+            client,
+            confidentialPending.Code,
+            confidentialPending.Verifier,
+            confidentialClientId,
+            ConfidentialRedirectUri,
+            clientSecret: null,
+            cancellationToken: cancellationToken);
+        Assert.IsTrue(string.IsNullOrWhiteSpace(confidentialFlowWithoutSecret.AccessToken));
+        StringAssert.Contains(confidentialFlowWithoutSecret.RawTokenResponse, "error");
+
+        using var rotateRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/oidc-clients/{createdConfidential.Client.Id:D}/rotate",
+            adminToken,
+            new { });
+        using var rotateResponse = await client.SendAsync(rotateRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, rotateResponse.StatusCode);
+        var rotated = await rotateResponse.Content
+            .ReadFromJsonAsync<RotateOidcClientSecretResponse>(cancellationToken);
+        Assert.IsNotNull(rotated);
+        var rotatedPending = await IdentityOidcRelyingPartyFixture.BeginAuthorizationCodeFlowAsync(
+            client,
+            confidentialClientId,
+            ConfidentialRedirectUri,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken);
+        var oldSecretExchange = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
+            client,
+            rotatedPending.Code,
+            rotatedPending.Verifier,
+            confidentialClientId,
+            ConfidentialRedirectUri,
+            createdConfidential.Secret,
+            cancellationToken: cancellationToken);
+        Assert.IsTrue(string.IsNullOrWhiteSpace(oldSecretExchange.AccessToken));
+        StringAssert.Contains(oldSecretExchange.RawTokenResponse, "error");
     }
 
     private static async Task<string> LoginAsHostAdminAsync(

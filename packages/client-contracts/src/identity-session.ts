@@ -69,6 +69,10 @@ export interface IdentitySessionOptions {
   externalRefreshAccessToken?: (
     operationGeneration: number
   ) => Promise<TokenResponse | null | undefined>;
+  /** 上下文切换成功后处理可选 refresh token 轮换（OIDC 中心模式）。 */
+  onTenantContextTokenResponse?: (
+    response: import('./tenancy.js').TenantContextTokenResponse
+  ) => void;
 }
 
 const readTenantsPermission = 'tenancy.tenants.read';
@@ -85,7 +89,8 @@ export function createIdentitySession(
     i18n,
     isSupportedNavigationTree,
     sessionRefreshCoordinator,
-    externalRefreshAccessToken
+    externalRefreshAccessToken,
+    onTenantContextTokenResponse
   } = options;
   let state: SessionState = 'initializing';
   let currentUser: CurrentUserResponse | undefined;
@@ -408,6 +413,7 @@ export function createIdentitySession(
     }
 
     token = value;
+    onTenantContextTokenResponse?.(value);
     try {
       if (!await loadAuthenticatedSnapshot(operationGeneration)) {
         return;

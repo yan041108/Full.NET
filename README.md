@@ -4,6 +4,8 @@ Full.NET 是面向产品研发和项目快速交付的 .NET 10 基础框架。�
 
 项目最终以 MIT 许可证发布。所使用的第三方组件及其许可证见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES)�?
 
+2026-09-16 已将面向管理系统、企业应用和中小型 SaaS 的完善工作纳入规划：项目创建/升级、企业成员生命周期、套餐权益/配额、账号恢复、订阅运营、开放集成、业务样板和发布恢复。新增能力当前为规划状态；已有 SSO、数据交付、Workflow、通知、权限、AI 与生产运行继续按专项收口。见[能力与优先级](docs/roadmap/adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)和[详细开发计划](docs/superpowers/plans/2026-09-16-foundation-productization.md)。
+
 ## 当前基础能力
 
 项目仍处�?M2 建设阶段。以下是已经落地的基础范围，不代表完整后台框架、完�?RBAC �?Admin.NET 全功能已经交付；权威状态、证据和缺口见[当前能力状态矩阵](docs/roadmap/capability-status.md)�?

@@ -35,16 +35,11 @@ internal static class IdentityOidcMustChangePasswordProtocolAssertions
         var username = $"oidc-must-change-{Guid.NewGuid():N}";
         var password = FullNetApiFactory.TestPassword;
         await CreateHostUserAsync(client, adminToken, username, password, cancellationToken);
-        var pending = await IdentityOidcRelyingPartyFixture.BeginAuthorizationCodeFlowAsync(
+        await AssertAuthorizeRejectsMustChangePasswordUserAsync(
             client,
-            IdentityOidcRelyingPartyFixture.PublicClientId,
-            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             username,
             password,
-            requestOfflineAccess: true,
-            cancellationToken: cancellationToken);
-
-        await AssertAuthorizationCodeExchangeRejectedAsync(client, pending, cancellationToken);
+            cancellationToken);
 
         using var clearedClient = factory.CreateClientForHost("localhost");
         _ = await IntegrationTestAuthHelper.LoginAsHostUserAsync(
@@ -65,26 +60,61 @@ internal static class IdentityOidcMustChangePasswordProtocolAssertions
         await AssertRefreshAcceptsTokenAsync(clearedClient, clearedFlow, cancellationToken);
     }
 
-    private static async Task AssertAuthorizationCodeExchangeRejectedAsync(
+    private static async Task AssertAuthorizeRejectsMustChangePasswordUserAsync(
         HttpClient client,
-        IdentityOidcAuthorizationCodePending pending,
+        string username,
+        string password,
         CancellationToken cancellationToken)
     {
-        var exchangeResult = await IdentityOidcRelyingPartyFixture.ExchangeAuthorizationCodeAsync(
-            client,
-            pending.Code,
-            pending.Verifier,
-            pending.ClientId,
-            pending.RedirectUri,
-            null,
-            null,
-            pending.Nonce,
-            null,
-            cancellationToken);
-        Assert.IsTrue(string.IsNullOrWhiteSpace(exchangeResult.AccessToken));
+        var state = Guid.NewGuid().ToString("N");
+        var nonce = Guid.NewGuid().ToString("N");
+        var (verifier, challenge) = IdentityOidcRelyingPartyFixture.CreatePkcePair();
+        const string scopes = "openid profile offline_access";
+        var authorizeUrl = "/connect/authorize"
+            + $"?client_id={Uri.EscapeDataString(IdentityOidcRelyingPartyFixture.PublicClientId)}"
+            + $"&redirect_uri={Uri.EscapeDataString(IdentityOidcRelyingPartyFixture.PublicRedirectUri)}"
+            + "&response_type=code"
+            + $"&scope={Uri.EscapeDataString(scopes)}"
+            + $"&state={Uri.EscapeDataString(state)}"
+            + $"&nonce={Uri.EscapeDataString(nonce)}"
+            + $"&code_challenge={Uri.EscapeDataString(challenge)}"
+            + "&code_challenge_method=S256";
+        using var authorizeGet = await client.GetAsync(authorizeUrl, cancellationToken);
         Assert.IsTrue(
-            exchangeResult.RawTokenResponse.Contains("invalid_grant", StringComparison.OrdinalIgnoreCase),
-            $"Expected authorization code exchange to fail while password change is required, got: {exchangeResult.RawTokenResponse}");
+            authorizeGet.StatusCode is HttpStatusCode.OK or HttpStatusCode.Redirect
+                or HttpStatusCode.Found or HttpStatusCode.SeeOther,
+            $"Authorize GET returned {authorizeGet.StatusCode}.");
+
+        var loginPage = await authorizeGet.Content.ReadAsStringAsync(cancellationToken);
+        const string tokenPrefix = "name=\"__RequestVerificationToken\" value=\"";
+        var tokenStart = loginPage.IndexOf(tokenPrefix, StringComparison.Ordinal);
+        Assert.IsTrue(tokenStart >= 0, "中心登录页缺少防伪令牌。");
+        tokenStart += tokenPrefix.Length;
+        var tokenEnd = loginPage.IndexOf('"', tokenStart);
+        var antiforgeryToken = System.Net.WebUtility.HtmlDecode(loginPage[tokenStart..tokenEnd]);
+
+        using var authorizePost = new HttpRequestMessage(HttpMethod.Post, "/connect/authorize")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = IdentityOidcRelyingPartyFixture.PublicClientId,
+                ["redirect_uri"] = IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+                ["response_type"] = "code",
+                ["scope"] = scopes,
+                ["state"] = state,
+                ["nonce"] = nonce,
+                ["code_challenge"] = challenge,
+                ["code_challenge_method"] = "S256",
+                ["username"] = username,
+                ["password"] = password,
+                ["__RequestVerificationToken"] = antiforgeryToken,
+            }),
+        };
+        using var authorizePostResponse = await client.SendAsync(authorizePost, cancellationToken);
+        Assert.IsTrue(
+            authorizePostResponse.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized,
+            $"Authorize must reject must-change-password users before issuing auth codes, got {(int)authorizePostResponse.StatusCode}.");
+        Assert.IsNull(authorizePostResponse.Headers.Location);
     }
 
     private static async Task CreateHostUserAsync(

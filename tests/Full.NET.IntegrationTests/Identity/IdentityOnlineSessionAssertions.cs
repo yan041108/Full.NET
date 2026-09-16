@@ -23,6 +23,7 @@ internal static class IdentityOnlineSessionAssertions
         await VerifyListRequiresReadPermissionAsync(factory, client, cancellationToken);
         await VerifyRevokeInvalidatesAccessTokenAsync(client, cancellationToken);
         await VerifyRevokeAllOnlyTargetsRequestedUserAsync(client, cancellationToken);
+        await VerifyOidcAndLegacySessionsCoexistAsync(client, cancellationToken);
         await VerifyExactSessionRevokePermissionBoundariesAsync(factory, client, cancellationToken);
         await VerifySessionPolicyRequiresReadPermissionAsync(factory, client, cancellationToken);
         await OpenApiIdentityOnlineSessionsContractAssertions.VerifyAsync(
@@ -206,6 +207,71 @@ internal static class IdentityOnlineSessionAssertions
         Assert.AreEqual(1, secondPage.Total);
     }
 
+
+    private static async Task VerifyOidcAndLegacySessionsCoexistAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var adminToken = await LoginAsHostAdminAsync(client, cancellationToken);
+        var username = $"oidc-mix-{Guid.NewGuid():N}";
+        var password = Api.FullNetApiFactory.TestPassword;
+
+        using var createRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/users",
+            adminToken,
+            new CreateHostUserRequest(username, "OIDC 混合会话", password));
+        using var createResponse = await client.SendAsync(createRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var oidcFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            username,
+            password,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken);
+        var legacyToken = await LoginAsync(client, username, password, cancellationToken);
+
+        using var listRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/identity/online-sessions?page=1&pageSize=50&usernameContains={username}");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        using var listResponse = await client.SendAsync(listRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, listResponse.StatusCode);
+        var page = await listResponse.Content
+            .ReadFromJsonAsync<PagedResult<HostOnlineSessionResponse>>(cancellationToken);
+        Assert.IsNotNull(page);
+        Assert.IsTrue(page.Total >= 2, "OIDC and legacy sessions must both appear in online session list.");
+        var oidcSession = page.Items.Single(item =>
+            item.Username == username
+            && item.ClientId == IdentityOidcRelyingPartyFixture.PublicClientId);
+
+        using var protectedBeforeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        protectedBeforeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", oidcFlow.AccessToken);
+        using var protectedBeforeResponse = await client.SendAsync(protectedBeforeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, protectedBeforeResponse.StatusCode);
+
+        using var revokeRequest = CreateBearerJsonRequest(
+            HttpMethod.Post,
+            $"/api/v1/identity/online-sessions/{oidcSession.Id:D}/revoke",
+            adminToken,
+            new { });
+        using var revokeResponse = await client.SendAsync(revokeRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, revokeResponse.StatusCode);
+
+        using var oidcAfterRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        oidcAfterRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", oidcFlow.AccessToken);
+        using var oidcAfterResponse = await client.SendAsync(oidcAfterRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.Unauthorized, oidcAfterResponse.StatusCode);
+
+        using var legacyAfterRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        legacyAfterRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", legacyToken);
+        using var legacyAfterResponse = await client.SendAsync(legacyAfterRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.OK, legacyAfterResponse.StatusCode);
+    }
     private static async Task VerifySessionPolicyRequiresReadPermissionAsync(
         FullNetApiFactory factory,
         HttpClient client,

@@ -2,6 +2,8 @@
 
 > 更新时间：2026-08-31。本文只维护能力状态、稳定证据入口与后续优先级；可变测试数量统一以 [`eng/testing/test-matrix.json`](../../eng/testing/test-matrix.json) 为准。
 
+> 2026-09-16 规划增补：已纳入[八项底座完善能力及七类收口重点](adminnet-feature-parity.md#8-企业应用与-saas-底座完善队列2026-09-16)，执行见[唯一总计划](../superpowers/plans/2026-09-16-foundation-productization.md)。本次未重新认证下表的实现状态；部分历史条目落后于专项记录，F00 将逐项核对。工作区其他改动不作为能力完成证据。
+
 ## 状态定义
 
 - `Planned`：已有方向，但尚未形成可执行设计。
@@ -72,7 +74,16 @@
 | Admin.NET 功能吸收 | Build-verified | 已完成首轮设计吸收与多个纵向切片；2026-08-30 将 Admin.NET.Pro `v2.1` 基线更新至 `09d38bd8`，自 `3879b035` 累计审计 59 个提交。Identity Excel、Host 用户资料权威校验与 Observability Admin 日志控制面已按 Full.NET 安全边界交付；当前明确缺口包括 Notifications 强类型扩展元数据和 MCP 安全/AOT 设计。后续按 [`adminnet-feature-parity.md`](adminnet-feature-parity.md) 逐模块交付，不承诺代码逐行复制。见[资料权威校验](../verification/2026-08-30-identity-authoritative-profile-validation.md)。 |
 | k6 与生产容量认证 | Implemented | [`eng/load`](../../eng/load/README.md) 已提供工具、阈值和报告能力；生产等价环境认证前统一标记 `Capacity-not-verified`。 |
 
-## 2026-08-08 后续优先级
+## 2026-09-16 当前建设优先级
+
+1. 先收口所选交付预设的安全/隔离阻塞和已有模块证据，保持 SSO、AI、全项目修复等原专项的唯一任务所有权。
+2. P0 补齐项目创建/升级工具链、企业成员生命周期、套餐权益/配额、账号自助恢复；已有套餐目录、注册政策或局部配额不等于这些完整流程已交付。
+3. P1 交付订阅运营、开放集成、业务样板及发布恢复包；ImportExport/Reporting/Printing、Workflow、Notifications 均复用现有实现，先核对再补缺口。
+4. 以基础管理、企业应用、SaaS 预设分别验收，不要求所有可选模块同时进入核心 1.0；每个预设仍覆盖所含模块的完整依赖、安全和恢复门禁。
+
+任务映射、实际路径、依赖、失败场景和阶段出口统一在[开发计划](../superpowers/plans/2026-09-16-foundation-productization.md)维护，新增增量当前为规划状态；发布与容量认证仍按独立证据判断。
+
+## 2026-08-08 后续优先级（历史队列，保留未关闭证据）
 
 ### P0：引用一致性与并发证明
 

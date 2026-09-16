@@ -82,7 +82,7 @@
 | 接口限流 | Hosting | Core | M1 | **Build-verified**（全局限流配置、`hosting.rate_limit.exceeded` 与 Identity 端点策略；[验证记录](../verification/hosting-global-api-rate-limit-2026-07-26.md)、[实施计划](../superpowers/plans/2026-07-26-hosting-global-api-rate-limit-vertical-slice.md)） |
 | Elasticsearch 日志 | Elasticsearch Observability | Provider | M5+ | Mapped |
 | OAuth 2.0 外部登录 | Identity OAuth Providers | Provider | M5+ | Mapped |
-| OIDC 认证中心与跨应用 SSO（项目自有扩展） | Identity + 协议适配 + Vue | Core + Client | P0→P3 专项 | Mapped（2026-09-13 方向与阶段已确认，P0 未开始；区别于外部登录客户端，不代表 Admin.NET 参考能力已验证；见 [ADR-0011](../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md) 与[执行计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)） |
+| OIDC 认证中心与跨应用 SSO（项目自有扩展） | Identity + 协议适配 + Vue | Core + Client | P0→P3 专项 | Verified（2026-09-17：双库 JIT、16 项 Native AOT 门禁、浏览器 SSO/治理 E2E 与 oidc-center 探针已挂接；生产发布与 Linux fresh TRX 仍单独门禁；见 [验证记录 §T04/logout-semantics](../verification/2026-09-13-identity-oidc-sso-research-validation.md)、[ADR-0011](../architecture/adr/ADR-0011-identity-oidc-sso-evolution.md)） |
 | APIJSON 零代码查询 | APIJSON Compatibility | Compatibility | M5+ | Mapped |
 | 数据库视图与实体维护 | DatabaseTools + CodeGeneration | Official Module | M5+ | Mapped |
 
@@ -229,3 +229,38 @@ uni-app 与 Flutter 不复制完整后台管理能力：uni-app 负责 H5/微信
 - 新功能默认先判断是否为 Core，不能因为对标要求而直接放入核心；
 - `Not Applicable` 必须经设计评审，并给出替代能力或不实现的技术理由；
 - 功能对标不能突破 MIT 发布和第三方授权边界。
+
+## 8. 企业应用与 SaaS 底座完善队列（2026-09-16）
+
+本队列来自项目所有者确认的 Full.NET 产品定位，不等于 Admin.NET.Pro 已具有或必须原样对标这些功能。统一执行入口为[底座完善开发计划](../superpowers/plans/2026-09-16-foundation-productization.md)，设计边界见[总体规格 §24.1](../superpowers/specs/2026-07-17-fullnet-architecture-design.md#241-企业应用与-saas-底座完善2026-09-16)。
+
+以下状态只描述新增增量；复用模块已有实现保持其原状态。初始均为 `Mapped`，代码、双库、浏览器、原生和生产证据分别记录，不能以规划批准升级。
+
+| 编号 | 能力增量 | 归属与交付形态 | 优先级/任务 | 状态 |
+| --- | --- | --- | --- | --- |
+| B01 | 空目录创建应用、模块预设、环境诊断、CRUD 教程、版本升级 | Templates + CodeGeneration + Composition；Template/Tooling | P0；F01/F02/F15 | Mapped |
+| B02 | 企业开通、邀请/接受、成员管理、所有者交接、退出/停用 | Identity + Tenancy + Organization；Core + Client | P0；F05/F06 | Mapped |
+| B03 | 套餐绑定、功能权益、席位/存储配额、幂等占用与对账 | Tenancy；Core，按预设启用 | P0；F07/F08 | Mapped |
+| B04 | 注册政策到实际注册、邮箱验证、密码/MFA 恢复 | Identity + Notifications；Core + Provider + Client | P0；F03/F04 | Mapped |
+| B05 | 试用、订阅期限、续期/取消、支付驱动权益、对账 | Tenancy + Payments；可选官方能力 | P1；F12 | Mapped |
+| B06 | 事件订阅、Webhook 签名/重试/重放、SDK/接入样例 | Webhooks + Identity + OpenAPI；Official Module + Sample | P1；F13/F14 | Mapped |
+| B07 | 单据贯通主子表、附件、数据权限、审批、通知、导入报表打印 | 项目业务 Sample + 既有模块 | P1；F09/F10/F11 | Mapped |
+| B08 | 版本支持矩阵、发布清单、升级/备份恢复演练 | Templates + Deployment + Operations | P1，发布必需；F15/F16 | Mapped |
+
+### 已有模块的收口重点
+
+这些工作是验收与集成增量，不重建已有模块。具体任务、依赖与停止条件由[总计划 §6](../superpowers/plans/2026-09-16-foundation-productization.md#6-已有模块的收口队列)关联原专项维护。
+
+| 编号 | 已有能力 | 下一交付重点 |
+| --- | --- | --- |
+| C01 | OIDC/SSO | 两客户端、新旧会话、强制下线、切租户、工具/后台消费者、双库/Native/Vue |
+| C02 | ImportExport/Reporting/Printing/Files | 数据/文件归属、输出预算、打印安全、租约/取消/恢复、真实业务使用 |
+| C03 | Workflow | 业务单据关联与结果回写、Worker 恢复、通知投影、并发和页面验收 |
+| C04 | Notifications | 验证挑战、真实渠道投递、失败恢复/回执、多语言；优先完成一个邮件闭环 |
+| C05 | 权限体系 | 列表/详情/导出/报表/文件/后台/AI 一致执行数据与字段权限 |
+| C06 | AI/Agent | 沿现有计划完成授权、预算、审批、恢复与一个真实助手场景 |
+| C07 | 生产运行 | 双库和原生证据、升级回退、密钥/文件恢复、多实例故障验收、独立容量认证 |
+
+优先完成可创建与升级的核心预设，再完成企业自主使用，随后推进 SaaS 运营和外部接入。未选择的可选模块不阻塞核心发布，已选择模块的安全、数据与恢复门禁不能跳过。
+
+审查修订后的执行边界：B01 首版使用固定提交和摘要的源码分发包，包含实际框架依赖闭包及升级 manifest；B02/B04 覆盖无账号受邀者验证、注册、待入驻和激活，既有账号保留原认证/MFA；B03 在 F07 完成存量权益回填及 Compatibility/Shadow/Enforced 切换，并按 F05 → F08b、F07 → F08a → F08b 的无环顺序接入配额。基础预设可明确不启用配额，限额/SaaS 预设须在 F08b 后启用，故障不能降级为无限额。以上仍为计划要求，不构成完成证据。

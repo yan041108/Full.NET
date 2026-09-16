@@ -123,7 +123,8 @@ internal sealed class AiAgentRunManagementService(
             SingleTextDefinitionVersion,
             budgetJson,
             deadline,
-            runId), cancellationToken).ConfigureAwait(false);
+            runId,
+            binding.SessionKind), cancellationToken).ConfigureAwait(false);
 
         return Result<CreateAiAgentRunResponse>.Success(new(createdId));
     }

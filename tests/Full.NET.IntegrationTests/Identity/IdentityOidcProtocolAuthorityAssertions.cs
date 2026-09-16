@@ -7,6 +7,7 @@ using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
+using IdentitySql = Full.NET.Modules.Identity.Persistence.IdentitySql;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Full.NET.IntegrationTests.Identity;
@@ -26,6 +27,10 @@ internal static class IdentityOidcProtocolAuthorityAssertions
         await VerifyUserInfoRejectsRevokedSessionAsync(factory, cancellationToken);
         await VerifyAuthorizationCodeExchangeRejectsRevokedSessionAsync(factory, cancellationToken);
         await VerifyProtocolEndpointsFailClosedDuringSessionStateOutageAsync(
+            provider,
+            connectionString,
+            cancellationToken);
+        await IdentityOidcProtocolLifecycleAssertions.VerifyAsync(
             provider,
             connectionString,
             cancellationToken);
@@ -159,6 +164,30 @@ internal static class IdentityOidcProtocolAuthorityAssertions
         faultGate.SimulateOutage = true;
         await AssertUserInfoRejectsTokenAsync(client, flow.AccessToken, cancellationToken);
         await AssertRefreshRejectedAsync(client, flow, cancellationToken);
+        await AssertAuthorizeWithCenterCookieFailsClosedAsync(client, cancellationToken);
+    }
+
+    private static async Task AssertAuthorizeWithCenterCookieFailsClosedAsync(
+        HttpClient client,
+        CancellationToken cancellationToken)
+    {
+        var state = Guid.NewGuid().ToString("N");
+        var nonce = Guid.NewGuid().ToString("N");
+        var (_, challenge) = IdentityOidcRelyingPartyFixture.CreatePkcePair();
+        var authorizeUrl = "/connect/authorize"
+            + $"?client_id={Uri.EscapeDataString(IdentityOidcRelyingPartyFixture.PublicClientId)}"
+            + $"&redirect_uri={Uri.EscapeDataString(IdentityOidcRelyingPartyFixture.PublicRedirectUri)}"
+            + "&response_type=code"
+            + "&scope=openid%20profile%20offline_access"
+            + $"&state={Uri.EscapeDataString(state)}"
+            + $"&nonce={Uri.EscapeDataString(nonce)}"
+            + $"&code_challenge={Uri.EscapeDataString(challenge)}"
+            + "&code_challenge_method=S256";
+        using var response = await client.GetAsync(authorizeUrl, cancellationToken);
+        Assert.IsTrue(
+            response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized,
+            $"Authorize must fail closed during session state outage, got {(int)response.StatusCode}.");
+        Assert.IsNull(response.Headers.Location);
     }
 
     private static async Task AssertUserInfoAcceptsTokenAsync(
@@ -281,10 +310,7 @@ internal static class IdentityOidcProtocolAuthorityAssertions
             CancellationToken cancellationToken = default)
         {
             if (faultGate.SimulateOutage
-                && string.Equals(
-                    statement.Name,
-                    IdentityOidcSessionSql.FindApplicationSessionValidationById.Name,
-                    StringComparison.Ordinal))
+                && IsSessionAuthorityStatement(statement.Name))
             {
                 throw new InvalidOperationException("Simulated session state outage.");
             }
@@ -298,4 +324,9 @@ internal static class IdentityOidcProtocolAuthorityAssertions
             CancellationToken cancellationToken = default) =>
             inner.QueryAsync<T>(statement, parameters, cancellationToken);
     }
+
+    private static bool IsSessionAuthorityStatement(string statementName) =>
+        string.Equals(statementName, IdentityOidcSessionSql.FindApplicationSessionValidationById.Name, StringComparison.Ordinal)
+        || string.Equals(statementName, IdentityOidcSessionSql.FindActiveCenterSessionById.Name, StringComparison.Ordinal)
+        || string.Equals(statementName, IdentitySql.FindHostUserById.Name, StringComparison.Ordinal);
 }
