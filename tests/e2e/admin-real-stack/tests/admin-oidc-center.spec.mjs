@@ -131,6 +131,31 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(Array.isArray(await response.json())).toBe(true);
   });
 
+  test('OIDC 中心 Host 上下文 access token 可创建并读取排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Agent Run ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center queued agent run positive probe'
+    });
+
+    const response = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+    const body = await response.json();
+    expect(body.statusKey).toBe('queued');
+  });
+
   test('OIDC 中心退出后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
@@ -397,7 +422,7 @@ test.describe('Vue admin oidc-center auth', () => {
     );
   });
 
-  test('OIDC 中心退出后已失效 access token 无法读取或取消已排队 Agent Run', async ({ page, request }) => {
+  test('OIDC 中心退出后已失效 access token 无法读取、取消或恢复已排队 Agent Run', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
     const stamp = Date.now().toString(36);
@@ -434,9 +459,15 @@ test.describe('Vue admin oidc-center auth', () => {
       `${apiBase}/api/v1/ai/agent/runs/${run.runId}/cancel`,
       401
     );
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/resume`,
+      401
+    );
   });
 
-  test('OIDC 中心强制下线后已失效 access token 无法读取或取消已排队 Agent Run', async ({ page, request }) => {
+  test('OIDC 中心强制下线后已失效 access token 无法读取、取消或恢复已排队 Agent Run', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
     const stamp = Date.now().toString(36);
@@ -470,6 +501,12 @@ test.describe('Vue admin oidc-center auth', () => {
       request,
       oidcAccessToken,
       `${apiBase}/api/v1/ai/agent/runs/${run.runId}/cancel`,
+      401
+    );
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/resume`,
       401
     );
   });
