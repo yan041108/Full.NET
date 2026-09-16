@@ -279,6 +279,7 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(fixturesSource, /cancelOidcCenterQueuedAgentRun/u);
   assert.match(source, /access token 可取消排队 Agent Run/u);
   assert.match(source, /切租户后 access token 可取消排队 Agent Run/u);
+  assert.match(source, /切租户并返回 Host 后 access token 可取消排队 Agent Run/u);
   assert.match(fixturesSource, /expectRevokedOidcCenterAgentRunAccessRejected/u);
   assert.match(source, /\/api\/v1\/ai\/agent\/runs/u);
   assert.match(source, /可创建并读取排队 Agent Run/u);
@@ -344,5 +345,5 @@ test('admin-oidc-center 真实栈用例数量与 T08 文档登记一致', async 
     'utf8'
   );
   const count = (source.match(/^\s*test\(/gm) ?? []).length;
-  assert.equal(count, 57);
+  assert.equal(count, 58);
 });

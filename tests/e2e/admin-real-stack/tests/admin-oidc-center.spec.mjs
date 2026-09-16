@@ -825,6 +825,37 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('queued');
   });
 
+  test('OIDC 中心切租户并返回 Host 后 access token 可取消排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return Agent Cancel ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center host return agent run api cancel ${stamp}`
+    });
+
+    await cancelOidcCenterQueuedAgentRun(request, accessToken, run.runId);
+
+    const response = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+    expect((await response.json()).statusKey).toBe('cancelled');
+  });
+
   test('OIDC 中心切租户并返回 Host 后可打开 Agent 运行页', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);

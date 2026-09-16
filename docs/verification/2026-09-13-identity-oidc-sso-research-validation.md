@@ -366,16 +366,16 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 | 项 | 证据 |
 | --- | --- |
-| 基线 | 分支 `main`；记录 HEAD `ff055ab4`（切片 168 前）；默认 `legacy` 用户名密码登录不变 |
+| 基线 | 分支 `main`；记录 HEAD `2730fc58`（切片 169 前）；默认 `legacy` 用户名密码登录不变 |
 | 启用方式 | `VITE_IDENTITY_AUTH_MODE=oidc-center`；`VITE_IDENTITY_OIDC_CLIENT_ID` 默认 `admin-spa`；样例见 [`ui/admin/.env.example`](../../ui/admin/.env.example) 与 [getting-started §3.1](../development/getting-started.md#31-vue-管理端) |
 | 登录／回调 | `oidc-center-login`（PKCE、`#/identity/oidc/callback`）；`OidcCallbackView`；`App.vue` 匿名回调路由走 `router-view` 而非 `LoginView` |
 | 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |
 | 路由守卫 | `selfServicePaths` 含 `/identity/oidc/callback`；已认证用户无需导航下发即可进入回调页 |
 | 切租户 | `session-oidc-center-switch-tenant.test.ts`：OIDC 会话成功切换后替换内存 token 并重载授权快照；API 返回 `identity.oidc_context_switch_not_supported` 时保留 Host 上下文与 refresh 凭据 |
 | 并发刷新 | `session-oidc-center-restore.test.ts`：并行 `restore` 时 token 交换经 `sessionRefreshCoordinator` 串行化，不出现重叠 `/connect/token` 请求（V09/V18 回归） |
-| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：**57** 项：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、工作流待办页与 `/api/v1/workflow/todos/mine` 正／负 API 探针、同意／驳回操作（§6 审批探针）、Agent 工具页与 `/api/v1/ai/agent-tools` 正／负 API 探针（§6 V12/V21）、Agent 运行页 UI 创建／加载／取消排队运行（Host／租户／切租户返回 Host）、后台任务定义页与 `/api/v1/jobs/host-definitions` 正／负 API 探针、触发操作、退出／强制下线后 access token 无法再次触发任务或列举定义（§6 后台任务探针）、OIDC 创建并读取／取消排队 Agent Run 正探针、退出／强制下线后已排队 Agent Run 无法读取／取消／恢复／新建（§6 后台任务绑定探针）、切租户并返回 Host（含往返后工作流待办／Agent 工具／后台任务定义／Agent Run API 与 Agent 运行页探针）、租户内受保护页面（含 Agent 运行页）与切租户后工作流待办／Agent 工具／后台任务定义／Agent Run API 探针（§6 上下文切换）、退出后受保护路由回登录（含 Agent 运行页）／access token 与 refresh 拒绝、强制下线后 access token／refresh 拒绝且无法用已撤销 refresh 恢复（§6 在线会话探针））；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
+| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：**58** 项：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、工作流待办页与 `/api/v1/workflow/todos/mine` 正／负 API 探针、同意／驳回操作（§6 审批探针）、Agent 工具页与 `/api/v1/ai/agent-tools` 正／负 API 探针（§6 V12/V21）、Agent 运行页 UI 创建／加载／取消排队运行（Host／租户／切租户返回 Host）、后台任务定义页与 `/api/v1/jobs/host-definitions` 正／负 API 探针、触发操作、退出／强制下线后 access token 无法再次触发任务或列举定义（§6 后台任务探针）、OIDC 创建并读取／取消排队 Agent Run 正探针、退出／强制下线后已排队 Agent Run 无法读取／取消／恢复／新建（§6 后台任务绑定探针）、切租户并返回 Host（含往返后工作流待办／Agent 工具／后台任务定义／Agent Run API 与 Agent 运行页探针）、租户内受保护页面（含 Agent 运行页）与切租户后工作流待办／Agent 工具／后台任务定义／Agent Run API 探针（§6 上下文切换）、退出后受保护路由回登录（含 Agent 运行页）／access token 与 refresh 拒绝、强制下线后 access token／refresh 拒绝且无法用已撤销 refresh 恢复（§6 在线会话探针））；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
 | 并行回退 | [getting-started §3.1](../development/getting-started.md#31-vue-管理端) 记录移除 `VITE_IDENTITY_AUTH_MODE` 后回到 legacy 表单的本地验证步骤；`vue-admin` `auth-smoke` 断言遗留 `fullnet.admin.oidc.refresh` 不阻断 legacy 密码登录、登录后不写入新 OIDC 凭据，且刷新后仍通过 Refresh Cookie 恢复 legacy 会话 |
-| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **35/35**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11**；`admin-real-stack` `spec-contracts` 治理测试登记 oidc-center 项目与 §6 探针契约；E2E 聚焦入口 `pnpm test:e2e:real:oidc-center`（**57** 用例，待 CI／本机真实栈执行） |
+| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **35/35**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11**；`admin-real-stack` `spec-contracts` 治理测试登记 oidc-center 项目与 §6 探针契约；E2E 聚焦入口 `pnpm test:e2e:real:oidc-center`（**58** 用例，待 CI／本机真实栈执行） |
 | 未验证 | 真实栈 E2E 未在本机执行（API `5149` 未就绪）；`main` push 时 CI `real-stack-e2e` 通过 `pnpm test:e2e:real` 执行 legacy 与 oidc-center 全量 Playwright 项目（治理测试已登记，fresh TRX 证据待 push 后采集）；§6 三组入口**全量**验收、能力状态 `Verified` 升级 |
 
 **§6 最小矩阵（E2E 探针编写状态，待 CI 执行）：**
@@ -383,7 +383,7 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | 入口组 | 已编写探针 |
 | --- | --- |
 | 在线会话管理 | 应用退出／强制下线后 access／refresh 拒绝、四类受保护路由回登录（`OIDC_CENTER_PROTECTED_ROUTE_PROBES`，含 Agent 运行页）、本地凭据与中心 Cookie 清理对称探针、已撤销 refresh 无法恢复；强撤独立 API 负探针与 `revokeCurrentOidcCenterSession` 辅助 |
-| 上下文切换 | 切租户后工作流／Agent 工具／后台任务／Agent Run API（含取消）与 Agent 运行页打开／UI 创建／加载／取消；切租户并返回 Host 后四类 API 往返与 Agent 运行页打开／UI 创建／加载／取消；切租户后创建的 Agent Run 在退出／强撤后绑定失效 |
+| 上下文切换 | 切租户后工作流／Agent 工具／后台任务／Agent Run API（含取消）与 Agent 运行页打开／UI 创建／加载／取消；切租户并返回 Host 后四类 API 往返（含取消）与 Agent 运行页打开／UI 创建／加载／取消；切租户后创建的 Agent Run 在退出／强撤后绑定失效 |
 | 工具／审批／后台任务 | UI 页面与操作（同意／驳回、任务触发、Agent 工具／Agent 运行页三上下文打开、UI 创建与三上下文加载／取消运行）；工作流／Agent 工具／后台任务定义与执行历史 API 正／负探针；OIDC 创建并读取／取消排队 Agent Run API 正探针；退出／强撤后触发、列举定义与执行历史绑定失效；已排队 Agent Run 读取／取消／恢复／新建绑定失效（`expectRevokedOidcCenterAgentRunAccessRejected`） |
 
 **§6 退出／强撤对称性（E2E 探针编写状态）：**
