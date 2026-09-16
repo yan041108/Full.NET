@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect } from '@playwright/test';
 import { adminOrigin, expandMainNavigation, loginHostAdminAccessToken } from './real-stack-auth.mjs';
 import {
@@ -9,6 +10,7 @@ import {
 
 export const ADMIN_OIDC_CENTER_CLIENT_ID = 'e2e-admin-oidc-spa';
 export const ADMIN_OIDC_CENTER_ORIGIN = 'http://localhost:25175';
+export const E2E_AGENT_RUN_DEFINITION_KEY = 'fullnet-single-text-v1';
 
 /** 构造 oidc-center 真实栈 API 请求的授权与 Origin 头。 */
 export function buildOidcCenterApiHeaders(accessToken, adminOrigin = ADMIN_OIDC_CENTER_ORIGIN) {
@@ -76,6 +78,57 @@ export async function createE2eHostPingJobDefinition(
   });
   expect(createResponse.status()).toBe(201);
   return createResponse.json();
+}
+
+/** 通过 legacy Host 令牌创建 Agent 模型配置，供 oidc-center Agent Run 探针复用。 */
+export async function createE2eAiAgentModelConfig(request, { displayName }) {
+  const apiBase = resolveApiBase();
+  const setupToken = await loginHostAdminAccessToken(request, 'vue');
+  const setupOrigin = adminOrigin('vue');
+  const createResponse = await request.post(`${apiBase}/api/v1/ai/model-configs`, {
+    headers: {
+      authorization: `Bearer ${setupToken}`,
+      'content-type': 'application/json',
+      origin: setupOrigin
+    },
+    data: {
+      tenantId: null,
+      name: displayName,
+      providerKey: 'ollama',
+      endpointBaseUrl: 'https://provider.test',
+      modelId: 'model',
+      apiKey: null,
+      organizationId: null,
+      isDefault: false,
+      isEnabled: true
+    }
+  });
+  expect(createResponse.status()).toBe(201);
+  return createResponse.json();
+}
+
+/** 使用 oidc-center access token 创建排队中的 Agent Run。 */
+export async function createOidcCenterQueuedAgentRun(
+  request,
+  accessToken,
+  { modelConfigId, prompt }
+) {
+  const apiBase = resolveApiBase();
+  const createResponse = await request.post(`${apiBase}/api/v1/ai/agent/runs`, {
+    headers: buildOidcCenterJsonHeaders(accessToken),
+    data: {
+      clientRequestId: randomUUID(),
+      definitionKey: E2E_AGENT_RUN_DEFINITION_KEY,
+      modelConfigId,
+      prompt,
+      inputTokenLimit: 100,
+      outputTokenLimit: 100
+    }
+  });
+  expect(createResponse.status()).toBe(202);
+  const body = await createResponse.json();
+  expect(body.runId).toBeTruthy();
+  return body;
 }
 
 export function resolveAdminOidcCenterRedirectUri(adminOrigin) {

@@ -3,7 +3,9 @@ import {
   ADMIN_OIDC_CENTER_CLIENT_ID,
   ADMIN_OIDC_CENTER_ORIGIN,
   captureOidcAccessTokenFromOverviewProbe,
+  createE2eAiAgentModelConfig,
   createE2eHostPingJobDefinition,
+  createOidcCenterQueuedAgentRun,
   ensureAdminOidcCenterClient,
   expectOidcApiGetStatus,
   expectOidcApiPostStatus,
@@ -391,6 +393,83 @@ test.describe('Vue admin oidc-center auth', () => {
       request,
       oidcAccessToken,
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      401
+    );
+  });
+
+  test('OIDC 中心退出后已失效 access token 无法读取或取消已排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Logout Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center post-logout agent run rejection'
+    });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      401
+    );
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/cancel`,
+      401
+    );
+  });
+
+  test('OIDC 中心强制下线后已失效 access token 无法读取或取消已排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Revoke Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center post-revoke agent run rejection'
+    });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      401
+    );
+    await expectOidcApiPostStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/cancel`,
       401
     );
   });
