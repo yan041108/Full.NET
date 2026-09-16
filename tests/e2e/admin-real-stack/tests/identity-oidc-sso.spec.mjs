@@ -3,9 +3,12 @@ import {
   CENTER_COOKIE_NAME,
   OIDC_CLIENT_A,
   OIDC_CLIENT_B,
+  buildAuthorizeUrl,
   completeClientAuthorization,
+  createPkcePair,
   expectMeEndpointAcceptsToken,
   expectMeEndpointRejectsToken,
+  expectTokenEndpointRejectsInvalidCode,
   listAvailableTenants,
   readAccessTokenFingerprint,
   resolveApiBase,
@@ -104,13 +107,54 @@ test.describe('Identity OIDC browser SSO', () => {
   });
 
   test('无效 redirect_uri 不会发放授权码', async ({ page }) => {
+    const { challenge } = createPkcePair();
     const response = await page.goto(
-      `${apiBase}/connect/authorize?client_id=${OIDC_CLIENT_A.clientId}`
-      + '&redirect_uri=http%3A%2F%2Fevil.example%2Fcallback'
-      + '&response_type=code&scope=openid%20profile&state=state&nonce=nonce'
-      + '&code_challenge=challenge&code_challenge_method=S256'
+      buildAuthorizeUrl({
+        apiBase,
+        clientId: OIDC_CLIENT_A.clientId,
+        redirectUri: 'http://evil.example/callback',
+        challenge
+      })
     );
     expect(response?.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('未知 client_id 不会发放授权码', async ({ page }) => {
+    const { challenge } = createPkcePair();
+    const response = await page.goto(
+      buildAuthorizeUrl({
+        apiBase,
+        clientId: 'e2e-oidc-unknown-client',
+        redirectUri: OIDC_CLIENT_A.redirectUri,
+        challenge
+      })
+    );
+    expect(response?.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('未注册 scope 不会发放授权码', async ({ page }) => {
+    const { challenge } = createPkcePair();
+    const response = await page.goto(
+      buildAuthorizeUrl({
+        apiBase,
+        clientId: OIDC_CLIENT_A.clientId,
+        redirectUri: OIDC_CLIENT_A.redirectUri,
+        challenge,
+        scope: 'orders.read'
+      })
+    );
+    expect(response?.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('畸形 Bearer 不能访问业务 API', async ({ request }) => {
+    await expectMeEndpointRejectsToken(request, 'not-a-jwt');
+  });
+
+  test('无效授权码换票会被拒绝', async ({ request }) => {
+    await expectTokenEndpointRejectsInvalidCode(request, {
+      apiBase,
+      client: OIDC_CLIENT_A
+    });
   });
 
   test('OIDC 访问令牌可切换租户上下文并轮换旧令牌', async ({ page }) => {

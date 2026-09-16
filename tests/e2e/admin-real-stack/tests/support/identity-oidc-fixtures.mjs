@@ -33,6 +33,28 @@ export function createPkcePair() {
   return { verifier, challenge };
 }
 
+export function buildAuthorizeUrl({
+  apiBase,
+  clientId,
+  redirectUri,
+  challenge,
+  scope = 'openid profile',
+  extraParams = {}
+}) {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope,
+    state: 'state',
+    nonce: 'nonce',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    ...extraParams
+  });
+  return `${apiBase}/connect/authorize?${params.toString()}`;
+}
+
 function base64UrlEncode(buffer) {
   return buffer
     .toString('base64')
@@ -174,4 +196,30 @@ export async function switchTenantContext(request, accessToken, tenantId) {
   expect(typeof body.accessToken).toBe('string');
   expect(body.accessToken.length).toBeGreaterThan(0);
   return body;
+}
+
+export async function expectTokenEndpointRejectsInvalidCode(request, {
+  apiBase,
+  client,
+  code = 'invalid-authorization-code'
+}) {
+  const { verifier } = createPkcePair();
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: client.redirectUri,
+    client_id: client.clientId,
+    code_verifier: verifier
+  });
+  if (client.clientSecret) {
+    body.set('client_secret', client.clientSecret);
+  }
+
+  const response = await request.post(`${apiBase}/connect/token`, {
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    data: body.toString()
+  });
+  expect(response.ok()).toBeFalsy();
+  const payload = await response.text();
+  expect(payload).toContain('error');
 }
