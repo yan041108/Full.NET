@@ -32,6 +32,8 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
         using var client = factory.CreateClientForHost("localhost");
         await VerifyDuplicateSingleRevokeIsIdempotentAsync(client, publisher, cancellationToken);
         await VerifyDuplicateRevokeAllIsIdempotentAsync(factory, publisher, cancellationToken);
+        await VerifyDuplicateApplicationLogoutIsIdempotentAsync(client, publisher, cancellationToken);
+        await VerifyDuplicateCenterLogoutIsIdempotentAsync(client, publisher, cancellationToken);
     }
 
     private static async Task<HostUserResponse> CreateHostUserAsync(
@@ -163,6 +165,119 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
             firstPayload.RevokedSessionCount,
             publisher.PublishAttempts,
             "Revoke-all must publish one realtime notification per revoked session only once.");
+    }
+
+    private static async Task VerifyDuplicateApplicationLogoutIsIdempotentAsync(
+        HttpClient client,
+        CountingRealtimePublisher publisher,
+        CancellationToken cancellationToken)
+    {
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));
+
+        publisher.Reset();
+        using var firstLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/logout/application",
+            new
+            {
+                clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
+            });
+        using var firstLogoutResponse = await client.SendAsync(firstLogoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, firstLogoutResponse.StatusCode);
+
+        using var secondLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/logout/application",
+            new
+            {
+                clientId = IdentityOidcRelyingPartyFixture.PublicClientId,
+            });
+        using var secondLogoutResponse = await client.SendAsync(secondLogoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, secondLogoutResponse.StatusCode);
+        Assert.AreEqual(
+            1,
+            publisher.PublishAttempts,
+            "Duplicate application logout must not re-emit realtime session notifications.");
+
+        var refreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            flow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(refreshResult.IsSuccessStatusCode);
+    }
+
+    private static async Task VerifyDuplicateCenterLogoutIsIdempotentAsync(
+        HttpClient client,
+        CountingRealtimePublisher publisher,
+        CancellationToken cancellationToken)
+    {
+        var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        var confidentialFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            client,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            "admin",
+            FullNetApiFactory.TestPassword,
+            requestOfflineAccess: true,
+            cancellationToken: cancellationToken);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(confidentialFlow.RefreshToken));
+
+        publisher.Reset();
+        using var firstLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/logout");
+        using var firstLogoutResponse = await client.SendAsync(firstLogoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, firstLogoutResponse.StatusCode);
+        Assert.AreEqual(
+            2,
+            publisher.PublishAttempts,
+            "Center logout must publish one realtime notification per active application session.");
+
+        using var secondLogoutRequest = IdentityOidcSessionTestSupport.CreateSessionWriteRequest(
+            HttpMethod.Post,
+            "/api/v1/identity/oidc/logout");
+        using var secondLogoutResponse = await client.SendAsync(secondLogoutRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NoContent, secondLogoutResponse.StatusCode);
+        Assert.AreEqual(
+            2,
+            publisher.PublishAttempts,
+            "Duplicate center logout must not re-emit realtime session notifications.");
+
+        var publicRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            publicFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            null,
+            cancellationToken);
+        Assert.IsFalse(publicRefreshResult.IsSuccessStatusCode);
+        var confidentialRefreshResult = await IdentityOidcRelyingPartyFixture.ExchangeRefreshTokenAsync(
+            client,
+            confidentialFlow.RefreshToken!,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientId,
+            IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
+            cancellationToken);
+        Assert.IsFalse(confidentialRefreshResult.IsSuccessStatusCode);
     }
 
     private static HttpRequestMessage CreateRevokeRequest(Guid sessionId, string adminToken)
