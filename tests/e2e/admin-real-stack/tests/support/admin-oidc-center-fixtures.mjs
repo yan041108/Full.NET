@@ -143,6 +143,28 @@ export async function cancelOidcCenterQueuedAgentRun(request, accessToken, runId
   return response.json();
 }
 
+/** 断言 oidc-center access token 无法恢复当前状态的 Agent Run。 */
+export async function expectOidcCenterAgentRunResumeRejected(request, accessToken, runId) {
+  const apiBase = resolveApiBase();
+  await expectOidcApiPostStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs/${runId}/resume`,
+    422
+  );
+}
+
+/** 断言 oidc-center access token 无法再次取消 Agent Run。 */
+export async function expectOidcCenterAgentRunCancelRejected(request, accessToken, runId) {
+  const apiBase = resolveApiBase();
+  await expectOidcApiPostStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs/${runId}/cancel`,
+    422
+  );
+}
+
 /** 断言已撤销 OIDC 会话无法继续访问或新建 Agent Run。 */
 export async function expectRevokedOidcCenterAgentRunAccessRejected(
   request,
