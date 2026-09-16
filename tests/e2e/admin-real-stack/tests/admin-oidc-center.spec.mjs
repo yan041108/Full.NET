@@ -3,7 +3,9 @@ import {
   ADMIN_OIDC_CENTER_CLIENT_ID,
   ADMIN_OIDC_CENTER_ORIGIN,
   buildOidcCenterApiHeaders,
+  buildOidcCenterJsonHeaders,
   captureOidcAccessTokenFromOverviewProbe,
+  createE2eHostPingJobDefinition,
   ensureAdminOidcCenterClient,
   findActiveOidcCenterSession,
   loginAdminViaOidcCenter,
@@ -180,6 +182,47 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(afterLogout.status()).toBe(401);
   });
 
+  test('OIDC 中心退出后 access token 无法访问后台任务执行历史 API', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.exec.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Logout Exec ${stamp}`,
+      description: 'oidc-center post-logout executions list rejection'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    const triggerResponse = await request.post(
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      {
+        headers: buildOidcCenterJsonHeaders(accessToken),
+        data: {}
+      }
+    );
+    expect(triggerResponse.status()).toBe(201);
+    const execution = await triggerResponse.json();
+
+    const beforeLogout = await request.get(
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      { headers: buildOidcCenterApiHeaders(accessToken) }
+    );
+    expect(beforeLogout.status()).toBe(200);
+    expect((await beforeLogout.json()).items?.some(item => item.id === execution.id)).toBe(true);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    const afterLogout = await request.get(
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      { headers: buildOidcCenterApiHeaders(accessToken) }
+    );
+    expect(afterLogout.status()).toBe(401);
+  });
+
   test('OIDC 中心 Host 上下文可完成工作流待办同意', async ({ page, request }) => {
     test.setTimeout(120_000);
     const accessToken = await loginHostAdminAccessToken(request, 'vue');
@@ -236,25 +279,11 @@ test.describe('Vue admin oidc-center auth', () => {
     const stamp = Date.now().toString(36);
     const jobKey = `e2e.oidc.${stamp}`.slice(0, 32);
     const displayName = `E2E OIDC Ping ${stamp}`;
-
-    const createResponse = await request.post(`${apiBase}/api/v1/jobs/host-definitions`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        'content-type': 'application/json',
-        origin: setupOrigin
-      },
-      data: {
-        jobKey,
-        handlerKind: 'ping',
-        args: null,
-        displayName,
-        description: 'oidc-center trigger probe',
-        groupName: 'e2e',
-        allowConcurrentExecutions: false
-      }
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName,
+      description: 'oidc-center trigger probe'
     });
-    expect(createResponse.status()).toBe(201);
-    const definition = await createResponse.json();
 
     await loginAdminViaOidcCenter(page, credentials);
     await clickMainNavLink(page, /任务定义/, '任务');
@@ -293,29 +322,13 @@ test.describe('Vue admin oidc-center auth', () => {
   test('OIDC 中心退出后已失效 access token 无法触发后台任务', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
-    const setupOrigin = 'http://localhost:25173';
-    const setupToken = await loginHostAdminAccessToken(request, 'vue');
     const stamp = Date.now().toString(36);
     const jobKey = `e2e.oidc.out.${stamp}`.slice(0, 32);
-
-    const createResponse = await request.post(`${apiBase}/api/v1/jobs/host-definitions`, {
-      headers: {
-        authorization: `Bearer ${setupToken}`,
-        'content-type': 'application/json',
-        origin: setupOrigin
-      },
-      data: {
-        jobKey,
-        handlerKind: 'ping',
-        args: null,
-        displayName: `E2E OIDC Logout Job ${stamp}`,
-        description: 'oidc-center post-logout job trigger rejection',
-        groupName: 'e2e',
-        allowConcurrentExecutions: false
-      }
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Logout Job ${stamp}`,
+      description: 'oidc-center post-logout job trigger rejection'
     });
-    expect(createResponse.status()).toBe(201);
-    const definition = await createResponse.json();
 
     await loginAdminViaOidcCenter(page, credentials);
     const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
@@ -323,10 +336,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const triggerBeforeLogout = await request.post(
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
-        headers: {
-          ...buildOidcCenterApiHeaders(oidcAccessToken),
-          'content-type': 'application/json'
-        },
+        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
         data: {}
       }
     );
@@ -338,10 +348,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const triggerAfterLogout = await request.post(
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
-        headers: {
-          ...buildOidcCenterApiHeaders(oidcAccessToken),
-          'content-type': 'application/json'
-        },
+        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
         data: {}
       }
     );
@@ -351,29 +358,13 @@ test.describe('Vue admin oidc-center auth', () => {
   test('OIDC 中心强制下线后已失效 access token 无法触发后台任务', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
-    const setupOrigin = 'http://localhost:25173';
-    const setupToken = await loginHostAdminAccessToken(request, 'vue');
     const stamp = Date.now().toString(36);
     const jobKey = `e2e.oidc.rev.${stamp}`.slice(0, 32);
-
-    const createResponse = await request.post(`${apiBase}/api/v1/jobs/host-definitions`, {
-      headers: {
-        authorization: `Bearer ${setupToken}`,
-        'content-type': 'application/json',
-        origin: setupOrigin
-      },
-      data: {
-        jobKey,
-        handlerKind: 'ping',
-        args: null,
-        displayName: `E2E OIDC Revoke Job ${stamp}`,
-        description: 'oidc-center post-revoke job trigger rejection',
-        groupName: 'e2e',
-        allowConcurrentExecutions: false
-      }
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Revoke Job ${stamp}`,
+      description: 'oidc-center post-revoke job trigger rejection'
     });
-    expect(createResponse.status()).toBe(201);
-    const definition = await createResponse.json();
 
     await loginAdminViaOidcCenter(page, credentials);
     const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
@@ -381,10 +372,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const triggerBeforeRevoke = await request.post(
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
-        headers: {
-          ...buildOidcCenterApiHeaders(oidcAccessToken),
-          'content-type': 'application/json'
-        },
+        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
         data: {}
       }
     );
@@ -405,10 +393,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const triggerAfterRevoke = await request.post(
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
       {
-        headers: {
-          ...buildOidcCenterApiHeaders(oidcAccessToken),
-          'content-type': 'application/json'
-        },
+        headers: buildOidcCenterJsonHeaders(oidcAccessToken),
         data: {}
       }
     );
@@ -630,5 +615,13 @@ test.describe('Vue admin oidc-center auth', () => {
       }
     );
     expect(jobsResponse.status()).toBe(401);
+
+    const executionsResponse = await request.get(
+      `${resolveApiBase()}/api/v1/jobs/host-executions?page=1&pageSize=20`,
+      {
+        headers: buildOidcCenterApiHeaders(accessToken)
+      }
+    );
+    expect(executionsResponse.status()).toBe(401);
   });
 });

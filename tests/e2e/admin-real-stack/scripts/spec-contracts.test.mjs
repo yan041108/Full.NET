@@ -268,8 +268,10 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /loginAdminViaOidcCenter/u);
   assert.match(source, /captureOidcAccessTokenFromOverviewProbe/u);
   assert.match(source, /buildOidcCenterApiHeaders/u);
+  assert.match(source, /createE2eHostPingJobDefinition/u);
   assert.doesNotMatch(source, /waitForRequest\([^)]*\/api\/v1\/me/u);
   assert.match(source, /无法访问后台任务定义 API/u);
+  assert.match(source, /无法访问后台任务执行历史 API/u);
   assert.match(source, /openTodoAndAct/u);
   assert.match(source, /\/api\/v1\/workflow\/todos\/mine/u);
   assert.match(source, /可访问工作流待办 API/u);
@@ -295,5 +297,5 @@ test('admin-oidc-center 真实栈用例数量与 T08 文档登记一致', async 
     'utf8'
   );
   const count = (source.match(/^\s*test\(/gm) ?? []).length;
-  assert.equal(count, 28);
+  assert.equal(count, 29);
 });

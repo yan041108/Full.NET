@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { expandMainNavigation, loginHostAdminAccessToken } from './real-stack-auth.mjs';
+import { adminOrigin, expandMainNavigation, loginHostAdminAccessToken } from './real-stack-auth.mjs';
 import { resolveApiBase } from './identity-oidc-fixtures.mjs';
 
 export const ADMIN_OIDC_CENTER_CLIENT_ID = 'e2e-admin-oidc-spa';
@@ -11,6 +11,41 @@ export function buildOidcCenterApiHeaders(accessToken, adminOrigin = ADMIN_OIDC_
     authorization: `Bearer ${accessToken}`,
     origin: adminOrigin
   };
+}
+
+export function buildOidcCenterJsonHeaders(accessToken, adminOrigin = ADMIN_OIDC_CENTER_ORIGIN) {
+  return {
+    ...buildOidcCenterApiHeaders(accessToken, adminOrigin),
+    'content-type': 'application/json'
+  };
+}
+
+/** 通过 legacy Host 令牌创建 ping 后台任务定义，供 oidc-center 探针复用。 */
+export async function createE2eHostPingJobDefinition(
+  request,
+  { jobKey, displayName, description, groupName = 'e2e' }
+) {
+  const apiBase = resolveApiBase();
+  const setupToken = await loginHostAdminAccessToken(request, 'vue');
+  const setupOrigin = adminOrigin('vue');
+  const createResponse = await request.post(`${apiBase}/api/v1/jobs/host-definitions`, {
+    headers: {
+      authorization: `Bearer ${setupToken}`,
+      'content-type': 'application/json',
+      origin: setupOrigin
+    },
+    data: {
+      jobKey,
+      handlerKind: 'ping',
+      args: null,
+      displayName,
+      description,
+      groupName,
+      allowConcurrentExecutions: false
+    }
+  });
+  expect(createResponse.status()).toBe(201);
+  return createResponse.json();
 }
 
 export function resolveAdminOidcCenterRedirectUri(adminOrigin) {
