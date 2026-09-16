@@ -132,13 +132,7 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('OIDC 中心退出后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     await logoutAdminShell(page);
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
@@ -154,13 +148,7 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('OIDC 中心退出后 access token 无法访问工作流待办 API', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const beforeLogout = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
       headers: {
@@ -320,13 +308,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const definition = await createResponse.json();
 
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const oidcAccessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(oidcAccessToken).toBeTruthy();
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const triggerBeforeLogout = await request.post(
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
@@ -386,13 +368,7 @@ test.describe('Vue admin oidc-center auth', () => {
     const definition = await createResponse.json();
 
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const oidcAccessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(oidcAccessToken).toBeTruthy();
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const triggerBeforeRevoke = await request.post(
       `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
@@ -453,13 +429,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await page.getByRole('button', { name: '返回 Host' }).click();
     await expectVisibleCurrentContext(page, 'Full.NET Host');
 
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
       headers: {
@@ -479,13 +449,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await page.getByRole('button', { name: '返回 Host' }).click();
     await expectVisibleCurrentContext(page, 'Full.NET Host');
 
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
       headers: {
@@ -504,13 +468,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await page.getByRole('button', { name: '返回 Host' }).click();
     await expectVisibleCurrentContext(page, 'Full.NET Host');
 
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(
       `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
@@ -550,13 +508,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
     await expectVisibleCurrentContext(page, 'Full.NET Local');
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
       headers: {
@@ -573,13 +525,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
     await expectVisibleCurrentContext(page, 'Full.NET Local');
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
       headers: {
@@ -595,13 +541,7 @@ test.describe('Vue admin oidc-center auth', () => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
     await expectVisibleCurrentContext(page, 'Full.NET Local');
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(
       `${resolveApiBase()}/api/v1/jobs/host-definitions?page=1&pageSize=20`,
@@ -629,13 +569,7 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(request =>
-      request.url().includes('/api/v1/me') && request.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
     expect(refreshCredentialRaw).toBeTruthy();
@@ -658,13 +592,7 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(request =>
-      request.url().includes('/api/v1/me') && request.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
     expect(refreshCredentialRaw).toBeTruthy();
