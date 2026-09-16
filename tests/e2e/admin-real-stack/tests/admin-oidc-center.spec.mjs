@@ -17,8 +17,15 @@ import {
   clickMainNavLink,
   enterDevelopmentTenant,
   expectVisibleCurrentContext,
+  loginHostAdminAccessToken,
   prepareHostUserCredentialsForOidc
 } from './support/real-stack-auth.mjs';
+import {
+  getInstance,
+  openTodoAndAct,
+  publishApprovalAssets,
+  startInstance
+} from './support/workflow-approval-fixtures.mjs';
 
 const adminOrigin = 'http://localhost:25175';
 let credentials = {
@@ -90,6 +97,26 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByRole('heading', { name: 'Agent 工具', exact: true }))
       .toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('tab', { name: '静态目录' })).toBeVisible();
+  });
+
+  test('OIDC 中心 Host 上下文可完成工作流待办同意', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const accessToken = await loginHostAdminAccessToken(request, 'vue');
+    const assets = await publishApprovalAssets(request, 'vue', accessToken);
+    const instance = await startInstance(
+      request,
+      'vue',
+      accessToken,
+      assets.versionId,
+      'oidc-center approved'
+    );
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await clickMainNavLink(page, /我的待办/, '工作流');
+    await openTodoAndAct(page, instance.id, 'approved', 'approve');
+    await expect.poll(async () =>
+      (await getInstance(request, 'vue', accessToken, instance.id)).statusKey
+    ).toBe('completed');
   });
 
   test('OIDC 中心登录后可切换 Development 租户并返回 Host', async ({ page }) => {
