@@ -152,3 +152,26 @@ export async function expectMeEndpointRejectsToken(request, accessToken) {
   });
   expect(response.status()).toBe(401);
 }
+
+export async function listAvailableTenants(request, accessToken) {
+  const response = await request.get(`${resolveApiBase()}/api/v1/tenancy/available`, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  expect(response.status()).toBe(200);
+  return response.json();
+}
+
+export async function switchTenantContext(request, accessToken, tenantId) {
+  const response = await request.put(`${resolveApiBase()}/api/v1/tenancy/context`, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json'
+    },
+    data: { tenantId }
+  });
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  expect(typeof body.accessToken).toBe('string');
+  expect(body.accessToken.length).toBeGreaterThan(0);
+  return body;
+}

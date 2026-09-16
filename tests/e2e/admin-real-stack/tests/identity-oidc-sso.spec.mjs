@@ -6,9 +6,11 @@ import {
   completeClientAuthorization,
   expectMeEndpointAcceptsToken,
   expectMeEndpointRejectsToken,
+  listAvailableTenants,
   readAccessTokenFingerprint,
   resolveApiBase,
-  resolveRpUrl
+  resolveRpUrl,
+  switchTenantContext
 } from './support/identity-oidc-fixtures.mjs';
 
 const username = process.env.FULLNET_E2E_USERNAME ?? 'admin';
@@ -109,5 +111,30 @@ test.describe('Identity OIDC browser SSO', () => {
       + '&code_challenge=challenge&code_challenge_method=S256'
     );
     expect(response?.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test('OIDC 访问令牌可切换租户上下文并轮换旧令牌', async ({ page }) => {
+    const clientA = await completeClientAuthorization(page, OIDC_CLIENT_A, {
+      username,
+      password,
+      expectLoginForm: true
+    });
+    const hostToken = clientA.token.access_token;
+    await expectMeEndpointAcceptsToken(page.request, hostToken);
+
+    const tenants = await listAvailableTenants(page.request, hostToken);
+    const localTenant = tenants.find(entry => entry.identifier === 'local') ?? tenants[0];
+    expect(localTenant?.id).toBeTruthy();
+
+    const switched = await switchTenantContext(page.request, hostToken, localTenant.id);
+    expect(switched.context?.tenantId).toBe(localTenant.id);
+    await expectMeEndpointAcceptsToken(page.request, switched.accessToken);
+    await expectMeEndpointRejectsToken(page.request, hostToken);
+
+    const restored = await switchTenantContext(page.request, switched.accessToken, null);
+    expect(restored.context?.tenantId ?? null).toBeNull();
+    expect(restored.context?.scope).toBe('host');
+    await expectMeEndpointAcceptsToken(page.request, restored.accessToken);
+    await expectMeEndpointRejectsToken(page.request, switched.accessToken);
   });
 });
