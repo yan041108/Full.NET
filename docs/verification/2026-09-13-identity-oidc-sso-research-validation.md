@@ -362,6 +362,21 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **未关闭事项：** OIDC 切租户仍返回 `identity.oidc_context_switch_not_supported`；UserInfo／换码／刷新与权威撤销的完整矩阵还需继续审查和回归；双库实际 JWT、真实防伪交互、浏览器 SSO、多实例和 Linux 原生门禁需在后续授权提交对应的 CI 验证。未提交、推送或部署，不把本轮 Unit／分析构建升级为 P0 Go 或 Verified。继续按[唯一执行计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)推进。
 
+## 13. T08 Vue 消费与并行入口（2026-09-16）
+
+| 项 | 证据 |
+| --- | --- |
+| 基线 | 分支 `main`；记录 HEAD `23636f7c`；默认 `legacy` 用户名密码登录不变 |
+| 启用方式 | `VITE_IDENTITY_AUTH_MODE=oidc-center`；`VITE_IDENTITY_OIDC_CLIENT_ID` 默认 `admin-spa`；样例见 [`ui/admin/.env.example`](../../ui/admin/.env.example) 与 [getting-started §3.1](../development/getting-started.md#31-vue-管理端) |
+| 登录／回调 | `oidc-center-login`（PKCE、`#/identity/oidc/callback`）；`OidcCallbackView`；`App.vue` 匿名回调路由走 `router-view` 而非 `LoginView` |
+| 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |
+| 路由守卫 | `selfServicePaths` 含 `/identity/oidc/callback`；已认证用户无需导航下发即可进入回调页 |
+| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：登录、刷新、退出、强制下线）；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
+| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **32/32**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11** |
+| 未验证 | 真实栈 E2E 本轮未在本机执行；§6 三组入口全量验收、旧入口并行回退演练、切租户后业务 API 矩阵、能力状态 `Verified` 升级 |
+
+**T08 结论：** Vue 可选 `oidc-center` 消费路径与 legacy 并行入口在单元层成立；生产启用与 P3 退出条件仍依赖真实栈 E2E、§6 回归与能力状态独立门禁，不得由单元测试单独升级为 `Verified`。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs
