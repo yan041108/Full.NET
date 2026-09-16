@@ -119,6 +119,26 @@ test.describe('Vue admin oidc-center auth', () => {
     ).toBe('completed');
   });
 
+  test('OIDC 中心 Host 上下文可完成工作流待办驳回', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const accessToken = await loginHostAdminAccessToken(request, 'vue');
+    const assets = await publishApprovalAssets(request, 'vue', accessToken);
+    const instance = await startInstance(
+      request,
+      'vue',
+      accessToken,
+      assets.versionId,
+      'oidc-center rejected'
+    );
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await clickMainNavLink(page, /我的待办/, '工作流');
+    await openTodoAndAct(page, instance.id, 'rejected', 'reject');
+    await expect.poll(async () =>
+      (await getInstance(request, 'vue', accessToken, instance.id)).statusKey
+    ).toBe('rejected');
+  });
+
   test('OIDC 中心 Host 上下文可打开后台任务定义页', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await clickMainNavLink(page, /任务定义/, '任务');
