@@ -186,3 +186,26 @@ export async function revokeOnlineSessionById(request, { adminOrigin, sessionId 
   expect(response.ok()).toBeTruthy();
   return response.json();
 }
+
+/** 等待实时连接后强制下线当前 oidc-center 会话，并断言回到登录页。 */
+export async function revokeCurrentOidcCenterSession(
+  page,
+  request,
+  {
+    username,
+    adminOrigin = ADMIN_OIDC_CENTER_ORIGIN,
+    clientId = ADMIN_OIDC_CENTER_CLIENT_ID
+  }
+) {
+  await waitForNotificationsRealtimeConnection(page);
+  const session = await findActiveOidcCenterSession(request, {
+    adminOrigin,
+    username,
+    clientId
+  });
+  await revokeOnlineSessionById(request, {
+    adminOrigin,
+    sessionId: session.id
+  });
+  await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 30_000 });
+}
