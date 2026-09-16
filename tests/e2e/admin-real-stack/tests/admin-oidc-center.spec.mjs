@@ -1,0 +1,74 @@
+import { expect, test } from '@playwright/test';
+import {
+  ADMIN_OIDC_CENTER_CLIENT_ID,
+  ensureAdminOidcCenterClient,
+  loginAdminViaOidcCenter,
+  logoutAdminShell
+} from './support/admin-oidc-center-fixtures.mjs';
+import { expectRefreshTokenRejects, resolveApiBase } from './support/identity-oidc-fixtures.mjs';
+import { prepareHostUserCredentialsForOidc } from './support/real-stack-auth.mjs';
+
+const adminOrigin = 'http://localhost:25175';
+let credentials = {
+  username: process.env.FULLNET_E2E_USERNAME ?? 'admin',
+  password: process.env.FULLNET_E2E_PASSWORD ?? 'FullNet!2026Secure'
+};
+
+test.describe.configure({ mode: 'serial' });
+
+test.beforeEach(async ({ page }) => {
+  await page.context().clearCookies();
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('fullnet.admin.locale', 'zh-CN');
+    sessionStorage.clear();
+  });
+});
+
+test.beforeAll(async ({ request }) => {
+  credentials = await prepareHostUserCredentialsForOidc(
+    request,
+    'vue',
+    credentials.username,
+    credentials.password
+  );
+  await ensureAdminOidcCenterClient(request, adminOrigin);
+});
+
+test.describe('Vue admin oidc-center auth', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('OIDC 中心登录后展示动态导航', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await expect(page.getByRole('link', { name: /^工作台$/ })).toBeVisible({
+      timeout: 15_000
+    });
+    const refreshCredential = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
+    expect(refreshCredential).toContain(ADMIN_OIDC_CENTER_CLIENT_ID);
+  });
+
+  test('页面刷新后仍保持认证会话', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await page.reload();
+    await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible({
+      timeout: 30_000
+    });
+  });
+
+  test('应用退出后清理本地凭据并拒绝 refresh token', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
+    expect(refreshCredentialRaw).toBeTruthy();
+    const refreshCredential = JSON.parse(refreshCredentialRaw);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    expect(await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'))).toBeNull();
+
+    await expectRefreshTokenRejects(request, {
+      apiBase: resolveApiBase(),
+      clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+});

@@ -40,13 +40,33 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
       stdout: 'ignore',
       stderr: 'pipe'
+    },
+    {
+      command: 'pnpm --dir ../../.. --filter @fullnet/admin exec vite --host localhost --port 25175 --logLevel error',
+      url: 'http://localhost:25175',
+      reuseExistingServer: !process.env.CI || process.env.FULLNET_E2E_REUSE_SERVER === '1',
+      stdout: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'ignore',
+      stderr: process.env.PLAYWRIGHT_WEBSERVER_LOGS === '1' ? 'pipe' : 'pipe',
+      env: {
+        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_STRICT_CSP: '1',
+        VITE_IDENTITY_AUTH_MODE: 'oidc-center',
+        VITE_IDENTITY_OIDC_CLIENT_ID: 'e2e-admin-oidc-spa'
+      }
     }
   ],
   projects: [
     {
       name: 'vue-admin',
       metadata: { clientKind: 'vue' },
+      testIgnore: '**/admin-oidc-center.spec.mjs',
       use: { baseURL: 'http://localhost:25173' }
+    },
+    {
+      name: 'vue-admin-oidc-center',
+      metadata: { clientKind: 'vue-oidc-center' },
+      testMatch: '**/admin-oidc-center.spec.mjs',
+      use: { baseURL: 'http://localhost:25175' }
     }
   ]
 });
