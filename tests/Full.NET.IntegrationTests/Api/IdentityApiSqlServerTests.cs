@@ -424,6 +424,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_account_lockout_invalidates_protocol_grants_with_sql_server()
+    {
+        await IdentityOidcAccountLockoutAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_revoke_is_idempotent_with_sql_server()
     {
         await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(

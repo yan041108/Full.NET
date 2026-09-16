@@ -424,6 +424,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_account_lockout_invalidates_protocol_grants_with_mysql()
+    {
+        await IdentityOidcAccountLockoutAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_revoke_is_idempotent_with_mysql()
     {
         await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(

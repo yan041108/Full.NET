@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Full.NET.Abstractions.Time;
+using Full.NET.Data.Abstractions;
 using Full.NET.Modules.Identity.Authorization;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
@@ -25,6 +26,7 @@ internal sealed class IdentityOidcAuthorizationService(
     IPermissionSnapshotReader permissionSnapshotReader,
     IOpenIddictApplicationManager applicationManager,
     IdentityOidcClientConfigResolver clientConfigResolver,
+    IQueryExecutor queryExecutor,
     IClock clock,
     IOptions<IdentityOptions> identityOptions,
     IOptions<IdentityOidcOptions> oidcOptions)
@@ -100,6 +102,12 @@ internal sealed class IdentityOidcAuthorizationService(
         if (centerSession is null
             || centerSession.UserId != userId
             || !string.Equals(centerSession.SecurityStamp, securityStamp, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (!await IsUserEligibleForAuthorizationAsync(userId, centerSession.SecurityStamp, cancellationToken)
+                .ConfigureAwait(false))
         {
             return null;
         }
@@ -253,6 +261,22 @@ internal sealed class IdentityOidcAuthorizationService(
 
         await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
             .ConfigureAwait(false);
+    }
+
+    private async Task<bool> IsUserEligibleForAuthorizationAsync(
+        Guid userId,
+        string centerSessionSecurityStamp,
+        CancellationToken cancellationToken)
+    {
+        var user = await queryExecutor.QuerySingleOrDefaultAsync<IdentityUserRecord>(
+                IdentitySql.FindHostUserById,
+                IdentitySqlParameters.Create(("UserId", userId)),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return user is not null
+            && user.IsActive
+            && !(user.LockoutEndUtc > clock.UtcNow)
+            && string.Equals(user.SecurityStamp, centerSessionSecurityStamp, StringComparison.Ordinal);
     }
 
     private static bool TryReadCenterClaims(
