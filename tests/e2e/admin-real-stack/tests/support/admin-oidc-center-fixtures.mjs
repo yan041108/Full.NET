@@ -131,6 +131,46 @@ export async function createOidcCenterQueuedAgentRun(
   return body;
 }
 
+/** 断言已撤销 OIDC 会话无法继续访问或新建 Agent Run。 */
+export async function expectRevokedOidcCenterAgentRunAccessRejected(
+  request,
+  accessToken,
+  { runId, modelConfigId, apiBase = resolveApiBase() }
+) {
+  await expectOidcApiGetStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs/${runId}`,
+    401
+  );
+  await expectOidcApiPostStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs/${runId}/cancel`,
+    401
+  );
+  await expectOidcApiPostStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs/${runId}/resume`,
+    401
+  );
+  await expectOidcApiPostStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs`,
+    401,
+    {
+      clientRequestId: randomUUID(),
+      definitionKey: E2E_AGENT_RUN_DEFINITION_KEY,
+      modelConfigId,
+      prompt: 'oidc-center revoked token should not create agent run',
+      inputTokenLimit: 100,
+      outputTokenLimit: 100
+    }
+  );
+}
+
 export function resolveAdminOidcCenterRedirectUri(adminOrigin) {
   return `${adminOrigin}/#/identity/oidc/callback`;
 }

@@ -7,6 +7,7 @@ import {
   createE2eHostPingJobDefinition,
   createOidcCenterQueuedAgentRun,
   ensureAdminOidcCenterClient,
+  expectRevokedOidcCenterAgentRunAccessRejected,
   expectOidcApiGetStatus,
   expectOidcApiPostStatus,
   expectOidcCenterLocalCredentialsCleared,
@@ -422,7 +423,7 @@ test.describe('Vue admin oidc-center auth', () => {
     );
   });
 
-  test('OIDC 中心退出后已失效 access token 无法读取、取消或恢复已排队 Agent Run', async ({ page, request }) => {
+  test('OIDC 中心退出后已失效 access token 无法读取、取消、恢复或创建 Agent Run', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
     const stamp = Date.now().toString(36);
@@ -447,27 +448,14 @@ test.describe('Vue admin oidc-center auth', () => {
     await logoutAdminShell(page);
     await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
 
-    await expectOidcApiGetStatus(
-      request,
-      oidcAccessToken,
-      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
-      401
-    );
-    await expectOidcApiPostStatus(
-      request,
-      oidcAccessToken,
-      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/cancel`,
-      401
-    );
-    await expectOidcApiPostStatus(
-      request,
-      oidcAccessToken,
-      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/resume`,
-      401
-    );
+    await expectRevokedOidcCenterAgentRunAccessRejected(request, oidcAccessToken, {
+      apiBase,
+      runId: run.runId,
+      modelConfigId: model.id
+    });
   });
 
-  test('OIDC 中心强制下线后已失效 access token 无法读取、取消或恢复已排队 Agent Run', async ({ page, request }) => {
+  test('OIDC 中心强制下线后已失效 access token 无法读取、取消、恢复或创建 Agent Run', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
     const stamp = Date.now().toString(36);
@@ -491,24 +479,11 @@ test.describe('Vue admin oidc-center auth', () => {
 
     await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
 
-    await expectOidcApiGetStatus(
-      request,
-      oidcAccessToken,
-      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
-      401
-    );
-    await expectOidcApiPostStatus(
-      request,
-      oidcAccessToken,
-      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/cancel`,
-      401
-    );
-    await expectOidcApiPostStatus(
-      request,
-      oidcAccessToken,
-      `${apiBase}/api/v1/ai/agent/runs/${run.runId}/resume`,
-      401
-    );
+    await expectRevokedOidcCenterAgentRunAccessRejected(request, oidcAccessToken, {
+      apiBase,
+      runId: run.runId,
+      modelConfigId: model.id
+    });
   });
 
   test('OIDC 中心强制下线后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
