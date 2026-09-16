@@ -68,6 +68,33 @@ describe('oidc-center session logout', () => {
   });
 });
 
+describe('oidc-center invalidateLocalSession', () => {
+  it('clears refresh credentials without calling logout endpoints', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(currentUser()))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse([]));
+    vi.stubGlobal('fetch', fetchMock);
+    sessionStorage.setItem('fullnet.admin.oidc.refresh', JSON.stringify({
+      refreshToken: 'refresh-token',
+      clientId: 'admin-spa'
+    }));
+    const session = useSessionStore();
+    await session.completeOidcAuthorization(tokenResponse('oidc-access-token'));
+    expect(session.state).toBe('authenticated');
+
+    session.invalidateLocalSession();
+
+    expect(session.state).toBe('anonymous');
+    expect(sessionStorage.getItem('fullnet.admin.oidc.refresh')).toBeNull();
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/v1/me',
+      '/api/v1/navigation',
+      '/api/v1/tenancy/available'
+    ]);
+  });
+});
+
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
     status: 200,
