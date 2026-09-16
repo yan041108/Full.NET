@@ -90,6 +90,16 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByRole('columnheader', { name: '机构编码' }).first()).toBeVisible();
   });
 
+  test('OIDC 中心切租户后工作台探针可连接真实 /api/v1/me', async ({ page }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('load-current-user').click();
+    await expect(page.getByText('已连接：系统管理员', { exact: true })).toBeVisible({
+      timeout: 15_000
+    });
+  });
+
   test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
