@@ -606,4 +606,12 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_preserves_legacy_session_independence_with_mysql()
+    {
+        await IdentityOidcContextSwitchLegacyRegressionAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }

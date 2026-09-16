@@ -606,4 +606,12 @@ public sealed class IdentityApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_preserves_legacy_session_independence_with_sql_server()
+    {
+        await IdentityOidcContextSwitchLegacyRegressionAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }
