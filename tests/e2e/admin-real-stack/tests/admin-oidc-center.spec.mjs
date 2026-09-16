@@ -10,6 +10,7 @@ import {
 } from './support/admin-oidc-center-fixtures.mjs';
 import {
   CENTER_COOKIE_NAME,
+  expectMeEndpointRejectsToken,
   expectRefreshTokenRejects,
   resolveApiBase
 } from './support/identity-oidc-fixtures.mjs';
@@ -254,6 +255,14 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('应用退出后清理本地凭据、中心 Cookie 并拒绝 refresh token', async ({ page, request, context }) => {
     await loginAdminViaOidcCenter(page, credentials);
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(request =>
+      request.url().includes('/api/v1/me') && request.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(accessToken).toBeTruthy();
+
     const refreshCredentialRaw = await page.evaluate(() => sessionStorage.getItem('fullnet.admin.oidc.refresh'));
     expect(refreshCredentialRaw).toBeTruthy();
     const refreshCredential = JSON.parse(refreshCredentialRaw);
@@ -270,6 +279,7 @@ test.describe('Vue admin oidc-center auth', () => {
       clientId: ADMIN_OIDC_CENTER_CLIENT_ID,
       refreshToken: refreshCredential.refreshToken
     });
+    await expectMeEndpointRejectsToken(request, accessToken);
   });
 
   test('管理员强制下线后客户端收到实时通知并回到登录页', async ({ page, request }) => {
