@@ -821,6 +821,40 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('queued');
   });
 
+  test('OIDC 中心切租户后可通过 Agent 运行页 UI 创建排队运行', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant UI Agent ${stamp}`
+    });
+    const prompt = `oidc-center tenant agent runs ui create ${stamp}`;
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+
+    const createForm = page.locator('.ai-agent-runs-create-form');
+    await createForm.getByPlaceholder('模型配置 ID').fill(model.id);
+    await createForm.getByPlaceholder('提示词').fill(prompt);
+
+    const createResponse = page.waitForResponse(response =>
+      response.url().includes('/api/v1/ai/agent/runs')
+      && response.request().method() === 'POST'
+    );
+    await page.getByTestId('ai-agent-runs-create').click();
+    const response = await createResponse;
+    expect(response.status()).toBe(202);
+    const created = await response.json();
+    expect(created.runId).toBeTruthy();
+
+    await expect(page.getByText('运行摘要')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.ai-agent-runs-view').getByText('queued', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+  });
+
   test('OIDC 中心切租户后创建的排队 Agent Run 在应用退出后绑定失效', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
