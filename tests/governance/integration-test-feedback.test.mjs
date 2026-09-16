@@ -182,3 +182,18 @@ test('Playwright 本地必须压低 Vite 日志并允许复用已有 dev server'
 
   assert.match(realStack, /reuseExistingServer: !process\.env\.CI/);
 });
+
+test('CI 真实栈门禁必须执行含 oidc-center 的 Playwright 全量套件', async () => {
+  const workflow = await read('.github/workflows/ci.yml');
+  const rootPackage = await read('package.json');
+  const realStack = await read(
+    'tests/e2e/admin-real-stack/playwright.config.mjs'
+  );
+
+  assert.match(workflow, /real-stack-e2e:/);
+  assert.match(workflow, /pnpm test:e2e:real/);
+  assert.match(rootPackage, /"test:e2e:real:oidc-center"/);
+  assert.match(realStack, /name:\s*'vue-admin-oidc-center'/);
+  assert.match(realStack, /testMatch:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/);
+  assert.match(realStack, /testIgnore:\s*'\*\*\/admin-oidc-center\.spec\.mjs'/);
+});

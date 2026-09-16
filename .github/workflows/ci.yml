@@ -149,7 +149,7 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @fullnet/admin-real-stack-e2e exec playwright install --with-deps chromium
 
-      - name: Verify real backend admin smoke
+      - name: Verify real backend admin smoke (legacy + oidc-center)
         run: pnpm test:e2e:real
 
       - name: Upload real-stack reports
