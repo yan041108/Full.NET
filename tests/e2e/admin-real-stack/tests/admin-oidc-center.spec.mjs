@@ -29,6 +29,7 @@ import {
   enterDevelopmentTenant,
   expectVisibleCurrentContext,
   loginHostAdminAccessToken,
+  loginTenantAdminAccessToken,
   prepareHostUserCredentialsForOidc
 } from './support/real-stack-auth.mjs';
 import {
@@ -671,6 +672,74 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect.poll(async () =>
       (await getInstance(request, 'vue', accessToken, instance.id)).statusKey
     ).toBe('rejected');
+  });
+
+  test('OIDC 中心切租户后上下文可完成工作流待办同意', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const setupToken = await loginTenantAdminAccessToken(request, 'vue');
+    const assets = await publishApprovalAssets(request, 'vue', setupToken);
+    const instance = await startInstance(
+      request,
+      'vue',
+      setupToken,
+      assets.versionId,
+      'oidc-center tenant approved'
+    );
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    await clickMainNavLink(page, /我的待办/, '工作流');
+    await openTodoAndAct(page, instance.id, 'approved', 'approve');
+    await expect.poll(async () =>
+      (await getInstance(request, 'vue', setupToken, instance.id)).statusKey
+    ).toBe('completed');
+  });
+
+  test('OIDC 中心切租户后上下文可完成工作流待办驳回', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const setupToken = await loginTenantAdminAccessToken(request, 'vue');
+    const assets = await publishApprovalAssets(request, 'vue', setupToken);
+    const instance = await startInstance(
+      request,
+      'vue',
+      setupToken,
+      assets.versionId,
+      'oidc-center tenant rejected'
+    );
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    await clickMainNavLink(page, /我的待办/, '工作流');
+    await openTodoAndAct(page, instance.id, 'rejected', 'reject');
+    await expect.poll(async () =>
+      (await getInstance(request, 'vue', setupToken, instance.id)).statusKey
+    ).toBe('rejected');
+  });
+
+  test('OIDC 中心切租户并返回 Host 后上下文可完成工作流待办同意', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const setupToken = await loginTenantAdminAccessToken(request, 'vue');
+    const assets = await publishApprovalAssets(request, 'vue', setupToken);
+    const instance = await startInstance(
+      request,
+      'vue',
+      setupToken,
+      assets.versionId,
+      'oidc-center host return approved'
+    );
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    await clickMainNavLink(page, /我的待办/, '工作流');
+    await openTodoAndAct(page, instance.id, 'approved', 'approve');
+    await expect.poll(async () =>
+      (await getInstance(request, 'vue', setupToken, instance.id)).statusKey
+    ).toBe('completed');
   });
 
   test('OIDC 中心 Host 上下文可打开后台任务定义页', async ({ page }) => {
@@ -3277,6 +3346,51 @@ test.describe('Vue admin oidc-center auth', () => {
     await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
     await expectOidcCenterLocalCredentialsCleared(page, context);
     await expectOidcCenterTokensRejected(request, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后应用退出后写回 refresh 凭据仍无法恢复会话', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredentialRaw, refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+
+    await expectStaleOidcRefreshCannotRestoreSession(page, request, refreshCredentialRaw, {
+      accessToken,
+      refreshToken: refreshCredential.refreshToken
+    });
+  });
+
+  test('OIDC 中心切租户并返回 Host 后强制下线后写回 refresh 凭据仍无法恢复会话', async ({
+    page,
+    request,
+    context
+  }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const { refreshCredentialRaw, refreshCredential } = await readOidcRefreshCredentialFromPage(page);
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+    await expectOidcCenterLocalCredentialsCleared(page, context);
+
+    await expectStaleOidcRefreshCannotRestoreSession(page, request, refreshCredentialRaw, {
       accessToken,
       refreshToken: refreshCredential.refreshToken
     });
