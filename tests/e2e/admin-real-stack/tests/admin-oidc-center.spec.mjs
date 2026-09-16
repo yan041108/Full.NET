@@ -780,6 +780,73 @@ test.describe('Vue admin oidc-center auth', () => {
     expect((await response.json()).statusKey).toBe('queued');
   });
 
+  test('OIDC 中心切租户后创建的排队 Agent Run 在应用退出后绑定失效', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Logout Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center tenant post-logout agent run rejection'
+    });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+
+    await logoutAdminShell(page);
+    await expect(page.getByTestId('login-oidc-center')).toBeVisible({ timeout: 15_000 });
+
+    await expectRevokedOidcCenterAgentRunAccessRejected(request, oidcAccessToken, {
+      apiBase,
+      runId: run.runId,
+      modelConfigId: model.id
+    });
+  });
+
+  test('OIDC 中心切租户后创建的排队 Agent Run 在强制下线后绑定失效', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Tenant Revoke Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const oidcAccessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, oidcAccessToken, {
+      modelConfigId: model.id,
+      prompt: 'oidc-center tenant post-revoke agent run rejection'
+    });
+
+    await expectOidcApiGetStatus(
+      request,
+      oidcAccessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+
+    await revokeCurrentOidcCenterSession(page, request, { username: credentials.username });
+
+    await expectRevokedOidcCenterAgentRunAccessRejected(request, oidcAccessToken, {
+      apiBase,
+      runId: run.runId,
+      modelConfigId: model.id
+    });
+  });
+
   test('OIDC 中心退出后无法直接访问受保护路由', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await logoutAdminShell(page);
