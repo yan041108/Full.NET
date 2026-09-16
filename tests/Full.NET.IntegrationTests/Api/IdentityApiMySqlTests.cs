@@ -566,4 +566,12 @@ public sealed class IdentityApiMySqlTests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_invalidates_pre_switch_refresh_with_mysql()
+    {
+        await IdentityOidcContextSwitchRefreshInvalidationAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }

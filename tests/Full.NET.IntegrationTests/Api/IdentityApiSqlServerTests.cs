@@ -566,4 +566,12 @@ public sealed class IdentityApiSqlServerTests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task Oidc_context_switch_invalidates_pre_switch_refresh_with_sql_server()
+    {
+        await IdentityOidcContextSwitchRefreshInvalidationAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }
