@@ -40,6 +40,8 @@ export interface IdentitySessionSnapshot {
 
 export interface IdentitySessionController {
   login(username: string, password: string): Promise<void>;
+  /** 使用 OIDC 授权码流程已兑换的访问令牌建立本地会话。 */
+  completeOidcAuthorization(accessTokenResponse: TokenResponse): Promise<void>;
   restore(): Promise<boolean>;
   reloadAuthenticatedContext(): Promise<void>;
   switchTenant(tenantId: string | null): Promise<void>;
@@ -124,6 +126,32 @@ export function createIdentitySession(
     }
 
     token = value;
+    try {
+      if (!await loadAuthenticatedSnapshot(operationGeneration)) {
+        return;
+      }
+
+      state = 'authenticated';
+      notify();
+    } catch (error: unknown) {
+      if (operationGeneration !== sessionGeneration) {
+        return;
+      }
+
+      clear();
+      throw error;
+    }
+  }
+
+  async function completeOidcAuthorization(
+    accessTokenResponse: TokenResponse
+  ): Promise<void> {
+    const operationGeneration = ++sessionGeneration;
+    if (!isTokenResponse(accessTokenResponse)) {
+      throw new TypeError('OIDC token response不符合 TokenResponse 契约。');
+    }
+
+    token = accessTokenResponse;
     try {
       if (!await loadAuthenticatedSnapshot(operationGeneration)) {
         return;
@@ -514,6 +542,7 @@ export function createIdentitySession(
 
   return {
     login,
+    completeOidcAuthorization,
     restore,
     reloadAuthenticatedContext,
     switchTenant,

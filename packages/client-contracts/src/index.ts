@@ -281,13 +281,18 @@ export {
   buildOidcAuthorizeUrl,
   createOidcAuthorizationRequest,
   createOidcPkcePair,
+  exchangeOidcAuthorizationCode,
+  isOidcTokenEndpointResponse,
+  mapOidcTokenEndpointToTokenResponse,
   validateOidcCallbackState
 } from './oidc-interactive-auth.js';
 
 export type {
   BuildOidcAuthorizeUrlOptions,
+  ExchangeOidcAuthorizationCodeOptions,
   OidcAuthorizationRequest,
-  OidcPkcePair
+  OidcPkcePair,
+  OidcTokenEndpointResponse
 } from './oidc-interactive-auth.js';
 
 export {

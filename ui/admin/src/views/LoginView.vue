@@ -12,6 +12,8 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import ArtLoginLeftPanel from '../framework/art-design/auth/ArtLoginLeftPanel.vue';
 import { buildOAuthAuthorizeUrl } from '../api/oauth-links';
 import { listPublicOAuthProviders } from '../api/oauth-providers';
+import { beginAdminOidcCenterLogin } from '../auth/oidc-center-login';
+import { adminIdentityAuthMode } from '../config/identity-auth';
 
 const session = useSessionStore();
 const { t } = useAdminI18n();
@@ -20,6 +22,8 @@ const password = ref('');
 const submitting = ref(false);
 const problem = ref<FullNetProblemDetails>();
 const oauthProviders = ref<PublicOAuthProvider[]>([]);
+const isOidcCenterLogin = adminIdentityAuthMode === 'oidc-center';
+const oidcSubmitting = ref(false);
 const status = computed(() => session.state === 'authenticated'
   ? t('auth.statusAuthenticated')
   : t('auth.statusAnonymous'));
@@ -38,6 +42,23 @@ async function loadOAuthProviders(): Promise<void> {
     oauthProviders.value = await listPublicOAuthProviders();
   } catch {
     oauthProviders.value = [];
+  }
+}
+
+async function submitOidcCenter(): Promise<void> {
+  if (oidcSubmitting.value) {
+    return;
+  }
+
+  oidcSubmitting.value = true;
+  problem.value = undefined;
+  try {
+    await beginAdminOidcCenterLogin();
+  } catch (error: unknown) {
+    problem.value = isFullNetProblemDetails(error)
+      ? error
+      : { status: 500, code: 'client.oidc_login_failed', title: t('auth.oidcCenterFailed') };
+    oidcSubmitting.value = false;
   }
 }
 
@@ -88,7 +109,35 @@ onMounted(() => {
         data-testid="login-view"
         tabindex="-1"
       >
-        <form class="art-login-form" aria-labelledby="login-form-title" @submit.prevent="submit">
+        <div
+          v-if="isOidcCenterLogin"
+          class="art-login-form"
+          aria-labelledby="login-oidc-title"
+        >
+          <h2 id="login-oidc-title" class="art-login-form__title">{{ t('auth.title') }}</h2>
+          <p class="art-login-form__subtitle">{{ t('auth.oidcCenterSubtitle') }}</p>
+          <div v-if="problem" class="art-inline-alert" role="alert" aria-live="assertive">
+            <strong translate="no">{{ problem.code }}</strong>
+            <span>{{ problem.title }}</span>
+            <code v-if="problem.traceId" translate="no">{{ problem.traceId }}</code>
+          </div>
+          <el-button
+            class="art-login-form__submit art-contrast-primary"
+            type="primary"
+            data-testid="login-oidc-center"
+            :loading="oidcSubmitting"
+            :aria-busy="oidcSubmitting"
+            @click="submitOidcCenter"
+          >
+            {{ oidcSubmitting ? t('auth.submitting') : t('auth.oidcCenterSubmit') }}
+          </el-button>
+        </div>
+        <form
+          v-else
+          class="art-login-form"
+          aria-labelledby="login-form-title"
+          @submit.prevent="submit"
+        >
           <h2 id="login-form-title" class="art-login-form__title">{{ t('auth.title') }}</h2>
           <p class="art-login-form__subtitle">{{ status }}</p>
 

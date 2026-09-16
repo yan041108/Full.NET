@@ -35,6 +35,26 @@ describe('headless 身份会话', () => {
     expect(session.readAccessToken()).toBeUndefined();
   });
 
+
+  it('OIDC 授权码兑换令牌后可建立认证会话', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(currentUser()))
+      .mockResolvedValueOnce(jsonResponse(navigation()))
+      .mockResolvedValueOnce(jsonResponse(tenants()));
+    vi.stubGlobal('fetch', fetchMock);
+    const session = createTestSession();
+
+    await session.completeOidcAuthorization(tokenResponse('oidc-access-token'));
+
+    expect(session.snapshot().state).toBe('authenticated');
+    expect(session.readAccessToken()).toBe('oidc-access-token');
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/v1/me',
+      '/api/v1/navigation',
+      '/api/v1/tenancy/available'
+    ]);
+    session.dispose();
+  });
   it('权限判断精确匹配完整编码', async () => {
     vi.stubGlobal('fetch', createLoginFetch());
     const session = createTestSession();

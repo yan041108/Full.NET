@@ -76,6 +76,8 @@ const ComponentLocaleFixture = import.meta.env.DEV
 const contextProblem = ref<FullNetProblemDetails>();
 const hostContextValue = '__fullnet_host__';
 const statusPaths = new Set(['/403', '/404', '/500']);
+const authCallbackPaths = new Set(['/oauth/callback', '/identity/oidc/callback']);
+const isAuthCallbackRoute = computed(() => authCallbackPaths.has(route.path));
 const statusTitleKeys = new Map<string, MessageKey>([
   ['/403', 'status.403.title'],
   ['/404', 'status.404.title'],
@@ -271,6 +273,7 @@ watch(
       <strong>{{ t('session.restoring') }}</strong>
       <i />
     </div>
+    <router-view v-else-if="session.state === 'anonymous' && isAuthCallbackRoute" />
     <LoginView v-else-if="session.state === 'anonymous'" />
     <ArtAdminShell
       v-else

@@ -7,7 +7,8 @@ import {
   type IdentitySessionSnapshot,
   type NavigationNode,
   type SessionState,
-  type TenantContextSummary
+  type TenantContextSummary,
+  type TokenResponse
 } from '@fullnet/client-contracts';
 import type { SupportedLocale } from '@fullnet/admin-i18n';
 import { http } from '../api/http';
@@ -65,6 +66,11 @@ export const useSessionStore = defineStore('identity-session', () => {
   /** 使用用户名和密码启动登录流程，并由底层控制器负责刷新本地快照。 */
   async function login(username: string, password: string): Promise<void> {
     await getController().login(username, password);
+  }
+
+  /** 使用 OIDC 授权码流程兑换的访问令牌建立本地会话。 */
+  async function completeOidcAuthorization(accessToken: TokenResponse): Promise<void> {
+    await getController().completeOidcAuthorization(accessToken);
   }
 
   /** 从现有凭据恢复会话，用于应用启动或页面刷新后的状态重建。 */
@@ -153,6 +159,7 @@ export const useSessionStore = defineStore('identity-session', () => {
     currentContextName,
     can,
     login,
+    completeOidcAuthorization,
     restore,
     reloadContext,
     switchTenant,
