@@ -5,6 +5,7 @@ import {
   captureOidcAccessTokenFromOverviewProbe,
   createE2eAiAgentModelConfig,
   createE2eHostPingJobDefinition,
+  cancelOidcCenterQueuedAgentRun,
   createOidcCenterQueuedAgentRun,
   ensureAdminOidcCenterClient,
   expectRevokedOidcCenterAgentRunAccessRejected,
@@ -266,6 +267,32 @@ test.describe('Vue admin oidc-center auth', () => {
     );
     const body = await response.json();
     expect(body.statusKey).toBe('queued');
+  });
+
+  test('OIDC 中心 Host 上下文 access token 可取消排队 Agent Run', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Agent Run Cancel ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const run = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt: `oidc-center agent run api cancel ${stamp}`
+    });
+
+    await cancelOidcCenterQueuedAgentRun(request, accessToken, run.runId);
+
+    const response = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/ai/agent/runs/${run.runId}`,
+      200
+    );
+    expect((await response.json()).statusKey).toBe('cancelled');
   });
 
   test('OIDC 中心退出后 access token 无法访问 /api/v1/ai/agent-tools', async ({ page, request }) => {

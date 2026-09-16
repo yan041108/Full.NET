@@ -131,6 +131,18 @@ export async function createOidcCenterQueuedAgentRun(
   return body;
 }
 
+/** 使用 oidc-center access token 取消排队中的 Agent Run。 */
+export async function cancelOidcCenterQueuedAgentRun(request, accessToken, runId) {
+  const apiBase = resolveApiBase();
+  const response = await expectOidcApiPostStatus(
+    request,
+    accessToken,
+    `${apiBase}/api/v1/ai/agent/runs/${runId}/cancel`,
+    200
+  );
+  return response.json();
+}
+
 /** 断言已撤销 OIDC 会话无法继续访问或新建 Agent Run。 */
 export async function expectRevokedOidcCenterAgentRunAccessRejected(
   request,
