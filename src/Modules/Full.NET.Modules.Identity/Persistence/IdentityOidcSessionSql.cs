@@ -163,7 +163,9 @@ internal static class IdentityOidcSessionSql
                center.RevokedAtUtc AS CenterRevokedAtUtc,
                identityUser.IsActive,
                identityUser.LockoutEndUtc,
-               identityUser.SecurityStamp AS UserSecurityStamp
+               identityUser.SecurityStamp AS UserSecurityStamp,
+               identityUser.MustChangePassword,
+               identityUser.PasswordChangedAtUtc
         FROM fn_identity_oidc_application_session AS app
         INNER JOIN fn_identity_oidc_center_session AS center ON center.Id = app.CenterSessionId
         INNER JOIN fn_identity_user AS identityUser ON identityUser.Id = app.UserId

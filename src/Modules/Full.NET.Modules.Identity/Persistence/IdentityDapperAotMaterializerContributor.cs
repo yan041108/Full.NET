@@ -854,6 +854,8 @@ internal sealed class IdentityDapperAotMaterializerContributor : IDapperAotMater
             IsActive = ReadBooleanByName(reader, "IsActive"),
             LockoutEndUtc = ReadNullableDateTimeOffsetByName(reader, "LockoutEndUtc"),
             UserSecurityStamp = ReadOptionalStringByName(reader, "UserSecurityStamp") ?? string.Empty,
+            MustChangePassword = ReadBooleanByName(reader, "MustChangePassword"),
+            PasswordChangedAtUtc = ReadNullableDateTimeOffsetByName(reader, "PasswordChangedAtUtc"),
         };
 
     private static IdentityOidcActiveApplicationSessionOwnershipRow ReadIdentityOidcActiveApplicationSessionOwnershipRow(

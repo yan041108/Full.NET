@@ -39,13 +39,20 @@ internal static class IdentityOidcAccountAuthorityAssertions
         var username = $"oidc-disable-{Guid.NewGuid():N}";
         var password = FullNetApiFactory.TestPassword;
         var user = await CreateHostUserAsync(client, adminToken, username, password, cancellationToken);
+        using var passwordClient = factory.CreateClientForHost("localhost");
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            passwordClient,
+            username,
+            password,
+            cancellationToken);
+        var oidcPassword = IntegrationTestAuthHelper.ClearedPassword;
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         await AssertUserInfoAcceptsTokenAsync(client, flow.AccessToken, cancellationToken);
@@ -54,7 +61,7 @@ internal static class IdentityOidcAccountAuthorityAssertions
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
 
@@ -88,13 +95,20 @@ internal static class IdentityOidcAccountAuthorityAssertions
         var originalPassword = FullNetApiFactory.TestPassword;
         var newPassword = $"{originalPassword}-rotated";
         var user = await CreateHostUserAsync(client, adminToken, username, originalPassword, cancellationToken);
+        using var passwordClient = factory.CreateClientForHost("localhost");
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            passwordClient,
+            username,
+            originalPassword,
+            cancellationToken);
+        var oidcPassword = IntegrationTestAuthHelper.ClearedPassword;
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            originalPassword,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         await AssertUserInfoAcceptsTokenAsync(client, flow.AccessToken, cancellationToken);
@@ -103,7 +117,7 @@ internal static class IdentityOidcAccountAuthorityAssertions
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             username,
-            originalPassword,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
 

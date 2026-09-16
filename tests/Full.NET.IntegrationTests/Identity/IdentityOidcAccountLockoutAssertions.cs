@@ -39,13 +39,20 @@ internal static class IdentityOidcAccountLockoutAssertions
         var username = $"oidc-lockout-{Guid.NewGuid():N}";
         var password = FullNetApiFactory.TestPassword;
         await CreateHostUserAsync(client, adminToken, username, password, cancellationToken);
+        using var passwordClient = factory.CreateClientForHost("localhost");
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            passwordClient,
+            username,
+            password,
+            cancellationToken);
+        var oidcPassword = IntegrationTestAuthHelper.ClearedPassword;
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             client,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         await AssertUserInfoAcceptsTokenAsync(client, flow.AccessToken, cancellationToken);
@@ -54,7 +61,7 @@ internal static class IdentityOidcAccountLockoutAssertions
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
 
@@ -81,7 +88,7 @@ internal static class IdentityOidcAccountLockoutAssertions
 
         using var lockedLoginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
         {
-            Content = JsonContent.Create(new LoginRequest(username, FullNetApiFactory.TestPassword)),
+            Content = JsonContent.Create(new LoginRequest(username, IntegrationTestAuthHelper.ClearedPassword)),
         };
         lockedLoginRequest.Headers.Add("Origin", "http://localhost");
         using var lockedLoginResponse = await client.SendAsync(lockedLoginRequest, cancellationToken);

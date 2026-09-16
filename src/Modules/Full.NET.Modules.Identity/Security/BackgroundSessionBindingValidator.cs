@@ -1,14 +1,21 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace Full.NET.Modules.Identity.Security;
 
 /// <summary>与交互 JWT 校验共用会话表权威状态，不把 ClaimsPrincipal 持久化到运行记录。</summary>
-internal sealed class BackgroundSessionBindingValidator(IQueryExecutor queryExecutor, IClock clock)
+internal sealed class BackgroundSessionBindingValidator(
+    IQueryExecutor queryExecutor,
+    IClock clock,
+    IOptions<IdentityOptions> identityOptions)
     : IBackgroundSessionBindingValidator
 {
+    private readonly IdentityOptions _identityOptions = identityOptions.Value;
+
     public async Task<bool> IsValidAsync(SessionBindingSnapshot binding, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(binding);
@@ -85,7 +92,12 @@ internal sealed class BackgroundSessionBindingValidator(IQueryExecutor queryExec
             || !string.Equals(record.CenterSecurityStamp, record.UserSecurityStamp, StringComparison.Ordinal)
             || !string.Equals(record.CenterSecurityStamp, binding.SecurityStamp, StringComparison.Ordinal)
             || !string.Equals(record.ActorScope, binding.ActorScope, StringComparison.Ordinal)
-            || !string.Equals(record.EffectiveScope, binding.EffectiveScope, StringComparison.Ordinal))
+            || !string.Equals(record.EffectiveScope, binding.EffectiveScope, StringComparison.Ordinal)
+            || PasswordChangeRequirementEvaluator.IsRequired(
+                record.MustChangePassword,
+                record.PasswordChangedAtUtc,
+                clock.UtcNow,
+                _identityOptions.PasswordExpirationDays))
         {
             return false;
         }

@@ -253,6 +253,18 @@ public sealed class IdentityOidcSessionTests
         Assert.IsFalse(await fixture.Validator.IsValidAsync(principal));
     }
 
+    [TestMethod]
+    public async Task Must_change_password_rejects_oidc_access_validation()
+    {
+        var record = CreateValidationRecord();
+        record.MustChangePassword = true;
+        var fixture = new ValidatorFixture(record);
+        var principal = ValidatorFixture.CreateOidcPrincipal(
+            ApplicationSessionId, UserId, "host", "host", "https://localhost/identity", "Full.NET.Api");
+
+        Assert.IsFalse(await fixture.Validator.IsValidAsync(principal));
+    }
+
     private static IdentityOidcApplicationSessionValidationRecord CreateValidationRecord(
         string userSecurityStamp = "stamp") => new()
     {

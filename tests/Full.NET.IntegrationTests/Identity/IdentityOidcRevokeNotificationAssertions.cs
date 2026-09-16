@@ -104,13 +104,20 @@ internal static class IdentityOidcRevokeNotificationAssertions
             username,
             password,
             cancellationToken);
+        using var passwordClient = factory.CreateClientForHost("localhost");
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            passwordClient,
+            username,
+            password,
+            cancellationToken);
+        var oidcPassword = IntegrationTestAuthHelper.ClearedPassword;
         var publicFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             userClient,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         var confidentialFlow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
@@ -119,7 +126,7 @@ internal static class IdentityOidcRevokeNotificationAssertions
             IdentityOidcRelyingPartyFixture.ConfidentialRedirectUri,
             IdentityOidcRelyingPartyFixture.ConfidentialClientSecret,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(publicFlow.RefreshToken));

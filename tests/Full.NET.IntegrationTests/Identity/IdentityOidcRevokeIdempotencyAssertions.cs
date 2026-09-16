@@ -134,13 +134,20 @@ internal static class IdentityOidcRevokeIdempotencyAssertions
             username,
             password,
             cancellationToken);
+        using var passwordClient = factory.CreateClientForHost("localhost");
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            passwordClient,
+            username,
+            password,
+            cancellationToken);
+        var oidcPassword = IntegrationTestAuthHelper.ClearedPassword;
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             userClient,
             IdentityOidcRelyingPartyFixture.PublicClientId,
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: true,
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(flow.RefreshToken));

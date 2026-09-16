@@ -1,8 +1,10 @@
 using Full.NET.Abstractions.Time;
 using Full.NET.Data.Abstractions;
+using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Full.NET.Modules.Identity.Security;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace Full.NET.UnitTests.Identity;
@@ -89,7 +91,10 @@ public sealed class BackgroundSessionBindingValidatorTests
                     Arg.Any<IReadOnlyDictionary<string, object?>>(),
                     Arg.Any<CancellationToken>())
                 .Returns(record);
-            Validator = new BackgroundSessionBindingValidator(queryExecutor, new FixedClock(Now));
+            Validator = new BackgroundSessionBindingValidator(
+                queryExecutor,
+                new FixedClock(Now),
+                Options.Create(new IdentityOptions()));
         }
 
         public BackgroundSessionBindingValidator Validator { get; }

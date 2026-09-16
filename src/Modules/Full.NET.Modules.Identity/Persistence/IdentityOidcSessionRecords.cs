@@ -78,6 +78,8 @@ internal sealed class IdentityOidcApplicationSessionValidationRecord
     public bool IsActive { get; set; }
     public DateTimeOffset? LockoutEndUtc { get; set; }
     public string UserSecurityStamp { get; set; } = string.Empty;
+    public bool MustChangePassword { get; set; }
+    public DateTimeOffset? PasswordChangedAtUtc { get; set; }
 }
 
 internal static class IdentityOidcSessionRecordMapper

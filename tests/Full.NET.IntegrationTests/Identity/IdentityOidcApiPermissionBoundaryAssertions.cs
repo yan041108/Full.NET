@@ -79,6 +79,13 @@ internal static class IdentityOidcApiPermissionBoundaryAssertions
         using var createResponse = await adminClient.SendAsync(createRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.Created, createResponse.StatusCode);
 
+        using var passwordClient = factory.CreateClientForHost("localhost");
+        await IntegrationTestAuthHelper.ClearInitialPasswordChangeRequirementAsync(
+            passwordClient,
+            username,
+            password,
+            cancellationToken);
+        var oidcPassword = IntegrationTestAuthHelper.ClearedPassword;
         using var userClient = factory.CreateClientForHost("localhost");
         var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
             userClient,
@@ -86,7 +93,7 @@ internal static class IdentityOidcApiPermissionBoundaryAssertions
             IdentityOidcRelyingPartyFixture.PublicRedirectUri,
             null,
             username,
-            password,
+            oidcPassword,
             requestOfflineAccess: false,
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(flow.AccessToken));

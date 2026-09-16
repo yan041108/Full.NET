@@ -448,6 +448,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_must_change_password_invalidates_protocol_grants_with_mysql()
+    {
+        await IdentityOidcMustChangePasswordProtocolAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_revoke_is_idempotent_with_mysql()
     {
         await IdentityOidcRevokeIdempotencyAssertions.VerifyAsync(

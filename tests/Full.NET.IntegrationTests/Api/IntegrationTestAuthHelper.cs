@@ -10,6 +10,16 @@ internal static class IntegrationTestAuthHelper
 {
     public const string ClearedPassword = "FullNet!2026Cleared";
 
+    /// <summary>新创建 Host 用户默认要求首次改密；完成改密以便后续 OIDC 协议用例可签发令牌。</summary>
+    public static async Task ClearInitialPasswordChangeRequirementAsync(
+        HttpClient client,
+        string username,
+        string password = FullNetApiFactory.TestPassword,
+        CancellationToken cancellationToken = default)
+    {
+        _ = await LoginAsHostUserAsync(client, username, password, cancellationToken);
+    }
+
     public static async Task<string> LoginAsHostUserAsync(
         HttpClient client,
         string username,

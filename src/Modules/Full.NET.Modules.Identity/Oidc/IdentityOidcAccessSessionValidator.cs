@@ -20,6 +20,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
 {
     private readonly IdentityOidcOptions _oidcOptions = oidcOptions.Value;
     private readonly IdentityOptions _identityOptions = identityOptions.Value;
+    private readonly IClock _clock = clock;
 
     public async Task<bool> IsValidAsync(
         ClaimsPrincipal principal,
@@ -88,7 +89,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
             }
         }
 
-        if (!IsActive(record, userId, clock.UtcNow))
+        if (!IsActive(record, userId, _clock.UtcNow))
         {
             return false;
         }
@@ -142,7 +143,7 @@ internal sealed class IdentityOidcAccessSessionValidator(
                 out applicationSessionId);
     }
 
-    private static bool IsActive(
+    private bool IsActive(
         IdentityOidcApplicationSessionValidationRecord? record,
         Guid userId,
         DateTimeOffset now) =>
@@ -154,5 +155,10 @@ internal sealed class IdentityOidcAccessSessionValidator(
         && !record.CenterRevokedAtUtc.HasValue
         && record.CenterExpiresAtUtc > now
         && !(record.LockoutEndUtc > now)
-        && string.Equals(record.CenterSecurityStamp, record.UserSecurityStamp, StringComparison.Ordinal);
+        && string.Equals(record.CenterSecurityStamp, record.UserSecurityStamp, StringComparison.Ordinal)
+        && !PasswordChangeRequirementEvaluator.IsRequired(
+            record.MustChangePassword,
+            record.PasswordChangedAtUtc,
+            now,
+            _identityOptions.PasswordExpirationDays);
 }
