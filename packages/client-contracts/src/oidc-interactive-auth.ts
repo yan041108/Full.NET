@@ -39,6 +39,11 @@ export interface RefreshOidcAccessTokenOptions {
   clientSecret?: string | null;
 }
 
+export interface RevokeOidcApplicationSessionOptions {
+  apiBase: string;
+  clientId: string;
+}
+
 export interface BuildOidcAuthorizeUrlOptions {
   apiBase: string;
   clientId: string;
@@ -206,6 +211,23 @@ export async function refreshOidcAccessToken(
 
   const payload = await requestOidcTokenEndpoint(apiBase, body);
   return mapOidcTokenExchangeResult(payload);
+}
+
+/** 撤销当前用户在指定 OIDC 客户端下的应用会话；需携带中心登录 Cookie。 */
+export async function revokeOidcApplicationSession(
+  options: RevokeOidcApplicationSessionOptions
+): Promise<boolean> {
+  const apiBase = options.apiBase.replace(/\/$/u, '');
+  const response = await fetch(`${apiBase}/api/v1/identity/oidc/logout/application`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ clientId: options.clientId })
+  });
+  return response.status === 204;
 }
 
 /** 校验回调 state，防止 CSRF 与授权响应替换。 */

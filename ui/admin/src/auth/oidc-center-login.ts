@@ -3,6 +3,7 @@ import {
   createOidcAuthorizationRequest,
   exchangeOidcAuthorizationCode,
   refreshOidcAccessToken,
+  revokeOidcApplicationSession,
   resolveFullNetApiUrl,
   validateOidcCallbackState,
   type TokenResponse
@@ -135,6 +136,14 @@ export async function refreshAdminOidcAccessToken(): Promise<TokenResponse | und
     clearOidcRefreshCredential();
     return undefined;
   }
+}
+
+/** 撤销当前管理端 OIDC 应用会话；失败时仍由调用方清理本地状态。 */
+export async function revokeAdminOidcApplicationSession(): Promise<boolean> {
+  return revokeOidcApplicationSession({
+    apiBase: resolveOidcApiBase(),
+    clientId: resolveAdminOidcClientId()
+  });
 }
 
 export function clearAdminOidcSessionCredentials(): void {

@@ -17,7 +17,8 @@ import { useAdminI18n } from '../i18n/adminI18n';
 import { isSupportedNavigationTree } from '../navigation/catalog';
 import {
   clearAdminOidcSessionCredentials,
-  refreshAdminOidcAccessToken
+  refreshAdminOidcAccessToken,
+  revokeAdminOidcApplicationSession
 } from './oidc-center-login';
 import { sessionRefreshCoordinator } from './session-refresh-coordinator';
 
@@ -111,7 +112,15 @@ export const useSessionStore = defineStore('identity-session', () => {
   /** 退出当前会话，并清空受认证状态保护的本地快照。 */
   async function logout(): Promise<void> {
     if (adminIdentityAuthMode === 'oidc-center') {
+      try {
+        await revokeAdminOidcApplicationSession();
+      } catch {
+        // 本地清理不依赖网络成功，服务端仍由 grant 撤销与会话过期兜底。
+      }
+
       clearAdminOidcSessionCredentials();
+      getController().invalidateLocalSession();
+      return;
     }
 
     await getController().logout();

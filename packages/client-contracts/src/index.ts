@@ -285,6 +285,7 @@ export {
   isOidcTokenEndpointResponse,
   mapOidcTokenEndpointToTokenResponse,
   refreshOidcAccessToken,
+  revokeOidcApplicationSession,
   validateOidcCallbackState
 } from './oidc-interactive-auth.js';
 
@@ -295,7 +296,8 @@ export type {
   OidcPkcePair,
   OidcTokenEndpointResponse,
   OidcTokenExchangeResult,
-  RefreshOidcAccessTokenOptions
+  RefreshOidcAccessTokenOptions,
+  RevokeOidcApplicationSessionOptions
 } from './oidc-interactive-auth.js';
 
 export {

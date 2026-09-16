@@ -6,6 +6,7 @@ import {
   exchangeOidcAuthorizationCode,
   mapOidcTokenEndpointToTokenResponse,
   refreshOidcAccessToken,
+  revokeOidcApplicationSession,
   validateOidcCallbackState
 } from '../src/oidc-interactive-auth';
 
@@ -103,6 +104,24 @@ describe('OIDC token endpoint mapping', () => {
     });
     expect(exchange.token.accessToken).toBe('rotated-access-token');
     expect(exchange.refreshToken).toBe('rotated-refresh-token');
+  });
+
+  it('revokes application session through logout endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const revoked = await revokeOidcApplicationSession({
+      apiBase: 'http://localhost:5149',
+      clientId: 'admin-spa'
+    });
+    expect(revoked).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:5149/api/v1/identity/oidc/logout/application',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ clientId: 'admin-spa' })
+      })
+    );
   });
 });
 

@@ -8,7 +8,8 @@ import {
   completeAdminOidcCallback,
   readAdminOidcPkcePending,
   refreshAdminOidcAccessToken,
-  resolveAdminOidcRedirectUri
+  resolveAdminOidcRedirectUri,
+  revokeAdminOidcApplicationSession
 } from './oidc-center-login';
 import { readOidcRefreshCredential } from './oidc-session-credentials';
 
@@ -88,5 +89,11 @@ describe('oidc center login helpers', () => {
       clientId: 'admin-spa'
     });
     clearAdminOidcSessionCredentials();
+  });
+
+  it('revokes application session for admin client', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    const revoked = await revokeAdminOidcApplicationSession();
+    expect(revoked).toBe(true);
   });
 });
