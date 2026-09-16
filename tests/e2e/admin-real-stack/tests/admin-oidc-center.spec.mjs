@@ -483,6 +483,31 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(Array.isArray(body.items)).toBe(true);
   });
 
+  test('OIDC 中心切租户并返回 Host 后 access token 仍可访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(req =>
+      req.url().includes('/api/v1/me') && req.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(accessToken).toBeTruthy();
+
+    const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        origin: adminOrigin
+      }
+    });
+    expect(response.status()).toBe(200);
+    expect(Array.isArray(await response.json())).toBe(true);
+  });
+
   test('OIDC 中心切租户后可加载租户范围内受保护页面', async ({ page }) => {
     await loginAdminViaOidcCenter(page, credentials);
     await enterDevelopmentTenant(page);
