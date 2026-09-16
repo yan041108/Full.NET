@@ -372,9 +372,9 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 | 会话 | `session.ts`：`externalRefreshAccessToken`、应用＋中心 logout、`handleRemoteSessionRevoke`；refresh token 仅存 `sessionStorage`（`fullnet.admin.oidc.refresh`），access token 仍仅内存 |
 | 路由守卫 | `selfServicePaths` 含 `/identity/oidc/callback`；已认证用户无需导航下发即可进入回调页 |
 | 切租户 | `session-oidc-center-switch-tenant.test.ts`：OIDC 会话成功切换后替换内存 token 并重载授权快照；API 返回 `identity.oidc_context_switch_not_supported` 时保留 Host 上下文与 refresh 凭据 |
-| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、工作流待办页与同意／驳回操作（§6 审批探针）、Agent 工具页（§6 V12/V21 UI 探针）、后台任务定义页与触发操作、退出／强制下线后 access token 无法再次触发任务（§6 后台任务探针）、切租户并返回 Host、租户内受保护页面、退出后受保护路由回登录／access token 与 refresh 拒绝、强制下线后 access token／refresh 拒绝且无法用已撤销 refresh 恢复（§6 在线会话探针））；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
+| 真实栈 E2E | Playwright `vue-admin-oidc-center`（25175，`admin-oidc-center.spec.mjs`：登录、刷新、Host／租户工作台 `/api/v1/me` 探针、工作流待办页与同意／驳回操作（§6 审批探针）、Agent 工具页与 `/api/v1/ai/agent-tools` API 探针（§6 V12/V21）、后台任务定义页与触发操作、退出／强制下线后 access token 无法再次触发任务（§6 后台任务探针）、切租户并返回 Host、租户内受保护页面、退出后受保护路由回登录／access token 与 refresh 拒绝、强制下线后 access token／refresh 拒绝且无法用已撤销 refresh 恢复（§6 在线会话探针））；`vue-admin`（25173）`auth-smoke` 断言 legacy 不展示身份中心入口 |
 | 并行回退 | [getting-started §3.1](../development/getting-started.md#31-vue-管理端) 记录移除 `VITE_IDENTITY_AUTH_MODE` 后回到 legacy 表单的本地验证步骤；`vue-admin` `auth-smoke` 断言遗留 `fullnet.admin.oidc.refresh` 不阻断 legacy 密码登录、登录后不写入新 OIDC 凭据，且刷新后仍通过 Refresh Cookie 恢复 legacy 会话 |
-| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **34/34**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11**；`admin-real-stack` `spec-contracts` 治理测试登记 oidc-center 项目与 §6 探针契约；E2E 聚焦入口 `pnpm test:e2e:real:oidc-center`（17 用例，待 CI／本机真实栈执行） |
+| 聚焦验证（Windows 本地，2026-09-16） | `ui/admin` OIDC 相关 Vitest **34/34**；`@fullnet/client-contracts` `identity-auth-config` + `oidc-interactive-auth` **11/11**；`admin-real-stack` `spec-contracts` 治理测试登记 oidc-center 项目与 §6 探针契约；E2E 聚焦入口 `pnpm test:e2e:real:oidc-center`（18 用例，待 CI／本机真实栈执行） |
 | 未验证 | 真实栈 E2E 未在本机执行（API `5149` 未就绪）；§6 三组入口全量验收、审批操作级回归、后台任务矩阵、能力状态 `Verified` 升级 |
 
 **T08 结论：** Vue 可选 `oidc-center` 消费路径与 legacy 并行入口在单元层成立；生产启用与 P3 退出条件仍依赖真实栈 E2E、§6 回归与能力状态独立门禁，不得由单元测试单独升级为 `Verified`。

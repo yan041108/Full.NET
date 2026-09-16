@@ -268,6 +268,7 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /loginAdminViaOidcCenter/u);
   assert.match(source, /openTodoAndAct/u);
   assert.match(source, /Agent 工具/u);
+  assert.match(source, /\/api\/v1\/ai\/agent-tools/u);
   assert.match(source, /host-jobs-action-trigger/u);
   assert.match(source, /expectMeEndpointRejectsToken/u);
   assert.match(source, /expectRefreshTokenRejects/u);

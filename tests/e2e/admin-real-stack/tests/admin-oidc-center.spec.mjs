@@ -100,6 +100,26 @@ test.describe('Vue admin oidc-center auth', () => {
     await expect(page.getByRole('tab', { name: '静态目录' })).toBeVisible();
   });
 
+  test('OIDC 中心 Host 上下文 access token 可访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
+    await loginAdminViaOidcCenter(page, credentials);
+    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+    const meRequest = page.waitForRequest(req =>
+      req.url().includes('/api/v1/me') && req.method() === 'GET'
+    );
+    await page.getByTestId('load-current-user').click();
+    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+    expect(accessToken).toBeTruthy();
+
+    const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        origin: adminOrigin
+      }
+    });
+    expect(response.status()).toBe(200);
+    expect(Array.isArray(await response.json())).toBe(true);
+  });
+
   test('OIDC 中心 Host 上下文可完成工作流待办同意', async ({ page, request }) => {
     test.setTimeout(120_000);
     const accessToken = await loginHostAdminAccessToken(request, 'vue');
