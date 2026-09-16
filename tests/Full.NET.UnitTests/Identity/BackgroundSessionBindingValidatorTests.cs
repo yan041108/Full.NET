@@ -59,6 +59,26 @@ public sealed class BackgroundSessionBindingValidatorTests
         Assert.IsFalse(valid);
     }
 
+    [TestMethod]
+    public async Task Oidc_application_binding_matches_active_session()
+    {
+        var fixture = new OidcFixture(CreateOidcRecord());
+
+        var valid = await fixture.Validator.IsValidAsync(CreateOidcBinding());
+
+        Assert.IsTrue(valid);
+    }
+
+    [TestMethod]
+    public async Task Oidc_application_binding_rejects_stale_effective_scope_after_tenant_switch()
+    {
+        var fixture = new OidcFixture(CreateOidcRecord(activeTenantId: TenantId));
+
+        var valid = await fixture.Validator.IsValidAsync(CreateOidcBinding(tenantId: null, effectiveScope: "host"));
+
+        Assert.IsFalse(valid);
+    }
+
     private static SessionBindingSnapshot CreateBinding(Guid? tenantId = null) => new(
         UserId,
         tenantId,
@@ -81,6 +101,34 @@ public sealed class BackgroundSessionBindingValidatorTests
         ExpiresAtUtc = Now.AddHours(1),
     };
 
+    private static SessionBindingSnapshot CreateOidcBinding(
+        Guid? tenantId = null,
+        string? effectiveScope = null) => new(
+        UserId,
+        tenantId,
+        SessionId,
+        "stamp",
+        "host",
+        effectiveScope ?? (tenantId is { } id ? $"tenant:{id:N}" : "host"),
+        SessionBindingKinds.OidcApplication);
+
+    private static IdentityOidcApplicationSessionValidationRecord CreateOidcRecord(
+        Guid? activeTenantId = null) => new()
+    {
+        ApplicationSessionId = SessionId,
+        CenterSessionId = Guid.Parse("01981f2a-1200-7000-8000-000000000004"),
+        UserId = UserId,
+        ClientId = "fixture-oidc-a-public",
+        ActorScope = "host",
+        EffectiveScope = activeTenantId is { } id ? $"tenant:{id:N}" : "host",
+        ActiveTenantId = activeTenantId,
+        ApplicationExpiresAtUtc = Now.AddHours(1),
+        CenterSecurityStamp = "stamp",
+        CenterExpiresAtUtc = Now.AddHours(1),
+        IsActive = true,
+        UserSecurityStamp = "stamp",
+    };
+
     private sealed class Fixture
     {
         public Fixture(RefreshSessionRecord record)
@@ -89,6 +137,25 @@ public sealed class BackgroundSessionBindingValidatorTests
             queryExecutor.QuerySingleOrDefaultAsync<RefreshSessionRecord>(
                     IdentitySql.FindRefreshSessionById,
                     Arg.Any<IReadOnlyDictionary<string, object?>>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(record);
+            Validator = new BackgroundSessionBindingValidator(
+                queryExecutor,
+                new FixedClock(Now),
+                Options.Create(new IdentityOptions()));
+        }
+
+        public BackgroundSessionBindingValidator Validator { get; }
+    }
+
+    private sealed class OidcFixture
+    {
+        public OidcFixture(IdentityOidcApplicationSessionValidationRecord record)
+        {
+            var queryExecutor = Substitute.For<IQueryExecutor>();
+            queryExecutor.QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                    IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                    Arg.Any<object?>(),
                     Arg.Any<CancellationToken>())
                 .Returns(record);
             Validator = new BackgroundSessionBindingValidator(
