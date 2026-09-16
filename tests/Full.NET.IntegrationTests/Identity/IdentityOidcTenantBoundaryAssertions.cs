@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
 using Full.NET.Modules.Identity.Contracts;
+using Full.NET.Modules.Tenancy.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -54,7 +56,7 @@ internal static class IdentityOidcTenantBoundaryAssertions
                 BoundaryKeyId,
                 issuer,
                 audience,
-                Guid.CreateVersion7()),
+                tenantId: Guid.CreateVersion7()),
             "forged tenant claim",
             cancellationToken);
 
@@ -68,7 +70,12 @@ internal static class IdentityOidcTenantBoundaryAssertions
                 flow.AccessToken,
                 FullNetIdentityClaimTypes.ApplicationSessionId)
             ?? throw new InvalidOperationException("OIDC access token is missing application session id."));
-        var sessionTenantId = Guid.CreateVersion7();
+        using var acmeClient = factory.CreateClientForHost("acme.localhost");
+        var acmeTenant = await acmeClient.GetFromJsonAsync<TenantSummary>(
+            "/api/v1/tenancy/current",
+            cancellationToken);
+        Assert.IsNotNull(acmeTenant);
+        var sessionTenantId = acmeTenant.Id;
         await SetApplicationSessionActiveTenantAsync(
             factory,
             applicationSessionId,
@@ -88,10 +95,47 @@ internal static class IdentityOidcTenantBoundaryAssertions
                 BoundaryKeyId,
                 issuer,
                 audience,
-                Guid.CreateVersion7()),
+                tenantId: Guid.CreateVersion7()),
             "tenant claim mismatching tenant-scoped session",
             cancellationToken);
+
+        var tenantEffectiveScope = BuildTenantEffectiveScope(sessionTenantId);
+        await SetApplicationSessionTenantContextAsync(
+            factory,
+            applicationSessionId,
+            sessionTenantId,
+            tenantEffectiveScope,
+            cancellationToken);
+        await VerifyMeRejectsTokenAsync(
+            client,
+            ResignAccessToken(
+                flow.AccessToken,
+                signingKey,
+                BoundaryKeyId,
+                issuer,
+                audience,
+                tenantId: sessionTenantId),
+            "host effective scope on tenant-scoped session",
+            cancellationToken);
+
+        var matchingTenantToken = ResignAccessToken(
+            flow.AccessToken,
+            signingKey,
+            BoundaryKeyId,
+            issuer,
+            audience,
+            tenantId: sessionTenantId,
+            effectiveScope: tenantEffectiveScope);
+        using var matchingMeRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
+        matchingMeRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", matchingTenantToken);
+        using var matchingMeResponse = await acmeClient.SendAsync(matchingMeRequest, cancellationToken);
+        Assert.AreEqual(
+            HttpStatusCode.OK,
+            matchingMeResponse.StatusCode,
+            "Matching tenant claim and effective scope must keep tenant-scoped sessions authorized.");
     }
+
+    private static string BuildTenantEffectiveScope(Guid tenantId) => $"tenant:{tenantId:N}";
 
     private static async Task VerifyMeRejectsTokenAsync(
         HttpClient client,
@@ -118,6 +162,19 @@ internal static class IdentityOidcTenantBoundaryAssertions
         FullNetApiFactory factory,
         Guid applicationSessionId,
         Guid activeTenantId,
+        CancellationToken cancellationToken) =>
+        await SetApplicationSessionTenantContextAsync(
+            factory,
+            applicationSessionId,
+            activeTenantId,
+            "host",
+            cancellationToken);
+
+    private static async Task SetApplicationSessionTenantContextAsync(
+        FullNetApiFactory factory,
+        Guid applicationSessionId,
+        Guid activeTenantId,
+        string effectiveScope,
         CancellationToken cancellationToken)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -125,10 +182,12 @@ internal static class IdentityOidcTenantBoundaryAssertions
         var executor = scope.ServiceProvider.GetRequiredService<ICommandExecutor>();
         var affectedRows = await executor.ExecuteAsync(
             new SqlStatement(
-                "integration.identity.oidc.set_application_session_active_tenant",
+                "integration.identity.oidc.set_application_session_tenant_context",
                 """
                 UPDATE fn_identity_oidc_application_session
-                SET ActiveTenantId = @ActiveTenantId, UpdatedAtUtc = @UpdatedAtUtc
+                SET ActiveTenantId = @ActiveTenantId,
+                    EffectiveScope = @EffectiveScope,
+                    UpdatedAtUtc = @UpdatedAtUtc
                 WHERE Id = @ApplicationSessionId
                 """,
                 SqlDataScope.HostOnly),
@@ -136,6 +195,7 @@ internal static class IdentityOidcTenantBoundaryAssertions
             {
                 ApplicationSessionId = applicationSessionId,
                 ActiveTenantId = activeTenantId,
+                EffectiveScope = effectiveScope,
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
             },
             cancellationToken);
@@ -148,7 +208,8 @@ internal static class IdentityOidcTenantBoundaryAssertions
         string keyId,
         string issuer,
         string audience,
-        Guid tenantId)
+        Guid? tenantId = null,
+        string? effectiveScope = null)
     {
         var token = new JsonWebToken(accessToken);
         var claims = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -159,7 +220,12 @@ internal static class IdentityOidcTenantBoundaryAssertions
                 continue;
             }
 
-            if (claim.Type == FullNetIdentityClaimTypes.TenantId)
+            if (claim.Type == FullNetIdentityClaimTypes.TenantId && tenantId.HasValue)
+            {
+                continue;
+            }
+
+            if (claim.Type == FullNetIdentityClaimTypes.Scope && effectiveScope is not null)
             {
                 continue;
             }
@@ -167,7 +233,15 @@ internal static class IdentityOidcTenantBoundaryAssertions
             claims[claim.Type] = claim.Value;
         }
 
-        claims[FullNetIdentityClaimTypes.TenantId] = tenantId.ToString("D");
+        if (tenantId.HasValue)
+        {
+            claims[FullNetIdentityClaimTypes.TenantId] = tenantId.Value.ToString("D");
+        }
+
+        if (effectiveScope is not null)
+        {
+            claims[FullNetIdentityClaimTypes.Scope] = effectiveScope;
+        }
 
         var signingKey = new RsaSecurityKey(privateKey) { KeyId = keyId };
         var descriptor = new SecurityTokenDescriptor
