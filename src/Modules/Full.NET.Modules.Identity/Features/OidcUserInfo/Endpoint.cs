@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Oidc;
 using Full.NET.Modules.Identity.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -27,12 +28,21 @@ internal static class Endpoint
             .WithTags("IdentityOidcProtocol");
     }
 
-    private static async Task<IResult> HandleUserInfoAsync(HttpContext httpContext, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUserInfoAsync(
+        HttpContext httpContext,
+        IdentityOidcAccessSessionValidator sessionValidator,
+        CancellationToken cancellationToken)
     {
         var authenticateResult = await httpContext.AuthenticateAsync(
                 OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)
             .ConfigureAwait(false);
         if (!authenticateResult.Succeeded || authenticateResult.Principal is null)
+        {
+            return Results.Challenge(
+                authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme]);
+        }
+
+        if (!await sessionValidator.IsValidAsync(authenticateResult.Principal, cancellationToken).ConfigureAwait(false))
         {
             return Results.Challenge(
                 authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme]);

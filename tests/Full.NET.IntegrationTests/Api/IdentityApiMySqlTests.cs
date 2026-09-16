@@ -464,6 +464,14 @@ public sealed class IdentityApiMySqlTests
     }
 
     [TestMethod]
+    public async Task Oidc_protocol_endpoints_enforce_session_authority_with_mysql()
+    {
+        await IdentityOidcProtocolAuthorityAssertions.VerifyAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_client_offline_authoritative_revoke_with_mysql()
     {
         await IdentityOidcClientOfflineAssertions.VerifyAsync(

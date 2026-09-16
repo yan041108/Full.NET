@@ -464,6 +464,14 @@ public sealed class IdentityApiSqlServerTests
     }
 
     [TestMethod]
+    public async Task Oidc_protocol_endpoints_enforce_session_authority_with_sql_server()
+    {
+        await IdentityOidcProtocolAuthorityAssertions.VerifyAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
+
+    [TestMethod]
     public async Task Oidc_client_offline_authoritative_revoke_with_sql_server()
     {
         await IdentityOidcClientOfflineAssertions.VerifyAsync(
