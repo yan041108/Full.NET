@@ -83,6 +83,86 @@ internal static class NativeApiOidcE2EAssertions
         tokenHost.AssertNoFatalMarkersInLogs();
     }
 
+    public static async Task VerifyDualInstanceContextSwitchAsync(
+        DatabaseProvider provider,
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        var artifact = NativeApiArtifactLocator.RequireArtifact();
+        await NativeApiDatabaseBootstrap.BootstrapAsync(provider, connectionString, cancellationToken).ConfigureAwait(false);
+        using var sharedKey = RSA.Create(3072);
+        var settings = BuildOidcSettings(sharedKey, "native-aot-context-switch");
+        await using var primaryHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        await using var peerHost = await NativeApiProcessHost.StartAsync(
+            artifact, provider, connectionString, settings, NativeAotTestTimeouts.ProcessStartup, cancellationToken).ConfigureAwait(false);
+        using var primaryClient = primaryHost.CreateClient();
+        using var peerClient = peerHost.CreateClient();
+        var flow = await IdentityOidcRelyingPartyFixture.RunAuthorizationCodeFlowAsync(
+            primaryClient,
+            IdentityOidcRelyingPartyFixture.PublicClientId,
+            IdentityOidcRelyingPartyFixture.PublicRedirectUri,
+            null,
+            "admin",
+            NativeApiE2EAssertions.AdminPassword,
+            requestOfflineAccess: false,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(flow.AccessToken));
+        var acmeTenant = await GetAcmeTenantAsync(primaryClient, flow.AccessToken, primaryHost.LogFilePath, cancellationToken).ConfigureAwait(false);
+        using var switchToTenantResponse = await primaryClient.SendAsync(
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", flow.AccessToken, new ChangeTenantContextRequest(acmeTenant.Id)),
+            cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            switchToTenantResponse,
+            HttpStatusCode.OK,
+            "OIDC tenant context switch on primary native instance",
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        var tenantToken = await switchToTenantResponse.Content
+            .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(tenantToken);
+        await AssertMeAcceptsTokenAsync(
+            peerClient,
+            tenantToken.AccessToken,
+            "peer native instance after OIDC tenant context switch",
+            peerHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        await AssertMeRejectsTokenAsync(
+            peerClient,
+            flow.AccessToken,
+            "peer native instance with stale OIDC host token after context switch",
+            peerHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        using var switchToHostResponse = await primaryClient.SendAsync(
+            AuthorizedJson(HttpMethod.Put, "/api/v1/tenancy/context", tenantToken.AccessToken, new ChangeTenantContextRequest(null)),
+            cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            switchToHostResponse,
+            HttpStatusCode.OK,
+            "OIDC host context switch round-trip on primary native instance",
+            primaryHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        var hostToken = await switchToHostResponse.Content
+            .ReadFromJsonAsync<TenantContextTokenResponse>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(hostToken);
+        await AssertMeAcceptsTokenAsync(
+            peerClient,
+            hostToken.AccessToken,
+            "peer native instance after OIDC host round-trip",
+            peerHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        await AssertMeRejectsTokenAsync(
+            peerClient,
+            tenantToken.AccessToken,
+            "peer native instance with stale OIDC tenant token after host round-trip",
+            peerHost.LogFilePath,
+            cancellationToken).ConfigureAwait(false);
+        await primaryHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        await peerHost.StopGracefullyAsync(cancellationToken).ConfigureAwait(false);
+        primaryHost.AssertNoFatalMarkersInLogs();
+        peerHost.AssertNoFatalMarkersInLogs();
+    }
+
     private static async Task VerifyOidcOnlineSessionRevokeAsync(
         HttpClient client, string adminToken, string logFilePath, CancellationToken cancellationToken)
     {
@@ -228,6 +308,51 @@ internal static class NativeApiOidcE2EAssertions
             settings["Identity:Oidc:SigningKeys:" + sharedSigningKeyId + ":PublicKeyPem"] = sharedSigningKey.ExportRSAPublicKeyPem();
         }
         return settings;
+    }
+
+    private static async Task<TenantContextSummary> GetAcmeTenantAsync(
+        HttpClient client,
+        string accessToken,
+        string logFilePath,
+        CancellationToken cancellationToken)
+    {
+        using var response = await client.SendAsync(
+            Authorized(HttpMethod.Get, "/api/v1/tenancy/available", accessToken),
+            cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(response, HttpStatusCode.OK, "List available tenants with OIDC token", logFilePath, cancellationToken).ConfigureAwait(false);
+        var available = await response.Content.ReadFromJsonAsync<TenantContextSummary[]>(cancellationToken).ConfigureAwait(false);
+        Assert.IsNotNull(available);
+        return available.Single(tenant => tenant.Identifier == "acme");
+    }
+
+    private static async Task AssertMeAcceptsTokenAsync(
+        HttpClient client,
+        string accessToken,
+        string scenario,
+        string logFilePath,
+        CancellationToken cancellationToken)
+    {
+        using var response = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/me", accessToken), cancellationToken).ConfigureAwait(false);
+        await AssertStatusAsync(
+            response,
+            HttpStatusCode.OK,
+            "Access token must remain valid on peer native instance for " + scenario,
+            logFilePath,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task AssertMeRejectsTokenAsync(
+        HttpClient client,
+        string accessToken,
+        string scenario,
+        string logFilePath,
+        CancellationToken cancellationToken)
+    {
+        using var response = await client.SendAsync(Authorized(HttpMethod.Get, "/api/v1/me", accessToken), cancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode,
+            "Stale OIDC access token must be rejected on peer native instance for " + scenario + ".");
     }
 
     private static HttpRequestMessage Authorized(HttpMethod method, string url, string token)

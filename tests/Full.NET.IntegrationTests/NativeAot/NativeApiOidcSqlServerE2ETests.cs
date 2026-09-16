@@ -45,4 +45,17 @@ public sealed class NativeApiOidcSqlServerE2ETests
             DatabaseProvider.SqlServer,
             await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task SqlServer_native_artifact_validates_dual_instance_oidc_context_switch()
+    {
+        if (!NativeApiArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native AOT artifact unavailable.");
+        }
+
+        await NativeApiOidcE2EAssertions.VerifyDualInstanceContextSwitchAsync(
+            DatabaseProvider.SqlServer,
+            await SharedDatabaseFixture.CreateSqlServerDatabaseAsync());
+    }
 }

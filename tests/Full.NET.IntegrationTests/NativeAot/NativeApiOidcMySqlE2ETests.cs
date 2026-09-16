@@ -45,4 +45,17 @@ public sealed class NativeApiOidcMySqlE2ETests
             DatabaseProvider.MySql,
             await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
     }
+
+    [TestMethod]
+    public async Task MySql_native_artifact_validates_dual_instance_oidc_context_switch()
+    {
+        if (!NativeApiArtifactLocator.TryResolve(out _, out var skipReason))
+        {
+            Assert.Inconclusive(skipReason ?? "Native AOT artifact unavailable.");
+        }
+
+        await NativeApiOidcE2EAssertions.VerifyDualInstanceContextSwitchAsync(
+            DatabaseProvider.MySql,
+            await SharedDatabaseFixture.CreateMySqlDatabaseAsync());
+    }
 }
