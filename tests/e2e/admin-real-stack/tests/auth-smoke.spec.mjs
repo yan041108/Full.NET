@@ -13,6 +13,14 @@ test.beforeEach(async ({ page }) => {
 test.describe('匿名登录流', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
+  test('legacy 管理端展示密码表单并隐藏身份中心入口', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: '管理员登录' })).toBeVisible();
+    await expect(page.getByLabel('账号', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('密码', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('login-oidc-center')).toHaveCount(0);
+  });
+
   test('真实 API 登录后展示动态导航与 Host 上下文', async ({ page }, testInfo) => {
     const clientKind = testInfo.project.metadata.clientKind;
 
