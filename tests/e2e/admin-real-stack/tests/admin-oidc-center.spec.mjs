@@ -1027,6 +1027,96 @@ test.describe('Vue admin oidc-center auth', () => {
     expect(Array.isArray(body.items)).toBe(true);
   });
 
+  test('OIDC 中心切租户并返回 Host 后 access token 仍可触发后台任务并读取执行历史', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.hret.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Host Return Trigger ${stamp}`,
+      description: 'oidc-center host return context job trigger probe'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const triggerResponse = await expectOidcApiPostStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+    const execution = await triggerResponse.json();
+
+    const listResponse = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      200
+    );
+    expect((await listResponse.json()).items?.some(item => item.id === execution.id)).toBe(true);
+  });
+
+  test('OIDC 中心切租户并返回 Host 后可通过任务定义页 UI 触发后台任务', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const setupOrigin = 'http://localhost:25173';
+    const setupToken = await loginHostAdminAccessToken(request, 'vue');
+    const stamp = Date.now().toString(36);
+    const displayName = `E2E OIDC Host Return UI Trigger ${stamp}`;
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey: `e2e.oidc.hrui.${stamp}`.slice(0, 32),
+      displayName,
+      description: 'oidc-center host return context job ui trigger probe'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    await clickMainNavLink(page, /任务定义/, '任务');
+    const jobsView = page.locator('.host-jobs-view');
+    const row = jobsView.getByRole('row').filter({ hasText: displayName });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+
+    const triggerResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/jobs/host-definitions/${definition.id}/trigger`)
+      && response.request().method() === 'POST'
+    );
+    await row.getByTestId('host-jobs-action-trigger').click();
+    const response = await triggerResponse;
+    expect(response.status()).toBe(201);
+    const execution = await response.json();
+    expect(typeof execution.id).toBe('string');
+
+    await expect.poll(async () => {
+      const listResponse = await request.get(
+        `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+        {
+          headers: {
+            authorization: `Bearer ${setupToken}`,
+            origin: setupOrigin
+          }
+        }
+      );
+      if (!listResponse.ok()) {
+        return false;
+      }
+      const body = await listResponse.json();
+      return (body.items ?? []).some(item => item.id === execution.id);
+    }).toBe(true);
+  });
+
   test('OIDC 中心切租户并返回 Host 后 access token 仍可创建并读取排队 Agent Run', async ({ page, request }) => {
     test.setTimeout(90_000);
     const apiBase = resolveApiBase();
@@ -1243,6 +1333,62 @@ test.describe('Vue admin oidc-center auth', () => {
 
     await cancelOidcCenterQueuedAgentRun(request, accessToken, first.runId);
     await expectOidcCenterAgentRunCancelRejected(request, accessToken, first.runId);
+  });
+
+  test('OIDC 中心切租户并返回 Host 后 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行', async ({
+    page,
+    request
+  }) => {
+    test.setTimeout(90_000);
+    const stamp = Date.now().toString(36);
+    const clientRequestId = crypto.randomUUID();
+    const model = await createE2eAiAgentModelConfig(request, {
+      displayName: `E2E OIDC Host Return UI Idempotent Cancel Agent ${stamp}`
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await clickMainNavLink(page, /租户上下文/);
+    await page.getByRole('button', { name: '返回 Host' }).click();
+    await expectVisibleCurrentContext(page, 'Full.NET Host');
+
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+    const prompt = `oidc-center host return agent runs ui idempotent cancel ${stamp}`;
+    const first = await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+    await createOidcCenterQueuedAgentRun(request, accessToken, {
+      modelConfigId: model.id,
+      prompt,
+      clientRequestId
+    });
+
+    await clickMainNavLink(page, /Agent 运行/);
+    await expect(page.getByRole('heading', { name: 'Agent 运行', exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId('ai-agent-runs-id').fill(first.runId);
+    const loadResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${first.runId}`)
+      && response.request().method() === 'GET'
+    );
+    await page.getByTestId('ai-agent-runs-load').click();
+    expect((await loadResponse).status()).toBe(200);
+    await expect(page.getByTestId('ai-agent-runs-cancel')).toBeVisible({ timeout: 15_000 });
+
+    const cancelResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/ai/agent/runs/${first.runId}/cancel`)
+      && response.request().method() === 'POST'
+    );
+    await page.getByTestId('ai-agent-runs-cancel').click();
+    expect((await cancelResponse).status()).toBe(200);
+
+    await expect(page.locator('.ai-agent-runs-view').getByText('cancelled', { exact: true }))
+      .toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('ai-agent-runs-cancel')).toHaveCount(0);
+    await expect(page.getByTestId('ai-agent-runs-resume')).toHaveCount(0);
   });
 
   test('OIDC 中心切租户并返回 Host 后加载排队运行不展示恢复按钮', async ({ page, request }) => {
@@ -1508,6 +1654,89 @@ test.describe('Vue admin oidc-center auth', () => {
     );
     const body = await response.json();
     expect(Array.isArray(body.items)).toBe(true);
+  });
+
+  test('OIDC 中心切租户后 access token 仍可触发后台任务并读取执行历史', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const stamp = Date.now().toString(36);
+    const jobKey = `e2e.oidc.tenant.${stamp}`.slice(0, 32);
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey,
+      displayName: `E2E OIDC Tenant Trigger ${stamp}`,
+      description: 'oidc-center tenant context job trigger probe'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
+
+    const triggerResponse = await expectOidcApiPostStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-definitions/${definition.id}/trigger`,
+      201
+    );
+    const execution = await triggerResponse.json();
+
+    const listResponse = await expectOidcApiGetStatus(
+      request,
+      accessToken,
+      `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+      200
+    );
+    expect((await listResponse.json()).items?.some(item => item.id === execution.id)).toBe(true);
+  });
+
+  test('OIDC 中心切租户后可通过任务定义页 UI 触发后台任务', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    const apiBase = resolveApiBase();
+    const setupOrigin = 'http://localhost:25173';
+    const setupToken = await loginHostAdminAccessToken(request, 'vue');
+    const stamp = Date.now().toString(36);
+    const displayName = `E2E OIDC Tenant UI Trigger ${stamp}`;
+    const definition = await createE2eHostPingJobDefinition(request, {
+      jobKey: `e2e.oidc.tui.${stamp}`.slice(0, 32),
+      displayName,
+      description: 'oidc-center tenant context job ui trigger probe'
+    });
+
+    await loginAdminViaOidcCenter(page, credentials);
+    await enterDevelopmentTenant(page);
+    await expectVisibleCurrentContext(page, 'Full.NET Local');
+
+    await clickMainNavLink(page, /任务定义/, '任务');
+    const jobsView = page.locator('.host-jobs-view');
+    const row = jobsView.getByRole('row').filter({ hasText: displayName });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+
+    const triggerResponse = page.waitForResponse(response =>
+      response.url().includes(`/api/v1/jobs/host-definitions/${definition.id}/trigger`)
+      && response.request().method() === 'POST'
+    );
+    await row.getByTestId('host-jobs-action-trigger').click();
+    const response = await triggerResponse;
+    expect(response.status()).toBe(201);
+    const execution = await response.json();
+    expect(typeof execution.id).toBe('string');
+
+    await expect.poll(async () => {
+      const listResponse = await request.get(
+        `${apiBase}/api/v1/jobs/host-executions?page=1&pageSize=50&jobDefinitionId=${definition.id}`,
+        {
+          headers: {
+            authorization: `Bearer ${setupToken}`,
+            origin: setupOrigin
+          }
+        }
+      );
+      if (!listResponse.ok()) {
+        return false;
+      }
+      const body = await listResponse.json();
+      return (body.items ?? []).some(item => item.id === execution.id);
+    }).toBe(true);
   });
 
   test('OIDC 中心切租户后 access token 仍可创建并读取排队 Agent Run', async ({ page, request }) => {

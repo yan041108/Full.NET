@@ -310,6 +310,11 @@ test('oidc-center 真实栈必须覆盖 §6 最小消费探针', async () => {
   assert.match(source, /切租户并返回 Host 后幂等创建并取消后无法重复取消 Agent Run/u);
   assert.match(source, /Host 上下文 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行/u);
   assert.match(source, /切租户后 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行/u);
+  assert.match(source, /切租户并返回 Host 后 API 幂等创建后可通过 Agent 运行页 UI 加载并取消排队运行/u);
+  assert.match(source, /切租户后 access token 仍可触发后台任务并读取执行历史/u);
+  assert.match(source, /切租户并返回 Host 后 access token 仍可触发后台任务并读取执行历史/u);
+  assert.match(source, /切租户后可通过任务定义页 UI 触发后台任务/u);
+  assert.match(source, /切租户并返回 Host 后可通过任务定义页 UI 触发后台任务/u);
   assert.match(source, /expectProtectedRouteRedirectsToOidcLogin/u);
   assert.match(source, /ai-agent-runs-resume/u);
   assert.match(source, /切租户后 access token 可取消排队 Agent Run/u);
@@ -379,5 +384,5 @@ test('admin-oidc-center 真实栈用例数量与 T08 文档登记一致', async 
     'utf8'
   );
   const count = (source.match(/^\s*test\(/gm) ?? []).length;
-  assert.equal(count, 89);
+  assert.equal(count, 94);
 });
