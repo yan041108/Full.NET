@@ -1,10 +1,13 @@
 using System.Net;
+using System.Globalization;
 using System.Security.Claims;
 using System.Text;
+using Full.NET.Abstractions.Time;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Oidc;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -31,15 +34,32 @@ internal static class Endpoint
             .WithTags("IdentityOidcProtocol");
     }
 
-    private static async Task<IResult> HandleAuthorizeAsync(
+    internal static async Task<IResult> HandleAuthorizeAsync(
         HttpContext httpContext,
         IdentityOidcAuthorizationService authorizationService,
         IdentityOidcClientConfigResolver clientConfigResolver,
         IOptions<IdentityOidcOptions> oidcOptions,
+        IAntiforgery antiforgery,
+        IClock clock,
         CancellationToken cancellationToken)
     {
         var request = httpContext.GetOpenIddictServerRequest()
             ?? throw new InvalidOperationException("The OpenIddict request cannot be resolved.");
+        var isLoginSubmission = HttpMethods.IsPost(httpContext.Request.Method)
+            && httpContext.Request.HasFormContentType
+            && (httpContext.Request.Form.ContainsKey("username") || httpContext.Request.Form.ContainsKey("password"));
+        if (isLoginSubmission)
+        {
+            // 必须在凭据处理与任何 Cookie 写入之前验证，防止跨站表单替换中心登录身份。
+            try
+            {
+                await antiforgery.ValidateRequestAsync(httpContext).ConfigureAwait(false);
+            }
+            catch (AntiforgeryValidationException)
+            {
+                return Results.StatusCode(StatusCodes.Status400BadRequest);
+            }
+        }
         if (!string.IsNullOrWhiteSpace(request.ClientId)
             && await clientConfigResolver.IsDisabledAsync(request.ClientId, cancellationToken)
                 .ConfigureAwait(false))
@@ -50,14 +70,8 @@ internal static class Endpoint
                 "The OIDC client is disabled."));
         }
         var forceCenterLogin = ContainsPromptValue(request.Prompt, "login");
-        if (forceCenterLogin)
-        {
-            await httpContext.SignOutAsync(IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
-                .ConfigureAwait(false);
-        }
-
         ClaimsPrincipal? centerPrincipal = null;
-        if (httpContext.Request.Method == HttpMethods.Post
+        if (isLoginSubmission
             && !string.IsNullOrWhiteSpace(httpContext.Request.Form["username"])
             && !string.IsNullOrWhiteSpace(httpContext.Request.Form["password"]))
         {
@@ -69,7 +83,7 @@ internal static class Endpoint
             if (!signInResult.Succeeded)
             {
                 return Results.Content(
-                    BuildLoginPage(request, "Invalid username or password."),
+                    BuildLoginPage(request, "Invalid username or password.", antiforgery.GetAndStoreTokens(httpContext)),
                     "text/html; charset=utf-8",
                     Encoding.UTF8,
                     (int)HttpStatusCode.Unauthorized);
@@ -85,10 +99,15 @@ internal static class Endpoint
 
         if (!forceCenterLogin)
         {
-            centerPrincipal ??= (await httpContext.AuthenticateAsync(
+            var cookiePrincipal = (await httpContext.AuthenticateAsync(
                         IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme)
                     .ConfigureAwait(false))
                 .Principal;
+            // 新提交的凭据已完成认证；max_age=0 只禁止复用旧 Cookie，不能让表单无限重登。
+            if (centerPrincipal is null && !RequiresFreshAuthentication(cookiePrincipal, request.MaxAge, clock.UtcNow))
+            {
+                centerPrincipal = cookiePrincipal;
+            }
         }
 
         if (centerPrincipal is null)
@@ -102,7 +121,7 @@ internal static class Endpoint
             }
 
             return Results.Content(
-                BuildLoginPage(request, null),
+                BuildLoginPage(request, null, antiforgery.GetAndStoreTokens(httpContext)),
                 "text/html; charset=utf-8",
                 Encoding.UTF8);
         }
@@ -164,7 +183,17 @@ internal static class Endpoint
         return builder.ToString();
     }
 
-    private static string BuildLoginPage(OpenIddictRequest request, string? errorMessage)
+    /// <summary>按原始认证时间判断 Cookie 是否满足 RP 的新鲜度要求；缺失时间时失败关闭。</summary>
+    internal static bool RequiresFreshAuthentication(ClaimsPrincipal? principal, long? maxAge, DateTimeOffset now)
+    {
+        if (maxAge is null) return false;
+        if (maxAge <= 0 || !long.TryParse(principal?.FindFirstValue(OpenIddictConstants.Claims.AuthenticationTime),
+                NumberStyles.None, CultureInfo.InvariantCulture, out var authenticatedAt)) return true;
+        var nowSeconds = now.ToUnixTimeSeconds();
+        return authenticatedAt < 0 || authenticatedAt > nowSeconds || nowSeconds - authenticatedAt > maxAge.Value;
+    }
+
+    private static string BuildLoginPage(OpenIddictRequest request, string? errorMessage, AntiforgeryTokenSet tokens)
     {
         var builder = new StringBuilder();
         builder.Append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"/><title>Sign in</title></head><body>");
@@ -177,6 +206,11 @@ internal static class Endpoint
         }
 
         builder.Append("<form method=\"post\" action=\"/connect/authorize\">");
+        builder.Append("<input type=\"hidden\" name=\"")
+            .Append(WebUtility.HtmlEncode(tokens.FormFieldName))
+            .Append("\" value=\"")
+            .Append(WebUtility.HtmlEncode(tokens.RequestToken))
+            .Append("\"/>");
         builder.Append("<input type=\"hidden\" name=\"client_id\" value=\"")
             .Append(WebUtility.HtmlEncode(request.ClientId))
             .Append("\"/>");

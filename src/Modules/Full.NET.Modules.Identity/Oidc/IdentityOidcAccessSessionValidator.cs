@@ -44,13 +44,16 @@ internal sealed class IdentityOidcAccessSessionValidator(
             return false;
         }
 
-        if (string.Equals(tokenUse, IdentityOidcPrincipalFactory.TokenUseId, StringComparison.Ordinal)
-            || string.IsNullOrWhiteSpace(tokenUse))
+        if (!string.Equals(tokenUse, IdentityOidcPrincipalFactory.TokenUseAccess, StringComparison.Ordinal))
         {
             return false;
         }
 
-        // OIDC 会话权威表为 HostOnly；校验前显式切换 Host，避免租户解析中间件残留上下文。
+        // 权威表为 HostOnly，但工具执行期间也会复验会话；查询后必须恢复调用者的可信上下文。
+        var wasHost = tenantContextWriter.IsHost;
+        var previousTenant = tenantContextWriter.Id is Guid tenantId
+            ? new TenantContext(tenantId, tenantContextWriter.Identifier!, tenantContextWriter.Name!)
+            : null;
         tenantContextWriter.SetHost();
         IdentityOidcApplicationSessionValidationRecord? record;
         try
@@ -68,6 +71,21 @@ internal sealed class IdentityOidcAccessSessionValidator(
         catch (Exception)
         {
             return false;
+        }
+        finally
+        {
+            if (previousTenant is not null)
+            {
+                tenantContextWriter.SetTenant(previousTenant);
+            }
+            else if (wasHost)
+            {
+                tenantContextWriter.SetHost();
+            }
+            else
+            {
+                tenantContextWriter.Clear();
+            }
         }
 
         if (!IsActive(record, userId, clock.UtcNow))

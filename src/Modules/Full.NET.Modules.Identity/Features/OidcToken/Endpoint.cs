@@ -1,5 +1,7 @@
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Http;
+using Full.NET.Modules.Identity.Serialization;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -36,11 +38,8 @@ internal static class Endpoint
                 .ConfigureAwait(false))
         {
             return Results.Json(
-                new
-                {
-                    error = "unauthorized_client",
-                    error_description = "The OIDC client is disabled.",
-                },
+                new IdentityOidcProtocolError("unauthorized_client", "The OIDC client is disabled."),
+                IdentityJsonSerializerContext.Default.IdentityOidcProtocolError,
                 statusCode: StatusCodes.Status400BadRequest);
         }
 

@@ -107,6 +107,28 @@ internal static class IdentityOidcRelyingPartyFixture
         }
         else
         {
+            var loginPage = await authorizeGet.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            const string tokenPrefix = "name=\"__RequestVerificationToken\" value=\"";
+            var tokenStart = loginPage.IndexOf(tokenPrefix, StringComparison.Ordinal);
+            Assert.IsTrue(tokenStart >= 0, "中心登录页缺少防伪令牌。");
+            tokenStart += tokenPrefix.Length;
+            var tokenEnd = loginPage.IndexOf('"', tokenStart);
+            var antiforgeryToken = WebUtility.HtmlDecode(loginPage[tokenStart..tokenEnd]);
+            // 使用真实防伪服务证明跨站可构造的裸表单不能进入中心凭据处理。
+            using (var forgedResponse = await client.PostAsync("/connect/authorize",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["client_id"] = clientId, ["redirect_uri"] = redirectUri,
+                    ["response_type"] = "code", ["scope"] = scopes,
+                    ["state"] = state, ["nonce"] = nonce,
+                    ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
+                    ["username"] = username, ["password"] = password,
+                }), cancellationToken).ConfigureAwait(false))
+            {
+                Assert.AreEqual(HttpStatusCode.BadRequest, forgedResponse.StatusCode,
+                    "缺少防伪令牌的凭据表单必须拒绝，不能颁发授权码。");
+                Assert.IsNull(forgedResponse.Headers.Location);
+            }
             using var authorizePost = new HttpRequestMessage(HttpMethod.Post, "/connect/authorize")
             {
                 Content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -121,6 +143,7 @@ internal static class IdentityOidcRelyingPartyFixture
                     ["code_challenge_method"] = "S256",
                     ["username"] = username,
                     ["password"] = password,
+                    ["__RequestVerificationToken"] = antiforgeryToken,
                 }),
             };
             using var authorizePostResponse = await client.SendAsync(

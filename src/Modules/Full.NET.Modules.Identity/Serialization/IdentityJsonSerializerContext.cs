@@ -141,6 +141,8 @@ namespace Full.NET.Modules.Identity.Serialization;
 [JsonSerializable(typeof(ReconcileOrganizationUnitProjectionRequest))]
 [JsonSerializable(typeof(ReconcileOrganizationUnitProjectionResponse))]
 [JsonSerializable(typeof(Features.OidcSession.IdentityOidcCenterLoginRequest))]
+[JsonSerializable(typeof(Features.OidcSession.IdentityOidcCenterLoginResponse))]
+[JsonSerializable(typeof(Http.IdentityOidcProtocolError))]
 [JsonSerializable(typeof(Features.OidcSession.IdentityOidcApplicationLogoutRequest))]
 [JsonSerializable(typeof(OidcSigningKeyResponse))]
 [JsonSerializable(typeof(OidcSigningKeyListResponse))]

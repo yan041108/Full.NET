@@ -1,12 +1,13 @@
 using System.Text.Json;
 using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Serialization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Full.NET.Modules.Identity.Http;
 
-/// <summary>Returns OAuth-style JSON errors for OIDC protocol paths.</summary>
+/// <summary>为协议端点返回静态序列化的标准错误，不向客户端泄露异常细节。</summary>
 internal sealed class IdentityOidcProtocolExceptionHandler(
     ILogger<IdentityOidcProtocolExceptionHandler> logger) : IExceptionHandler
 {
@@ -32,11 +33,9 @@ internal sealed class IdentityOidcProtocolExceptionHandler(
         httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
         httpContext.Response.ContentType = "application/json;charset=UTF-8";
         await httpContext.Response.WriteAsync(
-            JsonSerializer.Serialize(new
-            {
-                error = "server_error",
-                error_description = "An internal error occurred.",
-            }),
+            JsonSerializer.Serialize(
+                new IdentityOidcProtocolError("server_error", "An internal error occurred."),
+                IdentityJsonSerializerContext.Default.IdentityOidcProtocolError),
             cancellationToken).ConfigureAwait(false);
         return true;
     }

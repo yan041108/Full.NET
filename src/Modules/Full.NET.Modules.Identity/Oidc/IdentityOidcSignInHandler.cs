@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Collections.Immutable;
 using Full.NET.Modules.Identity.Configuration;
 using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Security;
@@ -38,7 +39,14 @@ internal sealed class IdentityOidcSignInHandler(
 
         foreach (var (key, value) in principalFactory.CreateClaims(principalRequest))
         {
-            identity.SetClaim(key, value?.ToString());
+            if (value is string[] values)
+            {
+                identity.SetClaims(key, values.ToImmutableArray());
+            }
+            else
+            {
+                identity.SetClaim(key, value?.ToString());
+            }
         }
 
         StripOidcStagingClaims(identity, principalRequest.IsExternalClient);
@@ -47,7 +55,11 @@ internal sealed class IdentityOidcSignInHandler(
         identity.SetClaim(JwtRegisteredClaimNames.Aud, audience);
         identity.SetDestinations(static claim => claim.Type switch
         {
-            Claims.Name or Claims.PreferredUsername or Claims.Subject => [Destinations.AccessToken, Destinations.IdentityToken],
+            Claims.Name or Claims.PreferredUsername => claim.Subject!.HasScope(Scopes.Profile)
+                ? [Destinations.AccessToken, Destinations.IdentityToken] : [],
+            Claims.Subject => [Destinations.AccessToken, Destinations.IdentityToken],
+            Claims.AuthenticationTime => [Destinations.IdentityToken],
+            "fullnet_is_first_party" or "fullnet_permissions" or "fullnet_oauth_scopes" or "fullnet_is_super_admin" => [],
             JwtRegisteredClaimNames.Aud or JwtRegisteredClaimNames.Iss => [Destinations.AccessToken, Destinations.IdentityToken],
             FullNetIdentityClaimTypes.TokenUse => claim.Value?.ToString() == IdentityOidcPrincipalFactory.TokenUseId
                 ? [Destinations.IdentityToken]
@@ -74,8 +86,7 @@ internal sealed class IdentityOidcSignInHandler(
 
         audience = identity.GetClaim(JwtRegisteredClaimNames.Aud) ?? identityOptions.Value.Audience;
         var clientId = identity.GetClaim(FullNetIdentityClaimTypes.OidcClientId) ?? string.Empty;
-        var oauthScopes = (identity.GetClaim("fullnet_oauth_scopes") ?? string.Empty)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var oauthScopes = identity.GetScopes();
         var permissions = (identity.GetClaim("fullnet_permissions") ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var isSuperAdministrator = string.Equals(
@@ -93,7 +104,7 @@ internal sealed class IdentityOidcSignInHandler(
             clientId,
             identity.GetClaim(IdentityClaimTypes.ActorScope) ?? "host",
             identity.GetClaim(IdentityClaimTypes.Scope) ?? "host",
-            null,
+            Guid.TryParse(identity.GetClaim(FullNetIdentityClaimTypes.TenantId), out var tenantId) ? tenantId : null,
             oauthScopes,
             permissions,
             isSuperAdministrator,
@@ -107,7 +118,8 @@ internal sealed class IdentityOidcSignInHandler(
         var claim = identity.GetClaim("fullnet_is_first_party");
         if (string.IsNullOrWhiteSpace(claim))
         {
-            return false;
+            // 无可信分类信息的历史授权不得自动获得第一方内部 Claim。
+            return true;
         }
 
         return !bool.TryParse(claim, out var isFirstParty) || !isFirstParty;
@@ -115,10 +127,7 @@ internal sealed class IdentityOidcSignInHandler(
 
     private static void StripOidcStagingClaims(ClaimsIdentity identity, bool isExternalClient)
     {
-        RemoveClaims(identity, "fullnet_is_first_party");
-        RemoveClaims(identity, "fullnet_permissions");
-        RemoveClaims(identity, "fullnet_oauth_scopes");
-        RemoveClaims(identity, "fullnet_is_super_admin");
+        // 暂存 Claim 保留在加密授权码/刷新令牌内，空 destinations 阻止写入公开 JWT。
         if (isExternalClient)
         {
             RemoveClaims(identity, FullNetIdentityClaimTypes.SecurityStamp);

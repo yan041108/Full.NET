@@ -4,7 +4,7 @@
     "unit": {
       "project": "tests/Full.NET.UnitTests/Full.NET.UnitTests.csproj",
       "assembly": "tests/Full.NET.UnitTests/bin/Release/net10.0/Full.NET.UnitTests.dll",
-      "minimum": 2542,
+      "minimum": 2569,
       "timeout": "10m",
       "selections": {
         "async-lifecycle": {
@@ -32,12 +32,12 @@
           "minimum": 371
         },
         "identity-oidc": {
-          "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests",
-          "minimum": 15
+          "filter": "FullyQualifiedName~IdentityOidcOptionsTests|FullyQualifiedName~IdentityOidcSessionTests|FullyQualifiedName~IdentityOidcPrincipalTests|FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~IdentityOidcInteractionTests|FullyQualifiedName~IdentityOidcStoreSerializationTests",
+          "minimum": 45
         },
         "identity-oidc-protocol": {
-          "filter": "FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~Oidc_protocol|FullyQualifiedName~IdentityOidcProtocol",
-          "minimum": 2
+          "filter": "FullyQualifiedName~IdentityOidcPkceHelperTests|FullyQualifiedName~Oidc_protocol|FullyQualifiedName~IdentityOidcProtocol|FullyQualifiedName~IdentityOidcInteractionTests",
+          "minimum": 15
         }
       }
     },
@@ -571,7 +571,7 @@
       },
       "full": {
         "filter": "TestCategory!=ExternalSmtp&TestCategory!=ExternalAliyunSms&FullyQualifiedName!~Full.NET.IntegrationTests.NativeAot",
-        "minimum": 855,
+        "minimum": 863,
         "timeout": "90m"
       }
     }

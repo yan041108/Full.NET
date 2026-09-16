@@ -72,6 +72,8 @@ internal sealed class IdentityOidcAuthorizationService(
             IdentityOidcCenterAuthenticationDefaults.DisplayNameClaim,
             login.DisplayName));
         identity.AddClaim(new Claim(ClaimTypes.Name, login.DisplayName));
+        // 使用中心会话的创建时间，滑动 Cookie 续期不得重置原始认证时间。
+        identity.SetClaim(Claims.AuthenticationTime, centerSession.CreatedAtUtc.ToUnixTimeSeconds());
         var principal = new ClaimsPrincipal(identity);
         return AuthenticateResult.Success(
             new AuthenticationTicket(
@@ -161,6 +163,7 @@ internal sealed class IdentityOidcAuthorizationService(
         identity.SetClaim(Claims.Subject, userId.ToString("D"));
         identity.SetClaim(Claims.Name, displayName);
         identity.SetClaim(Claims.PreferredUsername, username);
+        identity.SetClaim(Claims.AuthenticationTime, centerSession.CreatedAtUtc.ToUnixTimeSeconds());
         identity.SetClaim(FullNetIdentityClaimTypes.CenterSessionId, centerSessionId.ToString("D"));
         identity.SetClaim(
             FullNetIdentityClaimTypes.ApplicationSessionId,
@@ -181,11 +184,7 @@ internal sealed class IdentityOidcAuthorizationService(
                     .OrderBy(permission => permission, StringComparer.Ordinal)));
         identity.SetClaim("fullnet_oauth_scopes", string.Join(' ', scopes));
         identity.SetScopes(scopes);
-        identity.SetDestinations(static claim => claim.Type switch
-        {
-            Claims.Name or Claims.PreferredUsername or Claims.Subject => [Destinations.AccessToken, Destinations.IdentityToken],
-            _ => [Destinations.AccessToken],
-        });
+        // 对外 Claim 投影统一交给签发处理器；授权码保留内部状态，但不直接向客户端披露。
         return new ClaimsPrincipal(identity);
     }
 

@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Text.Json;
 using Full.NET.Modules.Identity.Persistence;
+using Full.NET.Modules.Identity.Serialization;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictExceptions;
@@ -14,7 +15,6 @@ internal static class IdentityOidcStoreSupport
 {
     internal const string SessionIdProperty = "fn:session_id";
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 
     internal static NotSupportedException LinqNotSupported([CallerMemberName] string? member = null) =>
         new($"OpenIddict Dapper store does not support LINQ-based {member}; use explicit SQL-backed methods.");
@@ -47,7 +47,7 @@ internal static class IdentityOidcStoreSupport
     internal static string FormatId(Guid id) => id.ToString("D");
 
     internal static string SerializeStringArray(ImmutableArray<string> values) =>
-        JsonSerializer.Serialize(values.IsDefault ? Array.Empty<string>() : values.ToArray(), JsonOptions);
+        JsonSerializer.Serialize(values.IsDefault ? Array.Empty<string>() : values.ToArray(), IdentityOidcStoreJsonContext.Default.StringArray);
 
     internal static ImmutableArray<string> DeserializeStringArray(string? json)
     {
@@ -56,7 +56,7 @@ internal static class IdentityOidcStoreSupport
             return ImmutableArray<string>.Empty;
         }
 
-        return JsonSerializer.Deserialize<string[]>(json, JsonOptions)?.ToImmutableArray()
+        return JsonSerializer.Deserialize(json, IdentityOidcStoreJsonContext.Default.StringArray)?.ToImmutableArray()
             ?? ImmutableArray<string>.Empty;
     }
 
@@ -65,7 +65,7 @@ internal static class IdentityOidcStoreSupport
         var payload = names.IsEmpty
             ? new Dictionary<string, string>(StringComparer.Ordinal)
             : names.ToDictionary(pair => pair.Key.Name, pair => pair.Value, StringComparer.Ordinal);
-        return JsonSerializer.Serialize(payload, JsonOptions);
+        return JsonSerializer.Serialize(payload, IdentityOidcStoreJsonContext.Default.DictionaryStringString);
     }
 
     internal static ImmutableDictionary<CultureInfo, string> DeserializeDisplayNames(string? json)
@@ -75,7 +75,7 @@ internal static class IdentityOidcStoreSupport
             return ImmutableDictionary<CultureInfo, string>.Empty;
         }
 
-        var payload = JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions);
+        var payload = JsonSerializer.Deserialize(json, IdentityOidcStoreJsonContext.Default.DictionaryStringString);
         if (payload is null || payload.Count == 0)
         {
             return ImmutableDictionary<CultureInfo, string>.Empty;
@@ -89,7 +89,7 @@ internal static class IdentityOidcStoreSupport
     internal static string SerializeProperties(ImmutableDictionary<string, JsonElement> properties) =>
         JsonSerializer.Serialize(
             properties.IsEmpty ? new Dictionary<string, JsonElement>(StringComparer.Ordinal) : properties.ToDictionary(),
-            JsonOptions);
+            IdentityOidcStoreJsonContext.Default.DictionaryStringJsonElement);
 
     internal static ImmutableDictionary<string, JsonElement> DeserializeProperties(string? json)
     {
@@ -98,7 +98,7 @@ internal static class IdentityOidcStoreSupport
             return ImmutableDictionary<string, JsonElement>.Empty;
         }
 
-        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, JsonOptions)
+        return JsonSerializer.Deserialize(json, IdentityOidcStoreJsonContext.Default.DictionaryStringJsonElement)
             ?.ToImmutableDictionary(StringComparer.Ordinal)
             ?? ImmutableDictionary<string, JsonElement>.Empty;
     }
@@ -106,7 +106,7 @@ internal static class IdentityOidcStoreSupport
     internal static string SerializeSettings(ImmutableDictionary<string, string> settings) =>
         JsonSerializer.Serialize(
             settings.IsEmpty ? new Dictionary<string, string>(StringComparer.Ordinal) : settings.ToDictionary(),
-            JsonOptions);
+            IdentityOidcStoreJsonContext.Default.DictionaryStringString);
 
     internal static ImmutableDictionary<string, string> DeserializeSettings(string? json)
     {
@@ -115,7 +115,7 @@ internal static class IdentityOidcStoreSupport
             return ImmutableDictionary<string, string>.Empty;
         }
 
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions)
+        return JsonSerializer.Deserialize(json, IdentityOidcStoreJsonContext.Default.DictionaryStringString)
             ?.ToImmutableDictionary(StringComparer.Ordinal)
             ?? ImmutableDictionary<string, string>.Empty;
     }
@@ -143,7 +143,7 @@ internal static class IdentityOidcStoreSupport
         }
         else
         {
-            properties[SessionIdProperty] = JsonSerializer.SerializeToElement(sessionId);
+            properties[SessionIdProperty] = JsonSerializer.SerializeToElement(sessionId, IdentityOidcStoreJsonContext.Default.String);
         }
 
         return SerializeProperties(properties.ToImmutable());

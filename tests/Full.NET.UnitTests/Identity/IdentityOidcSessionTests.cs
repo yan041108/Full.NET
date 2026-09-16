@@ -193,6 +193,66 @@ public sealed class IdentityOidcSessionTests
         Assert.IsFalse(accepted);
     }
 
+    [TestMethod]
+    [DataRow("tenant", "success")]
+    [DataRow("tenant", "missing")]
+    [DataRow("tenant", "outage")]
+    [DataRow("tenant", "cancel")]
+    [DataRow("host", "success")]
+    [DataRow("unresolved", "success")]
+    public async Task Access_validation_restores_caller_context(string context, string outcome)
+    {
+        var fixture = new ValidatorFixture(outcome == "missing" ? null : CreateValidationRecord());
+        var tenant = new Full.NET.Abstractions.Tenancy.TenantContext(UserId, "tenant-a", "Tenant A");
+        if (context == "tenant") fixture.Tenant.SetTenant(tenant);
+        if (context == "host") fixture.Tenant.SetHost();
+        using var cancellation = new CancellationTokenSource();
+        fixture.QueryExecutor
+            .QuerySingleOrDefaultAsync<IdentityOidcApplicationSessionValidationRecord>(
+                IdentityOidcSessionSql.FindApplicationSessionValidationById,
+                Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.IsTrue(fixture.Tenant.IsHost, "权威查询必须在 Host 上下文内执行。");
+                if (outcome == "outage") throw new InvalidOperationException("outage");
+                if (outcome == "cancel")
+                {
+                    cancellation.Cancel();
+                    throw new OperationCanceledException(cancellation.Token);
+                }
+                return outcome == "missing" ? null : CreateValidationRecord();
+            });
+        var principal = ValidatorFixture.CreateOidcPrincipal(
+            ApplicationSessionId, UserId, "host", "host", "https://localhost/identity", "Full.NET.Api");
+
+        if (outcome == "cancel")
+            await Assert.ThrowsExactlyAsync<OperationCanceledException>(() =>
+                fixture.Validator.IsValidAsync(principal, cancellation.Token));
+        else
+            Assert.AreEqual(outcome == "success", await fixture.Validator.IsValidAsync(principal));
+
+        Assert.AreEqual(context == "host", fixture.Tenant.IsHost);
+        Assert.AreEqual(context != "unresolved", fixture.Tenant.IsAvailable);
+        Assert.AreEqual(context == "tenant" ? tenant.Id : (Guid?)null, fixture.Tenant.Id);
+        Assert.AreEqual(context == "tenant" ? tenant.Identifier : null, fixture.Tenant.Identifier);
+        Assert.AreEqual(context == "tenant" ? tenant.Name : null, fixture.Tenant.Name);
+    }
+
+    [TestMethod]
+    [DataRow("refresh")]
+    [DataRow("Access")]
+    public async Task Unknown_token_use_is_rejected(string tokenUse)
+    {
+        var fixture = new ValidatorFixture(CreateValidationRecord());
+        var principal = ValidatorFixture.CreateOidcPrincipal(
+            ApplicationSessionId, UserId, "host", "host", "https://localhost/identity", "Full.NET.Api");
+        var identity = (System.Security.Claims.ClaimsIdentity)principal.Identity!;
+        var claim = identity.FindFirst(Full.NET.Modules.Identity.Contracts.FullNetIdentityClaimTypes.TokenUse)!;
+        identity.RemoveClaim(claim);
+        identity.AddClaim(new System.Security.Claims.Claim(claim.Type, tokenUse));
+        Assert.IsFalse(await fixture.Validator.IsValidAsync(principal));
+    }
+
     private static IdentityOidcApplicationSessionValidationRecord CreateValidationRecord(
         string userSecurityStamp = "stamp") => new()
     {
@@ -240,7 +300,7 @@ public sealed class IdentityOidcSessionTests
             Validator = new IdentityOidcAccessSessionValidator(
                 QueryExecutor,
                 new FixedClock(),
-                new Full.NET.Abstractions.Tenancy.CurrentTenantAccessor(),
+                Tenant,
                 Microsoft.Extensions.Options.Options.Create(new Modules.Identity.Configuration.IdentityOidcOptions
                 {
                     Enable = true,
@@ -254,6 +314,8 @@ public sealed class IdentityOidcSessionTests
 
         public IQueryExecutor QueryExecutor { get; }
         public IdentityOidcAccessSessionValidator Validator { get; }
+        public Full.NET.Abstractions.Tenancy.ICurrentTenantContextWriter Tenant { get; } =
+            new Full.NET.Abstractions.Tenancy.CurrentTenantAccessor();
 
         public static System.Security.Claims.ClaimsPrincipal CreateOidcPrincipal(
             Guid applicationSessionId,

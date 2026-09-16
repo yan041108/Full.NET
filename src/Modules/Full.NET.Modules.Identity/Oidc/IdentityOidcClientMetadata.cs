@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using OpenIddict.Abstractions;
+using Full.NET.Modules.Identity.Serialization;
 
 namespace Full.NET.Modules.Identity.Oidc;
 
@@ -17,7 +18,7 @@ internal static class IdentityOidcClientMetadata
         string? resourceAudience,
         bool isDisabled)
     {
-        descriptor.Properties[IsFirstPartyKey] = JsonSerializer.SerializeToElement(isFirstParty);
+        descriptor.Properties[IsFirstPartyKey] = JsonSerializer.SerializeToElement(isFirstParty, IdentityOidcStoreJsonContext.Default.Boolean);
         if (string.IsNullOrWhiteSpace(resourceAudience))
         {
             descriptor.Properties.Remove(ResourceAudienceKey);
@@ -25,10 +26,10 @@ internal static class IdentityOidcClientMetadata
         else
         {
             descriptor.Properties[ResourceAudienceKey] =
-                JsonSerializer.SerializeToElement(resourceAudience.Trim());
+                JsonSerializer.SerializeToElement(resourceAudience.Trim(), IdentityOidcStoreJsonContext.Default.String);
         }
 
-        descriptor.Properties[DisabledKey] = JsonSerializer.SerializeToElement(isDisabled);
+        descriptor.Properties[DisabledKey] = JsonSerializer.SerializeToElement(isDisabled, IdentityOidcStoreJsonContext.Default.Boolean);
     }
 
     internal static IdentityOidcClientConfig Read(

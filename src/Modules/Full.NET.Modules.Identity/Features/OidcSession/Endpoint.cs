@@ -27,6 +27,10 @@ internal sealed class IdentityOidcApplicationLogoutRequest
 
 internal sealed record IdentityOidcSessionOperationResult;
 
+/// <summary>中心登录成功后的业务导航结果，不作为协议重定向使用。</summary>
+/// <param name="ReturnUrl">客户端请求的后续导航地址。</param>
+internal sealed record IdentityOidcCenterLoginResponse(string ReturnUrl);
+
 internal static class Endpoint
 {
     public static void Map(IEndpointRouteBuilder endpoints, IdentityOidcOptions options)
@@ -78,7 +82,7 @@ internal static class Endpoint
                 signInResult.Principal!,
                 signInResult.Properties)
             .ConfigureAwait(false);
-        return Results.Ok(new { returnUrl = request.ReturnUrl });
+        return Results.Ok(new IdentityOidcCenterLoginResponse(request.ReturnUrl));
     }
 
     private static async Task<IResult> HandleLogoutAsync(

@@ -42,6 +42,8 @@ using Full.NET.Modules.Identity.Features.ManageTotp;
 using Full.NET.Modules.Identity.HostUsers;
 using Full.NET.Modules.Identity.Http;
 using Full.NET.Modules.Identity.OAuth;
+using Full.NET.Modules.Identity.Oidc;
+using Full.NET.Modules.Identity.Retention;
 using Full.NET.Modules.Identity.Directory;
 using Full.NET.Modules.Identity.RateLimiting;
 using Full.NET.Modules.Identity.Resources;
@@ -97,6 +99,7 @@ public sealed class IdentityModuleRegistrationTests
         module.AddServices(moduleServices, configuration);
         module.AddMigrationServices(splitServices, configuration);
         splitServices.AddIdentityAuthentication(configuration);
+        splitServices.AddIdentityOidc(configuration);
         splitServices.AddIdentityAuthorization(configuration);
         splitServices.AddIdentityDomainServices(configuration);
         splitServices.AddIdentityHttpPolicies(configuration);
@@ -369,6 +372,14 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<SignatureAuthenticationHandler>(
             ServiceLifetime.Transient),
 
+        RegistrationExpectation.Self<IdentityOidcRegistrationMarker>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<IdentityOidcSessionService>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Self<IdentityOidcPrincipalFactory>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<IdentityOidcAccessSessionValidator>(ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IValidateOptions<IdentityOidcOptions>, IdentityOidcOptionsValidator>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Type<IValidateOptions<IdentityOidcRetentionOptions>, IdentityOidcRetentionOptionsValidator>(ServiceLifetime.Singleton),
+        RegistrationExpectation.Self<IdentityOidcRetentionRunner>(ServiceLifetime.Scoped),
+
         RegistrationExpectation.Self<PermissionClaimEvaluator>(
             ServiceLifetime.Singleton),
         RegistrationExpectation.Type<
@@ -415,6 +426,7 @@ public sealed class IdentityModuleRegistrationTests
         RegistrationExpectation.Self<HostUserQueryService>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserManagementService>(
             ServiceLifetime.Scoped),
+        RegistrationExpectation.Type<IIdentityOidcUserAuthorityRevoker, NullIdentityOidcUserAuthorityRevoker>(ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserSensitiveFieldRevealService>(
             ServiceLifetime.Scoped),
         RegistrationExpectation.Self<HostUserLoginLockoutUnlockService>(

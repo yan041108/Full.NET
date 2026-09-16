@@ -1,4 +1,5 @@
 using Full.NET.Modules.Identity.Configuration;
+using Full.NET.Modules.Identity.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -38,7 +39,7 @@ internal static class Endpoint
         }
 
         var principal = authenticateResult.Principal;
-        var response = new Dictionary<string, object?>(StringComparer.Ordinal)
+        var response = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             [Claims.Subject] = principal.GetClaim(Claims.Subject),
         };
@@ -48,6 +49,6 @@ internal static class Endpoint
             response[Claims.PreferredUsername] = principal.GetClaim(Claims.PreferredUsername);
         }
 
-        return Results.Json(response);
+        return Results.Json(response, IdentityJsonSerializerContext.Default.DictionaryStringString);
     }
 }

@@ -31,6 +31,11 @@ internal static class IdentityOidcUserInfoScopeAssertions
             scopes: "openid",
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(openIdOnlyFlow.AccessToken));
+        foreach (var token in new[] { openIdOnlyFlow.AccessToken, openIdOnlyFlow.IdToken! })
+        {
+            Assert.IsNull(IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(token, "name"));
+            Assert.IsNull(IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(token, "preferred_username"));
+        }
         using (var userInfoRequest = new HttpRequestMessage(HttpMethod.Get, "/connect/userinfo"))
         {
             userInfoRequest.Headers.Authorization = new AuthenticationHeaderValue(
@@ -57,6 +62,11 @@ internal static class IdentityOidcUserInfoScopeAssertions
             scopes: "openid profile",
             cancellationToken: cancellationToken);
         Assert.IsFalse(string.IsNullOrWhiteSpace(profileFlow.AccessToken));
+        foreach (var token in new[] { profileFlow.AccessToken, profileFlow.IdToken! })
+        {
+            Assert.IsFalse(string.IsNullOrWhiteSpace(IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(token, "name")));
+            Assert.AreEqual("admin", IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(token, "preferred_username"));
+        }
         using var profileUserInfoRequest = new HttpRequestMessage(HttpMethod.Get, "/connect/userinfo");
         profileUserInfoRequest.Headers.Authorization = new AuthenticationHeaderValue(
             "Bearer",

@@ -332,6 +332,36 @@ V14／V15 的跨应用传播时限、外部 API 离线令牌存活窗口，应�
 
 **T04 结论：** 原生门禁与 §6 最小消费方路径已挂接并可由 Linux CI 执行；P0 Go 仍依赖 fresh Linux 双库 TRX 与计划复核，Windows 发现不能单独作依据。
 
+## 12. 2026-09-16 接手审查与安全修复
+
+接手基线 `main` / `0ccfbe1cecae2a4f30698df8a279cb91c3e8cc8d`，任务快照 `identity-oidc-takeover-20260916`。范围为审查 Cursor 已实现的 OIDC 并修复确认缺口，不代表完成全部认证中心、SSO 或 Vue 迁移。既有文档勾选不代替实际运行证据。
+
+| 确认问题 | 本轮修复与验证边界 |
+| --- | --- |
+| OIDC 权威查询覆盖调用者租户上下文，取消／异常路径也不恢复；未知 token_use 可被接受 | HostOnly 查询使用临时 Host 上下文，finally 恢复原状态；仅接受精确 access。新增 8 个回归，其中 7 个在修复前失败 |
+| 中心登录表单可被跨站构造，无防伪校验 | GET 签发防伪 Cookie／表单令牌，凭据 POST 先验证再执行；无效请求不写中心 Cookie。共享 HTTP 夹具增加裸表单拒绝与正确表单提交，浏览器与双库运行待 CI |
+| max_age 仅回传、不执行；未维护原始认证时间 | Cookie 和授权主体记录中心会话创建时间；过期、缺失、未来时间以及 max_age=0 不复用 Cookie，prompt=none 返回 login_required；auth_time 仅向 ID Token 投影 |
+| profile 字段无条件外发，签发暂存标记被删除，多项权限 ToString 后丢失语义 | 依 profile scope 设置公开 destinations；暂存分类／权限仅留在加密协议令牌中；未知客户端分类不提升为第一方；权限使用重复 Claim。两次签发处理回归与实际 JWT 双库断言分别保留 |
+| OIDC 错误／登录响应使用匿名 JSON，Store／元数据使用反射序列化 | 具名响应契约、显式源生成元数据；持久化单独使用默认 JSON 格式闭包，不改变数据库已有扩展属性键名。AOT 分析初次发现 24 个 IL2026/IL3050 错误，修复后 0 警告、0 错误 |
+| 既有注册、权限快照及 Integration 总门槛未随 OIDC 同步 | 补齐明确服务及 9 项治理权限；主分片合计为 863，全量门槛由旧 855 上调至 863；未降低任何门禁 |
+
+协议新增回归在修复前为 12 项中 8 失败；扩至 Identity 全部测试后发现的 3 个旧断言失败已修正。独立只读审查未发现本轮协议修复的明确阻断回归；该审查不替代双库或真实浏览器执行。
+
+本次新增 27 个 Unit 测试用例，登记到唯一测试矩阵；只扩展既有 Integration 断言，未新增 Integration 顶层用例。精确验证结果如下（全部是本地证据）：
+
+| 命令／门禁 | 结果 |
+| --- | --- |
+| `pnpm test:dotnet:unit -- --filter 'FullyQualifiedName~Full.NET.UnitTests.Identity.' --minimum-expected-tests 357` | 357 通过，0 失败、0 跳过；新增回归及全部 Identity 单元测试 |
+| `pnpm test:dotnet:architecture -- --filter 'FullyQualifiedName~IdentityOidcBoundaryTests\|FullyQualifiedName~NativeAot\|FullyQualifiedName~MemoryPackControlledProtocol' --minimum-expected-tests 41` | 78 通过，0 失败、0 跳过；包含原有匿名对象失败检查 |
+| `pnpm test:governance` | 53 通过，0 失败；含 UTF-8 文档检查与测试矩阵一致性 |
+| `pnpm test:aot:analyzers` | 通过，0 警告、0 错误；这是分析构建，不是 Linux 原生发布或运行 |
+| `pnpm test:integration:tooling` | 46 通过，0 失败 |
+| `dotnet build tests/Full.NET.IntegrationTests/Full.NET.IntegrationTests.csproj --configuration Release --nologo -clp:ErrorsOnly` | 编译通过，0 警告、0 错误；未运行双库集成 |
+| 本任务 `git diff --check`、新增文件 UTF-8／空白及文档本地链接检查 | 通过；分支仍为 main，HEAD 未改变 |
+| `pnpm test:integration:affected:plan -- --snapshot identity-oidc-takeover-20260916 --phase inner` | 成功生成 Identity 影响集；仅计划，未运行数据库 |
+
+**未关闭事项：** OIDC 切租户仍返回 `identity.oidc_context_switch_not_supported`；UserInfo／换码／刷新与权威撤销的完整矩阵还需继续审查和回归；双库实际 JWT、真实防伪交互、浏览器 SSO、多实例和 Linux 原生门禁需在后续授权提交对应的 CI 验证。未提交、推送或部署，不把本轮 Unit／分析构建升级为 P0 Go 或 Verified。继续按[唯一执行计划](../superpowers/plans/2026-09-13-identity-oidc-sso-evolution.md)推进。
+
 [eshop-program]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Program.cs
 [eshop-clients]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/Identity.API/Configuration/Config.cs
 [eshop-webapp]: https://github.com/dotnet/eShop/blob/b4a40872005d4bb29e5b1fa1ff7e244143d39215/src/WebApp/Extensions/Extensions.cs

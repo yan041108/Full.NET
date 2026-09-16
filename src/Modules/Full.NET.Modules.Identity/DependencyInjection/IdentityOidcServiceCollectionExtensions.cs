@@ -83,6 +83,7 @@ internal static class IdentityOidcServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IdentityOidcClientRegistrar>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IExceptionHandler, IdentityOidcProtocolExceptionHandler>());
 
+        services.AddAntiforgery();
         services.AddAuthentication()
             .AddCookie(
                 IdentityOidcCenterAuthenticationDefaults.AuthenticationScheme,
