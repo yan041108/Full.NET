@@ -76,6 +76,18 @@ export async function logoutAdminShell(page) {
   await page.getByRole('button', { name: '退出登录' }).click();
 }
 
+/** 通过工作台探针捕获当前 OIDC access token，供真实栈 API 断言复用。 */
+export async function captureOidcAccessTokenFromOverviewProbe(page) {
+  await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
+  const meRequest = page.waitForRequest(request =>
+    request.url().includes('/api/v1/me') && request.method() === 'GET'
+  );
+  await page.getByTestId('load-current-user').click();
+  const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
+  expect(accessToken).toBeTruthy();
+  return accessToken;
+}
+
 /** 等待 Notifications Hub WebSocket 建立，确保实时撤销通知可送达。 */
 export async function waitForNotificationsRealtimeConnection(page) {
   await page.waitForEvent('websocket', {

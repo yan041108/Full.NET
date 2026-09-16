@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   ADMIN_OIDC_CENTER_CLIENT_ID,
+  captureOidcAccessTokenFromOverviewProbe,
   ensureAdminOidcCenterClient,
   findActiveOidcCenterSession,
   loginAdminViaOidcCenter,
@@ -94,13 +95,7 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('OIDC 中心 Host 上下文 access token 可访问工作流待办 API', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/workflow/todos/mine`, {
       headers: {
@@ -123,13 +118,7 @@ test.describe('Vue admin oidc-center auth', () => {
 
   test('OIDC 中心 Host 上下文 access token 可访问 /api/v1/ai/agent-tools', async ({ page, request }) => {
     await loginAdminViaOidcCenter(page, credentials);
-    await expect(page.getByTestId('load-current-user')).toBeVisible({ timeout: 15_000 });
-    const meRequest = page.waitForRequest(req =>
-      req.url().includes('/api/v1/me') && req.method() === 'GET'
-    );
-    await page.getByTestId('load-current-user').click();
-    const accessToken = (await meRequest).headers().authorization?.replace(/^Bearer\s+/i, '');
-    expect(accessToken).toBeTruthy();
+    const accessToken = await captureOidcAccessTokenFromOverviewProbe(page);
 
     const response = await request.get(`${resolveApiBase()}/api/v1/ai/agent-tools`, {
       headers: {
