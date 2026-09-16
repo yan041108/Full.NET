@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Full.NET.Abstractions.Tenancy;
 using Full.NET.Data.Abstractions;
 using Full.NET.IntegrationTests.Api;
+using Full.NET.Modules.Identity.Contracts;
 using Full.NET.Modules.Identity.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,14 +42,70 @@ internal static class IdentityOidcSessionStateFaultAssertions
         using var healthyResponse = await client.SendAsync(healthyRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, healthyResponse.StatusCode);
 
+        var binding = CreateOidcApplicationBinding(flow.AccessToken);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var validator = scope.ServiceProvider.GetRequiredService<IBackgroundSessionBindingValidator>();
+            Assert.IsTrue(
+                await validator.IsValidAsync(binding, cancellationToken),
+                "Background OIDC session binding must validate while session state is healthy.");
+        }
+
         faultGate.SimulateOutage = true;
         using var faultedRequest = new HttpRequestMessage(HttpMethod.Get, "/api/v1/me");
         faultedRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", flow.AccessToken);
         using var faultedResponse = await client.SendAsync(faultedRequest, cancellationToken);
+        Assert.IsTrue(
+            (int)faultedResponse.StatusCode is >= 400 and < 500,
+            $"Session state outage must fail closed, got {(int)faultedResponse.StatusCode}.");
         Assert.AreEqual(
             HttpStatusCode.Unauthorized,
             faultedResponse.StatusCode,
-            "Session state outage must fail closed without surfacing server errors.");
+            "Session state outage must reject protected API access.");
+        var faultedBody = await faultedResponse.Content.ReadAsStringAsync(cancellationToken);
+        IdentityOidcErrorResponseAssertions.AssertDoesNotLeakInternalDetails(
+            faultedBody,
+            "Protected API rejection during session state outage");
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantAccessor>().SetHost();
+            var validator = scope.ServiceProvider.GetRequiredService<IBackgroundSessionBindingValidator>();
+            Assert.IsFalse(
+                await validator.IsValidAsync(binding, cancellationToken),
+                "Background OIDC session binding must fail closed during session state outage.");
+        }
+    }
+
+    private static SessionBindingSnapshot CreateOidcApplicationBinding(string accessToken)
+    {
+        var userIdText = IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(accessToken, "sub");
+        var applicationSessionIdText = IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+            accessToken,
+            FullNetIdentityClaimTypes.ApplicationSessionId);
+        var securityStamp = IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+            accessToken,
+            FullNetIdentityClaimTypes.SecurityStamp);
+        var actorScope = IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+            accessToken,
+            FullNetIdentityClaimTypes.ActorScope);
+        var effectiveScope = IdentityOidcRelyingPartyFixture.ReadJwtPayloadValue(
+            accessToken,
+            FullNetIdentityClaimTypes.Scope);
+        Assert.IsTrue(Guid.TryParse(userIdText, out var userId));
+        Assert.IsTrue(Guid.TryParse(applicationSessionIdText, out var applicationSessionId));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(securityStamp));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(actorScope));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(effectiveScope));
+        return new SessionBindingSnapshot(
+            userId,
+            null,
+            applicationSessionId,
+            securityStamp!,
+            actorScope!,
+            effectiveScope!,
+            SessionBindingKinds.OidcApplication);
     }
 
     private static void DecorateQueryExecutor(IServiceCollection services)
