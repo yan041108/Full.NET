@@ -51,6 +51,17 @@ describe('Vue 登录页', () => {
     expect(wrapper.text()).toContain('安全会话已建立');
   });
 
+  it('legacy 模式展示密码表单并隐藏身份中心入口', () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const wrapper = mount(LoginView, { global: { plugins: [pinia] } });
+
+    expect(wrapper.find('input[name="username"]').exists()).toBe(true);
+    expect(wrapper.find('input[name="password"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="login-oidc-center"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('前往身份中心登录');
+  });
+
   it('提供可访问的双语登录表单且不改变认证状态', async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
