@@ -78,6 +78,25 @@ internal sealed class TenantQuotaReservationService(
             .ConfigureAwait(false);
         if (existingReservation is not null)
         {
+            // 操作键绑定首次金额；释放或过期的预留不能被当作新的额度凭证。
+            if (existingReservation.Amount != amount)
+            {
+                return Result<ReserveTenantQuotaResponse>.Failure(new Error(
+                    TenancyErrorCodes.QuotaRequestInvalid,
+                    "The operation id is already bound to a different amount.",
+                    ErrorType.Conflict));
+            }
+
+            if (existingReservation.Status != TenantQuotaReservationStatuses.Confirmed
+                && (existingReservation.Status != TenantQuotaReservationStatuses.Reserved
+                    || existingReservation.ExpiresAtUtc <= clock.UtcNow))
+            {
+                return Result<ReserveTenantQuotaResponse>.Failure(new Error(
+                    TenancyErrorCodes.QuotaReservationNotFound,
+                    "The reservation can no longer be reused.",
+                    ErrorType.Conflict));
+            }
+
             return Result<ReserveTenantQuotaResponse>.Success(new ReserveTenantQuotaResponse(
                 existingReservation.Id,
                 tenantId,
@@ -205,12 +224,23 @@ internal sealed class TenantQuotaReservationService(
                     ("OperationId", operationId)),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (reservation is null || reservation.Status != TenantQuotaReservationStatuses.Reserved)
+        if (reservation is null)
         {
             return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.NotFound);
         }
 
-        if (reservation.ExpiresAtUtc <= clock.UtcNow)
+        // 终态确认已持久化时，响应丢失后的同向重放只读返回，不再次调整计数。
+        if (reservation.Status == targetStatus)
+        {
+            var completedMetric = await FindMetricAsync(tenantId, reservation.MetricCode, cancellationToken)
+                .ConfigureAwait(false);
+            return completedMetric is null
+                ? MetricFailure(TenancyErrorCodes.QuotaMetricNotFound, ErrorType.NotFound)
+                : Result<TenantQuotaMetricResponse>.Success(MapMetric(completedMetric));
+        }
+
+        if (reservation.Status != TenantQuotaReservationStatuses.Reserved
+            || reservation.ExpiresAtUtc <= clock.UtcNow)
         {
             return MetricFailure(TenancyErrorCodes.QuotaReservationNotFound, ErrorType.NotFound);
         }

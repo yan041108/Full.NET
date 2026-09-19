@@ -79,13 +79,14 @@ internal static class TenantQuotaAssertions
         using var limitOneResponse = await client.SendAsync(limitOneRequest, cancellationToken);
         Assert.AreEqual(HttpStatusCode.OK, limitOneResponse.StatusCode);
 
+        var operationId = Guid.CreateVersion7().ToString("D");
         using var reserveOneRequest = new HttpRequestMessage(
             HttpMethod.Post,
             $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/reserve")
         {
             Content = JsonContent.Create(new ReserveTenantQuotaRequest(
                 TenantQuotaMetricCodes.IdentitySeats,
-                Guid.CreateVersion7().ToString("D"),
+                operationId,
                 1)),
         };
         reserveOneRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -104,5 +105,60 @@ internal static class TenantQuotaAssertions
         reserveTwoRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var reserveTwoResponse = await client.SendAsync(reserveTwoRequest, cancellationToken);
         Assert.AreNotEqual(HttpStatusCode.OK, reserveTwoResponse.StatusCode);
+
+        // 模拟响应丢失后的再次提交：终态重放不能再次增加用量或扣减预留。
+        await AssertReserveAsync(operationId, 1, HttpStatusCode.OK);
+        await AssertReserveAsync(operationId, 2, HttpStatusCode.Conflict);
+        var released = await CompleteAsync("release", operationId);
+        var releasedAgain = await CompleteAsync("release", operationId);
+        Assert.AreEqual(released, releasedAgain);
+        Assert.AreEqual(0, released.ReservedValue);
+        await AssertReserveAsync(operationId, 1, HttpStatusCode.Conflict);
+
+        var nextOperation = Guid.CreateVersion7().ToString("D");
+        await AssertReserveAsync(nextOperation, 1, HttpStatusCode.OK);
+        var confirmed = await CompleteAsync("confirm", nextOperation);
+        await AssertReserveAsync(nextOperation, 1, HttpStatusCode.OK);
+        var confirmedAgain = await CompleteAsync("confirm", nextOperation);
+        Assert.AreEqual(confirmed, confirmedAgain);
+        Assert.AreEqual(1, confirmed.UsedValue);
+        Assert.AreEqual(0, confirmed.ReservedValue);
+        using var inverseRequest = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/release")
+        {
+            Content = JsonContent.Create(new ReleaseTenantQuotaRequest(nextOperation)),
+        };
+        inverseRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var inverseResponse = await client.SendAsync(inverseRequest, cancellationToken);
+        Assert.AreEqual(HttpStatusCode.NotFound, inverseResponse.StatusCode);
+
+        async Task AssertReserveAsync(string id, long amount, HttpStatusCode expected)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post,
+                $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/reserve")
+            {
+                Content = JsonContent.Create(new ReserveTenantQuotaRequest(TenantQuotaMetricCodes.IdentitySeats, id, amount)),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(expected, response.StatusCode);
+        }
+
+        async Task<TenantQuotaMetricResponse> CompleteAsync(string action, string id)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post,
+                $"/api/v1/tenancy/tenants/{tenant.Id:D}/quota/{action}")
+            {
+                Content = action == "confirm"
+                    ? JsonContent.Create(new ConfirmTenantQuotaRequest(id))
+                    : JsonContent.Create(new ReleaseTenantQuotaRequest(id)),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var response = await client.SendAsync(request, cancellationToken);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var value = await response.Content.ReadFromJsonAsync<TenantQuotaMetricResponse>(cancellationToken);
+            Assert.IsNotNull(value);
+            return value;
+        }
     }
 }
